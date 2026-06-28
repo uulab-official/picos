@@ -109,6 +109,10 @@ Reference-inspired modules now tracked in picos:
 
 See [docs/references/lazyifconfig.md](docs/references/lazyifconfig.md).
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for the sequential version plan.
+
 ## OS Console Direction
 
 v0.2 expands picos toward an OS-like console:

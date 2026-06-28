@@ -8,6 +8,10 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+## [0.2.0] - 2026-06-28
+
+### Added
+
 - Initial Bun/TypeScript package scaffold for `@uulab/picos`.
 - Full-screen keyboard-driven Ink console with left workspace navigation, main workspace, inspector, and event log.
 - Basic language setting for English, Korean, Japanese, and Chinese.
