@@ -178,22 +178,22 @@ Commit: `git commit -m "feat: add route inspector foundation"`
 - Create: `src/cli/commands/ports.ts`
 - Test: `tests/connections.test.ts`, `tests/ports.test.ts`
 
-- [ ] **Step 1: Add fixture-driven parsers**
+- [x] **Step 1: Add fixture-driven parsers**
 
 Parse `netstat -an`, `lsof -nP -iTCP -sTCP:LISTEN`, `ss -ltnp`, and Windows `netstat -ano` into stable objects.
 
-- [ ] **Step 2: Add CLI commands**
+- [x] **Step 2: Add CLI commands**
 
 ```bash
 picos connections
 picos ports
 ```
 
-- [ ] **Step 3: Wire TUI panels**
+- [x] **Step 3: Wire TUI panels**
 
 Replace placeholder Connections/Ports screens with parsed data and raw-output references.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: add connection and port inspectors"`

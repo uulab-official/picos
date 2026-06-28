@@ -8,15 +8,19 @@ import {
 	type PicosAction,
 } from "../core/actions";
 import { runPing } from "../core/command";
+import { getActiveConnections } from "../core/connections";
 import { runDoctorChecks } from "../core/doctor";
 import { createLocalFileProvider, type FileEntry } from "../core/files";
 import { getNetworkSummary } from "../core/network";
+import { getListeningPorts } from "../core/ports";
 import { getRoadmapItems } from "../core/roadmap";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
 import type {
+	ActiveConnection,
 	DoctorCheck,
 	Language,
+	ListeningPort,
 	NetworkSummary,
 	SystemInventory,
 } from "../core/types";
@@ -74,6 +78,8 @@ export function App(): React.ReactElement {
 	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
+	const [connections, setConnections] = useState<ActiveConnection[]>([]);
+	const [ports, setPorts] = useState<ListeningPort[]>([]);
 	const t = useMemo(() => createTranslator(language), [language]);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
@@ -115,9 +121,19 @@ export function App(): React.ReactElement {
 	const refresh = useCallback(async () => {
 		try {
 			setError(undefined);
-			const nextSummary = await getNetworkSummary();
+			const [nextSummary, nextConnections, nextPorts] = await Promise.all([
+				getNetworkSummary(),
+				getActiveConnections().catch(() => undefined),
+				getListeningPorts().catch(() => undefined),
+			]);
 			setSummary(nextSummary);
 			setInventory(await createSystemInventory({ network: nextSummary }));
+			if (nextConnections) {
+				setConnections(nextConnections.connections);
+			}
+			if (nextPorts) {
+				setPorts(nextPorts.ports);
+			}
 			await refreshFiles();
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : String(caught);
@@ -183,8 +199,6 @@ export function App(): React.ReactElement {
 				if (
 					action.id === "routes.inspect" ||
 					action.id === "network.connect" ||
-					action.id === "connections.list" ||
-					action.id === "ports.list" ||
 					action.id === "tools.dns" ||
 					action.id === "tools.traceroute" ||
 					action.id === "tools.whois" ||
@@ -196,6 +210,18 @@ export function App(): React.ReactElement {
 					action.id === "remote.sftp.connect"
 				) {
 					log("info", `${action.id} queued for adapter implementation`);
+				}
+
+				if (action.id === "connections.list") {
+					const result = await getActiveConnections();
+					setConnections(result.connections);
+					log("ok", `connections listed ${result.connections.length}`);
+				}
+
+				if (action.id === "ports.list") {
+					const result = await getListeningPorts();
+					setPorts(result.ports);
+					log("ok", `ports listed ${result.ports.length}`);
 				}
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
@@ -337,6 +363,8 @@ export function App(): React.ReactElement {
 					fileEntries={fileEntries}
 					selectedFileIndex={selectedFileIndex}
 					editorPreview={editorPreview}
+					connections={connections}
+					ports={ports}
 					events={events}
 					t={t}
 				/>
@@ -448,6 +476,8 @@ function MainWorkspace({
 	fileEntries,
 	selectedFileIndex,
 	editorPreview,
+	connections,
+	ports,
 	events,
 	t,
 }: {
@@ -465,6 +495,8 @@ function MainWorkspace({
 	fileEntries: FileEntry[];
 	selectedFileIndex: number;
 	editorPreview?: EditorPreview;
+	connections: ActiveConnection[];
+	ports: ListeningPort[];
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -491,6 +523,8 @@ function MainWorkspace({
 					fileEntries,
 					selectedFileIndex,
 					editorPreview,
+					connections,
+					ports,
 					events,
 					height,
 					t,
@@ -512,6 +546,8 @@ function renderWorkspace(
 	fileEntries: FileEntry[],
 	selectedFileIndex: number,
 	editorPreview: EditorPreview | undefined,
+	connections: ActiveConnection[],
+	ports: ListeningPort[],
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -565,15 +601,20 @@ function renderWorkspace(
 	}
 	if (screen === "connections") {
 		return (
-			<ReferenceWorkspace
-				title={t("screen.connections")}
-				actionId="connections.list"
+			<ConnectionsWorkspace
+				connections={connections}
+				visibleRows={Math.max(5, height - 7)}
+				t={t}
 			/>
 		);
 	}
 	if (screen === "ports") {
 		return (
-			<ReferenceWorkspace title={t("screen.ports")} actionId="ports.list" />
+			<PortsWorkspace
+				ports={ports}
+				visibleRows={Math.max(5, height - 7)}
+				t={t}
+			/>
 		);
 	}
 	if (screen === "tools") {
@@ -618,6 +659,8 @@ function renderWorkspace(
 			fileRoot={fileRoot}
 			fileEntries={fileEntries}
 			actions={actions}
+			connections={connections}
+			ports={ports}
 			events={events}
 			visibleRows={Math.max(6, height - 4)}
 			t={t}
@@ -632,6 +675,8 @@ function DashboardWorkspace({
 	fileRoot,
 	fileEntries,
 	actions,
+	connections,
+	ports,
 	events,
 	visibleRows,
 	t,
@@ -642,6 +687,8 @@ function DashboardWorkspace({
 	fileRoot: string;
 	fileEntries: FileEntry[];
 	actions: PicosAction[];
+	connections: ActiveConnection[];
+	ports: ListeningPort[];
 	events: ConsoleEvent[];
 	visibleRows: number;
 	t: (key: string) => string;
@@ -659,6 +706,9 @@ function DashboardWorkspace({
 		(entry) => entry.type === "directory",
 	).length;
 	const readyActions = actions.filter((action) => action.enabled).slice(0, 5);
+	const establishedCount = connections.filter(
+		(connection) => connection.state === "ESTABLISHED",
+	).length;
 
 	if (visibleRows < 22) {
 		return (
@@ -693,6 +743,10 @@ function DashboardWorkspace({
 					Net {summary?.status ?? "loading"}
 					{"  "}GW {summary?.gateway ?? "-"}
 					{"  "}IPv4 {primary?.ipv4 ?? "-"}
+				</Text>
+				<Text>
+					Conn {connections.length} established {establishedCount}
+					{"  "}Ports {ports.length}
 				</Text>
 				<Text>
 					Files dirs {directoryCount} files {fileCount}
@@ -768,6 +822,11 @@ function DashboardWorkspace({
 				<Text>
 					Gateway {clip(summary?.gateway ?? "-", 18).padEnd(18)} DNS{" "}
 					{clip(summary?.dnsServers.join(", ") || "-", 42)}
+				</Text>
+				<Text>
+					Connections {connections.length}
+					{"  "}Established {establishedCount}
+					{"  "}Listening Ports {ports.length}
 				</Text>
 			</Box>
 
@@ -1066,6 +1125,100 @@ function InterfacesWorkspace({
 						{item.mac ?? "-"} ip={item.ipv4 ?? item.ipv6 ?? "-"}
 					</Text>
 				)) ?? <Text color="gray">loading...</Text>}
+			</Box>
+		</Box>
+	);
+}
+
+function ConnectionsWorkspace({
+	connections,
+	visibleRows,
+	t,
+}: {
+	connections: ActiveConnection[];
+	visibleRows: number;
+	t: (key: string) => string;
+}): React.ReactElement {
+	const visibleConnections = connections.slice(0, visibleRows);
+	const established = connections.filter(
+		(connection) => connection.state === "ESTABLISHED",
+	).length;
+
+	return (
+		<Box flexDirection="column">
+			<Text bold>{t("screen.connections")}</Text>
+			<Text color="gray">
+				active endpoints from netstat · established {established} / total{" "}
+				{connections.length}
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">PROTO LOCAL REMOTE STATE</Text>
+				{visibleConnections.length ? (
+					visibleConnections.map((connection) => (
+						<Text
+							key={`${connection.protocol}:${connection.localAddress}:${connection.localPort}:${connection.remoteAddress}:${connection.remotePort}:${connection.state ?? ""}:${connection.pid ?? ""}`}
+						>
+							{connection.protocol.padEnd(6)}{" "}
+							{clip(
+								`${connection.localAddress}:${connection.localPort}`,
+								24,
+							).padEnd(24)}{" "}
+							{clip(
+								`${connection.remoteAddress}:${connection.remotePort}`,
+								24,
+							).padEnd(24)}{" "}
+							{connection.state ?? "-"}
+						</Text>
+					))
+				) : (
+					<Text color="gray">loading connections...</Text>
+				)}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">COMMAND LINE</Text>
+				<Text>picos connections · picos connections --raw</Text>
+			</Box>
+		</Box>
+	);
+}
+
+function PortsWorkspace({
+	ports,
+	visibleRows,
+	t,
+}: {
+	ports: ListeningPort[];
+	visibleRows: number;
+	t: (key: string) => string;
+}): React.ReactElement {
+	const visiblePorts = ports.slice(0, visibleRows);
+
+	return (
+		<Box flexDirection="column">
+			<Text bold>{t("screen.ports")}</Text>
+			<Text color="gray">
+				listening TCP ports from lsof/ss/netstat · total {ports.length}
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">PROTO LOCAL PROCESS PID USER</Text>
+				{visiblePorts.length ? (
+					visiblePorts.map((port) => (
+						<Text
+							key={`${port.protocol}:${port.localAddress}:${port.localPort}:${port.pid}:${port.command}`}
+						>
+							{port.protocol.padEnd(6)}{" "}
+							{clip(`${port.localAddress}:${port.localPort}`, 24).padEnd(24)}{" "}
+							{clip(port.command, 18).padEnd(18)} {port.pid.padEnd(7)}{" "}
+							{clip(port.user, 12)}
+						</Text>
+					))
+				) : (
+					<Text color="gray">loading listening ports...</Text>
+				)}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">COMMAND LINE</Text>
+				<Text>picos ports · picos ports --raw</Text>
 			</Box>
 		</Box>
 	);

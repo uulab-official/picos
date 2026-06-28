@@ -37,7 +37,10 @@ Goal: implement the lazyifconfig feature set in picos, starting with read-only T
 - `picos tools traceroute <host>`.
 - `picos routes` with parsed route summary and diagnostics.
 - `picos route <destination>` destination path lookup.
-- Next: route detail TUI, raw output viewer, connection parser, and port parser.
+- `picos connections` active endpoint parser and raw output.
+- `picos ports` listening port parser and raw output.
+- TUI Connections and Ports panels backed by live OS data.
+- Next: route detail TUI, raw output viewer workspace, and richer process attribution.
 
 ## v0.3.0 - DOS/File Manager, Editor, and Dialogs
 

@@ -5,6 +5,7 @@ import { VERSION } from "../core/version";
 import { App } from "../tui/App";
 import { configCommand } from "./commands/config";
 import { connectCommand } from "./commands/connect";
+import { connectionsCommand } from "./commands/connections";
 import { dnsCommand } from "./commands/dns";
 import { doctorCommand } from "./commands/doctor";
 import {
@@ -16,6 +17,7 @@ import {
 } from "./commands/files";
 import { infoCommand } from "./commands/info";
 import { pingCommand } from "./commands/ping";
+import { portsCommand } from "./commands/ports";
 import { routeCommand, routesCommand } from "./commands/routes";
 import { toolsCommand } from "./commands/tools";
 
@@ -57,6 +59,14 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	cli
 		.command("route <destination>", "Inspect route path to a destination")
 		.action(routeCommand);
+	cli
+		.command("connections", "List active network connections")
+		.option("--raw", "Print raw connections command output")
+		.action(connectionsCommand);
+	cli
+		.command("ports", "List listening TCP ports")
+		.option("--raw", "Print raw ports command output")
+		.action(portsCommand);
 	cli
 		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")
 		.option("--timeout <ms>", "Tool timeout in milliseconds")

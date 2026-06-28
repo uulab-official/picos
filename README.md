@@ -68,6 +68,8 @@ picos tools tls github.com:443
 picos tools traceroute 8.8.8.8
 picos routes
 picos route 8.8.8.8
+picos connections
+picos ports
 picos pwd
 picos dir
 picos type README.md
@@ -96,6 +98,10 @@ Commands:
 - `picos routes`: inspect the local route table.
 - `picos routes --raw`: print the raw route command output.
 - `picos route <destination>`: inspect how the OS routes a destination.
+- `picos connections`: list active TCP/UDP endpoints from the local OS.
+- `picos connections --raw`: print raw connection command output.
+- `picos ports`: list listening TCP ports with process metadata where available.
+- `picos ports --raw`: print raw listening-port command output.
 - `picos pwd`: print the current local file root.
 - `picos dir [path]` or `picos ls [path]`: list local files.
 - `picos type <path>` or `picos cat <path>`: print a local text file.

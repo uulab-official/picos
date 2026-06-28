@@ -65,6 +65,25 @@ export type ProcessSummary = {
 	memory?: string;
 };
 
+export type ActiveConnection = {
+	protocol: string;
+	localAddress: string;
+	localPort: string;
+	remoteAddress: string;
+	remotePort: string;
+	state?: string;
+	pid?: string;
+};
+
+export type ListeningPort = {
+	protocol: string;
+	localAddress: string;
+	localPort: string;
+	pid: string;
+	command: string;
+	user: string;
+};
+
 export type PermissionSummary = {
 	user: string;
 	isAdmin: boolean;

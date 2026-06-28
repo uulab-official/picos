@@ -17,6 +17,9 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - lazyifconfig parity implementation plan covering interfaces, routes, connections, ports, tools, timeline, raw output, and update checks.
 - `picos tools` foundation with DNS, WHOIS/RDAP, IP info, port-check, TLS, ping, and traceroute commands.
 - `picos routes` and `picos route <destination>` route inspector foundation.
+- `picos connections` active endpoint inspector with raw output support.
+- `picos ports` listening TCP port inspector with process metadata where available.
+- TUI Connections and Ports workspaces backed by live read-only OS data.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28
