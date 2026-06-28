@@ -1,0 +1,132 @@
+import type { NetworkInterfaceInfo } from "node:os";
+
+export type SupportedPlatform = NodeJS.Platform;
+
+export type NetworkStatus = "online" | "offline";
+
+export type InterfaceStatus = "connected" | "disconnected";
+
+export type NetworkInterfaceMap = NodeJS.Dict<NetworkInterfaceInfo[]>;
+
+export type NetworkInterfaceSummary = {
+	name: string;
+	status: InterfaceStatus;
+	ipv4?: string;
+	ipv6?: string;
+	mac?: string;
+};
+
+export type NetworkSummary = {
+	status: NetworkStatus;
+	host: string;
+	platform: SupportedPlatform;
+	interfaces: NetworkInterfaceSummary[];
+	primaryInterface?: NetworkInterfaceSummary;
+	gateway?: string;
+	dnsServers: string[];
+	publicIp?: string;
+};
+
+export type SystemSummary = {
+	hostname: string;
+	platform: SupportedPlatform;
+	arch: string;
+	release: string;
+	uptimeSeconds: number;
+};
+
+export type RuntimeSummary = {
+	picosVersion: string;
+	nodeVersion: string;
+	bunVersion: string;
+	configPath: string;
+};
+
+export type HardwareSummary = {
+	cpuModel: string;
+	cpuCount: number;
+	totalMemoryBytes: number;
+	freeMemoryBytes: number;
+};
+
+export type StorageVolume = {
+	filesystem: string;
+	mount: string;
+	size?: string;
+	used?: string;
+	available?: string;
+	capacity?: string;
+};
+
+export type ProcessSummary = {
+	pid: number;
+	command: string;
+	cpu?: string;
+	memory?: string;
+};
+
+export type PermissionSummary = {
+	user: string;
+	isAdmin: boolean;
+	detail: string;
+};
+
+export type SystemInventory = {
+	system: SystemSummary;
+	hardware: HardwareSummary;
+	storage: StorageVolume[];
+	processes: ProcessSummary[];
+	network: NetworkSummary;
+	permission: PermissionSummary;
+	runtime: RuntimeSummary;
+};
+
+export type SafeExecResult = {
+	command: string;
+	args: string[];
+	stdout: string;
+	stderr: string;
+	exitCode: number | null;
+	success: boolean;
+};
+
+export type DoctorStatus = "pass" | "warn" | "fail";
+
+export type DoctorCheck = {
+	label: string;
+	status: DoctorStatus;
+	detail?: string;
+};
+
+export type PingCommand = {
+	command: "ping";
+	args: string[];
+};
+
+export type PingOptions = {
+	count?: number;
+	timeoutMs?: number;
+};
+
+export type TcpConnectResult = {
+	host: string;
+	port: number;
+	reachable: boolean;
+	elapsedMs: number;
+	error?: string;
+};
+
+export type TcpConnectOptions = {
+	timeoutMs?: number;
+};
+
+export type PicosConfig = {
+	theme: "dark" | "light";
+	language: Language;
+	refreshInterval: number;
+	defaultPingHost: string;
+	showPublicIp: boolean;
+	enableExperimentalControls: boolean;
+};
+
+export type Language = "en" | "ko" | "ja" | "zh";

@@ -1,0 +1,126 @@
+import { join } from "node:path";
+import type { PicosConfig, SupportedPlatform } from "../core/types";
+import { isSupportedLanguage } from "../i18n/catalog";
+
+export const defaultConfig: PicosConfig = {
+	theme: "dark",
+	language: "en",
+	refreshInterval: 3000,
+	defaultPingHost: "google.com",
+	showPublicIp: true,
+	enableExperimentalControls: false,
+};
+
+export type ConfigInput = Record<string, unknown>;
+
+export function getConfigPathForPlatform(
+	platform: SupportedPlatform,
+	homeDirectory: string,
+	env: NodeJS.ProcessEnv = process.env,
+): string {
+	if (platform === "win32") {
+		return join(env.APPDATA ?? homeDirectory, "picos", "config.json");
+	}
+
+	if (platform === "darwin") {
+		return join(
+			homeDirectory,
+			"Library",
+			"Application Support",
+			"picos",
+			"config.json",
+		);
+	}
+
+	return join(
+		env.XDG_CONFIG_HOME ?? join(homeDirectory, ".config"),
+		"picos",
+		"config.json",
+	);
+}
+
+export function mergeConfig(
+	input: ConfigInput | null | undefined,
+): PicosConfig {
+	const merged = { ...defaultConfig };
+
+	if (!input || typeof input !== "object") {
+		return merged;
+	}
+
+	if (input.theme === "dark" || input.theme === "light") {
+		merged.theme = input.theme;
+	}
+
+	if (
+		typeof input.language === "string" &&
+		isSupportedLanguage(input.language)
+	) {
+		merged.language = input.language;
+	}
+
+	if (
+		typeof input.refreshInterval === "number" &&
+		Number.isFinite(input.refreshInterval) &&
+		input.refreshInterval >= 1000
+	) {
+		merged.refreshInterval = input.refreshInterval;
+	}
+
+	if (
+		typeof input.defaultPingHost === "string" &&
+		input.defaultPingHost.trim()
+	) {
+		merged.defaultPingHost = input.defaultPingHost.trim();
+	}
+
+	if (typeof input.showPublicIp === "boolean") {
+		merged.showPublicIp = input.showPublicIp;
+	}
+
+	if (typeof input.enableExperimentalControls === "boolean") {
+		merged.enableExperimentalControls = input.enableExperimentalControls;
+	}
+
+	return merged;
+}
+
+export function coerceConfigValue(
+	key: keyof PicosConfig,
+	value: string,
+): PicosConfig[keyof PicosConfig] {
+	if (key === "theme") {
+		if (value !== "dark" && value !== "light") {
+			throw new Error("theme must be dark or light");
+		}
+		return value;
+	}
+
+	if (key === "language") {
+		if (!isSupportedLanguage(value)) {
+			throw new Error("language must be one of en, ko, ja, zh");
+		}
+		return value;
+	}
+
+	if (key === "refreshInterval") {
+		const parsed = Number(value);
+		if (!Number.isFinite(parsed) || parsed < 1000) {
+			throw new Error("refreshInterval must be a number >= 1000");
+		}
+		return parsed;
+	}
+
+	if (key === "showPublicIp" || key === "enableExperimentalControls") {
+		if (value !== "true" && value !== "false") {
+			throw new Error(`${key} must be true or false`);
+		}
+		return value === "true";
+	}
+
+	return value;
+}
+
+export function isConfigKey(key: string): key is keyof PicosConfig {
+	return key in defaultConfig;
+}

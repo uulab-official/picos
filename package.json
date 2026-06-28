@@ -1,0 +1,40 @@
+{
+	"name": "@uulab/picos",
+	"version": "0.1.0",
+	"description": "A tiny terminal OS for developers.",
+	"type": "module",
+	"bin": {
+		"picos": "./dist/bin/picos.js"
+	},
+	"scripts": {
+		"dev": "bun src/bin/picos.ts",
+		"build": "bun build src/bin/picos.ts --outdir dist/bin --target node --external ink --external react",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"format": "biome format . --write",
+		"smoke": "bun scripts/harness.ts smoke",
+		"verify": "bun scripts/harness.ts verify",
+		"harness": "bun scripts/harness.ts"
+	},
+	"keywords": [
+		"cli",
+		"tui",
+		"terminal",
+		"network",
+		"developer-tools",
+		"bun"
+	],
+	"license": "MIT",
+	"dependencies": {
+		"cac": "^7.0.0",
+		"ink": "^7.1.0",
+		"react": "^19.2.7"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.5.1",
+		"@types/react": "^19.2.17",
+		"bun-types": "^1.3.14",
+		"typescript": "^6.0.3"
+	}
+}
