@@ -2,11 +2,17 @@ import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getConfigPath, readConfig } from "../config/store";
-import { getActionCatalog, type PicosAction } from "../core/actions";
+import {
+	getActionCatalog,
+	getActionSummary,
+	type PicosAction,
+} from "../core/actions";
 import { runPing } from "../core/command";
 import { runDoctorChecks } from "../core/doctor";
+import { createLocalFileProvider, type FileEntry } from "../core/files";
 import { getNetworkSummary } from "../core/network";
 import { getRoadmapItems } from "../core/roadmap";
+import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
 import type {
 	DoctorCheck,
@@ -32,11 +38,24 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 
 type CommandStatus = "idle" | "running";
 
+type EditorPreview = {
+	path: string;
+	lines: {
+		number: number;
+		content: string;
+	}[];
+	truncated: boolean;
+};
+
 export function App(): React.ReactElement {
 	const { exit } = useApp();
 	const { columns, rows } = useWindowSize();
 	const layout = computeShellLayout(columns, rows);
 	const actions = useMemo(() => getActionCatalog(), []);
+	const fileProvider = useMemo(
+		() => createLocalFileProvider(process.cwd()),
+		[],
+	);
 	const [screen, setScreen] = useState<Screen>("dashboard");
 	const [focusArea, setFocusArea] = useState<FocusArea>("workspaces");
 	const [summary, setSummary] = useState<NetworkSummary>();
@@ -51,11 +70,47 @@ export function App(): React.ReactElement {
 	const [refreshInterval, setRefreshInterval] = useState(3000);
 	const [language, setLanguage] = useState<Language>("en");
 	const [commandStatus, setCommandStatus] = useState<CommandStatus>("idle");
+	const [fileRoot, setFileRoot] = useState(process.cwd());
+	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
+	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
 	const t = useMemo(() => createTranslator(language), [language]);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
 	}, []);
+
+	const refreshFiles = useCallback(async () => {
+		const [root, entries] = await Promise.all([
+			fileProvider.pwd(),
+			fileProvider.list("."),
+		]);
+		setFileRoot(root);
+		setFileEntries(entries);
+		setSelectedFileIndex((index) =>
+			Math.min(index, Math.max(0, entries.length - 1)),
+		);
+
+		const previewEntry = entries.find(
+			(entry) =>
+				entry.type === "file" &&
+				/\.(md|ts|tsx|json|txt|js|mjs|cjs|yml|yaml)$/i.test(entry.name),
+		);
+		if (!previewEntry) {
+			setEditorPreview(undefined);
+			return;
+		}
+
+		const read = await fileProvider.read(previewEntry.name, { maxBytes: 6000 });
+		setEditorPreview({
+			path: read.path,
+			lines: read.content
+				.split(/\r?\n/)
+				.slice(0, 16)
+				.map((content, index) => ({ number: index + 1, content })),
+			truncated: read.truncated,
+		});
+	}, [fileProvider]);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -63,12 +118,13 @@ export function App(): React.ReactElement {
 			const nextSummary = await getNetworkSummary();
 			setSummary(nextSummary);
 			setInventory(await createSystemInventory({ network: nextSummary }));
+			await refreshFiles();
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : String(caught);
 			setError(message);
 			log("fail", message);
 		}
-	}, [log]);
+	}, [log, refreshFiles]);
 
 	const runAction = useCallback(
 		async (action: PicosAction) => {
@@ -114,6 +170,16 @@ export function App(): React.ReactElement {
 					);
 				}
 
+				if (action.id === "files.list") {
+					await refreshFiles();
+					log("ok", `files listed ${fileRoot}`);
+				}
+
+				if (action.id === "files.read") {
+					await refreshFiles();
+					log("ok", "editor preview refreshed");
+				}
+
 				if (
 					action.id === "routes.inspect" ||
 					action.id === "network.connect" ||
@@ -122,7 +188,8 @@ export function App(): React.ReactElement {
 					action.id === "tools.dns" ||
 					action.id === "tools.traceroute" ||
 					action.id === "timeline.export" ||
-					action.id === "raw.view"
+					action.id === "raw.view" ||
+					action.id === "remote.sftp.connect"
 				) {
 					log("info", `${action.id} queued for adapter implementation`);
 				}
@@ -132,7 +199,7 @@ export function App(): React.ReactElement {
 				setCommandStatus("idle");
 			}
 		},
-		[log, refresh],
+		[fileRoot, log, refresh, refreshFiles],
 	);
 
 	useEffect(() => {
@@ -262,6 +329,11 @@ export function App(): React.ReactElement {
 					selectedActionIndex={selectedActionIndex}
 					focusArea={focusArea}
 					doctorChecks={doctorChecks}
+					fileRoot={fileRoot}
+					fileEntries={fileEntries}
+					selectedFileIndex={selectedFileIndex}
+					editorPreview={editorPreview}
+					events={events}
 					t={t}
 				/>
 				{layout.inspectorWidth > 0 ? (
@@ -323,7 +395,7 @@ function Sidebar({
 	t: (key: string) => string;
 }): React.ReactElement {
 	const innerWidth = Math.max(8, width - 2);
-	const visibleRows = Math.max(1, height - 2);
+	const visibleRows = Math.max(1, height - 3);
 	const activeIndex = getScreenIndex(screen);
 	const window = getVisibleWindow(screenOrder.length, activeIndex, visibleRows);
 	const visibleScreens = screenOrder.slice(window.start, window.end);
@@ -368,6 +440,11 @@ function MainWorkspace({
 	selectedActionIndex,
 	focusArea,
 	doctorChecks,
+	fileRoot,
+	fileEntries,
+	selectedFileIndex,
+	editorPreview,
+	events,
 	t,
 }: {
 	width: number;
@@ -380,6 +457,11 @@ function MainWorkspace({
 	selectedActionIndex: number;
 	focusArea: FocusArea;
 	doctorChecks: DoctorCheck[];
+	fileRoot: string;
+	fileEntries: FileEntry[];
+	selectedFileIndex: number;
+	editorPreview?: EditorPreview;
+	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
 	return (
@@ -401,6 +483,11 @@ function MainWorkspace({
 					selectedActionIndex,
 					focusArea,
 					doctorChecks,
+					fileRoot,
+					fileEntries,
+					selectedFileIndex,
+					editorPreview,
+					events,
 					height,
 					t,
 				)
@@ -417,9 +504,35 @@ function renderWorkspace(
 	selectedActionIndex: number,
 	focusArea: FocusArea,
 	doctorChecks: DoctorCheck[],
+	fileRoot: string,
+	fileEntries: FileEntry[],
+	selectedFileIndex: number,
+	editorPreview: EditorPreview | undefined,
+	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
 ): React.ReactElement {
+	if (screen === "files") {
+		return (
+			<FilesWorkspace
+				root={fileRoot}
+				entries={fileEntries}
+				selectedIndex={selectedFileIndex}
+				visibleRows={Math.max(6, height - 9)}
+				t={t}
+			/>
+		);
+	}
+	if (screen === "editor") {
+		return (
+			<EditorWorkspace
+				preview={editorPreview}
+				entries={fileEntries}
+				visibleRows={Math.max(5, height - 10)}
+				t={t}
+			/>
+		);
+	}
 	if (screen === "system") {
 		return <SystemWorkspace inventory={inventory} />;
 	}
@@ -494,59 +607,319 @@ function renderWorkspace(
 		return <LogWorkspace checks={doctorChecks} />;
 	}
 	return (
-		<DashboardWorkspace summary={summary} doctorChecks={doctorChecks} t={t} />
+		<DashboardWorkspace
+			summary={summary}
+			inventory={inventory}
+			doctorChecks={doctorChecks}
+			fileRoot={fileRoot}
+			fileEntries={fileEntries}
+			actions={actions}
+			events={events}
+			visibleRows={Math.max(6, height - 4)}
+			t={t}
+		/>
 	);
 }
 
 function DashboardWorkspace({
 	summary,
+	inventory,
 	doctorChecks,
+	fileRoot,
+	fileEntries,
+	actions,
+	events,
+	visibleRows,
 	t,
 }: {
 	summary?: NetworkSummary;
+	inventory?: SystemInventory;
 	doctorChecks: DoctorCheck[];
+	fileRoot: string;
+	fileEntries: FileEntry[];
+	actions: PicosAction[];
+	events: ConsoleEvent[];
+	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const primary = summary?.primaryInterface;
+	const actionSummary = getActionSummary();
+	const doctorPasses = doctorChecks.filter((check) => check.status === "pass");
+	const doctorWarnings = doctorChecks.filter(
+		(check) => check.status !== "pass",
+	);
+	const storageCount = inventory?.storage.length ?? 0;
+	const processCount = inventory?.processes.length ?? 0;
+	const fileCount = fileEntries.filter((entry) => entry.type === "file").length;
+	const directoryCount = fileEntries.filter(
+		(entry) => entry.type === "directory",
+	).length;
+	const readyActions = actions.filter((action) => action.enabled).slice(0, 5);
+
+	if (visibleRows < 22) {
+		return (
+			<Box flexDirection="column">
+				<Text bold color="cyan">
+					{t("screen.dashboard")} · picos command deck
+				</Text>
+				<Text color="gray">read-only OS console · write controls locked</Text>
+				<Text>
+					OS{" "}
+					{clip(
+						`${inventory?.system.platform ?? summary?.platform ?? process.platform} ${
+							inventory?.system.release ?? ""
+						}`.trim(),
+						28,
+					)}
+					{"  "}Arch {inventory?.system.arch ?? "-"}
+					{"  "}Up{" "}
+					{inventory ? formatUptime(inventory.system.uptimeSeconds) : "-"}
+				</Text>
+				<Text>
+					CPU {clip(inventory?.hardware.cpuModel ?? "loading", 28)}{" "}
+					{inventory?.hardware.cpuCount ?? "-"} cores
+				</Text>
+				<Text>
+					Mem {formatBytes(inventory?.hardware.freeMemoryBytes)} /{" "}
+					{formatBytes(inventory?.hardware.totalMemoryBytes)}
+					{"  "}Vol {storageCount}
+					{"  "}Proc {processCount}
+				</Text>
+				<Text>
+					Net {summary?.status ?? "loading"}
+					{"  "}GW {summary?.gateway ?? "-"}
+					{"  "}IPv4 {primary?.ipv4 ?? "-"}
+				</Text>
+				<Text>
+					Files dirs {directoryCount} files {fileCount}
+					{"  "}Root {clip(fileRoot, 34)}
+				</Text>
+				<Text>
+					Actions ready {actionSummary.enabled}/{actionSummary.total} locked{" "}
+					{actionSummary.locked}
+				</Text>
+				<Text color="gray">
+					{readyActions.map((action) => action.id).join(" · ")}
+				</Text>
+				<Text color="gray">
+					Last event: {clip(events.at(-1)?.message ?? "-", 58)}
+				</Text>
+			</Box>
+		);
+	}
+
 	return (
 		<Box flexDirection="column">
-			<Text bold>{t("screen.dashboard")}</Text>
+			<Text bold color="cyan">
+				{t("screen.dashboard")} · picos command deck
+			</Text>
+			<Text color="gray">
+				read-only OS console now · write controls stay locked until confirmed
+			</Text>
+
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">{t("dashboard.systemLink")}</Text>
+				<Text color="cyan">OS CORE</Text>
 				<Text>
-					Status {String(summary?.status ?? "loading").padEnd(10)} Host{" "}
-					{clip(summary?.host ?? "local", 28)}
+					Host{" "}
+					{clip(inventory?.system.hostname ?? summary?.host ?? "local", 28)}
+					{"  "}OS{" "}
+					{clip(
+						`${inventory?.system.platform ?? summary?.platform ?? process.platform} ${
+							inventory?.system.release ?? ""
+						}`.trim(),
+						30,
+					)}
 				</Text>
 				<Text>
-					OS {String(summary?.platform ?? process.platform).padEnd(10)} DNS{" "}
-					{clip(summary?.dnsServers.join(", ") || "-", 28)}
+					Arch {inventory?.system.arch ?? "-"}
+					{"  "}Uptime{" "}
+					{inventory ? formatUptime(inventory.system.uptimeSeconds) : "-"}
+					{"  "}Privilege {inventory?.permission.detail ?? "-"}
 				</Text>
 			</Box>
+
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">{t("dashboard.primaryInterface")}</Text>
+				<Text color="cyan">RESOURCES</Text>
 				<Text>
-					Name {clip(primary?.name ?? "-", 16).padEnd(16)} IPv4{" "}
-					{clip(primary?.ipv4 ?? "-", 22)}
+					CPU {clip(inventory?.hardware.cpuModel ?? "loading", 38)}{" "}
+					{inventory?.hardware.cpuCount ?? "-"} cores
 				</Text>
 				<Text>
-					IPv6 {clip(primary?.ipv6 ?? "-", 16).padEnd(16)} GW{" "}
-					{clip(summary?.gateway ?? "-", 22)}
+					Memory {formatBytes(inventory?.hardware.freeMemoryBytes)} free /{" "}
+					{formatBytes(inventory?.hardware.totalMemoryBytes)} total{"  "}
+					Volumes {storageCount}
+					{"  "}Processes {processCount}
 				</Text>
 			</Box>
+
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">{t("dashboard.doctorSnapshot")}</Text>
+				<Text color="cyan">
+					{t("dashboard.primaryInterface").toUpperCase()}
+				</Text>
+				<Text>
+					Status {String(summary?.status ?? "loading").padEnd(8)} Name{" "}
+					{clip(primary?.name ?? "-", 16).padEnd(16)} IPv4{" "}
+					{clip(primary?.ipv4 ?? "-", 18)}
+				</Text>
+				<Text>
+					Gateway {clip(summary?.gateway ?? "-", 18).padEnd(18)} DNS{" "}
+					{clip(summary?.dnsServers.join(", ") || "-", 42)}
+				</Text>
+			</Box>
+
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">FILESYSTEM</Text>
+				<Text>
+					Root {clip(fileRoot, 48)}
+					{"  "}Dirs {directoryCount} Files {fileCount}
+				</Text>
+				<Text color="gray">
+					Commands: picos dir . · picos type README.md · workspace 2 Files · 3
+					Editor
+				</Text>
+			</Box>
+
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">ACTION CENTER</Text>
+				<Text>
+					Ready {actionSummary.enabled}/{actionSummary.total}
+					{"  "}Locked {actionSummary.locked}
+					{"  "}Elevated {actionSummary.elevated}
+				</Text>
+				<Text color="gray">
+					{readyActions.map((action) => action.id).join(" · ")}
+				</Text>
+			</Box>
+
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">{t("dashboard.doctorSnapshot").toUpperCase()}</Text>
 				{doctorChecks.length ? (
-					doctorChecks.slice(0, 6).map((check) => (
-						<Text
-							key={check.label}
-							color={check.status === "pass" ? "green" : "yellow"}
-						>
-							{check.status.toUpperCase().padEnd(5)} {check.label}
-						</Text>
-					))
+					<Text>
+						PASS {doctorPasses.length}
+						{"  "}WARN/FAIL {doctorWarnings.length}
+						{"  "}Latest {clip(doctorChecks.at(-1)?.label ?? "-", 32)}
+					</Text>
 				) : (
 					<Text color="gray">{t("dashboard.runDoctorHint")}</Text>
 				)}
+				<Text color="gray">
+					Last event: {clip(events.at(-1)?.message ?? "-", 58)}
+				</Text>
+			</Box>
+		</Box>
+	);
+}
+
+function FilesWorkspace({
+	root,
+	entries,
+	selectedIndex,
+	visibleRows,
+	t,
+}: {
+	root: string;
+	entries: FileEntry[];
+	selectedIndex: number;
+	visibleRows: number;
+	t: (key: string) => string;
+}): React.ReactElement {
+	const window = getVisibleWindow(entries.length, selectedIndex, visibleRows);
+	const visibleEntries = entries.slice(window.start, window.end);
+	const hiddenAbove = window.start;
+	const hiddenBelow = entries.length - window.end;
+
+	return (
+		<Box flexDirection="column">
+			<Text bold color="cyan">
+				{t("screen.files")} · local provider
+			</Text>
+			<Text color="gray">root {clip(root, 72)}</Text>
+			<Text color="gray">
+				read: enabled · write/delete: locked until diff preview + confirmation
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">DOS VIEW</Text>
+				<Text color="gray">TYPE SIZE NAME</Text>
+				{hiddenAbove > 0 ? (
+					<Text color="gray">↑ {hiddenAbove} more</Text>
+				) : null}
+				{visibleEntries.length ? (
+					visibleEntries.map((entry, visibleIndex) => {
+						const index = window.start + visibleIndex;
+						return (
+							<Text
+								key={entry.path}
+								color={index === selectedIndex ? "cyan" : "white"}
+							>
+								{index === selectedIndex ? ">" : " "} {entry.type.padEnd(10)}{" "}
+								{formatFileSize(entry).padStart(10)} {clip(entry.name, 52)}
+							</Text>
+						);
+					})
+				) : (
+					<Text color="gray">loading directory...</Text>
+				)}
+				{hiddenBelow > 0 ? (
+					<Text color="gray">↓ {hiddenBelow} more</Text>
+				) : null}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">COMMAND LINE</Text>
+				<Text>picos pwd · picos dir . · picos type README.md</Text>
+				<Text color="gray">next: enter file focus · open/edit/save dialog</Text>
+			</Box>
+		</Box>
+	);
+}
+
+function EditorWorkspace({
+	preview,
+	entries,
+	visibleRows,
+	t,
+}: {
+	preview?: EditorPreview;
+	entries: FileEntry[];
+	visibleRows: number;
+	t: (key: string) => string;
+}): React.ReactElement {
+	const textFiles = entries.filter(
+		(entry) =>
+			entry.type === "file" &&
+			/\.(md|ts|tsx|json|txt|js|mjs|cjs|yml|yaml)$/i.test(entry.name),
+	);
+	const lines = preview?.lines.slice(0, visibleRows) ?? [];
+
+	return (
+		<Box flexDirection="column">
+			<Text bold color="cyan">
+				{t("screen.editor")} · preview buffer
+			</Text>
+			<Text color="gray">
+				open: read-only now · save: locked behind diff + confirm dialog
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">BUFFER</Text>
+				<Text>File {clip(preview?.path ?? textFiles[0]?.path ?? "-", 72)}</Text>
+				{lines.length ? (
+					lines.map((line) => (
+						<Text key={`${preview?.path}:${line.number}`}>
+							{String(line.number).padStart(3)} │ {clip(line.content, 86)}
+						</Text>
+					))
+				) : (
+					<Text color="gray">No text preview loaded yet.</Text>
+				)}
+				{preview?.truncated ? (
+					<Text color="yellow">preview truncated</Text>
+				) : null}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">SAVE POLICY</Text>
+				<Text color="yellow">
+					files.write locked · requires diff preview, path review, and confirm
+				</Text>
+				<Text color="gray">planned: local + SFTP provider parity</Text>
 			</Box>
 		</Box>
 	);
@@ -985,6 +1358,13 @@ function formatBytes(value?: number): string {
 		unitIndex += 1;
 	}
 	return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function formatFileSize(entry: FileEntry): string {
+	if (entry.type === "directory") {
+		return "<DIR>";
+	}
+	return formatBytes(entry.size);
 }
 
 function formatSidebarLine(

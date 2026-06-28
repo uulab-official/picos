@@ -11,12 +11,14 @@ export type PicosAction = {
 		| "dns"
 		| "system"
 		| "config"
+		| "files"
 		| "routes"
 		| "connections"
 		| "ports"
 		| "tools"
 		| "timeline"
-		| "raw";
+		| "raw"
+		| "remote";
 	risk: ActionRisk;
 	privilege: ActionPrivilege;
 	enabled: boolean;
@@ -71,6 +73,27 @@ const actionCatalog: PicosAction[] = [
 		title: "Show config",
 		description: "Read current picos config and config path.",
 		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "files.list",
+		title: "List files",
+		description:
+			"Read the current workspace directory like a DOS-style dir view.",
+		category: "files",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "files.read",
+		title: "Preview text file",
+		description: "Read a UTF-8 text file into the editor preview buffer.",
+		category: "files",
 		risk: "read",
 		privilege: "none",
 		enabled: true,
@@ -156,6 +179,39 @@ const actionCatalog: PicosAction[] = [
 		privilege: "none",
 		enabled: true,
 		confirmationRequired: false,
+	},
+	{
+		id: "remote.sftp.connect",
+		title: "Connect SFTP provider",
+		description:
+			"Open a remote file provider after credential and host review.",
+		category: "remote",
+		risk: "read",
+		privilege: "user",
+		enabled: false,
+		confirmationRequired: false,
+	},
+	{
+		id: "files.write",
+		title: "Write file",
+		description: "Save editor buffer after diff preview and confirmation.",
+		category: "files",
+		risk: "write",
+		privilege: "user",
+		enabled: false,
+		confirmationRequired: true,
+		confirmationPhrase: "save file",
+	},
+	{
+		id: "files.delete",
+		title: "Delete file",
+		description: "Delete a selected file after path review and confirmation.",
+		category: "files",
+		risk: "destructive",
+		privilege: "user",
+		enabled: false,
+		confirmationRequired: true,
+		confirmationPhrase: "delete file",
 	},
 	{
 		id: "dns.flush",

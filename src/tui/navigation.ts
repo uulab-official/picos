@@ -1,5 +1,7 @@
 export type Screen =
 	| "dashboard"
+	| "files"
+	| "editor"
 	| "system"
 	| "hardware"
 	| "storage"
@@ -19,6 +21,8 @@ export type Screen =
 
 export const screenOrder: Screen[] = [
 	"dashboard",
+	"files",
+	"editor",
 	"system",
 	"hardware",
 	"storage",
@@ -41,14 +45,14 @@ export type FocusArea = "workspaces" | "actions";
 
 const shortcuts: Record<string, Screen> = {
 	"1": "dashboard",
-	"2": "system",
-	"3": "hardware",
-	"4": "storage",
-	"5": "processes",
-	"6": "interfaces",
-	"7": "network",
-	"8": "routes",
-	"9": "connections",
+	"2": "files",
+	"3": "editor",
+	"4": "system",
+	"5": "hardware",
+	"6": "storage",
+	"7": "processes",
+	"8": "interfaces",
+	"9": "network",
 };
 
 export function getScreenByShortcut(input: string): Screen | undefined {

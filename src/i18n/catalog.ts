@@ -9,6 +9,8 @@ type TranslationKey =
 	| "app.keys.move"
 	| "app.keys.switch"
 	| "screen.dashboard"
+	| "screen.files"
+	| "screen.editor"
 	| "screen.system"
 	| "screen.hardware"
 	| "screen.storage"
@@ -48,6 +50,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"app.keys.move": "j/k move",
 		"app.keys.switch": "h/l switch",
 		"screen.dashboard": "Dashboard",
+		"screen.files": "Files",
+		"screen.editor": "Editor",
 		"screen.system": "System",
 		"screen.hardware": "Hardware",
 		"screen.storage": "Storage",
@@ -86,6 +90,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"app.keys.move": "j/k 이동",
 		"app.keys.switch": "h/l 전환",
 		"screen.dashboard": "대시보드",
+		"screen.files": "파일",
+		"screen.editor": "에디터",
 		"screen.system": "시스템",
 		"screen.hardware": "하드웨어",
 		"screen.storage": "스토리지",
@@ -124,6 +130,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"app.keys.move": "j/k 移動",
 		"app.keys.switch": "h/l 切替",
 		"screen.dashboard": "ダッシュボード",
+		"screen.files": "ファイル",
+		"screen.editor": "エディター",
 		"screen.system": "システム",
 		"screen.hardware": "ハードウェア",
 		"screen.storage": "ストレージ",
@@ -162,6 +170,8 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"app.keys.move": "j/k 移动",
 		"app.keys.switch": "h/l 切换",
 		"screen.dashboard": "仪表盘",
+		"screen.files": "文件",
+		"screen.editor": "编辑器",
 		"screen.system": "系统",
 		"screen.hardware": "硬件",
 		"screen.storage": "存储",

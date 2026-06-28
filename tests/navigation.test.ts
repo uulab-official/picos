@@ -12,20 +12,22 @@ import {
 describe("TUI navigation", () => {
 	test("maps number shortcuts to panels", () => {
 		expect(getScreenByShortcut("1")).toBe("dashboard");
-		expect(getScreenByShortcut("2")).toBe("system");
-		expect(getScreenByShortcut("3")).toBe("hardware");
-		expect(getScreenByShortcut("4")).toBe("storage");
-		expect(getScreenByShortcut("5")).toBe("processes");
-		expect(getScreenByShortcut("6")).toBe("interfaces");
-		expect(getScreenByShortcut("7")).toBe("network");
-		expect(getScreenByShortcut("8")).toBe("routes");
-		expect(getScreenByShortcut("9")).toBe("connections");
+		expect(getScreenByShortcut("2")).toBe("files");
+		expect(getScreenByShortcut("3")).toBe("editor");
+		expect(getScreenByShortcut("4")).toBe("system");
+		expect(getScreenByShortcut("5")).toBe("hardware");
+		expect(getScreenByShortcut("6")).toBe("storage");
+		expect(getScreenByShortcut("7")).toBe("processes");
+		expect(getScreenByShortcut("8")).toBe("interfaces");
+		expect(getScreenByShortcut("9")).toBe("network");
 		expect(getScreenByShortcut("x")).toBeUndefined();
 	});
 
 	test("moves across panels with wraparound", () => {
 		expect(screenOrder).toEqual([
 			"dashboard",
+			"files",
+			"editor",
 			"system",
 			"hardware",
 			"storage",
@@ -43,14 +45,14 @@ describe("TUI navigation", () => {
 			"status",
 			"logs",
 		]);
-		expect(moveScreen("dashboard", "next")).toBe("system");
+		expect(moveScreen("dashboard", "next")).toBe("files");
 		expect(moveScreen("logs", "next")).toBe("dashboard");
 		expect(moveScreen("dashboard", "previous")).toBe("logs");
 	});
 
 	test("returns stable screen indexes for labels", () => {
 		expect(getScreenIndex("dashboard")).toBe(0);
-		expect(getScreenIndex("status")).toBe(15);
+		expect(getScreenIndex("status")).toBe(17);
 	});
 
 	test("enters and leaves child focus for Actions", () => {

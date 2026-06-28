@@ -17,9 +17,9 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 17,
-			enabled: 13,
-			locked: 4,
+			total: 22,
+			enabled: 15,
+			locked: 7,
 			elevated: 4,
 		});
 	});
@@ -35,6 +35,8 @@ describe("action catalog", () => {
 			"doctor.run",
 			"ping.default",
 			"config.show",
+			"files.list",
+			"files.read",
 			"routes.inspect",
 			"connections.list",
 			"ports.list",
@@ -63,6 +65,33 @@ describe("action catalog", () => {
 				risk: "read",
 				privilege: "none",
 				enabled: true,
+			}),
+		);
+	});
+
+	test("exposes file console actions with writes locked", () => {
+		const catalog = getActionCatalog();
+
+		expect(catalog).toContainEqual(
+			expect.objectContaining({
+				id: "files.list",
+				risk: "read",
+				enabled: true,
+			}),
+		);
+		expect(catalog).toContainEqual(
+			expect.objectContaining({
+				id: "files.write",
+				risk: "write",
+				enabled: false,
+				confirmationRequired: true,
+			}),
+		);
+		expect(catalog).toContainEqual(
+			expect.objectContaining({
+				id: "remote.sftp.connect",
+				privilege: "user",
+				enabled: false,
 			}),
 		);
 	});
