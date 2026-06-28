@@ -22,6 +22,23 @@ Goal: make the current TUI feel denser, cleaner, and more OS-like.
 - Improve small-terminal sidebar window behavior.
 - Keep all write/destructive actions locked.
 
+## v0.2.2 - lazyifconfig Tools and Routes Parity
+
+Status: in progress.
+
+Goal: implement the lazyifconfig feature set in picos, starting with read-only Tools Hub and Route Inspector.
+
+- `picos tools dns <target>`.
+- `picos tools whois <target>`.
+- `picos tools ip-info <ip>`.
+- `picos tools port-check <host> <port>`.
+- `picos tools tls <host:port>`.
+- `picos tools ping <host>`.
+- `picos tools traceroute <host>`.
+- `picos routes` with parsed route summary and diagnostics.
+- `picos route <destination>` destination path lookup.
+- Next: route detail TUI, raw output viewer, connection parser, and port parser.
+
 ## v0.3.0 - DOS/File Manager, Editor, and Dialogs
 
 Status: in progress.

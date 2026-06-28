@@ -60,6 +60,14 @@ picos info --full
 picos doctor
 picos ping google.com --count 4 --timeout 10000
 picos connect example.com 443
+picos tools dns example.com
+picos tools whois github.com
+picos tools ip-info 8.8.8.8
+picos tools port-check github.com 443
+picos tools tls github.com:443
+picos tools traceroute 8.8.8.8
+picos routes
+picos route 8.8.8.8
 picos pwd
 picos dir
 picos type README.md
@@ -77,6 +85,17 @@ Commands:
 - `picos ping <host>`: run a safe ping test without shell interpolation.
 - `picos ping <host> --count <n> --timeout <ms>`: run ping with bounded count and timeout options.
 - `picos connect <host> <port>`: run a safe TCP connect reachability check.
+- `picos tools`: list lazyifconfig-style Tools Hub commands.
+- `picos tools dns <target>`: resolve DNS records and reverse DNS.
+- `picos tools whois <target>`: read public RDAP registration metadata.
+- `picos tools ip-info <ip>`: read public IP metadata.
+- `picos tools port-check <host> <port>`: run the TCP connect check through Tools Hub.
+- `picos tools tls <host:port>`: inspect TLS protocol, cipher, and certificate metadata.
+- `picos tools ping <host>`: run platform ping through Tools Hub.
+- `picos tools traceroute <host>`: run platform traceroute/tracert through Tools Hub.
+- `picos routes`: inspect the local route table.
+- `picos routes --raw`: print the raw route command output.
+- `picos route <destination>`: inspect how the OS routes a destination.
 - `picos pwd`: print the current local file root.
 - `picos dir [path]` or `picos ls [path]`: list local files.
 - `picos type <path>` or `picos cat <path>`: print a local text file.
@@ -117,7 +136,7 @@ Reference-inspired modules now tracked in picos:
 - Timeline
 - Raw output viewer
 
-See [docs/references/lazyifconfig.md](docs/references/lazyifconfig.md).
+See [docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md](docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md).
 
 ## Roadmap
 

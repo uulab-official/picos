@@ -16,6 +16,8 @@ import {
 } from "./commands/files";
 import { infoCommand } from "./commands/info";
 import { pingCommand } from "./commands/ping";
+import { routeCommand, routesCommand } from "./commands/routes";
+import { toolsCommand } from "./commands/tools";
 
 export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	if (argv.length === 0) {
@@ -48,6 +50,18 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.command("connect <host> <port>", "Run a safe TCP connect check")
 		.option("--timeout <ms>", "TCP connect timeout in milliseconds")
 		.action(connectCommand);
+	cli
+		.command("routes", "Inspect local route table")
+		.option("--raw", "Print raw route command output")
+		.action(routesCommand);
+	cli
+		.command("route <destination>", "Inspect route path to a destination")
+		.action(routeCommand);
+	cli
+		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")
+		.option("--timeout <ms>", "Tool timeout in milliseconds")
+		.option("--raw", "Print raw tool output")
+		.action(toolsCommand);
 	cli.command("dns [action]", "Show DNS information").action(dnsCommand);
 	cli
 		.command("config [action] [key] [value]", "Show or update config")

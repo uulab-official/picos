@@ -17,8 +17,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 22,
-			enabled: 15,
+			total: 26,
+			enabled: 19,
 			locked: 7,
 			elevated: 4,
 		});
@@ -42,7 +42,11 @@ describe("action catalog", () => {
 			"ports.list",
 			"tools.dns",
 			"tools.traceroute",
+			"tools.whois",
+			"tools.ipInfo",
+			"tools.tls",
 			"network.connect",
+			"routes.path",
 			"timeline.export",
 			"raw.view",
 		]);
@@ -108,6 +112,18 @@ describe("action catalog", () => {
 		);
 		expect(getActionCatalog().map((action) => action.id)).toContain(
 			"tools.traceroute",
+		);
+		expect(getActionCatalog().map((action) => action.id)).toContain(
+			"tools.whois",
+		);
+		expect(getActionCatalog().map((action) => action.id)).toContain(
+			"tools.ipInfo",
+		);
+		expect(getActionCatalog().map((action) => action.id)).toContain(
+			"tools.tls",
+		);
+		expect(getActionCatalog().map((action) => action.id)).toContain(
+			"routes.path",
 		);
 		expect(getActionCatalog().map((action) => action.id)).toContain("raw.view");
 	});

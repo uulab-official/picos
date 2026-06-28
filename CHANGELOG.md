@@ -14,6 +14,9 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Dense OS-console dashboard with system, resource, network, filesystem, doctor, and action status.
 - TUI Files and Editor workspaces with local directory listing and read-only text preview.
 - File action catalog entries for list/read/write/delete and SFTP-provider planning, with write operations locked.
+- lazyifconfig parity implementation plan covering interfaces, routes, connections, ports, tools, timeline, raw output, and update checks.
+- `picos tools` foundation with DNS, WHOIS/RDAP, IP info, port-check, TLS, ping, and traceroute commands.
+- `picos routes` and `picos route <destination>` route inspector foundation.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28

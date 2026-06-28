@@ -187,8 +187,12 @@ export function App(): React.ReactElement {
 					action.id === "ports.list" ||
 					action.id === "tools.dns" ||
 					action.id === "tools.traceroute" ||
+					action.id === "tools.whois" ||
+					action.id === "tools.ipInfo" ||
+					action.id === "tools.tls" ||
 					action.id === "timeline.export" ||
 					action.id === "raw.view" ||
+					action.id === "routes.path" ||
 					action.id === "remote.sftp.connect"
 				) {
 					log("info", `${action.id} queued for adapter implementation`);
@@ -1098,6 +1102,9 @@ function ToolsWorkspace({
 			<Text color="gray">Tools Hub queue</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text>tools.dns DNS lookup</Text>
+				<Text>tools.whois WHOIS/RDAP lookup</Text>
+				<Text>tools.ipInfo IP information</Text>
+				<Text>tools.tls TLS inspector</Text>
 				<Text>tools.traceroute Traceroute</Text>
 				<Text>ping.default Ping default host</Text>
 				<Text>raw.view Raw command output viewer</Text>
@@ -1115,7 +1122,11 @@ function NetworkToolsWorkspace(): React.ReactElement {
 				<Text>ping.default Ping configured host</Text>
 				<Text>network.connect TCP connect check</Text>
 				<Text>tools.dns DNS lookup</Text>
+				<Text>tools.whois WHOIS/RDAP lookup</Text>
+				<Text>tools.ipInfo IP information</Text>
+				<Text>tools.tls TLS inspector</Text>
 				<Text>routes.inspect Route table summary</Text>
+				<Text>routes.path Destination path lookup</Text>
 				<Text>ports.list Listening ports</Text>
 				<Text>connections.list Active endpoints</Text>
 			</Box>
