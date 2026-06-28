@@ -8,6 +8,11 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Project logo SVG and README brand header.
+- Local file provider foundation for the v0.3 filesystem console.
+- Read-only file CLI commands: `pwd`, `dir`, `ls`, `type`, and `cat`.
+- v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
+
 ## [0.2.0] - 2026-06-28
 
 ### Added

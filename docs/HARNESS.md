@@ -42,6 +42,9 @@ Additional local manual checks:
 bun src/bin/picos.ts info --full
 bun src/bin/picos.ts ping google.com --count 2 --timeout 5000
 bun src/bin/picos.ts connect example.com 443
+bun src/bin/picos.ts pwd
+bun src/bin/picos.ts dir .
+bun src/bin/picos.ts type README.md
 ```
 
 `connect`, `ping`, and external network checks depend on local network availability, DNS, firewall state, and CI provider policy. Keep them out of deterministic CI smoke unless they are mocked or converted to parser-only tests.

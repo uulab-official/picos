@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/picos-logo.svg" alt="picos logo" width="620">
+</p>
+
 # picos
 
 A tiny terminal OS for developers.
@@ -56,6 +60,9 @@ picos info --full
 picos doctor
 picos ping google.com --count 4 --timeout 10000
 picos connect example.com 443
+picos pwd
+picos dir
+picos type README.md
 picos dns
 picos config
 picos version
@@ -70,6 +77,9 @@ Commands:
 - `picos ping <host>`: run a safe ping test without shell interpolation.
 - `picos ping <host> --count <n> --timeout <ms>`: run ping with bounded count and timeout options.
 - `picos connect <host> <port>`: run a safe TCP connect reachability check.
+- `picos pwd`: print the current local file root.
+- `picos dir [path]` or `picos ls [path]`: list local files.
+- `picos type <path>` or `picos cat <path>`: print a local text file.
 - `picos dns`: show configured DNS servers.
 - `picos dns flush`: disabled in v0.1.
 - `picos config`: print config path and current config.
@@ -121,6 +131,8 @@ v0.2 expands picos toward an OS-like console:
 - Network tools for ping, TCP connect, DNS, routes, ports, and connections.
 - Telnet-like reachability is implemented as `picos connect`, a non-interactive TCP check, instead of an interactive telnet session.
 - DOS-style file navigation and text editing are planned after the read-only inventory and network tool layer is stable.
+
+v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
 
 ## Privacy Direction
 

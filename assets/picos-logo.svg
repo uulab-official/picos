@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="320" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">picos logo</title>
+  <desc id="desc">A terminal OS style logo for picos with a prompt-shaped p mark, cursor, file grid, and network nodes.</desc>
+  <defs>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#101820"/>
+      <stop offset="1" stop-color="#071014"/>
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000000" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <rect width="960" height="320" rx="34" fill="#060b0e"/>
+
+  <g filter="url(#softShadow)">
+    <rect x="64" y="54" width="250" height="212" rx="26" fill="url(#screen)" stroke="#2ee6a6" stroke-width="6"/>
+    <rect x="64" y="54" width="250" height="42" rx="26" fill="#13242b"/>
+    <circle cx="92" cy="75" r="6" fill="#ff6b6b"/>
+    <circle cx="113" cy="75" r="6" fill="#ffd166"/>
+    <circle cx="134" cy="75" r="6" fill="#2ee6a6"/>
+
+    <path d="M105 139 L146 162 L105 185" fill="none" stroke="#2ee6a6" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="166" y="177" width="66" height="15" rx="7.5" fill="#f8fbff"/>
+
+    <path d="M162 130 H224 C250 130 270 150 270 176 C270 202 250 222 224 222 H162 V130 Z" fill="none" stroke="#46c2ff" stroke-width="16" stroke-linejoin="round"/>
+    <path d="M162 222 V260" stroke="#46c2ff" stroke-width="16" stroke-linecap="round"/>
+
+    <g opacity="0.74" stroke="#38515c" stroke-width="2">
+      <path d="M91 235 H137"/>
+      <path d="M91 251 H122"/>
+      <path d="M244 116 H280"/>
+      <path d="M244 248 H280"/>
+    </g>
+
+    <g stroke="#2ee6a6" stroke-width="4" fill="#071014">
+      <path d="M244 118 L281 118 L281 248 L244 248" fill="none" opacity="0.6"/>
+      <circle cx="244" cy="118" r="7"/>
+      <circle cx="281" cy="118" r="7"/>
+      <circle cx="281" cy="248" r="7"/>
+      <circle cx="244" cy="248" r="7"/>
+    </g>
+  </g>
+
+  <g>
+    <text x="360" y="145" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="82" font-weight="800" fill="#f8fbff" letter-spacing="0">picos</text>
+    <text x="365" y="193" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="28" fill="#2ee6a6" letter-spacing="0">tiny terminal OS for developers</text>
+    <rect x="365" y="218" width="132" height="34" rx="8" fill="#102027" stroke="#46c2ff" stroke-width="2"/>
+    <text x="384" y="241" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#f8fbff" letter-spacing="0">picos --os</text>
+    <rect x="514" y="218" width="156" height="34" rx="8" fill="#102027" stroke="#2ee6a6" stroke-width="2"/>
+    <text x="534" y="241" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#f8fbff" letter-spacing="0">files network</text>
+  </g>
+</svg>

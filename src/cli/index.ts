@@ -7,6 +7,13 @@ import { configCommand } from "./commands/config";
 import { connectCommand } from "./commands/connect";
 import { dnsCommand } from "./commands/dns";
 import { doctorCommand } from "./commands/doctor";
+import {
+	catCommand,
+	dirCommand,
+	lsCommand,
+	pwdCommand,
+	typeCommand,
+} from "./commands/files";
 import { infoCommand } from "./commands/info";
 import { pingCommand } from "./commands/ping";
 
@@ -27,6 +34,11 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.option("--full", "Print full OS inventory")
 		.action(infoCommand);
 	cli.command("doctor", "Run network diagnostics").action(doctorCommand);
+	cli.command("pwd", "Print current picos file root").action(pwdCommand);
+	cli.command("dir [path]", "List local files in DOS style").action(dirCommand);
+	cli.command("ls [path]", "List local files").action(lsCommand);
+	cli.command("type <path>", "Print a local text file").action(typeCommand);
+	cli.command("cat <path>", "Print a local text file").action(catCommand);
 	cli
 		.command("ping <host>", "Run a ping test")
 		.option("--count <n>", "Number of echo requests")

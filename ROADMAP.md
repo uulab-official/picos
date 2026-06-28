@@ -24,10 +24,13 @@ Goal: make the current TUI feel denser, cleaner, and more OS-like.
 
 ## v0.3.0 - DOS/File Manager, Editor, and Dialogs
 
+Status: in progress.
+
 Goal: add the first local filesystem console that is useful in daily work.
 
 - Files workspace.
-- Safe read-only commands: `pwd`, `dir`, `ls`, `cd`, `type`, `cat`.
+- Safe read-only commands: `pwd`, `dir`, `ls`, `type`, `cat`.
+- Planned safe navigation command: `cd` inside the TUI file workspace.
 - Text/Markdown viewer.
 - TUI editor buffer with dirty state.
 - Confirm, input, error, progress, and command palette dialogs.
