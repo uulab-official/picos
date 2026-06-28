@@ -22,15 +22,27 @@ Goal: make the current TUI feel denser, cleaner, and more OS-like.
 - Improve small-terminal sidebar window behavior.
 - Keep all write/destructive actions locked.
 
-## v0.3.0 - DOS/File Manager
+## v0.3.0 - DOS/File Manager, Editor, and Dialogs
 
-Goal: add the first local filesystem console.
+Goal: add the first local filesystem console that is useful in daily work.
 
 - Files workspace.
 - Safe read-only commands: `pwd`, `dir`, `ls`, `cd`, `type`, `cat`.
 - Text/Markdown viewer.
-- Draft text editor behind explicit save confirmation.
+- TUI editor buffer with dirty state.
+- Confirm, input, error, progress, and command palette dialogs.
+- Save behind explicit confirmation.
 - Delete/move/copy remain locked until preview and confirmation are implemented.
+
+## v0.3.1 - SFTP-like Remote Files
+
+Goal: add remote file browsing through the same provider model as local files.
+
+- `FileProvider` abstraction with `local` and `sftp` kinds.
+- SFTP profiles with host, port, username, key path, and root.
+- Remote list/read first.
+- Remote write behind visible host/path confirmation.
+- No password persistence.
 
 ## v0.4.0 - Privileged Controls Framework
 
