@@ -36,6 +36,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.
+- Locked Files workspace operation previews for copy, move, and delete with selected path, risk, privilege, and confirmation phrase.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28

@@ -213,6 +213,20 @@ Goal: make large directories and developer workspaces scannable from the keyboar
 - Filter match counts are visible in compact and full Files layouts.
 - Next: file operations dialog shell for copy/move/delete previews while writes remain locked.
 
+## v0.3.13 - File Operation Dialogs
+
+Status: draft PR #14.
+
+Goal: make future file mutation visible and reviewable before any OS write path exists.
+
+- Files focus maps `c` to copy preview, `m` to move preview, and `x` to delete preview.
+- Operation previews show selected path, target expectation, risk, privilege, and confirmation phrase.
+- Copy, move, and delete remain non-executable and locked by policy.
+- `enter` on an operation preview reports the lock instead of mutating the filesystem.
+- `esc` or `q` closes the preview dialog.
+- Action Center now includes locked `files.copy` and `files.move` entries.
+- Next: destination input for copy/move preview and editor dirty-state save dialog.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
