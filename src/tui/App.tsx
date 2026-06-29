@@ -54,6 +54,13 @@ import {
 	type Screen,
 	screenOrder,
 } from "./navigation";
+import {
+	type CommandPaletteState,
+	closeCommandPalette,
+	getPaletteAction,
+	moveCommandPalette,
+	openCommandPalette,
+} from "./palette";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 
 type CommandStatus = "idle" | "running";
@@ -100,6 +107,10 @@ export function App(): React.ReactElement {
 		active: false,
 		prompt: "path",
 		value: "",
+	});
+	const [palette, setPalette] = useState<CommandPaletteState>({
+		active: false,
+		selectedIndex: 0,
 	});
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
 	const [connections, setConnections] = useState<ActiveConnection[]>([]);
@@ -422,8 +433,48 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (palette.active) {
+			if (key.escape || input === "q") {
+				setPalette((current) => closeCommandPalette(current));
+				log("info", "command palette closed");
+				return;
+			}
+
+			if (key.return) {
+				const action = getPaletteAction(actions, palette);
+				setPalette((current) => closeCommandPalette(current));
+				if (action) {
+					runAction(action);
+				}
+				return;
+			}
+
+			if (key.downArrow || input === "j") {
+				setPalette((current) =>
+					moveCommandPalette(current, actions.length, "next"),
+				);
+				return;
+			}
+
+			if (key.upArrow || input === "k") {
+				setPalette((current) =>
+					moveCommandPalette(current, actions.length, "previous"),
+				);
+				return;
+			}
+
+			return;
+		}
+
 		if (input === "q") {
 			exit();
+		}
+
+		if (input === "?" || input === "/") {
+			setFocusArea("workspaces");
+			setPalette(openCommandPalette());
+			log("info", "command palette opened");
+			return;
 		}
 
 		if (input === "r") {
@@ -567,6 +618,7 @@ export function App(): React.ReactElement {
 					error={error}
 					actions={actions}
 					selectedActionIndex={selectedActionIndex}
+					palette={palette}
 					focusArea={focusArea}
 					doctorChecks={doctorChecks}
 					fileRoot={fileRoot}
@@ -684,6 +736,7 @@ function MainWorkspace({
 	error,
 	actions,
 	selectedActionIndex,
+	palette,
 	focusArea,
 	doctorChecks,
 	fileRoot,
@@ -707,6 +760,7 @@ function MainWorkspace({
 	error?: string;
 	actions: PicosAction[];
 	selectedActionIndex: number;
+	palette: CommandPaletteState;
 	focusArea: FocusArea;
 	doctorChecks: DoctorCheck[];
 	fileRoot: string;
@@ -739,6 +793,7 @@ function MainWorkspace({
 					inventory,
 					actions,
 					selectedActionIndex,
+					palette,
 					focusArea,
 					doctorChecks,
 					fileRoot,
@@ -766,6 +821,7 @@ function renderWorkspace(
 	inventory: SystemInventory | undefined,
 	actions: PicosAction[],
 	selectedActionIndex: number,
+	palette: CommandPaletteState,
 	focusArea: FocusArea,
 	doctorChecks: DoctorCheck[],
 	fileRoot: string,
@@ -782,6 +838,16 @@ function renderWorkspace(
 	height: number,
 	t: (key: string) => string,
 ): React.ReactElement {
+	if (palette.active) {
+		return (
+			<CommandPaletteWorkspace
+				actions={actions}
+				selectedIndex={palette.selectedIndex}
+				visibleRows={Math.max(3, height - 8)}
+			/>
+		);
+	}
+
 	if (screen === "files") {
 		return (
 			<FilesWorkspace
@@ -1736,6 +1802,58 @@ function ActionWorkspace({
 			{hiddenBelow > 0 ? (
 				<Text color="gray">↓ {hiddenBelow} more actions</Text>
 			) : null}
+		</Box>
+	);
+}
+
+function CommandPaletteWorkspace({
+	actions,
+	selectedIndex,
+	visibleRows,
+}: {
+	actions: PicosAction[];
+	selectedIndex: number;
+	visibleRows: number;
+}): React.ReactElement {
+	const window = getVisibleWindow(actions.length, selectedIndex, visibleRows);
+	const visibleActions = actions.slice(window.start, window.end);
+	const hiddenAbove = window.start;
+	const hiddenBelow = actions.length - window.end;
+	const selectedAction = actions[selectedIndex];
+
+	return (
+		<Box flexDirection="column">
+			<Text bold color="cyan">
+				Command Palette · j/k select · enter run · esc/q close
+			</Text>
+			{hiddenAbove > 0 ? (
+				<Text color="gray">↑ {hiddenAbove} more commands</Text>
+			) : null}
+			<Box flexDirection="column">
+				{visibleActions.map((action, visibleIndex) => {
+					const index = window.start + visibleIndex;
+					const selected = index === selectedIndex;
+					const status = action.enabled ? "ready" : "locked";
+					return (
+						<Text key={action.id} color={selected ? "cyan" : "white"}>
+							{selected ? ">" : " "} {status.padEnd(6)} {action.risk.padEnd(5)}{" "}
+							{clip(action.id, 32)}
+						</Text>
+					);
+				})}
+			</Box>
+			{hiddenBelow > 0 ? (
+				<Text color="gray">↓ {hiddenBelow} more commands</Text>
+			) : null}
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">
+					{clip(selectedAction?.title ?? "No command selected", 54)}
+				</Text>
+				<Text color="gray">
+					{clip(selectedAction?.description ?? "Choose a command to run.", 54)}
+				</Text>
+				<Text color="gray">read runs now · write/destructive stay locked</Text>
+			</Box>
 		</Box>
 	);
 }
