@@ -50,6 +50,8 @@ Goal: add the first local filesystem console that is useful in daily work.
 
 - Files workspace.
 - Safe read-only commands: `pwd`, `dir`, `ls`, `type`, `cat`.
+- System-wide file entry points: root, home, workspace, temp, and Windows system drive.
+- Absolute path and `~` support in file commands.
 - Planned safe navigation command: `cd` inside the TUI file workspace.
 - Text/Markdown viewer.
 - TUI editor buffer with dirty state.

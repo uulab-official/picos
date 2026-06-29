@@ -1,0 +1,45 @@
+language: "ko-KR"
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  review_details: true
+  collapse_walkthrough: true
+  changed_files_summary: true
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  auto_review:
+    enabled: true
+    drafts: true
+  path_filters:
+    - "!dist/**"
+    - "!node_modules/**"
+    - "!bun.lockb"
+  path_instructions:
+    - path: "src/core/**"
+      instructions: >
+        Review core logic for cross-platform behavior, safe command execution,
+        parser correctness, and read-only defaults. Pay special attention to
+        Windows/macOS/Linux command differences and privilege boundaries.
+    - path: "src/tui/**"
+      instructions: >
+        Review Ink UI changes for keyboard ergonomics, responsive terminal
+        layout, non-overlapping text, and whether the console feels useful as a
+        terminal OS surface.
+    - path: "src/cli/**"
+      instructions: >
+        Review CLI commands for clear output, safe argument handling, useful
+        exit codes, and consistency with README examples.
+    - path: "tests/**"
+      instructions: >
+        Check that tests cover parser edge cases and platform-specific behavior
+        without depending on the current machine or external network state.
+    - path: "README.md"
+      instructions: >
+        Check that documented commands match implemented behavior and that
+        unreleased limitations are clear.
+chat:
+  auto_reply: true
+  art: false

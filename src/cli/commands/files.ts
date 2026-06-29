@@ -2,6 +2,8 @@ import {
 	createLocalFileProvider,
 	type FileReadResult,
 	formatDirEntries,
+	formatFileLocations,
+	getSystemFileLocations,
 } from "../../core/files";
 
 export function formatPwd(path: string): string {
@@ -20,6 +22,14 @@ export function formatFileError(caught: unknown): string {
 export async function pwdCommand(): Promise<void> {
 	const provider = createLocalFileProvider(process.cwd());
 	console.log(formatPwd(await provider.pwd()));
+}
+
+export async function locationsCommand(): Promise<void> {
+	console.log(formatFileLocations(getSystemFileLocations()));
+}
+
+export async function drivesCommand(): Promise<void> {
+	await locationsCommand();
 }
 
 export async function dirCommand(path = "."): Promise<void> {

@@ -10,7 +10,13 @@ import {
 import { runPing } from "../core/command";
 import { getActiveConnections } from "../core/connections";
 import { runDoctorChecks } from "../core/doctor";
-import { createLocalFileProvider, type FileEntry } from "../core/files";
+import {
+	createLocalFileProvider,
+	type FileEntry,
+	type FileLocation,
+	getSystemFileLocations,
+	getSystemFileRoot,
+} from "../core/files";
 import { getNetworkSummary } from "../core/network";
 import { getListeningPorts } from "../core/ports";
 import { getRoadmapItems } from "../core/roadmap";
@@ -56,9 +62,11 @@ export function App(): React.ReactElement {
 	const { columns, rows } = useWindowSize();
 	const layout = computeShellLayout(columns, rows);
 	const actions = useMemo(() => getActionCatalog(), []);
+	const systemFileRoot = useMemo(() => getSystemFileRoot(), []);
+	const fileLocations = useMemo(() => getSystemFileLocations(), []);
 	const fileProvider = useMemo(
-		() => createLocalFileProvider(process.cwd()),
-		[],
+		() => createLocalFileProvider(systemFileRoot),
+		[systemFileRoot],
 	);
 	const [screen, setScreen] = useState<Screen>("dashboard");
 	const [focusArea, setFocusArea] = useState<FocusArea>("workspaces");
@@ -74,7 +82,7 @@ export function App(): React.ReactElement {
 	const [refreshInterval, setRefreshInterval] = useState(3000);
 	const [language, setLanguage] = useState<Language>("en");
 	const [commandStatus, setCommandStatus] = useState<CommandStatus>("idle");
-	const [fileRoot, setFileRoot] = useState(process.cwd());
+	const [fileRoot, setFileRoot] = useState(systemFileRoot);
 	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
@@ -361,6 +369,7 @@ export function App(): React.ReactElement {
 					doctorChecks={doctorChecks}
 					fileRoot={fileRoot}
 					fileEntries={fileEntries}
+					fileLocations={fileLocations}
 					selectedFileIndex={selectedFileIndex}
 					editorPreview={editorPreview}
 					connections={connections}
@@ -474,6 +483,7 @@ function MainWorkspace({
 	doctorChecks,
 	fileRoot,
 	fileEntries,
+	fileLocations,
 	selectedFileIndex,
 	editorPreview,
 	connections,
@@ -493,6 +503,7 @@ function MainWorkspace({
 	doctorChecks: DoctorCheck[];
 	fileRoot: string;
 	fileEntries: FileEntry[];
+	fileLocations: FileLocation[];
 	selectedFileIndex: number;
 	editorPreview?: EditorPreview;
 	connections: ActiveConnection[];
@@ -521,6 +532,7 @@ function MainWorkspace({
 					doctorChecks,
 					fileRoot,
 					fileEntries,
+					fileLocations,
 					selectedFileIndex,
 					editorPreview,
 					connections,
@@ -544,6 +556,7 @@ function renderWorkspace(
 	doctorChecks: DoctorCheck[],
 	fileRoot: string,
 	fileEntries: FileEntry[],
+	fileLocations: FileLocation[],
 	selectedFileIndex: number,
 	editorPreview: EditorPreview | undefined,
 	connections: ActiveConnection[],
@@ -557,6 +570,7 @@ function renderWorkspace(
 			<FilesWorkspace
 				root={fileRoot}
 				entries={fileEntries}
+				locations={fileLocations}
 				selectedIndex={selectedFileIndex}
 				visibleRows={Math.max(6, height - 9)}
 				t={t}
@@ -658,6 +672,7 @@ function renderWorkspace(
 			doctorChecks={doctorChecks}
 			fileRoot={fileRoot}
 			fileEntries={fileEntries}
+			fileLocations={fileLocations}
 			actions={actions}
 			connections={connections}
 			ports={ports}
@@ -674,6 +689,7 @@ function DashboardWorkspace({
 	doctorChecks,
 	fileRoot,
 	fileEntries,
+	fileLocations,
 	actions,
 	connections,
 	ports,
@@ -686,6 +702,7 @@ function DashboardWorkspace({
 	doctorChecks: DoctorCheck[];
 	fileRoot: string;
 	fileEntries: FileEntry[];
+	fileLocations: FileLocation[];
 	actions: PicosAction[];
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
@@ -750,7 +767,8 @@ function DashboardWorkspace({
 				</Text>
 				<Text>
 					Files dirs {directoryCount} files {fileCount}
-					{"  "}Root {clip(fileRoot, 34)}
+					{"  "}Locations {fileLocations.length}
+					{"  "}Root {clip(fileRoot, 24)}
 				</Text>
 				<Text>
 					Actions ready {actionSummary.enabled}/{actionSummary.total} locked{" "}
@@ -834,11 +852,12 @@ function DashboardWorkspace({
 				<Text color="cyan">FILESYSTEM</Text>
 				<Text>
 					Root {clip(fileRoot, 48)}
-					{"  "}Dirs {directoryCount} Files {fileCount}
+					{"  "}Dirs {directoryCount} Files {fileCount} Locations{" "}
+					{fileLocations.length}
 				</Text>
 				<Text color="gray">
-					Commands: picos dir . · picos type README.md · workspace 2 Files · 3
-					Editor
+					Commands: picos locations · picos dir / · picos dir ~ · workspace 2
+					Files
 				</Text>
 			</Box>
 
@@ -876,32 +895,75 @@ function DashboardWorkspace({
 function FilesWorkspace({
 	root,
 	entries,
+	locations,
 	selectedIndex,
 	visibleRows,
 	t,
 }: {
 	root: string;
 	entries: FileEntry[];
+	locations: FileLocation[];
 	selectedIndex: number;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const window = getVisibleWindow(entries.length, selectedIndex, visibleRows);
+	const locationRows = Math.min(locations.length, 5);
+	const entryRows = Math.max(3, visibleRows - locationRows - 7);
+	const window = getVisibleWindow(entries.length, selectedIndex, entryRows);
 	const visibleEntries = entries.slice(window.start, window.end);
 	const hiddenAbove = window.start;
 	const hiddenBelow = entries.length - window.end;
 
+	if (visibleRows < 12) {
+		const compactEntries = entries.slice(0, Math.max(2, visibleRows - 5));
+		return (
+			<Box flexDirection="column">
+				<Text bold color="cyan">
+					{t("screen.files")} · root {clip(root, 18)}
+				</Text>
+				<Text color="gray">
+					{locations.map((location) => location.label).join(" · ")}
+				</Text>
+				{locations.slice(0, 3).map((location) => (
+					<Text key={`${location.kind}:${location.path}`}>
+						{location.label.padEnd(10)} {clip(location.path, 42)}
+					</Text>
+				))}
+				<Text color="cyan">ROOT DIR</Text>
+				{compactEntries.length ? (
+					compactEntries.map((entry) => (
+						<Text key={entry.path}>
+							{entry.type === "directory" ? "<DIR>" : formatFileSize(entry)}{" "}
+							{clip(entry.name, 44)}
+						</Text>
+					))
+				) : (
+					<Text color="gray">loading root...</Text>
+				)}
+				<Text color="gray">picos locations · picos dir / · picos dir ~</Text>
+			</Box>
+		);
+	}
+
 	return (
 		<Box flexDirection="column">
 			<Text bold color="cyan">
-				{t("screen.files")} · local provider
+				{t("screen.files")}
 			</Text>
-			<Text color="gray">root {clip(root, 72)}</Text>
+			<Text color="gray">system filesystem · root {clip(root, 34)}</Text>
 			<Text color="gray">
 				read: enabled · write/delete: locked until diff preview + confirmation
 			</Text>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="cyan">DOS VIEW</Text>
+				<Text color="cyan">SYSTEM LOCATIONS</Text>
+				{locations.slice(0, locationRows).map((location) => (
+					<Text key={`${location.kind}:${location.path}`}>
+						{location.label.padEnd(16)} {clip(location.path, 36)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">ROOT DIR VIEW</Text>
 				<Text color="gray">TYPE SIZE NAME</Text>
 				{hiddenAbove > 0 ? (
 					<Text color="gray">↑ {hiddenAbove} more</Text>
@@ -915,7 +977,7 @@ function FilesWorkspace({
 								color={index === selectedIndex ? "cyan" : "white"}
 							>
 								{index === selectedIndex ? ">" : " "} {entry.type.padEnd(10)}{" "}
-								{formatFileSize(entry).padStart(10)} {clip(entry.name, 52)}
+								{formatFileSize(entry).padStart(10)} {clip(entry.name, 34)}
 							</Text>
 						);
 					})
@@ -928,8 +990,11 @@ function FilesWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>picos pwd · picos dir . · picos type README.md</Text>
-				<Text color="gray">next: enter file focus · open/edit/save dialog</Text>
+				<Text>picos locations · picos dir / · picos dir ~</Text>
+				<Text>picos type /path/to/file</Text>
+				<Text color="gray">
+					next: path input dialog · file focus · open/edit/save confirmation
+				</Text>
 			</Box>
 		</Box>
 	);
