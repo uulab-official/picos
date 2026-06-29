@@ -175,6 +175,18 @@ Goal: make the command palette fast enough to feel like an OS launcher.
 - Palette header shows filtered count versus total command count.
 - Next: read-only SFTP adapter selection and remote file browsing boundary.
 
+## v0.3.10 - Remote File Context
+
+Status: draft PR #11.
+
+Goal: let users select a remote profile in the TUI without opening a network session.
+
+- Remotes workspace supports child focus with `enter`, `j/k`, `h`, and `esc`.
+- `enter` on a selected remote profile stages a locked remote file context.
+- Files workspace shows the selected remote context, adapter-pending status, and write lock.
+- Core remote context uses the shared SFTP placeholder provider and does not connect.
+- Next: live read-only SFTP adapter behind explicit host review.
+
 ## v0.4.0 - Privileged Controls Framework
 
 Goal: prepare real OS mutation without making it casual or dangerous.

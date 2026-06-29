@@ -20,6 +20,10 @@ import {
 } from "../core/files";
 import { getNetworkSummary } from "../core/network";
 import { getListeningPorts } from "../core/ports";
+import {
+	createRemoteFileContext,
+	type RemoteFileContext,
+} from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
@@ -120,6 +124,9 @@ export function App(): React.ReactElement {
 	const [connections, setConnections] = useState<ActiveConnection[]>([]);
 	const [ports, setPorts] = useState<ListeningPort[]>([]);
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
+	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
+	const [remoteFileContext, setRemoteFileContext] =
+		useState<RemoteFileContext>();
 	const t = useMemo(() => createTranslator(language), [language]);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
@@ -259,6 +266,20 @@ export function App(): React.ReactElement {
 			setCommandLine((current) => closeCommandLine(current));
 		}
 	}, [commandLine.value, loadFiles, log]);
+
+	const selectRemoteProfile = useCallback(async () => {
+		const profile = remoteProfiles[selectedRemoteIndex];
+		if (!profile) {
+			log("warn", "no remote profile selected");
+			return;
+		}
+
+		const context = await createRemoteFileContext(profile);
+		setRemoteFileContext(context);
+		setScreen("files");
+		setFocusArea("workspaces");
+		log("info", `remote context selected ${context.label}`);
+	}, [log, remoteProfiles, selectedRemoteIndex]);
 
 	useEffect(() => {
 		void loadFiles(systemFileRoot);
@@ -401,6 +422,9 @@ export function App(): React.ReactElement {
 			setRefreshInterval(config.refreshInterval);
 			setLanguage(config.language);
 			setRemoteProfiles(config.remoteProfiles);
+			setSelectedRemoteIndex((index) =>
+				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
+			);
 			const nextT = createTranslator(config.language);
 			setEvents([
 				createEvent("info", nextT("events.booted")),
@@ -517,10 +541,15 @@ export function App(): React.ReactElement {
 			} else if (screen === "files" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "files focus entered");
+			} else if (screen === "remotes" && focusArea === "workspaces") {
+				setFocusArea(enterFocus(screen, focusArea));
+				log("info", "remotes focus entered");
 			} else if (focusArea === "actions") {
 				runAction(actions[selectedActionIndex]);
 			} else if (focusArea === "files") {
 				void openSelectedFileEntry();
+			} else if (focusArea === "remotes") {
+				void selectRemoteProfile();
 			}
 		}
 
@@ -560,7 +589,11 @@ export function App(): React.ReactElement {
 			}
 		}
 		if (key.leftArrow || input === "h") {
-			if (focusArea === "actions" || focusArea === "files") {
+			if (
+				focusArea === "actions" ||
+				focusArea === "files" ||
+				focusArea === "remotes"
+			) {
 				setFocusArea("workspaces");
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
@@ -576,6 +609,10 @@ export function App(): React.ReactElement {
 				setSelectedFileIndex((index) =>
 					getNextIndex(index, fileEntries.length, "next"),
 				);
+			} else if (focusArea === "remotes") {
+				setSelectedRemoteIndex((index) =>
+					getNextIndex(index, remoteProfiles.length, "next"),
+				);
 			} else {
 				setScreen((current) => moveScreen(current, "next"));
 			}
@@ -589,6 +626,10 @@ export function App(): React.ReactElement {
 			} else if (focusArea === "files") {
 				setSelectedFileIndex((index) =>
 					getNextIndex(index, fileEntries.length, "previous"),
+				);
+			} else if (focusArea === "remotes") {
+				setSelectedRemoteIndex((index) =>
+					getNextIndex(index, remoteProfiles.length, "previous"),
 				);
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
@@ -640,6 +681,8 @@ export function App(): React.ReactElement {
 					commandLine={commandLine}
 					editorPreview={editorPreview}
 					remoteProfiles={remoteProfiles}
+					selectedRemoteIndex={selectedRemoteIndex}
+					remoteFileContext={remoteFileContext}
 					connections={connections}
 					ports={ports}
 					events={events}
@@ -758,6 +801,8 @@ function MainWorkspace({
 	commandLine,
 	editorPreview,
 	remoteProfiles,
+	selectedRemoteIndex,
+	remoteFileContext,
 	connections,
 	ports,
 	events,
@@ -782,6 +827,8 @@ function MainWorkspace({
 	commandLine: CommandLineState;
 	editorPreview?: EditorPreview;
 	remoteProfiles: SftpRemoteProfile[];
+	selectedRemoteIndex: number;
+	remoteFileContext?: RemoteFileContext;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
 	events: ConsoleEvent[];
@@ -815,6 +862,8 @@ function MainWorkspace({
 					commandLine,
 					editorPreview,
 					remoteProfiles,
+					selectedRemoteIndex,
+					remoteFileContext,
 					connections,
 					ports,
 					events,
@@ -843,6 +892,8 @@ function renderWorkspace(
 	commandLine: CommandLineState,
 	editorPreview: EditorPreview | undefined,
 	remoteProfiles: SftpRemoteProfile[],
+	selectedRemoteIndex: number,
+	remoteFileContext: RemoteFileContext | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
 	events: ConsoleEvent[],
@@ -871,6 +922,7 @@ function renderWorkspace(
 				selectedIndex={selectedFileIndex}
 				selectedLocationIndex={selectedLocationIndex}
 				commandLine={commandLine}
+				remoteContext={remoteFileContext}
 				focused={focusArea === "files"}
 				visibleRows={Math.max(6, height - 9)}
 				t={t}
@@ -891,6 +943,9 @@ function renderWorkspace(
 		return (
 			<RemotesWorkspace
 				profiles={remoteProfiles}
+				selectedIndex={selectedRemoteIndex}
+				selectedContext={remoteFileContext}
+				focused={focusArea === "remotes"}
 				visibleRows={Math.max(5, height - 8)}
 				t={t}
 			/>
@@ -1208,6 +1263,7 @@ function FilesWorkspace({
 	selectedIndex,
 	selectedLocationIndex,
 	commandLine,
+	remoteContext,
 	focused,
 	visibleRows,
 	t,
@@ -1218,6 +1274,7 @@ function FilesWorkspace({
 	selectedIndex: number;
 	selectedLocationIndex: number;
 	commandLine: CommandLineState;
+	remoteContext?: RemoteFileContext;
 	focused: boolean;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -1236,6 +1293,12 @@ function FilesWorkspace({
 				<Text bold color="cyan">
 					{t("screen.files")} · root {clip(root, 18)}
 				</Text>
+				{remoteContext ? (
+					<Text color="yellow">
+						remote {remoteContext.label} · {remoteContext.status} · writes{" "}
+						{remoteContext.writes}
+					</Text>
+				) : null}
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
 						? "files focus · j/k select · enter open · 1-9 location · : path · g cycle · u parent · h/esc back"
@@ -1282,6 +1345,14 @@ function FilesWorkspace({
 				{t("screen.files")}
 			</Text>
 			<Text color="gray">current {clip(root, 46)}</Text>
+			{remoteContext ? (
+				<Text color="yellow">
+					remote {remoteContext.label} {clip(remoteContext.root, 34)} ·{" "}
+					{remoteContext.status} · writes {remoteContext.writes}
+				</Text>
+			) : (
+				<Text color="gray">provider local · remote context not selected</Text>
+			)}
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
 					? "files focus · j/k select · enter open · 1-9 location · : path · g cycle · u parent · h/esc back"
@@ -1399,49 +1470,78 @@ function EditorWorkspace({
 
 function RemotesWorkspace({
 	profiles,
+	selectedIndex,
+	selectedContext,
+	focused,
 	visibleRows,
 	t,
 }: {
 	profiles: SftpRemoteProfile[];
+	selectedIndex: number;
+	selectedContext?: RemoteFileContext;
+	focused: boolean;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const visibleProfiles = profiles.slice(0, visibleRows);
+	const profileRows = Math.max(1, visibleRows - 7);
+	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
+	const visibleProfiles = profiles.slice(window.start, window.end);
+	const hiddenAbove = window.start;
+	const hiddenBelow = profiles.length - window.end;
 
 	return (
 		<Box flexDirection="column">
 			<Text bold color="cyan">
 				{t("screen.remotes")}
 			</Text>
-			<Text color="gray">
-				SFTP provider boundary · read-only profile inventory · sessions locked
+			<Text color={focused ? "cyan" : "gray"}>
+				{focused
+					? "remote focus · j/k select · enter stage · h/esc"
+					: "enter opens remote focus · sessions locked"}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">PROFILES</Text>
+				{hiddenAbove > 0 ? (
+					<Text color="gray">↑ {hiddenAbove} more profiles</Text>
+				) : null}
 				{visibleProfiles.length ? (
-					visibleProfiles.map((profile, index) => (
-						<Text key={profile.id}>
-							{String(index + 1).padEnd(3)}
-							{profile.id.padEnd(14)} sftp://{profile.username}@{profile.host}:
-							{profile.port} root={clip(profile.root, 24)}
-						</Text>
-					))
+					visibleProfiles.map((profile, visibleIndex) => {
+						const index = window.start + visibleIndex;
+						const selected = focused && index === selectedIndex;
+						return (
+							<Text key={profile.id} color={selected ? "cyan" : "white"}>
+								{selected ? ">" : " "} {String(index + 1).padEnd(3)}
+								{profile.id.padEnd(12)} {clip(profile.host, 22).padEnd(22)} root{" "}
+								{clip(profile.root, 12)}
+							</Text>
+						);
+					})
 				) : (
 					<Text color="gray">No remote profiles configured.</Text>
 				)}
+				{hiddenBelow > 0 ? (
+					<Text color="gray">↓ {hiddenBelow} more profiles</Text>
+				) : null}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="cyan">PROVIDER STATUS · local ready</Text>
-				<Text color="yellow">
-					sftp: adapter pending · network sessions locked
+				<Text color="cyan">SELECTED CONTEXT</Text>
+				{selectedContext ? (
+					<Text color="yellow">
+						{selectedContext.label} {clip(selectedContext.root, 46)} ·{" "}
+						{selectedContext.status}
+					</Text>
+				) : (
+					<Text color="gray">none · press enter on a profile to stage it</Text>
+				)}
+				<Text color="gray">
+					sessions locked · password persistence disabled by schema
 				</Text>
-				<Text color="gray">password persistence: disabled by schema</Text>
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
 				<Text>picos remotes · picos remote &lt;id&gt;</Text>
 				<Text color="gray">
-					next: read-only SFTP adapter selection and connection prompts
+					next: live read-only SFTP adapter behind host review
 				</Text>
 			</Box>
 		</Box>
