@@ -34,7 +34,7 @@ picos ui
 
 Keyboard controls:
 
-- `1-9`: select Dashboard, Files, Editor, System, Hardware, Storage, Processes, Interfaces, or Network
+- `1-9`: select Dashboard, Files, Remotes, Editor, System, Hardware, Storage, Processes, or Interfaces
 - `left/right` or `h/l`: move between workspaces
 - `up/down` or `j/k`: move through workspaces, or actions inside Action Center
 - `enter`: enter the focused workspace mode, run the selected action, open a directory, or preview a file
@@ -167,7 +167,7 @@ v0.2 expands picos toward an OS-like console:
 - DOS-style file navigation and text editing are planned after the read-only inventory and network tool layer is stable.
 
 v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
-The Files workspace now supports keyboard-driven local navigation, numbered system location jumps, direct path input, and read-only file preview into the Editor workspace.
+The Files workspace supports keyboard-driven local navigation, numbered system location jumps, direct path input, and read-only file preview into the Editor workspace. The Remotes workspace surfaces configured SFTP-style profiles without opening network sessions.
 
 ## Privacy Direction
 

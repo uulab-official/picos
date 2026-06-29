@@ -29,6 +29,7 @@ import type {
 	Language,
 	ListeningPort,
 	NetworkSummary,
+	SftpRemoteProfile,
 	SystemInventory,
 } from "../core/types";
 import { VERSION } from "../core/version";
@@ -103,6 +104,7 @@ export function App(): React.ReactElement {
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
 	const [connections, setConnections] = useState<ActiveConnection[]>([]);
 	const [ports, setPorts] = useState<ListeningPort[]>([]);
+	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const t = useMemo(() => createTranslator(language), [language]);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
@@ -383,6 +385,7 @@ export function App(): React.ReactElement {
 		readConfig().then((config) => {
 			setRefreshInterval(config.refreshInterval);
 			setLanguage(config.language);
+			setRemoteProfiles(config.remoteProfiles);
 			const nextT = createTranslator(config.language);
 			setEvents([
 				createEvent("info", nextT("events.booted")),
@@ -573,6 +576,7 @@ export function App(): React.ReactElement {
 					selectedLocationIndex={selectedLocationIndex}
 					commandLine={commandLine}
 					editorPreview={editorPreview}
+					remoteProfiles={remoteProfiles}
 					connections={connections}
 					ports={ports}
 					events={events}
@@ -689,6 +693,7 @@ function MainWorkspace({
 	selectedLocationIndex,
 	commandLine,
 	editorPreview,
+	remoteProfiles,
 	connections,
 	ports,
 	events,
@@ -711,6 +716,7 @@ function MainWorkspace({
 	selectedLocationIndex: number;
 	commandLine: CommandLineState;
 	editorPreview?: EditorPreview;
+	remoteProfiles: SftpRemoteProfile[];
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
 	events: ConsoleEvent[];
@@ -742,6 +748,7 @@ function MainWorkspace({
 					selectedLocationIndex,
 					commandLine,
 					editorPreview,
+					remoteProfiles,
 					connections,
 					ports,
 					events,
@@ -768,6 +775,7 @@ function renderWorkspace(
 	selectedLocationIndex: number,
 	commandLine: CommandLineState,
 	editorPreview: EditorPreview | undefined,
+	remoteProfiles: SftpRemoteProfile[],
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
 	events: ConsoleEvent[],
@@ -795,6 +803,15 @@ function renderWorkspace(
 				preview={editorPreview}
 				entries={fileEntries}
 				visibleRows={Math.max(5, height - 10)}
+				t={t}
+			/>
+		);
+	}
+	if (screen === "remotes") {
+		return (
+			<RemotesWorkspace
+				profiles={remoteProfiles}
+				visibleRows={Math.max(5, height - 8)}
 				t={t}
 			/>
 		);
@@ -1295,6 +1312,57 @@ function EditorWorkspace({
 					files.write locked · requires diff preview, path review, and confirm
 				</Text>
 				<Text color="gray">planned: local + SFTP provider parity</Text>
+			</Box>
+		</Box>
+	);
+}
+
+function RemotesWorkspace({
+	profiles,
+	visibleRows,
+	t,
+}: {
+	profiles: SftpRemoteProfile[];
+	visibleRows: number;
+	t: (key: string) => string;
+}): React.ReactElement {
+	const visibleProfiles = profiles.slice(0, visibleRows);
+
+	return (
+		<Box flexDirection="column">
+			<Text bold color="cyan">
+				{t("screen.remotes")}
+			</Text>
+			<Text color="gray">
+				SFTP provider boundary · read-only profile inventory · sessions locked
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">PROFILES</Text>
+				{visibleProfiles.length ? (
+					visibleProfiles.map((profile, index) => (
+						<Text key={profile.id}>
+							{String(index + 1).padEnd(3)}
+							{profile.id.padEnd(14)} sftp://{profile.username}@{profile.host}:
+							{profile.port} root={clip(profile.root, 24)}
+						</Text>
+					))
+				) : (
+					<Text color="gray">No remote profiles configured.</Text>
+				)}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">PROVIDER STATUS · local ready</Text>
+				<Text color="yellow">
+					sftp: adapter pending · network sessions locked
+				</Text>
+				<Text color="gray">password persistence: disabled by schema</Text>
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">COMMAND LINE</Text>
+				<Text>picos remotes · picos remote &lt;id&gt;</Text>
+				<Text color="gray">
+					next: read-only SFTP adapter selection and connection prompts
+				</Text>
 			</Box>
 		</Box>
 	);

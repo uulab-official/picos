@@ -10,6 +10,7 @@ type TranslationKey =
 	| "app.keys.switch"
 	| "screen.dashboard"
 	| "screen.files"
+	| "screen.remotes"
 	| "screen.editor"
 	| "screen.system"
 	| "screen.hardware"
@@ -51,6 +52,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"app.keys.switch": "h/l switch",
 		"screen.dashboard": "Dashboard",
 		"screen.files": "Files",
+		"screen.remotes": "Remotes",
 		"screen.editor": "Editor",
 		"screen.system": "System",
 		"screen.hardware": "Hardware",
@@ -91,6 +93,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"app.keys.switch": "h/l 전환",
 		"screen.dashboard": "대시보드",
 		"screen.files": "파일",
+		"screen.remotes": "원격",
 		"screen.editor": "에디터",
 		"screen.system": "시스템",
 		"screen.hardware": "하드웨어",
@@ -131,6 +134,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"app.keys.switch": "h/l 切替",
 		"screen.dashboard": "ダッシュボード",
 		"screen.files": "ファイル",
+		"screen.remotes": "リモート",
 		"screen.editor": "エディター",
 		"screen.system": "システム",
 		"screen.hardware": "ハードウェア",
@@ -171,6 +175,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"app.keys.switch": "h/l 切换",
 		"screen.dashboard": "仪表盘",
 		"screen.files": "文件",
+		"screen.remotes": "远程",
 		"screen.editor": "编辑器",
 		"screen.system": "系统",
 		"screen.hardware": "硬件",
