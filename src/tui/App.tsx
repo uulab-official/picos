@@ -57,6 +57,12 @@ import {
 } from "./fileFilter";
 import { popFileHistory, pushFileHistory } from "./fileHistory";
 import {
+	clearFileOperationDialog,
+	type FileOperationDialogState,
+	type FileOperationKind,
+	openFileOperationDialog,
+} from "./fileOperationDialog";
+import {
 	enterFocus,
 	type FocusArea,
 	getLocationShortcutIndex,
@@ -124,6 +130,10 @@ export function App(): React.ReactElement {
 		active: false,
 		query: "",
 	});
+	const [fileOperationDialog, setFileOperationDialog] =
+		useState<FileOperationDialogState>({
+			active: false,
+		});
 	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 	const [selectedLocationIndex, setSelectedLocationIndex] = useState(0);
 	const [commandLine, setCommandLine] = useState<CommandLineState>({
@@ -324,6 +334,22 @@ export function App(): React.ReactElement {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
 	}, [fileHistory, loadFiles, log]);
+
+	const openSelectedFileOperation = useCallback(
+		(kind: FileOperationKind) => {
+			const dialog = openFileOperationDialog(
+				kind,
+				displayedFileEntries[selectedFileIndex],
+			);
+			setFileOperationDialog(dialog);
+			if (dialog.active) {
+				log("warn", `${dialog.preview.title} preview locked`);
+			} else if (dialog.error) {
+				log("warn", dialog.error);
+			}
+		},
+		[displayedFileEntries, log, selectedFileIndex],
+	);
 
 	const selectRemoteProfile = useCallback(async () => {
 		const profile = remoteProfiles[selectedRemoteIndex];
@@ -558,6 +584,24 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (fileOperationDialog.active) {
+			if (key.escape || input === "q") {
+				setFileOperationDialog((current) => clearFileOperationDialog(current));
+				log("info", "file operation dialog closed");
+				return;
+			}
+
+			if (key.return) {
+				log(
+					"warn",
+					`${fileOperationDialog.preview.kind} locked: ${fileOperationDialog.preview.reason}`,
+				);
+				return;
+			}
+
+			return;
+		}
+
 		if (fileFilter.active) {
 			if (key.escape) {
 				setFileFilter((current) => clearFileFilter(current));
@@ -647,6 +691,21 @@ export function App(): React.ReactElement {
 			setFileFilter((current) => openFileFilter(current.query));
 			setSelectedFileIndex(0);
 			log("info", "file filter opened");
+			return;
+		}
+
+		if (focusArea === "files" && input === "c") {
+			openSelectedFileOperation("copy");
+			return;
+		}
+
+		if (focusArea === "files" && input === "m") {
+			openSelectedFileOperation("move");
+			return;
+		}
+
+		if (focusArea === "files" && input === "x") {
+			openSelectedFileOperation("delete");
 			return;
 		}
 
@@ -773,6 +832,7 @@ export function App(): React.ReactElement {
 					selectedLocationIndex={selectedLocationIndex}
 					commandLine={commandLine}
 					fileFilter={fileFilter}
+					fileOperationDialog={fileOperationDialog}
 					editorPreview={editorPreview}
 					remoteProfiles={remoteProfiles}
 					selectedRemoteIndex={selectedRemoteIndex}
@@ -894,6 +954,7 @@ function MainWorkspace({
 	selectedLocationIndex,
 	commandLine,
 	fileFilter,
+	fileOperationDialog,
 	editorPreview,
 	remoteProfiles,
 	selectedRemoteIndex,
@@ -921,6 +982,7 @@ function MainWorkspace({
 	selectedLocationIndex: number;
 	commandLine: CommandLineState;
 	fileFilter: FileFilterState;
+	fileOperationDialog: FileOperationDialogState;
 	editorPreview?: EditorPreview;
 	remoteProfiles: SftpRemoteProfile[];
 	selectedRemoteIndex: number;
@@ -957,6 +1019,7 @@ function MainWorkspace({
 					selectedLocationIndex,
 					commandLine,
 					fileFilter,
+					fileOperationDialog,
 					editorPreview,
 					remoteProfiles,
 					selectedRemoteIndex,
@@ -988,6 +1051,7 @@ function renderWorkspace(
 	selectedLocationIndex: number,
 	commandLine: CommandLineState,
 	fileFilter: FileFilterState,
+	fileOperationDialog: FileOperationDialogState,
 	editorPreview: EditorPreview | undefined,
 	remoteProfiles: SftpRemoteProfile[],
 	selectedRemoteIndex: number,
@@ -1024,6 +1088,7 @@ function renderWorkspace(
 				selectedLocationIndex={selectedLocationIndex}
 				commandLine={commandLine}
 				fileFilter={fileFilter}
+				fileOperationDialog={fileOperationDialog}
 				remoteContext={remoteFileContext}
 				focused={focusArea === "files"}
 				visibleRows={Math.max(6, height - 9)}
@@ -1367,6 +1432,7 @@ function FilesWorkspace({
 	selectedLocationIndex,
 	commandLine,
 	fileFilter,
+	fileOperationDialog,
 	remoteContext,
 	focused,
 	visibleRows,
@@ -1380,6 +1446,7 @@ function FilesWorkspace({
 	selectedLocationIndex: number;
 	commandLine: CommandLineState;
 	fileFilter: FileFilterState;
+	fileOperationDialog: FileOperationDialogState;
 	remoteContext?: RemoteFileContext;
 	focused: boolean;
 	visibleRows: number;
@@ -1407,7 +1474,7 @@ function FilesWorkspace({
 				) : null}
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
-						? "files · j/k · enter · f filter · b back · :path"
+						? "files · j/k · enter · f filter · c/m/x ops · :path"
 						: "enter opens file focus"}
 				</Text>
 				{fileFilter.active || fileFilter.query ? (
@@ -1419,6 +1486,12 @@ function FilesWorkspace({
 				{commandLine.active ? (
 					<Text color="yellow">
 						:{commandLine.prompt} {commandLine.value || " "}
+					</Text>
+				) : null}
+				{fileOperationDialog.active ? (
+					<Text color="yellow">
+						operation {fileOperationDialog.preview.kind} locked ·{" "}
+						{clip(fileOperationDialog.preview.path, 34)}
 					</Text>
 				) : null}
 				{locations.slice(0, 3).map((location, index) => (
@@ -1467,7 +1540,7 @@ function FilesWorkspace({
 			)}
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "files · j/k · enter · f filter · b back · :path"
+					? "files · j/k · enter · f filter · c/m/x ops · :path"
 					: "enter opens file focus · read-only navigation · .. available"}
 			</Text>
 			{fileFilter.active || fileFilter.query ? (
@@ -1480,6 +1553,22 @@ function FilesWorkspace({
 				<Text color="yellow">
 					:{commandLine.prompt} {commandLine.value || " "}
 				</Text>
+			) : null}
+			{fileOperationDialog.active ? (
+				<Box marginTop={1} flexDirection="column">
+					<Text color="yellow">FILE OPERATION PREVIEW</Text>
+					<Text>
+						{fileOperationDialog.preview.title} ·{" "}
+						{fileOperationDialog.preview.risk} ·{" "}
+						{fileOperationDialog.preview.privilege}
+					</Text>
+					<Text>path {clip(fileOperationDialog.preview.path, 64)}</Text>
+					<Text>target {fileOperationDialog.preview.targetHint}</Text>
+					<Text color="yellow">
+						locked · confirm {fileOperationDialog.preview.confirmationPhrase} ·
+						enter reports lock · esc closes
+					</Text>
+				</Box>
 			) : null}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">SYSTEM LOCATIONS</Text>
@@ -1523,10 +1612,12 @@ function FilesWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>1-9 locations · f filter · : path · . and .. · b back</Text>
+				<Text>
+					1-9 locations · f filter · c copy · m move · x delete · : path
+				</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
-					next: path input dialog · edit/save confirmation · SFTP provider
+					file operations are preview-only until confirmation wiring lands
 				</Text>
 			</Box>
 		</Box>
