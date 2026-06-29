@@ -39,6 +39,12 @@ bun run version:set 0.3.0 --write
 `version:plan` and `version:next` are dry-run commands. `version:set` is also a
 dry-run unless `--write` is provided.
 
+Draft release notes from `CHANGELOG.md` before creating the GitHub Release:
+
+```bash
+bun run release:notes 0.3.0
+```
+
 ## 0.x Version Rules
 
 - `0.2.x`: current local preview baseline.
@@ -61,9 +67,10 @@ commands, and locked future actions while the package remains pre-1.0.
 5. Move relevant `CHANGELOG.md` entries out of `[Unreleased]`.
 6. Run `bun run verify`.
 7. Run `bun run release:check`.
-8. Create and push a `vX.Y.Z` tag.
-9. Create a GitHub Release from the tag.
-10. Run `npm publish --access public` when publishing `@uulab/picos` for the
+8. Run `bun run release:notes <version>`.
+9. Create and push a `vX.Y.Z` tag.
+10. Create a GitHub Release from the tag.
+11. Run `npm publish --access public` when publishing `@uulab/picos` for the
    first public scoped release.
 
 ## GitHub Actions

@@ -315,6 +315,17 @@ Goal: make version changes explicit and synchronized before the first npm publis
 - Release docs and README describe the version helper flow.
 - Next: tag/release note helper after v0.3 stack merge.
 
+## v0.3.21 - Release Notes Helper
+
+Status: draft PR #22.
+
+Goal: make GitHub Release notes consistent without publishing anything automatically.
+
+- Release notes core extracts the `[Unreleased]` changelog section and validates release tag names.
+- `bun run release:notes <version>` prints a GitHub Release draft with tag and verification checklist.
+- Release docs and README include the release notes helper in the release flow.
+- Next: changelog finalize helper after the v0.3 stack is merged.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
