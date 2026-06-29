@@ -303,6 +303,18 @@ Goal: move release readiness from local-only checks into CI and add a safe manua
 - Workflow safety is covered by tests that assert CI and release workflow guardrails.
 - Next: version bump helper and tag/release note generation after the v0.3 stack is merged.
 
+## v0.3.20 - Version Bump Helper
+
+Status: draft PR #21.
+
+Goal: make version changes explicit and synchronized before the first npm publish.
+
+- Versioning core validates semver, computes next patch/minor/major versions, and plans synchronized updates.
+- `bun run version:plan <version>` and `bun run version:next <patch|minor|major>` provide dry-run release planning.
+- `bun run version:set <version> --write` updates both `package.json` and `src/core/version.ts`.
+- Release docs and README describe the version helper flow.
+- Next: tag/release note helper after v0.3 stack merge.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
