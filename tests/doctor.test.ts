@@ -12,6 +12,7 @@ describe("doctor checks", () => {
 					{
 						name: "en0",
 						status: "connected",
+						kind: "wifiOrEthernet",
 						ipv4: "192.168.0.12",
 						ipv6: undefined,
 						mac: "aa:bb:cc:dd:ee:ff",
@@ -20,10 +21,12 @@ describe("doctor checks", () => {
 				primaryInterface: {
 					name: "en0",
 					status: "connected",
+					kind: "wifiOrEthernet",
 					ipv4: "192.168.0.12",
 					ipv6: undefined,
 					mac: "aa:bb:cc:dd:ee:ff",
 				},
+				networkGroups: [],
 				gateway: "192.168.0.1",
 				dnsServers: ["1.1.1.1"],
 			}),

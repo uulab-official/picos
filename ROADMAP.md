@@ -227,12 +227,26 @@ Goal: make future file mutation visible and reviewable before any OS write path 
 - Action Center now includes locked `files.copy` and `files.move` entries.
 - Next: destination input for copy/move preview and editor dirty-state save dialog.
 
+## v0.3.14 - Interface Network Groups
+
+Status: draft PR #15.
+
+Goal: close the first visible lazyifconfig interface/network gap inside picos.
+
+- Interface summaries now infer kind: Wi-Fi/Ethernet, loopback, VPN, bridge, container, link-local, or unknown.
+- IPv4/IPv6 CIDR prefixes and netmask are retained in the core network summary.
+- Network groups classify addresses as LAN, loopback, VPN, container, link-local, public, or unassigned.
+- `picos info --full` prints network groups and detailed interface rows.
+- TUI Network shows grouped networks and interface CIDR rows.
+- TUI Interfaces shows kind, status, CIDR, MAC, netmask, gateway, and DNS.
+- Next: platform MTU/RX/TX counter parsers and route/raw-output detail panes.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
-- Interface details: MAC, MTU, prefix, gateway, RX/TX counters where available.
-- Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification.
+- Interface details: MAC/prefix/gateway landed; next MTU and RX/TX counters where available.
+- Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: diagnostics, VPN route hints, destination path lookup, raw output view.
 - Connections and Ports: sorting, filtering, details panes, process metadata, safe copy actions.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.

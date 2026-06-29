@@ -72,7 +72,24 @@ describe("system inventory", () => {
 				status: "online",
 				host: "host",
 				platform: "darwin",
-				interfaces: [],
+				interfaces: [
+					{
+						name: "en0",
+						status: "connected",
+						kind: "wifiOrEthernet",
+						ipv4: "192.168.0.12",
+						ipv4Cidr: "192.168.0.12/24",
+						mac: "aa:bb:cc:dd:ee:ff",
+					},
+				],
+				networkGroups: [
+					{
+						kind: "lan",
+						label: "LAN",
+						interfaces: ["en0"],
+						addresses: ["192.168.0.12"],
+					},
+				],
 				dnsServers: ["1.1.1.1"],
 			},
 			permission: {
@@ -108,7 +125,24 @@ describe("system inventory", () => {
 				status: "online",
 				host: "host",
 				platform: "darwin",
-				interfaces: [],
+				interfaces: [
+					{
+						name: "en0",
+						status: "connected",
+						kind: "wifiOrEthernet",
+						ipv4: "192.168.0.12",
+						ipv4Cidr: "192.168.0.12/24",
+						mac: "aa:bb:cc:dd:ee:ff",
+					},
+				],
+				networkGroups: [
+					{
+						kind: "lan",
+						label: "LAN",
+						interfaces: ["en0"],
+						addresses: ["192.168.0.12"],
+					},
+				],
 				dnsServers: ["1.1.1.1"],
 			},
 			permission: { user: "tester", isAdmin: false, detail: "user" },
@@ -124,6 +158,8 @@ describe("system inventory", () => {
 		expect(output).toContain("Hardware");
 		expect(output).toContain("Storage");
 		expect(output).toContain("Processes");
+		expect(output).toContain("LAN: en0");
+		expect(output).toContain("en0 wifiOrEthernet connected 192.168.0.12/24");
 		expect(output).toContain("Permissions");
 	});
 });

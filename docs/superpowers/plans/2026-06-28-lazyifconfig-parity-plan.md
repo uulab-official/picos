@@ -14,8 +14,8 @@
 
 lazyifconfig source reference: https://github.com/choihunchul/lazyifconfig
 
-- Interface inventory: picos has basic interface inventory; add MTU, type, prefixes, counters, gateways.
-- Network view: add subnet grouping for LAN, loopback, VPN, container, link-local, public, unassigned.
+- Interface inventory: picos now shows type, status, MAC, CIDR prefixes, netmask, gateway, and DNS; next add MTU and RX/TX counters from platform commands.
+- Network view: picos now groups detected addresses as LAN, loopback, VPN, container, link-local, public, or unassigned.
 - Connections view: add active endpoint parsing from `netstat -an`.
 - Ports view: add listening port parsing from `lsof` on macOS, `ss` on Linux, `netstat` on Windows.
 - Route Inspector: add route table parsing, default route diagnostics, destination path lookup, raw route output.
@@ -225,15 +225,19 @@ Commit: `git commit -m "feat: add tools modal and raw output viewer"`
 - Create: `src/core/subnets.ts`
 - Test: `tests/network.test.ts`
 
-- [ ] **Step 1: Add subnet grouping**
+- [x] **Step 1: Add subnet grouping**
 
 Classify loopback, LAN, VPN, container, link-local, public, and unassigned interface groups.
 
-- [ ] **Step 2: Add interface metadata**
+- [x] **Step 2: Add interface metadata**
 
-Add type, prefix, MTU, gateway, and counters where the platform exposes them.
+Add interface type, CIDR prefix, netmask, gateway, and DNS visibility. MTU and RX/TX counters still require platform command parsers.
 
-- [ ] **Step 3: Verify and commit**
+- [ ] **Step 3: Add platform counters**
+
+Parse MTU and RX/TX counters from macOS `ifconfig`, Linux `ip -s addr`, and Windows adapter statistics when available.
+
+- [ ] **Step 4: Verify and commit**
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: expand interface and subnet inventory"`

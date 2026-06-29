@@ -15,6 +15,18 @@ export function formatFullInfo(inventory: SystemInventory): string {
 				(process) => `  ${process.pid}: ${process.command}`,
 			)
 		: ["  - none detected"];
+	const networkGroupLines = inventory.network.networkGroups.length
+		? inventory.network.networkGroups.map(
+				(group) =>
+					`  ${group.label}: ${group.interfaces.join(", ") || "-"} (${group.addresses.join(", ") || "-"})`,
+			)
+		: ["  - no network groups detected"];
+	const interfaceLines = inventory.network.interfaces.length
+		? inventory.network.interfaces.map(
+				(item) =>
+					`  ${item.name} ${item.kind} ${item.status} ${item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? item.ipv6 ?? "-"} mac=${item.mac ?? "-"}`,
+			)
+		: ["  - none detected"];
 
 	const lines = [
 		"picos info --full",
@@ -39,6 +51,10 @@ export function formatFullInfo(inventory: SystemInventory): string {
 		"Network",
 		`  Status:    ${inventory.network.status}`,
 		`  DNS:       ${inventory.network.dnsServers.join(", ") || "-"}`,
+		"  Groups:",
+		...networkGroupLines,
+		"  Interfaces:",
+		...interfaceLines,
 		"",
 		"Permissions",
 		`  User:      ${inventory.permission.user}`,
@@ -86,7 +102,7 @@ export async function infoCommand(
 
 	for (const item of network.interfaces) {
 		console.log(
-			`  - ${item.name}: ${item.ipv4 ?? item.ipv6 ?? "disconnected"}`,
+			`  - ${item.name}: ${item.kind} ${item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? item.ipv6 ?? "disconnected"}`,
 		);
 	}
 }
