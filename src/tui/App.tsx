@@ -1,3 +1,4 @@
+import { dirname } from "node:path";
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -94,37 +95,101 @@ export function App(): React.ReactElement {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
 	}, []);
 
-	const refreshFiles = useCallback(async () => {
-		const [root, entries] = await Promise.all([
-			fileProvider.pwd(),
-			fileProvider.list("."),
-		]);
-		setFileRoot(root);
-		setFileEntries(entries);
-		setSelectedFileIndex((index) =>
-			Math.min(index, Math.max(0, entries.length - 1)),
-		);
+	const previewFile = useCallback(
+		async (entry: FileEntry) => {
+			const read = await fileProvider.read(entry.path, { maxBytes: 6000 });
+			setEditorPreview({
+				path: read.path,
+				lines: read.content
+					.split(/\r?\n/)
+					.slice(0, 16)
+					.map((content, index) => ({ number: index + 1, content })),
+				truncated: read.truncated,
+			});
+		},
+		[fileProvider],
+	);
 
-		const previewEntry = entries.find(
-			(entry) =>
-				entry.type === "file" &&
-				/\.(md|ts|tsx|json|txt|js|mjs|cjs|yml|yaml)$/i.test(entry.name),
-		);
-		if (!previewEntry) {
-			setEditorPreview(undefined);
+	const loadFiles = useCallback(
+		async (path: string, options: { keepSelection?: boolean } = {}) => {
+			const [resolvedRoot, entries] = await Promise.all([
+				fileProvider
+					.stat(path)
+					.then((entry) => entry.path)
+					.catch(() => path),
+				fileProvider.list(path),
+			]);
+			setFileRoot(resolvedRoot);
+			setFileEntries(entries);
+			setSelectedFileIndex((index) =>
+				options.keepSelection
+					? Math.min(index, Math.max(0, entries.length - 1))
+					: 0,
+			);
+		},
+		[fileProvider],
+	);
+
+	const refreshFiles = useCallback(async () => {
+		await loadFiles(fileRoot, { keepSelection: true });
+	}, [fileRoot, loadFiles]);
+
+	const openSelectedFileEntry = useCallback(async () => {
+		const entry = fileEntries[selectedFileIndex];
+		if (!entry) {
 			return;
 		}
 
-		const read = await fileProvider.read(previewEntry.name, { maxBytes: 6000 });
-		setEditorPreview({
-			path: read.path,
-			lines: read.content
-				.split(/\r?\n/)
-				.slice(0, 16)
-				.map((content, index) => ({ number: index + 1, content })),
-			truncated: read.truncated,
-		});
-	}, [fileProvider]);
+		if (entry.type === "directory" || entry.type === "symlink") {
+			try {
+				await loadFiles(entry.path);
+				log("info", `entered ${entry.path}`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+			return;
+		}
+
+		try {
+			await previewFile(entry);
+			setScreen("editor");
+			setFocusArea("workspaces");
+			log("ok", `opened ${entry.name}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [fileEntries, loadFiles, log, previewFile, selectedFileIndex]);
+
+	const goToParentDirectory = useCallback(async () => {
+		const parent = dirname(fileRoot);
+		if (parent === fileRoot) {
+			log("info", "already at filesystem root");
+			return;
+		}
+		try {
+			await loadFiles(parent);
+			log("info", `entered ${parent}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [fileRoot, loadFiles, log]);
+
+	useEffect(() => {
+		void loadFiles(systemFileRoot);
+	}, [loadFiles, systemFileRoot]);
+
+	useEffect(() => {
+		const entry = fileEntries.find(
+			(item) =>
+				item.type === "file" &&
+				/\.(md|ts|tsx|json|txt|js|mjs|cjs|yml|yaml)$/i.test(item.name),
+		);
+		if (!entry || editorPreview) {
+			return;
+		}
+
+		previewFile(entry).catch(() => undefined);
+	}, [editorPreview, fileEntries, previewFile]);
 
 	const refresh = useCallback(async () => {
 		try {
@@ -289,9 +354,18 @@ export function App(): React.ReactElement {
 			if (screen === "actions" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "actions focus entered");
+			} else if (screen === "files" && focusArea === "workspaces") {
+				setFocusArea(enterFocus(screen, focusArea));
+				log("info", "files focus entered");
 			} else if (focusArea === "actions") {
 				runAction(actions[selectedActionIndex]);
+			} else if (focusArea === "files") {
+				void openSelectedFileEntry();
 			}
+		}
+
+		if (focusArea === "files" && input === "u") {
+			void goToParentDirectory();
 		}
 
 		if (key.escape) {
@@ -306,7 +380,7 @@ export function App(): React.ReactElement {
 			}
 		}
 		if (key.leftArrow || input === "h") {
-			if (focusArea === "actions") {
+			if (focusArea === "actions" || focusArea === "files") {
 				setFocusArea("workspaces");
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
@@ -316,6 +390,10 @@ export function App(): React.ReactElement {
 		if (key.downArrow || input === "j") {
 			if (focusArea === "actions") {
 				setSelectedActionIndex((index) => (index + 1) % actions.length);
+			} else if (focusArea === "files") {
+				setSelectedFileIndex((index) =>
+					fileEntries.length ? (index + 1) % fileEntries.length : 0,
+				);
 			} else {
 				setScreen((current) => moveScreen(current, "next"));
 			}
@@ -325,6 +403,12 @@ export function App(): React.ReactElement {
 			if (focusArea === "actions") {
 				setSelectedActionIndex(
 					(index) => (index - 1 + actions.length) % actions.length,
+				);
+			} else if (focusArea === "files") {
+				setSelectedFileIndex((index) =>
+					fileEntries.length
+						? (index - 1 + fileEntries.length) % fileEntries.length
+						: 0,
 				);
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
@@ -572,6 +656,7 @@ function renderWorkspace(
 				entries={fileEntries}
 				locations={fileLocations}
 				selectedIndex={selectedFileIndex}
+				focused={focusArea === "files"}
 				visibleRows={Math.max(6, height - 9)}
 				t={t}
 			/>
@@ -897,6 +982,7 @@ function FilesWorkspace({
 	entries,
 	locations,
 	selectedIndex,
+	focused,
 	visibleRows,
 	t,
 }: {
@@ -904,6 +990,7 @@ function FilesWorkspace({
 	entries: FileEntry[];
 	locations: FileLocation[];
 	selectedIndex: number;
+	focused: boolean;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -921,18 +1008,24 @@ function FilesWorkspace({
 				<Text bold color="cyan">
 					{t("screen.files")} · root {clip(root, 18)}
 				</Text>
-				<Text color="gray">
-					{locations.map((location) => location.label).join(" · ")}
+				<Text color={focused ? "cyan" : "gray"}>
+					{focused
+						? "files focus · j/k select · enter open · u parent · h/esc back"
+						: "enter opens file focus"}
 				</Text>
 				{locations.slice(0, 3).map((location) => (
 					<Text key={`${location.kind}:${location.path}`}>
 						{location.label.padEnd(10)} {clip(location.path, 42)}
 					</Text>
 				))}
-				<Text color="cyan">ROOT DIR</Text>
+				<Text color="cyan">DIRECTORY VIEW</Text>
 				{compactEntries.length ? (
-					compactEntries.map((entry) => (
-						<Text key={entry.path}>
+					compactEntries.map((entry, index) => (
+						<Text
+							key={entry.path}
+							color={focused && index === selectedIndex ? "cyan" : "white"}
+						>
+							{focused && index === selectedIndex ? ">" : " "}{" "}
 							{entry.type === "directory" ? "<DIR>" : formatFileSize(entry)}{" "}
 							{clip(entry.name, 44)}
 						</Text>
@@ -950,9 +1043,11 @@ function FilesWorkspace({
 			<Text bold color="cyan">
 				{t("screen.files")}
 			</Text>
-			<Text color="gray">system filesystem · root {clip(root, 34)}</Text>
-			<Text color="gray">
-				read: enabled · write/delete: locked until diff preview + confirmation
+			<Text color="gray">current {clip(root, 46)}</Text>
+			<Text color={focused ? "cyan" : "gray"}>
+				{focused
+					? "files focus · j/k select · enter open · u parent · h/esc back"
+					: "enter opens file focus · read-only navigation"}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">SYSTEM LOCATIONS</Text>
@@ -963,7 +1058,7 @@ function FilesWorkspace({
 				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="cyan">ROOT DIR VIEW</Text>
+				<Text color="cyan">DIRECTORY VIEW</Text>
 				<Text color="gray">TYPE SIZE NAME</Text>
 				{hiddenAbove > 0 ? (
 					<Text color="gray">↑ {hiddenAbove} more</Text>
@@ -974,10 +1069,11 @@ function FilesWorkspace({
 						return (
 							<Text
 								key={entry.path}
-								color={index === selectedIndex ? "cyan" : "white"}
+								color={focused && index === selectedIndex ? "cyan" : "white"}
 							>
-								{index === selectedIndex ? ">" : " "} {entry.type.padEnd(10)}{" "}
-								{formatFileSize(entry).padStart(10)} {clip(entry.name, 34)}
+								{focused && index === selectedIndex ? ">" : " "}{" "}
+								{entry.type.padEnd(10)} {formatFileSize(entry).padStart(10)}{" "}
+								{clip(entry.name, 34)}
 							</Text>
 						);
 					})
@@ -993,7 +1089,7 @@ function FilesWorkspace({
 				<Text>picos locations · picos dir / · picos dir ~</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
-					next: path input dialog · file focus · open/edit/save confirmation
+					next: path input dialog · edit/save confirmation · SFTP provider
 				</Text>
 			</Box>
 		</Box>

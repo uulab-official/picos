@@ -55,11 +55,13 @@ describe("TUI navigation", () => {
 		expect(getScreenIndex("status")).toBe(17);
 	});
 
-	test("enters and leaves child focus for Actions", () => {
+	test("enters and leaves child focus for workspace panels", () => {
 		expect(enterFocus("actions", "workspaces")).toBe("actions");
+		expect(enterFocus("files", "workspaces")).toBe("files");
 		expect(enterFocus("dashboard", "workspaces")).toBe("workspaces");
 		expect(enterFocus("actions", "actions")).toBe("actions");
 		expect(leaveFocus("actions")).toBe("workspaces");
+		expect(leaveFocus("files")).toBe("workspaces");
 		expect(leaveFocus("workspaces")).toBe("workspaces");
 	});
 
