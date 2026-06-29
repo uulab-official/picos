@@ -23,6 +23,8 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.
+- TUI Files workspace now has child focus navigation with `j/k`, `enter`, `u`, and `h`/`esc`.
+- Read-only file opening from Files into the Editor preview workspace.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28
