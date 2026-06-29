@@ -281,7 +281,7 @@ Goal: let the Routes workspace answer "which gateway/interface/source will this 
 
 ## v0.3.18 - Release Readiness And Version Policy
 
-Status: in progress.
+Status: draft PR #19.
 
 Goal: make external distribution decisions explicit before the first public npm publish.
 
@@ -290,6 +290,18 @@ Goal: make external distribution decisions explicit before the first public npm 
 - `bun run release:check` builds, validates release metadata, and runs `npm pack --dry-run`.
 - `docs/RELEASE.md` documents npm publish vs GitHub Release, version rules, and the release checklist.
 - Next: GitHub release workflow automation after the stacked v0.3 PRs are merged.
+
+## v0.3.19 - Release Automation Guardrails
+
+Status: draft PR #20.
+
+Goal: move release readiness from local-only checks into CI and add a safe manual publish path.
+
+- CI runs `bun run release:check` in a dedicated release readiness job.
+- Manual `Release` workflow runs verify, release check, and npm publish only when `dry_run` is disabled.
+- npm publish requires `NPM_TOKEN`; dry-run remains the default.
+- Workflow safety is covered by tests that assert CI and release workflow guardrails.
+- Next: version bump helper and tag/release note generation after the v0.3 stack is merged.
 
 ## lazyifconfig Parity Backlog
 

@@ -53,6 +53,21 @@ commands, and locked future actions while the package remains pre-1.0.
 8. Run `npm publish --access public` when publishing `@uulab/picos` for the
    first public scoped release.
 
+## GitHub Actions
+
+CI runs `bun run verify` on Linux, macOS, and Windows, then runs
+`bun run release:check` on Linux to validate package metadata and the dry-run
+npm package contents.
+
+The `Release` workflow is manual (`workflow_dispatch`) and defaults to
+`dry_run: true`. Use dry-run first for every release candidate. To publish to
+npm, the repository must have an `NPM_TOKEN` secret, and the workflow must be
+run with `dry_run: false`.
+
+The manual workflow does not create tags or GitHub Releases yet. Keep tag and
+release creation as an explicit maintainer action until the first public npm
+publish process has settled.
+
 ## Current Decision
 
 Do not publish yet. The package has enough metadata for a future public scoped
