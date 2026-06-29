@@ -114,6 +114,18 @@ export function getNextIndex(
 	return (normalized + offset + total) % total;
 }
 
+export function getLocationShortcutIndex(
+	input: string,
+	locationCount: number,
+): number | undefined {
+	if (locationCount <= 0 || !/^[1-9]$/.test(input)) {
+		return undefined;
+	}
+
+	const index = Number(input) - 1;
+	return index < locationCount ? index : undefined;
+}
+
 export function getVisibleWindow(
 	total: number,
 	selectedIndex: number,

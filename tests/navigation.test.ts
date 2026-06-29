@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	enterFocus,
+	getLocationShortcutIndex,
 	getNextIndex,
 	getScreenByShortcut,
 	getScreenIndex,
@@ -80,5 +81,14 @@ describe("TUI navigation", () => {
 		expect(getNextIndex(2, 4, "previous")).toBe(1);
 		expect(getNextIndex(99, 4, "next")).toBe(0);
 		expect(getNextIndex(0, 0, "next")).toBe(0);
+	});
+
+	test("maps number shortcuts to file locations inside Files focus", () => {
+		expect(getLocationShortcutIndex("1", 4)).toBe(0);
+		expect(getLocationShortcutIndex("4", 4)).toBe(3);
+		expect(getLocationShortcutIndex("5", 4)).toBeUndefined();
+		expect(getLocationShortcutIndex("0", 4)).toBeUndefined();
+		expect(getLocationShortcutIndex("x", 4)).toBeUndefined();
+		expect(getLocationShortcutIndex("1", 0)).toBeUndefined();
 	});
 });

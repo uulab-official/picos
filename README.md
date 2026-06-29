@@ -38,7 +38,7 @@ Keyboard controls:
 - `left/right` or `h/l`: move between workspaces
 - `up/down` or `j/k`: move through workspaces, or actions inside Action Center
 - `enter`: enter the focused workspace mode, run the selected action, open a directory, or preview a file
-- Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `:` opens path input, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
+- Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `1-9` jumps system locations, `:` opens path input, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh
@@ -163,7 +163,7 @@ v0.2 expands picos toward an OS-like console:
 - DOS-style file navigation and text editing are planned after the read-only inventory and network tool layer is stable.
 
 v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
-The Files workspace now supports keyboard-driven local navigation, direct path input, system location jumps, and read-only file preview into the Editor workspace.
+The Files workspace now supports keyboard-driven local navigation, numbered system location jumps, direct path input, and read-only file preview into the Editor workspace.
 
 ## Privacy Direction
 

@@ -87,7 +87,7 @@ Goal: make the Files workspace feel more like an OS file panel with quick system
 
 ## v0.3.3 - Path Command Line
 
-Status: in progress on `codex/picos-v0.3.3-path-command-line`.
+Status: draft PR #4.
 
 Goal: add the first DOS-like command prompt inside the Files workspace.
 
@@ -99,7 +99,19 @@ Goal: add the first DOS-like command prompt inside the Files workspace.
 - Failed path jumps are reported in the event log.
 - Next: location selection by number and command palette dialog.
 
-## v0.3.4 - SFTP-like Remote Files
+## v0.3.4 - Numbered Location Shortcuts
+
+Status: in progress on `codex/picos-v0.3.4-location-number-shortcuts`.
+
+Goal: make the Files workspace faster to operate from the keyboard.
+
+- Files focus maps `1-9` to visible system locations.
+- Numbered quick locations are shown in compact and full Files layouts.
+- Number shortcuts override global workspace shortcuts only while Files child focus is active.
+- Failed jumps are reported in the event log.
+- Next: command palette dialog and SFTP-like remote profile stubs.
+
+## v0.3.5 - SFTP-like Remote Files
 
 Goal: add remote file browsing through the same provider model as local files.
 
