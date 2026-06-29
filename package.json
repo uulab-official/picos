@@ -6,6 +6,15 @@
 	"bin": {
 		"picos": "./dist/bin/picos.js"
 	},
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md",
+		"LICENSE"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"dev": "bun src/bin/picos.ts",
 		"build": "bun build src/bin/picos.ts --outdir dist/bin --target node --external ink --external react",
@@ -15,6 +24,7 @@
 		"format": "biome format . --write",
 		"smoke": "bun scripts/harness.ts smoke",
 		"verify": "bun scripts/harness.ts verify",
+		"release:check": "bun run build && bun scripts/releaseCheck.ts && npm pack --dry-run",
 		"harness": "bun scripts/harness.ts"
 	},
 	"keywords": [

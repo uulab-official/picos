@@ -159,6 +159,12 @@ See [docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md](docs/superpo
 
 See [ROADMAP.md](ROADMAP.md) for the sequential version plan.
 
+## Release Status
+
+The package is still unpublished. External installation needs an npm publish;
+a GitHub Release is not required by npm, but picos uses releases and tags as
+the public version history. See [docs/RELEASE.md](docs/RELEASE.md).
+
 ## OS Console Direction
 
 v0.2 expands picos toward an OS-like console:
