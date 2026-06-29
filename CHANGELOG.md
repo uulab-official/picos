@@ -35,6 +35,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Command palette filtering by command id, title, description, category, risk, or privilege.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
+- Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28
