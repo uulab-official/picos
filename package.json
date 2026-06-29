@@ -25,6 +25,9 @@
 		"smoke": "bun scripts/harness.ts smoke",
 		"verify": "bun scripts/harness.ts verify",
 		"release:check": "bun run build && bun scripts/releaseCheck.ts && npm pack --dry-run",
+		"version:plan": "bun scripts/version.ts plan",
+		"version:next": "bun scripts/version.ts next",
+		"version:set": "bun scripts/version.ts set",
 		"harness": "bun scripts/harness.ts"
 	},
 	"keywords": [

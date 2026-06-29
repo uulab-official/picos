@@ -43,6 +43,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Routes workspace destination lookup prompt for inspecting the gateway/interface/source path to a host or IP.
 - Release readiness policy, package publish metadata, and `bun run release:check` for pre-publish validation.
 - CI release readiness job and manual dry-run-first npm release workflow.
+- Version bump helper for dry-run planning and synchronized `package.json` / runtime `VERSION` updates.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28

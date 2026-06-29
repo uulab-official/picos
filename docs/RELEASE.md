@@ -28,6 +28,17 @@ Two files must stay synchronized:
 
 `bun run release:check` fails when they diverge.
 
+Use the version helper before publishing:
+
+```bash
+bun run version:plan 0.3.0
+bun run version:next minor
+bun run version:set 0.3.0 --write
+```
+
+`version:plan` and `version:next` are dry-run commands. `version:set` is also a
+dry-run unless `--write` is provided.
+
 ## 0.x Version Rules
 
 - `0.2.x`: current local preview baseline.
@@ -45,12 +56,14 @@ commands, and locked future actions while the package remains pre-1.0.
 
 1. Merge stacked feature PRs in order.
 2. Pick the published version and update both version files.
-3. Move relevant `CHANGELOG.md` entries out of `[Unreleased]`.
-4. Run `bun run verify`.
-5. Run `bun run release:check`.
-6. Create and push a `vX.Y.Z` tag.
-7. Create a GitHub Release from the tag.
-8. Run `npm publish --access public` when publishing `@uulab/picos` for the
+3. Run `bun run version:plan <version>`.
+4. Run `bun run version:set <version> --write`.
+5. Move relevant `CHANGELOG.md` entries out of `[Unreleased]`.
+6. Run `bun run verify`.
+7. Run `bun run release:check`.
+8. Create and push a `vX.Y.Z` tag.
+9. Create a GitHub Release from the tag.
+10. Run `npm publish --access public` when publishing `@uulab/picos` for the
    first public scoped release.
 
 ## GitHub Actions

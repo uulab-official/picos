@@ -165,6 +165,14 @@ The package is still unpublished. External installation needs an npm publish;
 a GitHub Release is not required by npm, but picos uses releases and tags as
 the public version history. See [docs/RELEASE.md](docs/RELEASE.md).
 
+Release helpers:
+
+```bash
+bun run version:plan 0.3.0
+bun run version:set 0.3.0 --write
+bun run release:check
+```
+
 ## OS Console Direction
 
 v0.2 expands picos toward an OS-like console:
