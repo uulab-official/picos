@@ -43,7 +43,7 @@ export const screenOrder: Screen[] = [
 	"logs",
 ];
 
-export type FocusArea = "workspaces" | "actions" | "files";
+export type FocusArea = "workspaces" | "actions" | "files" | "remotes";
 
 const shortcuts: Record<string, Screen> = {
 	"1": "dashboard",
@@ -92,11 +92,14 @@ export function enterFocus(screen: Screen, current: FocusArea): FocusArea {
 	if (screen === "files" && current === "workspaces") {
 		return "files";
 	}
+	if (screen === "remotes" && current === "workspaces") {
+		return "remotes";
+	}
 	return current;
 }
 
 export function leaveFocus(current: FocusArea): FocusArea {
-	if (current === "actions" || current === "files") {
+	if (current === "actions" || current === "files" || current === "remotes") {
 		return "workspaces";
 	}
 	return current;

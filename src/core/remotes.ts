@@ -3,6 +3,15 @@ import type { SftpRemoteProfile } from "./types";
 
 type RemoteProfileInput = Record<string, unknown>;
 
+export type RemoteFileContext = {
+	id: string;
+	kind: "sftp";
+	label: string;
+	root: string;
+	status: "adapter pending";
+	writes: "locked";
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -33,16 +42,29 @@ export function formatRemoteProfiles(profiles: SftpRemoteProfile[]): string {
 export async function formatRemoteProviderStatus(
 	profile: SftpRemoteProfile,
 ): Promise<string> {
-	const provider = createFileProvider({ kind: "sftp", profile });
-	const root = await provider.pwd();
+	const context = await createRemoteFileContext(profile);
 
 	return [
-		`Profile: ${profile.id}`,
-		`Provider: ${provider.kind}`,
-		`Root: ${root}`,
-		"Status: adapter pending",
+		`Profile: ${context.id}`,
+		`Provider: ${context.kind}`,
+		`Root: ${context.root}`,
+		`Status: ${context.status}`,
 		"Writes: locked until host and path confirmation",
 	].join("\n");
+}
+
+export async function createRemoteFileContext(
+	profile: SftpRemoteProfile,
+): Promise<RemoteFileContext> {
+	const provider = createFileProvider({ kind: "sftp", profile });
+	return {
+		id: profile.id,
+		kind: "sftp",
+		label: profile.id,
+		root: await provider.pwd(),
+		status: "adapter pending",
+		writes: "locked",
+	};
 }
 
 function normalizeSftpProfile(

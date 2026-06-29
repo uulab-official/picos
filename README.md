@@ -168,7 +168,7 @@ v0.2 expands picos toward an OS-like console:
 - DOS-style file navigation and text editing are planned after the read-only inventory and network tool layer is stable.
 
 v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
-The Files workspace supports keyboard-driven local navigation, numbered system location jumps, direct path input, and read-only file preview into the Editor workspace. The Remotes workspace surfaces configured SFTP-style profiles without opening network sessions.
+The Files workspace supports keyboard-driven local navigation, numbered system location jumps, direct path input, and read-only file preview into the Editor workspace. The Remotes workspace surfaces configured SFTP-style profiles, lets you stage a locked remote file context, and never opens network sessions yet.
 
 ## Privacy Direction
 

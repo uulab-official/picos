@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
+	createRemoteFileContext,
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
 	normalizeRemoteProfiles,
@@ -103,5 +104,25 @@ describe("remote profiles", () => {
 		expect(output).toContain("Provider: sftp");
 		expect(output).toContain("Root: sftp://alice@dev.example.com:22/srv/app");
 		expect(output).toContain("Status: adapter pending");
+	});
+
+	test("creates a locked remote file context for selected profiles", async () => {
+		const context = await createRemoteFileContext({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(context).toEqual({
+			id: "dev",
+			kind: "sftp",
+			label: "dev",
+			root: "sftp://alice@dev.example.com:22/srv/app",
+			status: "adapter pending",
+			writes: "locked",
+		});
 	});
 });
