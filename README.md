@@ -170,6 +170,7 @@ Release helpers:
 ```bash
 bun run version:plan 0.3.0
 bun run version:set 0.3.0 --write
+bun run release:notes 0.3.0
 bun run release:check
 ```
 
