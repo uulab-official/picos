@@ -44,7 +44,7 @@ Goal: implement the lazyifconfig feature set in picos, starting with read-only T
 
 ## v0.3.0 - DOS/File Manager, Editor, and Dialogs
 
-Status: in progress.
+Status: draft PR #17.
 
 Goal: add the first local filesystem console that is useful in daily work.
 
@@ -267,13 +267,25 @@ Goal: make the Routes workspace useful as an OS console panel instead of a stage
 - `routes.inspect` action refreshes route data and reports the route count in the event dock.
 - Next: destination path lookup UI, sortable route rows, and raw output tabs for ports/connections/tools.
 
+## v0.3.17 - Route Path Lookup UI
+
+Status: draft PR #18.
+
+Goal: let the Routes workspace answer "which gateway/interface/source will this destination use?" without leaving the TUI.
+
+- Routes workspace accepts `:` input for a destination host or IP.
+- `routes.path` action opens the same destination prompt from Actions or the command palette.
+- Route path results show destination, gateway, interface, source IP, and raw path output.
+- Route path formatting is covered by focused tests.
+- Next: sortable route rows, VPN route hints, and raw output tabs for ports/connections/tools.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
 - Interface details: MAC/prefix/gateway and MTU/RX/TX counters landed; next sortable rows and raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
-- Route Inspector depth: route diagnostics and raw output view landed; next VPN route hints and destination path lookup UI.
+- Route Inspector depth: route diagnostics, raw output view, and destination path lookup UI landed; next VPN route hints.
 - Connections and Ports: sorting, filtering, details panes, process metadata, safe copy actions.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: address/status/public-IP changes and local export.

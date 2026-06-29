@@ -40,6 +40,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - lazyifconfig-style interface kind classification, CIDR prefix capture, network grouping, and denser Network/Interfaces TUI panels.
 - Interface MTU and RX/TX byte/packet counters from macOS, Linux, and Windows adapter statistics, surfaced in CLI and TUI network inventory.
 - Routes workspace now shows live route diagnostics, route rows, and raw command output instead of a staged placeholder.
+- Routes workspace destination lookup prompt for inspecting the gateway/interface/source path to a host or IP.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28

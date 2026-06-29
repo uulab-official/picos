@@ -1,4 +1,4 @@
-import type { RouteTableResult } from "../core/routes";
+import type { RoutePathResult, RouteTableResult } from "../core/routes";
 
 export function formatRouteWorkspaceRows(
 	result: RouteTableResult,
@@ -61,6 +61,19 @@ export function formatRouteRawRows(
 	const visible = lines.slice(0, visibleRows);
 	const hidden = Math.max(0, lines.length - visible.length);
 	return hidden > 0 ? [...visible, `↓ ${hidden} more raw lines`] : visible;
+}
+
+export function formatRoutePathRows(
+	result: RoutePathResult,
+	visibleRows: number,
+): string[] {
+	const rows = [
+		`PATH destination=${result.destination}`,
+		`gateway=${result.gateway ?? "-"} interface=${result.interfaceName ?? "-"} source=${result.sourceIp ?? "-"}`,
+		"RAW PATH",
+		...formatRouteRawRows(result.rawOutput, Math.max(0, visibleRows - 3)),
+	];
+	return rows.slice(0, visibleRows);
 }
 
 function clip(value: string, width: number): string {

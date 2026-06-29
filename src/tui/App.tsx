@@ -26,7 +26,12 @@ import {
 	type RemoteFileContext,
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
-import { type RouteTableResult, runRouteTable } from "../core/routes";
+import {
+	type RoutePathResult,
+	type RouteTableResult,
+	runRoutePath,
+	runRouteTable,
+} from "../core/routes";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
 import type {
@@ -86,7 +91,7 @@ import {
 	moveCommandPalette,
 	openCommandPalette,
 } from "./palette";
-import { formatRouteWorkspaceRows } from "./routePanel";
+import { formatRoutePathRows, formatRouteWorkspaceRows } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 
 type CommandStatus = "idle" | "running";
@@ -152,6 +157,7 @@ export function App(): React.ReactElement {
 	const [connections, setConnections] = useState<ActiveConnection[]>([]);
 	const [ports, setPorts] = useState<ListeningPort[]>([]);
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
+	const [routePath, setRoutePath] = useState<RoutePathResult>();
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -322,6 +328,26 @@ export function App(): React.ReactElement {
 		}
 	}, [commandLine.value, fileRoot, loadFiles, log]);
 
+	const submitRouteDestinationCommand = useCallback(async () => {
+		const destination = commandLine.value.trim();
+		if (!destination) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("info", "route path command cancelled");
+			return;
+		}
+
+		try {
+			const result = await runRoutePath(destination);
+			setRoutePath(result);
+			setScreen("routes");
+			log("ok", `route path ${result.destination}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		} finally {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+	}, [commandLine.value, log]);
+
 	const goBackFileHistory = useCallback(async () => {
 		const next = popFileHistory(fileHistory);
 		setFileHistory(next.history);
@@ -478,6 +504,12 @@ export function App(): React.ReactElement {
 					log("ok", `routes listed ${result.routes.length}`);
 				}
 
+				if (action.id === "routes.path") {
+					setScreen("routes");
+					setCommandLine(openCommandLine("route"));
+					log("info", "route destination prompt opened");
+				}
+
 				if (
 					action.id === "network.connect" ||
 					action.id === "tools.dns" ||
@@ -487,7 +519,6 @@ export function App(): React.ReactElement {
 					action.id === "tools.tls" ||
 					action.id === "timeline.export" ||
 					action.id === "raw.view" ||
-					action.id === "routes.path" ||
 					action.id === "remote.sftp.connect"
 				) {
 					log("info", `${action.id} queued for adapter implementation`);
@@ -539,12 +570,21 @@ export function App(): React.ReactElement {
 		if (commandLine.active) {
 			if (key.escape) {
 				setCommandLine((current) => closeCommandLine(current));
-				log("info", "path command cancelled");
+				log(
+					"info",
+					commandLine.prompt === "route"
+						? "route path command cancelled"
+						: "path command cancelled",
+				);
 				return;
 			}
 
 			if (key.return) {
-				void submitPathCommand();
+				if (commandLine.prompt === "route") {
+					void submitRouteDestinationCommand();
+				} else {
+					void submitPathCommand();
+				}
 				return;
 			}
 
@@ -742,6 +782,11 @@ export function App(): React.ReactElement {
 			log("info", "path command opened");
 		}
 
+		if (screen === "routes" && focusArea === "workspaces" && input === ":") {
+			setCommandLine(openCommandLine("route"));
+			log("info", "route destination prompt opened");
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -853,6 +898,7 @@ export function App(): React.ReactElement {
 					connections={connections}
 					ports={ports}
 					routeTable={routeTable}
+					routePath={routePath}
 					events={events}
 					t={t}
 				/>
@@ -976,6 +1022,7 @@ function MainWorkspace({
 	connections,
 	ports,
 	routeTable,
+	routePath,
 	events,
 	t,
 }: {
@@ -1005,6 +1052,7 @@ function MainWorkspace({
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
 	routeTable?: RouteTableResult;
+	routePath?: RoutePathResult;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -1043,6 +1091,7 @@ function MainWorkspace({
 					connections,
 					ports,
 					routeTable,
+					routePath,
 					events,
 					height,
 					t,
@@ -1076,6 +1125,7 @@ function renderWorkspace(
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
 	routeTable: RouteTableResult | undefined,
+	routePath: RoutePathResult | undefined,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -1170,6 +1220,8 @@ function renderWorkspace(
 		return (
 			<RoutesWorkspace
 				routeTable={routeTable}
+				routePath={routePath}
+				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
 				t={t}
 			/>
@@ -2105,16 +2157,31 @@ function PortsWorkspace({
 
 function RoutesWorkspace({
 	routeTable,
+	routePath,
+	commandLine,
 	visibleRows,
 	t,
 }: {
 	routeTable?: RouteTableResult;
+	routePath?: RoutePathResult;
+	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const rows = routeTable
-		? formatRouteWorkspaceRows(routeTable, visibleRows)
+	const promptRows =
+		commandLine.active && commandLine.prompt === "route"
+			? [`:route ${commandLine.value || " "}`]
+			: [];
+	const pathRows = routePath
+		? formatRoutePathRows(routePath, Math.max(4, Math.floor(visibleRows / 3)))
+		: ["PATH destination lookup: press : then enter host or IP"];
+	const tableRows = routeTable
+		? formatRouteWorkspaceRows(
+				routeTable,
+				Math.max(4, visibleRows - pathRows.length - promptRows.length),
+			)
 		: ["loading route table..."];
+	const rows = [...tableRows, ...pathRows, ...promptRows].slice(0, visibleRows);
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
 		const count = rowCounts.get(row) ?? 0;
@@ -2131,7 +2198,11 @@ function RoutesWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {
 					const isSection =
-						row === "DIAGNOSTICS" || row === "ROUTES" || row === "RAW OUTPUT";
+						row === "DIAGNOSTICS" ||
+						row === "ROUTES" ||
+						row === "RAW OUTPUT" ||
+						row === "RAW PATH" ||
+						row.startsWith("PATH ");
 					return (
 						<Text
 							key={key}

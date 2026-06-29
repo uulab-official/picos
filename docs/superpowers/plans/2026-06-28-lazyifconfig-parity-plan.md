@@ -164,7 +164,7 @@ picos routes
 picos route 8.8.8.8
 ```
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: add route inspector foundation"`
@@ -290,10 +290,38 @@ Replace the staged Routes placeholder with live `runRouteTable()` data and rende
 
 Make `routes.inspect` run the adapter-backed route table command and update the event dock with the discovered route count.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: show route diagnostics and raw output in TUI"`
+
+### Task 8: Route Path Lookup UI
+
+**Files:**
+- Modify: `src/tui/routePanel.ts`
+- Modify: `src/tui/App.tsx`
+- Test: `tests/routePanel.test.ts`
+
+- [x] **Step 1: Add route path formatter test**
+
+Verify destination, gateway, interface, source IP, and raw path output are rendered as stable rows.
+
+- [x] **Step 2: Add route path formatter**
+
+Create `formatRoutePathRows()` for the Routes workspace.
+
+- [x] **Step 3: Wire destination input**
+
+Use `:` in the Routes workspace to open a route destination prompt and run `runRoutePath()`.
+
+- [x] **Step 4: Wire `routes.path` action**
+
+Make the action open the same prompt instead of logging a queued placeholder.
+
+- [ ] **Step 5: Verify and commit**
+
+Run: `bun run verify`
+Commit: `git commit -m "feat: add route path lookup to TUI"`
 
 ## Current Execution Choice
 
