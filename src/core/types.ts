@@ -6,14 +6,43 @@ export type NetworkStatus = "online" | "offline";
 
 export type InterfaceStatus = "connected" | "disconnected";
 
+export type NetworkInterfaceKind =
+	| "wifiOrEthernet"
+	| "loopback"
+	| "vpn"
+	| "bridge"
+	| "container"
+	| "linkLocal"
+	| "unknown";
+
+export type NetworkGroupKind =
+	| "lan"
+	| "loopback"
+	| "vpn"
+	| "container"
+	| "linkLocal"
+	| "public"
+	| "unassigned";
+
 export type NetworkInterfaceMap = NodeJS.Dict<NetworkInterfaceInfo[]>;
 
 export type NetworkInterfaceSummary = {
 	name: string;
 	status: InterfaceStatus;
+	kind: NetworkInterfaceKind;
 	ipv4?: string;
 	ipv6?: string;
+	ipv4Cidr?: string;
+	ipv6Cidr?: string;
+	netmask?: string;
 	mac?: string;
+};
+
+export type NetworkGroupSummary = {
+	kind: NetworkGroupKind;
+	label: string;
+	interfaces: string[];
+	addresses: string[];
 };
 
 export type NetworkSummary = {
@@ -21,6 +50,7 @@ export type NetworkSummary = {
 	host: string;
 	platform: SupportedPlatform;
 	interfaces: NetworkInterfaceSummary[];
+	networkGroups: NetworkGroupSummary[];
 	primaryInterface?: NetworkInterfaceSummary;
 	gateway?: string;
 	dnsServers: string[];

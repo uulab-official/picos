@@ -1131,10 +1131,22 @@ function renderWorkspace(
 		return <ProcessesWorkspace inventory={inventory} />;
 	}
 	if (screen === "network") {
-		return <NetworkWorkspace summary={summary} t={t} />;
+		return (
+			<NetworkWorkspace
+				summary={summary}
+				visibleRows={Math.max(6, height - 8)}
+				t={t}
+			/>
+		);
 	}
 	if (screen === "interfaces") {
-		return <InterfacesWorkspace summary={summary} t={t} />;
+		return (
+			<InterfacesWorkspace
+				summary={summary}
+				visibleRows={Math.max(6, height - 8)}
+				t={t}
+			/>
+		);
 	}
 	if (screen === "routes") {
 		return (
@@ -1855,22 +1867,63 @@ function ProcessesWorkspace({
 
 function NetworkWorkspace({
 	summary,
+	visibleRows,
 	t,
 }: {
 	summary?: NetworkSummary;
+	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const groupRows = Math.min(summary?.networkGroups.length ?? 0, 4);
+	const interfaceRows = Math.max(1, visibleRows - groupRows - 6);
+	const visibleInterfaces = summary?.interfaces.slice(0, interfaceRows) ?? [];
+	const hiddenInterfaces = Math.max(
+		0,
+		(summary?.interfaces.length ?? 0) - visibleInterfaces.length,
+	);
+
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.network")}</Text>
-			<Text color="gray">read-only adapter state</Text>
+			<Text color="gray">
+				lazyifconfig-style groups · LAN/VPN/container/link-local/public
+			</Text>
 			<Box marginTop={1} flexDirection="column">
-				{summary?.interfaces.map((item) => (
+				<Text color="cyan">NETWORK GROUPS</Text>
+				{summary ? (
+					summary.networkGroups.length ? (
+						summary.networkGroups.slice(0, groupRows).map((group) => (
+							<Text key={group.kind}>
+								{clip(group.label, 9).padEnd(9)} if=
+								{clip(group.interfaces.join(","), 14) || "-"} addr=
+								{clip(group.addresses.join(","), 18)}
+							</Text>
+						))
+					) : (
+						<Text color="gray">no grouped networks detected</Text>
+					)
+				) : (
+					<Text color="gray">loading...</Text>
+				)}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">INTERFACES</Text>
+				{visibleInterfaces.map((item) => (
 					<Text key={item.name}>
-						{item.name.padEnd(12)} {item.status.padEnd(12)} IPv4=
-						{item.ipv4 ?? "-"} IPv6={item.ipv6 ?? "-"}
+						{clip(item.name, 8).padEnd(8)} {clip(item.kind, 12).padEnd(12)}{" "}
+						{clip(
+							item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? item.ipv6 ?? "-",
+							28,
+						)}
 					</Text>
-				)) ?? <Text color="gray">loading...</Text>}
+				))}
+				{summary ? null : <Text color="gray">loading...</Text>}
+				{summary && visibleInterfaces.length === 0 ? (
+					<Text color="gray">no interfaces detected</Text>
+				) : null}
+				{hiddenInterfaces > 0 ? (
+					<Text color="gray">↓ {hiddenInterfaces} more interfaces</Text>
+				) : null}
 			</Box>
 		</Box>
 	);
@@ -1878,22 +1931,57 @@ function NetworkWorkspace({
 
 function InterfacesWorkspace({
 	summary,
+	visibleRows,
 	t,
 }: {
 	summary?: NetworkSummary;
+	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const summaryRows = Math.max(1, Math.floor((visibleRows - 5) / 2));
+	const detailRows = Math.max(1, visibleRows - summaryRows - 7);
+	const visibleInterfaces = summary?.interfaces.slice(0, summaryRows) ?? [];
+	const detailInterfaces = summary?.interfaces.slice(0, detailRows) ?? [];
+	const hiddenInterfaces = Math.max(
+		0,
+		(summary?.interfaces.length ?? 0) - Math.max(summaryRows, detailRows),
+	);
+
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.interfaces")}</Text>
-			<Text color="gray">inventory: status, IP, MAC, and future counters</Text>
+			<Text color="gray">
+				inventory: type, status, CIDR prefix, MAC, gateway, and DNS
+			</Text>
 			<Box marginTop={1} flexDirection="column">
-				{summary?.interfaces.map((item) => (
+				{visibleInterfaces.map((item) => (
 					<Text key={item.name}>
-						{item.name.padEnd(12)} {item.status.padEnd(12)} mac=
-						{item.mac ?? "-"} ip={item.ipv4 ?? item.ipv6 ?? "-"}
+						{clip(item.name, 8).padEnd(8)} {clip(item.kind, 12).padEnd(12)}{" "}
+						{item.status === "connected" ? "up  " : "down"}{" "}
+						{clip(item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? "-", 24)}
 					</Text>
-				)) ?? <Text color="gray">loading...</Text>}
+				))}
+				{summary ? null : <Text color="gray">loading...</Text>}
+				{summary && visibleInterfaces.length === 0 ? (
+					<Text color="gray">no interfaces detected</Text>
+				) : null}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">DETAILS</Text>
+				{detailInterfaces.map((item) => (
+					<Text key={`${item.name}:details`}>
+						{clip(item.name, 8).padEnd(8)} mac={clip(item.mac ?? "-", 17)} mask=
+						{clip(item.netmask ?? "-", 14)}
+					</Text>
+				))}
+				{summary ? null : <Text color="gray">loading...</Text>}
+				{hiddenInterfaces > 0 ? (
+					<Text color="gray">↓ {hiddenInterfaces} more interfaces</Text>
+				) : null}
+				<Text>
+					gateway {summary?.gateway ?? "-"} dns{" "}
+					{clip(summary?.dnsServers.join(", ") || "-", 42)}
+				</Text>
 			</Box>
 		</Box>
 	);
