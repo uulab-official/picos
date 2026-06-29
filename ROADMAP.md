@@ -61,7 +61,7 @@ Goal: add the first local filesystem console that is useful in daily work.
 
 ## v0.3.1 - Keyboard File Navigation
 
-Status: in progress on `codex/picos-v0.3.1-file-navigation`.
+Status: draft PR #2.
 
 Goal: make the Files workspace usable as a keyboard-driven local file manager.
 
@@ -73,7 +73,19 @@ Goal: make the Files workspace usable as a keyboard-driven local file manager.
 - Permission and missing-file failures are reported in the event log.
 - Next: path input dialog, copy/move/delete previews, and editor dirty-state controls.
 
-## v0.3.2 - SFTP-like Remote Files
+## v0.3.2 - File Location Jumps
+
+Status: in progress on `codex/picos-v0.3.2-file-location-jumps`.
+
+Goal: make the Files workspace feel more like an OS file panel with quick system entry points.
+
+- `g` cycles through root, home, workspace, temp, and drive locations.
+- The active quick location is highlighted in the Files panel.
+- Location jumps reuse the same safe local provider boundary as normal file listing.
+- Failed jumps are reported in the event log.
+- Next: direct path input dialog and location selection by number.
+
+## v0.3.3 - SFTP-like Remote Files
 
 Goal: add remote file browsing through the same provider model as local files.
 
