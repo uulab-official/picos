@@ -55,8 +55,11 @@ import {
 	screenOrder,
 } from "./navigation";
 import {
+	appendCommandPaletteQuery,
+	backspaceCommandPaletteQuery,
 	type CommandPaletteState,
 	closeCommandPalette,
+	getFilteredPaletteActions,
 	getPaletteAction,
 	moveCommandPalette,
 	openCommandPalette,
@@ -111,6 +114,7 @@ export function App(): React.ReactElement {
 	const [palette, setPalette] = useState<CommandPaletteState>({
 		active: false,
 		selectedIndex: 0,
+		query: "",
 	});
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
 	const [connections, setConnections] = useState<ActiveConnection[]>([]);
@@ -434,6 +438,7 @@ export function App(): React.ReactElement {
 		}
 
 		if (palette.active) {
+			const filteredActions = getFilteredPaletteActions(actions, palette);
 			if (key.escape || input === "q") {
 				setPalette((current) => closeCommandPalette(current));
 				log("info", "command palette closed");
@@ -451,18 +456,24 @@ export function App(): React.ReactElement {
 
 			if (key.downArrow || input === "j") {
 				setPalette((current) =>
-					moveCommandPalette(current, actions.length, "next"),
+					moveCommandPalette(current, filteredActions.length, "next"),
 				);
 				return;
 			}
 
 			if (key.upArrow || input === "k") {
 				setPalette((current) =>
-					moveCommandPalette(current, actions.length, "previous"),
+					moveCommandPalette(current, filteredActions.length, "previous"),
 				);
 				return;
 			}
 
+			if (key.backspace || key.delete) {
+				setPalette((current) => backspaceCommandPaletteQuery(current));
+				return;
+			}
+
+			setPalette((current) => appendCommandPaletteQuery(current, input));
 			return;
 		}
 
@@ -839,10 +850,13 @@ function renderWorkspace(
 	t: (key: string) => string,
 ): React.ReactElement {
 	if (palette.active) {
+		const filteredActions = getFilteredPaletteActions(actions, palette);
 		return (
 			<CommandPaletteWorkspace
-				actions={actions}
+				actions={filteredActions}
 				selectedIndex={palette.selectedIndex}
+				query={palette.query}
+				totalActions={actions.length}
 				visibleRows={Math.max(3, height - 8)}
 			/>
 		);
@@ -1809,10 +1823,14 @@ function ActionWorkspace({
 function CommandPaletteWorkspace({
 	actions,
 	selectedIndex,
+	query,
+	totalActions,
 	visibleRows,
 }: {
 	actions: PicosAction[];
 	selectedIndex: number;
+	query: string;
+	totalActions: number;
 	visibleRows: number;
 }): React.ReactElement {
 	const window = getVisibleWindow(actions.length, selectedIndex, visibleRows);
@@ -1824,7 +1842,8 @@ function CommandPaletteWorkspace({
 	return (
 		<Box flexDirection="column">
 			<Text bold color="cyan">
-				Command Palette · j/k select · enter run · esc/q close
+				Palette /{query.length > 0 ? query : "type"} · {actions.length}/
+				{totalActions} · j/k enter esc/q
 			</Text>
 			{hiddenAbove > 0 ? (
 				<Text color="gray">↑ {hiddenAbove} more commands</Text>

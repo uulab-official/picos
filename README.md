@@ -38,7 +38,7 @@ Keyboard controls:
 - `left/right` or `h/l`: move between workspaces
 - `up/down` or `j/k`: move through workspaces, or actions inside Action Center
 - `enter`: enter the focused workspace mode, run the selected action, open a directory, or preview a file
-- `?` or `/`: open the command palette
+- `?` or `/`: open the command palette, then type to filter commands
 - Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `1-9` jumps system locations, `:` opens path input, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
 - `d`: run doctor
 - `p`: ping the default host
