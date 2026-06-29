@@ -75,7 +75,7 @@ Goal: make the Files workspace usable as a keyboard-driven local file manager.
 
 ## v0.3.2 - File Location Jumps
 
-Status: in progress on `codex/picos-v0.3.2-file-location-jumps`.
+Status: draft PR #3.
 
 Goal: make the Files workspace feel more like an OS file panel with quick system entry points.
 
@@ -85,7 +85,21 @@ Goal: make the Files workspace feel more like an OS file panel with quick system
 - Failed jumps are reported in the event log.
 - Next: direct path input dialog and location selection by number.
 
-## v0.3.3 - SFTP-like Remote Files
+## v0.3.3 - Path Command Line
+
+Status: in progress on `codex/picos-v0.3.3-path-command-line`.
+
+Goal: add the first DOS-like command prompt inside the Files workspace.
+
+- `:` opens a path input line while Files focus is active.
+- Typed paths support the same local provider rules as CLI file commands, including absolute paths and `~`.
+- `enter` submits and lists the target directory.
+- `esc` cancels the prompt.
+- `backspace` edits the buffer.
+- Failed path jumps are reported in the event log.
+- Next: location selection by number and command palette dialog.
+
+## v0.3.4 - SFTP-like Remote Files
 
 Goal: add remote file browsing through the same provider model as local files.
 
