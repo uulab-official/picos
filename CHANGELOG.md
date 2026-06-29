@@ -32,6 +32,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Shared local/SFTP file provider factory with locked SFTP provider placeholders and `picos remote <id>` inspection.
 - TUI Remotes workspace for configured profile visibility and provider lock status.
 - TUI command palette opened with `?` or `/`, with keyboard action selection and locked-action visibility.
+- Command palette filtering by command id, title, description, category, risk, or privilege.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28

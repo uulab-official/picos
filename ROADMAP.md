@@ -162,6 +162,19 @@ Goal: make actions discoverable from anywhere in the TUI.
 - Palette rows show ready/locked and read/write/destructive risk.
 - Next: command palette filtering and read-only SFTP adapter selection.
 
+## v0.3.9 - Command Palette Filtering
+
+Status: draft PR #10.
+
+Goal: make the command palette fast enough to feel like an OS launcher.
+
+- Typing inside the command palette filters commands.
+- Filtering matches command id, title, description, category, risk, and privilege.
+- Backspace edits the active query.
+- Selection resets when the query changes.
+- Palette header shows filtered count versus total command count.
+- Next: read-only SFTP adapter selection and remote file browsing boundary.
+
 ## v0.4.0 - Privileged Controls Framework
 
 Goal: prepare real OS mutation without making it casual or dangerous.
