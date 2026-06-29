@@ -34,6 +34,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - TUI command palette opened with `?` or `/`, with keyboard action selection and locked-action visibility.
 - Command palette filtering by command id, title, description, category, risk, or privilege.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
+- Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28

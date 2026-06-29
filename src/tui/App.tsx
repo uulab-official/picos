@@ -1,4 +1,4 @@
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,6 +17,7 @@ import {
 	type FileLocation,
 	getSystemFileLocations,
 	getSystemFileRoot,
+	withParentDirectoryEntry,
 } from "../core/files";
 import { getNetworkSummary } from "../core/network";
 import { getListeningPorts } from "../core/ports";
@@ -45,6 +46,7 @@ import {
 	openCommandLine,
 } from "./commandLine";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
+import { popFileHistory, pushFileHistory } from "./fileHistory";
 import {
 	enterFocus,
 	type FocusArea,
@@ -108,6 +110,7 @@ export function App(): React.ReactElement {
 	const [commandStatus, setCommandStatus] = useState<CommandStatus>("idle");
 	const [fileRoot, setFileRoot] = useState(systemFileRoot);
 	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
+	const [fileHistory, setFileHistory] = useState<string[]>([]);
 	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 	const [selectedLocationIndex, setSelectedLocationIndex] = useState(0);
 	const [commandLine, setCommandLine] = useState<CommandLineState>({
@@ -128,6 +131,10 @@ export function App(): React.ReactElement {
 	const [remoteFileContext, setRemoteFileContext] =
 		useState<RemoteFileContext>();
 	const t = useMemo(() => createTranslator(language), [language]);
+	const displayedFileEntries = useMemo(
+		() => withParentDirectoryEntry(fileRoot, fileEntries),
+		[fileRoot, fileEntries],
+	);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
@@ -179,13 +186,16 @@ export function App(): React.ReactElement {
 	}, [fileRoot, loadFiles]);
 
 	const openSelectedFileEntry = useCallback(async () => {
-		const entry = fileEntries[selectedFileIndex];
+		const entry = displayedFileEntries[selectedFileIndex];
 		if (!entry) {
 			return;
 		}
 
 		if (entry.type === "directory" || entry.type === "symlink") {
 			try {
+				if (entry.path !== fileRoot) {
+					setFileHistory((history) => pushFileHistory(history, fileRoot));
+				}
 				await loadFiles(entry.path);
 				log("info", `entered ${entry.path}`);
 			} catch (caught) {
@@ -202,7 +212,14 @@ export function App(): React.ReactElement {
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
-	}, [fileEntries, loadFiles, log, previewFile, selectedFileIndex]);
+	}, [
+		displayedFileEntries,
+		fileRoot,
+		loadFiles,
+		log,
+		previewFile,
+		selectedFileIndex,
+	]);
 
 	const goToParentDirectory = useCallback(async () => {
 		const parent = dirname(fileRoot);
@@ -211,6 +228,7 @@ export function App(): React.ReactElement {
 			return;
 		}
 		try {
+			setFileHistory((history) => pushFileHistory(history, fileRoot));
 			await loadFiles(parent);
 			log("info", `entered ${parent}`);
 		} catch (caught) {
@@ -226,6 +244,9 @@ export function App(): React.ReactElement {
 			}
 
 			try {
+				if (location.path !== fileRoot) {
+					setFileHistory((history) => pushFileHistory(history, fileRoot));
+				}
 				await loadFiles(location.path);
 				setSelectedLocationIndex(locationIndex);
 				log("info", `jumped to ${location.label}`);
@@ -233,7 +254,7 @@ export function App(): React.ReactElement {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
 		},
-		[fileLocations, loadFiles, log],
+		[fileLocations, fileRoot, loadFiles, log],
 	);
 
 	const jumpToNextLocation = useCallback(async () => {
@@ -258,14 +279,34 @@ export function App(): React.ReactElement {
 		}
 
 		try {
-			await loadFiles(path);
-			log("info", `entered ${path}`);
+			const targetPath = resolve(fileRoot, path);
+			if (targetPath !== fileRoot) {
+				setFileHistory((history) => pushFileHistory(history, fileRoot));
+			}
+			await loadFiles(targetPath);
+			log("info", `entered ${targetPath}`);
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		} finally {
 			setCommandLine((current) => closeCommandLine(current));
 		}
-	}, [commandLine.value, loadFiles, log]);
+	}, [commandLine.value, fileRoot, loadFiles, log]);
+
+	const goBackFileHistory = useCallback(async () => {
+		const next = popFileHistory(fileHistory);
+		setFileHistory(next.history);
+		if (!next.previousRoot) {
+			log("info", "no previous file location");
+			return;
+		}
+
+		try {
+			await loadFiles(next.previousRoot);
+			log("info", `back to ${next.previousRoot}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [fileHistory, loadFiles, log]);
 
 	const selectRemoteProfile = useCallback(async () => {
 		const profile = remoteProfiles[selectedRemoteIndex];
@@ -314,13 +355,12 @@ export function App(): React.ReactElement {
 			if (nextPorts) {
 				setPorts(nextPorts.ports);
 			}
-			await refreshFiles();
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : String(caught);
 			setError(message);
 			log("fail", message);
 		}
-	}, [log, refreshFiles]);
+	}, [log]);
 
 	const runAction = useCallback(
 		async (action: PicosAction) => {
@@ -557,6 +597,10 @@ export function App(): React.ReactElement {
 			void goToParentDirectory();
 		}
 
+		if (focusArea === "files" && input === "b") {
+			void goBackFileHistory();
+		}
+
 		if (focusArea === "files" && input === "g") {
 			void jumpToNextLocation();
 		}
@@ -607,7 +651,7 @@ export function App(): React.ReactElement {
 				);
 			} else if (focusArea === "files") {
 				setSelectedFileIndex((index) =>
-					getNextIndex(index, fileEntries.length, "next"),
+					getNextIndex(index, displayedFileEntries.length, "next"),
 				);
 			} else if (focusArea === "remotes") {
 				setSelectedRemoteIndex((index) =>
@@ -625,7 +669,7 @@ export function App(): React.ReactElement {
 				);
 			} else if (focusArea === "files") {
 				setSelectedFileIndex((index) =>
-					getNextIndex(index, fileEntries.length, "previous"),
+					getNextIndex(index, displayedFileEntries.length, "previous"),
 				);
 			} else if (focusArea === "remotes") {
 				setSelectedRemoteIndex((index) =>
@@ -917,7 +961,7 @@ function renderWorkspace(
 		return (
 			<FilesWorkspace
 				root={fileRoot}
-				entries={fileEntries}
+				entries={withParentDirectoryEntry(fileRoot, fileEntries)}
 				locations={fileLocations}
 				selectedIndex={selectedFileIndex}
 				selectedLocationIndex={selectedLocationIndex}
@@ -1301,7 +1345,7 @@ function FilesWorkspace({
 				) : null}
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
-						? "files focus · j/k select · enter open · 1-9 location · : path · g cycle · u parent · h/esc back"
+						? "files · j/k · enter · b back · u up · :path"
 						: "enter opens file focus"}
 				</Text>
 				{commandLine.active ? (
@@ -1334,7 +1378,7 @@ function FilesWorkspace({
 				) : (
 					<Text color="gray">loading root...</Text>
 				)}
-				<Text color="gray">picos locations · picos dir / · picos dir ~</Text>
+				<Text color="gray">.. parent · b back · picos dir / · picos dir ~</Text>
 			</Box>
 		);
 	}
@@ -1355,8 +1399,8 @@ function FilesWorkspace({
 			)}
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "files focus · j/k select · enter open · 1-9 location · : path · g cycle · u parent · h/esc back"
-					: "enter opens file focus · read-only navigation"}
+					? "files · j/k · enter · b back · u up · :path"
+					: "enter opens file focus · read-only navigation · .. available"}
 			</Text>
 			{commandLine.active ? (
 				<Text color="yellow">
@@ -1405,7 +1449,7 @@ function FilesWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>1-9 jump locations · : path input · g cycle · picos dir ~</Text>
+				<Text>1-9 locations · : path input · . and .. supported · b back</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
 					next: path input dialog · edit/save confirmation · SFTP provider

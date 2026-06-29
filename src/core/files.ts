@@ -1,6 +1,6 @@
 import { lstat, readdir, readFile, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { basename, isAbsolute, resolve } from "node:path";
+import { basename, dirname, isAbsolute, resolve } from "node:path";
 import type { SftpRemoteProfile } from "./types";
 
 export type FileProviderKind = "local" | "sftp";
@@ -236,6 +236,26 @@ export function formatDirEntries(entries: FileEntry[]): string {
 			return `${kind.padStart(8)} ${entry.name}`;
 		})
 		.join("\n");
+}
+
+export function withParentDirectoryEntry(
+	root: string,
+	entries: FileEntry[],
+): FileEntry[] {
+	const parent = dirname(root);
+	if (parent === root) {
+		return entries;
+	}
+
+	return [
+		{
+			name: "..",
+			path: parent,
+			type: "directory",
+			readonly: true,
+		},
+		...entries,
+	];
 }
 
 function dedupeLocations(locations: FileLocation[]): FileLocation[] {

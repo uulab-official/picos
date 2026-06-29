@@ -187,6 +187,30 @@ Goal: let users select a remote profile in the TUI without opening a network ses
 - Core remote context uses the shared SFTP placeholder provider and does not connect.
 - Next: live read-only SFTP adapter behind explicit host review.
 
+## v0.3.11 - File Navigation Basics
+
+Status: draft PR #12.
+
+Goal: make Files navigation feel like a real terminal file manager instead of a static listing.
+
+- Directory views include a `..` parent entry outside filesystem root.
+- Path input resolves `.` and `..` relative to the current file root.
+- `b` returns to the previous file location.
+- File focus help text exposes parent/back controls.
+- Next: file operations dialog shell for copy/move/delete previews while writes remain locked.
+
+## lazyifconfig Parity Backlog
+
+Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
+
+- Interface details: MAC, MTU, prefix, gateway, RX/TX counters where available.
+- Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification.
+- Route Inspector depth: diagnostics, VPN route hints, destination path lookup, raw output view.
+- Connections and Ports: sorting, filtering, details panes, process metadata, safe copy actions.
+- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
+- Timeline: address/status/public-IP changes and local export.
+- Raw output viewer for every OS command-backed panel.
+
 ## v0.4.0 - Privileged Controls Framework
 
 Goal: prepare real OS mutation without making it casual or dangerous.
