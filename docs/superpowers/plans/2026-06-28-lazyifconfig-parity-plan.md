@@ -100,7 +100,7 @@ picos tools tls github.com:443
 picos tools traceroute 8.8.8.8
 ```
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: add lazyifconfig tools hub foundation"`
@@ -266,6 +266,34 @@ Check GitHub Releases for `uulab-official/picos`; do not auto-install until a la
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: add timeline export and update check"`
+
+### Task 7: Routes TUI And Raw Output Workspace
+
+**Files:**
+- Create: `src/tui/routePanel.ts`
+- Modify: `src/tui/App.tsx`
+- Test: `tests/routePanel.test.ts`
+
+- [x] **Step 1: Add route panel row formatting tests**
+
+Verify the Routes workspace row model includes summary, diagnostics, route rows, and raw command output.
+
+- [x] **Step 2: Add route panel formatter**
+
+Create a pure formatter that clips destination/gateway/interface cells and raw output rows for terminal height limits.
+
+- [x] **Step 3: Wire the TUI Routes workspace**
+
+Replace the staged Routes placeholder with live `runRouteTable()` data and render diagnostics, table rows, and raw output.
+
+- [x] **Step 4: Refresh from route action**
+
+Make `routes.inspect` run the adapter-backed route table command and update the event dock with the discovered route count.
+
+- [ ] **Step 5: Verify and commit**
+
+Run: `bun run verify`
+Commit: `git commit -m "feat: show route diagnostics and raw output in TUI"`
 
 ## Current Execution Choice
 

@@ -24,7 +24,7 @@ Goal: make the current TUI feel denser, cleaner, and more OS-like.
 
 ## v0.2.2 - lazyifconfig Tools and Routes Parity
 
-Status: in progress.
+Status: draft PR #17.
 
 Goal: implement the lazyifconfig feature set in picos, starting with read-only Tools Hub and Route Inspector.
 
@@ -255,13 +255,25 @@ Goal: make the Interfaces and Network panels closer to lazyifconfig by showing l
 - TUI Network and Interfaces workspaces expose MTU and traffic counters in compact rows.
 - Next: route/raw-output detail panes, sortable interface rows, and richer process attribution for ports/connections.
 
+## v0.3.16 - Routes Raw Output Workspace
+
+Status: in progress.
+
+Goal: make the Routes workspace useful as an OS console panel instead of a staged placeholder.
+
+- Routes workspace renders live route table diagnostics from `picos routes` core data.
+- Route rows show destination, gateway, interface, and address family in a dense terminal table.
+- Raw command output is visible in the same workspace so users can inspect the platform source data.
+- `routes.inspect` action refreshes route data and reports the route count in the event dock.
+- Next: destination path lookup UI, sortable route rows, and raw output tabs for ports/connections/tools.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
 - Interface details: MAC/prefix/gateway and MTU/RX/TX counters landed; next sortable rows and raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
-- Route Inspector depth: diagnostics, VPN route hints, destination path lookup, raw output view.
+- Route Inspector depth: route diagnostics and raw output view landed; next VPN route hints and destination path lookup UI.
 - Connections and Ports: sorting, filtering, details panes, process metadata, safe copy actions.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: address/status/public-IP changes and local export.
