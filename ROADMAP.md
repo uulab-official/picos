@@ -139,7 +139,7 @@ Goal: connect remote profiles to the same file-provider shape as local files bef
 
 ## v0.3.7 - Remotes Workspace
 
-Status: in progress on `codex/picos-v0.3.7-remotes-workspace`.
+Status: draft PR #8.
 
 Goal: make remote file planning visible in the default TUI.
 
@@ -148,6 +148,19 @@ Goal: make remote file planning visible in the default TUI.
 - TUI lists configured SFTP-style profiles without opening network sessions.
 - Provider status makes local ready / SFTP pending / writes locked visible.
 - Next: command palette dialog and read-only SFTP adapter selection.
+
+## v0.3.8 - Command Palette
+
+Status: draft PR #9.
+
+Goal: make actions discoverable from anywhere in the TUI.
+
+- `?` and `/` open the command palette.
+- `j/k` moves through actions inside the palette.
+- `enter` runs the selected read action or reports locked actions through the existing policy path.
+- `esc` or `q` closes the palette.
+- Palette rows show ready/locked and read/write/destructive risk.
+- Next: command palette filtering and read-only SFTP adapter selection.
 
 ## v0.4.0 - Privileged Controls Framework
 
