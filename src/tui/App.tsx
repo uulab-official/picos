@@ -33,6 +33,12 @@ import type {
 } from "../core/types";
 import { VERSION } from "../core/version";
 import { createTranslator } from "../i18n/catalog";
+import {
+	applyCommandLineInput,
+	type CommandLineState,
+	closeCommandLine,
+	openCommandLine,
+} from "./commandLine";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
 	enterFocus,
@@ -88,6 +94,11 @@ export function App(): React.ReactElement {
 	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 	const [selectedLocationIndex, setSelectedLocationIndex] = useState(0);
+	const [commandLine, setCommandLine] = useState<CommandLineState>({
+		active: false,
+		prompt: "path",
+		value: "",
+	});
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
 	const [connections, setConnections] = useState<ActiveConnection[]>([]);
 	const [ports, setPorts] = useState<ListeningPort[]>([]);
@@ -205,6 +216,24 @@ export function App(): React.ReactElement {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
 	}, [fileLocations, loadFiles, log, selectedLocationIndex]);
+
+	const submitPathCommand = useCallback(async () => {
+		const path = commandLine.value.trim();
+		if (!path) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("info", "path command cancelled");
+			return;
+		}
+
+		try {
+			await loadFiles(path);
+			log("info", `entered ${path}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		} finally {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+	}, [commandLine.value, loadFiles, log]);
 
 	useEffect(() => {
 		void loadFiles(systemFileRoot);
@@ -356,6 +385,27 @@ export function App(): React.ReactElement {
 	}, [refresh, refreshInterval]);
 
 	useInput((input, key) => {
+		if (commandLine.active) {
+			if (key.escape) {
+				setCommandLine((current) => closeCommandLine(current));
+				log("info", "path command cancelled");
+				return;
+			}
+
+			if (key.return) {
+				void submitPathCommand();
+				return;
+			}
+
+			setCommandLine((current) =>
+				applyCommandLineInput(current, {
+					input,
+					backspace: key.backspace || key.delete,
+				}),
+			);
+			return;
+		}
+
 		if (input === "q") {
 			exit();
 		}
@@ -402,6 +452,11 @@ export function App(): React.ReactElement {
 
 		if (focusArea === "files" && input === "g") {
 			void jumpToNextLocation();
+		}
+
+		if (focusArea === "files" && input === ":") {
+			setCommandLine(openCommandLine("path"));
+			log("info", "path command opened");
 		}
 
 		if (key.escape) {
@@ -492,6 +547,7 @@ export function App(): React.ReactElement {
 					fileLocations={fileLocations}
 					selectedFileIndex={selectedFileIndex}
 					selectedLocationIndex={selectedLocationIndex}
+					commandLine={commandLine}
 					editorPreview={editorPreview}
 					connections={connections}
 					ports={ports}
@@ -607,6 +663,7 @@ function MainWorkspace({
 	fileLocations,
 	selectedFileIndex,
 	selectedLocationIndex,
+	commandLine,
 	editorPreview,
 	connections,
 	ports,
@@ -628,6 +685,7 @@ function MainWorkspace({
 	fileLocations: FileLocation[];
 	selectedFileIndex: number;
 	selectedLocationIndex: number;
+	commandLine: CommandLineState;
 	editorPreview?: EditorPreview;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
@@ -658,6 +716,7 @@ function MainWorkspace({
 					fileLocations,
 					selectedFileIndex,
 					selectedLocationIndex,
+					commandLine,
 					editorPreview,
 					connections,
 					ports,
@@ -683,6 +742,7 @@ function renderWorkspace(
 	fileLocations: FileLocation[],
 	selectedFileIndex: number,
 	selectedLocationIndex: number,
+	commandLine: CommandLineState,
 	editorPreview: EditorPreview | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
@@ -698,6 +758,7 @@ function renderWorkspace(
 				locations={fileLocations}
 				selectedIndex={selectedFileIndex}
 				selectedLocationIndex={selectedLocationIndex}
+				commandLine={commandLine}
 				focused={focusArea === "files"}
 				visibleRows={Math.max(6, height - 9)}
 				t={t}
@@ -1025,6 +1086,7 @@ function FilesWorkspace({
 	locations,
 	selectedIndex,
 	selectedLocationIndex,
+	commandLine,
 	focused,
 	visibleRows,
 	t,
@@ -1034,6 +1096,7 @@ function FilesWorkspace({
 	locations: FileLocation[];
 	selectedIndex: number;
 	selectedLocationIndex: number;
+	commandLine: CommandLineState;
 	focused: boolean;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -1054,9 +1117,14 @@ function FilesWorkspace({
 				</Text>
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
-						? "files focus · j/k select · enter open · g location · u parent · h/esc back"
+						? "files focus · j/k select · enter open · : path · g location · u parent · h/esc back"
 						: "enter opens file focus"}
 				</Text>
+				{commandLine.active ? (
+					<Text color="yellow">
+						:{commandLine.prompt} {commandLine.value || " "}
+					</Text>
+				) : null}
 				{locations.slice(0, 3).map((location, index) => (
 					<Text
 						key={`${location.kind}:${location.path}`}
@@ -1094,9 +1162,14 @@ function FilesWorkspace({
 			<Text color="gray">current {clip(root, 46)}</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "files focus · j/k select · enter open · g location · u parent · h/esc back"
+					? "files focus · j/k select · enter open · : path · g location · u parent · h/esc back"
 					: "enter opens file focus · read-only navigation"}
 			</Text>
+			{commandLine.active ? (
+				<Text color="yellow">
+					:{commandLine.prompt} {commandLine.value || " "}
+				</Text>
+			) : null}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">SYSTEM LOCATIONS</Text>
 				{locations.slice(0, locationRows).map((location, index) => (
@@ -1139,7 +1212,7 @@ function FilesWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
 				<Text>
-					g cycle locations · picos locations · picos dir / · picos dir ~
+					: path input · g cycle locations · picos dir / · picos dir ~
 				</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
