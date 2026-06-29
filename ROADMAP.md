@@ -257,7 +257,7 @@ Goal: make the Interfaces and Network panels closer to lazyifconfig by showing l
 
 ## v0.3.16 - Routes Raw Output Workspace
 
-Status: in progress.
+Status: draft PR #19.
 
 Goal: make the Routes workspace useful as an OS console panel instead of a staged placeholder.
 
@@ -278,6 +278,18 @@ Goal: let the Routes workspace answer "which gateway/interface/source will this 
 - Route path results show destination, gateway, interface, source IP, and raw path output.
 - Route path formatting is covered by focused tests.
 - Next: sortable route rows, VPN route hints, and raw output tabs for ports/connections/tools.
+
+## v0.3.18 - Release Readiness And Version Policy
+
+Status: in progress.
+
+Goal: make external distribution decisions explicit before the first public npm publish.
+
+- Package metadata includes public scoped publish settings and package file allowlist.
+- Release readiness core checks keep `package.json` and runtime `VERSION` synchronized.
+- `bun run release:check` builds, validates release metadata, and runs `npm pack --dry-run`.
+- `docs/RELEASE.md` documents npm publish vs GitHub Release, version rules, and the release checklist.
+- Next: GitHub release workflow automation after the stacked v0.3 PRs are merged.
 
 ## lazyifconfig Parity Backlog
 
