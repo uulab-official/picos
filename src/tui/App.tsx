@@ -1913,8 +1913,9 @@ function NetworkWorkspace({
 						{clip(item.name, 8).padEnd(8)} {clip(item.kind, 12).padEnd(12)}{" "}
 						{clip(
 							item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? item.ipv6 ?? "-",
-							28,
-						)}
+							20,
+						)}{" "}
+						mtu={item.mtu ?? "-"}
 					</Text>
 				))}
 				{summary ? null : <Text color="gray">loading...</Text>}
@@ -1951,7 +1952,7 @@ function InterfacesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.interfaces")}</Text>
 			<Text color="gray">
-				inventory: type, status, CIDR prefix, MAC, gateway, and DNS
+				inventory: type, status, CIDR, MTU, RX/TX, MAC, gateway, and DNS
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{visibleInterfaces.map((item) => (
@@ -1970,8 +1971,10 @@ function InterfacesWorkspace({
 				<Text color="cyan">DETAILS</Text>
 				{detailInterfaces.map((item) => (
 					<Text key={`${item.name}:details`}>
-						{clip(item.name, 8).padEnd(8)} mac={clip(item.mac ?? "-", 17)} mask=
-						{clip(item.netmask ?? "-", 14)}
+						{clip(item.name, 8).padEnd(8)} mtu={item.mtu ?? "-"} rx=
+						{formatCompactBytes(item.rxBytes)} tx=
+						{formatCompactBytes(item.txBytes)} p=
+						{formatCompactPacketPair(item.rxPackets, item.txPackets)}
 					</Text>
 				))}
 				{summary ? null : <Text color="gray">loading...</Text>}
@@ -2443,6 +2446,44 @@ function formatFileSize(entry: FileEntry): string {
 		return "<DIR>";
 	}
 	return formatBytes(entry.size);
+}
+
+function formatCompactBytes(value?: number): string {
+	if (value === undefined) {
+		return "-";
+	}
+	const units = ["B", "K", "M", "G", "T"];
+	let size = value;
+	let unitIndex = 0;
+	while (size >= 1024 && unitIndex < units.length - 1) {
+		size /= 1024;
+		unitIndex += 1;
+	}
+	return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)}${units[unitIndex]}`;
+}
+
+function formatCompactNumber(value?: number): string {
+	if (value === undefined) {
+		return "-";
+	}
+	const units = ["", "K", "M", "B"];
+	let size = value;
+	let unitIndex = 0;
+	while (size >= 1000 && unitIndex < units.length - 1) {
+		size /= 1000;
+		unitIndex += 1;
+	}
+	return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)}${units[unitIndex]}`;
+}
+
+function formatCompactPacketPair(
+	rxPackets?: number,
+	txPackets?: number,
+): string {
+	if (rxPackets === undefined && txPackets === undefined) {
+		return "-";
+	}
+	return `${formatCompactNumber(rxPackets)}/${formatCompactNumber(txPackets)}`;
 }
 
 function formatSidebarLine(

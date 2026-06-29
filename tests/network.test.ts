@@ -66,6 +66,44 @@ describe("network summary", () => {
 		expect(summary.dnsServers).toEqual(["1.1.1.1", "8.8.8.8"]);
 	});
 
+	test("merges interface MTU and traffic counters into summaries", () => {
+		const summary = summarizeNetworkInterfaces(
+			{
+				en0: [
+					{
+						address: "192.168.0.12",
+						family: "IPv4",
+						internal: false,
+						mac: "aa:bb:cc:dd:ee:ff",
+						netmask: "255.255.255.0",
+						cidr: "192.168.0.12/24",
+					},
+				],
+			},
+			["1.1.1.1"],
+			{
+				interfaceStats: {
+					en0: {
+						mtu: 1500,
+						rxBytes: 123456,
+						rxPackets: 100,
+						txBytes: 654321,
+						txPackets: 200,
+					},
+				},
+			},
+		);
+
+		expect(summary.primaryInterface).toMatchObject({
+			name: "en0",
+			mtu: 1500,
+			rxBytes: 123456,
+			rxPackets: 100,
+			txBytes: 654321,
+			txPackets: 200,
+		});
+	});
+
 	test("reports offline when no external address exists", () => {
 		const summary = summarizeNetworkInterfaces(
 			{

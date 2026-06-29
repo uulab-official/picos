@@ -24,7 +24,7 @@ export function formatFullInfo(inventory: SystemInventory): string {
 	const interfaceLines = inventory.network.interfaces.length
 		? inventory.network.interfaces.map(
 				(item) =>
-					`  ${item.name} ${item.kind} ${item.status} ${item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? item.ipv6 ?? "-"} mac=${item.mac ?? "-"}`,
+					`  ${item.name} ${item.kind} ${item.status} ${item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? item.ipv6 ?? "-"} mtu=${item.mtu ?? "-"} rx=${item.rxBytes ?? "-"} tx=${item.txBytes ?? "-"} mac=${item.mac ?? "-"}`,
 			)
 		: ["  - none detected"];
 
@@ -102,7 +102,7 @@ export async function infoCommand(
 
 	for (const item of network.interfaces) {
 		console.log(
-			`  - ${item.name}: ${item.kind} ${item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? item.ipv6 ?? "disconnected"}`,
+			`  - ${item.name}: ${item.kind} ${item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? item.ipv6 ?? "disconnected"} mtu=${item.mtu ?? "-"} rx=${item.rxBytes ?? "-"} tx=${item.txBytes ?? "-"}`,
 		);
 	}
 }

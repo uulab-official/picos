@@ -10,6 +10,7 @@ import type {
 	NetworkGroupSummary,
 	NetworkInterfaceKind,
 	NetworkInterfaceMap,
+	NetworkInterfaceStatsMap,
 	NetworkInterfaceSummary,
 	NetworkSummary,
 	SupportedPlatform,
@@ -23,10 +24,13 @@ export function summarizeNetworkInterfaces(
 		platform?: SupportedPlatform;
 		gateway?: string;
 		publicIp?: string;
+		interfaceStats?: NetworkInterfaceStatsMap;
 	} = {},
 ): NetworkSummary {
 	const summaries = Object.entries(interfaces)
-		.map(([name, addresses]) => summarizeInterface(name, addresses ?? []))
+		.map(([name, addresses]) =>
+			summarizeInterface(name, addresses ?? [], options.interfaceStats?.[name]),
+		)
 		.filter((summary): summary is NetworkInterfaceSummary => Boolean(summary));
 	const primaryInterface =
 		summaries.find((summary) => summary.ipv4) ?? summaries[0];
@@ -46,13 +50,36 @@ export function summarizeNetworkInterfaces(
 }
 
 export async function getNetworkSummary(): Promise<NetworkSummary> {
-	const gateway = await getDefaultGateway();
-	const publicIp = await lookupPublicIp();
+	const [gateway, publicIp, interfaceStats] = await Promise.all([
+		getDefaultGateway(),
+		lookupPublicIp(),
+		getInterfaceStats(),
+	]);
 
 	return summarizeNetworkInterfaces(networkInterfaces(), getServers(), {
 		gateway,
 		publicIp,
+		interfaceStats,
 	});
+}
+
+export async function getInterfaceStats(
+	targetPlatform: SupportedPlatform = process.platform,
+): Promise<NetworkInterfaceStatsMap> {
+	const adapter =
+		targetPlatform === "win32"
+			? windows
+			: targetPlatform === "linux"
+				? linux
+				: macos;
+	const { command, args } = adapter.interfaceStatsCommand();
+	const result = await safeExec(command, args, { timeoutMs: 5000 });
+
+	if (!result.success) {
+		return {};
+	}
+
+	return adapter.parseInterfaceStats(result.stdout);
 }
 
 export async function getDefaultGateway(
@@ -113,6 +140,7 @@ export async function canFetchInternet(): Promise<boolean> {
 function summarizeInterface(
 	name: string,
 	addresses: NonNullable<NetworkInterfaceMap[string]>,
+	stats: NetworkInterfaceStatsMap[string] = {},
 ): NetworkInterfaceSummary | undefined {
 	const external = addresses.filter((address) => !address.internal);
 	if (external.length === 0) {
@@ -136,6 +164,7 @@ function summarizeInterface(
 		ipv6Cidr: ipv6?.cidr ?? undefined,
 		netmask: ipv4?.netmask ?? ipv6?.netmask,
 		mac: ipv4?.mac ?? ipv6?.mac,
+		...stats,
 	};
 }
 

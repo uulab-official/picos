@@ -241,11 +241,25 @@ Goal: close the first visible lazyifconfig interface/network gap inside picos.
 - TUI Interfaces shows kind, status, CIDR, MAC, netmask, gateway, and DNS.
 - Next: platform MTU/RX/TX counter parsers and route/raw-output detail panes.
 
+## v0.3.15 - Interface Traffic Counters
+
+Status: draft PR #16.
+
+Goal: make the Interfaces and Network panels closer to lazyifconfig by showing live adapter shape and traffic counters where the host OS exposes them.
+
+- macOS adapter parses `netstat -ibn` MTU, RX bytes, TX bytes, RX packets, and TX packets.
+- Linux adapter parses `ip -s link` MTU, RX bytes, TX bytes, RX packets, and TX packets.
+- Windows adapter parses PowerShell adapter statistics, with JSON and table-output fallback support.
+- `NetworkSummary` merges platform counters into each interface summary.
+- `picos info` and `picos info --full` print MTU/RX/TX per interface.
+- TUI Network and Interfaces workspaces expose MTU and traffic counters in compact rows.
+- Next: route/raw-output detail panes, sortable interface rows, and richer process attribution for ports/connections.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
-- Interface details: MAC/prefix/gateway landed; next MTU and RX/TX counters where available.
+- Interface details: MAC/prefix/gateway and MTU/RX/TX counters landed; next sortable rows and raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: diagnostics, VPN route hints, destination path lookup, raw output view.
 - Connections and Ports: sorting, filtering, details panes, process metadata, safe copy actions.

@@ -38,6 +38,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.
 - Locked Files workspace operation previews for copy, move, and delete with selected path, risk, privilege, and confirmation phrase.
 - lazyifconfig-style interface kind classification, CIDR prefix capture, network grouping, and denser Network/Interfaces TUI panels.
+- Interface MTU and RX/TX byte/packet counters from macOS, Linux, and Windows adapter statistics, surfaced in CLI and TUI network inventory.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28

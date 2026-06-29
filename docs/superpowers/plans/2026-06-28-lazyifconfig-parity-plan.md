@@ -231,16 +231,16 @@ Classify loopback, LAN, VPN, container, link-local, public, and unassigned inter
 
 - [x] **Step 2: Add interface metadata**
 
-Add interface type, CIDR prefix, netmask, gateway, and DNS visibility. MTU and RX/TX counters still require platform command parsers.
+Add interface type, CIDR prefix, netmask, gateway, DNS visibility, MTU, and RX/TX counters.
 
-- [ ] **Step 3: Add platform counters**
+- [x] **Step 3: Add platform counters**
 
-Parse MTU and RX/TX counters from macOS `ifconfig`, Linux `ip -s addr`, and Windows adapter statistics when available.
+Parse MTU and RX/TX counters from macOS `netstat -ibn`, Linux `ip -s link`, and Windows adapter statistics when available.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run: `bun run verify`
-Commit: `git commit -m "feat: expand interface and subnet inventory"`
+Commit: `git commit -m "feat: add interface traffic counters"`
 
 ### Task 6: Timeline And Update Check
 
