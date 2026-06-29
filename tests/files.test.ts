@@ -3,7 +3,13 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatPwd, formatType } from "../src/cli/commands/files";
-import { createLocalFileProvider, formatDirEntries } from "../src/core/files";
+import {
+	createLocalFileProvider,
+	formatDirEntries,
+	formatFileLocations,
+	getSystemFileLocations,
+	getSystemFileRoot,
+} from "../src/core/files";
 
 let root = "";
 
@@ -41,6 +47,15 @@ describe("local file provider", () => {
 		});
 	});
 
+	test("supports absolute paths and home shorthand", async () => {
+		const provider = createLocalFileProvider("/", { homeDir: root });
+
+		expect((await provider.read(join(root, "README.md"))).content).toBe(
+			"# picos\n",
+		);
+		expect((await provider.read("~/README.md")).content).toBe("# picos\n");
+	});
+
 	test("formats dir output for CLI use", async () => {
 		const provider = createLocalFileProvider(root);
 		const output = formatDirEntries(await provider.list("."));
@@ -54,5 +69,20 @@ describe("local file provider", () => {
 
 		expect(formatPwd(await provider.pwd())).toBe(root);
 		expect(formatType(await provider.read("README.md"))).toBe("# picos\n");
+	});
+
+	test("formats system file locations", () => {
+		const locations = getSystemFileLocations({
+			cwd: join(root, "workspace"),
+			homeDir: root,
+			tempDir: join(root, "tmp"),
+			platform: "darwin",
+		});
+
+		expect(getSystemFileRoot("darwin")).toBe("/");
+		expect(locations.map((location) => location.label)).toContain(
+			"Filesystem Root",
+		);
+		expect(formatFileLocations(locations)).toContain("Workspace");
 	});
 });

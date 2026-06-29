@@ -11,6 +11,8 @@ import { doctorCommand } from "./commands/doctor";
 import {
 	catCommand,
 	dirCommand,
+	drivesCommand,
+	locationsCommand,
 	lsCommand,
 	pwdCommand,
 	typeCommand,
@@ -39,6 +41,12 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.action(infoCommand);
 	cli.command("doctor", "Run network diagnostics").action(doctorCommand);
 	cli.command("pwd", "Print current picos file root").action(pwdCommand);
+	cli
+		.command("locations", "List system file locations")
+		.action(locationsCommand);
+	cli
+		.command("drives", "List system drives and file locations")
+		.action(drivesCommand);
 	cli.command("dir [path]", "List local files in DOS style").action(dirCommand);
 	cli.command("ls [path]", "List local files").action(lsCommand);
 	cli.command("type <path>", "Print a local text file").action(typeCommand);

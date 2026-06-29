@@ -1,5 +1,6 @@
-import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { lstat, readdir, readFile, stat } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
+import { basename, isAbsolute, resolve } from "node:path";
 
 export type FileProviderKind = "local" | "sftp";
 
@@ -12,6 +13,14 @@ export type FileEntry = {
 	size?: number;
 	modifiedAt?: Date;
 	readonly: boolean;
+};
+
+export type FileLocationKind = "root" | "drive" | "home" | "workspace" | "temp";
+
+export type FileLocation = {
+	label: string;
+	path: string;
+	kind: FileLocationKind;
 };
 
 export type FileReadResult = {
@@ -30,13 +39,31 @@ export type FileProvider = {
 	stat(path: string): Promise<FileEntry>;
 };
 
+export type LocalFileProviderOptions = {
+	homeDir?: string;
+};
+
 const DEFAULT_MAX_READ_BYTES = 256 * 1024;
 
-export function createLocalFileProvider(root = process.cwd()): FileProvider {
+export function createLocalFileProvider(
+	root = process.cwd(),
+	options: LocalFileProviderOptions = {},
+): FileProvider {
 	const resolvedRoot = resolve(root);
+	const resolvedHome = resolve(options.homeDir ?? homedir());
 
 	function resolvePath(path: string): string {
-		return resolve(resolvedRoot, path);
+		const input = path.trim() || ".";
+		if (input === "~") {
+			return resolvedHome;
+		}
+		if (input.startsWith("~/") || input.startsWith("~\\")) {
+			return resolve(resolvedHome, input.slice(2));
+		}
+		if (isAbsolute(input)) {
+			return resolve(input);
+		}
+		return resolve(resolvedRoot, input);
 	}
 
 	return {
@@ -47,10 +74,13 @@ export function createLocalFileProvider(root = process.cwd()): FileProvider {
 		async list(path: string) {
 			const directory = resolvePath(path);
 			const entries = await readdir(directory, { withFileTypes: true });
-			const summaries = await Promise.all(
-				entries.map(async (entry) => {
+			const summaries: (FileEntry | undefined)[] = await Promise.all(
+				entries.map(async (entry): Promise<FileEntry | undefined> => {
 					const fullPath = resolve(directory, entry.name);
-					const info = await stat(fullPath);
+					const info = await lstat(fullPath).catch(() => undefined);
+					if (!info) {
+						return undefined;
+					}
 					return {
 						name: entry.name,
 						path: fullPath,
@@ -68,7 +98,9 @@ export function createLocalFileProvider(root = process.cwd()): FileProvider {
 				}),
 			);
 
-			return summaries.sort(compareFileEntries);
+			return summaries
+				.filter((entry): entry is FileEntry => entry !== undefined)
+				.sort(compareFileEntries);
 		},
 		async read(path: string, options = {}) {
 			const fullPath = resolvePath(path);
@@ -105,6 +137,50 @@ export function createLocalFileProvider(root = process.cwd()): FileProvider {
 	};
 }
 
+export function getSystemFileRoot(
+	platform: NodeJS.Platform = process.platform,
+	env: NodeJS.ProcessEnv = process.env,
+): string {
+	if (platform === "win32") {
+		return env.SystemDrive ? `${env.SystemDrive}\\` : "C:\\";
+	}
+	return "/";
+}
+
+export function getSystemFileLocations(
+	options: {
+		cwd?: string;
+		homeDir?: string;
+		tempDir?: string;
+		platform?: NodeJS.Platform;
+		env?: NodeJS.ProcessEnv;
+	} = {},
+): FileLocation[] {
+	const platform = options.platform ?? process.platform;
+	const root = getSystemFileRoot(platform, options.env ?? process.env);
+	const home = resolve(options.homeDir ?? homedir());
+	const workspace = resolve(options.cwd ?? process.cwd());
+	const temp = resolve(options.tempDir ?? tmpdir());
+	const locations: FileLocation[] = [
+		{
+			label: platform === "win32" ? "System Drive" : "Filesystem Root",
+			path: root,
+			kind: platform === "win32" ? "drive" : "root",
+		},
+		{ label: "Home", path: home, kind: "home" },
+		{ label: "Workspace", path: workspace, kind: "workspace" },
+		{ label: "Temp", path: temp, kind: "temp" },
+	];
+
+	return dedupeLocations(locations);
+}
+
+export function formatFileLocations(locations: FileLocation[]): string {
+	return locations
+		.map((location) => `${location.label.padEnd(16)} ${location.path}`)
+		.join("\n");
+}
+
 export function formatDirEntries(entries: FileEntry[]): string {
 	return entries
 		.map((entry) => {
@@ -113,6 +189,17 @@ export function formatDirEntries(entries: FileEntry[]): string {
 			return `${kind.padStart(8)} ${entry.name}`;
 		})
 		.join("\n");
+}
+
+function dedupeLocations(locations: FileLocation[]): FileLocation[] {
+	const seen = new Set<string>();
+	return locations.filter((location) => {
+		if (seen.has(location.path)) {
+			return false;
+		}
+		seen.add(location.path);
+		return true;
+	});
 }
 
 function compareFileEntries(left: FileEntry, right: FileEntry): number {

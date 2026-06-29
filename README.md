@@ -70,6 +70,9 @@ picos routes
 picos route 8.8.8.8
 picos connections
 picos ports
+picos locations
+picos dir /
+picos dir ~
 picos pwd
 picos dir
 picos type README.md
@@ -102,8 +105,9 @@ Commands:
 - `picos connections --raw`: print raw connection command output.
 - `picos ports`: list listening TCP ports with process metadata where available.
 - `picos ports --raw`: print raw listening-port command output.
+- `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
 - `picos pwd`: print the current local file root.
-- `picos dir [path]` or `picos ls [path]`: list local files.
+- `picos dir [path]` or `picos ls [path]`: list local files; supports `.`, absolute paths, `/`, and `~`.
 - `picos type <path>` or `picos cat <path>`: print a local text file.
 - `picos dns`: show configured DNS servers.
 - `picos dns flush`: disabled in v0.1.
