@@ -139,6 +139,16 @@ export type TcpConnectOptions = {
 	timeoutMs?: number;
 };
 
+export type SftpRemoteProfile = {
+	id: string;
+	kind: "sftp";
+	host: string;
+	port: number;
+	username: string;
+	root: string;
+	keyPath?: string;
+};
+
 export type PicosConfig = {
 	theme: "dark" | "light";
 	language: Language;
@@ -146,6 +156,7 @@ export type PicosConfig = {
 	defaultPingHost: string;
 	showPublicIp: boolean;
 	enableExperimentalControls: boolean;
+	remoteProfiles: SftpRemoteProfile[];
 };
 
 export type Language = "en" | "ko" | "ja" | "zh";

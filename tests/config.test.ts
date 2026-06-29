@@ -14,6 +14,7 @@ describe("config schema", () => {
 			showPublicIp: true,
 			enableExperimentalControls: false,
 			language: "en",
+			remoteProfiles: [],
 		});
 	});
 

@@ -221,6 +221,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "remote.profiles",
+		title: "List remote profiles",
+		description:
+			"List configured SFTP file profiles without opening a session.",
+		category: "remote",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "remote.sftp.connect",
 		title: "Connect SFTP provider",
 		description:

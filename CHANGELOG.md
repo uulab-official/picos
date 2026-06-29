@@ -28,6 +28,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Files focus now supports `g` to cycle system locations such as root, home, workspace, and temp.
 - Files focus now supports `:` path input for direct local directory jumps.
 - Files focus now supports number shortcuts for direct system location jumps.
+- SFTP-style remote profile stubs with safe config normalization and `picos remotes`.
 - v0.3 implementation plan for Files, Editor, Dialogs, and SFTP-like provider support.
 
 ## [0.2.0] - 2026-06-28

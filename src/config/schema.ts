@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { normalizeRemoteProfiles } from "../core/remotes";
 import type { PicosConfig, SupportedPlatform } from "../core/types";
 import { isSupportedLanguage } from "../i18n/catalog";
 
@@ -9,6 +10,7 @@ export const defaultConfig: PicosConfig = {
 	defaultPingHost: "google.com",
 	showPublicIp: true,
 	enableExperimentalControls: false,
+	remoteProfiles: [],
 };
 
 export type ConfigInput = Record<string, unknown>;
@@ -82,6 +84,8 @@ export function mergeConfig(
 		merged.enableExperimentalControls = input.enableExperimentalControls;
 	}
 
+	merged.remoteProfiles = normalizeRemoteProfiles(input.remoteProfiles);
+
 	return merged;
 }
 
@@ -116,6 +120,10 @@ export function coerceConfigValue(
 			throw new Error(`${key} must be true or false`);
 		}
 		return value === "true";
+	}
+
+	if (key === "remoteProfiles") {
+		throw new Error("remoteProfiles must be edited as JSON in the config file");
 	}
 
 	return value;

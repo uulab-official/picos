@@ -328,6 +328,11 @@ export function App(): React.ReactElement {
 					);
 				}
 
+				if (action.id === "remote.profiles") {
+					const config = await readConfig();
+					log("info", `remote profiles ${config.remoteProfiles.length}`);
+				}
+
 				if (action.id === "files.list") {
 					await refreshFiles();
 					log("ok", `files listed ${fileRoot}`);
