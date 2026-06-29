@@ -146,7 +146,7 @@ Reference-inspired modules now tracked in picos:
 - Interfaces inventory
 - Interface type, CIDR prefix, MAC/netmask, MTU, RX/TX counters, gateway, and DNS inventory
 - Subnet/network grouping for LAN, loopback, VPN, container, link-local, and public addresses
-- Route Inspector
+- Route Inspector with TUI diagnostics, route rows, and raw command output
 - Connections view
 - Ports view
 - Tools Hub

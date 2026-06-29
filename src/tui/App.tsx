@@ -26,6 +26,7 @@ import {
 	type RemoteFileContext,
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
+import { type RouteTableResult, runRouteTable } from "../core/routes";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
 import type {
@@ -85,6 +86,7 @@ import {
 	moveCommandPalette,
 	openCommandPalette,
 } from "./palette";
+import { formatRouteWorkspaceRows } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 
 type CommandStatus = "idle" | "running";
@@ -149,6 +151,7 @@ export function App(): React.ReactElement {
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
 	const [connections, setConnections] = useState<ActiveConnection[]>([]);
 	const [ports, setPorts] = useState<ListeningPort[]>([]);
+	const [routeTable, setRouteTable] = useState<RouteTableResult>();
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -385,11 +388,13 @@ export function App(): React.ReactElement {
 	const refresh = useCallback(async () => {
 		try {
 			setError(undefined);
-			const [nextSummary, nextConnections, nextPorts] = await Promise.all([
-				getNetworkSummary(),
-				getActiveConnections().catch(() => undefined),
-				getListeningPorts().catch(() => undefined),
-			]);
+			const [nextSummary, nextConnections, nextPorts, nextRouteTable] =
+				await Promise.all([
+					getNetworkSummary(),
+					getActiveConnections().catch(() => undefined),
+					getListeningPorts().catch(() => undefined),
+					runRouteTable().catch(() => undefined),
+				]);
 			setSummary(nextSummary);
 			setInventory(await createSystemInventory({ network: nextSummary }));
 			if (nextConnections) {
@@ -397,6 +402,9 @@ export function App(): React.ReactElement {
 			}
 			if (nextPorts) {
 				setPorts(nextPorts.ports);
+			}
+			if (nextRouteTable) {
+				setRouteTable(nextRouteTable);
 			}
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : String(caught);
@@ -464,8 +472,13 @@ export function App(): React.ReactElement {
 					log("ok", "editor preview refreshed");
 				}
 
+				if (action.id === "routes.inspect") {
+					const result = await runRouteTable();
+					setRouteTable(result);
+					log("ok", `routes listed ${result.routes.length}`);
+				}
+
 				if (
-					action.id === "routes.inspect" ||
 					action.id === "network.connect" ||
 					action.id === "tools.dns" ||
 					action.id === "tools.traceroute" ||
@@ -839,6 +852,7 @@ export function App(): React.ReactElement {
 					remoteFileContext={remoteFileContext}
 					connections={connections}
 					ports={ports}
+					routeTable={routeTable}
 					events={events}
 					t={t}
 				/>
@@ -961,6 +975,7 @@ function MainWorkspace({
 	remoteFileContext,
 	connections,
 	ports,
+	routeTable,
 	events,
 	t,
 }: {
@@ -989,6 +1004,7 @@ function MainWorkspace({
 	remoteFileContext?: RemoteFileContext;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
+	routeTable?: RouteTableResult;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -1026,6 +1042,7 @@ function MainWorkspace({
 					remoteFileContext,
 					connections,
 					ports,
+					routeTable,
 					events,
 					height,
 					t,
@@ -1058,6 +1075,7 @@ function renderWorkspace(
 	remoteFileContext: RemoteFileContext | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
+	routeTable: RouteTableResult | undefined,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -1150,9 +1168,10 @@ function renderWorkspace(
 	}
 	if (screen === "routes") {
 		return (
-			<ReferenceWorkspace
-				title={t("screen.routes")}
-				actionId="routes.inspect"
+			<RoutesWorkspace
+				routeTable={routeTable}
+				visibleRows={Math.max(7, height - 7)}
+				t={t}
 			/>
 		);
 	}
@@ -2079,6 +2098,51 @@ function PortsWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
 				<Text>picos ports · picos ports --raw</Text>
+			</Box>
+		</Box>
+	);
+}
+
+function RoutesWorkspace({
+	routeTable,
+	visibleRows,
+	t,
+}: {
+	routeTable?: RouteTableResult;
+	visibleRows: number;
+	t: (key: string) => string;
+}): React.ReactElement {
+	const rows = routeTable
+		? formatRouteWorkspaceRows(routeTable, visibleRows)
+		: ["loading route table..."];
+	const rowCounts = new Map<string, number>();
+	const keyedRows = rows.map((row) => {
+		const count = rowCounts.get(row) ?? 0;
+		rowCounts.set(row, count + 1);
+		return { key: `${row}:${count}`, row };
+	});
+
+	return (
+		<Box flexDirection="column">
+			<Text bold>{t("screen.routes")}</Text>
+			<Text color="gray">
+				route table diagnostics · raw command output · read-only
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				{keyedRows.map(({ key, row }) => {
+					const isSection =
+						row === "DIAGNOSTICS" || row === "ROUTES" || row === "RAW OUTPUT";
+					return (
+						<Text
+							key={key}
+							color={
+								isSection ? "cyan" : row.startsWith("WARN") ? "yellow" : "white"
+							}
+						>
+							{row}
+						</Text>
+					);
+				})}
 			</Box>
 		</Box>
 	);
