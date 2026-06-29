@@ -127,7 +127,7 @@ Goal: add remote file browsing through the same provider model as local files.
 
 ## v0.3.6 - Remote Provider Boundary
 
-Status: in progress on `codex/picos-v0.3.6-remote-provider-boundary`.
+Status: draft PR #7.
 
 Goal: connect remote profiles to the same file-provider shape as local files before enabling live SFTP.
 
@@ -136,6 +136,18 @@ Goal: connect remote profiles to the same file-provider shape as local files bef
 - Remote write attempts remain blocked behind host/path confirmation.
 - `picos remote <id>` shows provider boundary status without opening a network session.
 - Next: read-only SFTP adapter selection and dependency evaluation.
+
+## v0.3.7 - Remotes Workspace
+
+Status: in progress on `codex/picos-v0.3.7-remotes-workspace`.
+
+Goal: make remote file planning visible in the default TUI.
+
+- Remotes workspace appears next to Files in the sidebar.
+- `3` opens Remotes from global workspace shortcuts.
+- TUI lists configured SFTP-style profiles without opening network sessions.
+- Provider status makes local ready / SFTP pending / writes locked visible.
+- Next: command palette dialog and read-only SFTP adapter selection.
 
 ## v0.4.0 - Privileged Controls Framework
 
