@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	formatRemoteProfiles,
+	formatRemoteProviderStatus,
 	normalizeRemoteProfiles,
 } from "../src/core/remotes";
 
@@ -86,5 +87,21 @@ describe("remote profiles", () => {
 		expect(output).toContain("dev");
 		expect(output).toContain("sftp://alice@dev.example.com:22");
 		expect(output).toContain("root=.");
+	});
+
+	test("formats remote provider status without opening a network session", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("Profile: dev");
+		expect(output).toContain("Provider: sftp");
+		expect(output).toContain("Root: sftp://alice@dev.example.com:22/srv/app");
+		expect(output).toContain("Status: adapter pending");
 	});
 });

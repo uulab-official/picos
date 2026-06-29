@@ -1,6 +1,7 @@
 import { lstat, readdir, readFile, stat } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, isAbsolute, resolve } from "node:path";
+import type { SftpRemoteProfile } from "./types";
 
 export type FileProviderKind = "local" | "sftp";
 
@@ -43,7 +44,28 @@ export type LocalFileProviderOptions = {
 	homeDir?: string;
 };
 
+export type FileProviderFactoryInput =
+	| {
+			kind: "local";
+			root?: string;
+			options?: LocalFileProviderOptions;
+	  }
+	| {
+			kind: "sftp";
+			profile: SftpRemoteProfile;
+	  };
+
 const DEFAULT_MAX_READ_BYTES = 256 * 1024;
+
+export function createFileProvider(
+	input: FileProviderFactoryInput,
+): FileProvider {
+	if (input.kind === "local") {
+		return createLocalFileProvider(input.root, input.options);
+	}
+
+	return createSftpFileProviderPlaceholder(input.profile);
+}
 
 export function createLocalFileProvider(
 	root = process.cwd(),
@@ -137,6 +159,31 @@ export function createLocalFileProvider(
 	};
 }
 
+export function createSftpFileProviderPlaceholder(
+	profile: SftpRemoteProfile,
+): FileProvider {
+	const root = formatSftpRoot(profile);
+
+	return {
+		kind: "sftp",
+		async pwd() {
+			return root;
+		},
+		async list() {
+			throw new Error("SFTP adapter is not connected yet");
+		},
+		async read() {
+			throw new Error("SFTP adapter is not connected yet");
+		},
+		async write() {
+			throw new Error("Remote writes require host and path confirmation");
+		},
+		async stat() {
+			throw new Error("SFTP adapter is not connected yet");
+		},
+	};
+}
+
 export function getSystemFileRoot(
 	platform: NodeJS.Platform = process.platform,
 	env: NodeJS.ProcessEnv = process.env,
@@ -217,4 +264,11 @@ function formatFileSize(size?: number): string {
 		return "-";
 	}
 	return String(size);
+}
+
+function formatSftpRoot(profile: SftpRemoteProfile): string {
+	const normalizedRoot = profile.root.startsWith("/")
+		? profile.root
+		: `/${profile.root}`;
+	return `sftp://${profile.username}@${profile.host}:${profile.port}${normalizedRoot}`;
 }

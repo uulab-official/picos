@@ -1,3 +1,4 @@
+import { createFileProvider } from "./files";
 import type { SftpRemoteProfile } from "./types";
 
 type RemoteProfileInput = Record<string, unknown>;
@@ -27,6 +28,21 @@ export function formatRemoteProfiles(profiles: SftpRemoteProfile[]): string {
 			return `${profile.id.padEnd(16)} sftp://${profile.username}@${profile.host}:${profile.port} root=${profile.root}${key}`;
 		})
 		.join("\n");
+}
+
+export async function formatRemoteProviderStatus(
+	profile: SftpRemoteProfile,
+): Promise<string> {
+	const provider = createFileProvider({ kind: "sftp", profile });
+	const root = await provider.pwd();
+
+	return [
+		`Profile: ${profile.id}`,
+		`Provider: ${provider.kind}`,
+		`Root: ${root}`,
+		"Status: adapter pending",
+		"Writes: locked until host and path confirmation",
+	].join("\n");
 }
 
 function normalizeSftpProfile(
