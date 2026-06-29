@@ -36,7 +36,19 @@ export type NetworkInterfaceSummary = {
 	ipv6Cidr?: string;
 	netmask?: string;
 	mac?: string;
+	mtu?: number;
+	rxBytes?: number;
+	txBytes?: number;
+	rxPackets?: number;
+	txPackets?: number;
 };
+
+export type NetworkInterfaceStats = Pick<
+	NetworkInterfaceSummary,
+	"mtu" | "rxBytes" | "txBytes" | "rxPackets" | "txPackets"
+>;
+
+export type NetworkInterfaceStatsMap = Record<string, NetworkInterfaceStats>;
 
 export type NetworkGroupSummary = {
 	kind: NetworkGroupKind;

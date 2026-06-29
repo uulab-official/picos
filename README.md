@@ -144,7 +144,7 @@ picos takes inspiration from tools like `lazyifconfig` for local network inspect
 Reference-inspired modules now tracked in picos:
 
 - Interfaces inventory
-- Interface type, CIDR prefix, MAC/netmask, gateway, and DNS inventory
+- Interface type, CIDR prefix, MAC/netmask, MTU, RX/TX counters, gateway, and DNS inventory
 - Subnet/network grouping for LAN, loopback, VPN, container, link-local, and public addresses
 - Route Inspector
 - Connections view
