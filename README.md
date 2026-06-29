@@ -73,6 +73,7 @@ picos connections
 picos ports
 picos locations
 picos remotes
+picos remote dev
 picos dir /
 picos dir ~
 picos pwd
@@ -109,6 +110,7 @@ Commands:
 - `picos ports --raw`: print raw listening-port command output.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
 - `picos remotes`: list configured remote file profiles without opening a network session.
+- `picos remote <id>`: inspect the remote provider boundary for a configured profile without opening a network session.
 - `picos pwd`: print the current local file root.
 - `picos dir [path]` or `picos ls [path]`: list local files; supports `.`, absolute paths, `/`, and `~`.
 - `picos type <path>` or `picos cat <path>`: print a local text file.

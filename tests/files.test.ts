@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatPwd, formatType } from "../src/cli/commands/files";
 import {
+	createFileProvider,
 	createLocalFileProvider,
 	formatDirEntries,
 	formatFileLocations,
@@ -84,5 +85,37 @@ describe("local file provider", () => {
 			"Filesystem Root",
 		);
 		expect(formatFileLocations(locations)).toContain("Workspace");
+	});
+
+	test("creates local providers through the shared provider factory", async () => {
+		const provider = createFileProvider({ kind: "local", root });
+
+		expect(provider.kind).toBe("local");
+		expect(await provider.pwd()).toBe(root);
+	});
+
+	test("creates locked SFTP provider placeholders through the shared provider factory", async () => {
+		const provider = createFileProvider({
+			kind: "sftp",
+			profile: {
+				id: "dev",
+				kind: "sftp",
+				host: "dev.example.com",
+				port: 22,
+				username: "alice",
+				root: "/srv/app",
+			},
+		});
+
+		expect(provider.kind).toBe("sftp");
+		expect(await provider.pwd()).toBe(
+			"sftp://alice@dev.example.com:22/srv/app",
+		);
+		await expect(provider.list(".")).rejects.toThrow(
+			"SFTP adapter is not connected yet",
+		);
+		await expect(provider.write("file.txt", "content")).rejects.toThrow(
+			"Remote writes require host and path confirmation",
+		);
 	});
 });

@@ -113,7 +113,7 @@ Goal: make the Files workspace faster to operate from the keyboard.
 
 ## v0.3.5 - SFTP-like Remote Files
 
-Status: in progress on `codex/picos-v0.3.5-remote-profile-stubs`.
+Status: draft PR #6.
 
 Goal: add remote file browsing through the same provider model as local files.
 
@@ -124,6 +124,18 @@ Goal: add remote file browsing through the same provider model as local files.
 - Remote list/read first.
 - Remote write behind visible host/path confirmation.
 - No password persistence.
+
+## v0.3.6 - Remote Provider Boundary
+
+Status: in progress on `codex/picos-v0.3.6-remote-provider-boundary`.
+
+Goal: connect remote profiles to the same file-provider shape as local files before enabling live SFTP.
+
+- Shared `createFileProvider()` factory for local and SFTP provider kinds.
+- Locked SFTP provider placeholder with explicit adapter-pending errors.
+- Remote write attempts remain blocked behind host/path confirmation.
+- `picos remote <id>` shows provider boundary status without opening a network session.
+- Next: read-only SFTP adapter selection and dependency evaluation.
 
 ## v0.4.0 - Privileged Controls Framework
 
