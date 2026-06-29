@@ -101,7 +101,7 @@ Goal: add the first DOS-like command prompt inside the Files workspace.
 
 ## v0.3.4 - Numbered Location Shortcuts
 
-Status: in progress on `codex/picos-v0.3.4-location-number-shortcuts`.
+Status: draft PR #5.
 
 Goal: make the Files workspace faster to operate from the keyboard.
 
@@ -113,10 +113,14 @@ Goal: make the Files workspace faster to operate from the keyboard.
 
 ## v0.3.5 - SFTP-like Remote Files
 
+Status: in progress on `codex/picos-v0.3.5-remote-profile-stubs`.
+
 Goal: add remote file browsing through the same provider model as local files.
 
 - `FileProvider` abstraction with `local` and `sftp` kinds.
 - SFTP profiles with host, port, username, key path, and root.
+- Safe config normalization that drops unsupported secret fields.
+- `picos remotes` profile listing without opening a network session.
 - Remote list/read first.
 - Remote write behind visible host/path confirmation.
 - No password persistence.

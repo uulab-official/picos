@@ -17,8 +17,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 26,
-			enabled: 19,
+			total: 27,
+			enabled: 20,
 			locked: 7,
 			elevated: 4,
 		});
@@ -49,6 +49,7 @@ describe("action catalog", () => {
 			"routes.path",
 			"timeline.export",
 			"raw.view",
+			"remote.profiles",
 		]);
 	});
 
@@ -89,6 +90,14 @@ describe("action catalog", () => {
 				risk: "write",
 				enabled: false,
 				confirmationRequired: true,
+			}),
+		);
+		expect(catalog).toContainEqual(
+			expect.objectContaining({
+				id: "remote.profiles",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
 			}),
 		);
 		expect(catalog).toContainEqual(

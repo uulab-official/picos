@@ -72,6 +72,7 @@ picos route 8.8.8.8
 picos connections
 picos ports
 picos locations
+picos remotes
 picos dir /
 picos dir ~
 picos pwd
@@ -107,6 +108,7 @@ Commands:
 - `picos ports`: list listening TCP ports with process metadata where available.
 - `picos ports --raw`: print raw listening-port command output.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
+- `picos remotes`: list configured remote file profiles without opening a network session.
 - `picos pwd`: print the current local file root.
 - `picos dir [path]` or `picos ls [path]`: list local files; supports `.`, absolute paths, `/`, and `~`.
 - `picos type <path>` or `picos cat <path>`: print a local text file.
@@ -182,7 +184,8 @@ Default config:
 	"refreshInterval": 3000,
 	"defaultPingHost": "google.com",
 	"showPublicIp": true,
-	"enableExperimentalControls": false
+	"enableExperimentalControls": false,
+	"remoteProfiles": []
 }
 ```
 
@@ -198,6 +201,25 @@ Config file locations:
 - Windows: `%APPDATA%/picos/config.json`
 - macOS: `~/Library/Application Support/picos/config.json`
 - Linux: `~/.config/picos/config.json`
+
+Remote profile shape:
+
+```json
+{
+	"remoteProfiles": [
+		{
+			"id": "dev",
+			"host": "dev.example.com",
+			"port": 22,
+			"username": "alice",
+			"root": ".",
+			"keyPath": "~/.ssh/id_ed25519"
+		}
+	]
+}
+```
+
+Remote passwords are not part of the config schema.
 
 ## Development
 

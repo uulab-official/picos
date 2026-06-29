@@ -20,6 +20,7 @@ import {
 import { infoCommand } from "./commands/info";
 import { pingCommand } from "./commands/ping";
 import { portsCommand } from "./commands/ports";
+import { remotesCommand } from "./commands/remotes";
 import { routeCommand, routesCommand } from "./commands/routes";
 import { toolsCommand } from "./commands/tools";
 
@@ -44,6 +45,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	cli
 		.command("locations", "List system file locations")
 		.action(locationsCommand);
+	cli
+		.command("remotes", "List configured remote file profiles")
+		.action(remotesCommand);
 	cli
 		.command("drives", "List system drives and file locations")
 		.action(drivesCommand);
