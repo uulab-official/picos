@@ -46,6 +46,15 @@ import {
 	openCommandLine,
 } from "./commandLine";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
+import {
+	appendFileFilterQuery,
+	backspaceFileFilterQuery,
+	clearFileFilter,
+	closeFileFilter,
+	type FileFilterState,
+	filterFileEntries,
+	openFileFilter,
+} from "./fileFilter";
 import { popFileHistory, pushFileHistory } from "./fileHistory";
 import {
 	enterFocus,
@@ -111,6 +120,10 @@ export function App(): React.ReactElement {
 	const [fileRoot, setFileRoot] = useState(systemFileRoot);
 	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 	const [fileHistory, setFileHistory] = useState<string[]>([]);
+	const [fileFilter, setFileFilter] = useState<FileFilterState>({
+		active: false,
+		query: "",
+	});
 	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 	const [selectedLocationIndex, setSelectedLocationIndex] = useState(0);
 	const [commandLine, setCommandLine] = useState<CommandLineState>({
@@ -131,9 +144,13 @@ export function App(): React.ReactElement {
 	const [remoteFileContext, setRemoteFileContext] =
 		useState<RemoteFileContext>();
 	const t = useMemo(() => createTranslator(language), [language]);
-	const displayedFileEntries = useMemo(
+	const parentFileEntries = useMemo(
 		() => withParentDirectoryEntry(fileRoot, fileEntries),
 		[fileRoot, fileEntries],
+	);
+	const displayedFileEntries = useMemo(
+		() => filterFileEntries(parentFileEntries, fileFilter),
+		[parentFileEntries, fileFilter],
 	);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
@@ -541,6 +558,31 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (fileFilter.active) {
+			if (key.escape) {
+				setFileFilter((current) => clearFileFilter(current));
+				setSelectedFileIndex(0);
+				log("info", "file filter cleared");
+				return;
+			}
+
+			if (key.return) {
+				setFileFilter((current) => closeFileFilter(current));
+				log("info", "file filter applied");
+				return;
+			}
+
+			if (key.backspace || key.delete) {
+				setFileFilter((current) => backspaceFileFilterQuery(current));
+				setSelectedFileIndex(0);
+				return;
+			}
+
+			setFileFilter((current) => appendFileFilterQuery(current, input));
+			setSelectedFileIndex(0);
+			return;
+		}
+
 		if (input === "q") {
 			exit();
 		}
@@ -599,6 +641,13 @@ export function App(): React.ReactElement {
 
 		if (focusArea === "files" && input === "b") {
 			void goBackFileHistory();
+		}
+
+		if (focusArea === "files" && input === "f") {
+			setFileFilter((current) => openFileFilter(current.query));
+			setSelectedFileIndex(0);
+			log("info", "file filter opened");
+			return;
 		}
 
 		if (focusArea === "files" && input === "g") {
@@ -723,6 +772,7 @@ export function App(): React.ReactElement {
 					selectedFileIndex={selectedFileIndex}
 					selectedLocationIndex={selectedLocationIndex}
 					commandLine={commandLine}
+					fileFilter={fileFilter}
 					editorPreview={editorPreview}
 					remoteProfiles={remoteProfiles}
 					selectedRemoteIndex={selectedRemoteIndex}
@@ -843,6 +893,7 @@ function MainWorkspace({
 	selectedFileIndex,
 	selectedLocationIndex,
 	commandLine,
+	fileFilter,
 	editorPreview,
 	remoteProfiles,
 	selectedRemoteIndex,
@@ -869,6 +920,7 @@ function MainWorkspace({
 	selectedFileIndex: number;
 	selectedLocationIndex: number;
 	commandLine: CommandLineState;
+	fileFilter: FileFilterState;
 	editorPreview?: EditorPreview;
 	remoteProfiles: SftpRemoteProfile[];
 	selectedRemoteIndex: number;
@@ -904,6 +956,7 @@ function MainWorkspace({
 					selectedFileIndex,
 					selectedLocationIndex,
 					commandLine,
+					fileFilter,
 					editorPreview,
 					remoteProfiles,
 					selectedRemoteIndex,
@@ -934,6 +987,7 @@ function renderWorkspace(
 	selectedFileIndex: number,
 	selectedLocationIndex: number,
 	commandLine: CommandLineState,
+	fileFilter: FileFilterState,
 	editorPreview: EditorPreview | undefined,
 	remoteProfiles: SftpRemoteProfile[],
 	selectedRemoteIndex: number,
@@ -958,14 +1012,18 @@ function renderWorkspace(
 	}
 
 	if (screen === "files") {
+		const entriesWithParent = withParentDirectoryEntry(fileRoot, fileEntries);
+		const filteredEntries = filterFileEntries(entriesWithParent, fileFilter);
 		return (
 			<FilesWorkspace
 				root={fileRoot}
-				entries={withParentDirectoryEntry(fileRoot, fileEntries)}
+				entries={filteredEntries}
+				totalEntryCount={entriesWithParent.length}
 				locations={fileLocations}
 				selectedIndex={selectedFileIndex}
 				selectedLocationIndex={selectedLocationIndex}
 				commandLine={commandLine}
+				fileFilter={fileFilter}
 				remoteContext={remoteFileContext}
 				focused={focusArea === "files"}
 				visibleRows={Math.max(6, height - 9)}
@@ -1303,10 +1361,12 @@ function DashboardWorkspace({
 function FilesWorkspace({
 	root,
 	entries,
+	totalEntryCount,
 	locations,
 	selectedIndex,
 	selectedLocationIndex,
 	commandLine,
+	fileFilter,
 	remoteContext,
 	focused,
 	visibleRows,
@@ -1314,10 +1374,12 @@ function FilesWorkspace({
 }: {
 	root: string;
 	entries: FileEntry[];
+	totalEntryCount: number;
 	locations: FileLocation[];
 	selectedIndex: number;
 	selectedLocationIndex: number;
 	commandLine: CommandLineState;
+	fileFilter: FileFilterState;
 	remoteContext?: RemoteFileContext;
 	focused: boolean;
 	visibleRows: number;
@@ -1345,9 +1407,15 @@ function FilesWorkspace({
 				) : null}
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
-						? "files · j/k · enter · b back · u up · :path"
+						? "files · j/k · enter · f filter · b back · :path"
 						: "enter opens file focus"}
 				</Text>
+				{fileFilter.active || fileFilter.query ? (
+					<Text color={fileFilter.active ? "yellow" : "gray"}>
+						filter {fileFilter.query || "type"} · {entries.length}/
+						{totalEntryCount}
+					</Text>
+				) : null}
 				{commandLine.active ? (
 					<Text color="yellow">
 						:{commandLine.prompt} {commandLine.value || " "}
@@ -1399,9 +1467,15 @@ function FilesWorkspace({
 			)}
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "files · j/k · enter · b back · u up · :path"
+					? "files · j/k · enter · f filter · b back · :path"
 					: "enter opens file focus · read-only navigation · .. available"}
 			</Text>
+			{fileFilter.active || fileFilter.query ? (
+				<Text color={fileFilter.active ? "yellow" : "gray"}>
+					filter {fileFilter.query || "type"} · {entries.length}/
+					{totalEntryCount} · enter apply · esc clear
+				</Text>
+			) : null}
 			{commandLine.active ? (
 				<Text color="yellow">
 					:{commandLine.prompt} {commandLine.value || " "}
@@ -1449,7 +1523,7 @@ function FilesWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>1-9 locations · : path input · . and .. supported · b back</Text>
+				<Text>1-9 locations · f filter · : path · . and .. · b back</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
 					next: path input dialog · edit/save confirmation · SFTP provider

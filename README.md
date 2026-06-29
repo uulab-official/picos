@@ -39,7 +39,7 @@ Keyboard controls:
 - `up/down` or `j/k`: move through workspaces, or actions inside Action Center
 - `enter`: enter the focused workspace mode, run the selected action, open a directory, or preview a file
 - `?` or `/`: open the command palette, then type to filter commands
-- Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
+- Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `f` filters by name/path/type, `enter` applies the filter, `esc` clears it, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh
@@ -168,7 +168,7 @@ v0.2 expands picos toward an OS-like console:
 - DOS-style file navigation and text editing are planned after the read-only inventory and network tool layer is stable.
 
 v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
-The Files workspace supports keyboard-driven local navigation, numbered system location jumps, direct path input, and read-only file preview into the Editor workspace. The Remotes workspace surfaces configured SFTP-style profiles, lets you stage a locked remote file context, and never opens network sessions yet.
+The Files workspace supports keyboard-driven local navigation, numbered system location jumps, direct path input, entry filtering, and read-only file preview into the Editor workspace. The Remotes workspace surfaces configured SFTP-style profiles, lets you stage a locked remote file context, and never opens network sessions yet.
 
 ## Privacy Direction
 

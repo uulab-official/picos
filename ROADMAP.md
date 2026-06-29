@@ -199,6 +199,20 @@ Goal: make Files navigation feel like a real terminal file manager instead of a 
 - File focus help text exposes parent/back controls.
 - Next: file operations dialog shell for copy/move/delete previews while writes remain locked.
 
+## v0.3.12 - File Filter
+
+Status: draft PR #13.
+
+Goal: make large directories and developer workspaces scannable from the keyboard.
+
+- `f` opens a filter prompt while Files focus is active.
+- Typing filters visible entries by name, path, or type.
+- The parent `..` entry stays visible while filtering.
+- `enter` applies the current filter without clearing it.
+- `esc` clears the filter and returns to the full directory listing.
+- Filter match counts are visible in compact and full Files layouts.
+- Next: file operations dialog shell for copy/move/delete previews while writes remain locked.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
