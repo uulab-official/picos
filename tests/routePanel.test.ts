@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { RouteTableResult } from "../src/core/routes";
+import type { RoutePathResult, RouteTableResult } from "../src/core/routes";
 import {
+	formatRoutePathRows,
 	formatRouteRawRows,
 	formatRouteWorkspaceRows,
 } from "../src/tui/routePanel";
@@ -31,6 +32,15 @@ const fixture: RouteTableResult = {
 		},
 	],
 	rawOutput: "$ netstat -rn\nInternet:\ndefault 192.168.0.1 UGSc en0",
+};
+
+const pathFixture: RoutePathResult = {
+	destination: "8.8.8.8",
+	gateway: "192.168.0.1",
+	interfaceName: "en0",
+	sourceIp: "192.168.0.20",
+	rawOutput:
+		"$ route -n get 8.8.8.8\nroute to: 8.8.8.8\ngateway: 192.168.0.1\ninterface: en0",
 };
 
 describe("route TUI panel formatting", () => {
@@ -70,5 +80,17 @@ describe("route TUI panel formatting", () => {
 
 		expect(formatRouteWorkspaceRows(crowded, 10)).toContain("RAW OUTPUT");
 		expect(formatRouteWorkspaceRows(crowded, 10)).toContain("↓ 10 more routes");
+	});
+
+	test("formats destination path lookup rows with raw output", () => {
+		expect(formatRoutePathRows(pathFixture, 8)).toEqual([
+			"PATH destination=8.8.8.8",
+			"gateway=192.168.0.1 interface=en0 source=192.168.0.20",
+			"RAW PATH",
+			"$ route -n get 8.8.8.8",
+			"route to: 8.8.8.8",
+			"gateway: 192.168.0.1",
+			"interface: en0",
+		]);
 	});
 });
