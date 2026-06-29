@@ -37,6 +37,7 @@ import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
 	enterFocus,
 	type FocusArea,
+	getNextIndex,
 	getScreenByShortcut,
 	getScreenIndex,
 	getVisibleWindow,
@@ -86,6 +87,7 @@ export function App(): React.ReactElement {
 	const [fileRoot, setFileRoot] = useState(systemFileRoot);
 	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+	const [selectedLocationIndex, setSelectedLocationIndex] = useState(0);
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
 	const [connections, setConnections] = useState<ActiveConnection[]>([]);
 	const [ports, setPorts] = useState<ListeningPort[]>([]);
@@ -121,13 +123,19 @@ export function App(): React.ReactElement {
 			]);
 			setFileRoot(resolvedRoot);
 			setFileEntries(entries);
+			const matchedLocationIndex = fileLocations.findIndex(
+				(location) => location.path === resolvedRoot,
+			);
+			if (matchedLocationIndex >= 0) {
+				setSelectedLocationIndex(matchedLocationIndex);
+			}
 			setSelectedFileIndex((index) =>
 				options.keepSelection
 					? Math.min(index, Math.max(0, entries.length - 1))
 					: 0,
 			);
 		},
-		[fileProvider],
+		[fileLocations, fileProvider],
 	);
 
 	const refreshFiles = useCallback(async () => {
@@ -173,6 +181,30 @@ export function App(): React.ReactElement {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
 	}, [fileRoot, loadFiles, log]);
+
+	const jumpToNextLocation = useCallback(async () => {
+		if (!fileLocations.length) {
+			return;
+		}
+
+		const nextIndex = getNextIndex(
+			selectedLocationIndex,
+			fileLocations.length,
+			"next",
+		);
+		const location = fileLocations[nextIndex];
+		if (!location) {
+			return;
+		}
+
+		try {
+			await loadFiles(location.path);
+			setSelectedLocationIndex(nextIndex);
+			log("info", `jumped to ${location.label}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [fileLocations, loadFiles, log, selectedLocationIndex]);
 
 	useEffect(() => {
 		void loadFiles(systemFileRoot);
@@ -368,6 +400,10 @@ export function App(): React.ReactElement {
 			void goToParentDirectory();
 		}
 
+		if (focusArea === "files" && input === "g") {
+			void jumpToNextLocation();
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -389,10 +425,12 @@ export function App(): React.ReactElement {
 
 		if (key.downArrow || input === "j") {
 			if (focusArea === "actions") {
-				setSelectedActionIndex((index) => (index + 1) % actions.length);
+				setSelectedActionIndex((index) =>
+					getNextIndex(index, actions.length, "next"),
+				);
 			} else if (focusArea === "files") {
 				setSelectedFileIndex((index) =>
-					fileEntries.length ? (index + 1) % fileEntries.length : 0,
+					getNextIndex(index, fileEntries.length, "next"),
 				);
 			} else {
 				setScreen((current) => moveScreen(current, "next"));
@@ -401,14 +439,12 @@ export function App(): React.ReactElement {
 
 		if (key.upArrow || input === "k") {
 			if (focusArea === "actions") {
-				setSelectedActionIndex(
-					(index) => (index - 1 + actions.length) % actions.length,
+				setSelectedActionIndex((index) =>
+					getNextIndex(index, actions.length, "previous"),
 				);
 			} else if (focusArea === "files") {
 				setSelectedFileIndex((index) =>
-					fileEntries.length
-						? (index - 1 + fileEntries.length) % fileEntries.length
-						: 0,
+					getNextIndex(index, fileEntries.length, "previous"),
 				);
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
@@ -455,6 +491,7 @@ export function App(): React.ReactElement {
 					fileEntries={fileEntries}
 					fileLocations={fileLocations}
 					selectedFileIndex={selectedFileIndex}
+					selectedLocationIndex={selectedLocationIndex}
 					editorPreview={editorPreview}
 					connections={connections}
 					ports={ports}
@@ -569,6 +606,7 @@ function MainWorkspace({
 	fileEntries,
 	fileLocations,
 	selectedFileIndex,
+	selectedLocationIndex,
 	editorPreview,
 	connections,
 	ports,
@@ -589,6 +627,7 @@ function MainWorkspace({
 	fileEntries: FileEntry[];
 	fileLocations: FileLocation[];
 	selectedFileIndex: number;
+	selectedLocationIndex: number;
 	editorPreview?: EditorPreview;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
@@ -618,6 +657,7 @@ function MainWorkspace({
 					fileEntries,
 					fileLocations,
 					selectedFileIndex,
+					selectedLocationIndex,
 					editorPreview,
 					connections,
 					ports,
@@ -642,6 +682,7 @@ function renderWorkspace(
 	fileEntries: FileEntry[],
 	fileLocations: FileLocation[],
 	selectedFileIndex: number,
+	selectedLocationIndex: number,
 	editorPreview: EditorPreview | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
@@ -656,6 +697,7 @@ function renderWorkspace(
 				entries={fileEntries}
 				locations={fileLocations}
 				selectedIndex={selectedFileIndex}
+				selectedLocationIndex={selectedLocationIndex}
 				focused={focusArea === "files"}
 				visibleRows={Math.max(6, height - 9)}
 				t={t}
@@ -982,6 +1024,7 @@ function FilesWorkspace({
 	entries,
 	locations,
 	selectedIndex,
+	selectedLocationIndex,
 	focused,
 	visibleRows,
 	t,
@@ -990,6 +1033,7 @@ function FilesWorkspace({
 	entries: FileEntry[];
 	locations: FileLocation[];
 	selectedIndex: number;
+	selectedLocationIndex: number;
 	focused: boolean;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -1010,12 +1054,16 @@ function FilesWorkspace({
 				</Text>
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
-						? "files focus · j/k select · enter open · u parent · h/esc back"
+						? "files focus · j/k select · enter open · g location · u parent · h/esc back"
 						: "enter opens file focus"}
 				</Text>
-				{locations.slice(0, 3).map((location) => (
-					<Text key={`${location.kind}:${location.path}`}>
-						{location.label.padEnd(10)} {clip(location.path, 42)}
+				{locations.slice(0, 3).map((location, index) => (
+					<Text
+						key={`${location.kind}:${location.path}`}
+						color={index === selectedLocationIndex ? "cyan" : "white"}
+					>
+						{index === selectedLocationIndex ? ">" : " "}{" "}
+						{location.label.padEnd(10)} {clip(location.path, 40)}
 					</Text>
 				))}
 				<Text color="cyan">DIRECTORY VIEW</Text>
@@ -1046,14 +1094,18 @@ function FilesWorkspace({
 			<Text color="gray">current {clip(root, 46)}</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "files focus · j/k select · enter open · u parent · h/esc back"
+					? "files focus · j/k select · enter open · g location · u parent · h/esc back"
 					: "enter opens file focus · read-only navigation"}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">SYSTEM LOCATIONS</Text>
-				{locations.slice(0, locationRows).map((location) => (
-					<Text key={`${location.kind}:${location.path}`}>
-						{location.label.padEnd(16)} {clip(location.path, 36)}
+				{locations.slice(0, locationRows).map((location, index) => (
+					<Text
+						key={`${location.kind}:${location.path}`}
+						color={index === selectedLocationIndex ? "cyan" : "white"}
+					>
+						{index === selectedLocationIndex ? ">" : " "}{" "}
+						{location.label.padEnd(15)} {clip(location.path, 34)}
 					</Text>
 				))}
 			</Box>
@@ -1086,7 +1138,9 @@ function FilesWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>picos locations · picos dir / · picos dir ~</Text>
+				<Text>
+					g cycle locations · picos locations · picos dir / · picos dir ~
+				</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
 					next: path input dialog · edit/save confirmation · SFTP provider

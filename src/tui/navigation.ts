@@ -100,6 +100,20 @@ export function leaveFocus(current: FocusArea): FocusArea {
 	return current;
 }
 
+export function getNextIndex(
+	current: number,
+	total: number,
+	direction: "next" | "previous",
+): number {
+	if (total <= 0) {
+		return 0;
+	}
+
+	const normalized = Math.min(Math.max(current, 0), total - 1);
+	const offset = direction === "next" ? 1 : -1;
+	return (normalized + offset + total) % total;
+}
+
 export function getVisibleWindow(
 	total: number,
 	selectedIndex: number,

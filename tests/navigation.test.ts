@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	enterFocus,
+	getNextIndex,
 	getScreenByShortcut,
 	getScreenIndex,
 	getVisibleWindow,
@@ -70,5 +71,14 @@ describe("TUI navigation", () => {
 		expect(getVisibleWindow(15, 7, 5)).toEqual({ start: 5, end: 10 });
 		expect(getVisibleWindow(15, 14, 5)).toEqual({ start: 10, end: 15 });
 		expect(getVisibleWindow(3, 2, 10)).toEqual({ start: 0, end: 3 });
+	});
+
+	test("cycles indexes for child lists and location jumps", () => {
+		expect(getNextIndex(0, 4, "next")).toBe(1);
+		expect(getNextIndex(3, 4, "next")).toBe(0);
+		expect(getNextIndex(0, 4, "previous")).toBe(3);
+		expect(getNextIndex(2, 4, "previous")).toBe(1);
+		expect(getNextIndex(99, 4, "next")).toBe(0);
+		expect(getNextIndex(0, 0, "next")).toBe(0);
 	});
 });
