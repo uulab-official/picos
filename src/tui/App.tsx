@@ -43,6 +43,7 @@ import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
 	enterFocus,
 	type FocusArea,
+	getLocationShortcutIndex,
 	getNextIndex,
 	getScreenByShortcut,
 	getScreenIndex,
@@ -193,6 +194,24 @@ export function App(): React.ReactElement {
 		}
 	}, [fileRoot, loadFiles, log]);
 
+	const jumpToLocation = useCallback(
+		async (locationIndex: number) => {
+			const location = fileLocations[locationIndex];
+			if (!location) {
+				return;
+			}
+
+			try {
+				await loadFiles(location.path);
+				setSelectedLocationIndex(locationIndex);
+				log("info", `jumped to ${location.label}`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[fileLocations, loadFiles, log],
+	);
+
 	const jumpToNextLocation = useCallback(async () => {
 		if (!fileLocations.length) {
 			return;
@@ -203,19 +222,8 @@ export function App(): React.ReactElement {
 			fileLocations.length,
 			"next",
 		);
-		const location = fileLocations[nextIndex];
-		if (!location) {
-			return;
-		}
-
-		try {
-			await loadFiles(location.path);
-			setSelectedLocationIndex(nextIndex);
-			log("info", `jumped to ${location.label}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [fileLocations, loadFiles, log, selectedLocationIndex]);
+		await jumpToLocation(nextIndex);
+	}, [fileLocations.length, jumpToLocation, selectedLocationIndex]);
 
 	const submitPathCommand = useCallback(async () => {
 		const path = commandLine.value.trim();
@@ -452,6 +460,17 @@ export function App(): React.ReactElement {
 
 		if (focusArea === "files" && input === "g") {
 			void jumpToNextLocation();
+		}
+
+		if (focusArea === "files") {
+			const locationIndex = getLocationShortcutIndex(
+				input,
+				fileLocations.length,
+			);
+			if (locationIndex !== undefined) {
+				void jumpToLocation(locationIndex);
+				return;
+			}
 		}
 
 		if (focusArea === "files" && input === ":") {
@@ -1117,7 +1136,7 @@ function FilesWorkspace({
 				</Text>
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
-						? "files focus · j/k select · enter open · : path · g location · u parent · h/esc back"
+						? "files focus · j/k select · enter open · 1-9 location · : path · g cycle · u parent · h/esc back"
 						: "enter opens file focus"}
 				</Text>
 				{commandLine.active ? (
@@ -1131,7 +1150,8 @@ function FilesWorkspace({
 						color={index === selectedLocationIndex ? "cyan" : "white"}
 					>
 						{index === selectedLocationIndex ? ">" : " "}{" "}
-						{location.label.padEnd(10)} {clip(location.path, 40)}
+						{`${index + 1} ${location.label}`.padEnd(12)}{" "}
+						{clip(location.path, 38)}
 					</Text>
 				))}
 				<Text color="cyan">DIRECTORY VIEW</Text>
@@ -1162,7 +1182,7 @@ function FilesWorkspace({
 			<Text color="gray">current {clip(root, 46)}</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "files focus · j/k select · enter open · : path · g location · u parent · h/esc back"
+					? "files focus · j/k select · enter open · 1-9 location · : path · g cycle · u parent · h/esc back"
 					: "enter opens file focus · read-only navigation"}
 			</Text>
 			{commandLine.active ? (
@@ -1178,7 +1198,8 @@ function FilesWorkspace({
 						color={index === selectedLocationIndex ? "cyan" : "white"}
 					>
 						{index === selectedLocationIndex ? ">" : " "}{" "}
-						{location.label.padEnd(15)} {clip(location.path, 34)}
+						{`${index + 1} ${location.label}`.padEnd(17)}{" "}
+						{clip(location.path, 32)}
 					</Text>
 				))}
 			</Box>
@@ -1211,9 +1232,7 @@ function FilesWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>
-					: path input · g cycle locations · picos dir / · picos dir ~
-				</Text>
+				<Text>1-9 jump locations · : path input · g cycle · picos dir ~</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
 					next: path input dialog · edit/save confirmation · SFTP provider
