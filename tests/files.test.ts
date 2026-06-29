@@ -10,6 +10,7 @@ import {
 	formatFileLocations,
 	getSystemFileLocations,
 	getSystemFileRoot,
+	withParentDirectoryEntry,
 } from "../src/core/files";
 
 let root = "";
@@ -117,5 +118,23 @@ describe("local file provider", () => {
 		await expect(provider.write("file.txt", "content")).rejects.toThrow(
 			"Remote writes require host and path confirmation",
 		);
+	});
+
+	test("adds a parent directory entry outside filesystem root", async () => {
+		const provider = createLocalFileProvider(root);
+		const entries = withParentDirectoryEntry(
+			join(root, "src"),
+			await provider.list("src"),
+		);
+
+		expect(entries[0]).toMatchObject({
+			name: "..",
+			path: root,
+			type: "directory",
+			readonly: true,
+		});
+		expect(
+			withParentDirectoryEntry("/", await provider.list("."))[0]?.name,
+		).not.toBe("..");
 	});
 });
