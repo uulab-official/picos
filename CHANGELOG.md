@@ -37,6 +37,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Clipboard copy failures now include platform fallback hints for `pbcopy`, `xclip`, and `clip.exe` instead of looking like confirmation locks.
 - Timeline workspace now shows live EventDock history with `all`, `audit`, `action`, and `raw` filters cycled by `t`.
 - Timeline now reloads the latest exported audit log on TUI startup and keeps a longer default in-memory event history.
+- Timeline now records network status, primary address, public IP, and interface address changes during refresh with a dedicated `network` filter.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.
