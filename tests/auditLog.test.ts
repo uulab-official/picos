@@ -6,6 +6,7 @@ import {
 	archiveConsoleAuditExport,
 	createConsoleAuditExportArchivePlan,
 	createConsoleAuditExportPlan,
+	formatConsoleAuditExportArchiveIndexRows,
 	formatConsoleAuditExportArchiveRows,
 	formatConsoleAuditExportIndexRows,
 	formatConsoleAuditLog,
@@ -401,6 +402,22 @@ describe("console audit export", () => {
 					scope: "selected",
 					entryCount: 1,
 				}),
+			]);
+			expect(
+				formatConsoleAuditExportArchiveIndexRows(
+					await readConsoleAuditExportArchiveIndex(root),
+					0,
+					4,
+				),
+			).toEqual([
+				`AUDIT ARCHIVE 1 base=${root}`,
+				"> selected events=1 2026-07-01T03:00:00.000Z",
+				`path=${join(
+					root,
+					"audit",
+					"archive",
+					"picos-audit-selected-2026-07-01T030000000Z.log",
+				)}`,
 			]);
 		} finally {
 			await rm(root, { recursive: true, force: true });

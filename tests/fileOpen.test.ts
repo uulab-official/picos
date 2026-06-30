@@ -14,6 +14,8 @@ const cleanupExportPath =
 	"/Users/me/.config/picos/cleanup/picos-cleanup-all-2026-07-01T010000000Z.md";
 const timelineExportPath =
 	"/Users/me/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log";
+const timelineArchiveExportPath =
+	"/Users/me/.config/picos/audit/archive/picos-audit-selected-2026-07-01T030000000Z.log";
 
 describe("external file open planning", () => {
 	test("builds locked opener plans only for files under the allowed base directory", () => {
@@ -121,6 +123,30 @@ describe("external file open planning", () => {
 			},
 		});
 		expect(formatFileOpenPlanRows(plan)[0]).toBe("FILE OPEN timeline-export");
+	});
+
+	test("builds locked opener plans for archived timeline audit export files", () => {
+		const plan = buildFileOpenPlan({
+			baseDir,
+			label: "archived audit export selected",
+			path: timelineArchiveExportPath,
+			platform: "darwin",
+			source: "timeline-export",
+		});
+
+		expect(plan).toMatchObject({
+			source: "timeline-export",
+			label: "archived audit export selected",
+			path: timelineArchiveExportPath,
+			confirmed: false,
+			enabled: false,
+			reason: "type open to launch external file viewer",
+			adapter: {
+				platform: "darwin",
+				command: "open",
+				args: [timelineArchiveExportPath],
+			},
+		});
 	});
 
 	test("formats operator-visible file open previews", () => {

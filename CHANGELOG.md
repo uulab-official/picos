@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status now shows archived Timeline audit exports, with `U` refresh, `(` selection, and `J` locked file-open controls.
 - Status audit export rows can now be archived with `Z` after typing `archive audit export`, moving selected picos-owned logs into `audit/archive`.
 - Status now indexes Timeline audit export files, with refresh, selection, and locked file-open controls.
 - Timeline now supports `e` to export the selected filtered/search-matched row as a single audit file.

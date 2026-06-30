@@ -35,9 +35,11 @@ import {
 	type ConsoleAuditExportIndex,
 	createConsoleAuditExportArchivePlan,
 	createConsoleAuditExportPlan,
+	formatConsoleAuditExportArchiveIndexRows,
 	formatConsoleAuditExportArchiveRows,
 	formatConsoleAuditExportIndexRows,
 	getSelectedConsoleAuditExport,
+	readConsoleAuditExportArchiveIndex,
 	readConsoleAuditExportIndex,
 	readLatestConsoleAuditExport,
 	writeConsoleAuditExport,
@@ -488,6 +490,13 @@ export function App(): React.ReactElement {
 			items: [],
 		});
 	const [selectedAuditExportIndex, setSelectedAuditExportIndex] = useState(0);
+	const [auditExportArchiveIndex, setAuditExportArchiveIndex] =
+		useState<ConsoleAuditExportIndex>({
+			baseDir: dirname(getConfigPath()),
+			items: [],
+		});
+	const [selectedAuditExportArchiveIndex, setSelectedAuditExportArchiveIndex] =
+		useState(0);
 	const [auditExportArchivePlan, setAuditExportArchivePlan] =
 		useState<ConsoleAuditExportArchivePlan>();
 	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
@@ -1713,6 +1722,30 @@ export function App(): React.ReactElement {
 		[log],
 	);
 
+	const refreshAuditExportArchiveIndex = useCallback(
+		async (announce = true) => {
+			const baseDir = dirname(getConfigPath());
+			try {
+				const index = await readConsoleAuditExportArchiveIndex(baseDir);
+				setAuditExportArchiveIndex(index);
+				setSelectedAuditExportArchiveIndex((current) =>
+					Math.min(current, Math.max(0, index.items.length - 1)),
+				);
+				if (announce) {
+					log("info", `audit archive indexed ${index.items.length}`);
+				}
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `audit archive index failed ${caught.message}`
+						: `audit archive index failed ${String(caught)}`,
+				);
+			}
+		},
+		[log],
+	);
+
 	const openSelectedHandoffFile = useCallback(() => {
 		const item = getSelectedHandoffIndexItem(
 			handoffIndex,
@@ -1761,6 +1794,34 @@ export function App(): React.ReactElement {
 		setScreen("status");
 		log("info", `audit export open confirmation opened for ${item.fileName}`);
 	}, [auditExportIndex, log, selectedAuditExportIndex]);
+
+	const openSelectedAuditExportArchiveFile = useCallback(() => {
+		const item = getSelectedConsoleAuditExport(
+			auditExportArchiveIndex,
+			selectedAuditExportArchiveIndex,
+		);
+		if (!item) {
+			log("warn", "no archived audit export selected");
+			return;
+		}
+		const plan = buildFileOpenPlan({
+			baseDir: auditExportArchiveIndex.baseDir,
+			source: "timeline-export",
+			label: `archived audit export ${item.scope} ${item.generatedAt}`,
+			path: item.path,
+			platform: currentPlatform(),
+		});
+		setFileOpenPlan(plan);
+		setExternalOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
+		setCleanupExportArchivePlan(undefined);
+		setCommandLine(openCommandLine("file-open"));
+		setScreen("status");
+		log(
+			"info",
+			`archived audit export open confirmation opened for ${item.fileName}`,
+		);
+	}, [auditExportArchiveIndex, log, selectedAuditExportArchiveIndex]);
 
 	const openSelectedAuditExportArchive = useCallback(() => {
 		const item = getSelectedConsoleAuditExport(
@@ -2572,6 +2633,12 @@ export function App(): React.ReactElement {
 				baseDir: dirname(getConfigPath()),
 				items: [],
 			}));
+			const auditArchiveExports = await readConsoleAuditExportArchiveIndex(
+				dirname(getConfigPath()),
+			).catch(() => ({
+				baseDir: dirname(getConfigPath()),
+				items: [],
+			}));
 			const cleanupArchiveExports =
 				await readCleanupHandoffHistoryExportArchiveIndex(
 					dirname(getConfigPath()),
@@ -2586,6 +2653,10 @@ export function App(): React.ReactElement {
 			setAuditExportIndex(auditExports);
 			setSelectedAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, auditExports.items.length - 1)),
+			);
+			setAuditExportArchiveIndex(auditArchiveExports);
+			setSelectedAuditExportArchiveIndex((current) =>
+				Math.min(current, Math.max(0, auditArchiveExports.items.length - 1)),
 			);
 			setCleanupExportArchiveIndex(cleanupArchiveExports);
 			setSelectedCleanupExportArchiveIndex((current) =>
@@ -2830,12 +2901,14 @@ export function App(): React.ReactElement {
 		);
 		if (result.status === "archived") {
 			await refreshAuditExportIndex(false);
+			await refreshAuditExportArchiveIndex(false);
 		}
 	}, [
 		auditExportArchivePlan,
 		auditExportIndex.baseDir,
 		commandLine.value,
 		log,
+		refreshAuditExportArchiveIndex,
 		refreshAuditExportIndex,
 	]);
 
@@ -3860,6 +3933,11 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "status" && focusArea === "workspaces" && input === "U") {
+			void refreshAuditExportArchiveIndex();
+			return;
+		}
+
 		if (screen === "status" && focusArea === "workspaces" && input === "B") {
 			void refreshCleanupExportArchiveIndex();
 			return;
@@ -3893,6 +3971,20 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "status" && focusArea === "workspaces" && input === "(") {
+			if (auditExportArchiveIndex.items.length === 0) {
+				log("warn", "no audit archive indexed");
+				return;
+			}
+			setSelectedAuditExportArchiveIndex((index) => {
+				const next = (index + 1) % auditExportArchiveIndex.items.length;
+				const item = auditExportArchiveIndex.items[next];
+				log("info", `audit archive selected ${item?.fileName ?? next + 1}`);
+				return next;
+			});
+			return;
+		}
+
 		if (screen === "status" && focusArea === "workspaces" && input === "{") {
 			if (cleanupExportArchiveIndex.items.length === 0) {
 				log("warn", "no cleanup archive indexed");
@@ -3914,6 +4006,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "W") {
 			openSelectedAuditExportFile();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "J") {
+			openSelectedAuditExportArchiveFile();
 			return;
 		}
 
@@ -5124,6 +5221,8 @@ export function App(): React.ReactElement {
 					selectedHandoffIndex={selectedHandoffIndex}
 					auditExportIndex={auditExportIndex}
 					selectedAuditExportIndex={selectedAuditExportIndex}
+					auditExportArchiveIndex={auditExportArchiveIndex}
+					selectedAuditExportArchiveIndex={selectedAuditExportArchiveIndex}
 					externalOpenPlan={externalOpenPlan}
 					fileOpenPlan={fileOpenPlan}
 					auditExportArchivePlan={auditExportArchivePlan}
@@ -5330,6 +5429,8 @@ function MainWorkspace({
 	selectedHandoffIndex,
 	auditExportIndex,
 	selectedAuditExportIndex,
+	auditExportArchiveIndex,
+	selectedAuditExportArchiveIndex,
 	externalOpenPlan,
 	fileOpenPlan,
 	auditExportArchivePlan,
@@ -5437,6 +5538,8 @@ function MainWorkspace({
 	selectedHandoffIndex: number;
 	auditExportIndex: ConsoleAuditExportIndex;
 	selectedAuditExportIndex: number;
+	auditExportArchiveIndex: ConsoleAuditExportIndex;
+	selectedAuditExportArchiveIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
 	auditExportArchivePlan?: ConsoleAuditExportArchivePlan;
@@ -5596,6 +5699,8 @@ function MainWorkspace({
 						selectedHandoffIndex,
 						auditExportIndex,
 						selectedAuditExportIndex,
+						auditExportArchiveIndex,
+						selectedAuditExportArchiveIndex,
 						externalOpenPlan,
 						fileOpenPlan,
 						auditExportArchivePlan,
@@ -5708,6 +5813,8 @@ function renderWorkspace(
 	selectedHandoffIndex: number,
 	auditExportIndex: ConsoleAuditExportIndex,
 	selectedAuditExportIndex: number,
+	auditExportArchiveIndex: ConsoleAuditExportIndex,
+	selectedAuditExportArchiveIndex: number,
 	externalOpenPlan: ExternalOpenPlan | undefined,
 	fileOpenPlan: FileOpenPlan | undefined,
 	auditExportArchivePlan: ConsoleAuditExportArchivePlan | undefined,
@@ -5938,6 +6045,8 @@ function renderWorkspace(
 				selectedHandoffIndex={selectedHandoffIndex}
 				auditExportIndex={auditExportIndex}
 				selectedAuditExportIndex={selectedAuditExportIndex}
+				auditExportArchiveIndex={auditExportArchiveIndex}
+				selectedAuditExportArchiveIndex={selectedAuditExportArchiveIndex}
 				externalOpenPlan={externalOpenPlan}
 				fileOpenPlan={fileOpenPlan}
 				auditExportArchivePlan={auditExportArchivePlan}
@@ -7823,6 +7932,8 @@ function StatusWorkspace({
 	selectedHandoffIndex,
 	auditExportIndex,
 	selectedAuditExportIndex,
+	auditExportArchiveIndex,
+	selectedAuditExportArchiveIndex,
 	externalOpenPlan,
 	fileOpenPlan,
 	auditExportArchivePlan,
@@ -7845,6 +7956,8 @@ function StatusWorkspace({
 	selectedHandoffIndex: number;
 	auditExportIndex: ConsoleAuditExportIndex;
 	selectedAuditExportIndex: number;
+	auditExportArchiveIndex: ConsoleAuditExportIndex;
+	selectedAuditExportArchiveIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
 	auditExportArchivePlan?: ConsoleAuditExportArchivePlan;
@@ -8198,6 +8311,29 @@ function StatusWorkspace({
 							row.startsWith(">")
 								? "yellow"
 								: row.startsWith("AUDIT EXPORTS")
+									? "cyan"
+									: row.startsWith("path=") || row.startsWith("no ")
+										? "gray"
+										: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">AUDIT ARCHIVE · U refresh · ( select · J open</Text>
+				{formatConsoleAuditExportArchiveIndexRows(
+					auditExportArchiveIndex,
+					selectedAuditExportArchiveIndex,
+					4,
+				).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith(">")
+								? "yellow"
+								: row.startsWith("AUDIT ARCHIVE")
 									? "cyan"
 									: row.startsWith("path=") || row.startsWith("no ")
 										? "gray"

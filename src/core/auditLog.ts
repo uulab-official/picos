@@ -229,11 +229,38 @@ export function formatConsoleAuditExportIndexRows(
 	selectedIndex = 0,
 	visibleRows = 5,
 ): string[] {
+	return formatConsoleAuditExportRows(
+		"AUDIT EXPORTS",
+		index,
+		selectedIndex,
+		visibleRows,
+	);
+}
+
+export function formatConsoleAuditExportArchiveIndexRows(
+	index: ConsoleAuditExportIndex,
+	selectedIndex = 0,
+	visibleRows = 5,
+): string[] {
+	return formatConsoleAuditExportRows(
+		"AUDIT ARCHIVE",
+		index,
+		selectedIndex,
+		visibleRows,
+	);
+}
+
+function formatConsoleAuditExportRows(
+	title: string,
+	index: ConsoleAuditExportIndex,
+	selectedIndex: number,
+	visibleRows: number,
+): string[] {
 	const selected = getSelectedConsoleAuditExport(index, selectedIndex);
 	const pathRows = selected ? [`path=${selected.path}`] : [];
 	const budget = Math.max(0, visibleRows - 1 - pathRows.length);
 	return [
-		`AUDIT EXPORTS ${index.items.length} base=${index.baseDir}`,
+		`${title} ${index.items.length} base=${index.baseDir}`,
 		...(index.items.length > 0
 			? index.items
 					.slice(0, budget)
