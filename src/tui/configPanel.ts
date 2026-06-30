@@ -580,6 +580,16 @@ export function createConfigManagedShelfFocusActionPlan(
 	};
 }
 
+export function formatConfigManagedShelfPromptBreadcrumbRows(
+	target: ConfigManagedShelfTarget,
+): string[] {
+	const handoff = getConfigManagedShelfHandoff(target);
+	return [
+		`CONFIG ORIGIN Config > ${handoff.label}`,
+		`scope=${getConfigManagedShelfPromptScope(target)} prompt=${getConfigManagedShelfPromptKind(target)} enter=apply esc=keep landing`,
+	];
+}
+
 function createConfigWorkspaceBodyRows(
 	items: ConfigWorkspaceItem[],
 	selectedIndex: number,
@@ -782,6 +792,36 @@ function formatConfigManagedShelfFocusActionHint(
 		return "enter=cycle log profiles  fallback=open search prompt";
 	}
 	return "enter=remote profile focus  fallback=empty profile list";
+}
+
+function getConfigManagedShelfPromptScope(
+	target: ConfigManagedShelfTarget,
+): string {
+	if (target === "routes") {
+		return "routes.filters";
+	}
+	if (target === "connections") {
+		return "connections.filters";
+	}
+	if (target === "ports") {
+		return "ports.filters";
+	}
+	if (target === "logs") {
+		return "logs.profiles";
+	}
+	return `${target}.settings`;
+}
+
+function getConfigManagedShelfPromptKind(
+	target: ConfigManagedShelfTarget,
+): string {
+	if (target === "logs") {
+		return "search";
+	}
+	if (target === "routes" || target === "connections" || target === "ports") {
+		return "filter";
+	}
+	return "edit";
 }
 
 function formatConfigSafetyPosture(items: ConfigWorkspaceItem[]): string {
