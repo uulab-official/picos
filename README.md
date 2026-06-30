@@ -39,7 +39,7 @@ Keyboard controls:
 - `up/down` or `j/k`: move through workspaces, or actions inside Action Center
 - `enter`: enter the focused workspace mode, run the selected action, open a directory, or preview a file
 - `?` or `/`: open the command palette, then type to filter commands
-- Action Center: `enter` on locked write/admin/destructive actions opens a dry-run control preview with risk, privilege, confirmation phrase, lock reason, adapter-owned OS command preview when available, and an audit/timeline event; after a preview, `c` opens a typed confirmation prompt that records `confirmed-disabled` or `rejected` while execution remains disabled
+- Action Center: `enter` on locked write/admin/destructive actions opens a dry-run control preview with risk, privilege, confirmation phrase, lock reason, adapter-owned OS command preview when available, and an audit/timeline event; the panel also shows a blocked policy simulation, and after a preview `c` opens a typed confirmation prompt that records `confirmed-disabled` or `rejected` while execution remains disabled
 - Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `f` filters by name/path/type, `enter` applies the filter, `esc` clears it, `c`/`m`/`x` open locked copy/move/delete previews, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
 - Interfaces workspace: `j/k` selects interfaces and `Tab` cycles list/detail/stats/platform source panes
 - Routes workspace: `Tab` cycles table/raw/diagnostics/path panes, `s` cycles route row sorting, and `:` opens destination path lookup
@@ -154,8 +154,11 @@ Every future write/destructive action must define:
 - privilege: `none`, `user`, or `admin`
 - preview/dry-run behavior
 - confirmation requirement
+- policy simulation with blockers
 - adapter-owned OS commands
 - tests for default locked behavior
+
+Locked OS control previews now include a dry-run policy simulation. Even after an exact typed confirmation, picos records blockers such as `mutation-approval-required`, `admin-approval-required`, and `execution-disabled` instead of executing an adapter command.
 
 Clipboard writes follow the same rule: platform adapters exist for `pbcopy`, `xclip`, and `clip.exe`, and confirmed plans execute through `safeExec()` stdin so copy text is never interpolated into a shell command. In the TUI, endpoint, process-resource, and Tools summary/raw-output copy actions open a `:clipboard` confirmation prompt and log the resulting audit event, including fallback guidance when the platform clipboard tool is missing. The `timeline.export` action writes the current console audit log under the picos config directory, and Tools history export writes selected or full diagnostic runs under the config `tools` directory.
 
@@ -175,7 +178,7 @@ Reference-inspired modules now tracked in picos:
 - Ports view with process metadata, CLI filtering/sorting, TUI search presets, detail/raw/process panes, PID process enrichment, copy preview, and raw OS command output
 - Tools Hub with read-only DNS/RDAP/IP/TCP/TLS/ping/traceroute commands, target prompts, OS-aware target presets, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, locked summary/raw-output copy, scoped markdown export, and raw output handoff
 - Timeline with network/action/audit/raw event filters, search presets, scoped audit export, latest audit reload, and network state-change events
-- Action Center dry-run previews for locked OS-changing controls, including risk, privilege, confirmation phrase, lock reason, adapter-owned macOS/Linux/Windows command previews, and timeline audit records
+- Action Center dry-run previews for locked OS-changing controls, including risk, privilege, confirmation phrase, lock reason, adapter-owned macOS/Linux/Windows command previews, blocked policy simulations, and timeline audit records
 - Raw output viewer
 
 See [docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md](docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md).
@@ -214,7 +217,7 @@ v0.2 expands picos toward an OS-like console:
 v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
 The Files workspace supports keyboard-driven local navigation, numbered system location jumps, direct path input, entry filtering, locked file-operation previews, and read-only file preview into the Editor workspace. The Remotes workspace surfaces configured SFTP-style profiles, lets you stage a locked remote file context, and never opens network sessions yet.
 
-v0.4 starts the privileged controls framework with dry-run previews for write, destructive, and admin actions. These previews make risk, privilege, confirmation phrase, platform, lock reason, and adapter-owned command candidates visible before any OS mutation path is enabled, and preview attempts are recorded in the local timeline/audit stream.
+v0.4 starts the privileged controls framework with dry-run previews for write, destructive, and admin actions. These previews make risk, privilege, confirmation phrase, platform, lock reason, adapter-owned command candidates, typed confirmation state, and blocked policy simulations visible before any OS mutation path is enabled, and preview attempts are recorded in the local timeline/audit stream.
 
 ## Privacy Direction
 

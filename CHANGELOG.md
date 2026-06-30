@@ -73,6 +73,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Control previews now include adapter-owned macOS/Linux/Windows command candidates for DNS flush, interface disable, route add, and service restart without making those commands executable.
 - Control preview attempts now emit stable audit/timeline messages with risk, privilege, dry-run state, lock reason, adapter, and command preview.
 - Action Center typed confirmations now record `confirmed-disabled` or `rejected` audit events from the preview panel while keeping OS mutation execution disabled.
+- Action Center now shows blocked control policy simulations and logs simulation audit records with approval blockers such as mutation, admin, confirmation, and execution-disabled requirements.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.

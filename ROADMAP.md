@@ -894,6 +894,20 @@ Goal: make the final confirmation step visible and auditable before real mutatio
 - No OS mutation command is executed by this framework step.
 - Next: approval policy modeling and dry-run simulation records for future write/destructive controls.
 
+## v0.4.4 - Control Simulation Policy
+
+Status: draft PR #66.
+
+Goal: make the approval policy decision visible before real OS mutation is ever reachable.
+
+- Locked control previews now create a blocked dry-run policy simulation.
+- Simulations show blockers such as `confirmation-missing`, `confirmation-rejected`, `mutation-approval-required`, `admin-approval-required`, and `execution-disabled`.
+- Exact typed confirmation removes only the confirmation blocker; mutation/admin/execution blockers remain.
+- Action Center and Inspector render control simulation rows next to the preview.
+- Timeline classifies control simulation messages as audit events.
+- No OS mutation command is executed by this framework step.
+- Next: privileged execution harness design with explicit opt-in policy and adapter dry-run execution tests.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

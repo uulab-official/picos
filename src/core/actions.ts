@@ -60,6 +60,20 @@ export type ActionPreviewConfirmation = {
 	commandPreview?: ActionPreviewCommand;
 };
 
+export type ActionControlSimulation = {
+	actionId: string;
+	status: "blocked-by-policy";
+	policy: "mutation-disabled";
+	approvalRequired: true;
+	confirmed: boolean;
+	executionEnabled: false;
+	risk: ActionRisk;
+	privilege: ActionPrivilege;
+	dryRun: true;
+	blockers: string[];
+	commandPreview?: ActionPreviewCommand;
+};
+
 const actionCatalog: PicosAction[] = [
 	{
 		id: "network.inspect",
@@ -532,6 +546,76 @@ export function formatActionConfirmationAuditMessage(
 			: "",
 		confirmation.commandPreview
 			? `command="${formatPreviewCommand(confirmation.commandPreview)}"`
+			: "",
+	]
+		.filter(Boolean)
+		.join(" ");
+}
+
+export function createActionControlSimulation(
+	plan: ActionPreviewPlan,
+	confirmation?: ActionPreviewConfirmation,
+): ActionControlSimulation {
+	const blockers = [
+		...(plan.blockedReason ? [plan.blockedReason] : []),
+		...(!confirmation
+			? ["confirmation-missing"]
+			: confirmation.confirmed
+				? []
+				: ["confirmation-rejected"]),
+		...(plan.risk === "read" ? [] : ["mutation-approval-required"]),
+		...(plan.privilege === "admin" ? ["admin-approval-required"] : []),
+		"execution-disabled",
+	];
+
+	return {
+		actionId: plan.actionId,
+		status: "blocked-by-policy",
+		policy: "mutation-disabled",
+		approvalRequired: true,
+		confirmed: confirmation?.confirmed ?? false,
+		executionEnabled: false,
+		risk: plan.risk,
+		privilege: plan.privilege,
+		dryRun: true,
+		blockers,
+		commandPreview: plan.commandPreview,
+	};
+}
+
+export function formatActionSimulationRows(
+	simulation: ActionControlSimulation,
+): string[] {
+	return [
+		`CONTROL SIMULATION ${simulation.actionId}`,
+		`status=${simulation.status} policy=${simulation.policy} approval=required`,
+		`confirmed=${simulation.confirmed} executionEnabled=${simulation.executionEnabled} dryRun=${simulation.dryRun}`,
+		`blockers=${simulation.blockers.join(",")}`,
+		...(simulation.commandPreview
+			? [`adapter=${simulation.commandPreview.adapter}`]
+			: []),
+		...(simulation.commandPreview
+			? [`command=${formatPreviewCommand(simulation.commandPreview)}`]
+			: []),
+	];
+}
+
+export function formatActionSimulationAuditMessage(
+	simulation: ActionControlSimulation,
+): string {
+	return [
+		`control simulation ${simulation.actionId}`,
+		`status=${simulation.status}`,
+		`policy=${simulation.policy}`,
+		"approval=required",
+		`confirmed=${simulation.confirmed}`,
+		`executionEnabled=${simulation.executionEnabled}`,
+		`blockers=${simulation.blockers.join(",")}`,
+		simulation.commandPreview
+			? `adapter=${simulation.commandPreview.adapter}`
+			: "",
+		simulation.commandPreview
+			? `command="${formatPreviewCommand(simulation.commandPreview)}"`
 			: "",
 	]
 		.filter(Boolean)
