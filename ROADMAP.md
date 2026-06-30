@@ -2143,6 +2143,19 @@ Goal: make archived Timeline evidence manageable without unsafe broad deletes.
 - Tests cover locked previews, retained/candidate rows, blocked prune attempts, confirmed deletion, and post-prune archive index state.
 - Next: make the audit archive retention limit configurable from the picos config screen.
 
+## v0.4.98 - Audit Archive Retention Config
+
+Status: draft PR #160 on `codex/picos-v0.4.98-audit-retention-config`.
+
+Goal: let operators tune archived Timeline evidence retention without code changes.
+
+- Config schema now includes `auditArchiveRetentionLimit`, defaulting to 10 archived audit exports.
+- `picos config set auditArchiveRetentionLimit <n>` validates values from 1 to 60 and oversized persisted values clamp to 60.
+- Status `M` retention previews use the configured limit instead of a hard-coded count.
+- `config.show` logs the active audit archive and Tools target retention limits for quick operator inspection.
+- Tests cover defaults, merge normalization, config-set coercion, invalid lower bounds, and oversized clamping.
+- Next: add a visible Config workspace editor for retention controls instead of relying on CLI config commands.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

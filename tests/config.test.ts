@@ -31,6 +31,7 @@ describe("config schema", () => {
 			toolHistoryDetailView: "raw",
 			toolTargetPresets: [],
 			toolTargetPresetLimit: 8,
+			auditArchiveRetentionLimit: 10,
 		});
 	});
 
@@ -294,6 +295,23 @@ describe("config schema", () => {
 		expect(coerceConfigValue("toolTargetPresetLimit", "12")).toBe(12);
 		expect(() => coerceConfigValue("toolTargetPresetLimit", "0")).toThrow(
 			"toolTargetPresetLimit must be a number between 1 and 24",
+		);
+	});
+
+	test("normalizes audit archive retention limits", () => {
+		expect(
+			mergeConfig({ auditArchiveRetentionLimit: 3 }).auditArchiveRetentionLimit,
+		).toBe(3);
+		expect(
+			mergeConfig({ auditArchiveRetentionLimit: 0 }).auditArchiveRetentionLimit,
+		).toBe(10);
+		expect(
+			mergeConfig({ auditArchiveRetentionLimit: 99 })
+				.auditArchiveRetentionLimit,
+		).toBe(60);
+		expect(coerceConfigValue("auditArchiveRetentionLimit", "12")).toBe(12);
+		expect(() => coerceConfigValue("auditArchiveRetentionLimit", "0")).toThrow(
+			"auditArchiveRetentionLimit must be a number between 1 and 60",
 		);
 	});
 });

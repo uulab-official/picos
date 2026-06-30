@@ -11,6 +11,7 @@ import {
 	setConfigRouteFilterPresets,
 	setConfigToolHistoryPreferences,
 	setConfigToolTargetPresets,
+	setConfigValue,
 } from "../src/config/store";
 
 const tempDirs: string[] = [];
@@ -263,5 +264,20 @@ describe("config store", () => {
 			},
 		]);
 		expect(config.theme).toBe("light");
+	});
+
+	test("persists audit archive retention limits without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(path, JSON.stringify({ theme: "light" }));
+
+		await setConfigValue("auditArchiveRetentionLimit", "20", path);
+
+		const config = await readConfig(path);
+		expect(config.auditArchiveRetentionLimit).toBe(20);
+		expect(config.theme).toBe("light");
+
+		const raw = await readFile(path, "utf8");
+		expect(JSON.parse(raw).auditArchiveRetentionLimit).toBe(20);
 	});
 });
