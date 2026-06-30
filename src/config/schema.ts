@@ -42,6 +42,7 @@ export const defaultConfig: PicosConfig = {
 	toolHistoryGroup: "none",
 	toolHistoryDetailView: "raw",
 	toolTargetPresets: [],
+	toolTargetPresetLimit: 8,
 };
 
 export type ConfigInput = Record<string, unknown>;
@@ -154,9 +155,12 @@ export function mergeConfig(
 	merged.toolHistoryDetailView = normalizeToolHistoryDetailPreference(
 		input.toolHistoryDetailView,
 	);
+	merged.toolTargetPresetLimit = normalizeToolTargetPresetLimit(
+		input.toolTargetPresetLimit,
+	);
 	merged.toolTargetPresets = normalizeToolTargetPresets(
 		input.toolTargetPresets,
-	);
+	).slice(0, merged.toolTargetPresetLimit);
 
 	return merged;
 }
@@ -259,9 +263,32 @@ export function coerceConfigValue(
 		);
 	}
 
+	if (key === "toolTargetPresetLimit") {
+		return parseToolTargetPresetLimit(value);
+	}
+
 	return value;
 }
 
 export function isConfigKey(key: string): key is keyof PicosConfig {
 	return key in defaultConfig;
+}
+
+export function normalizeToolTargetPresetLimit(input: unknown): number {
+	if (typeof input !== "number" || !Number.isFinite(input)) {
+		return defaultConfig.toolTargetPresetLimit;
+	}
+	const normalized = Math.floor(input);
+	if (normalized < 1) {
+		return defaultConfig.toolTargetPresetLimit;
+	}
+	return Math.min(24, normalized);
+}
+
+function parseToolTargetPresetLimit(value: string): number {
+	const parsed = Number(value);
+	if (!Number.isInteger(parsed) || parsed < 1 || parsed > 24) {
+		throw new Error("toolTargetPresetLimit must be a number between 1 and 24");
+	}
+	return parsed;
 }

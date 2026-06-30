@@ -1445,6 +1445,19 @@ Goal: make long Tools Hub target shelves quick to scan without one-way cycling.
 - Tests cover forward wraparound, backward wraparound, out-of-range normalization, and empty target lists.
 - Next: retention policy controls for saved target presets.
 
+## v0.4.45 - Tools Target Preset Retention
+
+Status: draft PR #107.
+
+Goal: let operators decide how many saved Tools Hub targets belong in their local console shelf.
+
+- Config schema now includes `toolTargetPresetLimit`, defaulting to eight saved target presets.
+- The retention limit accepts values from 1 to 24 and clamps oversized config input to 24.
+- TUI target saves use the configured limit when retaining saved presets.
+- Config store writes normalize and trim saved targets through the configured retention limit without losing other config values.
+- Tests cover default config, config set coercion, invalid lower bounds, oversized clamping, and persisted target trimming.
+- Next: bulk target preset cleanup controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

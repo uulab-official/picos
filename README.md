@@ -268,7 +268,8 @@ Default config:
 	"toolHistorySort": "time",
 	"toolHistoryGroup": "none",
 	"toolHistoryDetailView": "raw",
-	"toolTargetPresets": []
+	"toolTargetPresets": [],
+	"toolTargetPresetLimit": 8
 }
 ```
 
@@ -342,6 +343,7 @@ Tools Hub history preferences are managed from the Tools workspace. Press `P` to
 	"toolHistorySort": "status",
 	"toolHistoryGroup": "tool",
 	"toolHistoryDetailView": "command",
+	"toolTargetPresetLimit": 8,
 	"toolTargetPresets": [
 		{
 			"id": "api-dns",
@@ -354,7 +356,7 @@ Tools Hub history preferences are managed from the Tools workspace. Press `P` to
 }
 ```
 
-Press `n`/`N` to cycle target presets forward/back. Press `T` in the Tools workspace to persist the active target preset, `U` to pin the selected saved target preset to the top, `L` to rename it, `M` to edit its target value, `A` to change its action, and `X` to remove it. The action prompt accepts exact action ids such as `tools.dns` and short aliases such as `dns`, `ping`, `trace`, `whois`, `ip`, `tls`, and `tcp`. OS-aware presets such as gateway, DNS server, and default host remain generated from the current machine state. Saved target presets are trimmed, de-duplicated by action and target, capped at eight entries, and restored before OS-aware presets on the next TUI boot.
+Press `n`/`N` to cycle target presets forward/back. Press `T` in the Tools workspace to persist the active target preset, `U` to pin the selected saved target preset to the top, `L` to rename it, `M` to edit its target value, `A` to change its action, and `X` to remove it. The action prompt accepts exact action ids such as `tools.dns` and short aliases such as `dns`, `ping`, `trace`, `whois`, `ip`, `tls`, and `tcp`. OS-aware presets such as gateway, DNS server, and default host remain generated from the current machine state. Saved target presets are trimmed, de-duplicated by action and target, capped by `toolTargetPresetLimit` from 1 to 24 entries, and restored before OS-aware presets on the next TUI boot.
 
 Routes can also export the active table/raw/diagnostics/path detail view with `e`. Press `o` to create the same handoff file and prepare a locked external file-open preview; type `open` to launch the OS file viewer. Handoff files are written under your picos config directory in `routes/*.md` for external review or editor workflows.
 

@@ -19,7 +19,7 @@ export type ToolTargetPresetPreference = {
 };
 
 const maxToolHistoryFilterPresets = 6;
-const maxToolTargetPresets = 8;
+const maxToolTargetPresets = 24;
 
 export function normalizeToolHistoryFilterPresets(input: unknown): string[] {
 	if (!Array.isArray(input)) {

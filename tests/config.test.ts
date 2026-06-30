@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	coerceConfigValue,
 	defaultConfig,
 	getConfigPathForPlatform,
 	mergeConfig,
@@ -29,6 +30,7 @@ describe("config schema", () => {
 			toolHistoryGroup: "none",
 			toolHistoryDetailView: "raw",
 			toolTargetPresets: [],
+			toolTargetPresetLimit: 8,
 		});
 	});
 
@@ -277,5 +279,21 @@ describe("config schema", () => {
 				hint: "custom target",
 			},
 		]);
+	});
+
+	test("normalizes tool target preset retention limits", () => {
+		expect(
+			mergeConfig({ toolTargetPresetLimit: 3 }).toolTargetPresetLimit,
+		).toBe(3);
+		expect(
+			mergeConfig({ toolTargetPresetLimit: 0 }).toolTargetPresetLimit,
+		).toBe(8);
+		expect(
+			mergeConfig({ toolTargetPresetLimit: 99 }).toolTargetPresetLimit,
+		).toBe(24);
+		expect(coerceConfigValue("toolTargetPresetLimit", "12")).toBe(12);
+		expect(() => coerceConfigValue("toolTargetPresetLimit", "0")).toThrow(
+			"toolTargetPresetLimit must be a number between 1 and 24",
+		);
 	});
 });
