@@ -284,7 +284,7 @@ export function formatToolsWorkspaceRows(
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · M edit target · X delete target · R run · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -445,6 +445,27 @@ export function renameToolTargetPreset(
 		`${targetPreset.actionId}:${targetPreset.target}`
 			? { ...current, label: nextLabel }
 			: current,
+	);
+}
+
+export function retargetToolTargetPreset(
+	presets: ToolTargetPreset[],
+	preset: ToolTargetPreset | undefined,
+	target: string,
+): ToolTargetPreset[] {
+	const nextTarget = target.trim();
+	const [targetPreset] = normalizeToolTargetPresets(preset ? [preset] : []);
+	const normalized = normalizeToolTargetPresets(presets);
+	if (!targetPreset || !nextTarget) {
+		return normalized;
+	}
+	return normalizeToolTargetPresets(
+		normalized.map((current) =>
+			`${current.actionId}:${current.target}` ===
+			`${targetPreset.actionId}:${targetPreset.target}`
+				? { ...current, target: nextTarget }
+				: current,
+		),
 	);
 }
 
@@ -719,7 +740,7 @@ function formatToolTargetPresetRows(
 		presets.length - 1,
 	);
 	return [
-		"TARGET PRESETS n cycle · T save · L label · X delete · R run",
+		"TARGET PRESETS n cycle · T save · L label · M edit · X delete · R run",
 		...presets.map(
 			(preset, index) =>
 				`${index === normalizedIndex ? ">" : " "} ${preset.label} ${preset.target} ${preset.hint}`,

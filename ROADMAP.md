@@ -1393,6 +1393,19 @@ Goal: make saved Tools Hub targets readable as reusable operator shortcuts inste
 - Tests cover label trimming, blank label no-op behavior, non-saved target no-op behavior, and existing Tools Hub rendering.
 - Next: full custom target editing and retention policies.
 
+## v0.4.41 - Tools Target Preset Values
+
+Status: draft PR #103.
+
+Goal: let operators repair or repoint saved Tools Hub targets without editing JSON by hand.
+
+- Tools workspace now supports `M` to edit the selected saved target value.
+- Target edits persist through `toolTargetPresets` config while preserving action, label, id, and hint.
+- Target edit matching uses action and target so normalized config entries remain editable from the TUI.
+- Blank target edits are ignored, and OS-aware presets remain generated from the machine state instead of being copied into config.
+- Tests cover target trimming, blank target no-op behavior, non-saved target no-op behavior, and existing Tools Hub rendering.
+- Next: richer preset action switching and retention policies.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
