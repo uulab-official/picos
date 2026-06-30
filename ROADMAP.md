@@ -1881,6 +1881,19 @@ Goal: make the active Tools copy workflow visible before the exact clipboard con
 - Tests cover raw, section, and row copy mode rows alongside the existing TCP preview rows.
 - Next: add a Tools copy help strip that groups `b`, `v`, `c`, and `y` with their current availability.
 
+## v0.4.78 - Tools Copy Help Strip
+
+Status: draft PR #140 on `codex/picos-v0.4.78-tools-copy-help-strip`.
+
+Goal: make Tools copy shortcuts discoverable without making the footer even denser.
+
+- Tools workspace now shows a compact `copy help:` strip on taller terminals for the selected run.
+- The strip groups `b row`, `v section`, `c raw`, and `y summary` with `ok`/`-` availability.
+- TCP-aware row and section copy show `ok` only when the active Target/Status section has copyable rows.
+- Smaller terminal heights keep the existing detail/footer priority and omit the help strip.
+- Tests cover TCP and non-TCP availability plus placement before the active `copy mode:` row.
+- Next: add a compact Tools copy error hint when `b` or `v` is unavailable for the selected run.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

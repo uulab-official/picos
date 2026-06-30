@@ -6846,6 +6846,7 @@ function getToolRowColor(row: string): string {
 	}
 	if (
 		row.startsWith("CLIPBOARD PREVIEW") ||
+		row.startsWith("copy help:") ||
 		row.startsWith("copy mode:") ||
 		row.startsWith(":history-cleanup") ||
 		row.startsWith("confirm ")
