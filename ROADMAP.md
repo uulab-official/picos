@@ -2287,6 +2287,19 @@ Goal: make Config shelf jumps behave like OS settings deep links by placing oper
 - Tests cover Tools and Remotes destination focus preset contracts alongside landing row focus hints.
 - Next: add visible per-workspace shelf-focus rows near the active controls so Logs profiles and route/filter shelves can expose richer cursor state.
 
+## v0.4.109 - Config Shelf Focus Rows
+
+Status: draft PR #171 on `codex/picos-v0.4.109-config-shelf-focus-rows`.
+
+Goal: keep Config deep-link context visible inside the destination workspace, not only in the outer landing banner.
+
+- Config now formats reusable workspace-local shelf focus rows with target, workspace, cursor, detail view, and `esc` guidance.
+- Workspace row helpers can prepend Config shelf focus rows while preserving terminal height limits.
+- Network, Routes, Connections, Ports, Tools, Logs, and Remotes receive the active Config shelf focus target when the landing target matches the current screen.
+- Destination workspaces render focus rows near their active controls so operators can see the Config shelf context while reviewing route filters, endpoint filters, Tools targets, Logs profiles, or Remotes profiles.
+- Tests cover focus row formatting and bounded row injection.
+- Next: turn focus rows into actionable per-workspace cursor anchors, such as jumping Logs to profile controls and Routes/Endpoints to saved preset shelves.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
