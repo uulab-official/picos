@@ -43,6 +43,11 @@ export type ToolHistoryExportPlan = {
 	scope: ToolHistoryExportScope;
 };
 
+export type FilteredToolHistoryItem = {
+	index: number;
+	item: ToolHistoryItem;
+};
+
 export function createToolRunPlan(
 	actionId: string,
 	defaultTarget: string,
@@ -139,12 +144,18 @@ export function formatToolsWorkspaceRows(
 	history: ToolHistoryItem[],
 	visibleRows: number,
 	selectedIndex = Math.max(0, history.length - 1),
+	filterQuery = "",
 ): string[] {
-	const latest =
-		getSelectedToolHistoryItem(history, selectedIndex) ?? history.at(-1);
-	const historyRows = history.map(
-		(item, index) =>
-			`${index === selectedIndex ? ">" : " "} [${item.time}] ${item.status} ${item.label}`,
+	const filtered = filterToolHistory(history, filterQuery);
+	const latestIndex = getVisibleToolHistoryIndex(
+		history,
+		selectedIndex,
+		filterQuery,
+	);
+	const latest = filtered.find((entry) => entry.index === latestIndex)?.item;
+	const historyRows = filtered.map(
+		(entry) =>
+			`${entry.index === latestIndex ? ">" : " "} [${entry.item.time}] ${entry.item.status} ${entry.item.label}`,
 	);
 	const bodyRows = latest
 		? [
@@ -153,12 +164,43 @@ export function formatToolsWorkspaceRows(
 				"RAW",
 				...latest.rawOutput.split(/\r?\n/),
 			]
-		: ["no tool runs yet"];
+		: [history.length ? "no matching tool runs" : "no tool runs yet"];
+	const filter = filterQuery.trim();
 	return [
-		`TOOLS history=${history.length} selected=${latest?.title ?? "-"}`,
+		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: j/k select · r rerun · y summary · c raw · e export · E export all",
+		"shortcuts: j/k select · f filter · F clear · r rerun · y summary · c raw · e export",
 	].slice(0, visibleRows);
+}
+
+export function filterToolHistory(
+	history: ToolHistoryItem[],
+	query: string,
+): FilteredToolHistoryItem[] {
+	const normalized = query.trim().toLowerCase();
+	return history
+		.map((item, index) => ({ index, item }))
+		.filter(({ item }) => {
+			if (!normalized) {
+				return true;
+			}
+			return formatToolHistorySearchText(item).includes(normalized);
+		});
+}
+
+export function getVisibleToolHistoryIndex(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	query: string,
+): number {
+	const filtered = filterToolHistory(history, query);
+	if (!filtered.length) {
+		return 0;
+	}
+	if (filtered.some((entry) => entry.index === selectedIndex)) {
+		return selectedIndex;
+	}
+	return filtered[0]?.index ?? 0;
 }
 
 export function formatToolPromptRows(prompt: string, value: string): string[] {
@@ -183,6 +225,30 @@ export function moveToolHistorySelection(
 	const normalized = Math.min(Math.max(current, 0), total - 1);
 	const offset = direction === "next" ? 1 : -1;
 	return (normalized + offset + total) % total;
+}
+
+export function moveFilteredToolHistorySelection(
+	history: ToolHistoryItem[],
+	current: number,
+	query: string,
+	direction: "next" | "previous",
+): number {
+	const filtered = filterToolHistory(history, query);
+	if (filtered.length <= 0) {
+		return 0;
+	}
+	const visibleIndex = getVisibleToolHistoryIndex(history, current, query);
+	const currentFilteredIndex = Math.max(
+		0,
+		filtered.findIndex((entry) => entry.index === visibleIndex),
+	);
+	return (
+		filtered[
+			moveToolHistorySelection(currentFilteredIndex, filtered.length, direction)
+		]?.index ??
+		filtered[0]?.index ??
+		0
+	);
 }
 
 export function getSelectedToolHistoryItem(
@@ -331,6 +397,22 @@ function formatToolHistoryExportItem(item: ToolHistoryItem): string[] {
 		"```",
 		"",
 	];
+}
+
+function formatToolHistorySearchText(item: ToolHistoryItem): string {
+	return [
+		item.time,
+		item.status,
+		item.label,
+		item.title,
+		item.summary,
+		item.rawOutput,
+		item.plan.actionId,
+		item.plan.toolId,
+		...item.plan.args,
+	]
+		.join(" ")
+		.toLowerCase();
 }
 
 function createToolHistoryId(time: string, label: string): string {

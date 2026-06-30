@@ -8,12 +8,15 @@ import {
 	appendToolHistory,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
+	filterToolHistory,
 	formatToolHistoryExport,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
+	getVisibleToolHistoryIndex,
+	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
 	rerunToolHistoryItem,
 	writeToolHistoryExport,
@@ -186,7 +189,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · r rerun · y summary · c raw · e export · E export all",
+			"shortcuts: j/k select · f filter · F clear · r rerun · y summary · c raw · e export",
 		]);
 	});
 
@@ -222,6 +225,65 @@ describe("TUI tool history", () => {
 			"> [12:00:00] ok tools.dns example.com",
 			"  [12:00:01] ok ping.default 8.8.8.8",
 		]);
+	});
+
+	test("filters tool history while preserving source selection indexes", () => {
+		const history = appendToolHistory(
+			appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			),
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "port-check",
+					args: ["api.github.com", "443"],
+					label: "network.connect api.github.com:443",
+				},
+				result: {
+					...result,
+					title: "TCP Port Check",
+					rawOutput: "$ picos tools port-check api.github.com 443",
+				},
+			},
+			"12:00:01",
+		);
+
+		expect(filterToolHistory(history, "connect")).toEqual([
+			{
+				index: 1,
+				item: history[1],
+			},
+		]);
+		expect(formatToolsWorkspaceRows(history, 7, 1, "connect")).toEqual([
+			"TOOLS history=2 filter=connect matches=1 selected=TCP Port Check",
+			"> [12:00:01] ok network.connect api.github.com:443",
+			"Summary: Query: example.com | A: 2",
+			"RAW",
+			"$ picos tools port-check api.github.com 443",
+			"shortcuts: j/k select · f filter · F clear · r rerun · y summary · c raw · e export",
+		]);
+		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
+			"TOOLS history=2 filter=missing matches=0 selected=-",
+			"no matching tool runs",
+			"shortcuts: j/k select · f filter · F clear · r rerun · y summary · c raw · e export",
+		]);
+		expect(
+			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
+		).toBe(1);
+		expect(
+			moveFilteredToolHistorySelection(history, 1, "connect", "previous"),
+		).toBe(1);
+		expect(getVisibleToolHistoryIndex(history, 0, "connect")).toBe(1);
 	});
 
 	test("formats active tool target prompt rows", () => {
