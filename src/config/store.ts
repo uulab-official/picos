@@ -15,6 +15,15 @@ import {
 } from "../core/logProfiles";
 import type { PortSort } from "../core/ports";
 import { normalizeRouteFilterPresets } from "../core/routePresets";
+import {
+	normalizeToolHistoryDetailPreference,
+	normalizeToolHistoryFilterPresets,
+	normalizeToolHistoryGroupPreference,
+	normalizeToolHistorySortPreference,
+	type ToolHistoryDetailPreference,
+	type ToolHistoryGroupPreference,
+	type ToolHistorySortPreference,
+} from "../core/toolHistoryPreferences";
 import type { LogProfile, PicosConfig } from "../core/types";
 import {
 	coerceConfigValue,
@@ -141,6 +150,49 @@ export async function setConfigEndpointSort(
 						formatPortSortPreference(sort as PortSort),
 					),
 				};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigToolHistoryPreferences(
+	preferences: {
+		detailView?: ToolHistoryDetailPreference;
+		filterPresets?: string[];
+		group?: ToolHistoryGroupPreference;
+		sort?: ToolHistorySortPreference;
+	},
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = {
+		...config,
+		...(preferences.filterPresets
+			? {
+					toolHistoryFilterPresets: normalizeToolHistoryFilterPresets(
+						preferences.filterPresets,
+					),
+				}
+			: {}),
+		...(preferences.sort
+			? {
+					toolHistorySort: normalizeToolHistorySortPreference(preferences.sort),
+				}
+			: {}),
+		...(preferences.group
+			? {
+					toolHistoryGroup: normalizeToolHistoryGroupPreference(
+						preferences.group,
+					),
+				}
+			: {}),
+		...(preferences.detailView
+			? {
+					toolHistoryDetailView: normalizeToolHistoryDetailPreference(
+						preferences.detailView,
+					),
+				}
+			: {}),
+	};
 	await writeConfig(next, path);
 	return next;
 }

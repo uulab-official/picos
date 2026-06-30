@@ -9,6 +9,7 @@ import {
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
+	setConfigToolHistoryPreferences,
 } from "../src/config/store";
 
 const tempDirs: string[] = [];
@@ -151,5 +152,35 @@ describe("config store", () => {
 		const raw = await readFile(path, "utf8");
 		expect(JSON.parse(raw).connectionSort).toBe("remotePort");
 		expect(JSON.parse(raw).portSort).toBe("-pid");
+	});
+
+	test("persists tool history preferences without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await setConfigToolHistoryPreferences(
+			{
+				filterPresets: [" dns ", "", "fail", "dns", "tls"],
+				sort: "status",
+				group: "tool",
+				detailView: "command",
+			},
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.toolHistoryFilterPresets).toEqual(["dns", "fail", "tls"]);
+		expect(config.toolHistorySort).toBe("status");
+		expect(config.toolHistoryGroup).toBe("tool");
+		expect(config.toolHistoryDetailView).toBe("command");
+		expect(config.theme).toBe("dark");
+
+		const raw = await readFile(path, "utf8");
+		expect(JSON.parse(raw).toolHistoryFilterPresets).toEqual([
+			"dns",
+			"fail",
+			"tls",
+		]);
+		expect(JSON.parse(raw).toolHistorySort).toBe("status");
+		expect(JSON.parse(raw).toolHistoryGroup).toBe("tool");
+		expect(JSON.parse(raw).toolHistoryDetailView).toBe("command");
 	});
 });

@@ -10,6 +10,7 @@ import {
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
+	setConfigToolHistoryPreferences,
 } from "../config/store";
 import {
 	type ActionControlSimulation,
@@ -1805,6 +1806,12 @@ export function App(): React.ReactElement {
 			setPortSort(parsePortSort(config.portSort));
 			setConnectionFilterPresets(config.connectionFilterPresets);
 			setPortFilterPresets(config.portFilterPresets);
+			setToolHistoryFilterPresets(config.toolHistoryFilterPresets);
+			setToolHistorySort(config.toolHistorySort as ToolHistorySort);
+			setToolHistoryGroup(config.toolHistoryGroup as ToolHistoryGroup);
+			setToolHistoryDetailView(
+				config.toolHistoryDetailView as ToolHistoryDetailView,
+			);
 			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
@@ -2838,9 +2845,19 @@ export function App(): React.ReactElement {
 				log("warn", "no tools filter to save");
 				return;
 			}
-			setToolHistoryFilterPresets((current) =>
-				saveToolHistoryPreset(current, toolHistoryFilter),
-			);
+			setToolHistoryFilterPresets((current) => {
+				const next = saveToolHistoryPreset(current, toolHistoryFilter);
+				void setConfigToolHistoryPreferences({ filterPresets: next }).catch(
+					(caught) =>
+						log(
+							"fail",
+							caught instanceof Error
+								? `tools preset save failed ${caught.message}`
+								: `tools preset save failed ${String(caught)}`,
+						),
+				);
+				return next;
+			});
 			log("info", `tools preset saved ${toolHistoryFilter}`);
 			return;
 		}
@@ -2868,6 +2885,15 @@ export function App(): React.ReactElement {
 		if (screen === "tools" && focusArea === "workspaces" && key.tab) {
 			setToolHistoryDetailView((current) => {
 				const next = nextToolHistoryDetailView(current);
+				void setConfigToolHistoryPreferences({ detailView: next }).catch(
+					(caught) =>
+						log(
+							"fail",
+							caught instanceof Error
+								? `tools detail save failed ${caught.message}`
+								: `tools detail save failed ${String(caught)}`,
+						),
+				);
 				log("info", `tools detail ${next}`);
 				return next;
 			});
@@ -2878,6 +2904,14 @@ export function App(): React.ReactElement {
 		if (screen === "tools" && focusArea === "workspaces" && input === "s") {
 			setToolHistorySort((current) => {
 				const next = nextToolHistorySort(current);
+				void setConfigToolHistoryPreferences({ sort: next }).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `tools sort save failed ${caught.message}`
+							: `tools sort save failed ${String(caught)}`,
+					),
+				);
 				log("info", `tools sort ${next}`);
 				return next;
 			});
@@ -2888,6 +2922,14 @@ export function App(): React.ReactElement {
 		if (screen === "tools" && focusArea === "workspaces" && input === "G") {
 			setToolHistoryGroup((current) => {
 				const next = nextToolHistoryGroup(current);
+				void setConfigToolHistoryPreferences({ group: next }).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `tools group save failed ${caught.message}`
+							: `tools group save failed ${String(caught)}`,
+					),
+				);
 				log("info", `tools group ${next}`);
 				return next;
 			});

@@ -10,6 +10,12 @@ import {
 } from "../core/logProfiles";
 import { normalizeRemoteProfiles } from "../core/remotes";
 import { normalizeRouteFilterPresets } from "../core/routePresets";
+import {
+	normalizeToolHistoryDetailPreference,
+	normalizeToolHistoryFilterPresets,
+	normalizeToolHistoryGroupPreference,
+	normalizeToolHistorySortPreference,
+} from "../core/toolHistoryPreferences";
 import type { PicosConfig, SupportedPlatform } from "../core/types";
 import { isSupportedLanguage } from "../i18n/catalog";
 
@@ -30,6 +36,10 @@ export const defaultConfig: PicosConfig = {
 	portSort: "port",
 	connectionFilterPresets: [],
 	portFilterPresets: [],
+	toolHistoryFilterPresets: [],
+	toolHistorySort: "time",
+	toolHistoryGroup: "none",
+	toolHistoryDetailView: "raw",
 };
 
 export type ConfigInput = Record<string, unknown>;
@@ -130,6 +140,18 @@ export function mergeConfig(
 	merged.portFilterPresets = normalizeEndpointFilterPresets(
 		input.portFilterPresets,
 	);
+	merged.toolHistoryFilterPresets = normalizeToolHistoryFilterPresets(
+		input.toolHistoryFilterPresets,
+	);
+	merged.toolHistorySort = normalizeToolHistorySortPreference(
+		input.toolHistorySort,
+	);
+	merged.toolHistoryGroup = normalizeToolHistoryGroupPreference(
+		input.toolHistoryGroup,
+	);
+	merged.toolHistoryDetailView = normalizeToolHistoryDetailPreference(
+		input.toolHistoryDetailView,
+	);
 
 	return merged;
 }
@@ -206,6 +228,24 @@ export function coerceConfigValue(
 		throw new Error(
 			"endpoint filter presets are managed from endpoint workspaces",
 		);
+	}
+
+	if (key === "toolHistoryFilterPresets") {
+		throw new Error(
+			"toolHistoryFilterPresets are managed from the Tools workspace",
+		);
+	}
+
+	if (key === "toolHistorySort") {
+		return normalizeToolHistorySortPreference(value);
+	}
+
+	if (key === "toolHistoryGroup") {
+		return normalizeToolHistoryGroupPreference(value);
+	}
+
+	if (key === "toolHistoryDetailView") {
+		return normalizeToolHistoryDetailPreference(value);
 	}
 
 	return value;

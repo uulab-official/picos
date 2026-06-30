@@ -215,6 +215,10 @@ export type PicosConfig = {
 	portSort: string;
 	connectionFilterPresets: string[];
 	portFilterPresets: string[];
+	toolHistoryFilterPresets: string[];
+	toolHistorySort: string;
+	toolHistoryGroup: string;
+	toolHistoryDetailView: string;
 };
 
 export type Language = "en" | "ko" | "ja" | "zh";
