@@ -600,6 +600,17 @@ export function formatConfigManagedShelfCleanupBreadcrumbRows(
 	];
 }
 
+export function formatConfigManagedShelfLockedDialogBreadcrumbRows(
+	target: ConfigManagedShelfTarget,
+	dialog: "file-open",
+): string[] {
+	const handoff = getConfigManagedShelfHandoff(target);
+	return [
+		`CONFIG ORIGIN Config > ${handoff.label}`,
+		`scope=${getConfigManagedShelfPromptScope(target)} dialog=${dialog} locked esc=keep landing`,
+	];
+}
+
 function createConfigWorkspaceBodyRows(
 	items: ConfigWorkspaceItem[],
 	selectedIndex: number,

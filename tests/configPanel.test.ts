@@ -10,6 +10,7 @@ import {
 	formatConfigManagedShelfFocusRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
+	formatConfigManagedShelfLockedDialogBreadcrumbRows,
 	formatConfigManagedShelfPromptBreadcrumbRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
@@ -326,6 +327,22 @@ describe("config TUI panel", () => {
 		expect(formatConfigManagedShelfCleanupBreadcrumbRows("ports")).toEqual([
 			"CONFIG ORIGIN Config > Ports",
 			"scope=ports.filters prompt=cleanup exact-confirm esc=keep landing",
+		]);
+	});
+
+	test("formats locked dialog breadcrumbs for config-origin file opens", () => {
+		expect(
+			formatConfigManagedShelfLockedDialogBreadcrumbRows("routes", "file-open"),
+		).toEqual([
+			"CONFIG ORIGIN Config > Routes",
+			"scope=routes.filters dialog=file-open locked esc=keep landing",
+		]);
+
+		expect(
+			formatConfigManagedShelfLockedDialogBreadcrumbRows("logs", "file-open"),
+		).toEqual([
+			"CONFIG ORIGIN Config > Logs",
+			"scope=logs.profiles dialog=file-open locked esc=keep landing",
 		]);
 	});
 

@@ -2355,6 +2355,19 @@ Goal: keep Config shelf origin visible inside exact-confirm cleanup flows.
 - Tests cover Config cleanup breadcrumb formatting.
 - Next: extend origin breadcrumbs to external handoff and locked file-open dialogs so exported evidence and destructive-adjacent flows keep their source path.
 
+## v0.4.114 - Config Locked Dialog Breadcrumbs
+
+Status: draft PR #176 on `codex/picos-v0.4.114-config-locked-dialog-breadcrumbs`.
+
+Goal: keep Config shelf origin visible in locked evidence-opening dialogs.
+
+- Config now formats reusable locked dialog breadcrumb rows for managed shelf destinations.
+- File-open confirmations can render `CONFIG ORIGIN Config > ...` plus `scope=... dialog=file-open locked` while a Config shelf landing is active.
+- Status file-open prompts receive the active Config shelf landing target and prepend the locked dialog breadcrumb before the confirmation row.
+- Locked file-open breadcrumb rows reuse the existing cyan/yellow origin and scope visual treatment.
+- Tests cover locked dialog breadcrumb formatting for route and log shelf origins.
+- Next: persist Config-origin metadata on file-open plans themselves so origin breadcrumbs survive workspace changes and exported evidence queues.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
