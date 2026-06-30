@@ -40,6 +40,7 @@ Keyboard controls:
 - `enter`: enter the focused workspace mode, run the selected action, open a directory, or preview a file
 - `?` or `/`: open the command palette, then type to filter commands
 - Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `f` filters by name/path/type, `enter` applies the filter, `esc` clears it, `c`/`m`/`x` open locked copy/move/delete previews, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
+- Interfaces workspace: `j/k` selects interfaces and `Tab` cycles list/detail/stats/platform source panes
 - Routes workspace: `Tab` cycles table/raw/diagnostics/path panes, `s` cycles route row sorting, and `:` opens destination path lookup
 - Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `j/k` selects endpoints, `Tab` cycles detail/raw/process panes, `enter` opens the selected PID in Processes, `s` cycles endpoint sorting, PID matches show process snapshots, and `c` opens a locked clipboard preview
 - Processes workspace: endpoint handoffs show PID detail plus labeled cwd/open-file/resource rows; `j/k` selects an item, `enter` opens local filesystem paths in Files or Editor, socket/pipe/unix resources are logged for inspection, and `c` opens a locked clipboard preview
@@ -165,7 +166,7 @@ picos takes inspiration from tools like `lazyifconfig` for local network inspect
 Reference-inspired modules now tracked in picos:
 
 - Interfaces inventory
-- Interface type, CIDR prefix, MAC/netmask, MTU, RX/TX counters, gateway, and DNS inventory
+- Interface type, CIDR prefix, MAC/netmask, MTU, RX/TX counters, gateway, DNS inventory, and TUI list/detail/stats/platform panes
 - Subnet/network grouping for LAN, loopback, VPN, container, link-local, and public addresses
 - Route Inspector with TUI table/raw/diagnostics/path panes, destination path lookup, route rows, and raw command output
 - Connections view with parsed rows, CLI filtering/sorting, TUI detail/raw/process panes, PID process enrichment, copy preview, and raw OS command output

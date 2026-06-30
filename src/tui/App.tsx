@@ -114,6 +114,12 @@ import {
 	openFileOperationDialog,
 } from "./fileOperationDialog";
 import {
+	formatInterfaceWorkspaceRows,
+	getNextInterfaceIndex,
+	type InterfaceDetailView,
+	nextInterfaceDetailView,
+} from "./interfacePanel";
+import {
 	enterFocus,
 	type FocusArea,
 	getLocationShortcutIndex,
@@ -265,6 +271,9 @@ export function App(): React.ReactElement {
 	});
 	const [selectedConnectionIndex, setSelectedConnectionIndex] = useState(0);
 	const [selectedPortIndex, setSelectedPortIndex] = useState(0);
+	const [selectedInterfaceIndex, setSelectedInterfaceIndex] = useState(0);
+	const [interfaceDetailView, setInterfaceDetailView] =
+		useState<InterfaceDetailView>("list");
 	const [connectionDetailView, setConnectionDetailView] =
 		useState<EndpointDetailView>("detail");
 	const [portDetailView, setPortDetailView] =
@@ -1248,6 +1257,15 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "interfaces" && focusArea === "workspaces" && key.tab) {
+			setInterfaceDetailView((current) => {
+				const next = nextInterfaceDetailView(current);
+				log("info", `interfaces detail ${next}`);
+				return next;
+			});
+			return;
+		}
+
 		if (screen === "connections" && focusArea === "workspaces" && key.tab) {
 			setConnectionDetailView((current) => {
 				const next = nextEndpointDetailView(current);
@@ -1573,6 +1591,10 @@ export function App(): React.ReactElement {
 					getNextIndex(index, portsResult?.ports.length ?? 0, "next"),
 				);
 				setPortCopyPreview(false);
+			} else if (screen === "interfaces") {
+				setSelectedInterfaceIndex((index) =>
+					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "down"),
+				);
 			} else if (screen === "processes") {
 				setSelectedProcessFileIndex((index) =>
 					getNextIndex(
@@ -1627,6 +1649,10 @@ export function App(): React.ReactElement {
 					getNextIndex(index, portsResult?.ports.length ?? 0, "previous"),
 				);
 				setPortCopyPreview(false);
+			} else if (screen === "interfaces") {
+				setSelectedInterfaceIndex((index) =>
+					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "up"),
+				);
 			} else if (screen === "processes") {
 				setSelectedProcessFileIndex((index) =>
 					getNextIndex(
@@ -1709,6 +1735,8 @@ export function App(): React.ReactElement {
 					portsResult={portsResult}
 					connectionSort={connectionSort}
 					portSort={portSort}
+					selectedInterfaceIndex={selectedInterfaceIndex}
+					interfaceDetailView={interfaceDetailView}
 					selectedConnectionIndex={selectedConnectionIndex}
 					selectedPortIndex={selectedPortIndex}
 					connectionDetailView={connectionDetailView}
@@ -1858,6 +1886,8 @@ function MainWorkspace({
 	portsResult,
 	connectionSort,
 	portSort,
+	selectedInterfaceIndex,
+	interfaceDetailView,
 	selectedConnectionIndex,
 	selectedPortIndex,
 	connectionDetailView,
@@ -1913,6 +1943,8 @@ function MainWorkspace({
 	portsResult?: PortsResult;
 	connectionSort: ConnectionSort;
 	portSort: PortSort;
+	selectedInterfaceIndex: number;
+	interfaceDetailView: InterfaceDetailView;
 	selectedConnectionIndex: number;
 	selectedPortIndex: number;
 	connectionDetailView: EndpointDetailView;
@@ -1977,6 +2009,8 @@ function MainWorkspace({
 					portsResult,
 					connectionSort,
 					portSort,
+					selectedInterfaceIndex,
+					interfaceDetailView,
 					selectedConnectionIndex,
 					selectedPortIndex,
 					connectionDetailView,
@@ -2036,6 +2070,8 @@ function renderWorkspace(
 	portsResult: PortsResult | undefined,
 	connectionSort: ConnectionSort,
 	portSort: PortSort,
+	selectedInterfaceIndex: number,
+	interfaceDetailView: InterfaceDetailView,
 	selectedConnectionIndex: number,
 	selectedPortIndex: number,
 	connectionDetailView: EndpointDetailView,
@@ -2154,6 +2190,8 @@ function renderWorkspace(
 		return (
 			<InterfacesWorkspace
 				summary={summary}
+				selectedIndex={selectedInterfaceIndex}
+				view={interfaceDetailView}
 				visibleRows={Math.max(6, height - 8)}
 				t={t}
 			/>
@@ -3004,59 +3042,48 @@ function NetworkWorkspace({
 
 function InterfacesWorkspace({
 	summary,
+	selectedIndex,
+	view,
 	visibleRows,
 	t,
 }: {
 	summary?: NetworkSummary;
+	selectedIndex: number;
+	view: InterfaceDetailView;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const summaryRows = Math.max(1, Math.floor((visibleRows - 5) / 2));
-	const detailRows = Math.max(1, visibleRows - summaryRows - 7);
-	const visibleInterfaces = summary?.interfaces.slice(0, summaryRows) ?? [];
-	const detailInterfaces = summary?.interfaces.slice(0, detailRows) ?? [];
-	const hiddenInterfaces = Math.max(
-		0,
-		(summary?.interfaces.length ?? 0) - Math.max(summaryRows, detailRows),
-	);
+	const rows = summary
+		? formatInterfaceWorkspaceRows(summary, visibleRows - 3, {
+				selectedIndex,
+				view,
+			})
+		: ["loading interfaces..."];
 
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.interfaces")}</Text>
 			<Text color="gray">
-				inventory: type, status, CIDR, MTU, RX/TX, MAC, gateway, and DNS
+				interface console · j/k select · tab list/detail/stats/platform
 			</Text>
 			<Box marginTop={1} flexDirection="column">
-				{visibleInterfaces.map((item) => (
-					<Text key={item.name}>
-						{clip(item.name, 8).padEnd(8)} {clip(item.kind, 12).padEnd(12)}{" "}
-						{item.status === "connected" ? "up  " : "down"}{" "}
-						{clip(item.ipv4Cidr ?? item.ipv6Cidr ?? item.ipv4 ?? "-", 24)}
+				{rows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("SUMMARY") ||
+							row.startsWith("DETAIL") ||
+							row.startsWith("STATS") ||
+							row.startsWith("PLATFORM")
+								? "cyan"
+								: row.startsWith(">")
+									? "green"
+									: "white"
+						}
+					>
+						{row}
 					</Text>
 				))}
-				{summary ? null : <Text color="gray">loading...</Text>}
-				{summary && visibleInterfaces.length === 0 ? (
-					<Text color="gray">no interfaces detected</Text>
-				) : null}
-			</Box>
-			<Box marginTop={1} flexDirection="column">
-				<Text color="cyan">DETAILS</Text>
-				{detailInterfaces.map((item) => (
-					<Text key={`${item.name}:details`}>
-						{clip(item.name, 8).padEnd(8)} mtu={item.mtu ?? "-"} rx=
-						{formatCompactBytes(item.rxBytes)} tx=
-						{formatCompactBytes(item.txBytes)} p=
-						{formatCompactPacketPair(item.rxPackets, item.txPackets)}
-					</Text>
-				))}
-				{summary ? null : <Text color="gray">loading...</Text>}
-				{hiddenInterfaces > 0 ? (
-					<Text color="gray">↓ {hiddenInterfaces} more interfaces</Text>
-				) : null}
-				<Text>
-					gateway {summary?.gateway ?? "-"} dns{" "}
-					{clip(summary?.dnsServers.join(", ") || "-", 42)}
-				</Text>
 			</Box>
 		</Box>
 	);
@@ -3752,44 +3779,6 @@ function formatFileSize(entry: FileEntry): string {
 		return "<DIR>";
 	}
 	return formatBytes(entry.size);
-}
-
-function formatCompactBytes(value?: number): string {
-	if (value === undefined) {
-		return "-";
-	}
-	const units = ["B", "K", "M", "G", "T"];
-	let size = value;
-	let unitIndex = 0;
-	while (size >= 1024 && unitIndex < units.length - 1) {
-		size /= 1024;
-		unitIndex += 1;
-	}
-	return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)}${units[unitIndex]}`;
-}
-
-function formatCompactNumber(value?: number): string {
-	if (value === undefined) {
-		return "-";
-	}
-	const units = ["", "K", "M", "B"];
-	let size = value;
-	let unitIndex = 0;
-	while (size >= 1000 && unitIndex < units.length - 1) {
-		size /= 1000;
-		unitIndex += 1;
-	}
-	return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)}${units[unitIndex]}`;
-}
-
-function formatCompactPacketPair(
-	rxPackets?: number,
-	txPackets?: number,
-): string {
-	if (rxPackets === undefined && txPackets === undefined) {
-		return "-";
-	}
-	return `${formatCompactNumber(rxPackets)}/${formatCompactNumber(txPackets)}`;
 }
 
 function formatSidebarLine(

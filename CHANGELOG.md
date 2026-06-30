@@ -51,6 +51,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub history now supports `Tab` detail panes for raw output, summary metadata, and rerunnable command views.
 - Connections and Ports workspaces now support `Tab` detail panes for focused detail, raw output, and process views.
 - Routes workspace now supports `Tab` detail panes for table, raw output, diagnostics, and destination path views.
+- Interfaces workspace now supports keyboard selection plus `Tab` panes for list, detail, traffic stats, and platform source views.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.
