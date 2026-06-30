@@ -200,6 +200,8 @@ export type PicosConfig = {
 	defaultPingHost: string;
 	showPublicIp: boolean;
 	enableExperimentalControls: boolean;
+	controlExecutionMode: "disabled" | "dry-run";
+	allowAdminDryRun: boolean;
 	remoteProfiles: SftpRemoteProfile[];
 };
 
