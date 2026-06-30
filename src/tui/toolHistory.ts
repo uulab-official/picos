@@ -35,6 +35,20 @@ export type ToolTargetPreset = {
 	hint: string;
 };
 
+export type ToolTargetCleanupPreview = {
+	actionId: ToolRunActionId;
+	count: number;
+	confirmationPhrase: string;
+	rows: string[];
+};
+
+export type ToolTargetCleanupConfirmation = {
+	confirmed: boolean;
+	removed: number;
+	presets: ToolTargetPreset[];
+	message: string;
+};
+
 export { normalizeToolTargetPresets };
 
 const toolRunActionAliases: Record<string, ToolRunActionId> = {
@@ -465,6 +479,71 @@ export function removeToolTargetPresetsByAction(
 	return normalized.filter(
 		(current) => current.actionId !== targetPreset.actionId,
 	);
+}
+
+export function createToolTargetCleanupPreview(
+	presets: ToolTargetPreset[],
+	preset: ToolTargetPreset | undefined,
+): ToolTargetCleanupPreview | undefined {
+	const [targetPreset] = normalizeToolTargetPresets(preset ? [preset] : []);
+	const normalized = normalizeToolTargetPresets(presets);
+	if (!targetPreset) {
+		return undefined;
+	}
+	const selectedIsSaved = normalized.some(
+		(current) =>
+			`${current.actionId}:${current.target}` ===
+			`${targetPreset.actionId}:${targetPreset.target}`,
+	);
+	if (!selectedIsSaved) {
+		return undefined;
+	}
+	const count = normalized.filter(
+		(current) => current.actionId === targetPreset.actionId,
+	).length;
+	const confirmationPhrase = `delete ${targetPreset.actionId}`;
+	return {
+		actionId: targetPreset.actionId,
+		count,
+		confirmationPhrase,
+		rows: [
+			"TOOL TARGET CLEANUP",
+			`action=${targetPreset.actionId} saved=${count}`,
+			`confirm ${confirmationPhrase} locked`,
+		],
+	};
+}
+
+export function submitToolTargetCleanupConfirmation(
+	presets: ToolTargetPreset[],
+	preset: ToolTargetPreset | undefined,
+	confirmation: string,
+): ToolTargetCleanupConfirmation {
+	const preview = createToolTargetCleanupPreview(presets, preset);
+	const normalized = normalizeToolTargetPresets(presets);
+	if (!preview) {
+		return {
+			confirmed: false,
+			removed: 0,
+			presets: normalized,
+			message: "tool target action cleanup unavailable",
+		};
+	}
+	if (confirmation.trim() !== preview.confirmationPhrase) {
+		return {
+			confirmed: false,
+			removed: 0,
+			presets: normalized,
+			message: `tool target action cleanup rejected ${preview.actionId}`,
+		};
+	}
+	const next = removeToolTargetPresetsByAction(normalized, preset);
+	return {
+		confirmed: true,
+		removed: normalized.length - next.length,
+		presets: next,
+		message: `tool target action removed ${preview.actionId} (${normalized.length - next.length} presets)`,
+	};
 }
 
 export function renameToolTargetPreset(
