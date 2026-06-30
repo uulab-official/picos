@@ -787,14 +787,28 @@ Goal: make network groups and routes explain operator meaning instead of only li
 - Route diagnostics flag likely split-tunnel setups when VPN routes exist but the default route remains on a non-VPN interface.
 - Next: richer endpoint search and event search.
 
+## v0.3.58 - Endpoint Search Presets
+
+Status: draft PR #59.
+
+Goal: make Connections and Ports practical when endpoint lists grow large during real diagnostic sessions.
+
+- Connections and Ports now have TUI filter prompts opened with `f`.
+- `F` clears the active endpoint filter and resets visible selection.
+- `P` saves the active endpoint filter as a session preset.
+- `]` cycles saved endpoint filter presets for repeated triage terms such as ports, hosts, commands, users, and PIDs.
+- Connection and port selection, copy, and process drill-down now target the filtered visible list.
+- Endpoint summaries show active filters and the first saved presets.
+- Next: richer event search and export scopes.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
-- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, stable row sorting, keyboard selection, and list/detail/stats/platform panes landed; next richer endpoint search.
+- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, stable row sorting, keyboard selection, and list/detail/stats/platform panes landed; next richer event search.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification plus operator scope/hint labels landed; next richer event search.
-- Route Inspector depth: route diagnostics, raw/table/diagnostics/path tabs, destination path lookup UI, sortable rows, VPN route hints, and split-tunnel diagnostics landed; next richer endpoint search.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, detail/raw/process tabs, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer endpoint search.
+- Route Inspector depth: route diagnostics, raw/table/diagnostics/path tabs, destination path lookup UI, sortable rows, VPN route hints, and split-tunnel diagnostics landed; next richer event search.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, TUI filter presets, selection details, detail/raw/process tabs, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer event search.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, raw output handoff, locked summary/raw-output copy shortcuts, and scoped markdown export landed; next platform-aware presets and export scopes.
 - Timeline: live EventDock history, network/action/audit/raw filters, audit export, latest audit reload, and network status/address/public-IP change events landed; next richer event search and export scopes.
 - Raw output viewer for routes, connections, ports, and Tools history landed; next richer platform source viewers.

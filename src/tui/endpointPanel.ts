@@ -40,6 +40,32 @@ export function nextEndpointDetailView(
 	return "detail";
 }
 
+export function saveEndpointFilterPreset(
+	presets: string[],
+	query: string,
+): string[] {
+	const normalized = query.trim();
+	if (!normalized) {
+		return presets;
+	}
+	return [
+		normalized,
+		...presets.filter((preset) => preset !== normalized),
+	].slice(0, 6);
+}
+
+export function nextEndpointFilterPreset(
+	presets: string[],
+	currentQuery: string,
+): string | undefined {
+	if (presets.length === 0) {
+		return undefined;
+	}
+	const current = currentQuery.trim();
+	const index = presets.indexOf(current);
+	return presets[(index + 1) % presets.length] ?? presets[0];
+}
+
 export function getSelectedConnectionProcessRequest(
 	connections: ActiveConnection[],
 	selectedIndex: number,
@@ -95,6 +121,7 @@ export function formatConnectionsWorkspaceRows(
 		copyPreview?: boolean;
 		filter?: string;
 		processes?: ProcessSummary[];
+		presets?: string[];
 		selectedIndex?: number;
 		sort?: ConnectionSort;
 		view?: EndpointDetailView;
@@ -123,6 +150,7 @@ export function formatConnectionsWorkspaceRows(
 			view !== "detail" ? `view=${view}` : "",
 			options.sort ? `sort=${options.sort.key} ${options.sort.direction}` : "",
 			options.filter?.trim() ? `filter=${options.filter.trim()}` : "",
+			formatEndpointPresetSummary(options.presets),
 			`command=${result.command} ${result.args.join(" ")}`,
 		]
 			.filter(Boolean)
@@ -153,6 +181,7 @@ export function formatPortsWorkspaceRows(
 		copyPreview?: boolean;
 		filter?: string;
 		processes?: ProcessSummary[];
+		presets?: string[];
 		selectedIndex?: number;
 		sort?: PortSort;
 		view?: EndpointDetailView;
@@ -177,6 +206,7 @@ export function formatPortsWorkspaceRows(
 			view !== "detail" ? `view=${view}` : "",
 			options.sort ? `sort=${options.sort.key} ${options.sort.direction}` : "",
 			options.filter?.trim() ? `filter=${options.filter.trim()}` : "",
+			formatEndpointPresetSummary(options.presets),
 			`command=${result.command} ${result.args.join(" ")}`,
 		]
 			.filter(Boolean)
@@ -410,6 +440,11 @@ function formatProcessRows(
 
 function countLabel(visible: number, total: number): string {
 	return visible === total ? String(visible) : `${visible}/${total}`;
+}
+
+function formatEndpointPresetSummary(presets: string[] | undefined): string {
+	const visible = presets?.slice(0, 3).filter(Boolean) ?? [];
+	return visible.length ? `presets=${visible.join("|")}` : "";
 }
 
 function formatRawOutputRows(rawOutput: string, visibleRows: number): string[] {
