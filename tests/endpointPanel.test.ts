@@ -118,6 +118,42 @@ describe("endpoint TUI panel formatting", () => {
 		);
 	});
 
+	test("enriches selected connection details with matching process snapshot", () => {
+		const rows = formatConnectionsWorkspaceRows(
+			{
+				command: "netstat",
+				args: ["-anv"],
+				connections: [
+					{
+						protocol: "tcp4",
+						localAddress: "127.0.0.1",
+						localPort: "3000",
+						remoteAddress: "127.0.0.1",
+						remotePort: "52000",
+						state: "ESTABLISHED",
+						pid: "12345",
+					},
+				],
+				rawOutput: "$ netstat -anv\nraw",
+			},
+			12,
+			{
+				processes: [
+					{
+						pid: 12345,
+						cpu: "2.5",
+						memory: "1.1",
+						command: "bun src/bin/picos.ts",
+					},
+				],
+				selectedIndex: 0,
+			},
+		);
+
+		expect(rows).toContain("process bun src/bin/picos.ts");
+		expect(rows).toContain("usage cpu=2.5% mem=1.1%");
+	});
+
 	test("formats ports with clipped raw source output", () => {
 		expect(
 			formatPortsWorkspaceRows(
@@ -223,5 +259,40 @@ describe("endpoint TUI panel formatting", () => {
 		expect(rows).toContain("listen *:3000");
 		expect(rows).toContain("process node pid=12345 user=alice");
 		expect(rows).toContain("COPY PREVIEW *:3000 node pid=12345");
+	});
+
+	test("enriches selected port details with matching process snapshot", () => {
+		const rows = formatPortsWorkspaceRows(
+			{
+				command: "lsof",
+				args: ["-nP"],
+				ports: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "12345",
+						command: "node",
+						user: "alice",
+					},
+				],
+				rawOutput: "$ lsof\nraw",
+			},
+			12,
+			{
+				processes: [
+					{
+						pid: 12345,
+						cpu: "8.0",
+						memory: "4.2",
+						command: "node server.js",
+					},
+				],
+				selectedIndex: 0,
+			},
+		);
+
+		expect(rows).toContain("snapshot node server.js");
+		expect(rows).toContain("usage cpu=8.0% mem=4.2%");
 	});
 });

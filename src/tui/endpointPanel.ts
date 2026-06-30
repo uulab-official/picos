@@ -10,6 +10,7 @@ import {
 	type PortsResult,
 	sortListeningPorts,
 } from "../core/ports";
+import type { ProcessSummary } from "../core/types";
 
 export function formatConnectionsWorkspaceRows(
 	result: ConnectionsResult,
@@ -17,6 +18,7 @@ export function formatConnectionsWorkspaceRows(
 	options: {
 		copyPreview?: boolean;
 		filter?: string;
+		processes?: ProcessSummary[];
 		selectedIndex?: number;
 		sort?: ConnectionSort;
 	} = {},
@@ -56,6 +58,7 @@ export function formatConnectionsWorkspaceRows(
 			selectedIndex,
 			sorted.length,
 			options.copyPreview ?? false,
+			options.processes ?? [],
 		),
 		"RAW OUTPUT",
 		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
@@ -69,6 +72,7 @@ export function formatPortsWorkspaceRows(
 	options: {
 		copyPreview?: boolean;
 		filter?: string;
+		processes?: ProcessSummary[];
 		selectedIndex?: number;
 		sort?: PortSort;
 	} = {},
@@ -102,6 +106,7 @@ export function formatPortsWorkspaceRows(
 			selectedIndex,
 			sorted.length,
 			options.copyPreview ?? false,
+			options.processes ?? [],
 		),
 		"RAW OUTPUT",
 		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
@@ -135,16 +140,19 @@ function formatConnectionDetailRows(
 	selectedIndex: number | undefined,
 	total: number,
 	copyPreview: boolean,
+	processes: ProcessSummary[],
 ): string[] {
 	if (!connection || selectedIndex === undefined) {
 		return [];
 	}
 	const endpoint = `${connection.localAddress}:${connection.localPort} -> ${connection.remoteAddress}:${connection.remotePort}`;
+	const process = findProcessByPid(processes, connection.pid);
 	return [
 		`DETAIL connection ${selectedIndex + 1}/${total}`,
 		`local ${connection.localAddress}:${connection.localPort}`,
 		`remote ${connection.remoteAddress}:${connection.remotePort}`,
 		`state ${connection.state ?? "-"}${connection.pid ? ` pid=${connection.pid}` : ""}`,
+		...formatProcessRows(process, "process"),
 		...(copyPreview ? [`COPY PREVIEW ${endpoint}`] : []),
 	];
 }
@@ -154,18 +162,44 @@ function formatPortDetailRows(
 	selectedIndex: number | undefined,
 	total: number,
 	copyPreview: boolean,
+	processes: ProcessSummary[],
 ): string[] {
 	if (!port || selectedIndex === undefined) {
 		return [];
 	}
 	const endpoint = `${port.localAddress}:${port.localPort}`;
+	const process = findProcessByPid(processes, port.pid);
 	return [
 		`DETAIL port ${selectedIndex + 1}/${total}`,
 		`listen ${endpoint}`,
 		`process ${port.command} pid=${port.pid} user=${port.user}`,
+		...formatProcessRows(process, "snapshot"),
 		...(copyPreview
 			? [`COPY PREVIEW ${endpoint} ${port.command} pid=${port.pid}`]
 			: []),
+	];
+}
+
+function findProcessByPid(
+	processes: ProcessSummary[],
+	pid: string | undefined,
+): ProcessSummary | undefined {
+	if (!pid) {
+		return undefined;
+	}
+	return processes.find((process) => String(process.pid) === pid);
+}
+
+function formatProcessRows(
+	process: ProcessSummary | undefined,
+	label: "process" | "snapshot",
+): string[] {
+	if (!process) {
+		return [];
+	}
+	return [
+		`${label} ${process.command}`,
+		`usage cpu=${process.cpu}% mem=${process.memory}%`,
 	];
 }
 

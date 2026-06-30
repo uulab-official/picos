@@ -1398,6 +1398,7 @@ function renderWorkspace(
 			<ConnectionsWorkspace
 				result={connectionsResult}
 				sort={connectionSort}
+				processes={inventory?.processes ?? []}
 				selectedIndex={selectedConnectionIndex}
 				copyPreview={connectionCopyPreview}
 				visibleRows={Math.max(5, height - 7)}
@@ -1410,6 +1411,7 @@ function renderWorkspace(
 			<PortsWorkspace
 				result={portsResult}
 				sort={portSort}
+				processes={inventory?.processes ?? []}
 				selectedIndex={selectedPortIndex}
 				copyPreview={portCopyPreview}
 				visibleRows={Math.max(5, height - 7)}
@@ -2236,6 +2238,7 @@ function InterfacesWorkspace({
 function ConnectionsWorkspace({
 	result,
 	sort,
+	processes,
 	selectedIndex,
 	copyPreview,
 	visibleRows,
@@ -2243,6 +2246,7 @@ function ConnectionsWorkspace({
 }: {
 	result?: ConnectionsResult;
 	sort: ConnectionSort;
+	processes: SystemInventory["processes"];
 	selectedIndex: number;
 	copyPreview: boolean;
 	visibleRows: number;
@@ -2251,6 +2255,7 @@ function ConnectionsWorkspace({
 	const rows = result
 		? formatConnectionsWorkspaceRows(result, visibleRows, {
 				copyPreview,
+				processes,
 				selectedIndex,
 				sort,
 			})
@@ -2286,6 +2291,7 @@ function ConnectionsWorkspace({
 function PortsWorkspace({
 	result,
 	sort,
+	processes,
 	selectedIndex,
 	copyPreview,
 	visibleRows,
@@ -2293,6 +2299,7 @@ function PortsWorkspace({
 }: {
 	result?: PortsResult;
 	sort: PortSort;
+	processes: SystemInventory["processes"];
 	selectedIndex: number;
 	copyPreview: boolean;
 	visibleRows: number;
@@ -2301,6 +2308,7 @@ function PortsWorkspace({
 	const rows = result
 		? formatPortsWorkspaceRows(result, visibleRows, {
 				copyPreview,
+				processes,
 				selectedIndex,
 				sort,
 			})
