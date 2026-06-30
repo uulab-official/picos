@@ -4,8 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	createConsoleAuditExportPlan,
+	formatConsoleAuditExportIndexRows,
 	formatConsoleAuditLog,
+	getSelectedConsoleAuditExport,
 	parseConsoleAuditLog,
+	readConsoleAuditExportIndex,
 	readLatestConsoleAuditExport,
 	writeConsoleAuditExport,
 } from "../src/core/auditLog";
@@ -216,6 +219,63 @@ describe("console audit export", () => {
 					},
 				],
 			});
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("indexes exported audit logs newest first for Status browsing", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-audit-index-"));
+		try {
+			await mkdir(join(root, "audit"), { recursive: true });
+			await writeFile(
+				join(root, "audit", "picos-audit-selected-2026-07-01T030000000Z.log"),
+				[
+					"# picos audit log",
+					"generatedAt=2026-07-01T03:00:00.000Z",
+					"scope=selected",
+					"query=control",
+					"events=1",
+					"",
+					"[12:00:06] WARN control preview dns.flush",
+					"",
+				].join("\n"),
+			);
+			await writeFile(
+				join(root, "audit", "picos-audit-filtered-2026-07-01T020000000Z.log"),
+				[
+					"# picos audit log",
+					"generatedAt=2026-07-01T02:00:00.000Z",
+					"scope=filtered",
+					"events=2",
+					"",
+				].join("\n"),
+			);
+			await writeFile(join(root, "audit", "notes.log"), "ignore me");
+
+			const index = await readConsoleAuditExportIndex(root);
+
+			expect(index.items.map((item) => item.fileName)).toEqual([
+				"picos-audit-selected-2026-07-01T030000000Z.log",
+				"picos-audit-filtered-2026-07-01T020000000Z.log",
+			]);
+			expect(index.items[0]).toMatchObject({
+				entryCount: 1,
+				generatedAt: "2026-07-01T03:00:00.000Z",
+				query: "control",
+				scope: "selected",
+			});
+			expect(formatConsoleAuditExportIndexRows(index, 0, 4)).toEqual([
+				`AUDIT EXPORTS 2 base=${root}`,
+				"> selected events=1 2026-07-01T03:00:00.000Z query=control",
+				"  filtered events=2 2026-07-01T02:00:00.000Z",
+				`path=${join(
+					root,
+					"audit",
+					"picos-audit-selected-2026-07-01T030000000Z.log",
+				)}`,
+			]);
+			expect(getSelectedConsoleAuditExport(index, 99)?.scope).toBe("filtered");
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

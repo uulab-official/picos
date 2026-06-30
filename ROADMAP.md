@@ -2089,6 +2089,19 @@ Goal: make the selected Timeline row portable as a one-event audit file without 
 - Tests cover selected-row export plan content, file path, query metadata, and cursor targeting.
 - Next: add a selected-row open/handoff index so exported Timeline evidence can be reopened from Status.
 
+## v0.4.94 - Timeline Export Status Index
+
+Status: draft PR #156 on `codex/picos-v0.4.94-timeline-export-index`.
+
+Goal: make Timeline audit export files discoverable and reopenable from the Status workspace.
+
+- Audit export files under the picos `audit` directory now have a selectable index.
+- The index reads selected, filtered, and all-scope `picos-audit-*.log` files newest first.
+- Status now shows an Audit Exports shelf with `T` refresh, `)` select, and `W` locked file-open controls.
+- File-open plans allow picos-owned Timeline audit export logs through the same exact `open` confirmation boundary as handoff files.
+- Tests cover audit export indexing, row formatting, selected-item clamping, and locked file-open planning.
+- Next: add archive controls for old Timeline audit exports so the Status audit shelf can stay tidy.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

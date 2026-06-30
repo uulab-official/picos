@@ -5,7 +5,8 @@ import type { SafeExecResult, SupportedPlatform } from "./types";
 export type FileOpenSource =
 	| "route-handoff"
 	| "endpoint-handoff"
-	| "cleanup-export";
+	| "cleanup-export"
+	| "timeline-export";
 
 export type FileOpenAdapter = {
 	platform: SupportedPlatform;
@@ -162,7 +163,8 @@ function isAllowedHandoffPath(baseDir: string, path: string): boolean {
 	return (
 		isAllowedHandoffPathIn(resolve(join(baseDir, "routes")), target) ||
 		isAllowedHandoffPathIn(resolve(join(baseDir, "endpoints")), target) ||
-		isAllowedHandoffPathIn(resolve(join(baseDir, "cleanup")), target)
+		isAllowedHandoffPathIn(resolve(join(baseDir, "cleanup")), target) ||
+		isAllowedTimelineAuditExportPath(resolve(join(baseDir, "audit")), target)
 	);
 }
 
@@ -173,6 +175,19 @@ function isAllowedHandoffPathIn(handoffDir: string, target: string): boolean {
 		!fromHandoffDir.startsWith("..") &&
 		!fromHandoffDir.startsWith("/") &&
 		extname(target) === ".md"
+	);
+}
+
+function isAllowedTimelineAuditExportPath(
+	auditDir: string,
+	target: string,
+): boolean {
+	const fromAuditDir = relative(auditDir, target);
+	return (
+		fromAuditDir !== "" &&
+		!fromAuditDir.startsWith("..") &&
+		!fromAuditDir.startsWith("/") &&
+		/^picos-audit-.+\.log$/.test(fromAuditDir)
 	);
 }
 
