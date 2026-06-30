@@ -94,6 +94,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Logs search presets now persist in config, load on TUI boot, and share the same de-duplication and trim rules as the Logs workspace.
 - Logs workspace now has `L` live follow mode, which refreshes OS log snapshots while the Logs panel is active and marks follow state in the header.
 - Logs live follow now shows bounded refresh ticks plus last follow status in the header and supports `C` to clear follow state counters.
+- Logs live follow now keeps a bounded recent follow history row with status, entry counts, and refresh labels.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.
