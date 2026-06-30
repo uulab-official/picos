@@ -59,6 +59,12 @@ import {
 	runExternalOpenPlan,
 } from "../core/externalOpen";
 import {
+	buildFileOpenPlan,
+	type FileOpenPlan,
+	formatFileOpenPlanRows,
+	runFileOpenPlan,
+} from "../core/fileOpen";
+import {
 	createLocalFileProvider,
 	type FileEntry,
 	type FileLocation,
@@ -347,6 +353,7 @@ export function App(): React.ReactElement {
 	const [selectedUpdateHandoffIndex, setSelectedUpdateHandoffIndex] =
 		useState(0);
 	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
+	const [fileOpenPlan, setFileOpenPlan] = useState<FileOpenPlan>();
 	const [events, setEvents] = useState<ConsoleEvent[]>([
 		createEvent("info", "picos console booted"),
 		createEvent("info", "write actions locked by policy"),
@@ -1032,6 +1039,32 @@ export function App(): React.ReactElement {
 		}
 	}, [commandLine.value, externalOpenPlan, log]);
 
+	const submitFileOpenCommand = useCallback(async () => {
+		if (!fileOpenPlan) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "file open missing preview");
+			return;
+		}
+		const plan = buildFileOpenPlan({
+			baseDir: dirname(getConfigPath()),
+			source: fileOpenPlan.source,
+			label: fileOpenPlan.label,
+			path: fileOpenPlan.path,
+			platform: currentPlatform(),
+			confirmation: commandLine.value,
+		});
+		setFileOpenPlan(plan);
+		setCommandLine((current) => closeCommandLine(current));
+		const result = await runFileOpenPlan(plan);
+		log(
+			result.success ? "ok" : "fail",
+			`file open ${plan.label} confirmed=${plan.confirmed} adapter=${plan.adapter.command}`,
+		);
+		if (result.error) {
+			log("warn", result.error);
+		}
+	}, [commandLine.value, fileOpenPlan, log]);
+
 	const exportToolHistory = useCallback(
 		async (scope: ToolHistoryExportScope) => {
 			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
@@ -1094,6 +1127,43 @@ export function App(): React.ReactElement {
 			const written = await writeRouteRawHandoffPlan(plan);
 			setScreen("routes");
 			log("ok", `routes exported ${written.view} ${written.path}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [log, routeDetailView, routeFilter, routePath, routeSort, routeTable]);
+
+	const openRouteHandoff = useCallback(async () => {
+		if (!routeTable) {
+			log("warn", "no route table loaded");
+			return;
+		}
+		const baseDir = dirname(getConfigPath());
+		const handoff = createRouteRawHandoffPlan(routeTable, {
+			baseDir,
+			filter: routeFilter,
+			path: routePath,
+			sort: routeSort,
+			view: routeDetailView,
+		});
+		if (!handoff) {
+			log("warn", "no route handoff target");
+			return;
+		}
+
+		try {
+			const written = await writeRouteRawHandoffPlan(handoff);
+			const plan = buildFileOpenPlan({
+				baseDir,
+				source: "route-handoff",
+				label: written.label,
+				path: written.path,
+				platform: currentPlatform(),
+			});
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
+			log("info", `file open confirmation opened for ${written.label}`);
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
@@ -1618,6 +1688,9 @@ export function App(): React.ReactElement {
 				if (commandLine.prompt === "external-open") {
 					setExternalOpenPlan(undefined);
 				}
+				if (commandLine.prompt === "file-open") {
+					setFileOpenPlan(undefined);
+				}
 				log(
 					"info",
 					commandLine.prompt === "route"
@@ -1636,11 +1709,13 @@ export function App(): React.ReactElement {
 												? "control confirmation cancelled"
 												: commandLine.prompt === "external-open"
 													? "external open confirmation cancelled"
-													: commandLine.prompt === "log-search"
-														? "logs search cancelled"
-														: commandLine.prompt.startsWith(toolPromptPrefix)
-															? "tool target command cancelled"
-															: "path command cancelled",
+													: commandLine.prompt === "file-open"
+														? "file open confirmation cancelled"
+														: commandLine.prompt === "log-search"
+															? "logs search cancelled"
+															: commandLine.prompt.startsWith(toolPromptPrefix)
+																? "tool target command cancelled"
+																: "path command cancelled",
 				);
 				return;
 			}
@@ -1664,6 +1739,8 @@ export function App(): React.ReactElement {
 					submitControlConfirmationCommand();
 				} else if (commandLine.prompt === "external-open") {
 					void submitExternalOpenCommand();
+				} else if (commandLine.prompt === "file-open") {
+					void submitFileOpenCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -2246,6 +2323,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "routes" && focusArea === "workspaces" && input === "e") {
 			void exportRouteHandoff();
+			return;
+		}
+
+		if (screen === "routes" && focusArea === "workspaces" && input === "o") {
+			void openRouteHandoff();
 			return;
 		}
 
@@ -2891,6 +2973,7 @@ export function App(): React.ReactElement {
 					toolCopyPreview={toolCopyPreview}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					externalOpenPlan={externalOpenPlan}
+					fileOpenPlan={fileOpenPlan}
 					events={events}
 					t={t}
 				/>
@@ -3075,6 +3158,7 @@ function MainWorkspace({
 	toolCopyPreview,
 	selectedUpdateHandoffIndex,
 	externalOpenPlan,
+	fileOpenPlan,
 	events,
 	t,
 }: {
@@ -3161,6 +3245,7 @@ function MainWorkspace({
 	toolCopyPreview: ToolCopyPreviewMode;
 	selectedUpdateHandoffIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
+	fileOpenPlan?: FileOpenPlan;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -3256,6 +3341,7 @@ function MainWorkspace({
 					toolCopyPreview,
 					selectedUpdateHandoffIndex,
 					externalOpenPlan,
+					fileOpenPlan,
 					events,
 					height,
 					t,
@@ -3346,6 +3432,7 @@ function renderWorkspace(
 	toolCopyPreview: ToolCopyPreviewMode,
 	selectedUpdateHandoffIndex: number,
 	externalOpenPlan: ExternalOpenPlan | undefined,
+	fileOpenPlan: FileOpenPlan | undefined,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -3561,6 +3648,7 @@ function renderWorkspace(
 				githubReleaseCheckResult={githubReleaseCheckResult}
 				selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 				externalOpenPlan={externalOpenPlan}
+				fileOpenPlan={fileOpenPlan}
 				commandLine={commandLine}
 				t={t}
 			/>
@@ -4635,7 +4723,7 @@ function RoutesWorkspace({
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
 				route table diagnostics · f filter · F clear · P save · ] preset · c
-				copy · e export · tab detail · s sort · : path
+				copy · e export · o open · tab detail · s sort · : path
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {
@@ -4930,6 +5018,18 @@ function formatExternalOpenPromptRows(
 		: [];
 }
 
+function formatFileOpenPromptRows(
+	commandLine: CommandLineState,
+	plan: FileOpenPlan,
+): string[] {
+	return commandLine.active && commandLine.prompt === "file-open"
+		? [
+				`FILE OPEN CONFIRM ${plan.label}`,
+				`:file-open ${commandLine.value || " "}  type="${plan.confirmationPhrase}" enter=open esc=cancel`,
+			]
+		: [];
+}
+
 function DnsWorkspace({
 	summary,
 	t,
@@ -5198,6 +5298,7 @@ function StatusWorkspace({
 	githubReleaseCheckResult,
 	selectedUpdateHandoffIndex,
 	externalOpenPlan,
+	fileOpenPlan,
 	commandLine,
 	t,
 }: {
@@ -5205,6 +5306,7 @@ function StatusWorkspace({
 	githubReleaseCheckResult?: GitHubReleaseCheckResult;
 	selectedUpdateHandoffIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
+	fileOpenPlan?: FileOpenPlan;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -5328,6 +5430,31 @@ function StatusWorkspace({
 							</Text>
 						),
 					)}
+				</Box>
+			) : null}
+			{fileOpenPlan ? (
+				<Box marginTop={1} flexDirection="column">
+					{formatFileOpenPlanRows(fileOpenPlan)
+						.slice(0, 7)
+						.map((row) => (
+							<Text
+								key={row}
+								color={
+									row.startsWith("FILE OPEN")
+										? "cyan"
+										: row.startsWith("confirm")
+											? "yellow"
+											: "white"
+								}
+							>
+								{row}
+							</Text>
+						))}
+					{formatFileOpenPromptRows(commandLine, fileOpenPlan).map((row) => (
+						<Text key={row} color="yellow">
+							{row}
+						</Text>
+					))}
 				</Box>
 			) : null}
 			<Text color="gray">{t("status.roadmap")}</Text>
