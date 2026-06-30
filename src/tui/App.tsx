@@ -14,6 +14,7 @@ import {
 	type ConnectionsResult,
 	getActiveConnections,
 	nextConnectionSort,
+	sortConnections,
 } from "../core/connections";
 import { runDoctorChecks } from "../core/doctor";
 import {
@@ -30,7 +31,14 @@ import {
 	nextPortSort,
 	type PortSort,
 	type PortsResult,
+	sortListeningPorts,
 } from "../core/ports";
+import {
+	getProcessDetail,
+	getProcessFileSnapshot,
+	type ProcessDetail,
+	type ProcessFileSnapshot,
+} from "../core/processes";
 import {
 	createRemoteFileContext,
 	type RemoteFileContext,
@@ -66,6 +74,8 @@ import {
 import {
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
+	getSelectedConnectionProcessRequest,
+	getSelectedPortProcessRequest,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
@@ -107,6 +117,7 @@ import {
 	moveCommandPalette,
 	openCommandPalette,
 } from "./palette";
+import { formatProcessWorkspaceRows } from "./processPanel";
 import { formatRoutePathRows, formatRouteWorkspaceRows } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 
@@ -185,6 +196,10 @@ export function App(): React.ReactElement {
 	const [selectedPortIndex, setSelectedPortIndex] = useState(0);
 	const [connectionCopyPreview, setConnectionCopyPreview] = useState(false);
 	const [portCopyPreview, setPortCopyPreview] = useState(false);
+	const [selectedProcessDetail, setSelectedProcessDetail] =
+		useState<ProcessDetail>();
+	const [selectedProcessFiles, setSelectedProcessFiles] =
+		useState<ProcessFileSnapshot>();
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
 	const [routePath, setRoutePath] = useState<RoutePathResult>();
 	const [routeSort, setRouteSort] = useState<RouteSort>({
@@ -206,6 +221,14 @@ export function App(): React.ReactElement {
 	);
 	const connections = connectionsResult?.connections ?? [];
 	const ports = portsResult?.ports ?? [];
+	const sortedConnections = useMemo(
+		() => sortConnections(connections, connectionSort),
+		[connections, connectionSort],
+	);
+	const sortedPorts = useMemo(
+		() => sortListeningPorts(ports, portSort),
+		[ports, portSort],
+	);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
@@ -428,6 +451,45 @@ export function App(): React.ReactElement {
 		setFocusArea("workspaces");
 		log("info", `remote context selected ${context.label}`);
 	}, [log, remoteProfiles, selectedRemoteIndex]);
+
+	const inspectSelectedEndpointProcess = useCallback(async () => {
+		const request =
+			screen === "connections"
+				? getSelectedConnectionProcessRequest(
+						sortedConnections,
+						selectedConnectionIndex,
+					)
+				: screen === "ports"
+					? getSelectedPortProcessRequest(sortedPorts, selectedPortIndex)
+					: undefined;
+		if (!request) {
+			log("warn", "no process PID available for selected endpoint");
+			return;
+		}
+
+		setCommandStatus("running");
+		try {
+			const [detail, files] = await Promise.all([
+				getProcessDetail(request.pid),
+				getProcessFileSnapshot(request.pid),
+			]);
+			setSelectedProcessDetail(detail);
+			setSelectedProcessFiles(files);
+			setScreen("processes");
+			log("ok", `process inspected ${request.command}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		} finally {
+			setCommandStatus("idle");
+		}
+	}, [
+		log,
+		screen,
+		selectedConnectionIndex,
+		selectedPortIndex,
+		sortedConnections,
+		sortedPorts,
+	]);
 
 	useEffect(() => {
 		void loadFiles(systemFileRoot);
@@ -758,6 +820,11 @@ export function App(): React.ReactElement {
 			if (screen === "actions" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "actions focus entered");
+			} else if (
+				(screen === "connections" || screen === "ports") &&
+				focusArea === "workspaces"
+			) {
+				void inspectSelectedEndpointProcess();
 			} else if (screen === "files" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "files focus entered");
@@ -1031,6 +1098,8 @@ export function App(): React.ReactElement {
 					selectedPortIndex={selectedPortIndex}
 					connectionCopyPreview={connectionCopyPreview}
 					portCopyPreview={portCopyPreview}
+					selectedProcessDetail={selectedProcessDetail}
+					selectedProcessFiles={selectedProcessFiles}
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
@@ -1164,6 +1233,8 @@ function MainWorkspace({
 	selectedPortIndex,
 	connectionCopyPreview,
 	portCopyPreview,
+	selectedProcessDetail,
+	selectedProcessFiles,
 	routeTable,
 	routePath,
 	routeSort,
@@ -1203,6 +1274,8 @@ function MainWorkspace({
 	selectedPortIndex: number;
 	connectionCopyPreview: boolean;
 	portCopyPreview: boolean;
+	selectedProcessDetail?: ProcessDetail;
+	selectedProcessFiles?: ProcessFileSnapshot;
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
@@ -1251,6 +1324,8 @@ function MainWorkspace({
 					selectedPortIndex,
 					connectionCopyPreview,
 					portCopyPreview,
+					selectedProcessDetail,
+					selectedProcessFiles,
 					routeTable,
 					routePath,
 					routeSort,
@@ -1294,6 +1369,8 @@ function renderWorkspace(
 	selectedPortIndex: number,
 	connectionCopyPreview: boolean,
 	portCopyPreview: boolean,
+	selectedProcessDetail: ProcessDetail | undefined,
+	selectedProcessFiles: ProcessFileSnapshot | undefined,
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
@@ -1367,7 +1444,14 @@ function renderWorkspace(
 		return <StorageWorkspace inventory={inventory} />;
 	}
 	if (screen === "processes") {
-		return <ProcessesWorkspace inventory={inventory} />;
+		return (
+			<ProcessesWorkspace
+				inventory={inventory}
+				selectedProcess={selectedProcessDetail}
+				selectedFiles={selectedProcessFiles}
+				visibleRows={Math.max(6, height - 7)}
+			/>
+		);
 	}
 	if (screen === "network") {
 		return (
@@ -2093,24 +2177,40 @@ function StorageWorkspace({
 
 function ProcessesWorkspace({
 	inventory,
+	selectedProcess,
+	selectedFiles,
+	visibleRows,
 }: {
 	inventory?: SystemInventory;
+	selectedProcess?: ProcessDetail;
+	selectedFiles?: ProcessFileSnapshot;
+	visibleRows: number;
 }): React.ReactElement {
-	const processes = inventory?.processes.slice(0, 10) ?? [];
+	const rows = formatProcessWorkspaceRows(
+		inventory?.processes.slice(0, 10) ?? [],
+		selectedProcess,
+		selectedFiles,
+		visibleRows,
+	);
 	return (
 		<Box flexDirection="column">
 			<Text bold>Processes</Text>
-			<Text color="gray">read-only process snapshot</Text>
+			<Text color="gray">
+				read-only process snapshot · endpoint enter opens PID detail
+			</Text>
 			<Box marginTop={1} flexDirection="column">
-				{processes.length ? (
-					processes.map((process) => (
-						<Text key={`${process.pid}:${process.command}`}>
-							{String(process.pid).padEnd(7)} {clip(process.command, 46)}
-						</Text>
-					))
-				) : (
-					<Text color="gray">loading...</Text>
-				)}
+				{rows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row === "SNAPSHOT" || row === "FILES" || row.startsWith("DETAIL")
+								? "cyan"
+								: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
 			</Box>
 		</Box>
 	);

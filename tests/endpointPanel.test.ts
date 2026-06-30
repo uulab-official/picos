@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
+	getSelectedConnectionProcessRequest,
+	getSelectedPortProcessRequest,
 } from "../src/tui/endpointPanel";
 
 describe("endpoint TUI panel formatting", () => {
@@ -155,6 +157,39 @@ describe("endpoint TUI panel formatting", () => {
 		expect(rows).toContain("inspect picos process 12345");
 	});
 
+	test("creates selected connection process handoff requests", () => {
+		expect(
+			getSelectedConnectionProcessRequest(
+				[
+					{
+						protocol: "tcp4",
+						localAddress: "127.0.0.1",
+						localPort: "3000",
+						remoteAddress: "127.0.0.1",
+						remotePort: "52000",
+						state: "ESTABLISHED",
+						pid: "12345",
+					},
+				],
+				0,
+			),
+		).toEqual({ pid: "12345", command: "picos process 12345 --files" });
+		expect(
+			getSelectedConnectionProcessRequest(
+				[
+					{
+						protocol: "tcp4",
+						localAddress: "127.0.0.1",
+						localPort: "3000",
+						remoteAddress: "127.0.0.1",
+						remotePort: "52000",
+					},
+				],
+				0,
+			),
+		).toBeUndefined();
+	});
+
 	test("formats ports with clipped raw source output", () => {
 		expect(
 			formatPortsWorkspaceRows(
@@ -296,5 +331,38 @@ describe("endpoint TUI panel formatting", () => {
 		expect(rows).toContain("snapshot node server.js");
 		expect(rows).toContain("usage cpu=8.0% mem=4.2%");
 		expect(rows).toContain("inspect picos process 12345");
+	});
+
+	test("creates selected port process handoff requests", () => {
+		expect(
+			getSelectedPortProcessRequest(
+				[
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "12345",
+						command: "node",
+						user: "alice",
+					},
+				],
+				0,
+			),
+		).toEqual({ pid: "12345", command: "picos process 12345 --files" });
+		expect(
+			getSelectedPortProcessRequest(
+				[
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "-",
+						command: "node",
+						user: "alice",
+					},
+				],
+				0,
+			),
+		).toBeUndefined();
 	});
 });

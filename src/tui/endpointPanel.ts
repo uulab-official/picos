@@ -10,7 +10,33 @@ import {
 	type PortsResult,
 	sortListeningPorts,
 } from "../core/ports";
-import type { ProcessSummary } from "../core/types";
+import type {
+	ActiveConnection,
+	ListeningPort,
+	ProcessSummary,
+} from "../core/types";
+
+export type EndpointProcessRequest = {
+	pid: string;
+	command: string;
+};
+
+export function getSelectedConnectionProcessRequest(
+	connections: ActiveConnection[],
+	selectedIndex: number,
+): EndpointProcessRequest | undefined {
+	const connection =
+		connections[getSelectedIndex(connections.length, selectedIndex) ?? -1];
+	return createProcessRequest(connection?.pid);
+}
+
+export function getSelectedPortProcessRequest(
+	ports: ListeningPort[],
+	selectedIndex: number,
+): EndpointProcessRequest | undefined {
+	const port = ports[getSelectedIndex(ports.length, selectedIndex) ?? -1];
+	return createProcessRequest(port?.pid);
+}
 
 export function formatConnectionsWorkspaceRows(
 	result: ConnectionsResult,
@@ -122,6 +148,15 @@ function getSelectedIndex(
 		return undefined;
 	}
 	return Math.min(Math.max(selectedIndex, 0), total - 1);
+}
+
+function createProcessRequest(
+	pid: string | undefined,
+): EndpointProcessRequest | undefined {
+	if (!pid || !/^[1-9]\d*$/.test(pid)) {
+		return undefined;
+	}
+	return { pid, command: `picos process ${pid} --files` };
 }
 
 function withSelectionMarker(
