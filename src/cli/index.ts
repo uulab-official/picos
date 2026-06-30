@@ -4,7 +4,7 @@ import React from "react";
 import { VERSION } from "../core/version";
 import { App } from "../tui/App";
 import { configCommand } from "./commands/config";
-import { connectCommand } from "./commands/connect";
+import { connectCommand, telnetCommand } from "./commands/connect";
 import { connectionsCommand } from "./commands/connections";
 import { dnsCommand } from "./commands/dns";
 import { doctorCommand } from "./commands/doctor";
@@ -36,6 +36,19 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		return;
 	}
 
+	const cli = createCli();
+
+	cli.parse(["node", "picos", ...argv], { run: false });
+	if (!cli.matchedCommand) {
+		cli.outputHelp();
+		process.exitCode = 1;
+		return;
+	}
+
+	await cli.runMatchedCommand();
+}
+
+export function createCli(): ReturnType<typeof cac> {
 	const cli = cac("picos");
 
 	cli.command("ui", "Open the picos TUI dashboard").action(() => {
@@ -82,6 +95,10 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.command("connect <host> <port>", "Run a safe TCP connect check")
 		.option("--timeout <ms>", "TCP connect timeout in milliseconds")
 		.action(connectCommand);
+	cli
+		.command("telnet <host> <port>", "Alias for a safe TCP connect check")
+		.option("--timeout <ms>", "TCP connect timeout in milliseconds")
+		.action(telnetCommand);
 	cli
 		.command("routes", "Inspect local route table")
 		.option("--raw", "Print raw route command output")
@@ -151,12 +168,5 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	cli.help();
 	cli.version(VERSION);
 
-	cli.parse(["node", "picos", ...argv], { run: false });
-	if (!cli.matchedCommand) {
-		cli.outputHelp();
-		process.exitCode = 1;
-		return;
-	}
-
-	await cli.runMatchedCommand();
+	return cli;
 }

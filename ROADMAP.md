@@ -1734,6 +1734,20 @@ Goal: keep retired cleanup export evidence visible from Status after it has been
 - Tests cover archive index discovery, newest-first ordering, selected row clamping, empty rows, and path detail rows.
 - Next: add locked file-open or restore controls for archived cleanup exports.
 
+## v0.4.67 - Telnet-Style TCP Alias
+
+Status: draft PR #129 on `codex/picos-v0.4.67-telnet-alias`.
+
+Goal: make picos friendlier for operators who expect telnet-style reachability checks while preserving the existing safe TCP connect implementation.
+
+- CLI registration is now testable through `createCli()`.
+- `picos telnet <host> <port>` is registered as a non-interactive TCP connect reachability alias.
+- The telnet alias routes through the same host/port validation, timeout option, and TCP connect core as `picos connect`.
+- Telnet output identifies the invoked command as `picos telnet host:port`.
+- README documents both `connect` and `telnet` usage.
+- Tests cover the CLI command registry for the telnet alias.
+- Next: add TUI command-palette shortcuts or Tools Hub labels for telnet-style checks.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
