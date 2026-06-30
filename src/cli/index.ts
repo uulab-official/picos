@@ -21,6 +21,7 @@ import { infoCommand } from "./commands/info";
 import { pingCommand } from "./commands/ping";
 import { portsCommand } from "./commands/ports";
 import { processCommand } from "./commands/process";
+import { releaseHealthCommand } from "./commands/releaseHealth";
 import { remoteCommand, remotesCommand } from "./commands/remotes";
 import { routeCommand, routesCommand } from "./commands/routes";
 import { toolsCommand } from "./commands/tools";
@@ -116,6 +117,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	cli
 		.command("update", "Check npm for a newer picos version")
 		.action(updateCommand);
+	cli
+		.command("release-health", "Check release automation health")
+		.action(releaseHealthCommand);
 	cli.command("dns [action]", "Show DNS information").action(dnsCommand);
 	cli
 		.command("config [action] [key] [value]", "Show or update config")
