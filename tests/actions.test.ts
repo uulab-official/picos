@@ -4,10 +4,12 @@ import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adap
 import { controlPreviewCommand as windowsControlPreviewCommand } from "../src/adapters/windows";
 import {
 	createActionPreviewPlan,
+	formatActionConfirmationAuditMessage,
 	formatActionPreviewAuditMessage,
 	formatActionPreviewRows,
 	getActionCatalog,
 	getActionSummary,
+	submitActionPreviewConfirmation,
 } from "../src/core/actions";
 import { getControlPreviewCommand } from "../src/core/controlPreview";
 
@@ -260,6 +262,49 @@ describe("action catalog", () => {
 			note: "restart a Windows service with WhatIf preview",
 		});
 		expect(linuxControlPreviewCommand("network.inspect")).toBeUndefined();
+	});
+
+	test("records typed control confirmations without enabling execution", () => {
+		const commandPreview = macosControlPreviewCommand("dns.flush");
+		const plan = createActionPreviewPlan("dns.flush", "macos", commandPreview);
+
+		if (!plan) {
+			throw new Error("expected dns.flush preview plan");
+		}
+
+		const accepted = submitActionPreviewConfirmation(plan, " flush dns ");
+		expect(accepted).toEqual({
+			actionId: "dns.flush",
+			status: "confirmed-disabled",
+			expectedPhrase: "flush dns",
+			receivedPhrase: "flush dns",
+			confirmed: true,
+			executionEnabled: false,
+			risk: "write",
+			privilege: "admin",
+			dryRun: true,
+			commandPreview,
+		});
+		expect(formatActionConfirmationAuditMessage(accepted)).toBe(
+			'control confirmation dns.flush status=confirmed-disabled risk=write privilege=admin dryRun=true executionEnabled=false adapter=macos command="sudo dscacheutil -flushcache"',
+		);
+
+		const rejected = submitActionPreviewConfirmation(plan, "flush cache");
+		expect(rejected).toEqual({
+			actionId: "dns.flush",
+			status: "rejected",
+			expectedPhrase: "flush dns",
+			receivedPhrase: "flush cache",
+			confirmed: false,
+			executionEnabled: false,
+			risk: "write",
+			privilege: "admin",
+			dryRun: true,
+			commandPreview,
+		});
+		expect(formatActionConfirmationAuditMessage(rejected)).toBe(
+			'control confirmation dns.flush status=rejected risk=write privilege=admin dryRun=true executionEnabled=false adapter=macos command="sudo dscacheutil -flushcache"',
+		);
 	});
 
 	test("selects control preview commands by supported platform", () => {

@@ -47,6 +47,19 @@ export type ActionPreviewCommand = {
 	note: string;
 };
 
+export type ActionPreviewConfirmation = {
+	actionId: string;
+	status: "confirmed-disabled" | "rejected";
+	expectedPhrase: string;
+	receivedPhrase: string;
+	confirmed: boolean;
+	executionEnabled: false;
+	risk: ActionRisk;
+	privilege: ActionPrivilege;
+	dryRun: true;
+	commandPreview?: ActionPreviewCommand;
+};
+
 const actionCatalog: PicosAction[] = [
 	{
 		id: "network.inspect",
@@ -475,6 +488,50 @@ export function formatActionPreviewAuditMessage(
 		plan.commandPreview ? `adapter=${plan.commandPreview.adapter}` : "",
 		plan.commandPreview
 			? `command="${formatPreviewCommand(plan.commandPreview)}"`
+			: "",
+	]
+		.filter(Boolean)
+		.join(" ");
+}
+
+export function submitActionPreviewConfirmation(
+	plan: ActionPreviewPlan,
+	input: string,
+): ActionPreviewConfirmation {
+	const expectedPhrase = plan.confirmationPhrase?.trim() ?? "";
+	const receivedPhrase = input.trim();
+	const confirmed =
+		expectedPhrase.length > 0 && receivedPhrase === expectedPhrase;
+
+	return {
+		actionId: plan.actionId,
+		status: confirmed ? "confirmed-disabled" : "rejected",
+		expectedPhrase,
+		receivedPhrase,
+		confirmed,
+		executionEnabled: false,
+		risk: plan.risk,
+		privilege: plan.privilege,
+		dryRun: true,
+		commandPreview: plan.commandPreview,
+	};
+}
+
+export function formatActionConfirmationAuditMessage(
+	confirmation: ActionPreviewConfirmation,
+): string {
+	return [
+		`control confirmation ${confirmation.actionId}`,
+		`status=${confirmation.status}`,
+		`risk=${confirmation.risk}`,
+		`privilege=${confirmation.privilege}`,
+		`dryRun=${confirmation.dryRun}`,
+		`executionEnabled=${confirmation.executionEnabled}`,
+		confirmation.commandPreview
+			? `adapter=${confirmation.commandPreview.adapter}`
+			: "",
+		confirmation.commandPreview
+			? `command="${formatPreviewCommand(confirmation.commandPreview)}"`
 			: "",
 	]
 		.filter(Boolean)
