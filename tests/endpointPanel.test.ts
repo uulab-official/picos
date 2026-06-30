@@ -784,15 +784,40 @@ describe("endpoint TUI panel formatting", () => {
 		}
 
 		expect(
-			formatPortProcessControlInspectorRows(preview, {
-				adapter: "linux",
-				command: "kill",
-				args: ["-TERM", "<pid>"],
-				note: "terminate a selected user-owned process",
-			}),
+			formatPortProcessControlInspectorRows(
+				preview,
+				{
+					adapter: "linux",
+					command: "kill",
+					args: ["-TERM", "<pid>"],
+					note: "terminate a selected user-owned process",
+				},
+				undefined,
+				{
+					pid: 777,
+					cwd: "/Users/alice/project",
+					fileEntries: [
+						{
+							descriptor: "txt",
+							label: "REG",
+							resourceKind: "file",
+							path: "/Users/alice/project/package.json",
+						},
+						{
+							descriptor: "sock",
+							label: "TCP",
+							resourceKind: "socket",
+							path: "127.0.0.1:5173",
+						},
+					],
+					openFiles: ["/Users/alice/project/package.json", "127.0.0.1:5173"],
+					rawOutput: "p777\nfcwd\nn/Users/alice/project",
+				},
+			),
 		).toEqual([
 			"PORT CONTROL",
 			"target=127.0.0.1:5173 pid=777 process=vite",
+			"fileEvidence status=loaded cwd=yes openFiles=2 resources=3",
 			"status=blocked policy=disabled confirmed=false dryRun=true",
 			"willExecute=false reason=mutation-controls-disabled",
 			"blockers=mutation-controls-disabled",

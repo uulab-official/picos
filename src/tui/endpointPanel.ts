@@ -31,6 +31,7 @@ import {
 	type PortsResult,
 	sortListeningPorts,
 } from "../core/ports";
+import type { ProcessFileSnapshot } from "../core/processes";
 import type {
 	ActiveConnection,
 	ListeningPort,
@@ -327,6 +328,7 @@ export function formatPortProcessControlInspectorRows(
 	preview: PortProcessControlPreview,
 	commandPreview?: ActionPreviewCommand,
 	policy: ControlExecutionPolicy = defaultControlExecutionPolicy,
+	files?: ProcessFileSnapshot,
 ): string[] {
 	const executionRows = formatPortProcessControlExecutionRows(
 		preview,
@@ -337,6 +339,7 @@ export function formatPortProcessControlInspectorRows(
 	return [
 		"PORT CONTROL",
 		`target=${preview.port.localAddress}:${preview.port.localPort} pid=${preview.port.pid} process=${preview.port.command}`,
+		...formatPortProcessControlFileEvidenceRows(preview, files),
 		...executionRows.slice(1),
 		`drilldown enter=process picos process ${preview.port.pid} --files`,
 		"files from Processes: enter opens cwd/open file; c copies selected resource",
@@ -681,6 +684,23 @@ function createPortProcessControlActionConfirmation(
 		dryRun: true,
 		commandPreview,
 	};
+}
+
+function formatPortProcessControlFileEvidenceRows(
+	preview: PortProcessControlPreview,
+	files: ProcessFileSnapshot | undefined,
+): string[] {
+	if (!files || String(files.pid) !== preview.port.pid) {
+		return [];
+	}
+	const resourceCount =
+		(files.cwd ? 1 : 0) +
+		(files.fileEntries.length
+			? files.fileEntries.length
+			: files.openFiles.length);
+	return [
+		`fileEvidence status=loaded cwd=${files.cwd ? "yes" : "no"} openFiles=${files.openFiles.length} resources=${resourceCount}`,
+	];
 }
 
 function withSelectionMarker(

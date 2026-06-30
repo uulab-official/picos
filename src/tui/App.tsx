@@ -646,12 +646,14 @@ export function App(): React.ReactElement {
 			preview,
 			getControlPreviewCommand(preview.actionId, currentPlatform()),
 			controlExecutionPolicy,
+			selectedProcessFiles,
 		);
 	}, [
 		controlExecutionPolicy,
 		portProcessControlInspector,
 		screen,
 		selectedPortIndex,
+		selectedProcessFiles,
 		sortedPorts,
 	]);
 	const cleanupShelfIndex = useMemo(
@@ -3492,6 +3494,30 @@ export function App(): React.ReactElement {
 			}
 			const next = !portProcessControlInspector;
 			setPortProcessControlInspector(next);
+			if (next) {
+				void (async () => {
+					setCommandStatus("running");
+					try {
+						const files = await getProcessFileSnapshot(preview.port.pid);
+						setSelectedProcessFiles(files);
+						log(
+							files ? "info" : "warn",
+							files
+								? `ports file evidence loaded pid ${preview.port.pid}`
+								: `ports file evidence unavailable pid ${preview.port.pid}`,
+						);
+					} catch (caught) {
+						log(
+							"fail",
+							caught instanceof Error
+								? `ports file evidence failed ${caught.message}`
+								: `ports file evidence failed ${String(caught)}`,
+						);
+					} finally {
+						setCommandStatus("idle");
+					}
+				})();
+			}
 			log(
 				"info",
 				next
