@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { defaultConfig } from "../src/config/schema";
 import {
 	adjustConfigWorkspaceItem,
 	applyConfigPolicyPreset,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
 	getConfigWorkspaceEditPrompt,
@@ -136,6 +138,51 @@ describe("config TUI panel", () => {
 			"posture=admin dry-run previews",
 			"persist=enter edits defaultPingHost",
 			"actions=enter edit defaultPingHost, R exact reset",
+		]);
+	});
+
+	test("formats managed config shelves for the OS settings center", () => {
+		expect(
+			formatConfigManagedShelfRows({
+				...defaultConfig,
+				defaultPingHost: "internal.example",
+				showPublicIp: true,
+				enableExperimentalControls: false,
+				routeFilterPresets: ["default", "vpn"],
+				connectionFilterPresets: ["443"],
+				portFilterPresets: ["node"],
+				logProfiles: [{ level: "warn", query: "kernel" }],
+				logSearchPresets: ["error"],
+				toolHistoryFilterPresets: ["dns"],
+				toolHistorySort: "status",
+				toolHistoryGroup: "tool",
+				toolHistoryDetailView: "summary",
+				toolTargetPresets: [
+					{
+						id: "custom-google-dns",
+						label: "Google DNS",
+						actionId: "tools.dns",
+						target: "google.com",
+						hint: "saved",
+					},
+				],
+				remoteProfiles: [
+					{
+						id: "prod",
+						kind: "sftp",
+						host: "files.example.com",
+						port: 22,
+						username: "deploy",
+						root: "/srv/app",
+					},
+				],
+			}),
+		).toEqual([
+			"CONFIG MANAGED SHELVES",
+			"network defaults host=internal.example routeFilters=2 connectionFilters=1 portFilters=1",
+			"tools defaults targets=1 filters=1 sort=status group=tool detail=summary",
+			"workspace behavior logs=1 searches=1 remotes=1 publicIp=true experimental=false",
+			"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
 		]);
 	});
 

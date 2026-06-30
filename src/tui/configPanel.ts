@@ -395,6 +395,16 @@ export function formatConfigWorkspaceDetailRows(
 	];
 }
 
+export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
+	return [
+		"CONFIG MANAGED SHELVES",
+		`network defaults host=${config.defaultPingHost} routeFilters=${config.routeFilterPresets.length} connectionFilters=${config.connectionFilterPresets.length} portFilters=${config.portFilterPresets.length}`,
+		`tools defaults targets=${config.toolTargetPresets.length} filters=${config.toolHistoryFilterPresets.length} sort=${config.toolHistorySort} group=${config.toolHistoryGroup} detail=${config.toolHistoryDetailView}`,
+		`workspace behavior logs=${config.logProfiles.length} searches=${config.logSearchPresets.length} remotes=${config.remoteProfiles.length} publicIp=${config.showPublicIp} experimental=${config.enableExperimentalControls}`,
+		"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
+	];
+}
+
 function createConfigWorkspaceBodyRows(
 	items: ConfigWorkspaceItem[],
 	selectedIndex: number,

@@ -2237,6 +2237,18 @@ Goal: make Config section details expose the exact keyboard actions available fo
 - Tests cover display, safety, and connectivity detail rows with action hints.
 - Next: add more OS settings shelves under Config for network defaults, tool defaults, and workspace behavior without flattening the panel.
 
+## v0.4.105 - Config Managed Shelves Overview
+
+Status: draft PR #167 on `codex/picos-v0.4.105-config-managed-shelves`.
+
+Goal: make Config reveal workspace-owned settings shelves instead of hiding them inside the JSON config file.
+
+- Config now formats managed shelf rows for network defaults, endpoint filter presets, Tools defaults, Logs, Remotes, public IP display, and experimental control posture.
+- The Config workspace renders managed shelf rows below the selected section detail when terminal height allows it.
+- The TUI session now keeps `showPublicIp` from config so Config can report the active public-IP display setting.
+- Tests cover managed shelf row formatting across network, tools, workspace behavior, logs, and remotes settings.
+- Next: add keyboard handoffs from managed shelf rows into Routes, Connections, Ports, Tools, Logs, and Remotes.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
