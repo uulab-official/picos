@@ -82,6 +82,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Update checks now include npm package, GitHub Release, and CHANGELOG handoff links for the detected latest version.
 - Status workspace update handoff links can now be cycled with `n` and copied through the existing locked `:clipboard` confirmation flow with `c`.
 - `picos.update.apply` now opens an Action Center control preview after an update check, and its npm `--dry-run` command can only execute through exact confirmation plus the configured control execution policy.
+- Status workspace update handoff links can now be opened with `o` through a locked `:external-open` confirmation flow that only allows HTTPS URLs and OS adapter opener commands.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.
