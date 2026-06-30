@@ -30,8 +30,12 @@ import {
 	submitActionPreviewConfirmation,
 } from "../core/actions";
 import {
+	archiveConsoleAuditExport,
+	type ConsoleAuditExportArchivePlan,
 	type ConsoleAuditExportIndex,
+	createConsoleAuditExportArchivePlan,
 	createConsoleAuditExportPlan,
+	formatConsoleAuditExportArchiveRows,
 	formatConsoleAuditExportIndexRows,
 	getSelectedConsoleAuditExport,
 	readConsoleAuditExportIndex,
@@ -484,6 +488,8 @@ export function App(): React.ReactElement {
 			items: [],
 		});
 	const [selectedAuditExportIndex, setSelectedAuditExportIndex] = useState(0);
+	const [auditExportArchivePlan, setAuditExportArchivePlan] =
+		useState<ConsoleAuditExportArchivePlan>();
 	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
 	const [fileOpenPlan, setFileOpenPlan] = useState<FileOpenPlan>();
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -1725,6 +1731,7 @@ export function App(): React.ReactElement {
 		});
 		setFileOpenPlan(plan);
 		setExternalOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
 		log("info", `file open confirmation opened for ${item.label}`);
@@ -1748,10 +1755,36 @@ export function App(): React.ReactElement {
 		});
 		setFileOpenPlan(plan);
 		setExternalOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
 		setCleanupExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
 		log("info", `audit export open confirmation opened for ${item.fileName}`);
+	}, [auditExportIndex, log, selectedAuditExportIndex]);
+
+	const openSelectedAuditExportArchive = useCallback(() => {
+		const item = getSelectedConsoleAuditExport(
+			auditExportIndex,
+			selectedAuditExportIndex,
+		);
+		if (!item) {
+			log("warn", "no audit export selected");
+			return;
+		}
+		const plan = createConsoleAuditExportArchivePlan(
+			auditExportIndex.baseDir,
+			item.path,
+		);
+		setAuditExportArchivePlan(plan);
+		setExternalOpenPlan(undefined);
+		setFileOpenPlan(undefined);
+		setCleanupExportArchivePlan(undefined);
+		setCommandLine(openCommandLine("audit-export-archive"));
+		setScreen("status");
+		log(
+			"info",
+			`audit export archive confirmation opened for ${item.fileName}`,
+		);
 	}, [auditExportIndex, log, selectedAuditExportIndex]);
 
 	const openSelectedCleanupExportFile = useCallback(() => {
@@ -1772,6 +1805,7 @@ export function App(): React.ReactElement {
 		});
 		setFileOpenPlan(plan);
 		setExternalOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
 		setCleanupExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
@@ -1794,6 +1828,7 @@ export function App(): React.ReactElement {
 		setCleanupExportArchivePlan(plan);
 		setExternalOpenPlan(undefined);
 		setFileOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("cleanup-export-archive"));
 		setScreen("status");
 		log(
@@ -2775,6 +2810,35 @@ export function App(): React.ReactElement {
 		refreshCleanupExportIndex,
 	]);
 
+	const submitAuditExportArchiveCommand = useCallback(async () => {
+		if (!auditExportArchivePlan) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "audit export archive missing preview");
+			return;
+		}
+		const plan = createConsoleAuditExportArchivePlan(
+			auditExportIndex.baseDir,
+			auditExportArchivePlan.sourcePath,
+			{ confirmation: commandLine.value },
+		);
+		setAuditExportArchivePlan(plan);
+		setCommandLine((current) => closeCommandLine(current));
+		const result = await archiveConsoleAuditExport(plan);
+		log(
+			result.status === "archived" ? "ok" : "warn",
+			`audit export archive ${result.message}`,
+		);
+		if (result.status === "archived") {
+			await refreshAuditExportIndex(false);
+		}
+	}, [
+		auditExportArchivePlan,
+		auditExportIndex.baseDir,
+		commandLine.value,
+		log,
+		refreshAuditExportIndex,
+	]);
+
 	const exportCleanupHandoffHistory = useCallback(async () => {
 		const plan = createCleanupHandoffHistoryExportPlan(
 			cleanupHandoffHistory,
@@ -2837,6 +2901,9 @@ export function App(): React.ReactElement {
 				if (commandLine.prompt === "cleanup-export-archive") {
 					setCleanupExportArchivePlan(undefined);
 				}
+				if (commandLine.prompt === "audit-export-archive") {
+					setAuditExportArchivePlan(undefined);
+				}
 				log(
 					"info",
 					commandLine.prompt === "route"
@@ -2872,30 +2939,34 @@ export function App(): React.ReactElement {
 																		: commandLine.prompt ===
 																				"cleanup-export-archive"
 																			? "cleanup export archive cancelled"
-																			: commandLine.prompt === "log-search"
-																				? "logs search cancelled"
-																				: commandLine.prompt === "logs-cleanup"
-																					? "logs cleanup cancelled"
+																			: commandLine.prompt ===
+																					"audit-export-archive"
+																				? "audit export archive cancelled"
+																				: commandLine.prompt === "log-search"
+																					? "logs search cancelled"
 																					: commandLine.prompt ===
-																							"tool-target-label"
-																						? "tool target label cancelled"
+																							"logs-cleanup"
+																						? "logs cleanup cancelled"
 																						: commandLine.prompt ===
-																								"tool-target-value"
-																							? "tool target value cancelled"
+																								"tool-target-label"
+																							? "tool target label cancelled"
 																							: commandLine.prompt ===
-																									"tool-target-action"
-																								? "tool target action cancelled"
+																									"tool-target-value"
+																								? "tool target value cancelled"
 																								: commandLine.prompt ===
-																										"tool-target-cleanup"
-																									? "tool target cleanup cancelled"
+																										"tool-target-action"
+																									? "tool target action cancelled"
 																									: commandLine.prompt ===
-																											portProcessControlPrompt
-																										? "port process control cancelled"
-																										: commandLine.prompt.startsWith(
-																													toolPromptPrefix,
-																												)
-																											? "tool target command cancelled"
-																											: "path command cancelled",
+																											"tool-target-cleanup"
+																										? "tool target cleanup cancelled"
+																										: commandLine.prompt ===
+																												portProcessControlPrompt
+																											? "port process control cancelled"
+																											: commandLine.prompt.startsWith(
+																														toolPromptPrefix,
+																													)
+																												? "tool target command cancelled"
+																												: "path command cancelled",
 				);
 				return;
 			}
@@ -2945,6 +3016,8 @@ export function App(): React.ReactElement {
 					void submitFileOpenCommand();
 				} else if (commandLine.prompt === "cleanup-export-archive") {
 					void submitCleanupExportArchiveCommand();
+				} else if (commandLine.prompt === "audit-export-archive") {
+					void submitAuditExportArchiveCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -3841,6 +3914,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "W") {
 			openSelectedAuditExportFile();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "Z") {
+			openSelectedAuditExportArchive();
 			return;
 		}
 
@@ -5048,6 +5126,7 @@ export function App(): React.ReactElement {
 					selectedAuditExportIndex={selectedAuditExportIndex}
 					externalOpenPlan={externalOpenPlan}
 					fileOpenPlan={fileOpenPlan}
+					auditExportArchivePlan={auditExportArchivePlan}
 					cleanupExportArchivePlan={cleanupExportArchivePlan}
 					events={events}
 					t={t}
@@ -5253,6 +5332,7 @@ function MainWorkspace({
 	selectedAuditExportIndex,
 	externalOpenPlan,
 	fileOpenPlan,
+	auditExportArchivePlan,
 	cleanupExportArchivePlan,
 	events,
 	t,
@@ -5359,6 +5439,7 @@ function MainWorkspace({
 	selectedAuditExportIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
+	auditExportArchivePlan?: ConsoleAuditExportArchivePlan;
 	cleanupExportArchivePlan?: CleanupHandoffHistoryExportArchivePlan;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
@@ -5517,6 +5598,7 @@ function MainWorkspace({
 						selectedAuditExportIndex,
 						externalOpenPlan,
 						fileOpenPlan,
+						auditExportArchivePlan,
 						cleanupExportArchivePlan,
 						events,
 						workspaceWidth,
@@ -5628,6 +5710,7 @@ function renderWorkspace(
 	selectedAuditExportIndex: number,
 	externalOpenPlan: ExternalOpenPlan | undefined,
 	fileOpenPlan: FileOpenPlan | undefined,
+	auditExportArchivePlan: ConsoleAuditExportArchivePlan | undefined,
 	cleanupExportArchivePlan: CleanupHandoffHistoryExportArchivePlan | undefined,
 	events: ConsoleEvent[],
 	workspaceWidth: number,
@@ -5857,6 +5940,7 @@ function renderWorkspace(
 				selectedAuditExportIndex={selectedAuditExportIndex}
 				externalOpenPlan={externalOpenPlan}
 				fileOpenPlan={fileOpenPlan}
+				auditExportArchivePlan={auditExportArchivePlan}
 				cleanupExportArchivePlan={cleanupExportArchivePlan}
 				cleanupShelfIndex={cleanupShelfIndex}
 				selectedCleanupShelfIndex={selectedCleanupShelfIndex}
@@ -7741,6 +7825,7 @@ function StatusWorkspace({
 	selectedAuditExportIndex,
 	externalOpenPlan,
 	fileOpenPlan,
+	auditExportArchivePlan,
 	cleanupExportArchivePlan,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
@@ -7762,6 +7847,7 @@ function StatusWorkspace({
 	selectedAuditExportIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
+	auditExportArchivePlan?: ConsoleAuditExportArchivePlan;
 	cleanupExportArchivePlan?: CleanupHandoffHistoryExportArchivePlan;
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
@@ -7928,6 +8014,34 @@ function StatusWorkspace({
 					))}
 				</Box>
 			) : null}
+			{auditExportArchivePlan ? (
+				<Box marginTop={1} flexDirection="column">
+					{formatConsoleAuditExportArchiveRows(auditExportArchivePlan).map(
+						(row) => (
+							<Text
+								key={row}
+								color={
+									row.startsWith("AUDIT EXPORT ARCHIVE")
+										? "cyan"
+										: row.startsWith("confirm") || row.startsWith("reason=")
+											? "yellow"
+											: "white"
+								}
+							>
+								{row}
+							</Text>
+						),
+					)}
+					{commandLine.active &&
+					commandLine.prompt === "audit-export-archive" ? (
+						<Text color="yellow">
+							:audit-export-archive {commandLine.value || " "} type="
+							{auditExportArchivePlan.confirmationPhrase}" enter=archive
+							esc=cancel
+						</Text>
+					) : null}
+				</Box>
+			) : null}
 			{cleanupExportArchivePlan ? (
 				<Box marginTop={1} flexDirection="column">
 					{formatCleanupHandoffHistoryExportArchiveRows(
@@ -8070,7 +8184,9 @@ function StatusWorkspace({
 				)}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">AUDIT EXPORTS · T refresh · ) select · W open</Text>
+				<Text color="gray">
+					AUDIT EXPORTS · T refresh · ) select · W open · Z archive
+				</Text>
 				{formatConsoleAuditExportIndexRows(
 					auditExportIndex,
 					selectedAuditExportIndex,

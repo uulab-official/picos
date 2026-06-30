@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 
 export type AuditLogEventLevel = "run" | "ok" | "warn" | "fail" | "info";
 
@@ -35,6 +35,26 @@ export type ConsoleAuditExportIndexItem = {
 export type ConsoleAuditExportIndex = {
 	baseDir: string;
 	items: ConsoleAuditExportIndexItem[];
+};
+
+export type ConsoleAuditExportArchivePlan = {
+	sourcePath: string;
+	archivedPath: string;
+	fileName: string;
+	risk: "write";
+	privilege: "user";
+	confirmationRequired: true;
+	confirmationPhrase: "archive audit export";
+	confirmed: boolean;
+	enabled: boolean;
+	reason: string;
+};
+
+export type ConsoleAuditExportArchiveResult = {
+	status: "archived" | "blocked";
+	sourcePath: string;
+	archivedPath: string;
+	message: string;
 };
 
 export function formatConsoleAuditLog(
@@ -128,10 +148,7 @@ export async function readLatestConsoleAuditExport(
 	} catch {
 		return undefined;
 	}
-	const latest = files
-		.filter((file) => /^picos-audit-.+\.log$/.test(file))
-		.sort()
-		.at(-1);
+	const latest = files.filter(isPicosAuditExportFilename).sort().at(-1);
 	if (!latest) {
 		return undefined;
 	}
@@ -147,7 +164,29 @@ export async function readConsoleAuditExportIndex(
 	baseDir: string,
 	limit = 20,
 ): Promise<ConsoleAuditExportIndex> {
-	const auditDir = join(baseDir, "audit");
+	return readConsoleAuditExportIndexFromDirectory(
+		baseDir,
+		join(baseDir, "audit"),
+		limit,
+	);
+}
+
+export async function readConsoleAuditExportArchiveIndex(
+	baseDir: string,
+	limit = 20,
+): Promise<ConsoleAuditExportIndex> {
+	return readConsoleAuditExportIndexFromDirectory(
+		baseDir,
+		join(baseDir, "audit", "archive"),
+		limit,
+	);
+}
+
+async function readConsoleAuditExportIndexFromDirectory(
+	baseDir: string,
+	auditDir: string,
+	limit: number,
+): Promise<ConsoleAuditExportIndex> {
 	let files: string[];
 	try {
 		files = await readdir(auditDir);
@@ -157,16 +196,14 @@ export async function readConsoleAuditExportIndex(
 
 	const items = (
 		await Promise.all(
-			files
-				.filter((file) => /^picos-audit-.+\.log$/.test(file))
-				.map(async (fileName) => {
-					const path = join(auditDir, fileName);
-					return createConsoleAuditExportIndexItem(
-						fileName,
-						path,
-						await readFile(path, "utf8"),
-					);
-				}),
+			files.filter(isPicosAuditExportFilename).map(async (fileName) => {
+				const path = join(auditDir, fileName);
+				return createConsoleAuditExportIndexItem(
+					fileName,
+					path,
+					await readFile(path, "utf8"),
+				);
+			}),
 		)
 	)
 		.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))
@@ -214,6 +251,80 @@ export function formatConsoleAuditExportIndexRows(
 			: ["no audit exports yet"]),
 		...pathRows,
 	].slice(0, visibleRows);
+}
+
+export function createConsoleAuditExportArchivePlan(
+	baseDir: string,
+	path: string,
+	options: { confirmation?: string } = {},
+): ConsoleAuditExportArchivePlan {
+	const auditDir = resolve(baseDir, "audit");
+	const sourcePath = resolve(path);
+	const fileName = basename(sourcePath);
+	const allowed =
+		dirname(sourcePath) === auditDir && isPicosAuditExportFilename(fileName);
+	const archivedPath = allowed ? join(auditDir, "archive", fileName) : "";
+	const confirmed = options.confirmation === "archive audit export";
+	const reason = !allowed
+		? "audit export archive is limited to picos-owned audit export files"
+		: confirmed
+			? `ready to archive audit export ${fileName}`
+			: "type archive audit export to move selected audit export";
+
+	return {
+		sourcePath,
+		archivedPath,
+		fileName,
+		risk: "write",
+		privilege: "user",
+		confirmationRequired: true,
+		confirmationPhrase: "archive audit export",
+		confirmed,
+		enabled: allowed && confirmed,
+		reason,
+	};
+}
+
+export function formatConsoleAuditExportArchiveRows(
+	plan: ConsoleAuditExportArchivePlan | undefined,
+): string[] {
+	if (!plan) {
+		return [];
+	}
+	return [
+		`AUDIT EXPORT ARCHIVE ${plan.fileName}`,
+		`risk=${plan.risk} privilege=${plan.privilege} confirmed=${plan.confirmed}`,
+		`confirm ${plan.confirmationPhrase} ${plan.enabled ? "ready" : "locked"}`,
+		`from=${plan.sourcePath}`,
+		`to=${plan.archivedPath || "-"}`,
+		`reason=${plan.reason}`,
+	];
+}
+
+export async function archiveConsoleAuditExport(
+	plan: ConsoleAuditExportArchivePlan,
+): Promise<ConsoleAuditExportArchiveResult> {
+	if (!plan.enabled) {
+		return {
+			status: "blocked",
+			sourcePath: plan.sourcePath,
+			archivedPath: plan.archivedPath,
+			message: `audit export archive is locked: ${plan.reason}`,
+		};
+	}
+
+	await mkdir(dirname(plan.archivedPath), { recursive: true });
+	await rename(plan.sourcePath, plan.archivedPath);
+	return {
+		status: "archived",
+		sourcePath: plan.sourcePath,
+		archivedPath: plan.archivedPath,
+		message: `archived audit export ${plan.fileName}`,
+	};
+}
+
+function isPicosAuditExportFilename(fileName: string): boolean {
+	return /^picos-audit-.+\.log$/.test(fileName);
 }
 
 function createPersistedEventId(

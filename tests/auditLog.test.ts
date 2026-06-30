@@ -3,11 +3,15 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	archiveConsoleAuditExport,
+	createConsoleAuditExportArchivePlan,
 	createConsoleAuditExportPlan,
+	formatConsoleAuditExportArchiveRows,
 	formatConsoleAuditExportIndexRows,
 	formatConsoleAuditLog,
 	getSelectedConsoleAuditExport,
 	parseConsoleAuditLog,
+	readConsoleAuditExportArchiveIndex,
 	readConsoleAuditExportIndex,
 	readLatestConsoleAuditExport,
 	writeConsoleAuditExport,
@@ -276,6 +280,128 @@ describe("console audit export", () => {
 				)}`,
 			]);
 			expect(getSelectedConsoleAuditExport(index, 99)?.scope).toBe("filtered");
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("builds locked archive plans for picos-owned audit exports", () => {
+		const root = "/Users/bonjin/.config/picos";
+		const sourcePath = join(
+			root,
+			"audit",
+			"picos-audit-selected-2026-07-01T030000000Z.log",
+		);
+
+		const plan = createConsoleAuditExportArchivePlan(root, sourcePath);
+
+		expect(plan).toEqual({
+			sourcePath,
+			archivedPath: join(
+				root,
+				"audit",
+				"archive",
+				"picos-audit-selected-2026-07-01T030000000Z.log",
+			),
+			fileName: "picos-audit-selected-2026-07-01T030000000Z.log",
+			risk: "write",
+			privilege: "user",
+			confirmationRequired: true,
+			confirmationPhrase: "archive audit export",
+			confirmed: false,
+			enabled: false,
+			reason: "type archive audit export to move selected audit export",
+		});
+		expect(formatConsoleAuditExportArchiveRows(plan)).toEqual([
+			"AUDIT EXPORT ARCHIVE picos-audit-selected-2026-07-01T030000000Z.log",
+			"risk=write privilege=user confirmed=false",
+			"confirm archive audit export locked",
+			`from=${sourcePath}`,
+			`to=${join(
+				root,
+				"audit",
+				"archive",
+				"picos-audit-selected-2026-07-01T030000000Z.log",
+			)}`,
+			"reason=type archive audit export to move selected audit export",
+		]);
+
+		expect(
+			createConsoleAuditExportArchivePlan(
+				root,
+				"/tmp/picos-audit-selected-2026-07-01T030000000Z.log",
+				{ confirmation: "archive audit export" },
+			),
+		).toMatchObject({
+			enabled: false,
+			reason:
+				"audit export archive is limited to picos-owned audit export files",
+		});
+	});
+
+	test("archives confirmed audit exports and keeps active index tidy", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-audit-archive-"));
+		try {
+			await mkdir(join(root, "audit"), { recursive: true });
+			const sourcePath = join(
+				root,
+				"audit",
+				"picos-audit-selected-2026-07-01T030000000Z.log",
+			);
+			await writeFile(
+				sourcePath,
+				[
+					"# picos audit log",
+					"generatedAt=2026-07-01T03:00:00.000Z",
+					"scope=selected",
+					"events=1",
+					"",
+					"[12:00:06] WARN control preview dns.flush",
+					"",
+				].join("\n"),
+				"utf8",
+			);
+
+			const locked = createConsoleAuditExportArchivePlan(root, sourcePath);
+			expect(await archiveConsoleAuditExport(locked)).toEqual({
+				status: "blocked",
+				sourcePath,
+				archivedPath: join(
+					root,
+					"audit",
+					"archive",
+					"picos-audit-selected-2026-07-01T030000000Z.log",
+				),
+				message:
+					"audit export archive is locked: type archive audit export to move selected audit export",
+			});
+			expect((await readConsoleAuditExportIndex(root)).items).toHaveLength(1);
+
+			const confirmed = createConsoleAuditExportArchivePlan(root, sourcePath, {
+				confirmation: "archive audit export",
+			});
+			expect(await archiveConsoleAuditExport(confirmed)).toEqual({
+				status: "archived",
+				sourcePath,
+				archivedPath: join(
+					root,
+					"audit",
+					"archive",
+					"picos-audit-selected-2026-07-01T030000000Z.log",
+				),
+				message:
+					"archived audit export picos-audit-selected-2026-07-01T030000000Z.log",
+			});
+
+			expect((await readConsoleAuditExportIndex(root)).items).toEqual([]);
+			expect((await readConsoleAuditExportArchiveIndex(root)).items).toEqual([
+				expect.objectContaining({
+					fileName: "picos-audit-selected-2026-07-01T030000000Z.log",
+					generatedAt: "2026-07-01T03:00:00.000Z",
+					scope: "selected",
+					entryCount: 1,
+				}),
+			]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

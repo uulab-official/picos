@@ -2102,6 +2102,19 @@ Goal: make Timeline audit export files discoverable and reopenable from the Stat
 - Tests cover audit export indexing, row formatting, selected-item clamping, and locked file-open planning.
 - Next: add archive controls for old Timeline audit exports so the Status audit shelf can stay tidy.
 
+## v0.4.95 - Timeline Export Archive Controls
+
+Status: draft PR #157 on `codex/picos-v0.4.95-timeline-export-archive`.
+
+Goal: keep the Status audit export shelf tidy without deleting Timeline evidence.
+
+- Audit export archive plans are limited to picos-owned `picos-audit-*.log` files under the config `audit` directory.
+- Status now supports `Z` on the selected audit export to open an exact `archive audit export` confirmation prompt.
+- Confirmed archives move the selected audit log into `audit/archive`; rejected or missing confirmation leaves the active index unchanged.
+- The active audit export index is refreshed after successful archive moves.
+- Tests cover locked archive plans, confirmation rows, blocked archive attempts, confirmed moves, active index cleanup, and archive index reads.
+- Next: add an archived audit export browser or retention policy preview so older Timeline evidence can be reviewed without cluttering the active shelf.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
