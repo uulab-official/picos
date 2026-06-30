@@ -5,6 +5,7 @@ import { clipboardWriteCommand as windowsClipboardWriteCommand } from "../src/ad
 import {
 	buildClipboardWritePlan,
 	createClipboardAuditEvent,
+	runClipboardWritePlan,
 } from "../src/core/clipboard";
 import { createClipboardPreview } from "../src/tui/clipboardPreview";
 
@@ -83,5 +84,79 @@ describe("clipboard write planning", () => {
 				preview: "127.0.0.1:3000 -> 127.0.0.1:52000",
 			},
 		);
+	});
+
+	test("refuses to execute locked clipboard write plans", async () => {
+		const preview = createClipboardPreview({
+			source: "port",
+			label: "selected port",
+			copyText: "*:3000 node pid=12345",
+		});
+		let called = false;
+
+		const result = await runClipboardWritePlan(
+			buildClipboardWritePlan(preview, { platform: "darwin" }),
+			async () => {
+				called = true;
+				return {
+					command: "pbcopy",
+					args: [],
+					stdout: "",
+					stderr: "",
+					exitCode: 0,
+					success: true,
+				};
+			},
+		);
+
+		expect(called).toBeFalse();
+		expect(result).toEqual({
+			success: false,
+			audit: expect.objectContaining({
+				action: "clipboard.write",
+				confirmed: false,
+				adapter: "pbcopy",
+				preview: "*:3000 node pid=12345",
+			}),
+			error: "Clipboard write is locked: type copy to allow clipboard write",
+		});
+	});
+
+	test("executes confirmed clipboard write plans through stdin runners", async () => {
+		const preview = createClipboardPreview({
+			source: "connection",
+			label: "selected connection",
+			copyText: "127.0.0.1:3000 -> 127.0.0.1:52000",
+		});
+		const calls: unknown[] = [];
+
+		const result = await runClipboardWritePlan(
+			buildClipboardWritePlan(preview, {
+				confirmation: "copy",
+				platform: "darwin",
+			}),
+			async (...args) => {
+				calls.push(args);
+				return {
+					command: "pbcopy",
+					args: [],
+					stdout: "",
+					stderr: "",
+					exitCode: 0,
+					success: true,
+				};
+			},
+		);
+
+		expect(calls).toEqual([
+			["pbcopy", [], { stdin: "127.0.0.1:3000 -> 127.0.0.1:52000" }],
+		]);
+		expect(result).toEqual({
+			success: true,
+			audit: expect.objectContaining({
+				confirmed: true,
+				adapter: "pbcopy",
+			}),
+		});
 	});
 });

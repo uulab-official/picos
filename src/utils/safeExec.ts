@@ -3,6 +3,7 @@ import type { SafeExecResult } from "../core/types";
 
 export type SafeExecOptions = {
 	timeoutMs?: number;
+	stdin?: string;
 };
 
 export function safeExec(
@@ -50,6 +51,12 @@ export function safeExec(
 		child.stderr?.on("data", (chunk) => {
 			stderr += chunk.toString();
 		});
+
+		if (options.stdin !== undefined) {
+			child.stdin?.end(options.stdin);
+		} else {
+			child.stdin?.end();
+		}
 
 		child.on("error", (error) => {
 			stderr += error.message;
