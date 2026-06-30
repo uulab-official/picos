@@ -65,8 +65,38 @@ describe("lazyifconfig-style tools hub", () => {
 		});
 
 		expect(result.title).toBe("TCP Port Check");
-		expect(result.sections[0]?.label).toBe("Status");
-		expect(result.sections[0]?.lines).toContain("OPEN");
+		expect(result.sections[1]?.label).toBe("Status");
+		expect(result.sections[1]?.lines).toContain("OPEN");
+	});
+
+	test("includes TCP target detail rows for operators", async () => {
+		const result = await runTool("port-check", ["example.com", "443"], {
+			timeoutMs: 750,
+			connect: async () => undefined,
+			now: (() => {
+				let current = 300;
+				return () => {
+					current += 21;
+					return current;
+				};
+			})(),
+		});
+
+		expect(result.sections[0]).toEqual({
+			label: "Target",
+			lines: [
+				"Host: example.com",
+				"Port: 443",
+				"Command: picos tools port-check example.com 443",
+				"Timeout: 750ms",
+			],
+		});
+		expect(result.sections[1]).toEqual({
+			label: "Status",
+			lines: ["OPEN", "Elapsed: 21ms"],
+		});
+		expect(result.rawOutput).toContain("[Target]\nHost: example.com");
+		expect(result.rawOutput).toContain("Timeout: 750ms");
 	});
 
 	test("runs telnet as a familiar TCP reachability alias", async () => {
@@ -83,8 +113,11 @@ describe("lazyifconfig-style tools hub", () => {
 		});
 
 		expect(result.title).toBe("Telnet TCP Check");
-		expect(result.sections[0]?.label).toBe("Status");
-		expect(result.sections[0]?.lines).toContain("OPEN");
+		expect(result.sections[0]?.lines).toContain(
+			"Command: picos tools telnet example.com 443",
+		);
+		expect(result.sections[1]?.label).toBe("Status");
+		expect(result.sections[1]?.lines).toContain("OPEN");
 		expect(result.rawOutput).toStartWith(
 			"$ picos tools telnet example.com 443",
 		);

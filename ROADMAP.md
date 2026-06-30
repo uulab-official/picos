@@ -1760,7 +1760,20 @@ Goal: make telnet-style reachability visible from the OS-like TUI and Tools Hub,
 - Command-palette search for `telnet` finds the read-only TCP connect action.
 - Existing `port-check` history remains readable while new runs use the telnet-style surface.
 - Tests cover the Tools Hub alias, palette search, and Tools workspace run-plan mapping.
-- Next: add richer TCP detail rows in Tools history, including resolved host, port, elapsed time, and timeout policy.
+- Next: add richer TCP detail rows in Tools history, including host, port, elapsed time, and timeout policy.
+
+## v0.4.69 - TCP Tool Detail Rows
+
+Status: draft PR #131 on `codex/picos-v0.4.69-tcp-detail-rows`.
+
+Goal: make TCP reachability output feel more like an operator console by separating target metadata from connection status.
+
+- `picos tools port-check <host> <port>` now includes a Target section with host, port, invoked command, and timeout policy.
+- `picos tools telnet <host> <port>` shows the same Target section while preserving the telnet-style command surface.
+- TCP Status rows remain focused on `OPEN`/`CLOSED`, elapsed time, and any socket error.
+- Raw output now includes `[Target]` and `[Status]` sections for export, copy, and handoff readability.
+- Tests cover Target rows, timeout display, command display, Status rows, and raw output.
+- Next: expose selected TCP detail rows as copyable fields from Tools history.
 
 ## v0.5.0 - Developer Environment Plugins
 

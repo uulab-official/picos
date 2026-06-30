@@ -124,8 +124,8 @@ Commands:
 - `picos tools dns <target>`: resolve DNS records and reverse DNS.
 - `picos tools whois <target>`: read public RDAP registration metadata.
 - `picos tools ip-info <ip>`: read public IP metadata.
-- `picos tools port-check <host> <port>`: run the TCP connect check through Tools Hub.
-- `picos tools telnet <host> <port>`: run the same TCP reachability check with a familiar telnet-style Tools Hub command; this is non-interactive.
+- `picos tools port-check <host> <port>`: run the TCP connect check through Tools Hub with target, command, timeout, and elapsed-time detail rows.
+- `picos tools telnet <host> <port>`: run the same TCP reachability check with a familiar telnet-style Tools Hub command; this is non-interactive and shows the same target detail.
 - `picos tools tls <host:port>`: inspect TLS protocol, cipher, and certificate metadata.
 - `picos tools ping <host>`: run platform ping through Tools Hub.
 - `picos tools traceroute <host>`: run platform traceroute/tracert through Tools Hub.
@@ -234,7 +234,7 @@ v0.2 expands picos toward an OS-like console:
 - System, hardware, storage, process, runtime, and permission inventory.
 - Network tools for ping, TCP connect, DNS, routes, ports, and connections.
 - Process drill-down for endpoint PIDs through `picos process <pid>`.
-- Telnet-like reachability is available through `picos connect`, `picos telnet`, `picos tools telnet`, and command-palette search for `telnet` as non-interactive TCP checks instead of interactive shell sessions.
+- Telnet-like reachability is available through `picos connect`, `picos telnet`, `picos tools telnet`, and command-palette search for `telnet` as non-interactive TCP checks instead of interactive shell sessions. Tools Hub TCP results show target host, port, invoked command, timeout policy, and elapsed time.
 - DOS-style file navigation and text editing are planned after the read-only inventory and network tool layer is stable.
 
 v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
