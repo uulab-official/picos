@@ -55,6 +55,18 @@ bun run release:changelog 0.3.0 2026-06-30 --write
 
 `release:changelog` is a dry-run unless `--write` is provided.
 
+After verification passes, print the manual tag, GitHub Release, and optional
+npm publish commands:
+
+```bash
+bun run release:commands 0.3.0
+bun run release:commands 0.3.0 --publish
+```
+
+`release:commands` never creates tags, GitHub Releases, or npm publishes. It
+only prints commands after the target version and finalized changelog section
+are present.
+
 ## 0.x Version Rules
 
 - `0.2.x`: current local preview baseline.
@@ -78,9 +90,10 @@ commands, and locked future actions while the package remains pre-1.0.
 6. Run `bun run release:changelog <version> <date> --write`.
 7. Run `bun run verify`.
 8. Run `bun run release:check`.
-9. Create and push a `vX.Y.Z` tag.
-10. Create a GitHub Release from the tag.
-11. Run `npm publish --access public` when publishing `@uulab/picos` for the
+9. Run `bun run release:commands <version>` and review the manual commands.
+10. Create and push a `vX.Y.Z` tag.
+11. Create a GitHub Release from the tag.
+12. Run `npm publish --access public` when publishing `@uulab/picos` for the
    first public scoped release.
 
 ## GitHub Actions

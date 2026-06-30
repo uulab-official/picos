@@ -173,6 +173,7 @@ bun run version:set 0.3.0 --write
 bun run release:notes 0.3.0
 bun run release:changelog 0.3.0 2026-06-30 --write
 bun run release:check
+bun run release:commands 0.3.0
 ```
 
 ## OS Console Direction

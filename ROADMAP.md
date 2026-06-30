@@ -339,6 +339,19 @@ Goal: make the last manual changelog step explicit and reversible before a publi
 - Release docs make the order explicit: draft release notes first, then finalize the changelog.
 - Next: tag and GitHub Release creation helper after the v0.3 stack is merged.
 
+## v0.3.23 - Release Command Planner
+
+Status: draft PR #24.
+
+Goal: make the final release steps reviewable before any tag, GitHub Release, or npm publish is created.
+
+- Release command core validates target version, runtime version, package version, and finalized changelog state.
+- `bun run release:commands <version>` prints manual git tag and GitHub Release commands.
+- `bun run release:commands <version> --publish` includes the npm publish command after the same blockers pass.
+- The helper never creates tags, GitHub Releases, or npm publishes.
+- Release docs and README include the command planner in the public release flow.
+- Next: return to lazyifconfig parity with sortable route/interface rows and raw-output viewers.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
