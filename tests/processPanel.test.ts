@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import type { ProcessFileSnapshot } from "../src/core/processes";
 import {
 	formatProcessWorkspaceRows,
 	getProcessFileSelectionCount,
 	getSelectedProcessFileRequest,
+	getSelectedProcessResourceRequest,
 } from "../src/tui/processPanel";
 
 describe("process TUI panel formatting", () => {
@@ -34,11 +36,13 @@ describe("process TUI panel formatting", () => {
 						{
 							descriptor: "txt",
 							label: "executable",
+							resourceKind: "file",
 							path: "/usr/local/bin/bun",
 						},
 						{
 							descriptor: "1",
 							label: "fd",
+							resourceKind: "file",
 							path: "/tmp/picos.log",
 						},
 					],
@@ -62,18 +66,20 @@ describe("process TUI panel formatting", () => {
 	});
 
 	test("creates selected process file handoff requests", () => {
-		const files = {
+		const files: ProcessFileSnapshot = {
 			pid: 12345,
 			cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
 			fileEntries: [
 				{
 					descriptor: "txt",
 					label: "executable",
+					resourceKind: "file",
 					path: "/usr/local/bin/bun",
 				},
 				{
 					descriptor: "1",
 					label: "fd",
+					resourceKind: "socket",
 					path: "localhost:3000",
 				},
 			],
@@ -91,6 +97,13 @@ describe("process TUI panel formatting", () => {
 			command: "picos type /usr/local/bin/bun",
 		});
 		expect(getSelectedProcessFileRequest(files, 2)).toBeUndefined();
+		expect(getSelectedProcessResourceRequest(files, 2)).toEqual({
+			descriptor: "1",
+			label: "fd",
+			resourceKind: "socket",
+			copyText: "localhost:3000",
+			summary: "socket 1 fd localhost:3000",
+		});
 	});
 
 	test("clips process rows to visible height", () => {

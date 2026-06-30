@@ -14,6 +14,7 @@ export type ProcessDetail = ProcessSummary & {
 export type ProcessOpenFile = {
 	descriptor: string;
 	label: string;
+	resourceKind: "file" | "socket" | "pipe" | "unix" | "unknown";
 	path: string;
 };
 
@@ -245,7 +246,7 @@ export function parseLsofProcessFiles(
 			snapshot.openFiles.push(path);
 			snapshot.fileEntries.push({
 				descriptor: fileKind,
-				label: labelProcessFileDescriptor(fileKind),
+				...classifyProcessResource(fileKind, path),
 				path,
 			});
 		}
@@ -253,20 +254,36 @@ export function parseLsofProcessFiles(
 	return snapshot;
 }
 
-function labelProcessFileDescriptor(descriptor: string): string {
+function classifyProcessResource(
+	descriptor: string,
+	path: string,
+): Pick<ProcessOpenFile, "label" | "resourceKind"> {
+	const lowerPath = path.toLowerCase();
+	if (/^(tcp|udp|ipv4|ipv6)\b/i.test(path)) {
+		return { label: "socket", resourceKind: "socket" };
+	}
+	if (lowerPath === "pipe" || lowerPath.startsWith("pipe ")) {
+		return { label: "pipe", resourceKind: "pipe" };
+	}
+	if (lowerPath.startsWith("unix ")) {
+		return { label: "unix", resourceKind: "unix" };
+	}
+	if (lowerPath.endsWith(".sock")) {
+		return { label: "socket-file", resourceKind: "file" };
+	}
 	if (descriptor === "txt") {
-		return "executable";
+		return { label: "executable", resourceKind: "file" };
 	}
 	if (descriptor === "mem") {
-		return "mapped";
+		return { label: "mapped", resourceKind: "file" };
 	}
 	if (descriptor === "rtd") {
-		return "root";
+		return { label: "root", resourceKind: "file" };
 	}
 	if (/^\d/.test(descriptor)) {
-		return "fd";
+		return { label: "fd", resourceKind: "file" };
 	}
-	return descriptor || "file";
+	return { label: descriptor || "file", resourceKind: "unknown" };
 }
 
 export function formatProcessDetail(detail: ProcessDetail): string {
@@ -299,6 +316,7 @@ export function formatProcessFileSnapshot(
 		: snapshot.openFiles.map((path) => ({
 				descriptor: "file",
 				label: "file",
+				resourceKind: "file" as const,
 				path,
 			}));
 	const files = fileEntries.length

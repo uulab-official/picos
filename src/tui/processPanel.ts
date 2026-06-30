@@ -10,6 +10,14 @@ export type ProcessFileRequest = {
 	command: string;
 };
 
+export type ProcessResourceRequest = {
+	descriptor: string;
+	label: string;
+	resourceKind: ProcessOpenFile["resourceKind"];
+	copyText: string;
+	summary: string;
+};
+
 export function formatProcessWorkspaceRows(
 	processes: ProcessSummary[],
 	selected?: ProcessDetail,
@@ -44,6 +52,24 @@ export function getSelectedProcessFileRequest(
 	return {
 		path: entry.path,
 		command: `${entry.command} ${formatCommandPath(entry.path)}`,
+	};
+}
+
+export function getSelectedProcessResourceRequest(
+	files: ProcessFileSnapshot | undefined,
+	selectedIndex: number,
+): ProcessResourceRequest | undefined {
+	const entries = getSelectableProcessFiles(files);
+	const entry = entries[getSelectedIndex(entries.length, selectedIndex) ?? -1];
+	if (!entry || entry.resourceKind === "file") {
+		return undefined;
+	}
+	return {
+		descriptor: entry.descriptor,
+		label: entry.label,
+		resourceKind: entry.resourceKind,
+		copyText: entry.path,
+		summary: `${entry.resourceKind} ${entry.descriptor} ${entry.label} ${entry.path}`,
 	};
 }
 
@@ -98,6 +124,7 @@ type SelectableProcessFile = {
 	descriptor: string;
 	label: string;
 	path: string;
+	resourceKind: ProcessOpenFile["resourceKind"];
 	command: "picos dir" | "picos type";
 };
 
@@ -113,6 +140,7 @@ function getSelectableProcessFiles(
 			descriptor: "cwd",
 			label: "working-dir",
 			path: files.cwd,
+			resourceKind: "file",
 			command: "picos dir",
 		});
 	}
@@ -122,6 +150,7 @@ function getSelectableProcessFiles(
 				(path): ProcessOpenFile => ({
 					descriptor: "file",
 					label: "file",
+					resourceKind: "file",
 					path,
 				}),
 			);
@@ -130,6 +159,7 @@ function getSelectableProcessFiles(
 			descriptor: entry.descriptor || "file",
 			label: entry.label || "file",
 			path: entry.path,
+			resourceKind: entry.resourceKind,
 			command: "picos type",
 		});
 	}
