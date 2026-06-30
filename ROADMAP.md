@@ -1666,6 +1666,19 @@ Goal: make cleanup handoff history durable enough for review, handoff, and relea
 - Tests cover selected/all export plans, empty export refusal, markdown content, stable paths, and file writes.
 - Next: add cleanup history clear/archive controls or surface exported cleanup logs inside Timeline.
 
+## v0.4.62 - Restore Cleanup Exports Into Timeline
+
+Status: draft PR #124.
+
+Goal: make exported cleanup decisions visible again inside the console after restart.
+
+- Cleanup handoff export markdown can now be parsed back into Timeline-compatible events.
+- The latest `cleanup/picos-cleanup-*.md` export is read from the picos config directory.
+- TUI startup restores latest cleanup export events alongside the existing latest audit export and boot events.
+- Restored cleanup events include outcome, label, workspace, screen, shortcut, exact phrase, affected count, and detail.
+- Tests cover export parsing, latest export discovery, missing-directory fallback, and Timeline event shape.
+- Next: add a Cleanup Export viewer/index or explicit clear/archive controls for exported cleanup files.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

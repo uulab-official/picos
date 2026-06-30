@@ -181,6 +181,7 @@ import {
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
+	readLatestCleanupHandoffHistoryExport,
 	writeCleanupHandoffHistoryExport,
 } from "./cleanupIndex";
 import {
@@ -2283,7 +2284,16 @@ export function App(): React.ReactElement {
 			const persisted = await readLatestConsoleAuditExport(
 				dirname(getConfigPath()),
 			).catch(() => undefined);
-			setEvents([...(persisted?.events ?? []), ...bootEvents].slice(-64));
+			const persistedCleanup = await readLatestCleanupHandoffHistoryExport(
+				dirname(getConfigPath()),
+			).catch(() => undefined);
+			setEvents(
+				[
+					...(persisted?.events ?? []),
+					...(persistedCleanup?.events ?? []),
+					...bootEvents,
+				].slice(-64),
+			);
 		});
 		refresh();
 	}, [log, refresh]);

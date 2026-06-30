@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import type { AuditLogEvent } from "../core/auditLog";
 import type { LogProfile } from "./logPanel";
 import type { Screen } from "./navigation";
 import type { ToolRunActionId } from "./toolHistory";
@@ -88,6 +89,11 @@ export type CleanupHandoffHistoryExportPlan = {
 	content: string;
 	itemCount: number;
 	scope: CleanupHandoffHistoryExportScope;
+};
+
+export type CleanupHandoffHistoryExportRead = {
+	path: string;
+	events: AuditLogEvent[];
 };
 
 export type CleanupShelfIndexInput = {
@@ -464,6 +470,80 @@ export async function writeCleanupHandoffHistoryExport(
 	return plan;
 }
 
+export function parseCleanupHandoffHistoryExport(
+	content: string,
+): AuditLogEvent[] {
+	const lines = content.split(/\r?\n/);
+	const generatedAt =
+		lines
+			.find((line) => line.startsWith("generatedAt="))
+			?.replace("generatedAt=", "") ?? "";
+	const time = formatCleanupExportEventTime(generatedAt);
+	const events: AuditLogEvent[] = [];
+
+	for (let index = 0; index < lines.length; index += 1) {
+		const labelLine = lines[index];
+		if (!labelLine?.startsWith("## ")) {
+			continue;
+		}
+
+		const label = labelLine.replace(/^##\s+/, "");
+		const outcome = lines[index + 1]?.match(/^outcome=(.+)$/)?.[1];
+		const target = lines[index + 2]?.match(
+			/^workspace=(.+) screen=([^ ]+) shortcut=(.+)$/,
+		);
+		const confirmation = lines[index + 3]?.match(
+			/^confirm=(.+) count=(\d+) detail=(.*)$/,
+		);
+
+		if (!outcome || !target || !confirmation) {
+			continue;
+		}
+
+		const workspace = target[1] ?? "";
+		const screen = target[2] ?? "";
+		const shortcut = target[3] ?? "";
+		const confirmationPhrase = confirmation[1] ?? "";
+		const count = confirmation[2] ?? "0";
+		const detail = confirmation[3] ?? "";
+		const message = `cleanup history ${outcome} ${label} workspace=${workspace} screen=${screen} shortcut=${shortcut} confirm=${confirmationPhrase} count=${count} detail=${detail}`;
+		events.push({
+			id: createPersistedCleanupEventId(time, label, outcome),
+			level: "info",
+			time,
+			message,
+		});
+	}
+
+	return events;
+}
+
+export async function readLatestCleanupHandoffHistoryExport(
+	baseDir: string,
+): Promise<CleanupHandoffHistoryExportRead | undefined> {
+	const cleanupDir = join(baseDir, "cleanup");
+	let files: string[];
+	try {
+		files = await readdir(cleanupDir);
+	} catch {
+		return undefined;
+	}
+
+	const latest = files
+		.filter((file) => /^picos-cleanup-.+\.md$/.test(file))
+		.sort()
+		.at(-1);
+	if (!latest) {
+		return undefined;
+	}
+
+	const path = join(cleanupDir, latest);
+	return {
+		path,
+		events: parseCleanupHandoffHistoryExport(await readFile(path, "utf8")),
+	};
+}
+
 export function formatCleanupHandoffHistoryRows(
 	history: CleanupHandoffHistory | undefined,
 ): string[] {
@@ -559,6 +639,23 @@ function formatCleanupHandoffHistoryExportItem(
 		`confirm=${history.confirmationPhrase} count=${history.count} detail=${history.detail}`,
 		"",
 	];
+}
+
+function formatCleanupExportEventTime(generatedAt: string): string {
+	const match = generatedAt.match(/T(\d{2}:\d{2}:\d{2})/);
+	return match?.[1] ?? "00:00:00";
+}
+
+function createPersistedCleanupEventId(
+	time: string,
+	label: string,
+	outcome: string,
+): string {
+	const slug = `${label}-${outcome}`
+		.toLowerCase()
+		.replaceAll(/[^a-z0-9]+/g, "-")
+		.replaceAll(/^-|-$/g, "");
+	return `persisted-cleanup-${time}-info-${slug}`;
 }
 
 export function getSelectedCleanupShelf(
