@@ -6,6 +6,7 @@ import {
 	getSelectedConnectionProcessRequest,
 	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
+	nextEndpointDetailView,
 } from "../src/tui/endpointPanel";
 
 describe("endpoint TUI panel formatting", () => {
@@ -120,6 +121,64 @@ describe("endpoint TUI panel formatting", () => {
 		expect(rows).toContain("CLIPBOARD PREVIEW connection");
 		expect(rows).toContain("copy 192.168.0.20:61000 -> 142.250.207.14:443");
 		expect(rows).toContain("confirm copy locked");
+	});
+
+	test("formats connection detail tabs for raw and process focus", () => {
+		const result = {
+			command: "netstat",
+			args: ["-anv"],
+			connections: [
+				{
+					protocol: "tcp4",
+					localAddress: "192.168.0.20",
+					localPort: "61000",
+					remoteAddress: "142.250.207.14",
+					remotePort: "443",
+					state: "ESTABLISHED",
+					pid: "4242",
+				},
+			],
+			rawOutput: "$ netstat -anv\nraw connection line",
+		};
+
+		expect(nextEndpointDetailView("detail")).toBe("raw");
+		expect(nextEndpointDetailView("raw")).toBe("process");
+		expect(nextEndpointDetailView("process")).toBe("detail");
+		expect(
+			formatConnectionsWorkspaceRows(result, 7, {
+				selectedIndex: 0,
+				view: "raw",
+			}),
+		).toEqual([
+			"SUMMARY connections=1 established=1 view=raw command=netstat -anv",
+			"ACTIVE",
+			"> tcp4   192.168.0.20:61000       142.250.207.14:443       ESTABLISHED",
+			"RAW OUTPUT",
+			"$ netstat -anv",
+			"raw connection line",
+		]);
+		expect(
+			formatConnectionsWorkspaceRows(result, 8, {
+				processes: [
+					{
+						pid: 4242,
+						cpu: "2.5",
+						memory: "1.1",
+						command: "bun src/bin/picos.ts",
+					},
+				],
+				selectedIndex: 0,
+				view: "process",
+			}),
+		).toEqual([
+			"SUMMARY connections=1 established=1 view=process command=netstat -anv",
+			"ACTIVE",
+			"> tcp4   192.168.0.20:61000       142.250.207.14:443       ESTABLISHED",
+			"PROCESS connection 1/1 pid=4242",
+			"process bun src/bin/picos.ts",
+			"usage cpu=2.5% mem=1.1%",
+			"inspect picos process 4242",
+		]);
 	});
 
 	test("creates selected connection clipboard previews", () => {
@@ -351,6 +410,60 @@ describe("endpoint TUI panel formatting", () => {
 		expect(rows).toContain("CLIPBOARD PREVIEW port");
 		expect(rows).toContain("copy *:3000 node pid=12345");
 		expect(rows).toContain("confirm copy locked");
+	});
+
+	test("formats port detail tabs for raw and process focus", () => {
+		const result = {
+			command: "lsof",
+			args: ["-nP"],
+			ports: [
+				{
+					protocol: "tcp",
+					localAddress: "*",
+					localPort: "3000",
+					pid: "12345",
+					command: "node",
+					user: "alice",
+				},
+			],
+			rawOutput: "$ lsof\nnode raw line",
+		};
+
+		expect(
+			formatPortsWorkspaceRows(result, 7, {
+				selectedIndex: 0,
+				view: "raw",
+			}),
+		).toEqual([
+			"SUMMARY ports=1 view=raw command=lsof -nP",
+			"LISTENING",
+			"> tcp    *:3000                   node               12345   alice",
+			"RAW OUTPUT",
+			"$ lsof",
+			"node raw line",
+		]);
+		expect(
+			formatPortsWorkspaceRows(result, 8, {
+				processes: [
+					{
+						pid: 12345,
+						cpu: "8.0",
+						memory: "4.2",
+						command: "node server.js",
+					},
+				],
+				selectedIndex: 0,
+				view: "process",
+			}),
+		).toEqual([
+			"SUMMARY ports=1 view=process command=lsof -nP",
+			"LISTENING",
+			"> tcp    *:3000                   node               12345   alice",
+			"PROCESS port 1/1 pid=12345",
+			"snapshot node server.js",
+			"usage cpu=8.0% mem=4.2%",
+			"inspect picos process 12345",
+		]);
 	});
 
 	test("enriches selected port details with matching process snapshot", () => {

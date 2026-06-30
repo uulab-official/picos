@@ -26,6 +26,20 @@ export type EndpointProcessRequest = {
 	command: string;
 };
 
+export type EndpointDetailView = "detail" | "raw" | "process";
+
+export function nextEndpointDetailView(
+	view: EndpointDetailView,
+): EndpointDetailView {
+	if (view === "detail") {
+		return "raw";
+	}
+	if (view === "raw") {
+		return "process";
+	}
+	return "detail";
+}
+
 export function getSelectedConnectionProcessRequest(
 	connections: ActiveConnection[],
 	selectedIndex: number,
@@ -83,10 +97,12 @@ export function formatConnectionsWorkspaceRows(
 		processes?: ProcessSummary[];
 		selectedIndex?: number;
 		sort?: ConnectionSort;
+		view?: EndpointDetailView;
 	} = {},
 ): string[] {
 	const filtered = filterConnections(result.connections, options.filter);
 	const sorted = sortConnections(filtered, options.sort);
+	const view = options.view ?? "detail";
 	const selectedIndex = getSelectedIndex(sorted.length, options.selectedIndex);
 	const selectedConnection =
 		selectedIndex === undefined ? undefined : sorted[selectedIndex];
@@ -104,6 +120,7 @@ export function formatConnectionsWorkspaceRows(
 		[
 			`SUMMARY connections=${countLabel(filtered.length, result.connections.length)}`,
 			`established=${established}`,
+			view !== "detail" ? `view=${view}` : "",
 			options.sort ? `sort=${options.sort.key} ${options.sort.direction}` : "",
 			options.filter?.trim() ? `filter=${options.filter.trim()}` : "",
 			`command=${result.command} ${result.args.join(" ")}`,
@@ -115,15 +132,16 @@ export function formatConnectionsWorkspaceRows(
 		...(endpointRows.length
 			? endpointRows
 			: ["no active connections detected"]),
-		...formatConnectionDetailRows(
+		...formatConnectionDetailViewRows(
+			result,
 			selectedConnection,
 			selectedIndex,
 			sorted.length,
 			options.copyPreview ?? false,
 			options.processes ?? [],
+			view,
+			visibleRows,
 		),
-		"RAW OUTPUT",
-		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
 	];
 	return fitRows(rows, visibleRows, "connections");
 }
@@ -137,10 +155,12 @@ export function formatPortsWorkspaceRows(
 		processes?: ProcessSummary[];
 		selectedIndex?: number;
 		sort?: PortSort;
+		view?: EndpointDetailView;
 	} = {},
 ): string[] {
 	const filtered = filterListeningPorts(result.ports, options.filter);
 	const sorted = sortListeningPorts(filtered, options.sort);
+	const view = options.view ?? "detail";
 	const selectedIndex = getSelectedIndex(sorted.length, options.selectedIndex);
 	const selectedPort =
 		selectedIndex === undefined ? undefined : sorted[selectedIndex];
@@ -154,6 +174,7 @@ export function formatPortsWorkspaceRows(
 	const rows = [
 		[
 			`SUMMARY ports=${countLabel(filtered.length, result.ports.length)}`,
+			view !== "detail" ? `view=${view}` : "",
 			options.sort ? `sort=${options.sort.key} ${options.sort.direction}` : "",
 			options.filter?.trim() ? `filter=${options.filter.trim()}` : "",
 			`command=${result.command} ${result.args.join(" ")}`,
@@ -163,15 +184,16 @@ export function formatPortsWorkspaceRows(
 			.trim(),
 		"LISTENING",
 		...(portRows.length ? portRows : ["no listening ports detected"]),
-		...formatPortDetailRows(
+		...formatPortDetailViewRows(
+			result,
 			selectedPort,
 			selectedIndex,
 			sorted.length,
 			options.copyPreview ?? false,
 			options.processes ?? [],
+			view,
+			visibleRows,
 		),
-		"RAW OUTPUT",
-		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
 	];
 	return fitRows(rows, visibleRows, "ports");
 }
@@ -236,6 +258,45 @@ function formatConnectionDetailRows(
 	];
 }
 
+function formatConnectionDetailViewRows(
+	result: ConnectionsResult,
+	connection: ConnectionsResult["connections"][number] | undefined,
+	selectedIndex: number | undefined,
+	total: number,
+	copyPreview: boolean,
+	processes: ProcessSummary[],
+	view: EndpointDetailView,
+	visibleRows: number,
+): string[] {
+	if (view === "raw") {
+		return [
+			"RAW OUTPUT",
+			...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
+		];
+	}
+	if (view === "process") {
+		return formatEndpointProcessRows(
+			"connection",
+			connection?.pid,
+			selectedIndex,
+			total,
+			findProcessByPid(processes, connection?.pid),
+			"process",
+		);
+	}
+	return [
+		...formatConnectionDetailRows(
+			connection,
+			selectedIndex,
+			total,
+			copyPreview,
+			processes,
+		),
+		"RAW OUTPUT",
+		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
+	];
+}
+
 function formatPortDetailRows(
 	port: PortsResult["ports"][number] | undefined,
 	selectedIndex: number | undefined,
@@ -262,6 +323,56 @@ function formatPortDetailRows(
 					}),
 				)
 			: []),
+	];
+}
+
+function formatPortDetailViewRows(
+	result: PortsResult,
+	port: PortsResult["ports"][number] | undefined,
+	selectedIndex: number | undefined,
+	total: number,
+	copyPreview: boolean,
+	processes: ProcessSummary[],
+	view: EndpointDetailView,
+	visibleRows: number,
+): string[] {
+	if (view === "raw") {
+		return [
+			"RAW OUTPUT",
+			...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
+		];
+	}
+	if (view === "process") {
+		return formatEndpointProcessRows(
+			"port",
+			port?.pid,
+			selectedIndex,
+			total,
+			findProcessByPid(processes, port?.pid),
+			"snapshot",
+		);
+	}
+	return [
+		...formatPortDetailRows(port, selectedIndex, total, copyPreview, processes),
+		"RAW OUTPUT",
+		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
+	];
+}
+
+function formatEndpointProcessRows(
+	kind: "connection" | "port",
+	pid: string | undefined,
+	selectedIndex: number | undefined,
+	total: number,
+	process: ProcessSummary | undefined,
+	processLabel: "process" | "snapshot",
+): string[] {
+	if (selectedIndex === undefined) {
+		return [];
+	}
+	return [
+		`PROCESS ${kind} ${selectedIndex + 1}/${total} pid=${pid ?? "-"}`,
+		...formatProcessRows(process, processLabel),
 	];
 }
 

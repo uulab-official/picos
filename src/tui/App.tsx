@@ -87,12 +87,14 @@ import {
 	openCommandLine,
 } from "./commandLine";
 import {
+	type EndpointDetailView,
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
 	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
+	nextEndpointDetailView,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
@@ -258,6 +260,10 @@ export function App(): React.ReactElement {
 	});
 	const [selectedConnectionIndex, setSelectedConnectionIndex] = useState(0);
 	const [selectedPortIndex, setSelectedPortIndex] = useState(0);
+	const [connectionDetailView, setConnectionDetailView] =
+		useState<EndpointDetailView>("detail");
+	const [portDetailView, setPortDetailView] =
+		useState<EndpointDetailView>("detail");
 	const [connectionCopyPreview, setConnectionCopyPreview] = useState(false);
 	const [portCopyPreview, setPortCopyPreview] = useState(false);
 	const [selectedProcessDetail, setSelectedProcessDetail] =
@@ -1226,6 +1232,26 @@ export function App(): React.ReactElement {
 			log("info", "route destination prompt opened");
 		}
 
+		if (screen === "connections" && focusArea === "workspaces" && key.tab) {
+			setConnectionDetailView((current) => {
+				const next = nextEndpointDetailView(current);
+				log("info", `connections detail ${next}`);
+				return next;
+			});
+			setConnectionCopyPreview(false);
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && key.tab) {
+			setPortDetailView((current) => {
+				const next = nextEndpointDetailView(current);
+				log("info", `ports detail ${next}`);
+				return next;
+			});
+			setPortCopyPreview(false);
+			return;
+		}
+
 		if (
 			screen === "connections" &&
 			focusArea === "workspaces" &&
@@ -1669,6 +1695,8 @@ export function App(): React.ReactElement {
 					portSort={portSort}
 					selectedConnectionIndex={selectedConnectionIndex}
 					selectedPortIndex={selectedPortIndex}
+					connectionDetailView={connectionDetailView}
+					portDetailView={portDetailView}
 					connectionCopyPreview={connectionCopyPreview}
 					portCopyPreview={portCopyPreview}
 					selectedProcessDetail={selectedProcessDetail}
@@ -1815,6 +1843,8 @@ function MainWorkspace({
 	portSort,
 	selectedConnectionIndex,
 	selectedPortIndex,
+	connectionDetailView,
+	portDetailView,
 	connectionCopyPreview,
 	portCopyPreview,
 	selectedProcessDetail,
@@ -1867,6 +1897,8 @@ function MainWorkspace({
 	portSort: PortSort;
 	selectedConnectionIndex: number;
 	selectedPortIndex: number;
+	connectionDetailView: EndpointDetailView;
+	portDetailView: EndpointDetailView;
 	connectionCopyPreview: boolean;
 	portCopyPreview: boolean;
 	selectedProcessDetail?: ProcessDetail;
@@ -1928,6 +1960,8 @@ function MainWorkspace({
 					portSort,
 					selectedConnectionIndex,
 					selectedPortIndex,
+					connectionDetailView,
+					portDetailView,
 					connectionCopyPreview,
 					portCopyPreview,
 					selectedProcessDetail,
@@ -1984,6 +2018,8 @@ function renderWorkspace(
 	portSort: PortSort,
 	selectedConnectionIndex: number,
 	selectedPortIndex: number,
+	connectionDetailView: EndpointDetailView,
+	portDetailView: EndpointDetailView,
 	connectionCopyPreview: boolean,
 	portCopyPreview: boolean,
 	selectedProcessDetail: ProcessDetail | undefined,
@@ -2121,6 +2157,7 @@ function renderWorkspace(
 				sort={connectionSort}
 				processes={inventory?.processes ?? []}
 				selectedIndex={selectedConnectionIndex}
+				view={connectionDetailView}
 				copyPreview={connectionCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
@@ -2135,6 +2172,7 @@ function renderWorkspace(
 				sort={portSort}
 				processes={inventory?.processes ?? []}
 				selectedIndex={selectedPortIndex}
+				view={portDetailView}
 				copyPreview={portCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
@@ -3007,6 +3045,7 @@ function ConnectionsWorkspace({
 	sort,
 	processes,
 	selectedIndex,
+	view,
 	copyPreview,
 	commandLine,
 	visibleRows,
@@ -3016,6 +3055,7 @@ function ConnectionsWorkspace({
 	sort: ConnectionSort;
 	processes: SystemInventory["processes"];
 	selectedIndex: number;
+	view: EndpointDetailView;
 	copyPreview: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
@@ -3032,6 +3072,7 @@ function ConnectionsWorkspace({
 						processes,
 						selectedIndex,
 						sort,
+						view,
 					},
 				),
 				...promptRows,
@@ -3048,7 +3089,8 @@ function ConnectionsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
-				active endpoints from netstat · j/k select · s sort · c copy, type copy
+				active endpoints from netstat · tab detail · j/k select · s sort · c
+				copy
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -3070,6 +3112,7 @@ function PortsWorkspace({
 	sort,
 	processes,
 	selectedIndex,
+	view,
 	copyPreview,
 	commandLine,
 	visibleRows,
@@ -3079,6 +3122,7 @@ function PortsWorkspace({
 	sort: PortSort;
 	processes: SystemInventory["processes"];
 	selectedIndex: number;
+	view: EndpointDetailView;
 	copyPreview: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
@@ -3095,6 +3139,7 @@ function PortsWorkspace({
 						processes,
 						selectedIndex,
 						sort,
+						view,
 					},
 				),
 				...promptRows,
@@ -3111,8 +3156,8 @@ function PortsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
-				listening TCP ports from lsof/ss/netstat · j/k select · s sort · c copy
-				, type copy
+				listening TCP ports from lsof/ss/netstat · tab detail · j/k select · s
+				sort · c copy
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (

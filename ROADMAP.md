@@ -732,6 +732,19 @@ Goal: make Tools Hub results feel like an inspectable console panel instead of o
 - Raw detail remains the default view to preserve existing handoff behavior.
 - Next: platform detail tabs for routes/endpoints/interfaces.
 
+## v0.3.54 - Endpoint Detail Tabs
+
+Status: draft PR #55.
+
+Goal: make Connections and Ports scan like focused lazyifconfig-style endpoint inspectors.
+
+- Connections and Ports support `detail`, `raw`, and `process` view modes.
+- The TUI Connections and Ports workspaces cycle detail views with `Tab`.
+- Raw view focuses the original OS command output without repeating detail panes.
+- Process view focuses PID handoff metadata and matching process snapshots.
+- Detail view remains the default to preserve existing endpoint rows and copy previews.
+- Next: route/interface platform detail tabs.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -739,10 +752,10 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer endpoint/platform detail tabs.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, detail/raw/process tabs, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next route/interface platform detail tabs.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, raw output handoff, locked summary/raw-output copy shortcuts, and scoped markdown export landed; next platform detail tabs for routes/endpoints/interfaces.
 - Timeline: live EventDock history, network/action/audit/raw filters, audit export, latest audit reload, and network status/address/public-IP change events landed; next richer event search and export scopes.
-- Raw output viewer for routes, connections, ports, and Tools history landed; next platform detail tabs.
+- Raw output viewer for routes, connections, ports, and Tools history landed; next route/interface platform detail tabs.
 
 ## v0.4.0 - Privileged Controls Framework
 
