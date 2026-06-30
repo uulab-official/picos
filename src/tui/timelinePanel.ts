@@ -141,6 +141,7 @@ function classifyTimelineEvent(
 		message.includes("clipboard") ||
 		message.includes("control confirmation") ||
 		message.includes("control preview") ||
+		message.includes("control simulation") ||
 		message.includes("audit") ||
 		message.includes("locked") ||
 		message.includes("failed")

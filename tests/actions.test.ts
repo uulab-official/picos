@@ -3,10 +3,13 @@ import { controlPreviewCommand as linuxControlPreviewCommand } from "../src/adap
 import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adapters/macos";
 import { controlPreviewCommand as windowsControlPreviewCommand } from "../src/adapters/windows";
 import {
+	createActionControlSimulation,
 	createActionPreviewPlan,
 	formatActionConfirmationAuditMessage,
 	formatActionPreviewAuditMessage,
 	formatActionPreviewRows,
+	formatActionSimulationAuditMessage,
+	formatActionSimulationRows,
 	getActionCatalog,
 	getActionSummary,
 	submitActionPreviewConfirmation,
@@ -304,6 +307,61 @@ describe("action catalog", () => {
 		});
 		expect(formatActionConfirmationAuditMessage(rejected)).toBe(
 			'control confirmation dns.flush status=rejected risk=write privilege=admin dryRun=true executionEnabled=false adapter=macos command="sudo dscacheutil -flushcache"',
+		);
+	});
+
+	test("creates blocked dry-run control simulation records from approval policy", () => {
+		const commandPreview = macosControlPreviewCommand("dns.flush");
+		const plan = createActionPreviewPlan("dns.flush", "macos", commandPreview);
+
+		if (!plan) {
+			throw new Error("expected dns.flush preview plan");
+		}
+
+		const pending = createActionControlSimulation(plan);
+		expect(pending).toEqual({
+			actionId: "dns.flush",
+			status: "blocked-by-policy",
+			policy: "mutation-disabled",
+			approvalRequired: true,
+			confirmed: false,
+			executionEnabled: false,
+			risk: "write",
+			privilege: "admin",
+			dryRun: true,
+			blockers: [
+				"disabled-by-default",
+				"confirmation-missing",
+				"mutation-approval-required",
+				"admin-approval-required",
+				"execution-disabled",
+			],
+			commandPreview,
+		});
+		expect(formatActionSimulationRows(pending)).toEqual([
+			"CONTROL SIMULATION dns.flush",
+			"status=blocked-by-policy policy=mutation-disabled approval=required",
+			"confirmed=false executionEnabled=false dryRun=true",
+			"blockers=disabled-by-default,confirmation-missing,mutation-approval-required,admin-approval-required,execution-disabled",
+			"adapter=macos",
+			"command=sudo dscacheutil -flushcache",
+		]);
+
+		const accepted = submitActionPreviewConfirmation(plan, "flush dns");
+		const acceptedSimulation = createActionControlSimulation(plan, accepted);
+		expect(acceptedSimulation.blockers).toEqual([
+			"disabled-by-default",
+			"mutation-approval-required",
+			"admin-approval-required",
+			"execution-disabled",
+		]);
+		expect(formatActionSimulationAuditMessage(acceptedSimulation)).toBe(
+			'control simulation dns.flush status=blocked-by-policy policy=mutation-disabled approval=required confirmed=true executionEnabled=false blockers=disabled-by-default,mutation-approval-required,admin-approval-required,execution-disabled adapter=macos command="sudo dscacheutil -flushcache"',
+		);
+
+		const rejected = submitActionPreviewConfirmation(plan, "flush cache");
+		expect(createActionControlSimulation(plan, rejected).blockers).toContain(
+			"confirmation-rejected",
 		);
 	});
 
