@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Routes, Connections, and Ports saved filter presets can now be cleared with `D` after exact cleanup confirmation.
 - Logs workspace saved search presets and severity/search profiles can now be cleared with `D` after exact `clear logs` confirmation.
 - Local file provider foundation for the v0.3 filesystem console.
 - Read-only file CLI commands: `pwd`, `dir`, `ls`, `type`, and `cat`.

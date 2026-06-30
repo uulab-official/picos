@@ -1,6 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+	type ConfigCleanupPreview,
+	createConfigCleanupPreview,
+	submitConfigCleanupConfirmation,
+} from "../core/configCleanup";
+import {
 	normalizeRouteFilterPresets,
 	saveRouteFilterPresetValue,
 } from "../core/routePresets";
@@ -27,6 +32,20 @@ export type RouteRawHandoffPlan = {
 	content: string;
 	label: string;
 	view: RouteDetailView;
+};
+
+export type RouteFilterCleanupPreview = {
+	count: number;
+	confirmationPhrase: string;
+	cleanup: ConfigCleanupPreview;
+	rows: string[];
+};
+
+export type RouteFilterCleanupConfirmation = {
+	confirmed: boolean;
+	message: string;
+	presets: string[];
+	removed: number;
 };
 
 export function nextRouteDetailView(view: RouteDetailView): RouteDetailView {
@@ -60,6 +79,65 @@ export function nextRouteFilterPreset(
 	const current = currentQuery.trim();
 	const index = normalized.indexOf(current);
 	return normalized[(index + 1) % normalized.length] ?? normalized[0];
+}
+
+export function createRouteFilterCleanupPreview(
+	presets: string[],
+): RouteFilterCleanupPreview | undefined {
+	const normalized = normalizeRouteFilterPresets(presets);
+	if (!normalized.length) {
+		return undefined;
+	}
+	const cleanup = createConfigCleanupPreview({
+		id: "routes.filters",
+		label: "Route filter presets",
+		scope: "routes",
+		count: normalized.length,
+		verb: "clear",
+	});
+	return {
+		count: normalized.length,
+		confirmationPhrase: cleanup.confirmationPhrase,
+		cleanup,
+		rows: [
+			"ROUTE FILTER CLEANUP",
+			`presets=${normalized.length}`,
+			`confirm ${cleanup.confirmationPhrase} locked`,
+		],
+	};
+}
+
+export function submitRouteFilterCleanupConfirmation(
+	presets: string[],
+	confirmation: string,
+): RouteFilterCleanupConfirmation {
+	const preview = createRouteFilterCleanupPreview(presets);
+	if (!preview) {
+		return {
+			confirmed: false,
+			message: "route filter cleanup unavailable",
+			presets,
+			removed: 0,
+		};
+	}
+	const cleanupConfirmation = submitConfigCleanupConfirmation(
+		preview.cleanup,
+		confirmation,
+	);
+	if (!cleanupConfirmation.confirmed) {
+		return {
+			confirmed: false,
+			message: "route filter cleanup rejected",
+			presets,
+			removed: 0,
+		};
+	}
+	return {
+		confirmed: true,
+		message: `route filter cleanup removed ${preview.count} presets`,
+		presets: [],
+		removed: preview.count,
+	};
 }
 
 export function formatRouteWorkspaceRows(
