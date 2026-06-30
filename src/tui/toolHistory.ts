@@ -300,7 +300,7 @@ export function formatToolsWorkspaceRows(
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · M edit target · A action target · X delete target · R run · r rerun · y summary · c raw",
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · U pin target · L label target · M edit target · A action target · X delete target · R run · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -504,6 +504,30 @@ export function reassignToolTargetPresetAction(
 				: current,
 		),
 	);
+}
+
+export function promoteToolTargetPreset(
+	presets: ToolTargetPreset[],
+	preset: ToolTargetPreset | undefined,
+): ToolTargetPreset[] {
+	const [targetPreset] = normalizeToolTargetPresets(preset ? [preset] : []);
+	const normalized = normalizeToolTargetPresets(presets);
+	if (!targetPreset) {
+		return normalized;
+	}
+	const index = normalized.findIndex(
+		(current) =>
+			`${current.actionId}:${current.target}` ===
+			`${targetPreset.actionId}:${targetPreset.target}`,
+	);
+	if (index <= 0) {
+		return normalized;
+	}
+	return [
+		normalized[index],
+		...normalized.slice(0, index),
+		...normalized.slice(index + 1),
+	];
 }
 
 export function nextToolHistoryPreset(
@@ -777,7 +801,7 @@ function formatToolTargetPresetRows(
 		presets.length - 1,
 	);
 	return [
-		"TARGET PRESETS n cycle · T save · L label · M edit · A action · X delete · R run",
+		"TARGET PRESETS n cycle · T save · U pin · L label · M edit · A action · X delete · R run",
 		...presets.map(
 			(preset, index) =>
 				`${index === normalizedIndex ? ">" : " "} ${preset.label} ${preset.target} ${preset.hint}`,
