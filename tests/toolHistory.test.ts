@@ -18,12 +18,14 @@ import {
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSectionClipboardPreview,
+	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
 	getSelectedToolTargetClipboardPreview,
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
+	moveToolSectionClipboardRow,
 	moveToolTargetPresetSelection,
 	nextToolHistoryDetailView,
 	nextToolHistoryGroup,
@@ -1098,7 +1100,7 @@ describe("TUI tool history", () => {
 		expect(
 			formatToolsWorkspaceRows(
 				history,
-				8,
+				20,
 				0,
 				"",
 				"time",
@@ -1390,6 +1392,105 @@ describe("TUI tool history", () => {
 			"no tool runs yet",
 			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=status · v copy section · c raw",
 		]);
+	});
+
+	test("selects and previews individual TCP section rows", () => {
+		const tcpResult = {
+			title: "Telnet TCP Check",
+			sections: [
+				{
+					label: "Target",
+					lines: [
+						"Host: example.com",
+						"Port: 443",
+						"Command: picos tools telnet example.com 443",
+						"Timeout: 2000ms",
+					],
+				},
+				{ label: "Status", lines: ["OPEN", "Elapsed: 42ms"] },
+			],
+			rawOutput:
+				"$ picos tools telnet example.com 443\n[Target]\nHost: example.com\nPort: 443\nCommand: picos tools telnet example.com 443\nTimeout: 2000ms\n[Status]\nOPEN\nElapsed: 42ms",
+		};
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "telnet",
+					args: ["example.com", "443"],
+					label: "network.connect example.com:443",
+				},
+				result: tcpResult,
+			},
+			"12:00:00",
+		);
+
+		expect(moveToolSectionClipboardRow(history, 0, "target", 0, "next")).toBe(
+			1,
+		);
+		expect(
+			moveToolSectionClipboardRow(history, 0, "target", 0, "previous"),
+		).toBe(3);
+		expect(moveToolSectionClipboardRow(history, 0, "status", 1, "next")).toBe(
+			0,
+		);
+		expect(
+			getSelectedToolSectionRowClipboardPreview(history, 0, "target", 2),
+		).toEqual(
+			expect.objectContaining({
+				source: "tool-row",
+				label: "network.connect example.com:443 target row 3",
+				copyText: "Command: picos tools telnet example.com 443",
+			}),
+		);
+		expect(
+			getSelectedToolSectionRowClipboardPreview(history, 0, "status", 1),
+		).toEqual(
+			expect.objectContaining({
+				source: "tool-row",
+				label: "network.connect example.com:443 status row 2",
+				copyText: "Elapsed: 42ms",
+			}),
+		);
+		expect(
+			getSelectedToolSectionRowClipboardPreview(
+				appendToolHistory(
+					[],
+					{
+						plan: {
+							actionId: "tools.dns",
+							toolId: "dns",
+							args: ["example.com"],
+							label: "tools.dns example.com",
+						},
+						result,
+					},
+					"12:00:01",
+				),
+				0,
+				"target",
+				0,
+			),
+		).toBeUndefined();
+		expect(
+			formatToolsWorkspaceRows(
+				history,
+				20,
+				0,
+				"",
+				"time",
+				"none",
+				[],
+				"raw",
+				[],
+				0,
+				"status",
+				1,
+			).at(-1),
+		).toBe(
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
+		);
 	});
 
 	test("creates scoped export plans for selected tool history", () => {

@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Tools history now supports TCP section row cursors with `,`/`.` and locked single-row copy previews with `b`.
 - Tools history now lets operators toggle TCP field-copy between Target and Status sections with `V` before opening the locked copy preview with `v`.
 - Tools history can now open a locked clipboard preview for selected TCP Target fields with `v`, copying host, port, command, and timeout rows without copying the full raw output.
 - Tools Hub TCP checks now show target host, port, invoked command, timeout policy, and elapsed time in separate Target and Status sections.

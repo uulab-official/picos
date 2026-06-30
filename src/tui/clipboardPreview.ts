@@ -10,6 +10,7 @@ export type ClipboardPreviewSource =
 	| "tool-output"
 	| "tool-target"
 	| "tool-status"
+	| "tool-row"
 	| "update-handoff";
 
 export type ClipboardPreview = {
