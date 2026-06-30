@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Ports Inspector file evidence now marks cached PID mismatches as stale instead of silently omitting the evidence row.
 - Ports Inspector policy rows now show loaded file evidence counts for the selected PID, including cwd, open-file, and selectable resource totals.
 - Ports Inspector policy rows now include process and file drill-down hints so selected listening PIDs can move toward Processes and Files before destructive previews.
 - Ports now support `I` to pin the selected listening PID's process-control policy and blockers in the side Inspector without opening the confirmation prompt.

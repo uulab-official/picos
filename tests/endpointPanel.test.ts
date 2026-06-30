@@ -828,6 +828,45 @@ describe("endpoint TUI panel formatting", () => {
 		]);
 	});
 
+	test("marks stale port inspector file evidence when the cached pid differs", () => {
+		const preview = createSelectedPortProcessControlPreview(
+			[
+				{
+					protocol: "tcp",
+					localAddress: "127.0.0.1",
+					localPort: "5173",
+					pid: "777",
+					command: "vite",
+					user: "alice",
+				},
+			],
+			0,
+		);
+		if (!preview) {
+			throw new Error("expected port process control preview");
+		}
+
+		expect(
+			formatPortProcessControlInspectorRows(
+				preview,
+				{
+					adapter: "linux",
+					command: "kill",
+					args: ["-TERM", "<pid>"],
+					note: "terminate a selected user-owned process",
+				},
+				undefined,
+				{
+					pid: 778,
+					cwd: "/Users/alice/old-project",
+					fileEntries: [],
+					openFiles: ["/Users/alice/old-project/package.json"],
+					rawOutput: "p778\nfcwd\nn/Users/alice/old-project",
+				},
+			),
+		).toContain("fileEvidence status=stale selectedPid=777 cachedPid=778");
+	});
+
 	test("formats selected port process control previews in the detail pane", () => {
 		const rows = formatPortsWorkspaceRows(
 			{

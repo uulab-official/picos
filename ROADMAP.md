@@ -2013,6 +2013,18 @@ Goal: show whether selected listening PIDs already have useful file evidence bef
 - Tests cover PID-matched file evidence counts in selected-port Inspector rows.
 - Next: add a small stale/mismatch indicator when cached process file evidence belongs to a different PID.
 
+## v0.4.88 - Port Inspector Stale Evidence
+
+Status: draft PR #150 on `codex/picos-v0.4.88-port-inspector-stale-evidence`.
+
+Goal: keep Ports Inspector evidence trustworthy when selected ports change faster than cached process file snapshots.
+
+- Port policy Inspector rows now show `fileEvidence status=stale` when cached file evidence belongs to a different PID.
+- The stale row includes both the selected port PID and cached snapshot PID so operators can see why cwd/open-file counts are not trusted.
+- Matching snapshots still render the loaded cwd/open-files/selectable-resources summary from v0.4.87.
+- Tests cover the mismatched PID stale row in selected-port Inspector formatting.
+- Next: add an unavailable/error row for file evidence lookup failures so permission or adapter gaps are visible in the Inspector.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
