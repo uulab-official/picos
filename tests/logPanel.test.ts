@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { OsLogSnapshot } from "../src/core/osLogs";
 import {
+	formatLogProfileLabel,
 	formatLogWorkspaceRows,
+	type LogProfile,
+	nextLogProfile,
 	nextLogSearchPreset,
+	saveLogProfile,
 	saveLogSearchPreset,
 } from "../src/tui/logPanel";
 
@@ -21,20 +25,22 @@ const snapshot: OsLogSnapshot = {
 
 describe("log TUI panel formatting", () => {
 	test("formats filtered log rows with preset context", () => {
+		const profiles: LogProfile[] = [{ level: "warn", query: "kernel" }];
 		expect(
 			formatLogWorkspaceRows(snapshot, 7, {
 				query: "kernel",
 				level: "warn",
 				presets: ["kernel", "error"],
+				profiles,
 			}),
 		).toEqual([
-			"LOGS level=warn search=kernel presets=kernel|error",
+			"LOGS level=warn search=kernel presets=kernel|error profiles=warn:kernel",
 			"PICOS OS LOGS",
 			"source=macos-unified-log status=ok entries=1/3 level=warn filter=kernel",
 			"command=log show --last 2m",
 			"note=recent unified system log entries",
 			"002 warn kernel: thermal pressure",
-			"shortcuts: e level · f search · F clear · P save · ] preset · r refresh",
+			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · r refresh",
 		]);
 	});
 
@@ -42,7 +48,7 @@ describe("log TUI panel formatting", () => {
 		expect(formatLogWorkspaceRows(undefined, 5, { query: "" })).toEqual([
 			"LOGS level=all search=-",
 			"No OS log snapshot yet. Run logs.read or refresh.",
-			"shortcuts: e level · f search · F clear · P save · ] preset · r refresh",
+			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · r refresh",
 		]);
 	});
 
@@ -55,5 +61,45 @@ describe("log TUI panel formatting", () => {
 		expect(nextLogSearchPreset(["kernel", "error"], "")).toBe("kernel");
 		expect(nextLogSearchPreset(["kernel", "error"], "kernel")).toBe("error");
 		expect(nextLogSearchPreset([], "kernel")).toBeUndefined();
+	});
+
+	test("saves and cycles combined log profiles", () => {
+		const profile = saveLogProfile([], { level: "warn", query: " kernel " });
+		expect(profile).toEqual([{ level: "warn", query: "kernel" }]);
+		expect(
+			saveLogProfile(
+				[
+					{ level: "fail", query: "error" },
+					{ level: "warn", query: "kernel" },
+				],
+				{ level: "fail", query: "error" },
+			),
+		).toEqual([
+			{ level: "fail", query: "error" },
+			{ level: "warn", query: "kernel" },
+		]);
+		expect(formatLogProfileLabel({ level: "all", query: "" })).toBe("all:-");
+		expect(formatLogProfileLabel({ level: "warn", query: "kernel" })).toBe(
+			"warn:kernel",
+		);
+		expect(
+			nextLogProfile(
+				[
+					{ level: "warn", query: "kernel" },
+					{ level: "fail", query: "error" },
+				],
+				{ level: "all", query: "" },
+			),
+		).toEqual({ level: "warn", query: "kernel" });
+		expect(
+			nextLogProfile(
+				[
+					{ level: "warn", query: "kernel" },
+					{ level: "fail", query: "error" },
+				],
+				{ level: "warn", query: "kernel" },
+			),
+		).toEqual({ level: "fail", query: "error" });
+		expect(nextLogProfile([], { level: "all", query: "" })).toBeUndefined();
 	});
 });

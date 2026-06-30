@@ -1108,6 +1108,19 @@ Goal: make noisy OS logs easier to triage from the keyboard.
 - Tests cover severity filtering, keyboard cycle order, CLI output, and TUI row formatting.
 - Next: live follow mode and pinned severity/search profiles.
 
+## v0.4.20 - Log Severity/Search Profiles
+
+Status: draft PR #82.
+
+Goal: make repeated log triage workflows one-keystroke recoverable.
+
+- Logs workspace can save the current severity/search pair as a pinned profile with `S`.
+- Logs workspace cycles saved profiles with `}` and restores both severity and search text.
+- Profile labels use compact `level:query` rows such as `warn:kernel` and `all:-`.
+- Logs rows show the first saved profiles in the workspace header.
+- Tests cover profile labels, de-duplication, cycling, and row formatting.
+- Next: live follow mode and persisted profile storage.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
