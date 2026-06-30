@@ -219,6 +219,7 @@ import {
 	type EndpointDetailView,
 	type EndpointHandoffKind,
 	formatConnectionsWorkspaceRows,
+	formatPortProcessControlConfirmationAuditMessage,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
@@ -228,6 +229,7 @@ import {
 	nextEndpointFilterPreset,
 	saveEndpointFilterPreset,
 	submitEndpointFilterCleanupConfirmation,
+	submitPortProcessControlConfirmation,
 	writeEndpointHandoffPlan,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
@@ -372,6 +374,7 @@ type CommandStatus = "idle" | "running";
 const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
 const endpointFilterCleanupPromptPrefix = "endpoint-filter-cleanup:";
+const portProcessControlPrompt = "port-process-control";
 
 function appendLogFollowHistory(
 	history: LogFollowHistoryItem[],
@@ -1244,6 +1247,27 @@ export function App(): React.ReactElement {
 		log,
 		portFilterPresets,
 	]);
+
+	const submitPortProcessControlCommand = useCallback(() => {
+		const preview = createSelectedPortProcessControlPreview(
+			sortedPorts,
+			selectedPortIndex,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		setPortProcessControlPreview(false);
+		if (!preview) {
+			log("warn", "port process control missing target");
+			return;
+		}
+		const confirmation = submitPortProcessControlConfirmation(
+			preview,
+			commandLine.value,
+		);
+		log(
+			confirmation.confirmed ? "warn" : "fail",
+			formatPortProcessControlConfirmationAuditMessage(confirmation),
+		);
+	}, [commandLine.value, log, selectedPortIndex, sortedPorts]);
 
 	const submitTimelineSearchCommand = useCallback(() => {
 		const query = commandLine.value.trim();
@@ -2673,6 +2697,9 @@ export function App(): React.ReactElement {
 				if (commandLine.prompt === "file-open") {
 					setFileOpenPlan(undefined);
 				}
+				if (commandLine.prompt === portProcessControlPrompt) {
+					setPortProcessControlPreview(false);
+				}
 				if (commandLine.prompt === "cleanup-export-archive") {
 					setCleanupExportArchivePlan(undefined);
 				}
@@ -2727,11 +2754,14 @@ export function App(): React.ReactElement {
 																								: commandLine.prompt ===
 																										"tool-target-cleanup"
 																									? "tool target cleanup cancelled"
-																									: commandLine.prompt.startsWith(
-																												toolPromptPrefix,
-																											)
-																										? "tool target command cancelled"
-																										: "path command cancelled",
+																									: commandLine.prompt ===
+																											portProcessControlPrompt
+																										? "port process control cancelled"
+																										: commandLine.prompt.startsWith(
+																													toolPromptPrefix,
+																												)
+																											? "tool target command cancelled"
+																											: "path command cancelled",
 				);
 				return;
 			}
@@ -2773,6 +2803,8 @@ export function App(): React.ReactElement {
 					submitLogsCleanupCommand();
 				} else if (commandLine.prompt === "control-confirm") {
 					submitControlConfirmationCommand();
+				} else if (commandLine.prompt === portProcessControlPrompt) {
+					submitPortProcessControlCommand();
 				} else if (commandLine.prompt === "external-open") {
 					void submitExternalOpenCommand();
 				} else if (commandLine.prompt === "file-open") {
@@ -3400,6 +3432,7 @@ export function App(): React.ReactElement {
 			}
 			setPortProcessControlPreview(true);
 			setPortCopyPreview(false);
+			setCommandLine(openCommandLine(portProcessControlPrompt));
 			log(
 				"warn",
 				`ports process control confirm ${preview.confirmationPhrase}`,
@@ -6499,9 +6532,19 @@ function PortsWorkspace({
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const processControlPromptRows = formatPortProcessControlPromptRows(
+		commandLine,
+		result,
+		{
+			filter,
+			selectedIndex,
+			sort,
+		},
+	);
 	const promptRows = [
 		...formatClipboardPromptRows(commandLine),
 		...formatEndpointFilterPromptRows(commandLine, "ports", filterPresets),
+		...processControlPromptRows,
 	];
 	const rows = result
 		? [
@@ -6511,7 +6554,8 @@ function PortsWorkspace({
 					{
 						copyPreview,
 						filter,
-						processControlPreview,
+						processControlPreview:
+							processControlPreview && processControlPromptRows.length === 0,
 						processes,
 						presets: filterPresets,
 						selectedIndex,
@@ -6683,6 +6727,7 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 		row.startsWith("CLIPBOARD PREVIEW") ||
 		row.startsWith("action=process.terminate") ||
 		row.startsWith(":filter-cleanup") ||
+		row.startsWith(":port-control") ||
 		row.startsWith("confirm ")
 	) {
 		return "yellow";
@@ -6718,6 +6763,39 @@ function formatEndpointFilterPromptRows(
 		];
 	}
 	return [];
+}
+
+function formatPortProcessControlPromptRows(
+	commandLine: CommandLineState,
+	result: PortsResult | undefined,
+	options: {
+		filter: string;
+		selectedIndex: number;
+		sort: PortSort;
+	},
+): string[] {
+	if (
+		!commandLine.active ||
+		commandLine.prompt !== portProcessControlPrompt ||
+		!result
+	) {
+		return [];
+	}
+	const ports = sortListeningPorts(
+		filterListeningPorts(result.ports, options.filter),
+		options.sort,
+	);
+	const preview = createSelectedPortProcessControlPreview(
+		ports,
+		options.selectedIndex,
+	);
+	if (!preview) {
+		return [];
+	}
+	return [
+		...preview.rows,
+		`:port-control ${commandLine.value || " "}  type="${preview.confirmationPhrase}" enter=audit esc=cancel`,
+	];
 }
 
 function ToolsWorkspace({

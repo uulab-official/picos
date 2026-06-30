@@ -1948,6 +1948,19 @@ Goal: close the first lazyifconfig process-control gap while preserving picos' l
 - Tests cover action metadata, adapter command ownership, selected-port preview rows, and Ports detail rendering.
 - Next: add an exact typed confirmation prompt for port process control that records audit events while still refusing execution by default.
 
+## v0.4.83 - Ports Process Control Confirmation
+
+Status: draft PR #145 on `codex/picos-v0.4.83-ports-process-control-confirmation`.
+
+Goal: make locked Ports process-control previews auditable through exact typed confirmation while still refusing execution by default.
+
+- Ports `K` now opens a `:port-control` prompt for the selected listening PID.
+- The prompt repeats the destructive action id, target port, PID, process, user, exact `kill pid <pid>` phrase, and dry-run lock row.
+- Exact confirmations record a `confirmed-disabled` audit event in the console timeline.
+- Rejected confirmations record a rejected audit event without changing OS state.
+- Tests cover accepted and rejected confirmation metadata plus audit message formatting.
+- Next: wire the disabled confirmation into the shared control execution policy rows so port control shares the same blockers as Action Center previews.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

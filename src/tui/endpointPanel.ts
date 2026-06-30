@@ -76,6 +76,18 @@ export type PortProcessControlPreview = {
 	rows: string[];
 };
 
+export type PortProcessControlConfirmation = {
+	actionId: "process.terminate";
+	status: "confirmed-disabled" | "rejected";
+	expectedPhrase: string;
+	receivedPhrase: string;
+	confirmed: boolean;
+	executionEnabled: false;
+	risk: "destructive";
+	privilege: "user";
+	port: ListeningPort;
+};
+
 export function nextEndpointDetailView(
 	view: EndpointDetailView,
 ): EndpointDetailView {
@@ -224,6 +236,42 @@ export function createSelectedPortProcessControlPreview(
 			"dryRun no process signal will be sent",
 		],
 	};
+}
+
+export function submitPortProcessControlConfirmation(
+	preview: PortProcessControlPreview,
+	confirmation: string,
+): PortProcessControlConfirmation {
+	const expectedPhrase = preview.confirmationPhrase;
+	const receivedPhrase = confirmation.trim();
+	const confirmed = receivedPhrase === expectedPhrase;
+	return {
+		actionId: preview.actionId,
+		status: confirmed ? "confirmed-disabled" : "rejected",
+		expectedPhrase,
+		receivedPhrase,
+		confirmed,
+		executionEnabled: false,
+		risk: preview.risk,
+		privilege: preview.privilege,
+		port: preview.port,
+	};
+}
+
+export function formatPortProcessControlConfirmationAuditMessage(
+	confirmation: PortProcessControlConfirmation,
+): string {
+	return [
+		`port process control ${confirmation.actionId}`,
+		`status=${confirmation.status}`,
+		`risk=${confirmation.risk}`,
+		`privilege=${confirmation.privilege}`,
+		`executionEnabled=${confirmation.executionEnabled}`,
+		`port=${confirmation.port.localAddress}:${confirmation.port.localPort}`,
+		`pid=${confirmation.port.pid}`,
+		`process=${confirmation.port.command}`,
+		`user=${confirmation.port.user}`,
+	].join(" ");
 }
 
 export function getSelectedConnectionClipboardPreview(

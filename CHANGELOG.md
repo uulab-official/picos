@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Ports `K` process-control previews now open an exact `:port-control` confirmation prompt and record accepted/rejected audit events while execution remains disabled.
 - Ports workspace now exposes a lazyifconfig-inspired locked process termination preview for the selected listening port with `K`, including PID, process, user, exact confirmation text, and dry-run lock rows.
 - Tools clipboard confirmations now clip long copy payload previews by line count and terminal width while preserving the full text for confirmed clipboard writes.
 - Tools clipboard confirmations now echo copy-path details such as raw, summary, TCP section, or TCP row before the final `copy` confirmation.
