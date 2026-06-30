@@ -1273,6 +1273,20 @@ Goal: let route handoff files move from terminal evidence into the operator's ex
 - Tests cover path scoping, preview rows, locked execution, and confirmed opener execution.
 - Next: route preset profiles, then the same handoff/open flow for ports and connections raw evidence.
 
+## v0.4.32 - Endpoint Evidence Handoffs
+
+Status: draft PR #94.
+
+Goal: make Connections and Ports evidence as portable as Routes evidence for developer incident triage.
+
+- Connections and Ports now create timestamped Markdown handoff files under `endpoints/*.md`.
+- The active endpoint detail view controls the payload: raw OS output or formatted picos summary evidence.
+- Endpoint handoff files can be opened through the same locked Status file-open preview used by route handoffs.
+- `fileOpen` now allows both route and endpoint handoff directories while still blocking files outside the picos config tree.
+- Connections and Ports expose `e` for export and `o` for export-plus-open-confirmation.
+- Tests cover connection and port handoff content, stable file naming, writes, endpoint file-open scoping, and existing endpoint panel behavior.
+- Next: persistent endpoint filter presets and route/endpoint handoff index browsing.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

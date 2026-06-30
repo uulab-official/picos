@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
+	createEndpointHandoffPlan,
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
@@ -9,6 +13,7 @@ import {
 	nextEndpointDetailView,
 	nextEndpointFilterPreset,
 	saveEndpointFilterPreset,
+	writeEndpointHandoffPlan,
 } from "../src/tui/endpointPanel";
 
 describe("endpoint TUI panel formatting", () => {
@@ -550,5 +555,113 @@ describe("endpoint TUI panel formatting", () => {
 				0,
 			),
 		).toBeUndefined();
+	});
+
+	test("creates endpoint handoff plans for connection and port evidence", () => {
+		expect(
+			createEndpointHandoffPlan("connections", {
+				baseDir: "/tmp/picos",
+				filter: "443",
+				generatedAt: new Date("2026-06-30T12:00:00.000Z"),
+				result: {
+					command: "netstat",
+					args: ["-anv"],
+					connections: [
+						{
+							protocol: "tcp4",
+							localAddress: "192.168.0.20",
+							localPort: "61000",
+							remoteAddress: "142.250.207.14",
+							remotePort: "443",
+							state: "ESTABLISHED",
+							pid: "4242",
+						},
+					],
+					rawOutput: "$ netstat -anv\nraw connection line",
+				},
+				sort: { key: "remotePort", direction: "asc" },
+				view: "raw",
+			}),
+		).toEqual({
+			path: "/tmp/picos/endpoints/picos-connections-raw-2026-06-30T120000000Z.md",
+			label: "connections raw output",
+			kind: "connections",
+			view: "raw",
+			content:
+				"# picos endpoint handoff\n" +
+				"generatedAt=2026-06-30T12:00:00.000Z\n" +
+				"kind=connections\n" +
+				"view=raw\n" +
+				"label=connections raw output\n" +
+				"command=netstat -anv\n" +
+				"filter=443\n" +
+				"sort=remotePort asc\n" +
+				"\n" +
+				"```txt\n" +
+				"$ netstat -anv\n" +
+				"raw connection line\n" +
+				"```\n",
+		});
+
+		expect(
+			createEndpointHandoffPlan("ports", {
+				baseDir: "/tmp/picos",
+				generatedAt: new Date("2026-06-30T12:00:00.000Z"),
+				result: {
+					command: "lsof",
+					args: ["-nP"],
+					ports: [
+						{
+							protocol: "tcp",
+							localAddress: "*",
+							localPort: "3000",
+							pid: "12345",
+							command: "node",
+							user: "alice",
+						},
+					],
+					rawOutput: "$ lsof\nnode raw line",
+				},
+				view: "detail",
+			})?.content,
+		).toContain("picos ports");
+	});
+
+	test("writes endpoint handoff files", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-endpoint-handoff-"));
+		try {
+			const plan = createEndpointHandoffPlan("ports", {
+				baseDir: root,
+				generatedAt: new Date("2026-06-30T12:00:00.000Z"),
+				result: {
+					command: "lsof",
+					args: ["-nP"],
+					ports: [
+						{
+							protocol: "tcp",
+							localAddress: "*",
+							localPort: "3000",
+							pid: "12345",
+							command: "node",
+							user: "alice",
+						},
+					],
+					rawOutput: "$ lsof\nnode raw line",
+				},
+				view: "raw",
+			});
+			if (!plan) {
+				throw new Error("expected endpoint handoff plan");
+			}
+
+			const written = await writeEndpointHandoffPlan(plan);
+
+			expect(written.path).toBe(
+				join(root, "endpoints", "picos-ports-raw-2026-06-30T120000000Z.md"),
+			);
+			expect(await readFile(written.path, "utf8")).toBe(plan.content);
+		} finally {
+			await rm(root, { force: true, recursive: true });
+		}
 	});
 });

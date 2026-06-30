@@ -162,6 +162,7 @@ import {
 	openCommandLine,
 } from "./commandLine";
 import {
+	createEndpointHandoffPlan,
 	type EndpointDetailView,
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
@@ -172,6 +173,7 @@ import {
 	nextEndpointDetailView,
 	nextEndpointFilterPreset,
 	saveEndpointFilterPreset,
+	writeEndpointHandoffPlan,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
@@ -1168,6 +1170,113 @@ export function App(): React.ReactElement {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
 	}, [log, routeDetailView, routeFilter, routePath, routeSort, routeTable]);
+
+	const exportEndpointHandoff = useCallback(
+		async (kind: "connections" | "ports") => {
+			const plan =
+				kind === "connections"
+					? connectionsResult
+						? createEndpointHandoffPlan("connections", {
+								baseDir: dirname(getConfigPath()),
+								filter: connectionFilter,
+								result: connectionsResult,
+								sort: connectionSort,
+								view: connectionDetailView,
+							})
+						: undefined
+					: portsResult
+						? createEndpointHandoffPlan("ports", {
+								baseDir: dirname(getConfigPath()),
+								filter: portFilter,
+								result: portsResult,
+								sort: portSort,
+								view: portDetailView,
+							})
+						: undefined;
+			if (!plan) {
+				log("warn", `no ${kind} snapshot loaded`);
+				return;
+			}
+
+			try {
+				const written = await writeEndpointHandoffPlan(plan);
+				setScreen(kind);
+				log("ok", `${kind} exported ${written.view} ${written.path}`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[
+			connectionDetailView,
+			connectionFilter,
+			connectionSort,
+			connectionsResult,
+			log,
+			portDetailView,
+			portFilter,
+			portSort,
+			portsResult,
+		],
+	);
+
+	const openEndpointHandoff = useCallback(
+		async (kind: "connections" | "ports") => {
+			const baseDir = dirname(getConfigPath());
+			const handoff =
+				kind === "connections"
+					? connectionsResult
+						? createEndpointHandoffPlan("connections", {
+								baseDir,
+								filter: connectionFilter,
+								result: connectionsResult,
+								sort: connectionSort,
+								view: connectionDetailView,
+							})
+						: undefined
+					: portsResult
+						? createEndpointHandoffPlan("ports", {
+								baseDir,
+								filter: portFilter,
+								result: portsResult,
+								sort: portSort,
+								view: portDetailView,
+							})
+						: undefined;
+			if (!handoff) {
+				log("warn", `no ${kind} snapshot loaded`);
+				return;
+			}
+
+			try {
+				const written = await writeEndpointHandoffPlan(handoff);
+				const plan = buildFileOpenPlan({
+					baseDir,
+					source: "endpoint-handoff",
+					label: written.label,
+					path: written.path,
+					platform: currentPlatform(),
+				});
+				setFileOpenPlan(plan);
+				setExternalOpenPlan(undefined);
+				setCommandLine(openCommandLine("file-open"));
+				setScreen("status");
+				log("info", `file open confirmation opened for ${written.label}`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[
+			connectionDetailView,
+			connectionFilter,
+			connectionSort,
+			connectionsResult,
+			log,
+			portDetailView,
+			portFilter,
+			portSort,
+			portsResult,
+		],
+	);
 
 	const selectRemoteProfile = useCallback(async () => {
 		const profile = remoteProfiles[selectedRemoteIndex];
@@ -2243,6 +2352,34 @@ export function App(): React.ReactElement {
 			}
 			setPortCopyPreview(true);
 			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "e"
+		) {
+			void exportEndpointHandoff("connections");
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "e") {
+			void exportEndpointHandoff("ports");
+			return;
+		}
+
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "o"
+		) {
+			void openEndpointHandoff("connections");
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "o") {
+			void openEndpointHandoff("ports");
 			return;
 		}
 
@@ -4535,7 +4672,7 @@ function ConnectionsWorkspace({
 }): React.ReactElement {
 	const promptRows = [
 		...formatClipboardPromptRows(commandLine),
-		...formatEndpointFilterPromptRows(commandLine, "ports"),
+		...formatEndpointFilterPromptRows(commandLine, "connections"),
 	];
 	const rows = result
 		? [
@@ -4566,8 +4703,8 @@ function ConnectionsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
-				active endpoints · f filter · P save · ] preset · tab detail · j/k
-				select
+				active endpoints · f filter · P save · ] preset · e export · o open ·
+				tab detail · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -4642,7 +4779,8 @@ function PortsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
-				listening ports · f filter · P save · ] preset · tab detail · j/k select
+				listening ports · f filter · P save · ] preset · e export · o open · tab
+				detail · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
