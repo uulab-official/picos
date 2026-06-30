@@ -153,6 +153,8 @@ Every future write/destructive action must define:
 - adapter-owned OS commands
 - tests for default locked behavior
 
+Clipboard writes follow the same rule: platform adapters exist for `pbcopy`, `xclip`, and `clip.exe`, but write execution stays behind preview, exact confirmation, and audit logging.
+
 All OS command execution must go through `src/utils/safeExec.ts`; OS-specific commands belong in `src/adapters`.
 
 ## Network Console Roadmap

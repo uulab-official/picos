@@ -1,5 +1,13 @@
 import type { NetworkInterfaceStatsMap, PingCommand } from "../core/types";
 
+export function clipboardWriteCommand(): {
+	command: string;
+	args: string[];
+	stdin: true;
+} {
+	return { command: "clip.exe", args: [], stdin: true };
+}
+
 export function gatewayCommand(): { command: string; args: string[] } {
 	return {
 		command: "powershell",
