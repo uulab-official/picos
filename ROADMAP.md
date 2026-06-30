@@ -1287,6 +1287,20 @@ Goal: make Connections and Ports evidence as portable as Routes evidence for dev
 - Tests cover connection and port handoff content, stable file naming, writes, endpoint file-open scoping, and existing endpoint panel behavior.
 - Next: persistent endpoint filter presets and route/endpoint handoff index browsing.
 
+## v0.4.33 - Persistent Endpoint Filter Presets
+
+Status: draft PR #95.
+
+Goal: make repeated endpoint triage filters survive TUI restarts like route and log operator preferences.
+
+- Config schema now includes `connectionFilterPresets` and `portFilterPresets` as normalized string arrays.
+- Config loading trims endpoint presets, drops blanks, de-duplicates entries, and keeps the first six filters.
+- TUI boot loads endpoint filter presets alongside route/log presets and other operator preferences.
+- Pressing `P` in Connections or Ports persists the current filter to config as well as the live TUI session.
+- Endpoint preset arrays cannot be written through generic `picos config set`; they are managed by the endpoint workspaces.
+- Tests cover config defaults, endpoint preset normalization, config-store persistence, and existing endpoint preset rendering.
+- Next: route/endpoint handoff index browsing and persistent endpoint sort preferences.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
