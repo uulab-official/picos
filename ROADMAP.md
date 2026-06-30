@@ -1420,6 +1420,19 @@ Goal: make saved Tools Hub targets reusable across diagnostic modes without edit
 - Tests cover action trimming, invalid action no-op behavior, non-saved target no-op behavior, and existing Tools Hub rendering.
 - Next: retention policies for saved target presets and richer preset ordering.
 
+## v0.4.43 - Tools Target Preset Ordering
+
+Status: draft PR #105.
+
+Goal: make repeated Tools Hub diagnostics behave more like an operator favorites shelf.
+
+- Tools workspace now supports `U` to pin the selected saved target preset to the top.
+- Pinned order persists through `toolTargetPresets` config and restores before OS-aware generated presets on TUI boot.
+- Pin matching uses action and target so renamed, retargeted, or normalized config entries remain movable.
+- OS-aware presets remain generated from the machine state and cannot be pinned into config.
+- Tests cover saved target promotion, already-top no-op behavior, non-saved target no-op behavior, and existing Tools Hub rendering.
+- Next: target preset previous/next navigation and retention policy controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

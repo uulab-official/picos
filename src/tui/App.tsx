@@ -291,6 +291,7 @@ import {
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
 	nextToolHistorySort,
+	promoteToolTargetPreset,
 	reassignToolTargetPresetAction,
 	removeToolTargetPreset,
 	renameToolTargetPreset,
@@ -3232,6 +3233,46 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "U") {
+			const preset =
+				toolTargetPresets[
+					Math.min(
+						Math.max(selectedToolTargetPresetIndex, 0),
+						toolTargetPresets.length - 1,
+					)
+				];
+			if (!preset) {
+				log("warn", "no tool target preset selected");
+				return;
+			}
+			const next = promoteToolTargetPreset(customToolTargetPresets, preset);
+			const changed = next.some(
+				(current, index) =>
+					`${current.actionId}:${current.target}` !==
+					`${customToolTargetPresets[index]?.actionId}:${customToolTargetPresets[index]?.target}`,
+			);
+			if (!changed) {
+				log(
+					"warn",
+					`tool target ${preset.label} is not a movable saved preset`,
+				);
+				return;
+			}
+			setCustomToolTargetPresets(next);
+			setSelectedToolTargetPresetIndex(0);
+			void setConfigToolTargetPresets(next).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target pin failed ${caught.message}`
+						: `tool target pin failed ${String(caught)}`,
+				),
+			);
+			log("info", `tool target pinned ${preset.label} ${preset.target}`);
+			setToolCopyPreview(false);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "X") {
 			const preset =
 				toolTargetPresets[
@@ -5587,8 +5628,8 @@ function ToolsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub · n target · T save · L label · M target · A action · X delete
-				· R run · tab detail · f filter · P save filter
+				Tools Hub · n target · T save · U pin · L label · M target · A action ·
+				X delete · R run · tab detail · f filter · P save filter
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]
