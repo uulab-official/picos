@@ -15,6 +15,12 @@ type ConfigWorkspaceItemKind = "number" | "choice" | "text" | "boolean";
 
 type ConfigWorkspaceValue = number | string | boolean;
 
+export type ConfigWorkspaceSectionId =
+	| "display"
+	| "safety"
+	| "retention"
+	| "connectivity";
+
 export type ConfigPolicyPresetId =
 	| "safe-readonly"
 	| "user-dry-run"
@@ -107,12 +113,24 @@ export type ConfigWorkspaceItem = {
 	label: string;
 	value: ConfigWorkspaceValue;
 	kind: ConfigWorkspaceItemKind;
+	section: ConfigWorkspaceSectionId;
 	min?: number;
 	max?: number;
 	step?: number;
 	options?: string[];
 	hint: string;
 };
+
+const configSections: Array<{
+	id: ConfigWorkspaceSectionId;
+	label: string;
+	shortcut: number;
+}> = [
+	{ id: "display", label: "DISPLAY", shortcut: 1 },
+	{ id: "safety", label: "SAFETY", shortcut: 2 },
+	{ id: "retention", label: "RETENTION", shortcut: 3 },
+	{ id: "connectivity", label: "CONNECTIVITY", shortcut: 4 },
+];
 
 export function createConfigWorkspaceItems(
 	config: Pick<
@@ -132,6 +150,7 @@ export function createConfigWorkspaceItems(
 			label: "Audit archive retention",
 			value: config.auditArchiveRetentionLimit,
 			kind: "number",
+			section: "retention",
 			min: 1,
 			max: 60,
 			step: 1,
@@ -142,6 +161,7 @@ export function createConfigWorkspaceItems(
 			label: "Tools target retention",
 			value: config.toolTargetPresetLimit,
 			kind: "number",
+			section: "retention",
 			min: 1,
 			max: 24,
 			step: 1,
@@ -152,6 +172,7 @@ export function createConfigWorkspaceItems(
 			label: "Language",
 			value: config.language,
 			kind: "choice",
+			section: "display",
 			options: ["en", "ko", "ja", "zh"],
 			hint: "interface language",
 		},
@@ -160,6 +181,7 @@ export function createConfigWorkspaceItems(
 			label: "Refresh interval",
 			value: config.refreshInterval,
 			kind: "number",
+			section: "display",
 			min: 1000,
 			max: 60000,
 			step: 1000,
@@ -170,6 +192,7 @@ export function createConfigWorkspaceItems(
 			label: "Default ping host",
 			value: config.defaultPingHost,
 			kind: "text",
+			section: "connectivity",
 			hint: "default host for picos ping",
 		},
 		{
@@ -177,6 +200,7 @@ export function createConfigWorkspaceItems(
 			label: "Execution mode",
 			value: config.controlExecutionMode,
 			kind: "choice",
+			section: "safety",
 			options: ["disabled", "dry-run"],
 			hint: "OS mutation execution mode",
 		},
@@ -185,6 +209,7 @@ export function createConfigWorkspaceItems(
 			label: "Admin dry-run",
 			value: config.allowAdminDryRun,
 			kind: "boolean",
+			section: "safety",
 			hint: "allow admin-class dry-run previews",
 		},
 	];
@@ -276,6 +301,14 @@ export function getConfigWorkspaceItem(
 	return items[Math.min(Math.max(selectedIndex, 0), items.length - 1)];
 }
 
+export function getConfigWorkspaceSectionJumpIndex(
+	items: ConfigWorkspaceItem[],
+	section: string,
+): number | undefined {
+	const index = items.findIndex((item) => item.section === section);
+	return index >= 0 ? index : undefined;
+}
+
 export function adjustConfigWorkspaceItem(
 	item: ConfigWorkspaceItem,
 	direction: "increase" | "decrease",
@@ -324,12 +357,10 @@ export function formatConfigWorkspaceRows(
 	visibleRows: number,
 ): string[] {
 	const selected = getConfigWorkspaceItem(items, selectedIndex);
-	const bodyRows = items.map((item, index) => {
-		const marker = index === selectedIndex ? ">" : " ";
-		return `${marker} ${item.key.padEnd(27)} ${String(item.value).padEnd(4)} ${item.hint}`;
-	});
+	const bodyRows = createConfigWorkspaceBodyRows(items, selectedIndex);
 	const rows = [
 		"CONFIG WORKSPACE",
+		formatConfigSectionShortcutRow(),
 		"j/k select  +/- save  enter edit/show  P policy  R reset",
 		...bodyRows,
 		selected
@@ -337,10 +368,44 @@ export function formatConfigWorkspaceRows(
 				? `selected=${selected.key} range=${selected.min}..${selected.max}`
 				: selected.kind === "text"
 					? `selected=${selected.key} enter=edit`
-					: `selected=${selected.key} values=${selected.options?.join("|") ?? "true|false"}`
+					: `selected=${selected.key} values=${selected.options?.join("|") ?? "true|false"} section=${selected.section}`
 			: "selected=-",
 	];
 	return rows.slice(0, Math.max(0, visibleRows));
+}
+
+function createConfigWorkspaceBodyRows(
+	items: ConfigWorkspaceItem[],
+	selectedIndex: number,
+): string[] {
+	const rows: string[] = [];
+	let previousSection: ConfigWorkspaceSectionId | undefined;
+	for (const [index, item] of items.entries()) {
+		if (item.section !== previousSection) {
+			rows.push(formatConfigSectionHeader(item.section));
+			previousSection = item.section;
+		}
+		const marker = index === selectedIndex ? ">" : " ";
+		rows.push(
+			`${marker} ${item.key.padEnd(27)} ${String(item.value).padEnd(8)} ${item.hint}`,
+		);
+	}
+	return rows;
+}
+
+function formatConfigSectionShortcutRow(): string {
+	return configSections
+		.map((section) => `${section.shortcut} ${section.id}`)
+		.join("  ");
+}
+
+function formatConfigSectionHeader(
+	sectionId: ConfigWorkspaceSectionId,
+): string {
+	const section = configSections.find(
+		(candidate) => candidate.id === sectionId,
+	);
+	return `[${section?.shortcut ?? "?"}] ${section?.label ?? sectionId.toUpperCase()}`;
 }
 
 function matchesConfigPolicyPreset(
