@@ -157,6 +157,11 @@ import { VERSION } from "../core/version";
 import { createTranslator } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
 import {
+	type CleanupShelfIndex,
+	createCleanupShelfIndex,
+	formatCleanupShelfIndexRows,
+} from "./cleanupIndex";
+import {
 	appendClipboardConfirmationInput,
 	backspaceClipboardConfirmationInput,
 	type ClipboardConfirmationState,
@@ -545,6 +550,29 @@ export function App(): React.ReactElement {
 		() =>
 			getToolTargetPresets(summary, defaultPingHost, customToolTargetPresets),
 		[customToolTargetPresets, defaultPingHost, summary],
+	);
+	const cleanupShelfIndex = useMemo(
+		() =>
+			createCleanupShelfIndex({
+				connectionFilterPresets,
+				customToolTargetPresets,
+				logProfiles,
+				logSearchPresets,
+				portFilterPresets,
+				routeFilterPresets,
+				timelineSearchPresets,
+				toolHistoryFilterPresets,
+			}),
+		[
+			connectionFilterPresets,
+			customToolTargetPresets,
+			logProfiles,
+			logSearchPresets,
+			portFilterPresets,
+			routeFilterPresets,
+			timelineSearchPresets,
+			toolHistoryFilterPresets,
+		],
 	);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
@@ -4064,6 +4092,7 @@ export function App(): React.ReactElement {
 					toolHistoryGroup={toolHistoryGroup}
 					toolHistoryDetailView={toolHistoryDetailView}
 					toolCopyPreview={toolCopyPreview}
+					cleanupShelfIndex={cleanupShelfIndex}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
 					selectedHandoffIndex={selectedHandoffIndex}
@@ -4252,6 +4281,7 @@ function MainWorkspace({
 	toolHistoryGroup,
 	toolHistoryDetailView,
 	toolCopyPreview,
+	cleanupShelfIndex,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
 	selectedHandoffIndex,
@@ -4342,6 +4372,7 @@ function MainWorkspace({
 	toolHistoryGroup: ToolHistoryGroup;
 	toolHistoryDetailView: ToolHistoryDetailView;
 	toolCopyPreview: ToolCopyPreviewMode;
+	cleanupShelfIndex: CleanupShelfIndex;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
 	selectedHandoffIndex: number;
@@ -4441,6 +4472,7 @@ function MainWorkspace({
 					toolHistoryGroup,
 					toolHistoryDetailView,
 					toolCopyPreview,
+					cleanupShelfIndex,
 					selectedUpdateHandoffIndex,
 					handoffIndex,
 					selectedHandoffIndex,
@@ -4535,6 +4567,7 @@ function renderWorkspace(
 	toolHistoryGroup: ToolHistoryGroup,
 	toolHistoryDetailView: ToolHistoryDetailView,
 	toolCopyPreview: ToolCopyPreviewMode,
+	cleanupShelfIndex: CleanupShelfIndex,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
 	selectedHandoffIndex: number,
@@ -4759,6 +4792,7 @@ function renderWorkspace(
 				selectedHandoffIndex={selectedHandoffIndex}
 				externalOpenPlan={externalOpenPlan}
 				fileOpenPlan={fileOpenPlan}
+				cleanupShelfIndex={cleanupShelfIndex}
 				commandLine={commandLine}
 				t={t}
 			/>
@@ -6533,6 +6567,7 @@ function StatusWorkspace({
 	selectedHandoffIndex,
 	externalOpenPlan,
 	fileOpenPlan,
+	cleanupShelfIndex,
 	commandLine,
 	t,
 }: {
@@ -6543,6 +6578,7 @@ function StatusWorkspace({
 	selectedHandoffIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
+	cleanupShelfIndex: CleanupShelfIndex;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -6693,6 +6729,25 @@ function StatusWorkspace({
 					))}
 				</Box>
 			) : null}
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">
+					CLEANUP INDEX · jump to workspace then type shown phrase
+				</Text>
+				{formatCleanupShelfIndexRows(cleanupShelfIndex, 8).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("CLEANUP INDEX")
+								? "cyan"
+								: row.includes("count=0") || row.startsWith("no ")
+									? "gray"
+									: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					HANDOFF INDEX · H refresh · ] select · O open · A archive

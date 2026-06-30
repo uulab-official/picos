@@ -1540,6 +1540,18 @@ Goal: finish the filter-preset cleanup sweep across the remaining event/history 
 - Tests cover Timeline search cleanup preview/confirmation and Tools history filter cleanup preview/confirmation.
 - Next: add a compact cleanup index/status row so operators can see all cleanable shelves at a glance.
 
+## v0.4.52 - Cleanup Shelf Status Index
+
+Status: draft PR #114.
+
+Goal: make saved preset cleanup discoverable from one OS-console status surface.
+
+- Status workspace now renders a compact cleanup index for Logs, Routes, Connections, Ports, Timeline, Tools history, and saved Tools targets.
+- Cleanup index shows active shelf count, total saved items, workspace shortcut, exact confirmation phrase, and per-shelf details.
+- Empty indexes still explain that there are no saved preset shelves to clean.
+- Tests cover non-empty and empty cleanup index rows.
+- Next: add keyboard handoff from Status cleanup index rows into the owning workspace.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
