@@ -690,8 +690,13 @@ function formatPortProcessControlFileEvidenceRows(
 	preview: PortProcessControlPreview,
 	files: ProcessFileSnapshot | undefined,
 ): string[] {
-	if (!files || String(files.pid) !== preview.port.pid) {
+	if (!files) {
 		return [];
+	}
+	if (String(files.pid) !== preview.port.pid) {
+		return [
+			`fileEvidence status=stale selectedPid=${preview.port.pid} cachedPid=${files.pid}`,
+		];
 	}
 	const resourceCount =
 		(files.cwd ? 1 : 0) +
