@@ -1559,6 +1559,60 @@ describe("TUI tool history", () => {
 		).toContain("  OPEN");
 	});
 
+	test("formats a compact TCP copy target preview before the shortcut footer", () => {
+		const tcpResult = {
+			title: "Telnet TCP Check",
+			sections: [
+				{
+					label: "Target",
+					lines: [
+						"Host: example.com",
+						"Port: 443",
+						"Command: picos tools telnet example.com 443",
+						"Timeout: 2000ms",
+					],
+				},
+				{ label: "Status", lines: ["OPEN", "Elapsed: 42ms"] },
+			],
+			rawOutput:
+				"$ picos tools telnet example.com 443\n[Target]\nHost: example.com\nPort: 443\nCommand: picos tools telnet example.com 443\nTimeout: 2000ms\n[Status]\nOPEN\nElapsed: 42ms",
+		};
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "telnet",
+					args: ["example.com", "443"],
+					label: "network.connect example.com:443",
+				},
+				result: tcpResult,
+			},
+			"12:00:00",
+		);
+		const rows = formatToolsWorkspaceRows(
+			history,
+			20,
+			0,
+			"",
+			"time",
+			"none",
+			[],
+			"raw",
+			[],
+			0,
+			"status",
+			1,
+		);
+
+		expect(rows.at(-2)).toBe(
+			"copy target: section=status rows=2 row=2 text=Elapsed: 42ms",
+		);
+		expect(rows.at(-1)).toBe(
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
+		);
+	});
+
 	test("creates scoped export plans for selected tool history", () => {
 		const history = appendToolHistory(
 			appendToolHistory(

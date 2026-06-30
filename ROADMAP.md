@@ -1830,6 +1830,19 @@ Goal: make row-level TCP copy selection visible directly where operators read th
 - Tests cover the selected row marker and non-selected row indentation.
 - Next: show a compact copy-target preview row near the Tools detail footer before opening the clipboard confirmation.
 
+## v0.4.74 - TCP Copy Target Preview Row
+
+Status: draft PR #136 on `codex/picos-v0.4.74-tcp-copy-target-preview`.
+
+Goal: show exactly what TCP data will be copied before the operator opens the clipboard confirmation prompt.
+
+- Tools workspace now adds a compact `copy target:` row before the shortcut footer when the selected run has rows for the active TCP section.
+- The preview shows active section, section row count, selected row number, and selected row text.
+- The preview is omitted for non-TCP runs or TCP sections without rows.
+- Existing `b` row copy, `v` section copy, and `c` raw copy behaviors remain unchanged.
+- Tests cover the preview row position and text beside the shortcut footer.
+- Next: add a compact section preview summary for whole-section `v` copies.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

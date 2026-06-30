@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Tools workspace now shows a compact `copy target` row for the active TCP section/row before opening clipboard confirmation.
 - Tools raw detail rows now mark the selected TCP Target/Status row inline with `>` while using the row copy cursor.
 - Tools history now supports TCP section row cursors with `,`/`.` and locked single-row copy previews with `b`.
 - Tools history now lets operators toggle TCP field-copy between Target and Status sections with `V` before opening the locked copy preview with `v`.
