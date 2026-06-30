@@ -2038,6 +2038,18 @@ Goal: make process file evidence lookup gaps visible in Ports instead of only wr
 - Tests cover unavailable and error rows in selected-port Inspector formatting.
 - Next: carry file evidence issue rows into Timeline audit events so lookup failures remain searchable after leaving Ports.
 
+## v0.4.90 - Port Evidence Audit Timeline
+
+Status: draft PR #152 on `codex/picos-v0.4.90-port-evidence-audit-timeline`.
+
+Goal: make Ports file evidence lookup gaps searchable after operators leave the Ports workspace.
+
+- Timeline audit filtering now treats `ports file evidence unavailable`, `error`, and `failed` records as audit events.
+- Ports unavailable evidence logs now include `pid=... reason=no snapshot returned` so Timeline search has stable fields.
+- Existing failed evidence logs remain audit-classified while loaded evidence stays outside the audit count.
+- Tests cover unavailable file evidence records in the Timeline audit filter.
+- Next: add a compact Timeline detail copy/export helper for selected audit rows.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

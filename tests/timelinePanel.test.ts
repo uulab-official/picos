@@ -152,6 +152,25 @@ describe("timeline TUI panel formatting", () => {
 		]);
 	});
 
+	test("classifies ports file evidence unavailable records as audit", () => {
+		const evidenceEvents: ConsoleEvent[] = [
+			{
+				id: "12:00:11-warn-port-evidence",
+				level: "warn",
+				time: "12:00:11",
+				message:
+					"ports file evidence unavailable pid=777 reason=no snapshot returned",
+			},
+		];
+
+		expect(formatTimelineWorkspaceRows(evidenceEvents, 4, "audit")).toEqual([
+			"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
+			"TIMELINE",
+			"[12:00:11] WARN audit  ports file evidence unavailable pid=777 reason=no snapshot returned",
+			"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
 	test("filters network state-change events separately from actions", () => {
 		expect(formatTimelineWorkspaceRows(events, 4, "network")).toEqual([
 			"SUMMARY events=1/7 network=1 audit=2 action=3 raw=1 filter=network",
