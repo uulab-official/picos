@@ -2,7 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readConfig, setConfigLogProfiles } from "../src/config/store";
+import {
+	readConfig,
+	setConfigLogProfiles,
+	setConfigLogSearchPresets,
+} from "../src/config/store";
 
 const tempDirs: string[] = [];
 
@@ -39,5 +43,24 @@ describe("config store", () => {
 
 		const raw = await readFile(path, "utf8");
 		expect(JSON.parse(raw).logProfiles).toEqual(config.logProfiles);
+	});
+
+	test("persists normalized log search presets without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await setConfigLogSearchPresets(
+			[" kernel ", "", "error", "kernel", "dns", "route", "boot", "panic", "x"],
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.logSearchPresets).toEqual([
+			"kernel",
+			"error",
+			"dns",
+			"route",
+			"boot",
+			"panic",
+		]);
+		expect(config.theme).toBe("dark");
 	});
 });

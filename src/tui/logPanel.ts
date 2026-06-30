@@ -1,13 +1,21 @@
 import {
 	formatLogProfileLabel,
 	nextLogProfile,
+	nextLogSearchPreset,
 	saveLogProfile,
+	saveLogSearchPreset,
 } from "../core/logProfiles";
 import { formatOsLogRows, type OsLogSnapshot } from "../core/osLogs";
 import type { LogProfile } from "../core/types";
 
 export type { LogProfile };
-export { formatLogProfileLabel, nextLogProfile, saveLogProfile };
+export {
+	formatLogProfileLabel,
+	nextLogProfile,
+	nextLogSearchPreset,
+	saveLogProfile,
+	saveLogSearchPreset,
+};
 
 export function formatLogWorkspaceRows(
 	logs: OsLogSnapshot | undefined,
@@ -41,31 +49,6 @@ export function formatLogWorkspaceRows(
 		...formatOsLogRows(logs, { filter: query, level }),
 		"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · r refresh",
 	].slice(0, visibleRows);
-}
-
-export function saveLogSearchPreset(
-	presets: string[],
-	query: string,
-): string[] {
-	const normalized = query.trim();
-	if (!normalized) {
-		return presets;
-	}
-	return [
-		normalized,
-		...presets.filter((preset) => preset !== normalized),
-	].slice(0, 6);
-}
-
-export function nextLogSearchPreset(
-	presets: string[],
-	currentQuery: string,
-): string | undefined {
-	if (presets.length === 0) {
-		return undefined;
-	}
-	const index = presets.indexOf(currentQuery.trim());
-	return presets[(index + 1) % presets.length] ?? presets[0];
 }
 
 function formatLogPresetSummary(presets: string[] | undefined): string {

@@ -1,7 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname } from "node:path";
-import { normalizeLogProfiles } from "../core/logProfiles";
+import {
+	normalizeLogProfiles,
+	normalizeLogSearchPresets,
+} from "../core/logProfiles";
 import type { LogProfile, PicosConfig } from "../core/types";
 import {
 	coerceConfigValue,
@@ -61,6 +64,19 @@ export async function setConfigLogProfiles(
 	const next = {
 		...config,
 		logProfiles: normalizeLogProfiles(profiles),
+	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigLogSearchPresets(
+	presets: string[],
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = {
+		...config,
+		logSearchPresets: normalizeLogSearchPresets(presets),
 	};
 	await writeConfig(next, path);
 	return next;

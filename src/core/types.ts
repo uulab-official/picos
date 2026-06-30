@@ -209,6 +209,7 @@ export type PicosConfig = {
 	allowAdminDryRun: boolean;
 	remoteProfiles: SftpRemoteProfile[];
 	logProfiles: LogProfile[];
+	logSearchPresets: string[];
 };
 
 export type Language = "en" | "ko" | "ja" | "zh";
