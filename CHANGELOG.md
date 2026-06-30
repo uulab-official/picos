@@ -32,6 +32,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Clipboard previews now share a locked confirmation model across endpoint and process resource selections.
 - Clipboard write planning now has platform adapter commands, exact confirmation checks, and audit event metadata while execution remains locked.
 - Clipboard write execution now uses `safeExec()` stdin for confirmed plans while locked plans return audit metadata without spawning OS commands.
+- TUI clipboard copy now opens an exact `copy` confirmation prompt for selected connections, ports, and process resources, then records the audit result in the event dock.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.

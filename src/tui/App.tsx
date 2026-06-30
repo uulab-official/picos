@@ -65,6 +65,15 @@ import type {
 } from "../core/types";
 import { VERSION } from "../core/version";
 import { createTranslator } from "../i18n/catalog";
+import { currentPlatform } from "../utils/platform";
+import {
+	appendClipboardConfirmationInput,
+	backspaceClipboardConfirmationInput,
+	type ClipboardConfirmationState,
+	clearClipboardConfirmationState,
+	createClipboardConfirmationState,
+	submitClipboardConfirmation,
+} from "./clipboardDialog";
 import {
 	applyCommandLineInput,
 	type CommandLineState,
@@ -74,7 +83,9 @@ import {
 import {
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
+	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
+	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
@@ -120,6 +131,7 @@ import {
 import {
 	formatProcessWorkspaceRows,
 	getProcessFileSelectionCount,
+	getSelectedProcessClipboardPreview,
 	getSelectedProcessFileRequest,
 	getSelectedProcessResourceRequest,
 } from "./processPanel";
@@ -180,6 +192,11 @@ export function App(): React.ReactElement {
 		prompt: "path",
 		value: "",
 	});
+	const [clipboardConfirmation, setClipboardConfirmation] =
+		useState<ClipboardConfirmationState>({
+			active: false,
+			value: "",
+		});
 	const [palette, setPalette] = useState<CommandPaletteState>({
 		active: false,
 		selectedIndex: 0,
@@ -413,6 +430,26 @@ export function App(): React.ReactElement {
 		}
 	}, [commandLine.value, log]);
 
+	const submitClipboardCommand = useCallback(async () => {
+		try {
+			const outcome = await submitClipboardConfirmation(clipboardConfirmation, {
+				platform: currentPlatform(),
+			});
+			setClipboardConfirmation(outcome.state);
+			setCommandLine((current) => closeCommandLine(current));
+			log(outcome.event.level, outcome.event.message);
+			if (outcome.result.success) {
+				setConnectionCopyPreview(false);
+				setPortCopyPreview(false);
+				setProcessClipboardPreview(false);
+			}
+		} catch (caught) {
+			setCommandLine((current) => closeCommandLine(current));
+			setClipboardConfirmation(clearClipboardConfirmationState());
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [clipboardConfirmation, log]);
+
 	const goBackFileHistory = useCallback(async () => {
 		const next = popFileHistory(fileHistory);
 		setFileHistory(next.history);
@@ -443,6 +480,19 @@ export function App(): React.ReactElement {
 			}
 		},
 		[displayedFileEntries, log, selectedFileIndex],
+	);
+
+	const openClipboardConfirmation = useCallback(
+		(preview: ClipboardConfirmationState["preview"]) => {
+			if (!preview) {
+				log("warn", "no clipboard value selected");
+				return;
+			}
+			setClipboardConfirmation(createClipboardConfirmationState(preview));
+			setCommandLine(openCommandLine("clipboard"));
+			log("info", `clipboard confirmation opened for ${preview.label}`);
+		},
+		[log],
 	);
 
 	const selectRemoteProfile = useCallback(async () => {
@@ -730,17 +780,27 @@ export function App(): React.ReactElement {
 		if (commandLine.active) {
 			if (key.escape) {
 				setCommandLine((current) => closeCommandLine(current));
+				if (commandLine.prompt === "clipboard") {
+					setClipboardConfirmation(clearClipboardConfirmationState());
+					setConnectionCopyPreview(false);
+					setPortCopyPreview(false);
+					setProcessClipboardPreview(false);
+				}
 				log(
 					"info",
 					commandLine.prompt === "route"
 						? "route path command cancelled"
-						: "path command cancelled",
+						: commandLine.prompt === "clipboard"
+							? "clipboard confirmation cancelled"
+							: "path command cancelled",
 				);
 				return;
 			}
 
 			if (key.return) {
-				if (commandLine.prompt === "route") {
+				if (commandLine.prompt === "clipboard") {
+					void submitClipboardCommand();
+				} else if (commandLine.prompt === "route") {
 					void submitRouteDestinationCommand();
 				} else {
 					void submitPathCommand();
@@ -754,6 +814,13 @@ export function App(): React.ReactElement {
 					backspace: key.backspace || key.delete,
 				}),
 			);
+			if (commandLine.prompt === "clipboard") {
+				setClipboardConfirmation((current) =>
+					key.backspace || key.delete
+						? backspaceClipboardConfirmationInput(current)
+						: appendClipboardConfirmationInput(current, input),
+				);
+			}
 			return;
 		}
 
@@ -983,22 +1050,30 @@ export function App(): React.ReactElement {
 			focusArea === "workspaces" &&
 			input === "c"
 		) {
-			if ((connectionsResult?.connections.length ?? 0) <= 0) {
+			const preview = getSelectedConnectionClipboardPreview(
+				sortedConnections,
+				selectedConnectionIndex,
+			);
+			if (!preview) {
 				log("warn", "no connection selected");
 				return;
 			}
 			setConnectionCopyPreview(true);
-			log("info", "connection copy preview opened");
+			openClipboardConfirmation(preview);
 			return;
 		}
 
 		if (screen === "ports" && focusArea === "workspaces" && input === "c") {
-			if ((portsResult?.ports.length ?? 0) <= 0) {
+			const preview = getSelectedPortClipboardPreview(
+				sortedPorts,
+				selectedPortIndex,
+			);
+			if (!preview) {
 				log("warn", "no port selected");
 				return;
 			}
 			setPortCopyPreview(true);
-			log("info", "port copy preview opened");
+			openClipboardConfirmation(preview);
 			return;
 		}
 
@@ -1007,8 +1082,16 @@ export function App(): React.ReactElement {
 				log("warn", "no process resource selected");
 				return;
 			}
+			const preview = getSelectedProcessClipboardPreview(
+				selectedProcessFiles,
+				selectedProcessFileIndex,
+			);
+			if (!preview) {
+				log("warn", "no process resource selected");
+				return;
+			}
 			setProcessClipboardPreview(true);
-			log("info", "process resource copy preview opened");
+			openClipboardConfirmation(preview);
 			return;
 		}
 
@@ -1548,6 +1631,7 @@ function renderWorkspace(
 				selectedFiles={selectedProcessFiles}
 				selectedFileIndex={selectedProcessFileIndex}
 				copyPreview={processClipboardPreview}
+				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
 			/>
 		);
@@ -1590,6 +1674,7 @@ function renderWorkspace(
 				processes={inventory?.processes ?? []}
 				selectedIndex={selectedConnectionIndex}
 				copyPreview={connectionCopyPreview}
+				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -1603,6 +1688,7 @@ function renderWorkspace(
 				processes={inventory?.processes ?? []}
 				selectedIndex={selectedPortIndex}
 				copyPreview={portCopyPreview}
+				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -2280,6 +2366,7 @@ function ProcessesWorkspace({
 	selectedFiles,
 	selectedFileIndex,
 	copyPreview,
+	commandLine,
 	visibleRows,
 }: {
 	inventory?: SystemInventory;
@@ -2287,21 +2374,26 @@ function ProcessesWorkspace({
 	selectedFiles?: ProcessFileSnapshot;
 	selectedFileIndex: number;
 	copyPreview: boolean;
+	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
-	const rows = formatProcessWorkspaceRows(
-		inventory?.processes.slice(0, 10) ?? [],
-		selectedProcess,
-		selectedFiles,
-		visibleRows,
-		selectedFileIndex,
-		copyPreview,
-	);
+	const promptRows = formatClipboardPromptRows(commandLine);
+	const rows = [
+		...formatProcessWorkspaceRows(
+			inventory?.processes.slice(0, 10) ?? [],
+			selectedProcess,
+			selectedFiles,
+			Math.max(1, visibleRows - promptRows.length),
+			selectedFileIndex,
+			copyPreview,
+		),
+		...promptRows,
+	];
 	return (
 		<Box flexDirection="column">
 			<Text bold>Processes</Text>
 			<Text color="gray">
-				j/k select resources · enter opens local paths · c copy preview
+				j/k select resources · enter opens local paths · c copy, type copy
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
@@ -2452,6 +2544,7 @@ function ConnectionsWorkspace({
 	processes,
 	selectedIndex,
 	copyPreview,
+	commandLine,
 	visibleRows,
 	t,
 }: {
@@ -2460,16 +2553,25 @@ function ConnectionsWorkspace({
 	processes: SystemInventory["processes"];
 	selectedIndex: number;
 	copyPreview: boolean;
+	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const promptRows = formatClipboardPromptRows(commandLine);
 	const rows = result
-		? formatConnectionsWorkspaceRows(result, visibleRows, {
-				copyPreview,
-				processes,
-				selectedIndex,
-				sort,
-			})
+		? [
+				...formatConnectionsWorkspaceRows(
+					result,
+					Math.max(1, visibleRows - promptRows.length),
+					{
+						copyPreview,
+						processes,
+						selectedIndex,
+						sort,
+					},
+				),
+				...promptRows,
+			]
 		: ["loading connections..."];
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
@@ -2482,7 +2584,7 @@ function ConnectionsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
-				active endpoints from netstat · j/k select · s sort · c copy preview
+				active endpoints from netstat · j/k select · s sort · c copy, type copy
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -2505,6 +2607,7 @@ function PortsWorkspace({
 	processes,
 	selectedIndex,
 	copyPreview,
+	commandLine,
 	visibleRows,
 	t,
 }: {
@@ -2513,16 +2616,25 @@ function PortsWorkspace({
 	processes: SystemInventory["processes"];
 	selectedIndex: number;
 	copyPreview: boolean;
+	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const promptRows = formatClipboardPromptRows(commandLine);
 	const rows = result
-		? formatPortsWorkspaceRows(result, visibleRows, {
-				copyPreview,
-				processes,
-				selectedIndex,
-				sort,
-			})
+		? [
+				...formatPortsWorkspaceRows(
+					result,
+					Math.max(1, visibleRows - promptRows.length),
+					{
+						copyPreview,
+						processes,
+						selectedIndex,
+						sort,
+					},
+				),
+				...promptRows,
+			]
 		: ["loading listening ports..."];
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
@@ -2536,7 +2648,7 @@ function PortsWorkspace({
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
 				listening TCP ports from lsof/ss/netstat · j/k select · s sort · c copy
-				preview
+				, type copy
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -2694,6 +2806,15 @@ function NetworkToolsWorkspace(): React.ReactElement {
 			</Box>
 		</Box>
 	);
+}
+
+function formatClipboardPromptRows(commandLine: CommandLineState): string[] {
+	return commandLine.active && commandLine.prompt === "clipboard"
+		? [
+				"CLIPBOARD CONFIRM",
+				`:clipboard ${commandLine.value || " "}  enter=copy esc=cancel`,
+			]
+		: [];
 }
 
 function DnsWorkspace({
