@@ -11,6 +11,13 @@ export type ProcessDetail = ProcessSummary & {
 	started?: string;
 };
 
+export type ProcessFileSnapshot = {
+	pid: number;
+	cwd?: string;
+	openFiles: string[];
+	rawOutput: string;
+};
+
 export function parsePsOutput(stdout: string, limit = 12): ProcessSummary[] {
 	return stdout
 		.split(/\r?\n/)
@@ -83,6 +90,20 @@ export function buildProcessDetailCommand(
 	};
 }
 
+export function buildProcessFilesCommand(
+	pid: number,
+	platform: SupportedPlatform = process.platform,
+): { command: string; args: string[] } | undefined {
+	const safePid = validateProcessId(pid);
+	if (platform === "win32") {
+		return undefined;
+	}
+	return {
+		command: "lsof",
+		args: ["-a", "-p", String(safePid), "-Fn", "-w"],
+	};
+}
+
 export async function getProcessDetail(
 	pidInput: string | number,
 ): Promise<ProcessDetail> {
@@ -100,6 +121,24 @@ export async function getProcessDetail(
 		throw new Error(`Process not found: ${pid}`);
 	}
 	return detail;
+}
+
+export async function getProcessFileSnapshot(
+	pidInput: string | number,
+	limit = 20,
+): Promise<ProcessFileSnapshot | undefined> {
+	const pid = validateProcessId(pidInput);
+	const command = buildProcessFilesCommand(pid);
+	if (!command) {
+		return undefined;
+	}
+	const result = await safeExec(command.command, command.args, {
+		timeoutMs: 5000,
+	});
+	if (!result.success) {
+		return undefined;
+	}
+	return parseLsofProcessFiles(result.stdout, limit);
 }
 
 export function parsePosixProcessDetail(
@@ -158,6 +197,49 @@ export function parseWindowsProcessDetail(
 	};
 }
 
+export function parseLsofProcessFiles(
+	stdout: string,
+	limit = 20,
+): ProcessFileSnapshot | undefined {
+	const lines = stdout
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean);
+	const pidLine = lines.find((line) => line.startsWith("p"));
+	if (!pidLine) {
+		return undefined;
+	}
+	const snapshot: ProcessFileSnapshot = {
+		pid: Number(pidLine.slice(1)),
+		openFiles: [],
+		rawOutput: stdout,
+	};
+	let fileKind = "";
+	const seen = new Set<string>();
+	for (const line of lines) {
+		if (line.startsWith("f")) {
+			fileKind = line.slice(1);
+			continue;
+		}
+		if (!line.startsWith("n")) {
+			continue;
+		}
+		const path = line.slice(1);
+		if (!path) {
+			continue;
+		}
+		if (fileKind === "cwd") {
+			snapshot.cwd = path;
+			continue;
+		}
+		if (!seen.has(path) && snapshot.openFiles.length < limit) {
+			seen.add(path);
+			snapshot.openFiles.push(path);
+		}
+	}
+	return snapshot;
+}
+
 export function formatProcessDetail(detail: ProcessDetail): string {
 	const lines = [
 		"picos process",
@@ -175,4 +257,22 @@ export function formatProcessDetail(detail: ProcessDetail): string {
 		`Command:  ${detail.command || "-"}`,
 	];
 	return lines.join("\n");
+}
+
+export function formatProcessFileSnapshot(
+	snapshot: ProcessFileSnapshot | undefined,
+): string {
+	if (!snapshot) {
+		return ["", "Files", "  file snapshot unavailable"].join("\n");
+	}
+	const files = snapshot.openFiles.length
+		? snapshot.openFiles.map((path) => `  ${path}`)
+		: ["  - none detected"];
+	return [
+		"",
+		"Files",
+		`  CWD:      ${snapshot.cwd ?? "-"}`,
+		"  Open:",
+		...files,
+	].join("\n");
 }

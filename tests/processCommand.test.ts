@@ -44,4 +44,33 @@ describe("process CLI command", () => {
 
 		expect(writes.join("\n")).toContain("Command:  zsh");
 	});
+
+	test("prints process file snapshot when files option is enabled", async () => {
+		const writes: string[] = [];
+		const originalLog = console.log;
+		console.log = (value?: unknown) => {
+			writes.push(String(value));
+		};
+		try {
+			await processCommand(
+				"12345",
+				{ files: true },
+				async () => ({
+					pid: 12345,
+					command: "bun src/bin/picos.ts",
+				}),
+				async () => ({
+					pid: 12345,
+					cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
+					openFiles: ["/usr/local/bin/bun"],
+					rawOutput: "raw",
+				}),
+			);
+		} finally {
+			console.log = originalLog;
+		}
+
+		expect(writes.join("\n")).toContain("Files");
+		expect(writes.join("\n")).toContain("/usr/local/bin/bun");
+	});
 });

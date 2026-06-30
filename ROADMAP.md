@@ -429,6 +429,18 @@ Goal: let endpoint PID hints drill into a read-only process detail command.
 - Action Center exposes `process.inspect` as a read-only system action with a CLI hint.
 - Next: cwd/open-file enrichment and TUI command handoff from selected endpoint rows.
 
+## v0.3.30 - Process File Snapshot
+
+Status: draft PR #31.
+
+Goal: make process drill-down useful for filesystem-oriented debugging.
+
+- `picos process <pid> --files` requests an optional cwd/open-file snapshot.
+- POSIX file snapshots use `lsof -a -p <pid> -Fn -w` through `safeExec()`.
+- Process file parsing extracts cwd, de-duplicates open paths, and limits displayed entries.
+- Windows returns a graceful unavailable file snapshot until a safe adapter exists.
+- Next: TUI handoff from selected endpoint rows and richer file-type labels.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -436,7 +448,7 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, copy previews, PID process enrichment, and `picos process <pid>` drill-down landed; next cwd/open-file enrichment and optional confirmed clipboard integration.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, copy previews, PID process enrichment, `picos process <pid>` drill-down, and `--files` cwd/open-file snapshots landed; next TUI handoff and optional confirmed clipboard integration.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: address/status/public-IP changes and local export.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.
