@@ -90,6 +90,11 @@ import {
 } from "../core/routes";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
+import {
+	formatSystemMonitorRows,
+	getSystemMonitorSnapshot,
+	type SystemMonitorSnapshot,
+} from "../core/systemMonitor";
 import { runTool } from "../core/tools";
 import type {
 	ActiveConnection,
@@ -279,6 +284,7 @@ export function App(): React.ReactElement {
 	const summaryRef = useRef<NetworkSummary | undefined>(undefined);
 	const [defaultPingHost, setDefaultPingHost] = useState("google.com");
 	const [inventory, setInventory] = useState<SystemInventory>();
+	const [systemMonitor, setSystemMonitor] = useState<SystemMonitorSnapshot>();
 	const [doctorChecks, setDoctorChecks] = useState<DoctorCheck[]>([]);
 	const [selectedActionIndex, setSelectedActionIndex] = useState(0);
 	const [actionPreviewPlan, setActionPreviewPlan] =
@@ -1086,13 +1092,19 @@ export function App(): React.ReactElement {
 	const refresh = useCallback(async () => {
 		try {
 			setError(undefined);
-			const [nextSummary, nextConnections, nextPorts, nextRouteTable] =
-				await Promise.all([
-					getNetworkSummary(),
-					getActiveConnections().catch(() => undefined),
-					getListeningPorts().catch(() => undefined),
-					runRouteTable().catch(() => undefined),
-				]);
+			const [
+				nextSummary,
+				nextConnections,
+				nextPorts,
+				nextRouteTable,
+				nextMonitor,
+			] = await Promise.all([
+				getNetworkSummary(),
+				getActiveConnections().catch(() => undefined),
+				getListeningPorts().catch(() => undefined),
+				runRouteTable().catch(() => undefined),
+				getSystemMonitorSnapshot().catch(() => undefined),
+			]);
 			const networkEvents = createNetworkTimelineEvents(
 				summaryRef.current,
 				nextSummary,
@@ -1108,6 +1120,9 @@ export function App(): React.ReactElement {
 				);
 			}
 			setInventory(await createSystemInventory({ network: nextSummary }));
+			if (nextMonitor) {
+				setSystemMonitor(nextMonitor);
+			}
 			if (nextConnections) {
 				setConnectionsResult(nextConnections);
 			}
@@ -2368,6 +2383,7 @@ export function App(): React.ReactElement {
 					screen={screen}
 					summary={summary}
 					inventory={inventory}
+					systemMonitor={systemMonitor}
 					error={error}
 					actions={actions}
 					selectedActionIndex={selectedActionIndex}
@@ -2539,6 +2555,7 @@ function MainWorkspace({
 	screen,
 	summary,
 	inventory,
+	systemMonitor,
 	error,
 	actions,
 	selectedActionIndex,
@@ -2612,6 +2629,7 @@ function MainWorkspace({
 	screen: Screen;
 	summary?: NetworkSummary;
 	inventory?: SystemInventory;
+	systemMonitor?: SystemMonitorSnapshot;
 	error?: string;
 	actions: PicosAction[];
 	selectedActionIndex: number;
@@ -2695,6 +2713,7 @@ function MainWorkspace({
 					screen,
 					summary,
 					inventory,
+					systemMonitor,
 					actions,
 					selectedActionIndex,
 					actionPreviewPlan,
@@ -2772,6 +2791,7 @@ function renderWorkspace(
 	screen: Screen,
 	summary: NetworkSummary | undefined,
 	inventory: SystemInventory | undefined,
+	systemMonitor: SystemMonitorSnapshot | undefined,
 	actions: PicosAction[],
 	selectedActionIndex: number,
 	actionPreviewPlan: ActionPreviewPlan | undefined,
@@ -2897,7 +2917,9 @@ function renderWorkspace(
 		);
 	}
 	if (screen === "system") {
-		return <SystemWorkspace inventory={inventory} />;
+		return (
+			<SystemWorkspace inventory={inventory} systemMonitor={systemMonitor} />
+		);
 	}
 	if (screen === "hardware") {
 		return <HardwareWorkspace inventory={inventory} />;
@@ -3058,6 +3080,7 @@ function renderWorkspace(
 		<DashboardWorkspace
 			summary={summary}
 			inventory={inventory}
+			systemMonitor={systemMonitor}
 			doctorChecks={doctorChecks}
 			fileRoot={fileRoot}
 			fileEntries={fileEntries}
@@ -3075,6 +3098,7 @@ function renderWorkspace(
 function DashboardWorkspace({
 	summary,
 	inventory,
+	systemMonitor,
 	doctorChecks,
 	fileRoot,
 	fileEntries,
@@ -3088,6 +3112,7 @@ function DashboardWorkspace({
 }: {
 	summary?: NetworkSummary;
 	inventory?: SystemInventory;
+	systemMonitor?: SystemMonitorSnapshot;
 	doctorChecks: DoctorCheck[];
 	fileRoot: string;
 	fileEntries: FileEntry[];
@@ -3115,6 +3140,9 @@ function DashboardWorkspace({
 	const establishedCount = connections.filter(
 		(connection) => connection.state === "ESTABLISHED",
 	).length;
+	const monitorRows = systemMonitor
+		? formatSystemMonitorRows(systemMonitor).slice(2, 6)
+		: [];
 
 	if (visibleRows < 22) {
 		return (
@@ -3136,12 +3164,23 @@ function DashboardWorkspace({
 					{inventory ? formatUptime(inventory.system.uptimeSeconds) : "-"}
 				</Text>
 				<Text>
+					Load{" "}
+					{systemMonitor
+						? systemMonitor.loadAverage
+								.map((value) => value.toFixed(2))
+								.join("/")
+						: "-"}
+					{"  "}
 					CPU {clip(inventory?.hardware.cpuModel ?? "loading", 28)}{" "}
 					{inventory?.hardware.cpuCount ?? "-"} cores
 				</Text>
 				<Text>
-					Mem {formatBytes(inventory?.hardware.freeMemoryBytes)} /{" "}
-					{formatBytes(inventory?.hardware.totalMemoryBytes)}
+					Mem{" "}
+					{systemMonitor
+						? `${systemMonitor.memory.usedPercent}% used`
+						: `${formatBytes(inventory?.hardware.freeMemoryBytes)} / ${formatBytes(
+								inventory?.hardware.totalMemoryBytes,
+							)}`}
 					{"  "}Vol {storageCount}
 					{"  "}Proc {processCount}
 				</Text>
@@ -3209,6 +3248,9 @@ function DashboardWorkspace({
 					CPU {clip(inventory?.hardware.cpuModel ?? "loading", 38)}{" "}
 					{inventory?.hardware.cpuCount ?? "-"} cores
 				</Text>
+				{monitorRows.map((row) => (
+					<Text key={row}>{clip(row, 84)}</Text>
+				))}
 				<Text>
 					Memory {formatBytes(inventory?.hardware.freeMemoryBytes)} free /{" "}
 					{formatBytes(inventory?.hardware.totalMemoryBytes)} total{"  "}
@@ -3617,9 +3659,14 @@ function RemotesWorkspace({
 
 function SystemWorkspace({
 	inventory,
+	systemMonitor,
 }: {
 	inventory?: SystemInventory;
+	systemMonitor?: SystemMonitorSnapshot;
 }): React.ReactElement {
+	const monitorRows = systemMonitor
+		? formatSystemMonitorRows(systemMonitor).slice(1)
+		: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>System</Text>
@@ -3634,6 +3681,14 @@ function SystemWorkspace({
 				<Text>User {inventory?.permission.user ?? "-"}</Text>
 				<Text>Privilege {inventory?.permission.detail ?? "-"}</Text>
 				<Text>picos {inventory?.runtime.picosVersion ?? VERSION}</Text>
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">SYSTEM MONITOR</Text>
+				{monitorRows.length ? (
+					monitorRows.map((row) => <Text key={row}>{clip(row, 84)}</Text>)
+				) : (
+					<Text color="gray">monitor snapshot loading...</Text>
+				)}
 			</Box>
 		</Box>
 	);
