@@ -25,6 +25,10 @@ export type OsLogSnapshot = OsLogCommand & {
 	error?: string;
 };
 
+export type OsLogFormatOptions = {
+	filter?: string;
+};
+
 export type OsLogOptions = {
 	platform?: SupportedPlatform;
 	limit?: number;
@@ -91,23 +95,56 @@ export function parseOsLogLines(
 		}));
 }
 
-export function formatOsLogRows(snapshot: OsLogSnapshot): string[] {
+export function filterOsLogEntries(
+	entries: OsLogEntry[],
+	query: string | undefined,
+): OsLogEntry[] {
+	const normalized = query?.trim().toLowerCase() ?? "";
+	if (!normalized) {
+		return entries;
+	}
+	return entries.filter((entry) =>
+		[
+			String(entry.index).padStart(3, "0"),
+			String(entry.index),
+			entry.level,
+			entry.message,
+		]
+			.join(" ")
+			.toLowerCase()
+			.includes(normalized),
+	);
+}
+
+export function formatOsLogRows(
+	snapshot: OsLogSnapshot,
+	options: OsLogFormatOptions = {},
+): string[] {
+	const query = options.filter?.trim() ?? "";
+	const entries = filterOsLogEntries(snapshot.entries, query);
 	const rows = [
 		"PICOS OS LOGS",
-		`source=${snapshot.source} status=${snapshot.status} entries=${snapshot.entries.length}`,
+		[
+			`source=${snapshot.source}`,
+			`status=${snapshot.status}`,
+			`entries=${formatEntryCount(entries.length, snapshot.entries.length, query)}`,
+			query ? `filter=${query}` : "",
+		]
+			.filter(Boolean)
+			.join(" "),
 		`command=${[snapshot.command, ...snapshot.args].join(" ")}`,
 		`note=${snapshot.note}`,
 	];
 	if (snapshot.error) {
 		rows.push(`error=${snapshot.error}`);
 	}
-	if (snapshot.entries.length === 0) {
-		rows.push("no recent log entries");
+	if (entries.length === 0) {
+		rows.push(query ? "no matching log entries" : "no recent log entries");
 		return rows;
 	}
 	return [
 		...rows,
-		...snapshot.entries.map(
+		...entries.map(
 			(entry) =>
 				`${String(entry.index).padStart(3, "0")} ${entry.level} ${entry.message}`,
 		),
@@ -141,4 +178,12 @@ function normalizeLimit(limit: number | undefined): number {
 		return DEFAULT_LIMIT;
 	}
 	return Math.max(1, Math.min(200, Math.floor(limit)));
+}
+
+function formatEntryCount(
+	visibleCount: number,
+	totalCount: number,
+	query: string,
+): string {
+	return query ? `${visibleCount}/${totalCount}` : String(totalCount);
 }

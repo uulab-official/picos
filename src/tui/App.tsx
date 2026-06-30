@@ -63,7 +63,7 @@ import {
 import { getNetworkSummary } from "../core/network";
 import {
 	createOsLogSnapshot,
-	formatOsLogRows,
+	filterOsLogEntries,
 	type OsLogSnapshot,
 } from "../core/osLogs";
 import {
@@ -181,6 +181,11 @@ import {
 	type InterfaceDetailView,
 	nextInterfaceDetailView,
 } from "./interfacePanel";
+import {
+	formatLogWorkspaceRows,
+	nextLogSearchPreset,
+	saveLogSearchPreset,
+} from "./logPanel";
 import {
 	enterFocus,
 	type FocusArea,
@@ -410,6 +415,8 @@ export function App(): React.ReactElement {
 	const [timelineSearchPresets, setTimelineSearchPresets] = useState<string[]>(
 		[],
 	);
+	const [logSearchQuery, setLogSearchQuery] = useState("");
+	const [logSearchPresets, setLogSearchPresets] = useState<string[]>([]);
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -733,6 +740,22 @@ export function App(): React.ReactElement {
 				: "timeline search cleared",
 		);
 	}, [commandLine.value, events, log, timelineFilter]);
+
+	const submitLogSearchCommand = useCallback(() => {
+		const query = commandLine.value.trim();
+		const filtered = filterOsLogEntries(osLogs?.entries ?? [], query);
+		setLogSearchQuery(query);
+		if (query) {
+			setLogSearchPresets((current) => saveLogSearchPreset(current, query));
+		}
+		setCommandLine((current) => closeCommandLine(current));
+		log(
+			filtered.length ? "info" : "warn",
+			query
+				? `logs search ${query} matches ${filtered.length}`
+				: "logs search cleared",
+		);
+	}, [commandLine.value, log, osLogs]);
 
 	const submitControlConfirmationCommand = useCallback(() => {
 		if (!actionPreviewPlan) {
@@ -1458,9 +1481,11 @@ export function App(): React.ReactElement {
 											? "control confirmation cancelled"
 											: commandLine.prompt === "external-open"
 												? "external open confirmation cancelled"
-												: commandLine.prompt.startsWith(toolPromptPrefix)
-													? "tool target command cancelled"
-													: "path command cancelled",
+												: commandLine.prompt === "log-search"
+													? "logs search cancelled"
+													: commandLine.prompt.startsWith(toolPromptPrefix)
+														? "tool target command cancelled"
+														: "path command cancelled",
 				);
 				return;
 			}
@@ -1476,6 +1501,8 @@ export function App(): React.ReactElement {
 					submitEndpointFilterCommand();
 				} else if (commandLine.prompt === "timeline-search") {
 					submitTimelineSearchCommand();
+				} else if (commandLine.prompt === "log-search") {
+					submitLogSearchCommand();
 				} else if (commandLine.prompt === "control-confirm") {
 					submitControlConfirmationCommand();
 				} else if (commandLine.prompt === "external-open") {
@@ -2037,6 +2064,64 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "logs" && focusArea === "workspaces" && input === "f") {
+			setCommandLine(openCommandLine("log-search"));
+			log("info", "logs search opened");
+			return;
+		}
+
+		if (screen === "logs" && focusArea === "workspaces" && input === "F") {
+			setLogSearchQuery("");
+			log("info", "logs search cleared");
+			return;
+		}
+
+		if (screen === "logs" && focusArea === "workspaces" && input === "P") {
+			if (!logSearchQuery.trim()) {
+				log("warn", "no logs search to save");
+				return;
+			}
+			setLogSearchPresets((current) =>
+				saveLogSearchPreset(current, logSearchQuery),
+			);
+			log("info", `logs preset saved ${logSearchQuery}`);
+			return;
+		}
+
+		if (screen === "logs" && focusArea === "workspaces" && input === "]") {
+			const preset = nextLogSearchPreset(logSearchPresets, logSearchQuery);
+			if (!preset) {
+				log("warn", "no logs search presets");
+				return;
+			}
+			const filtered = filterOsLogEntries(osLogs?.entries ?? [], preset);
+			setLogSearchQuery(preset);
+			log(
+				filtered.length ? "info" : "warn",
+				`logs preset ${preset} matches ${filtered.length}`,
+			);
+			return;
+		}
+
+		if (screen === "logs" && focusArea === "workspaces" && input === "r") {
+			void (async () => {
+				try {
+					const snapshot = await createOsLogSnapshot({ limit: 50 });
+					setOsLogs(snapshot);
+					log(
+						snapshot.status === "ok" ? "ok" : "warn",
+						`logs refreshed ${snapshot.entries.length}`,
+					);
+				} catch (caught) {
+					log(
+						"fail",
+						caught instanceof Error ? caught.message : String(caught),
+					);
+				}
+			})();
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "f") {
 			setCommandLine(openCommandLine("tool-filter"));
 			log("info", "tool history filter opened");
@@ -2461,6 +2546,8 @@ export function App(): React.ReactElement {
 					timelineFilter={timelineFilter}
 					timelineSearchQuery={timelineSearchQuery}
 					timelineSearchPresets={timelineSearchPresets}
+					logSearchQuery={logSearchQuery}
+					logSearchPresets={logSearchPresets}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolTargetPresets={toolTargetPresets}
@@ -2634,6 +2721,8 @@ function MainWorkspace({
 	timelineFilter,
 	timelineSearchQuery,
 	timelineSearchPresets,
+	logSearchQuery,
+	logSearchPresets,
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolTargetPresets,
@@ -2709,6 +2798,8 @@ function MainWorkspace({
 	timelineFilter: TimelineFilter;
 	timelineSearchQuery: string;
 	timelineSearchPresets: string[];
+	logSearchQuery: string;
+	logSearchPresets: string[];
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolTargetPresets: ToolTargetPreset[];
@@ -2793,6 +2884,8 @@ function MainWorkspace({
 					timelineFilter,
 					timelineSearchQuery,
 					timelineSearchPresets,
+					logSearchQuery,
+					logSearchPresets,
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolTargetPresets,
@@ -2872,6 +2965,8 @@ function renderWorkspace(
 	timelineFilter: TimelineFilter,
 	timelineSearchQuery: string,
 	timelineSearchPresets: string[],
+	logSearchQuery: string,
+	logSearchPresets: string[],
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolTargetPresets: ToolTargetPreset[],
@@ -3106,6 +3201,9 @@ function renderWorkspace(
 			<LogWorkspace
 				logs={osLogs}
 				checks={doctorChecks}
+				query={logSearchQuery}
+				presets={logSearchPresets}
+				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
 			/>
 		);
@@ -4846,51 +4944,60 @@ function StatusWorkspace({
 function LogWorkspace({
 	logs,
 	checks,
+	query,
+	presets,
+	commandLine,
 	visibleRows,
 }: {
 	logs?: OsLogSnapshot;
 	checks: DoctorCheck[];
+	query: string;
+	presets: string[];
+	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
-	const rows = logs ? formatOsLogRows(logs).slice(0, visibleRows) : [];
+	const promptRows =
+		commandLine.active && commandLine.prompt === "log-search"
+			? ["SEARCH", `:logs ${commandLine.value || " "}  enter=apply esc=cancel`]
+			: [];
+	const doctorRows = checks.length
+		? [
+				"doctor buffer",
+				...checks
+					.slice(0, Math.max(1, Math.min(4, visibleRows - 5)))
+					.map(
+						(check) =>
+							`${check.status.toUpperCase().padEnd(5)} ${check.label}${
+								check.detail ? ` · ${check.detail}` : ""
+							}`,
+					),
+			]
+		: [];
+	const rows = [
+		...formatLogWorkspaceRows(
+			logs,
+			Math.max(1, visibleRows - promptRows.length - doctorRows.length),
+			{ query, presets },
+		),
+		...promptRows,
+		...doctorRows,
+	];
 	return (
 		<Box flexDirection="column">
 			<Text bold>OS Logs</Text>
-			<Text color="gray">
-				recent platform logs · read-only · action logs.read
-			</Text>
-			{rows.length ? (
-				rows.map((row) => (
-					<Text key={row} color={getOsLogRowColor(row)}>
-						{clip(row, 110)}
-					</Text>
-				))
-			) : (
-				<Text color="gray">
-					No OS log snapshot yet. Run logs.read or refresh.
+			{rows.map((row) => (
+				<Text key={row} color={getOsLogRowColor(row)}>
+					{clip(row, 110)}
 				</Text>
-			)}
-			{checks.length ? (
-				<Box marginTop={1} flexDirection="column">
-					<Text color="gray">doctor buffer</Text>
-					{checks
-						.slice(0, Math.max(1, Math.min(4, visibleRows - 4)))
-						.map((check) => (
-							<Text
-								key={check.label}
-								color={check.status === "pass" ? "green" : "yellow"}
-							>
-								{check.status.toUpperCase().padEnd(5)} {check.label}
-								{check.detail ? ` · ${check.detail}` : ""}
-							</Text>
-						))}
-				</Box>
-			) : null}
+			))}
 		</Box>
 	);
 }
 
 function getOsLogRowColor(row: string): string {
+	if (row.startsWith("LOGS") || row === "SEARCH") {
+		return "cyan";
+	}
 	if (row.startsWith("PICOS") || row.startsWith("source=")) {
 		return "cyan";
 	}
@@ -4901,6 +5008,9 @@ function getOsLogRowColor(row: string): string {
 		return "yellow";
 	}
 	if (row.startsWith("command=") || row.startsWith("note=")) {
+		return "gray";
+	}
+	if (row.startsWith("shortcuts:") || row === "doctor buffer") {
 		return "gray";
 	}
 	return "white";
