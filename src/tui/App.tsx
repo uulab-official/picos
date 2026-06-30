@@ -162,11 +162,13 @@ import {
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
+	nextToolHistoryDetailView,
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
 	nextToolHistorySort,
 	rerunToolHistoryItem,
 	saveToolHistoryPreset,
+	type ToolHistoryDetailView,
 	type ToolHistoryExportScope,
 	type ToolHistoryGroup,
 	type ToolHistoryItem,
@@ -282,6 +284,8 @@ export function App(): React.ReactElement {
 		useState<ToolHistorySort>("time");
 	const [toolHistoryGroup, setToolHistoryGroup] =
 		useState<ToolHistoryGroup>("none");
+	const [toolHistoryDetailView, setToolHistoryDetailView] =
+		useState<ToolHistoryDetailView>("raw");
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
@@ -1362,6 +1366,16 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && key.tab) {
+			setToolHistoryDetailView((current) => {
+				const next = nextToolHistoryDetailView(current);
+				log("info", `tools detail ${next}`);
+				return next;
+			});
+			setToolCopyPreview(false);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "s") {
 			setToolHistorySort((current) => {
 				const next = nextToolHistorySort(current);
@@ -1671,6 +1685,7 @@ export function App(): React.ReactElement {
 					toolHistoryFilterPresets={toolHistoryFilterPresets}
 					toolHistorySort={toolHistorySort}
 					toolHistoryGroup={toolHistoryGroup}
+					toolHistoryDetailView={toolHistoryDetailView}
 					toolCopyPreview={toolCopyPreview}
 					events={events}
 					t={t}
@@ -1816,6 +1831,7 @@ function MainWorkspace({
 	toolHistoryFilterPresets,
 	toolHistorySort,
 	toolHistoryGroup,
+	toolHistoryDetailView,
 	toolCopyPreview,
 	events,
 	t,
@@ -1867,6 +1883,7 @@ function MainWorkspace({
 	toolHistoryFilterPresets: string[];
 	toolHistorySort: ToolHistorySort;
 	toolHistoryGroup: ToolHistoryGroup;
+	toolHistoryDetailView: ToolHistoryDetailView;
 	toolCopyPreview: ToolCopyPreviewMode;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
@@ -1927,6 +1944,7 @@ function MainWorkspace({
 					toolHistoryFilterPresets,
 					toolHistorySort,
 					toolHistoryGroup,
+					toolHistoryDetailView,
 					toolCopyPreview,
 					events,
 					height,
@@ -1982,6 +2000,7 @@ function renderWorkspace(
 	toolHistoryFilterPresets: string[],
 	toolHistorySort: ToolHistorySort,
 	toolHistoryGroup: ToolHistoryGroup,
+	toolHistoryDetailView: ToolHistoryDetailView,
 	toolCopyPreview: ToolCopyPreviewMode,
 	events: ConsoleEvent[],
 	height: number,
@@ -2132,6 +2151,7 @@ function renderWorkspace(
 				filterPresets={toolHistoryFilterPresets}
 				sort={toolHistorySort}
 				group={toolHistoryGroup}
+				detailView={toolHistoryDetailView}
 				copyPreview={toolCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
@@ -3196,6 +3216,7 @@ function ToolsWorkspace({
 	filterPresets,
 	sort,
 	group,
+	detailView,
 	copyPreview,
 	commandLine,
 	visibleRows,
@@ -3207,6 +3228,7 @@ function ToolsWorkspace({
 	filterPresets: string[];
 	sort: ToolHistorySort;
 	group: ToolHistoryGroup;
+	detailView: ToolHistoryDetailView;
 	copyPreview: ToolCopyPreviewMode;
 	commandLine: CommandLineState;
 	visibleRows: number;
@@ -3226,6 +3248,7 @@ function ToolsWorkspace({
 		sort,
 		group,
 		filterPresets,
+		detailView,
 	);
 	const selectedPreview =
 		copyPreview === "summary"
@@ -3252,7 +3275,7 @@ function ToolsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub history · f filter · P save · ] preset · s sort · G group
+				Tools Hub history · tab detail · f filter · P save · ] preset · s sort
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]

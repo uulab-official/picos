@@ -18,6 +18,7 @@ import {
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
+	nextToolHistoryDetailView,
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
 	nextToolHistorySort,
@@ -194,7 +195,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -275,12 +276,12 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
 			"TOOLS history=2 filter=missing matches=0 selected=-",
 			"no matching tool runs",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 		expect(
 			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
@@ -339,7 +340,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -389,7 +390,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(history, 7, 0, "", "time", "status"),
@@ -428,7 +429,68 @@ describe("TUI tool history", () => {
 		).toEqual([
 			"TOOLS history=0 presets=connect,fail,dns selected=-",
 			"no tool runs yet",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+		]);
+	});
+
+	test("formats selected tool history detail tabs", () => {
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result,
+			},
+			"12:00:00",
+		);
+
+		expect(nextToolHistoryDetailView("raw")).toBe("summary");
+		expect(nextToolHistoryDetailView("summary")).toBe("command");
+		expect(nextToolHistoryDetailView("command")).toBe("raw");
+		expect(
+			formatToolsWorkspaceRows(
+				history,
+				8,
+				0,
+				"",
+				"time",
+				"none",
+				[],
+				"summary",
+			),
+		).toEqual([
+			"TOOLS history=1 detail=summary selected=DNS Lookup",
+			"> [12:00:00] ok tools.dns example.com",
+			"DETAIL summary",
+			"title=DNS Lookup",
+			"status=ok",
+			"summary=Summary: Query: example.com | A: 2",
+			"command=picos tools dns example.com",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+		]);
+		expect(
+			formatToolsWorkspaceRows(
+				history,
+				7,
+				0,
+				"",
+				"time",
+				"none",
+				[],
+				"command",
+			),
+		).toEqual([
+			"TOOLS history=1 detail=command selected=DNS Lookup",
+			"> [12:00:00] ok tools.dns example.com",
+			"DETAIL command",
+			"action=tools.dns",
+			"tool=dns",
+			"args=example.com",
+			"rerun=picos tools dns example.com",
 		]);
 	});
 
