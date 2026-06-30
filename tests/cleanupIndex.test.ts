@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+	createCleanupJumpAudit,
 	createCleanupShelfIndex,
+	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
 	getSelectedCleanupShelf,
@@ -172,5 +174,36 @@ describe("cleanup shelf index", () => {
 			"no active cleanup shelf selected",
 			"save presets first, then return to Status",
 		]);
+	});
+
+	test("creates cleanup jump audit rows for destination workspaces", () => {
+		const index = createCleanupShelfIndex({
+			connectionFilterPresets: ["443", "node"],
+		});
+		const shelf = getSelectedCleanupShelf(index, 0);
+
+		expect(shelf?.id).toBe("connections");
+		if (!shelf) {
+			throw new Error("expected cleanup shelf");
+		}
+
+		const audit = createCleanupJumpAudit(shelf);
+
+		expect(audit).toEqual({
+			id: "connections",
+			label: "Connection filters",
+			screen: "connections",
+			workspace: "Connections",
+			shortcut: "D",
+			confirmationPhrase: "clear connections",
+			count: 2,
+			detail: "filters=2",
+		});
+		expect(formatCleanupJumpAuditRows(audit)).toEqual([
+			"CLEANUP HANDOFF Connection filters",
+			"from=Status target=Connections shortcut=D count=2",
+			"confirm=clear connections detail=filters=2",
+		]);
+		expect(formatCleanupJumpAuditRows(undefined)).toEqual([]);
 	});
 });

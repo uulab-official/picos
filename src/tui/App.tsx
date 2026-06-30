@@ -157,8 +157,11 @@ import { VERSION } from "../core/version";
 import { createTranslator } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
 import {
+	type CleanupJumpAudit,
 	type CleanupShelfIndex,
+	createCleanupJumpAudit,
 	createCleanupShelfIndex,
+	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
 	getSelectedCleanupShelf,
@@ -397,6 +400,7 @@ export function App(): React.ReactElement {
 	const [selectedUpdateHandoffIndex, setSelectedUpdateHandoffIndex] =
 		useState(0);
 	const [selectedCleanupShelfIndex, setSelectedCleanupShelfIndex] = useState(0);
+	const [cleanupJumpAudit, setCleanupJumpAudit] = useState<CleanupJumpAudit>();
 	const [handoffIndex, setHandoffIndex] = useState<HandoffIndex>({
 		baseDir: dirname(getConfigPath()),
 		items: [],
@@ -3123,6 +3127,7 @@ export function App(): React.ReactElement {
 				log("warn", "no cleanup shelf selected");
 				return;
 			}
+			setCleanupJumpAudit(createCleanupJumpAudit(shelf));
 			setScreen(shelf.screen);
 			log(
 				"info",
@@ -4168,6 +4173,7 @@ export function App(): React.ReactElement {
 					toolCopyPreview={toolCopyPreview}
 					cleanupShelfIndex={cleanupShelfIndex}
 					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
+					cleanupJumpAudit={cleanupJumpAudit}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
 					selectedHandoffIndex={selectedHandoffIndex}
@@ -4358,6 +4364,7 @@ function MainWorkspace({
 	toolCopyPreview,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
+	cleanupJumpAudit,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
 	selectedHandoffIndex,
@@ -4450,6 +4457,7 @@ function MainWorkspace({
 	toolCopyPreview: ToolCopyPreviewMode;
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
+	cleanupJumpAudit?: CleanupJumpAudit;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
 	selectedHandoffIndex: number;
@@ -4458,108 +4466,138 @@ function MainWorkspace({
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
+	const cleanupJumpAuditRows =
+		cleanupJumpAudit?.screen === screen
+			? formatCleanupJumpAuditRows(cleanupJumpAudit)
+			: [];
+	const workspaceHeight =
+		cleanupJumpAuditRows.length > 0
+			? Math.max(1, height - cleanupJumpAuditRows.length)
+			: height;
+
 	return (
 		<Box
 			width={width}
 			height={height}
 			borderStyle="single"
 			borderColor="cyan"
+			flexDirection="column"
 			paddingX={1}
 		>
 			{error ? (
 				<Text color="red">{error}</Text>
 			) : (
-				renderWorkspace(
-					screen,
-					summary,
-					inventory,
-					systemMonitor,
-					osLogs,
-					actions,
-					selectedActionIndex,
-					actionPreviewPlan,
-					actionSimulation,
-					actionExecutionPlan,
-					controlExecutionPolicy,
-					updateCheckResult,
-					githubReleaseCheckResult,
-					palette,
-					focusArea,
-					doctorChecks,
-					fileRoot,
-					fileEntries,
-					fileLocations,
-					selectedFileIndex,
-					selectedLocationIndex,
-					commandLine,
-					fileFilter,
-					fileOperationDialog,
-					editorPreview,
-					remoteProfiles,
-					selectedRemoteIndex,
-					remoteFileContext,
-					connections,
-					ports,
-					connectionsResult,
-					portsResult,
-					connectionSort,
-					portSort,
-					connectionFilter,
-					portFilter,
-					connectionFilterPresets,
-					portFilterPresets,
-					selectedInterfaceIndex,
-					interfaceDetailView,
-					selectedConnectionIndex,
-					selectedPortIndex,
-					connectionDetailView,
-					portDetailView,
-					connectionCopyPreview,
-					portCopyPreview,
-					selectedProcessDetail,
-					selectedProcessFiles,
-					selectedProcessFileIndex,
-					processClipboardPreview,
-					routeTable,
-					routePath,
-					routeSort,
-					routeFilter,
-					routeFilterPresets,
-					routeDetailView,
-					routeCopyPreview,
-					timelineFilter,
-					timelineSearchQuery,
-					timelineSearchPresets,
-					logSearchQuery,
-					logSearchPresets,
-					logLevelFilter,
-					logProfiles,
-					logFollowEnabled,
-					logFollowRefreshCount,
-					logFollowLastStatus,
-					logFollowHistory,
-					toolHistory,
-					selectedToolHistoryIndex,
-					toolTargetPresets,
-					customToolTargetPresets,
-					selectedToolTargetPresetIndex,
-					toolHistoryFilter,
-					toolHistoryFilterPresets,
-					toolHistorySort,
-					toolHistoryGroup,
-					toolHistoryDetailView,
-					toolCopyPreview,
-					cleanupShelfIndex,
-					selectedCleanupShelfIndex,
-					selectedUpdateHandoffIndex,
-					handoffIndex,
-					selectedHandoffIndex,
-					externalOpenPlan,
-					fileOpenPlan,
-					events,
-					height,
-					t,
-				)
+				<>
+					{cleanupJumpAuditRows.length > 0 ? (
+						<Box flexDirection="column">
+							{cleanupJumpAuditRows.map((row) => (
+								<Text
+									key={row}
+									color={
+										row.startsWith("CLEANUP HANDOFF")
+											? "cyan"
+											: row.startsWith("confirm=")
+												? "yellow"
+												: "white"
+									}
+								>
+									{row}
+								</Text>
+							))}
+						</Box>
+					) : null}
+					{renderWorkspace(
+						screen,
+						summary,
+						inventory,
+						systemMonitor,
+						osLogs,
+						actions,
+						selectedActionIndex,
+						actionPreviewPlan,
+						actionSimulation,
+						actionExecutionPlan,
+						controlExecutionPolicy,
+						updateCheckResult,
+						githubReleaseCheckResult,
+						palette,
+						focusArea,
+						doctorChecks,
+						fileRoot,
+						fileEntries,
+						fileLocations,
+						selectedFileIndex,
+						selectedLocationIndex,
+						commandLine,
+						fileFilter,
+						fileOperationDialog,
+						editorPreview,
+						remoteProfiles,
+						selectedRemoteIndex,
+						remoteFileContext,
+						connections,
+						ports,
+						connectionsResult,
+						portsResult,
+						connectionSort,
+						portSort,
+						connectionFilter,
+						portFilter,
+						connectionFilterPresets,
+						portFilterPresets,
+						selectedInterfaceIndex,
+						interfaceDetailView,
+						selectedConnectionIndex,
+						selectedPortIndex,
+						connectionDetailView,
+						portDetailView,
+						connectionCopyPreview,
+						portCopyPreview,
+						selectedProcessDetail,
+						selectedProcessFiles,
+						selectedProcessFileIndex,
+						processClipboardPreview,
+						routeTable,
+						routePath,
+						routeSort,
+						routeFilter,
+						routeFilterPresets,
+						routeDetailView,
+						routeCopyPreview,
+						timelineFilter,
+						timelineSearchQuery,
+						timelineSearchPresets,
+						logSearchQuery,
+						logSearchPresets,
+						logLevelFilter,
+						logProfiles,
+						logFollowEnabled,
+						logFollowRefreshCount,
+						logFollowLastStatus,
+						logFollowHistory,
+						toolHistory,
+						selectedToolHistoryIndex,
+						toolTargetPresets,
+						customToolTargetPresets,
+						selectedToolTargetPresetIndex,
+						toolHistoryFilter,
+						toolHistoryFilterPresets,
+						toolHistorySort,
+						toolHistoryGroup,
+						toolHistoryDetailView,
+						toolCopyPreview,
+						cleanupShelfIndex,
+						selectedCleanupShelfIndex,
+						selectedUpdateHandoffIndex,
+						handoffIndex,
+						selectedHandoffIndex,
+						externalOpenPlan,
+						fileOpenPlan,
+						events,
+						workspaceHeight,
+						t,
+					)}
+				</>
 			)}
 		</Box>
 	);
