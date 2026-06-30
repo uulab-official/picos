@@ -108,6 +108,13 @@ export type ToolHistoryDetailView = "raw" | "summary" | "command";
 
 export type ToolSectionClipboardSelection = "target" | "status";
 
+export type ToolCopyPreviewMode =
+	| "raw"
+	| "summary"
+	| ToolSectionClipboardSelection
+	| "row"
+	| false;
+
 const toolCopyPreviewValueLimit = 64;
 
 export type ToolHistoryExportPlan = {
@@ -307,6 +314,7 @@ export function formatToolsWorkspaceRows(
 	selectedTargetPresetIndex = 0,
 	sectionClipboardSelection: ToolSectionClipboardSelection = "target",
 	sectionClipboardRowIndex = 0,
+	copyPreviewMode: ToolCopyPreviewMode = false,
 ): string[] {
 	const filtered = sortToolHistory(history, filterQuery, sort);
 	const latestIndex = getVisibleToolHistoryIndex(
@@ -359,10 +367,19 @@ export function formatToolsWorkspaceRows(
 	const copySectionPreview = latest
 		? formatToolSectionCopyPreview(latest, sectionClipboardSelection)
 		: undefined;
+	const copyModePreview = latest
+		? formatToolCopyModePreview(
+				latest,
+				copyPreviewMode,
+				sectionClipboardSelection,
+				sectionClipboardRowIndex,
+			)
+		: undefined;
 	return [
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
+		...(copyModePreview ? [copyModePreview] : []),
 		...(copySectionPreview ? [copySectionPreview] : []),
 		...(copyTargetPreview ? [copyTargetPreview] : []),
 		`shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=${sectionClipboardSelection}${sectionRowSummary} · v copy section · c raw`,
@@ -1191,6 +1208,36 @@ function formatToolSectionCopyPreview(
 		return undefined;
 	}
 	return `copy section: section=${selection} rows=${rows.length} first=${truncateToolCopyPreviewValue(rows[0] ?? "")}`;
+}
+
+function formatToolCopyModePreview(
+	item: ToolHistoryItem,
+	mode: ToolCopyPreviewMode,
+	selection: ToolSectionClipboardSelection,
+	rowIndex: number,
+): string | undefined {
+	if (!mode) {
+		return undefined;
+	}
+	if (mode === "raw") {
+		return "copy mode: c raw output";
+	}
+	if (mode === "summary") {
+		return "copy mode: y summary";
+	}
+	if (mode === "row") {
+		const count = getToolSectionClipboardRowCountForItem(item, selection);
+		if (count <= 0) {
+			return undefined;
+		}
+		const bounded = Math.min(Math.max(rowIndex, 0), count - 1);
+		return `copy mode: b row section=${selection} row=${bounded + 1}/${count}`;
+	}
+	const count = getToolSectionClipboardRowCountForItem(item, mode);
+	if (count <= 0) {
+		return undefined;
+	}
+	return `copy mode: v section section=${mode} rows=${count}`;
 }
 
 function truncateToolCopyPreviewValue(

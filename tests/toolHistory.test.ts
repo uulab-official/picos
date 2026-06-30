@@ -1736,6 +1736,91 @@ describe("TUI tool history", () => {
 		expect(targetPreview?.length).toBeLessThanOrEqual(120);
 	});
 
+	test("formats compact copy mode indicators for TCP copy previews", () => {
+		const tcpResult = {
+			title: "Telnet TCP Check",
+			sections: [
+				{
+					label: "Target",
+					lines: [
+						"Host: example.com",
+						"Port: 443",
+						"Command: picos tools telnet example.com 443",
+						"Timeout: 2000ms",
+					],
+				},
+				{ label: "Status", lines: ["OPEN", "Elapsed: 42ms"] },
+			],
+			rawOutput:
+				"$ picos tools telnet example.com 443\n[Target]\nHost: example.com\nPort: 443\nCommand: picos tools telnet example.com 443\nTimeout: 2000ms\n[Status]\nOPEN\nElapsed: 42ms",
+		};
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "telnet",
+					args: ["example.com", "443"],
+					label: "network.connect example.com:443",
+				},
+				result: tcpResult,
+			},
+			"12:00:00",
+		);
+
+		const rowModeRows = formatToolsWorkspaceRows(
+			history,
+			20,
+			0,
+			"",
+			"time",
+			"none",
+			[],
+			"raw",
+			[],
+			0,
+			"status",
+			1,
+			"row",
+		);
+		const sectionModeRows = formatToolsWorkspaceRows(
+			history,
+			20,
+			0,
+			"",
+			"time",
+			"none",
+			[],
+			"raw",
+			[],
+			0,
+			"target",
+			0,
+			"target",
+		);
+		const rawModeRows = formatToolsWorkspaceRows(
+			history,
+			20,
+			0,
+			"",
+			"time",
+			"none",
+			[],
+			"raw",
+			[],
+			0,
+			"status",
+			0,
+			"raw",
+		);
+
+		expect(rowModeRows.at(-4)).toBe("copy mode: b row section=status row=2/2");
+		expect(sectionModeRows.at(-4)).toBe(
+			"copy mode: v section section=target rows=4",
+		);
+		expect(rawModeRows.at(-4)).toBe("copy mode: c raw output");
+	});
+
 	test("creates scoped export plans for selected tool history", () => {
 		const history = appendToolHistory(
 			appendToolHistory(
