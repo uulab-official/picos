@@ -868,6 +868,19 @@ Goal: keep OS mutation command knowledge inside adapters before any control acti
 - No OS mutation command is executed by this framework step.
 - Next: audit records for write/destructive preview attempts and typed confirmation state.
 
+## v0.4.2 - Control Preview Audit Records
+
+Status: draft PR #64.
+
+Goal: make privileged control review traceable before any OS mutation path is enabled.
+
+- Control preview plans now format stable audit messages for timeline and export flows.
+- Locked action previews log risk, privilege, dry-run state, lock reason, adapter, and command preview.
+- Timeline classifies control preview messages as audit events.
+- Timeline search can find control previews by action id, adapter, command, or risk metadata.
+- No OS mutation command is executed by this framework step.
+- Next: typed confirmation state for control previews while execution remains disabled.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

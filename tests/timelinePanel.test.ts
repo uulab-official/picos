@@ -46,6 +46,13 @@ const events: ConsoleEvent[] = [
 		time: "12:00:05",
 		message: "raw.view queued for adapter implementation",
 	},
+	{
+		id: "12:00:06-warn-control-preview",
+		level: "warn",
+		time: "12:00:06",
+		message:
+			'control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
+	},
 ];
 
 describe("timeline TUI panel formatting", () => {
@@ -62,30 +69,31 @@ describe("timeline TUI panel formatting", () => {
 
 	test("formats all timeline events with summary counters", () => {
 		expect(formatTimelineWorkspaceRows(events, 9, "all")).toEqual([
-			"SUMMARY events=6 network=1 audit=1 action=3 raw=1 filter=all",
+			"SUMMARY events=7 network=1 audit=2 action=3 raw=1 filter=all",
 			"TIMELINE",
-			"[12:00:00] INFO action picos console booted",
 			"[12:00:01] RUN  action network.inspect started",
 			"[12:00:02] OK   action routes listed 8",
 			"[12:00:03] WARN audit  clipboard locked selected port via xclip",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
 			"[12:00:05] INFO raw    raw.view queued for adapter implementation",
+			'[12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
 			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
 		]);
 	});
 
 	test("filters audit events and keeps terminal height bounded", () => {
-		expect(formatTimelineWorkspaceRows(events, 4, "audit")).toEqual([
-			"SUMMARY events=1/6 network=1 audit=1 action=3 raw=1 filter=audit",
+		expect(formatTimelineWorkspaceRows(events, 5, "audit")).toEqual([
+			"SUMMARY events=2/7 network=1 audit=2 action=3 raw=1 filter=audit",
 			"TIMELINE",
 			"[12:00:03] WARN audit  clipboard locked selected port via xclip",
+			'[12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
 			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
 		]);
 	});
 
 	test("filters network state-change events separately from actions", () => {
 		expect(formatTimelineWorkspaceRows(events, 4, "network")).toEqual([
-			"SUMMARY events=1/6 network=1 audit=1 action=3 raw=1 filter=network",
+			"SUMMARY events=1/7 network=1 audit=2 action=3 raw=1 filter=network",
 			"TIMELINE",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
 			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
@@ -102,7 +110,7 @@ describe("timeline TUI panel formatting", () => {
 				presets: ["network", "clipboard"],
 			}),
 		).toEqual([
-			"SUMMARY events=2/6 network=1 audit=0 action=1 raw=0 filter=all search=network presets=network|clipboard",
+			"SUMMARY events=2/7 network=1 audit=0 action=1 raw=0 filter=all search=network presets=network|clipboard",
 			"TIMELINE",
 			"[12:00:01] RUN  action network.inspect started",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",

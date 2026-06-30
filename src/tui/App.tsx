@@ -6,6 +6,7 @@ import { getConfigPath, readConfig } from "../config/store";
 import {
 	type ActionPreviewPlan,
 	createActionPreviewPlan,
+	formatActionPreviewAuditMessage,
 	formatActionPreviewRows,
 	getActionCatalog,
 	getActionSummary,
@@ -942,7 +943,12 @@ export function App(): React.ReactElement {
 				);
 				setActionPreviewPlan(preview);
 				setScreen("actions");
-				log("warn", `${action.id} preview only`);
+				log(
+					"warn",
+					preview
+						? formatActionPreviewAuditMessage(preview)
+						: `${action.id} preview unavailable`,
+				);
 				return;
 			}
 

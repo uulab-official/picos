@@ -71,6 +71,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Command palette filtering by command id, title, description, category, risk, or privilege.
 - Action Center now opens dry-run control previews for locked write, destructive, and admin actions, showing risk, privilege, confirmation phrase, platform, and lock reason without executing OS commands.
 - Control previews now include adapter-owned macOS/Linux/Windows command candidates for DNS flush, interface disable, route add, and service restart without making those commands executable.
+- Control preview attempts now emit stable audit/timeline messages with risk, privilege, dry-run state, lock reason, adapter, and command preview.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.
