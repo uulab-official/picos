@@ -4,6 +4,7 @@ import {
 	formatRoutePathRows,
 	formatRouteRawRows,
 	formatRouteWorkspaceRows,
+	nextRouteDetailView,
 } from "../src/tui/routePanel";
 
 const fixture: RouteTableResult = {
@@ -82,6 +83,40 @@ describe("route TUI panel formatting", () => {
 		).toContain(
 			"default            192.168.0.1      en0        ipv4\n10.8.0.0/24        link             utun0      ipv4",
 		);
+	});
+
+	test("formats route detail tabs for raw diagnostics and path focus", () => {
+		expect(nextRouteDetailView("table")).toBe("raw");
+		expect(nextRouteDetailView("raw")).toBe("diagnostics");
+		expect(nextRouteDetailView("diagnostics")).toBe("path");
+		expect(nextRouteDetailView("path")).toBe("table");
+		expect(formatRouteWorkspaceRows(fixture, 5, { view: "raw" })).toEqual([
+			"SUMMARY routes=2 view=raw command=netstat -rn",
+			"RAW OUTPUT",
+			"$ netstat -rn",
+			"Internet:",
+			"default 192.168.0.1 UGSc en0",
+		]);
+		expect(
+			formatRouteWorkspaceRows(fixture, 5, { view: "diagnostics" }),
+		).toEqual([
+			"SUMMARY routes=2 view=diagnostics command=netstat -rn",
+			"DIAGNOSTICS",
+			"PASS Default route present · 1 default route(s)",
+		]);
+		expect(
+			formatRouteWorkspaceRows(fixture, 6, {
+				path: pathFixture,
+				view: "path",
+			}),
+		).toEqual([
+			"SUMMARY routes=2 view=path command=netstat -rn",
+			"PATH destination=8.8.8.8",
+			"gateway=192.168.0.1 interface=en0 source=192.168.0.20",
+			"RAW PATH",
+			"$ route -n get 8.8.8.8",
+			"route to: 8.8.8.8",
+		]);
 	});
 
 	test("clips raw rows to available height", () => {
