@@ -773,13 +773,27 @@ Goal: make Interfaces behave like a focused lazyifconfig-style adapter inspector
 - Platform view explains the OS data sources used for interface inventory and statistics.
 - Next: richer subnet labels and VPN route hints.
 
+## v0.3.57 - Network Route Hints
+
+Status: draft PR #58.
+
+Goal: make network groups and routes explain operator meaning instead of only listing raw addresses.
+
+- Network groups now include `scope` labels such as private, tunnel, virtual, local, host, and internet.
+- Network groups now include concise operator hints for LAN, VPN, container, link-local, public, loopback, and unassigned addresses.
+- The Network workspace shows group scope and hints beside interface membership.
+- Interface platform detail rows include group scope and hint context.
+- Route diagnostics detect VPN interfaces such as `utun`, `tun`, `tap`, `ppp`, `wg`, WireGuard, and VPN-named adapters.
+- Route diagnostics flag likely split-tunnel setups when VPN routes exist but the default route remains on a non-VPN interface.
+- Next: richer endpoint search and event search.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
-- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, stable row sorting, keyboard selection, and list/detail/stats/platform panes landed; next richer subnet labels.
-- Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
-- Route Inspector depth: route diagnostics, raw/table/diagnostics/path tabs, destination path lookup UI, and sortable rows landed; next VPN route hints.
+- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, stable row sorting, keyboard selection, and list/detail/stats/platform panes landed; next richer endpoint search.
+- Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification plus operator scope/hint labels landed; next richer event search.
+- Route Inspector depth: route diagnostics, raw/table/diagnostics/path tabs, destination path lookup UI, sortable rows, VPN route hints, and split-tunnel diagnostics landed; next richer endpoint search.
 - Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, detail/raw/process tabs, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer endpoint search.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, raw output handoff, locked summary/raw-output copy shortcuts, and scoped markdown export landed; next platform-aware presets and export scopes.
 - Timeline: live EventDock history, network/action/audit/raw filters, audit export, latest audit reload, and network status/address/public-IP change events landed; next richer event search and export scopes.

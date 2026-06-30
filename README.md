@@ -167,8 +167,8 @@ Reference-inspired modules now tracked in picos:
 
 - Interfaces inventory
 - Interface type, CIDR prefix, MAC/netmask, MTU, RX/TX counters, gateway, DNS inventory, and TUI list/detail/stats/platform panes
-- Subnet/network grouping for LAN, loopback, VPN, container, link-local, and public addresses
-- Route Inspector with TUI table/raw/diagnostics/path panes, destination path lookup, route rows, and raw command output
+- Subnet/network grouping for LAN, loopback, VPN, container, link-local, and public addresses with operator scope/hint labels
+- Route Inspector with TUI table/raw/diagnostics/path panes, destination path lookup, route rows, VPN hints, split-tunnel diagnostics, and raw command output
 - Connections view with parsed rows, CLI filtering/sorting, TUI detail/raw/process panes, PID process enrichment, copy preview, and raw OS command output
 - Ports view with process metadata, CLI filtering/sorting, TUI detail/raw/process panes, PID process enrichment, copy preview, and raw OS command output
 - Tools Hub with read-only DNS/RDAP/IP/TCP/TLS/ping/traceroute commands, target prompts, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, locked summary/raw-output copy, scoped markdown export, and raw output handoff

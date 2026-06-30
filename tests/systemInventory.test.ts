@@ -86,6 +86,8 @@ describe("system inventory", () => {
 					{
 						kind: "lan",
 						label: "LAN",
+						scope: "private",
+						hint: "RFC1918 private network for local devices",
 						interfaces: ["en0"],
 						addresses: ["192.168.0.12"],
 					},
@@ -139,6 +141,8 @@ describe("system inventory", () => {
 					{
 						kind: "lan",
 						label: "LAN",
+						scope: "private",
+						hint: "RFC1918 private network for local devices",
 						interfaces: ["en0"],
 						addresses: ["192.168.0.12"],
 					},

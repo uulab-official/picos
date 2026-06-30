@@ -3004,9 +3004,10 @@ function NetworkWorkspace({
 					summary.networkGroups.length ? (
 						summary.networkGroups.slice(0, groupRows).map((group) => (
 							<Text key={group.kind}>
-								{clip(group.label, 9).padEnd(9)} if=
-								{clip(group.interfaces.join(","), 14) || "-"} addr=
-								{clip(group.addresses.join(","), 18)}
+								{clip(group.label, 9).padEnd(9)}{" "}
+								{clip(group.scope, 8).padEnd(8)} if=
+								{clip(group.interfaces.join(","), 10) || "-"} hint=
+								{clip(group.hint, 28)}
 							</Text>
 						))
 					) : (

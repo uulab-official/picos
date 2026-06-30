@@ -54,12 +54,16 @@ describe("network summary", () => {
 			{
 				kind: "lan",
 				label: "LAN",
+				scope: "private",
+				hint: "RFC1918 private network for local devices",
 				interfaces: ["en0"],
 				addresses: ["192.168.0.12"],
 			},
 			{
 				kind: "linkLocal",
 				label: "Link-local",
+				scope: "local",
+				hint: "self-assigned local segment without routed internet",
 				interfaces: ["en0"],
 				addresses: ["fe80::1"],
 			},
@@ -171,5 +175,71 @@ describe("network summary", () => {
 		expect(classifyNetworkAddress("8.8.8.8", "wifiOrEthernet")).toBe("public");
 		expect(classifyNetworkAddress("100.64.0.10", "vpn")).toBe("vpn");
 		expect(classifyNetworkAddress("172.17.0.2", "container")).toBe("container");
+	});
+
+	test("adds operator hints to network group summaries", () => {
+		const summary = summarizeNetworkInterfaces(
+			{
+				en0: [
+					{
+						address: "192.168.0.12",
+						family: "IPv4",
+						internal: false,
+						mac: "aa:bb:cc:dd:ee:ff",
+						netmask: "255.255.255.0",
+						cidr: "192.168.0.12/24",
+					},
+				],
+				utun4: [
+					{
+						address: "100.64.0.10",
+						family: "IPv4",
+						internal: false,
+						mac: "00:00:00:00:00:00",
+						netmask: "255.192.0.0",
+						cidr: "100.64.0.10/10",
+					},
+				],
+				docker0: [
+					{
+						address: "172.17.0.2",
+						family: "IPv4",
+						internal: false,
+						mac: "02:42:ac:11:00:02",
+						netmask: "255.255.0.0",
+						cidr: "172.17.0.2/16",
+					},
+				],
+			},
+			["1.1.1.1"],
+		);
+
+		expect(
+			summary.networkGroups.map(({ kind, label, scope, hint }) => ({
+				kind,
+				label,
+				scope,
+				hint,
+			})),
+		).toEqual([
+			{
+				kind: "lan",
+				label: "LAN",
+				scope: "private",
+				hint: "RFC1918 private network for local devices",
+			},
+			{
+				kind: "vpn",
+				label: "VPN",
+				scope: "tunnel",
+				hint: "tunnel interface likely carries private or corporate routes",
+			},
+			{
+				kind: "container",
+				label: "Container",
+				scope: "virtual",
+				hint: "local virtualization or container bridge network",
+			},
+		]);
 	});
 });

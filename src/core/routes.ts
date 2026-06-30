@@ -233,6 +233,9 @@ export function parseWindowsRoutePrint(output: string): RouteEntry[] {
 
 export function diagnoseRoutes(routes: RouteEntry[]): RouteDiagnostic[] {
 	const defaults = routes.filter((route) => route.destination === "default");
+	const vpnRoutes = routes.filter((route) =>
+		isVpnInterfaceName(route.interfaceName),
+	);
 	const diagnostics: RouteDiagnostic[] = [
 		defaults.length
 			? {
@@ -251,6 +254,31 @@ export function diagnoseRoutes(routes: RouteEntry[]): RouteDiagnostic[] {
 		});
 	}
 
+	if (vpnRoutes.length > 0) {
+		const vpnInterfaces = uniqueRouteInterfaces(vpnRoutes);
+		diagnostics.push({
+			status: "pass",
+			label: "VPN routes detected",
+			detail: vpnInterfaces.join(", "),
+		});
+		const vpnDefaults = defaults.filter((route) =>
+			isVpnInterfaceName(route.interfaceName),
+		);
+		if (vpnDefaults.length > 0) {
+			diagnostics.push({
+				status: "pass",
+				label: "VPN default route active",
+				detail: uniqueRouteInterfaces(vpnDefaults).join(", "),
+			});
+		} else if (defaults.length > 0) {
+			diagnostics.push({
+				status: "warn",
+				label: "Split tunnel likely",
+				detail: `default=${uniqueRouteInterfaces(defaults).join(", ")} vpn=${vpnInterfaces.join(", ")}`,
+			});
+		}
+	}
+
 	const missingInterfaces = routes.filter(
 		(route) => route.interfaceName === "-",
 	);
@@ -263,6 +291,25 @@ export function diagnoseRoutes(routes: RouteEntry[]): RouteDiagnostic[] {
 	}
 
 	return diagnostics;
+}
+
+function uniqueRouteInterfaces(routes: RouteEntry[]): string[] {
+	return [...new Set(routes.map((route) => route.interfaceName))].filter(
+		(name) => name && name !== "-",
+	);
+}
+
+function isVpnInterfaceName(name: string): boolean {
+	const normalized = name.toLowerCase();
+	return (
+		normalized.startsWith("utun") ||
+		normalized.startsWith("tun") ||
+		normalized.startsWith("tap") ||
+		normalized.startsWith("ppp") ||
+		normalized.startsWith("wg") ||
+		normalized.includes("vpn") ||
+		normalized.includes("wireguard")
+	);
 }
 
 export function parseRouteSort(value: string | undefined): RouteSort {
