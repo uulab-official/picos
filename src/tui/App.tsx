@@ -159,8 +159,10 @@ import { currentPlatform } from "../utils/platform";
 import {
 	type CleanupJumpAudit,
 	type CleanupShelfIndex,
+	createCleanupHandoffActionPlan,
 	createCleanupJumpAudit,
 	createCleanupShelfIndex,
+	formatCleanupHandoffActionRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
@@ -2318,6 +2320,33 @@ export function App(): React.ReactElement {
 		};
 	}, [log, logFollowEnabled, refreshInterval, screen]);
 
+	const openCleanupHandoffPrompt = useCallback(() => {
+		const plan = createCleanupHandoffActionPlan(cleanupJumpAudit, screen);
+		if (!plan) {
+			return false;
+		}
+
+		const prompt =
+			plan.id === "logs"
+				? "logs-cleanup"
+				: plan.id === "routes"
+					? "route-filter-cleanup"
+					: plan.id === "connections" || plan.id === "ports"
+						? `${endpointFilterCleanupPromptPrefix}${plan.id}`
+						: plan.id === "timeline"
+							? "timeline-search-cleanup"
+							: plan.id === "tools-history"
+								? "tool-history-cleanup"
+								: "tool-target-cleanup";
+
+		setCommandLine(openCommandLine(prompt));
+		log(
+			"info",
+			`cleanup handoff prompt opened ${plan.label}; type ${plan.confirmationPhrase}`,
+		);
+		return true;
+	}, [cleanupJumpAudit, log, screen]);
+
 	useInput((input, key) => {
 		if (commandLine.active) {
 			if (key.escape) {
@@ -2601,6 +2630,10 @@ export function App(): React.ReactElement {
 			(input === "x" || input === "X")
 		) {
 			void runControlExecutionAttempt();
+			return;
+		}
+
+		if (input === "\r" && openCleanupHandoffPrompt()) {
 			return;
 		}
 
@@ -4466,10 +4499,16 @@ function MainWorkspace({
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
-	const cleanupJumpAuditRows =
-		cleanupJumpAudit?.screen === screen
-			? formatCleanupJumpAuditRows(cleanupJumpAudit)
-			: [];
+	const cleanupHandoffActionPlan = createCleanupHandoffActionPlan(
+		cleanupJumpAudit,
+		screen,
+	);
+	const cleanupJumpAuditRows = cleanupHandoffActionPlan
+		? [
+				...formatCleanupJumpAuditRows(cleanupJumpAudit),
+				...formatCleanupHandoffActionRows(cleanupHandoffActionPlan),
+			]
+		: [];
 	const workspaceHeight =
 		cleanupJumpAuditRows.length > 0
 			? Math.max(1, height - cleanupJumpAuditRows.length)
@@ -4496,9 +4535,11 @@ function MainWorkspace({
 									color={
 										row.startsWith("CLEANUP HANDOFF")
 											? "cyan"
-											: row.startsWith("confirm=")
-												? "yellow"
-												: "white"
+											: row.startsWith("CLEANUP ACTION")
+												? "cyan"
+												: row.startsWith("confirm=")
+													? "yellow"
+													: "white"
 									}
 								>
 									{row}

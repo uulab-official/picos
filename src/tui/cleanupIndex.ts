@@ -39,6 +39,15 @@ export type CleanupJumpAudit = {
 	detail: string;
 };
 
+export type CleanupHandoffActionPlan = {
+	id: CleanupShelfId;
+	label: string;
+	screen: Screen;
+	workspace: string;
+	shortcut: string;
+	confirmationPhrase: string;
+};
+
 export type CleanupShelfIndexInput = {
 	connectionFilterPresets?: string[];
 	customToolTargetPresets?: Array<{
@@ -217,6 +226,38 @@ export function formatCleanupJumpAuditRows(
 		`CLEANUP HANDOFF ${audit.label}`,
 		`from=Status target=${audit.workspace} shortcut=${audit.shortcut} count=${audit.count}`,
 		`confirm=${audit.confirmationPhrase} detail=${audit.detail}`,
+	];
+}
+
+export function createCleanupHandoffActionPlan(
+	audit: CleanupJumpAudit | undefined,
+	currentScreen: Screen,
+): CleanupHandoffActionPlan | undefined {
+	if (!audit || audit.screen !== currentScreen) {
+		return undefined;
+	}
+
+	return {
+		id: audit.id,
+		label: audit.label,
+		screen: audit.screen,
+		workspace: audit.workspace,
+		shortcut: audit.shortcut,
+		confirmationPhrase: audit.confirmationPhrase,
+	};
+}
+
+export function formatCleanupHandoffActionRows(
+	plan: CleanupHandoffActionPlan | undefined,
+): string[] {
+	if (!plan) {
+		return [];
+	}
+
+	return [
+		"CLEANUP ACTION open prompt",
+		`enter opens ${plan.workspace} cleanup shortcut=${plan.shortcut}`,
+		`confirm=${plan.confirmationPhrase}`,
 	];
 }
 

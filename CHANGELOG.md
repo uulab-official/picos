@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Destination cleanup handoff rows can now open the matching exact-confirm cleanup prompt with `enter`.
 - Destination workspaces now show a cleanup handoff audit row after jumping from the Status cleanup index.
 - Status cleanup index now includes a detail pane with target workspace, item count, shortcut, exact phrase, and jump instructions.
 - Status cleanup index rows can now be selected with `j/k` and handed off to the owning workspace with `enter`.
