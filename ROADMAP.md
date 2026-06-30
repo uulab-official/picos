@@ -1485,6 +1485,20 @@ Goal: make bulk config cleanup feel like an OS control surface by requiring visi
 - Tests cover preview rows, exact confirmation, rejected confirmation, and no-selection behavior.
 - Next: reusable config-cleanup confirmation primitives for logs, filters, and handoff shelves.
 
+## v0.4.48 - Config Cleanup Confirmation Model
+
+Status: draft PR #110.
+
+Goal: give picos a shared, reusable confirmation primitive for config cleanup shelves before adding more destructive configuration maintenance controls.
+
+- Core now exposes `createConfigCleanupPreview()` for target/scope/count preview rows and exact phrase generation.
+- Core now exposes `submitConfigCleanupConfirmation()` to classify accepted and rejected cleanup confirmations without executing cleanup work.
+- Tools target bulk cleanup now carries the shared config cleanup preview while keeping its existing Tools-specific rows.
+- Tools target cleanup confirmation now delegates exact phrase matching to the shared model.
+- README and changelog describe the reusable config cleanup confirmation posture.
+- Tests cover generic cleanup previews, accepted/rejected confirmation results, and Tools integration with the shared preview.
+- Next: apply the shared cleanup model to Logs search/profile preset cleanup.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

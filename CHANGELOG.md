@@ -61,6 +61,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub saved target retention can now be configured with `toolTargetPresetLimit` from 1 to 24 entries.
 - Tools Hub saved target presets can now be cleaned up in bulk with `D`, removing every saved preset for the selected saved action.
 - Tools Hub bulk cleanup now requires an exact `delete <action id>` confirmation before persisted target presets are changed.
+- Config cleanup confirmations now have a reusable core model for exact phrase previews, rejected confirmations, and confirmed cleanup audit messages.
 - Connections and Ports workspaces now support `Tab` detail panes for focused detail, raw output, and process views.
 - Connections and Ports workspaces now support TUI endpoint search with `f`, `F`, `P`, and `]` filter preset controls.
 - Connections and Ports sort preferences now persist in config and restore on TUI boot.
