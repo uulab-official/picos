@@ -222,6 +222,7 @@ import {
 	formatConnectionsWorkspaceRows,
 	formatPortProcessControlConfirmationAuditMessage,
 	formatPortProcessControlExecutionRows,
+	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
@@ -532,6 +533,8 @@ export function App(): React.ReactElement {
 	const [portCopyPreview, setPortCopyPreview] = useState(false);
 	const [portProcessControlPreview, setPortProcessControlPreview] =
 		useState(false);
+	const [portProcessControlInspector, setPortProcessControlInspector] =
+		useState(false);
 	const [connectionFilter, setConnectionFilter] = useState("");
 	const [portFilter, setPortFilter] = useState("");
 	const [connectionFilterPresets, setConnectionFilterPresets] = useState<
@@ -628,6 +631,29 @@ export function App(): React.ReactElement {
 			getToolTargetPresets(summary, defaultPingHost, customToolTargetPresets),
 		[customToolTargetPresets, defaultPingHost, summary],
 	);
+	const portProcessControlInspectorRows = useMemo(() => {
+		if (!portProcessControlInspector || screen !== "ports") {
+			return [];
+		}
+		const preview = createSelectedPortProcessControlPreview(
+			sortedPorts,
+			selectedPortIndex,
+		);
+		if (!preview) {
+			return ["PORT CONTROL", "no selected listening PID"];
+		}
+		return formatPortProcessControlInspectorRows(
+			preview,
+			getControlPreviewCommand(preview.actionId, currentPlatform()),
+			controlExecutionPolicy,
+		);
+	}, [
+		controlExecutionPolicy,
+		portProcessControlInspector,
+		screen,
+		selectedPortIndex,
+		sortedPorts,
+	]);
 	const cleanupShelfIndex = useMemo(
 		() =>
 			createCleanupShelfIndex({
@@ -3455,6 +3481,26 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "ports" && focusArea === "workspaces" && input === "I") {
+			const preview = createSelectedPortProcessControlPreview(
+				sortedPorts,
+				selectedPortIndex,
+			);
+			if (!preview) {
+				log("warn", "no port process policy to inspect");
+				return;
+			}
+			const next = !portProcessControlInspector;
+			setPortProcessControlInspector(next);
+			log(
+				"info",
+				next
+					? `ports process policy inspector ${preview.port.pid}`
+					: "ports process policy inspector hidden",
+			);
+			return;
+		}
+
 		if (
 			screen === "connections" &&
 			focusArea === "workspaces" &&
@@ -4791,6 +4837,7 @@ export function App(): React.ReactElement {
 						actionSimulation={actionSimulation}
 						actionExecutionPlan={actionExecutionPlan}
 						controlExecutionPolicy={controlExecutionPolicy}
+						portProcessControlRows={portProcessControlInspectorRows}
 						events={events}
 						t={t}
 					/>
@@ -6597,7 +6644,7 @@ function PortsWorkspace({
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
 				listening ports · f filter · P save · ] preset · D cleanup · e export ·
-				o open · K control · tab detail · j/k select
+				o open · I inspector · K control · tab detail · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -7361,6 +7408,7 @@ function getActionPreviewRowColor(row: string): string {
 		row.startsWith("CONTROL SIMULATION") ||
 		row.startsWith("CONTROL EXECUTION POLICY") ||
 		row.startsWith("CONTROL EXECUTION") ||
+		row.startsWith("PORT CONTROL") ||
 		row.startsWith("PICOS UPDATE APPLY PREVIEW")
 	) {
 		return "cyan";
@@ -7368,6 +7416,7 @@ function getActionPreviewRowColor(row: string): string {
 	if (
 		row.startsWith("blocked=") ||
 		row.startsWith("blockers=") ||
+		row.startsWith("target=") ||
 		row.startsWith(":confirm") ||
 		row.includes("blocked-by-policy") ||
 		row.includes("status=blocked") ||
@@ -7951,6 +8000,7 @@ function Inspector({
 	actionSimulation,
 	actionExecutionPlan,
 	controlExecutionPolicy,
+	portProcessControlRows,
 	events,
 	t,
 }: {
@@ -7962,6 +8012,7 @@ function Inspector({
 	actionSimulation?: ActionControlSimulation;
 	actionExecutionPlan?: ControlExecutionPlan;
 	controlExecutionPolicy: ControlExecutionPolicy;
+	portProcessControlRows: string[];
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -8027,6 +8078,16 @@ function Inspector({
 					<Box marginTop={1} flexDirection="column">
 						<Text color="gray">CONTROL EXECUTION</Text>
 						{executionRows.slice(1).map((row) => (
+							<Text key={row} color={getActionPreviewRowColor(row)}>
+								{row}
+							</Text>
+						))}
+					</Box>
+				) : null}
+				{portProcessControlRows.length ? (
+					<Box marginTop={1} flexDirection="column">
+						<Text color="gray">PORT POLICY</Text>
+						{portProcessControlRows.map((row) => (
 							<Text key={row} color={getActionPreviewRowColor(row)}>
 								{row}
 							</Text>

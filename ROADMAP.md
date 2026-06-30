@@ -1974,6 +1974,19 @@ Goal: make the Ports process-control prompt speak the same policy language as Ac
 - Tests cover the port-to-control-execution bridge and PID placeholder hydration.
 - Next: add a keyboard action to inspect the selected port's execution policy in the side Inspector without opening the confirmation prompt.
 
+## v0.4.85 - Port Policy Inspector
+
+Status: draft PR #147 on `codex/picos-v0.4.85-port-policy-inspector`.
+
+Goal: let operators inspect selected port process-control policy from the OS side Inspector before they open a destructive confirmation prompt.
+
+- Ports workspace now supports `I` to toggle selected listening PID policy rows in the side Inspector.
+- The Inspector renders `PORT CONTROL`, target port/PID/process, hydrated adapter command preview, and shared control execution blockers.
+- The policy rows update with the selected sorted/filtered port while the Inspector view is pinned.
+- Ports key hints now include the Inspector policy shortcut next to the locked `K` control flow.
+- Tests cover the selected-port Inspector row formatter and PID placeholder hydration.
+- Next: connect Inspector policy rows to process/file drill-down hints so the selected PID can move cleanly into Processes or Files before any destructive preview is opened.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
