@@ -908,6 +908,21 @@ Goal: make the approval policy decision visible before real OS mutation is ever 
 - No OS mutation command is executed by this framework step.
 - Next: privileged execution harness design with explicit opt-in policy and adapter dry-run execution tests.
 
+## v0.4.5 - Control Execution Harness
+
+Status: draft PR #67.
+
+Goal: define the first execution boundary without making mutation casually reachable.
+
+- Control execution plans default to policy `disabled` and never call a runner.
+- Exact typed confirmation is required before any dry-run execution plan can become ready.
+- Adapter commands must declare `dryRunExecutable` before the harness can call them.
+- Windows PowerShell `-WhatIf` command previews are marked as dry-run executable.
+- macOS/Linux preview-only control commands remain blocked as `adapter-dry-run-unavailable`.
+- Timeline classifies control execution dry-run audit messages as audit events.
+- No TUI path enables mutation by default in this framework step.
+- Next: UI-gated dry-run attempt command, operator policy config, and richer adapter dry-run coverage.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

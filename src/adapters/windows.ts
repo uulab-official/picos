@@ -48,6 +48,7 @@ export function controlPreviewCommand(
 			command: "powershell",
 			args: ["-NoProfile", "-Command", "Clear-DnsClientCache -WhatIf"],
 			note: "flush local DNS resolver cache with WhatIf preview",
+			dryRunExecutable: true,
 		};
 	}
 	if (actionId === "interface.disable") {
@@ -60,6 +61,7 @@ export function controlPreviewCommand(
 				"Disable-NetAdapter -Name '<interface>' -Confirm:$false -WhatIf",
 			],
 			note: "disable a network adapter with WhatIf preview",
+			dryRunExecutable: true,
 		};
 	}
 	if (actionId === "route.add") {
@@ -72,6 +74,7 @@ export function controlPreviewCommand(
 				"New-NetRoute -DestinationPrefix '<destination>' -NextHop '<gateway>' -WhatIf",
 			],
 			note: "add a route table entry with WhatIf preview",
+			dryRunExecutable: true,
 		};
 	}
 	if (actionId === "service.restart") {
@@ -84,6 +87,7 @@ export function controlPreviewCommand(
 				"Restart-Service -Name '<service>' -WhatIf",
 			],
 			note: "restart a Windows service with WhatIf preview",
+			dryRunExecutable: true,
 		};
 	}
 	return undefined;

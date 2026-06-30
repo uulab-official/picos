@@ -155,10 +155,11 @@ Every future write/destructive action must define:
 - preview/dry-run behavior
 - confirmation requirement
 - policy simulation with blockers
+- explicit opt-in execution policy
 - adapter-owned OS commands
 - tests for default locked behavior
 
-Locked OS control previews now include a dry-run policy simulation. Even after an exact typed confirmation, picos records blockers such as `mutation-approval-required`, `admin-approval-required`, and `execution-disabled` instead of executing an adapter command.
+Locked OS control previews now include a dry-run policy simulation. Even after an exact typed confirmation, picos records blockers such as `mutation-approval-required`, `admin-approval-required`, and `execution-disabled` instead of executing an adapter command. The control execution harness defaults to `disabled`; only an explicit dry-run policy plus exact confirmation can run an adapter-declared dry-run command through the harness, and preview-only commands remain blocked.
 
 Clipboard writes follow the same rule: platform adapters exist for `pbcopy`, `xclip`, and `clip.exe`, and confirmed plans execute through `safeExec()` stdin so copy text is never interpolated into a shell command. In the TUI, endpoint, process-resource, and Tools summary/raw-output copy actions open a `:clipboard` confirmation prompt and log the resulting audit event, including fallback guidance when the platform clipboard tool is missing. The `timeline.export` action writes the current console audit log under the picos config directory, and Tools history export writes selected or full diagnostic runs under the config `tools` directory.
 
@@ -217,7 +218,7 @@ v0.2 expands picos toward an OS-like console:
 v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
 The Files workspace supports keyboard-driven local navigation, numbered system location jumps, direct path input, entry filtering, locked file-operation previews, and read-only file preview into the Editor workspace. The Remotes workspace surfaces configured SFTP-style profiles, lets you stage a locked remote file context, and never opens network sessions yet.
 
-v0.4 starts the privileged controls framework with dry-run previews for write, destructive, and admin actions. These previews make risk, privilege, confirmation phrase, platform, lock reason, adapter-owned command candidates, typed confirmation state, and blocked policy simulations visible before any OS mutation path is enabled, and preview attempts are recorded in the local timeline/audit stream.
+v0.4 starts the privileged controls framework with dry-run previews for write, destructive, and admin actions. These previews make risk, privilege, confirmation phrase, platform, lock reason, adapter-owned command candidates, typed confirmation state, blocked policy simulations, and opt-in dry-run execution harness decisions visible before any OS mutation path is enabled, and preview attempts are recorded in the local timeline/audit stream.
 
 ## Privacy Direction
 

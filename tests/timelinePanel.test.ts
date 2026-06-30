@@ -131,6 +131,25 @@ describe("timeline TUI panel formatting", () => {
 		]);
 	});
 
+	test("classifies control execution dry-run audit records", () => {
+		const executionEvents: ConsoleEvent[] = [
+			{
+				id: "12:00:09-warn-control-execution",
+				level: "warn",
+				time: "12:00:09",
+				message:
+					'control execution dns.flush status=dry-run-executed policy=dry-run confirmed=true dryRun=true willExecute=true adapter=windows command="powershell -NoProfile -Command Clear-DnsClientCache -WhatIf"',
+			},
+		];
+
+		expect(formatTimelineWorkspaceRows(executionEvents, 4, "audit")).toEqual([
+			"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
+			"TIMELINE",
+			'[12:00:09] WARN audit  control execution dns.flush status=dry-run-executed policy=dry-run confirmed=true dryRun=true willExecute=true adapter=windows command="powershell -NoProfile -Command Clear-DnsClientCache -WhatIf"',
+			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+		]);
+	});
+
 	test("filters network state-change events separately from actions", () => {
 		expect(formatTimelineWorkspaceRows(events, 4, "network")).toEqual([
 			"SUMMARY events=1/7 network=1 audit=2 action=3 raw=1 filter=network",

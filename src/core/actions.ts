@@ -45,6 +45,7 @@ export type ActionPreviewCommand = {
 	command: string;
 	args: string[];
 	note: string;
+	dryRunExecutable?: boolean;
 };
 
 export type ActionPreviewConfirmation = {
