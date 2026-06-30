@@ -18,6 +18,7 @@ import {
 	typeCommand,
 } from "./commands/files";
 import { infoCommand } from "./commands/info";
+import { monitorCommand } from "./commands/monitor";
 import { pingCommand } from "./commands/ping";
 import { portsCommand } from "./commands/ports";
 import { processCommand } from "./commands/process";
@@ -43,6 +44,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.command("info", "Print network and system summary")
 		.option("--full", "Print full OS inventory")
 		.action(infoCommand);
+	cli
+		.command("monitor", "Print a live system monitor snapshot")
+		.action(monitorCommand);
 	cli.command("doctor", "Run network diagnostics").action(doctorCommand);
 	cli.command("pwd", "Print current picos file root").action(pwdCommand);
 	cli

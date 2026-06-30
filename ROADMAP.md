@@ -1054,6 +1054,19 @@ Goal: expose release readiness as a picos command, not only as npm scripts.
 - Tests cover passing and blocked health reports plus CLI output.
 - Next: Status workspace release-health panel and refresh shortcuts.
 
+## v0.4.16 - System Monitor Snapshot
+
+Status: draft PR #78.
+
+Goal: make the console feel more like a tiny OS by surfacing live local resource pressure.
+
+- `picos monitor` prints a read-only system monitor snapshot.
+- Monitor rows include timestamp, uptime, load average, memory usage, CPU model/core count, process count, and top processes by CPU.
+- Dashboard compact/full views surface load and memory pressure.
+- System workspace shows detailed monitor rows beside OS identity/runtime state.
+- Tests cover snapshot construction, formatting, and CLI output.
+- Next: Logs workspace real OS log readers and TUI monitor refresh shortcuts.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
