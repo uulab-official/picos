@@ -334,7 +334,7 @@ export function formatToolsWorkspaceRows(
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · c raw",
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · v target · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -844,6 +844,22 @@ export function getSelectedToolSummaryClipboardPreview(
 	});
 }
 
+export function getSelectedToolTargetClipboardPreview(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const item = getSelectedToolHistoryItem(history, selectedIndex);
+	const targetLines = item ? extractRawSection(item.rawOutput, "Target") : [];
+	if (!item || targetLines.length <= 0) {
+		return undefined;
+	}
+	return createClipboardPreview({
+		source: "tool-target",
+		label: `${item.label} target fields`,
+		copyText: targetLines.join("\n"),
+	});
+}
+
 export function formatToolHistoryExport(
 	history: ToolHistoryItem[],
 	options: {
@@ -1035,6 +1051,24 @@ function formatToolHistoryDetailRows(
 
 function formatToolHistoryCommand(item: ToolHistoryItem): string {
 	return `picos tools ${item.plan.toolId} ${item.plan.args.join(" ")}`.trim();
+}
+
+function extractRawSection(rawOutput: string, sectionLabel: string): string[] {
+	const lines = rawOutput.split(/\r?\n/);
+	const start = lines.indexOf(`[${sectionLabel}]`);
+	if (start < 0) {
+		return [];
+	}
+	const sectionLines: string[] = [];
+	for (const line of lines.slice(start + 1)) {
+		if (/^\[[^\]]+\]$/.test(line)) {
+			break;
+		}
+		if (line.length > 0) {
+			sectionLines.push(line);
+		}
+	}
+	return sectionLines;
 }
 
 function formatToolHistoryRow(

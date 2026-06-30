@@ -8,6 +8,7 @@ export type ClipboardPreviewSource =
 	| "route-table"
 	| "tool-summary"
 	| "tool-output"
+	| "tool-target"
 	| "update-handoff";
 
 export type ClipboardPreview = {

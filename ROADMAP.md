@@ -1775,6 +1775,20 @@ Goal: make TCP reachability output feel more like an operator console by separat
 - Tests cover Target rows, timeout display, command display, Status rows, and raw output.
 - Next: expose selected TCP detail rows as copyable fields from Tools history.
 
+## v0.4.70 - TCP Target Field Copy
+
+Status: draft PR #132 on `codex/picos-v0.4.70-tcp-field-copy`.
+
+Goal: let operators copy the useful TCP Target fields without grabbing an entire raw diagnostic blob.
+
+- Tools history can now create a locked clipboard preview for a selected TCP `[Target]` section.
+- The preview copies host, port, invoked command, and timeout rows when those rows exist in the selected tool raw output.
+- The Tools workspace uses `v` for target-field copy, preserving `y` for summary copy and `c` for full raw output copy.
+- Clipboard previews use the existing exact `copy` confirmation flow and remain locked until confirmed.
+- Non-TCP tool runs without a `[Target]` section do not create a target-field clipboard preview.
+- Tests cover the Target section extraction, locked preview shape, and empty-history behavior.
+- Next: add a small detail selector so TCP Target and Status fields can be copied independently.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

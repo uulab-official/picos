@@ -332,6 +332,7 @@ import {
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
+	getSelectedToolTargetClipboardPreview,
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
@@ -361,7 +362,7 @@ import {
 } from "./toolHistory";
 
 type CommandStatus = "idle" | "running";
-type ToolCopyPreviewMode = "raw" | "summary" | false;
+type ToolCopyPreviewMode = "raw" | "summary" | "target" | false;
 
 const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
@@ -4340,6 +4341,26 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "v") {
+			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
+				toolHistory,
+				selectedToolHistoryIndex,
+				toolHistoryFilter,
+				toolHistorySort,
+			);
+			const preview = getSelectedToolTargetClipboardPreview(
+				toolHistory,
+				visibleToolHistoryIndex,
+			);
+			if (!preview) {
+				log("warn", "no tool target fields selected");
+				return;
+			}
+			setToolCopyPreview("target");
+			openClipboardConfirmation(preview);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "e") {
 			void exportToolHistory("selected");
 			return;
@@ -6625,12 +6646,17 @@ function ToolsWorkspace({
 	const selectedPreview =
 		copyPreview === "summary"
 			? getSelectedToolSummaryClipboardPreview(history, visibleToolHistoryIndex)
-			: copyPreview === "raw"
-				? getSelectedToolOutputClipboardPreview(
+			: copyPreview === "target"
+				? getSelectedToolTargetClipboardPreview(
 						history,
 						visibleToolHistoryIndex,
 					)
-				: undefined;
+				: copyPreview === "raw"
+					? getSelectedToolOutputClipboardPreview(
+							history,
+							visibleToolHistoryIndex,
+						)
+					: undefined;
 	const copyRows = selectedPreview
 		? formatClipboardPreviewRows(selectedPreview)
 		: [];
