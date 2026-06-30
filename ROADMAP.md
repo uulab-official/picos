@@ -1121,6 +1121,19 @@ Goal: make repeated log triage workflows one-keystroke recoverable.
 - Tests cover profile labels, de-duplication, cycling, and row formatting.
 - Next: live follow mode and persisted profile storage.
 
+## v0.4.21 - Persistent Log Profiles
+
+Status: draft PR #83.
+
+Goal: make saved log triage profiles survive TUI restarts like an OS console preference.
+
+- Config schema now includes `logProfiles` with the same `level:query` shape used by the Logs workspace.
+- Config loading trims profile queries, rejects invalid levels, de-duplicates entries, and keeps the first six profiles.
+- TUI boot loads persisted log profiles alongside language, refresh interval, and remote profiles.
+- Pressing `S` in Logs persists the current severity/search profile to config as well as the live TUI session.
+- Tests cover config defaults, profile normalization, and config-store persistence.
+- Next: live log follow mode and persisted log search presets.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

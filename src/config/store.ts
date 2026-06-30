@@ -1,7 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname } from "node:path";
-import type { PicosConfig } from "../core/types";
+import { normalizeLogProfiles } from "../core/logProfiles";
+import type { LogProfile, PicosConfig } from "../core/types";
 import {
 	coerceConfigValue,
 	defaultConfig,
@@ -47,6 +48,19 @@ export async function setConfigValue(
 	const next = {
 		...config,
 		[key]: coerceConfigValue(key, value),
+	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigLogProfiles(
+	profiles: LogProfile[],
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = {
+		...config,
+		logProfiles: normalizeLogProfiles(profiles),
 	};
 	await writeConfig(next, path);
 	return next;

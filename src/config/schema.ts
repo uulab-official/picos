@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { normalizeLogProfiles } from "../core/logProfiles";
 import { normalizeRemoteProfiles } from "../core/remotes";
 import type { PicosConfig, SupportedPlatform } from "../core/types";
 import { isSupportedLanguage } from "../i18n/catalog";
@@ -13,6 +14,7 @@ export const defaultConfig: PicosConfig = {
 	controlExecutionMode: "disabled",
 	allowAdminDryRun: false,
 	remoteProfiles: [],
+	logProfiles: [],
 };
 
 export type ConfigInput = Record<string, unknown>;
@@ -98,6 +100,7 @@ export function mergeConfig(
 	}
 
 	merged.remoteProfiles = normalizeRemoteProfiles(input.remoteProfiles);
+	merged.logProfiles = normalizeLogProfiles(input.logProfiles);
 
 	return merged;
 }
@@ -148,6 +151,10 @@ export function coerceConfigValue(
 
 	if (key === "remoteProfiles") {
 		throw new Error("remoteProfiles must be edited as JSON in the config file");
+	}
+
+	if (key === "logProfiles") {
+		throw new Error("logProfiles are managed from the Logs workspace");
 	}
 
 	return value;

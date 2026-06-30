@@ -17,6 +17,7 @@ describe("config schema", () => {
 			allowAdminDryRun: false,
 			language: "en",
 			remoteProfiles: [],
+			logProfiles: [],
 		});
 	});
 
@@ -58,5 +59,30 @@ describe("config schema", () => {
 			controlExecutionMode: "dry-run",
 			allowAdminDryRun: true,
 		});
+	});
+
+	test("normalizes persisted log profiles", () => {
+		expect(
+			mergeConfig({
+				logProfiles: [
+					{ level: "warn", query: " kernel " },
+					{ level: "bad", query: "ignored" },
+					{ level: "all", query: "" },
+					{ level: "warn", query: "kernel" },
+					{ level: "fail", query: "error" },
+					{ level: "info", query: "boot" },
+					{ level: "all", query: "dns" },
+					{ level: "warn", query: "route" },
+					{ level: "fail", query: "panic" },
+				],
+			}).logProfiles,
+		).toEqual([
+			{ level: "warn", query: "kernel" },
+			{ level: "all", query: "" },
+			{ level: "fail", query: "error" },
+			{ level: "info", query: "boot" },
+			{ level: "all", query: "dns" },
+			{ level: "warn", query: "route" },
+		]);
 	});
 });

@@ -2,7 +2,11 @@ import { dirname, resolve } from "node:path";
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getConfigPath, readConfig } from "../config/store";
+import {
+	getConfigPath,
+	readConfig,
+	setConfigLogProfiles,
+} from "../config/store";
 import {
 	type ActionControlSimulation,
 	type ActionPreviewConfirmation,
@@ -1441,6 +1445,7 @@ export function App(): React.ReactElement {
 			setLanguage(config.language);
 			setDefaultPingHost(config.defaultPingHost);
 			setRemoteProfiles(config.remoteProfiles);
+			setLogProfiles(config.logProfiles);
 			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
@@ -2138,7 +2143,18 @@ export function App(): React.ReactElement {
 
 		if (screen === "logs" && focusArea === "workspaces" && input === "S") {
 			const profile = { level: logLevelFilter, query: logSearchQuery };
-			setLogProfiles((current) => saveLogProfile(current, profile));
+			setLogProfiles((current) => {
+				const next = saveLogProfile(current, profile);
+				void setConfigLogProfiles(next).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `logs profile save failed ${caught.message}`
+							: `logs profile save failed ${String(caught)}`,
+					),
+				);
+				return next;
+			});
 			log("info", `logs profile saved ${formatLogProfileLabel(profile)}`);
 			return;
 		}
