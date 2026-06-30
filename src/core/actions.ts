@@ -404,6 +404,18 @@ const actionCatalog: PicosAction[] = [
 		confirmationPhrase: "delete file",
 	},
 	{
+		id: "process.terminate",
+		title: "Terminate process",
+		description:
+			"Terminate a selected user-owned process after PID and port review.",
+		category: "ports",
+		risk: "destructive",
+		privilege: "user",
+		enabled: false,
+		confirmationRequired: true,
+		confirmationPhrase: "kill process",
+	},
+	{
 		id: "dns.flush",
 		title: "Flush DNS cache",
 		description:

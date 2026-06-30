@@ -1934,6 +1934,20 @@ Goal: keep Tools copy confirmations readable when raw output contains long or mu
 - Tests cover multiline clipping, line truncation, and remaining-line summaries.
 - Next: make the clipboard confirmation audit row show preview clipping metadata before clipboard writes are enabled more broadly.
 
+## v0.4.82 - Ports Process Control Preview
+
+Status: draft PR #144 on `codex/picos-v0.4.82-ports-process-control-preview`.
+
+Goal: close the first lazyifconfig process-control gap while preserving picos' locked-by-default OS mutation model.
+
+- Action catalog now includes `process.terminate` as a destructive, user-privileged, disabled-by-default control.
+- macOS/Linux/Windows adapters own the process termination command previews with a `<pid>` placeholder.
+- Ports workspace supports `K` to show a locked process termination preview for the selected listening PID.
+- The preview repeats the selected port, PID, process, user, exact `kill pid <pid>` phrase, and dry-run lock row.
+- Selection, filtering, sorting, copying, and tab changes clear the process-control preview to avoid stale targets.
+- Tests cover action metadata, adapter command ownership, selected-port preview rows, and Ports detail rendering.
+- Next: add an exact typed confirmation prompt for port process control that records audit events while still refusing execution by default.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

@@ -75,6 +75,14 @@ export function controlPreviewCommand(
 			note: "restart a systemd service",
 		};
 	}
+	if (actionId === "process.terminate") {
+		return {
+			adapter: "linux",
+			command: "kill",
+			args: ["-TERM", "<pid>"],
+			note: "terminate a selected user-owned process",
+		};
+	}
 	return undefined;
 }
 

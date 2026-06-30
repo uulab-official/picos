@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Ports workspace now exposes a lazyifconfig-inspired locked process termination preview for the selected listening port with `K`, including PID, process, user, exact confirmation text, and dry-run lock rows.
 - Tools clipboard confirmations now clip long copy payload previews by line count and terminal width while preserving the full text for confirmed clipboard writes.
 - Tools clipboard confirmations now echo copy-path details such as raw, summary, TCP section, or TCP row before the final `copy` confirmation.
 - Tools workspace now shows a compact `copy hint:` row when TCP-only `b`/`v` copy flows are unavailable for the selected run.

@@ -215,6 +215,7 @@ import {
 import {
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
+	createSelectedPortProcessControlPreview,
 	type EndpointDetailView,
 	type EndpointHandoffKind,
 	formatConnectionsWorkspaceRows,
@@ -524,6 +525,8 @@ export function App(): React.ReactElement {
 		useState<EndpointDetailView>("detail");
 	const [connectionCopyPreview, setConnectionCopyPreview] = useState(false);
 	const [portCopyPreview, setPortCopyPreview] = useState(false);
+	const [portProcessControlPreview, setPortProcessControlPreview] =
+		useState(false);
 	const [connectionFilter, setConnectionFilter] = useState("");
 	const [portFilter, setPortFilter] = useState("");
 	const [connectionFilterPresets, setConnectionFilterPresets] = useState<
@@ -1163,6 +1166,7 @@ export function App(): React.ReactElement {
 				);
 			}
 			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
 			setSelectedPortIndex(0);
 			log(
 				filtered.length ? "info" : "warn",
@@ -1220,6 +1224,7 @@ export function App(): React.ReactElement {
 		} else {
 			setPortFilterPresets(confirmation.presets);
 			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
 			setSelectedPortIndex(0);
 		}
 		void setConfigEndpointFilterPresets(kind, confirmation.presets).catch(
@@ -3133,6 +3138,7 @@ export function App(): React.ReactElement {
 				return next;
 			});
 			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
 			return;
 		}
 
@@ -3169,6 +3175,7 @@ export function App(): React.ReactElement {
 		if (screen === "ports" && focusArea === "workspaces" && input === "F") {
 			setPortFilter("");
 			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
 			setSelectedPortIndex(0);
 			log("info", "ports filter cleared");
 			return;
@@ -3243,6 +3250,7 @@ export function App(): React.ReactElement {
 				return next;
 			});
 			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
 			log("info", `ports preset saved ${portFilter}`);
 			return;
 		}
@@ -3260,6 +3268,7 @@ export function App(): React.ReactElement {
 				openCommandLine(`${endpointFilterCleanupPromptPrefix}ports`),
 			);
 			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
 			log("warn", `ports filter cleanup confirm ${preview.confirmationPhrase}`);
 			return;
 		}
@@ -3297,6 +3306,7 @@ export function App(): React.ReactElement {
 			const filtered = filterListeningPorts(ports, preset);
 			setPortFilter(preset);
 			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
 			setSelectedPortIndex(0);
 			log(
 				filtered.length ? "info" : "warn",
@@ -3342,6 +3352,7 @@ export function App(): React.ReactElement {
 				return next;
 			});
 			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
 			return;
 		}
 
@@ -3373,7 +3384,26 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setPortCopyPreview(true);
+			setPortProcessControlPreview(false);
 			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "K") {
+			const preview = createSelectedPortProcessControlPreview(
+				sortedPorts,
+				selectedPortIndex,
+			);
+			if (!preview) {
+				log("warn", "no port process selected");
+				return;
+			}
+			setPortProcessControlPreview(true);
+			setPortCopyPreview(false);
+			log(
+				"warn",
+				`ports process control confirm ${preview.confirmationPhrase}`,
+			);
 			return;
 		}
 
@@ -4483,6 +4513,7 @@ export function App(): React.ReactElement {
 					getNextIndex(index, sortedPorts.length, "next"),
 				);
 				setPortCopyPreview(false);
+				setPortProcessControlPreview(false);
 			} else if (screen === "interfaces") {
 				setSelectedInterfaceIndex((index) =>
 					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "down"),
@@ -4538,6 +4569,7 @@ export function App(): React.ReactElement {
 					getNextIndex(index, sortedPorts.length, "previous"),
 				);
 				setPortCopyPreview(false);
+				setPortProcessControlPreview(false);
 			} else if (screen === "interfaces") {
 				setSelectedInterfaceIndex((index) =>
 					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "up"),
@@ -4645,6 +4677,7 @@ export function App(): React.ReactElement {
 					portDetailView={portDetailView}
 					connectionCopyPreview={connectionCopyPreview}
 					portCopyPreview={portCopyPreview}
+					portProcessControlPreview={portProcessControlPreview}
 					selectedProcessDetail={selectedProcessDetail}
 					selectedProcessFiles={selectedProcessFiles}
 					selectedProcessFileIndex={selectedProcessFileIndex}
@@ -4847,6 +4880,7 @@ function MainWorkspace({
 	portDetailView,
 	connectionCopyPreview,
 	portCopyPreview,
+	portProcessControlPreview,
 	selectedProcessDetail,
 	selectedProcessFiles,
 	selectedProcessFileIndex,
@@ -4949,6 +4983,7 @@ function MainWorkspace({
 	portDetailView: EndpointDetailView;
 	connectionCopyPreview: boolean;
 	portCopyPreview: boolean;
+	portProcessControlPreview: boolean;
 	selectedProcessDetail?: ProcessDetail;
 	selectedProcessFiles?: ProcessFileSnapshot;
 	selectedProcessFileIndex: number;
@@ -5104,6 +5139,7 @@ function MainWorkspace({
 						portDetailView,
 						connectionCopyPreview,
 						portCopyPreview,
+						portProcessControlPreview,
 						selectedProcessDetail,
 						selectedProcessFiles,
 						selectedProcessFileIndex,
@@ -5211,6 +5247,7 @@ function renderWorkspace(
 	portDetailView: EndpointDetailView,
 	connectionCopyPreview: boolean,
 	portCopyPreview: boolean,
+	portProcessControlPreview: boolean,
 	selectedProcessDetail: ProcessDetail | undefined,
 	selectedProcessFiles: ProcessFileSnapshot | undefined,
 	selectedProcessFileIndex: number,
@@ -5409,6 +5446,7 @@ function renderWorkspace(
 				selectedIndex={selectedPortIndex}
 				view={portDetailView}
 				copyPreview={portCopyPreview}
+				processControlPreview={portProcessControlPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
@@ -6443,6 +6481,7 @@ function PortsWorkspace({
 	selectedIndex,
 	view,
 	copyPreview,
+	processControlPreview,
 	commandLine,
 	visibleRows,
 	t,
@@ -6455,6 +6494,7 @@ function PortsWorkspace({
 	selectedIndex: number;
 	view: EndpointDetailView;
 	copyPreview: boolean;
+	processControlPreview: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -6471,6 +6511,7 @@ function PortsWorkspace({
 					{
 						copyPreview,
 						filter,
+						processControlPreview,
 						processes,
 						presets: filterPresets,
 						selectedIndex,
@@ -6493,7 +6534,7 @@ function PortsWorkspace({
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
 				listening ports · f filter · P save · ] preset · D cleanup · e export ·
-				o open · tab detail · j/k select
+				o open · K control · tab detail · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -6633,12 +6674,14 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 		row === "RAW OUTPUT" ||
 		row === "FILTER" ||
 		row === "ENDPOINT FILTER CLEANUP" ||
+		row === "PORT PROCESS CONTROL" ||
 		row.startsWith("DETAIL")
 	) {
 		return "cyan";
 	}
 	if (
 		row.startsWith("CLIPBOARD PREVIEW") ||
+		row.startsWith("action=process.terminate") ||
 		row.startsWith(":filter-cleanup") ||
 		row.startsWith("confirm ")
 	) {

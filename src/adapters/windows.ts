@@ -108,6 +108,14 @@ export function controlPreviewCommand(
 			dryRunExecutable: true,
 		};
 	}
+	if (actionId === "process.terminate") {
+		return {
+			adapter: "windows",
+			command: "taskkill",
+			args: ["/PID", "<pid>", "/T"],
+			note: "terminate a selected process tree",
+		};
+	}
 	return undefined;
 }
 

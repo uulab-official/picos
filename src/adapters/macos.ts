@@ -86,6 +86,14 @@ export function controlPreviewCommand(
 			note: "restart a launchd service",
 		};
 	}
+	if (actionId === "process.terminate") {
+		return {
+			adapter: "macos",
+			command: "kill",
+			args: ["-TERM", "<pid>"],
+			note: "terminate a selected user-owned process",
+		};
+	}
 	return undefined;
 }
 
