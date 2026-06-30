@@ -1,4 +1,11 @@
-import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	readdir,
+	readFile,
+	rename,
+	unlink,
+	writeFile,
+} from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
 export type AuditLogEventLevel = "run" | "ok" | "warn" | "fail" | "info";
@@ -54,6 +61,27 @@ export type ConsoleAuditExportArchiveResult = {
 	status: "archived" | "blocked";
 	sourcePath: string;
 	archivedPath: string;
+	message: string;
+};
+
+export type ConsoleAuditArchiveRetentionPlan = {
+	baseDir: string;
+	maxItems: number;
+	retainedItems: ConsoleAuditExportIndexItem[];
+	candidateItems: ConsoleAuditExportIndexItem[];
+	risk: "destructive";
+	privilege: "user";
+	confirmationRequired: true;
+	confirmationPhrase: "prune audit archive";
+	confirmed: boolean;
+	enabled: boolean;
+	reason: string;
+};
+
+export type ConsoleAuditArchivePruneResult = {
+	status: "pruned" | "blocked";
+	removed: number;
+	removedPaths: string[];
 	message: string;
 };
 
@@ -348,6 +376,110 @@ export async function archiveConsoleAuditExport(
 		archivedPath: plan.archivedPath,
 		message: `archived audit export ${plan.fileName}`,
 	};
+}
+
+export function createConsoleAuditArchiveRetentionPlan(
+	index: ConsoleAuditExportIndex,
+	options: { maxItems?: number; confirmation?: string } = {},
+): ConsoleAuditArchiveRetentionPlan {
+	const maxItems = Math.max(1, Math.floor(options.maxItems ?? 10));
+	const sorted = [...index.items].sort((left, right) =>
+		right.generatedAt.localeCompare(left.generatedAt),
+	);
+	const retainedItems = sorted.slice(0, maxItems);
+	const candidateItems = sorted.slice(maxItems);
+	const confirmed = options.confirmation === "prune audit archive";
+	const reason =
+		candidateItems.length === 0
+			? `audit archive retention has no files beyond ${maxItems}`
+			: confirmed
+				? `ready to prune ${candidateItems.length} archived audit exports`
+				: `type prune audit archive to remove ${candidateItems.length} archived audit exports`;
+
+	return {
+		baseDir: index.baseDir,
+		maxItems,
+		retainedItems,
+		candidateItems,
+		risk: "destructive",
+		privilege: "user",
+		confirmationRequired: true,
+		confirmationPhrase: "prune audit archive",
+		confirmed,
+		enabled: candidateItems.length > 0 && confirmed,
+		reason,
+	};
+}
+
+export function formatConsoleAuditArchiveRetentionRows(
+	plan: ConsoleAuditArchiveRetentionPlan | undefined,
+	visibleRows = 8,
+): string[] {
+	if (!plan) {
+		return [];
+	}
+	return [
+		`AUDIT ARCHIVE RETENTION max=${plan.maxItems} candidates=${plan.candidateItems.length}`,
+		`risk=${plan.risk} privilege=${plan.privilege} confirmed=${plan.confirmed}`,
+		`confirm ${plan.confirmationPhrase} ${plan.enabled ? "ready" : "locked"}`,
+		...plan.retainedItems.slice(0, 2).map((item) => `keep ${item.fileName}`),
+		...plan.candidateItems
+			.slice(0, Math.max(0, visibleRows - 5))
+			.map((item) => `remove ${item.fileName}`),
+		`reason=${plan.reason}`,
+	].slice(0, visibleRows);
+}
+
+export async function pruneConsoleAuditArchive(
+	plan: ConsoleAuditArchiveRetentionPlan,
+): Promise<ConsoleAuditArchivePruneResult> {
+	if (!plan.enabled) {
+		return {
+			status: "blocked",
+			removed: 0,
+			removedPaths: [],
+			message: `audit archive retention is locked: ${plan.reason}`,
+		};
+	}
+
+	const unsafe = plan.candidateItems.find(
+		(item) =>
+			!isAllowedArchivedAuditExportPath(plan.baseDir, item.path, item.fileName),
+	);
+	if (unsafe) {
+		return {
+			status: "blocked",
+			removed: 0,
+			removedPaths: [],
+			message: `audit archive retention refused unsafe path ${unsafe.path}`,
+		};
+	}
+
+	const removedPaths: string[] = [];
+	for (const item of plan.candidateItems) {
+		await unlink(item.path);
+		removedPaths.push(item.path);
+	}
+	return {
+		status: "pruned",
+		removed: removedPaths.length,
+		removedPaths,
+		message: `pruned ${removedPaths.length} archived audit exports`,
+	};
+}
+
+function isAllowedArchivedAuditExportPath(
+	baseDir: string,
+	path: string,
+	fileName: string,
+): boolean {
+	const archiveDir = resolve(baseDir, "audit", "archive");
+	const target = resolve(path);
+	return (
+		dirname(target) === archiveDir &&
+		basename(target) === fileName &&
+		isPicosAuditExportFilename(fileName)
+	);
 }
 
 function isPicosAuditExportFilename(fileName: string): boolean {
