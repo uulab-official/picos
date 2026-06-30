@@ -236,16 +236,20 @@ import {
 import {
 	adjustConfigWorkspaceItem,
 	applyConfigPolicyPreset,
+	type ConfigManagedShelfTarget,
 	type ConfigWorkspaceItem,
 	type ConfigWorkspaceResetPreview,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
+	getConfigManagedShelfHandoff,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
 	getConfigWorkspaceSectionJumpIndex,
+	getNextConfigManagedShelfTarget,
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
 	submitConfigWorkspaceResetConfirmation,
@@ -637,6 +641,8 @@ export function App(): React.ReactElement {
 	const [showPublicIp, setShowPublicIp] = useState(true);
 	const [configResetPreview, setConfigResetPreview] =
 		useState<ConfigWorkspaceResetPreview>();
+	const [selectedConfigShelfTarget, setSelectedConfigShelfTarget] =
+		useState<ConfigManagedShelfTarget>();
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolSectionClipboardSelection, setToolSectionClipboardSelection] =
@@ -776,6 +782,9 @@ export function App(): React.ReactElement {
 			toolTargetPresetLimit,
 		],
 	);
+	const configManagedShelfHandoffRows = selectedConfigShelfTarget
+		? formatConfigManagedShelfHandoffRows(selectedConfigShelfTarget)
+		: [];
 	useEffect(() => {
 		setSelectedConfigIndex((index) =>
 			Math.min(
@@ -4582,6 +4591,26 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (
+			screen === "config" &&
+			focusArea === "workspaces" &&
+			(input === "g" || input === "G")
+		) {
+			setSelectedConfigShelfTarget((current) => {
+				const next = getNextConfigManagedShelfTarget(
+					current,
+					input === "g" ? "next" : "previous",
+				);
+				const handoff = getConfigManagedShelfHandoff(next);
+				log(
+					"info",
+					`config shelf target ${handoff.target} -> ${handoff.label}`,
+				);
+				return next;
+			});
+			return;
+		}
+
 		if (screen === "config" && focusArea === "workspaces" && input === "\r") {
 			const item = getConfigWorkspaceItem(
 				configWorkspaceItems,
@@ -4591,6 +4620,15 @@ export function App(): React.ReactElement {
 			if (prompt) {
 				setCommandLine(openCommandLine(prompt));
 				log("info", `config edit opened ${item?.key}`);
+				return;
+			}
+			if (selectedConfigShelfTarget) {
+				const handoff = getConfigManagedShelfHandoff(selectedConfigShelfTarget);
+				setScreen(handoff.workspace);
+				setFocusArea(
+					handoff.workspace === "remotes" ? "remotes" : "workspaces",
+				);
+				log("info", `config shelf jump ${handoff.target} -> ${handoff.label}`);
 				return;
 			}
 			const configAction = actions.find(
@@ -5755,6 +5793,7 @@ export function App(): React.ReactElement {
 					selectedConfigIndex={selectedConfigIndex}
 					configResetPreview={configResetPreview}
 					configManagedShelfRows={configManagedShelfRows}
+					configManagedShelfHandoffRows={configManagedShelfHandoffRows}
 					cleanupShelfIndex={cleanupShelfIndex}
 					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 					cleanupJumpAudit={cleanupJumpAudit}
@@ -5970,6 +6009,7 @@ function MainWorkspace({
 	selectedConfigIndex,
 	configResetPreview,
 	configManagedShelfRows,
+	configManagedShelfHandoffRows,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
 	cleanupJumpAudit,
@@ -6084,6 +6124,7 @@ function MainWorkspace({
 	selectedConfigIndex: number;
 	configResetPreview?: ConfigWorkspaceResetPreview;
 	configManagedShelfRows: string[];
+	configManagedShelfHandoffRows: string[];
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
 	cleanupJumpAudit?: CleanupJumpAudit;
@@ -6251,6 +6292,7 @@ function MainWorkspace({
 						selectedConfigIndex,
 						configResetPreview,
 						configManagedShelfRows,
+						configManagedShelfHandoffRows,
 						cleanupShelfIndex,
 						selectedCleanupShelfIndex,
 						cleanupHandoffHistory,
@@ -6370,6 +6412,7 @@ function renderWorkspace(
 	selectedConfigIndex: number,
 	configResetPreview: ConfigWorkspaceResetPreview | undefined,
 	configManagedShelfRows: string[],
+	configManagedShelfHandoffRows: string[],
 	cleanupShelfIndex: CleanupShelfIndex,
 	selectedCleanupShelfIndex: number,
 	cleanupHandoffHistory: CleanupHandoffHistory[],
@@ -6645,6 +6688,7 @@ function renderWorkspace(
 				commandLine={commandLine}
 				configPath={getConfigPath()}
 				managedShelfRows={configManagedShelfRows}
+				managedShelfHandoffRows={configManagedShelfHandoffRows}
 				visibleRows={Math.max(5, height - 7)}
 			/>
 		);
@@ -8516,6 +8560,7 @@ function ConfigWorkspace({
 	commandLine,
 	configPath,
 	managedShelfRows,
+	managedShelfHandoffRows,
 	visibleRows,
 }: {
 	items: ConfigWorkspaceItem[];
@@ -8524,6 +8569,7 @@ function ConfigWorkspace({
 	commandLine: CommandLineState;
 	configPath: string;
 	managedShelfRows: string[];
+	managedShelfHandoffRows: string[];
 	visibleRows: number;
 }): React.ReactElement {
 	const rows = formatConfigWorkspaceRows(items, selectedIndex, visibleRows);
@@ -8533,6 +8579,13 @@ function ConfigWorkspace({
 	const shelfRows = managedShelfRows.slice(
 		0,
 		Math.max(0, visibleRows - rows.length - detailRows.length - 2),
+	);
+	const handoffRows = managedShelfHandoffRows.slice(
+		0,
+		Math.max(
+			0,
+			visibleRows - rows.length - detailRows.length - shelfRows.length - 3,
+		),
 	);
 	return (
 		<Box flexDirection="column">
@@ -8585,6 +8638,24 @@ function ConfigWorkspace({
 									: row.startsWith("managed-by=")
 										? "gray"
 										: "white"
+							}
+						>
+							{row}
+						</Text>
+					))}
+				</Box>
+			) : null}
+			{handoffRows.length > 0 ? (
+				<Box marginTop={1} flexDirection="column">
+					{handoffRows.map((row) => (
+						<Text
+							key={row}
+							color={
+								row.startsWith("CONFIG SHELF")
+									? "cyan"
+									: row.startsWith("enter")
+										? "gray"
+										: "yellow"
 							}
 						>
 							{row}

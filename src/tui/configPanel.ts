@@ -1,5 +1,6 @@
 import { defaultConfig } from "../config/schema";
 import type { PicosConfig } from "../core/types";
+import type { Screen } from "./navigation";
 import { getNextIndex } from "./navigation";
 
 export type ConfigWorkspaceItemKey =
@@ -64,6 +65,21 @@ type ConfigWorkspaceResetKey =
 
 type ConfigWorkspaceResetValues = Pick<PicosConfig, ConfigWorkspaceResetKey>;
 
+export type ConfigManagedShelfTarget =
+	| "network"
+	| "routes"
+	| "connections"
+	| "ports"
+	| "tools"
+	| "logs"
+	| "remotes";
+
+export type ConfigManagedShelfHandoff = {
+	target: ConfigManagedShelfTarget;
+	workspace: Screen;
+	label: string;
+};
+
 const configPolicyPresets: ConfigPolicyPresetPreview[] = [
 	{
 		id: "safe-readonly",
@@ -106,6 +122,16 @@ const resetKeys: ConfigWorkspaceResetKey[] = [
 	"controlExecutionMode",
 	"allowAdminDryRun",
 	"enableExperimentalControls",
+];
+
+const configManagedShelfHandoffs: ConfigManagedShelfHandoff[] = [
+	{ target: "network", workspace: "network", label: "Network" },
+	{ target: "routes", workspace: "routes", label: "Routes" },
+	{ target: "connections", workspace: "connections", label: "Connections" },
+	{ target: "ports", workspace: "ports", label: "Ports" },
+	{ target: "tools", workspace: "tools", label: "Tools" },
+	{ target: "logs", workspace: "logs", label: "Logs" },
+	{ target: "remotes", workspace: "remotes", label: "Remotes" },
 ];
 
 export type ConfigWorkspaceItem = {
@@ -361,7 +387,7 @@ export function formatConfigWorkspaceRows(
 	const rows = [
 		"CONFIG WORKSPACE",
 		formatConfigSectionShortcutRow(),
-		"j/k select  +/- save  enter edit/show  P policy  R reset",
+		"j/k select  +/- save  enter edit/jump  g/G shelf  P policy  R reset",
 		...bodyRows,
 		selected
 			? selected.kind === "number"
@@ -402,6 +428,45 @@ export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
 		`tools defaults targets=${config.toolTargetPresets.length} filters=${config.toolHistoryFilterPresets.length} sort=${config.toolHistorySort} group=${config.toolHistoryGroup} detail=${config.toolHistoryDetailView}`,
 		`workspace behavior logs=${config.logProfiles.length} searches=${config.logSearchPresets.length} remotes=${config.remoteProfiles.length} publicIp=${config.showPublicIp} experimental=${config.enableExperimentalControls}`,
 		"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
+	];
+}
+
+export function getConfigManagedShelfHandoff(
+	target: ConfigManagedShelfTarget,
+): ConfigManagedShelfHandoff {
+	return (
+		configManagedShelfHandoffs.find((handoff) => handoff.target === target) ??
+		configManagedShelfHandoffs[0]
+	);
+}
+
+export function getNextConfigManagedShelfTarget(
+	current: ConfigManagedShelfTarget | undefined,
+	direction: "next" | "previous",
+): ConfigManagedShelfTarget {
+	if (!current) {
+		return configManagedShelfHandoffs[0].target;
+	}
+	const currentIndex = configManagedShelfHandoffs.findIndex(
+		(handoff) => handoff.target === current,
+	);
+	return configManagedShelfHandoffs[
+		getNextIndex(
+			currentIndex >= 0 ? currentIndex : 0,
+			configManagedShelfHandoffs.length,
+			direction,
+		)
+	].target;
+}
+
+export function formatConfigManagedShelfHandoffRows(
+	target: ConfigManagedShelfTarget,
+): string[] {
+	const handoff = getConfigManagedShelfHandoff(target);
+	return [
+		"CONFIG SHELF HANDOFF",
+		`target=${handoff.target} workspace=${handoff.label}`,
+		`enter jump=${handoff.workspace}  g/G cycle shelf`,
 	];
 }
 
