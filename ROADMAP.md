@@ -2275,6 +2275,18 @@ Goal: make Config shelf jumps arrive with visible destination context instead of
 - Tests cover Tools landing row formatting and existing handoff target behavior.
 - Next: add shelf-specific destination cursor presets, such as jumping Tools to saved target controls and Logs to saved profile controls.
 
+## v0.4.108 - Config Shelf Destination Focus
+
+Status: draft PR #170 on `codex/picos-v0.4.108-config-shelf-focus`.
+
+Goal: make Config shelf jumps behave like OS settings deep links by placing operators on the destination control surface.
+
+- Config now models destination focus presets for each managed shelf target, including workspace focus area, cursor kind, index, and optional detail view.
+- Destination landing rows include the focus preset so operators can see which shelf control area was armed.
+- Config shelf jumps apply the focus preset in App state: Network interface list, Routes table view, Connections/Ports first endpoint rows, Tools saved target presets with summary detail, and Remotes profile focus.
+- Tests cover Tools and Remotes destination focus preset contracts alongside landing row focus hints.
+- Next: add visible per-workspace shelf-focus rows near the active controls so Logs profiles and route/filter shelves can expose richer cursor state.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

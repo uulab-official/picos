@@ -1,6 +1,6 @@
 import { defaultConfig } from "../config/schema";
 import type { PicosConfig } from "../core/types";
-import type { Screen } from "./navigation";
+import type { FocusArea, Screen } from "./navigation";
 import { getNextIndex } from "./navigation";
 
 export type ConfigWorkspaceItemKey =
@@ -78,6 +78,23 @@ export type ConfigManagedShelfHandoff = {
 	target: ConfigManagedShelfTarget;
 	workspace: Screen;
 	label: string;
+};
+
+export type ConfigManagedShelfFocusCursor =
+	| "interfaceList"
+	| "routeFilters"
+	| "connectionFilters"
+	| "portFilters"
+	| "toolTargetPresets"
+	| "logProfiles"
+	| "remoteProfiles";
+
+export type ConfigManagedShelfFocusPreset = ConfigManagedShelfHandoff & {
+	focusArea: FocusArea;
+	cursor: ConfigManagedShelfFocusCursor;
+	index: number;
+	detailView?: "table" | "summary";
+	rows: string[];
 };
 
 const configPolicyPresets: ConfigPolicyPresetPreview[] = [
@@ -474,12 +491,40 @@ export function formatConfigManagedShelfLandingRows(
 	target: ConfigManagedShelfTarget,
 ): string[] {
 	const handoff = getConfigManagedShelfHandoff(target);
+	const focus = getConfigManagedShelfFocusPreset(target);
 	return [
 		"CONFIG SHELF LANDING",
 		`source=config target=${handoff.target} workspace=${handoff.label}`,
 		`scope=${getConfigManagedShelfScopeHint(handoff.target)}`,
+		formatConfigManagedShelfFocusHint(focus),
 		"next=review shelf controls  esc=clear landing",
 	];
+}
+
+export function getConfigManagedShelfFocusPreset(
+	target: ConfigManagedShelfTarget,
+): ConfigManagedShelfFocusPreset {
+	const handoff = getConfigManagedShelfHandoff(target);
+	const focusArea: FocusArea = target === "remotes" ? "remotes" : "workspaces";
+	const cursor = getConfigManagedShelfFocusCursor(target);
+	const detailView =
+		target === "routes" ? "table" : target === "tools" ? "summary" : undefined;
+	const focus: ConfigManagedShelfFocusPreset = {
+		...handoff,
+		focusArea,
+		cursor,
+		index: 0,
+		...(detailView ? { detailView } : {}),
+		rows: [],
+	};
+	return {
+		...focus,
+		rows: [
+			"CONFIG SHELF FOCUS",
+			`target=${handoff.target} workspace=${handoff.label}`,
+			formatConfigManagedShelfFocusHint(focus),
+		],
+	};
 }
 
 function createConfigWorkspaceBodyRows(
@@ -581,6 +626,37 @@ function getConfigManagedShelfScopeHint(
 		return "log profiles, search presets, live follow";
 	}
 	return "SFTP profiles, provider boundary, locked file context";
+}
+
+function getConfigManagedShelfFocusCursor(
+	target: ConfigManagedShelfTarget,
+): ConfigManagedShelfFocusCursor {
+	if (target === "network") {
+		return "interfaceList";
+	}
+	if (target === "routes") {
+		return "routeFilters";
+	}
+	if (target === "connections") {
+		return "connectionFilters";
+	}
+	if (target === "ports") {
+		return "portFilters";
+	}
+	if (target === "tools") {
+		return "toolTargetPresets";
+	}
+	if (target === "logs") {
+		return "logProfiles";
+	}
+	return "remoteProfiles";
+}
+
+function formatConfigManagedShelfFocusHint(
+	focus: Pick<ConfigManagedShelfFocusPreset, "cursor" | "detailView" | "index">,
+): string {
+	const detail = focus.detailView ? ` detail=${focus.detailView}` : "";
+	return `focus=${focus.cursor} cursor=${focus.index}${detail}`;
 }
 
 function formatConfigSafetyPosture(items: ConfigWorkspaceItem[]): string {

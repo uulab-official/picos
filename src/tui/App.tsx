@@ -246,6 +246,7 @@ import {
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
+	getConfigManagedShelfFocusPreset,
 	getConfigManagedShelfHandoff,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
@@ -3177,6 +3178,35 @@ export function App(): React.ReactElement {
 		return true;
 	}, [configShelfLandingTarget, log, screen]);
 
+	const jumpToConfigManagedShelf = useCallback(
+		(target: ConfigManagedShelfTarget) => {
+			const focus = getConfigManagedShelfFocusPreset(target);
+			setScreen(focus.workspace);
+			setFocusArea(focus.focusArea);
+			setConfigShelfLandingTarget(focus.target);
+			if (focus.cursor === "interfaceList") {
+				setSelectedInterfaceIndex(focus.index);
+			} else if (focus.cursor === "routeFilters") {
+				setRouteDetailView("table");
+				setRouteCopyPreview(false);
+			} else if (focus.cursor === "connectionFilters") {
+				setSelectedConnectionIndex(focus.index);
+			} else if (focus.cursor === "portFilters") {
+				setSelectedPortIndex(focus.index);
+			} else if (focus.cursor === "toolTargetPresets") {
+				setSelectedToolTargetPresetIndex(focus.index);
+				setToolHistoryDetailView("summary");
+			} else if (focus.cursor === "remoteProfiles") {
+				setSelectedRemoteIndex(focus.index);
+			}
+			log(
+				"info",
+				`config shelf jump ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
+			);
+		},
+		[log],
+	);
+
 	const reopenCleanupHandoffHistory = useCallback(() => {
 		const history = getSelectedCleanupHandoffHistory(
 			cleanupHandoffHistory,
@@ -4643,13 +4673,7 @@ export function App(): React.ReactElement {
 				return;
 			}
 			if (selectedConfigShelfTarget) {
-				const handoff = getConfigManagedShelfHandoff(selectedConfigShelfTarget);
-				setScreen(handoff.workspace);
-				setFocusArea(
-					handoff.workspace === "remotes" ? "remotes" : "workspaces",
-				);
-				setConfigShelfLandingTarget(handoff.target);
-				log("info", `config shelf jump ${handoff.target} -> ${handoff.label}`);
+				jumpToConfigManagedShelf(selectedConfigShelfTarget);
 				return;
 			}
 			const configAction = actions.find(

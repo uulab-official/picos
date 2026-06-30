@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Config shelf jumps now apply destination focus presets, including Tools saved-target cursor placement, route table detail view, endpoint list cursors, Remotes profile focus, and landing focus hints.
 - Config shelf handoffs now leave a destination landing banner with shelf scope and an `esc` clear hint.
 - Config managed shelves can now be cycled with `g/G` and handed off with `enter` into Network, Routes, Connections, Ports, Tools, Logs, or Remotes.
 - Config workspace now shows managed shelf summaries for network defaults, Tools defaults, Logs, Remotes, and workspace-owned presets.
