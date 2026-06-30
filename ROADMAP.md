@@ -1406,6 +1406,20 @@ Goal: let operators repair or repoint saved Tools Hub targets without editing JS
 - Tests cover target trimming, blank target no-op behavior, non-saved target no-op behavior, and existing Tools Hub rendering.
 - Next: richer preset action switching and retention policies.
 
+## v0.4.42 - Tools Target Preset Actions
+
+Status: draft PR #104.
+
+Goal: make saved Tools Hub targets reusable across diagnostic modes without editing JSON by hand.
+
+- Tools workspace now supports `A` to change the selected saved target action.
+- Action edits persist through `toolTargetPresets` config while preserving label, target, id, and hint.
+- Action edit matching uses action and target so normalized config entries remain editable from the TUI.
+- The action prompt accepts exact action ids plus short aliases such as `dns`, `ping`, `trace`, `whois`, `ip`, `tls`, and `tcp`.
+- Blank or unknown action edits are ignored, and OS-aware presets remain generated from the machine state instead of being copied into config.
+- Tests cover action trimming, invalid action no-op behavior, non-saved target no-op behavior, and existing Tools Hub rendering.
+- Next: retention policies for saved target presets and richer preset ordering.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
