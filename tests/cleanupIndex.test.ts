@@ -15,6 +15,7 @@ import {
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
 	formatCleanupHandoffHistoryExport,
+	formatCleanupHandoffHistoryExportIndexRows,
 	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
 	formatCleanupHandoffReopenRows,
@@ -22,10 +23,12 @@ import {
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
 	getSelectedCleanupHandoffHistory,
+	getSelectedCleanupHandoffHistoryExport,
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
 	parseCleanupHandoffHistoryExport,
+	readCleanupHandoffHistoryExportIndex,
 	readLatestCleanupHandoffHistoryExport,
 	writeCleanupHandoffHistoryExport,
 } from "../src/tui/cleanupIndex";
@@ -605,6 +608,69 @@ describe("cleanup shelf index", () => {
 			expect(
 				await readLatestCleanupHandoffHistoryExport(join(root, "missing")),
 			).toBeUndefined();
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("indexes cleanup handoff exports for Status browsing", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-cleanup-index-"));
+		try {
+			const cleanupDir = join(root, "cleanup");
+			await mkdir(cleanupDir, { recursive: true });
+			await writeFile(
+				join(cleanupDir, "picos-cleanup-all-2026-06-30T030000000Z.md"),
+				[
+					"# picos cleanup handoff history",
+					"generatedAt=2026-06-30T03:00:00.000Z",
+					"scope=all",
+					"entries=2",
+					"",
+				].join("\n"),
+				"utf8",
+			);
+			await writeFile(
+				join(cleanupDir, "picos-cleanup-selected-2026-07-01T010000000Z.md"),
+				[
+					"# picos cleanup handoff history",
+					"generatedAt=2026-07-01T01:00:00.000Z",
+					"scope=selected",
+					"entries=1",
+					"",
+				].join("\n"),
+				"utf8",
+			);
+
+			const index = await readCleanupHandoffHistoryExportIndex(root);
+
+			expect(index.items.map((item) => item.fileName)).toEqual([
+				"picos-cleanup-selected-2026-07-01T010000000Z.md",
+				"picos-cleanup-all-2026-06-30T030000000Z.md",
+			]);
+			expect(index.items[0]).toMatchObject({
+				scope: "selected",
+				entryCount: 1,
+				generatedAt: "2026-07-01T01:00:00.000Z",
+			});
+			expect(getSelectedCleanupHandoffHistoryExport(index, 99)?.scope).toBe(
+				"all",
+			);
+			expect(formatCleanupHandoffHistoryExportIndexRows(index, 0, 4)).toEqual([
+				`CLEANUP EXPORTS 2 base=${root}`,
+				"> selected entries=1 2026-07-01T01:00:00.000Z",
+				"  all      entries=2 2026-06-30T03:00:00.000Z",
+				`path=${join(
+					cleanupDir,
+					"picos-cleanup-selected-2026-07-01T010000000Z.md",
+				)}`,
+			]);
+			expect(
+				formatCleanupHandoffHistoryExportIndexRows(
+					{ baseDir: root, items: [] },
+					0,
+					3,
+				),
+			).toEqual([`CLEANUP EXPORTS 0 base=${root}`, "no cleanup exports yet"]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

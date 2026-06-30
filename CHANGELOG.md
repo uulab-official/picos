@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status now indexes cleanup export files, with `Y` refreshing the list and `}` cycling selected export rows.
 - Latest cleanup handoff history exports are now restored into Timeline on TUI startup, making exported cleanup decisions searchable after restart.
 - Cleanup handoff history can now be exported from Status with `E`, writing a durable markdown audit file under the picos config `cleanup` directory.
 - Selected cleanup handoff history entries can now be reopened from Status with `R`, restoring the destination cleanup handoff without bypassing exact confirmation.

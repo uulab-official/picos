@@ -96,6 +96,19 @@ export type CleanupHandoffHistoryExportRead = {
 	events: AuditLogEvent[];
 };
 
+export type CleanupHandoffHistoryExportIndexItem = {
+	fileName: string;
+	path: string;
+	scope: CleanupHandoffHistoryExportScope;
+	entryCount: number;
+	generatedAt: string;
+};
+
+export type CleanupHandoffHistoryExportIndex = {
+	baseDir: string;
+	items: CleanupHandoffHistoryExportIndexItem[];
+};
+
 export type CleanupShelfIndexInput = {
 	connectionFilterPresets?: string[];
 	customToolTargetPresets?: Array<{
@@ -544,6 +557,77 @@ export async function readLatestCleanupHandoffHistoryExport(
 	};
 }
 
+export async function readCleanupHandoffHistoryExportIndex(
+	baseDir: string,
+	limit = 20,
+): Promise<CleanupHandoffHistoryExportIndex> {
+	const cleanupDir = join(baseDir, "cleanup");
+	let files: string[];
+	try {
+		files = await readdir(cleanupDir);
+	} catch {
+		return { baseDir, items: [] };
+	}
+
+	const items = (
+		await Promise.all(
+			files
+				.filter((file) => /^picos-cleanup-.+\.md$/.test(file))
+				.map(async (fileName) => {
+					const path = join(cleanupDir, fileName);
+					return createCleanupHandoffHistoryExportIndexItem(
+						fileName,
+						path,
+						await readFile(path, "utf8"),
+					);
+				}),
+		)
+	)
+		.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))
+		.slice(0, limit);
+
+	return { baseDir, items };
+}
+
+export function getSelectedCleanupHandoffHistoryExport(
+	index: CleanupHandoffHistoryExportIndex,
+	selectedIndex: number,
+): CleanupHandoffHistoryExportIndexItem | undefined {
+	if (index.items.length === 0) {
+		return undefined;
+	}
+
+	return index.items[
+		Math.min(Math.max(selectedIndex, 0), index.items.length - 1)
+	];
+}
+
+export function formatCleanupHandoffHistoryExportIndexRows(
+	index: CleanupHandoffHistoryExportIndex,
+	selectedIndex = 0,
+	visibleRows = 5,
+): string[] {
+	const selected = getSelectedCleanupHandoffHistoryExport(index, selectedIndex);
+	const pathRows = selected ? [`path=${selected.path}`] : [];
+	const budget = Math.max(0, visibleRows - 1 - pathRows.length);
+	return [
+		`CLEANUP EXPORTS ${index.items.length} base=${index.baseDir}`,
+		...(index.items.length > 0
+			? index.items
+					.slice(0, budget)
+					.map((item, itemIndex) =>
+						[
+							itemIndex === selectedIndex ? ">" : " ",
+							item.scope.padEnd(8),
+							`entries=${item.entryCount}`,
+							item.generatedAt,
+						].join(" "),
+					)
+			: ["no cleanup exports yet"]),
+		...pathRows,
+	].slice(0, visibleRows);
+}
+
 export function formatCleanupHandoffHistoryRows(
 	history: CleanupHandoffHistory | undefined,
 ): string[] {
@@ -639,6 +723,36 @@ function formatCleanupHandoffHistoryExportItem(
 		`confirm=${history.confirmationPhrase} count=${history.count} detail=${history.detail}`,
 		"",
 	];
+}
+
+function createCleanupHandoffHistoryExportIndexItem(
+	fileName: string,
+	path: string,
+	content: string,
+): CleanupHandoffHistoryExportIndexItem {
+	const lines = content.split(/\r?\n/);
+	return {
+		fileName,
+		path,
+		scope: toCleanupHandoffHistoryExportScope(
+			lines.find((line) => line.startsWith("scope="))?.replace("scope=", ""),
+		),
+		entryCount: Number(
+			lines
+				.find((line) => line.startsWith("entries="))
+				?.replace("entries=", "") ?? 0,
+		),
+		generatedAt:
+			lines
+				.find((line) => line.startsWith("generatedAt="))
+				?.replace("generatedAt=", "") ?? "",
+	};
+}
+
+function toCleanupHandoffHistoryExportScope(
+	scope: string | undefined,
+): CleanupHandoffHistoryExportScope {
+	return scope === "selected" ? "selected" : "all";
 }
 
 function formatCleanupExportEventTime(generatedAt: string): string {
