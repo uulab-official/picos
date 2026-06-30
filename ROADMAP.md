@@ -1921,6 +1921,19 @@ Goal: make locked clipboard confirmations repeat the selected Tools copy path be
 - Tests cover optional detail rows plus Tools raw, summary, section, and row metadata.
 - Next: add compact clipboard preview clipping so large raw payloads do not dominate the confirmation modal.
 
+## v0.4.81 - Clipboard Preview Clipping
+
+Status: draft PR #143 on `codex/picos-v0.4.81-clipboard-preview-clipping`.
+
+Goal: keep Tools copy confirmations readable when raw output contains long or multiline payloads.
+
+- Clipboard preview formatting now accepts optional copy line and line-length limits.
+- Bounded previews split multiline payloads into individual `copy` rows and show remaining hidden line counts.
+- Tools workspace passes terminal-aware copy preview limits so raw output does not consume the whole panel.
+- Confirmed clipboard writes still retain the full original payload; only the on-screen preview is clipped.
+- Tests cover multiline clipping, line truncation, and remaining-line summaries.
+- Next: make the clipboard confirmation audit row show preview clipping metadata before clipboard writes are enabled more broadly.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

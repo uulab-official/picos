@@ -4798,7 +4798,7 @@ function Sidebar({
 }
 
 function MainWorkspace({
-	width,
+	width: workspaceWidth,
 	height,
 	screen,
 	summary,
@@ -5024,7 +5024,7 @@ function MainWorkspace({
 
 	return (
 		<Box
-			width={width}
+			width={workspaceWidth}
 			height={height}
 			borderStyle="single"
 			borderColor="cyan"
@@ -5154,6 +5154,7 @@ function MainWorkspace({
 						fileOpenPlan,
 						cleanupExportArchivePlan,
 						events,
+						workspaceWidth,
 						workspaceHeight,
 						t,
 					)}
@@ -5260,6 +5261,7 @@ function renderWorkspace(
 	fileOpenPlan: FileOpenPlan | undefined,
 	cleanupExportArchivePlan: CleanupHandoffHistoryExportArchivePlan | undefined,
 	events: ConsoleEvent[],
+	workspaceWidth: number,
 	height: number,
 	t: (key: string) => string,
 ): React.ReactElement {
@@ -5416,6 +5418,7 @@ function renderWorkspace(
 	if (screen === "tools") {
 		return (
 			<ToolsWorkspace
+				width={workspaceWidth}
 				history={toolHistory}
 				selectedIndex={selectedToolHistoryIndex}
 				targetPresets={toolTargetPresets}
@@ -6675,6 +6678,7 @@ function formatEndpointFilterPromptRows(
 }
 
 function ToolsWorkspace({
+	width,
 	history,
 	selectedIndex,
 	targetPresets,
@@ -6692,6 +6696,7 @@ function ToolsWorkspace({
 	visibleRows,
 	t,
 }: {
+	width: number;
 	history: ToolHistoryItem[];
 	selectedIndex: number;
 	targetPresets: ToolTargetPreset[];
@@ -6753,7 +6758,10 @@ function ToolsWorkspace({
 							)
 						: undefined;
 	const copyRows = selectedPreview
-		? formatClipboardPreviewRows(selectedPreview)
+		? formatClipboardPreviewRows(selectedPreview, {
+				maxCopyLines: Math.max(1, Math.min(4, visibleRows - 6)),
+				maxCopyLineLength: Math.max(32, Math.min(140, width - 8)),
+			})
 		: [];
 	const selectedTargetPreset =
 		targetPresets[
