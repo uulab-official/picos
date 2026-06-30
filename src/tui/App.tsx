@@ -169,7 +169,7 @@ import {
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
 import { VERSION } from "../core/version";
-import { createTranslator } from "../i18n/catalog";
+import { createTranslator, isSupportedLanguage } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
 import {
 	appendCleanupHandoffHistory,
@@ -232,6 +232,7 @@ import {
 	type ConfigWorkspaceItem,
 	createConfigWorkspaceItems,
 	formatConfigWorkspaceRows,
+	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
 	moveConfigWorkspaceSelection,
 } from "./configPanel";
@@ -687,9 +688,22 @@ export function App(): React.ReactElement {
 		() =>
 			createConfigWorkspaceItems({
 				auditArchiveRetentionLimit,
+				allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
+				controlExecutionMode: controlExecutionPolicy.mode,
+				defaultPingHost,
+				language,
+				refreshInterval,
 				toolTargetPresetLimit,
 			}),
-		[auditArchiveRetentionLimit, toolTargetPresetLimit],
+		[
+			auditArchiveRetentionLimit,
+			controlExecutionPolicy.allowAdminDryRun,
+			controlExecutionPolicy.mode,
+			defaultPingHost,
+			language,
+			refreshInterval,
+			toolTargetPresetLimit,
+		],
 	);
 	useEffect(() => {
 		setSelectedConfigIndex((index) =>
@@ -791,11 +805,32 @@ export function App(): React.ReactElement {
 				return;
 			}
 			if (item.key === "auditArchiveRetentionLimit") {
-				setAuditArchiveRetentionLimit(nextValue);
+				setAuditArchiveRetentionLimit(Number(nextValue));
 			}
 			if (item.key === "toolTargetPresetLimit") {
-				setToolTargetPresetLimit(nextValue);
-				setCustomToolTargetPresets((current) => current.slice(0, nextValue));
+				setToolTargetPresetLimit(Number(nextValue));
+				setCustomToolTargetPresets((current) =>
+					current.slice(0, Number(nextValue)),
+				);
+			}
+			const nextText = String(nextValue);
+			if (item.key === "language" && isSupportedLanguage(nextText)) {
+				setLanguage(nextText);
+			}
+			if (item.key === "refreshInterval") {
+				setRefreshInterval(Number(nextValue));
+			}
+			if (item.key === "controlExecutionMode") {
+				setControlExecutionPolicy((current) => ({
+					...current,
+					mode: String(nextValue) === "dry-run" ? "dry-run" : "disabled",
+				}));
+			}
+			if (item.key === "allowAdminDryRun") {
+				setControlExecutionPolicy((current) => ({
+					...current,
+					allowAdminDryRun: Boolean(nextValue),
+				}));
 			}
 			void (async () => {
 				try {
@@ -811,6 +846,12 @@ export function App(): React.ReactElement {
 					} else {
 						setAuditArchiveRetentionLimit(config.auditArchiveRetentionLimit);
 					}
+					setLanguage(config.language);
+					setRefreshInterval(config.refreshInterval);
+					setDefaultPingHost(config.defaultPingHost);
+					setControlExecutionPolicy(
+						getControlExecutionPolicyFromConfig(config),
+					);
 					log("ok", `config ${item.key}=${nextValue}`);
 				} catch (caught) {
 					log(
@@ -824,6 +865,36 @@ export function App(): React.ReactElement {
 		},
 		[configWorkspaceItems, log, selectedConfigIndex],
 	);
+
+	const submitConfigTextCommand = useCallback(async () => {
+		const item = getConfigWorkspaceItem(
+			configWorkspaceItems,
+			selectedConfigIndex,
+		);
+		if (item?.key !== "defaultPingHost") {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "no editable config item selected");
+			return;
+		}
+		const nextValue = commandLine.value.trim();
+		setCommandLine((current) => closeCommandLine(current));
+		if (!nextValue) {
+			log("warn", "defaultPingHost cannot be empty");
+			return;
+		}
+		try {
+			const config = await setConfigValue(item.key, nextValue);
+			setDefaultPingHost(config.defaultPingHost);
+			log("ok", `config ${item.key}=${config.defaultPingHost}`);
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `config save failed ${caught.message}`
+					: `config save failed ${String(caught)}`,
+			);
+		}
+	}, [commandLine.value, configWorkspaceItems, log, selectedConfigIndex]);
 
 	const previewFile = useCallback(
 		async (entry: FileEntry) => {
@@ -3163,31 +3234,36 @@ export function App(): React.ReactElement {
 																				: commandLine.prompt ===
 																						"audit-archive-retention"
 																					? "audit archive retention cancelled"
-																					: commandLine.prompt === "log-search"
-																						? "logs search cancelled"
+																					: commandLine.prompt.startsWith(
+																								"config-",
+																							)
+																						? "config edit cancelled"
 																						: commandLine.prompt ===
-																								"logs-cleanup"
-																							? "logs cleanup cancelled"
+																								"log-search"
+																							? "logs search cancelled"
 																							: commandLine.prompt ===
-																									"tool-target-label"
-																								? "tool target label cancelled"
+																									"logs-cleanup"
+																								? "logs cleanup cancelled"
 																								: commandLine.prompt ===
-																										"tool-target-value"
-																									? "tool target value cancelled"
+																										"tool-target-label"
+																									? "tool target label cancelled"
 																									: commandLine.prompt ===
-																											"tool-target-action"
-																										? "tool target action cancelled"
+																											"tool-target-value"
+																										? "tool target value cancelled"
 																										: commandLine.prompt ===
-																												"tool-target-cleanup"
-																											? "tool target cleanup cancelled"
+																												"tool-target-action"
+																											? "tool target action cancelled"
 																											: commandLine.prompt ===
-																													portProcessControlPrompt
-																												? "port process control cancelled"
-																												: commandLine.prompt.startsWith(
-																															toolPromptPrefix,
-																														)
-																													? "tool target command cancelled"
-																													: "path command cancelled",
+																													"tool-target-cleanup"
+																												? "tool target cleanup cancelled"
+																												: commandLine.prompt ===
+																														portProcessControlPrompt
+																													? "port process control cancelled"
+																													: commandLine.prompt.startsWith(
+																																toolPromptPrefix,
+																															)
+																														? "tool target command cancelled"
+																														: "path command cancelled",
 				);
 				return;
 			}
@@ -3241,6 +3317,8 @@ export function App(): React.ReactElement {
 					void submitAuditExportArchiveCommand();
 				} else if (commandLine.prompt === "audit-archive-retention") {
 					void submitAuditArchiveRetentionCommand();
+				} else if (commandLine.prompt.startsWith("config-")) {
+					void submitConfigTextCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -4268,6 +4346,16 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "config" && focusArea === "workspaces" && input === "\r") {
+			const item = getConfigWorkspaceItem(
+				configWorkspaceItems,
+				selectedConfigIndex,
+			);
+			const prompt = item ? getConfigWorkspaceEditPrompt(item) : undefined;
+			if (prompt) {
+				setCommandLine(openCommandLine(prompt));
+				log("info", `config edit opened ${item?.key}`);
+				return;
+			}
 			const configAction = actions.find(
 				(action) => action.id === "config.show",
 			);
