@@ -155,6 +155,21 @@ export function formatControlExecutionRows(
 	];
 }
 
+export function formatControlExecutionPolicyRows(
+	policy: ControlExecutionPolicy,
+): string[] {
+	return [
+		"CONTROL EXECUTION POLICY",
+		`mode=${policy.mode} allowAdminDryRun=${policy.allowAdminDryRun}`,
+		policy.mode === "dry-run"
+			? "dry-run attempts enabled for adapter-declared commands"
+			: "dry-run attempts blocked until controlExecutionMode=dry-run",
+		policy.allowAdminDryRun
+			? "admin dry-run allowed after exact confirmation"
+			: "admin dry-run blocked until allowAdminDryRun=true",
+	];
+}
+
 function getControlExecutionBlockers(
 	plan: ActionPreviewPlan,
 	confirmed: boolean,

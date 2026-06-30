@@ -9,6 +9,7 @@ import {
 	createControlExecutionPlan,
 	defaultControlExecutionPolicy,
 	formatControlExecutionAuditMessage,
+	formatControlExecutionPolicyRows,
 	formatControlExecutionResultAuditMessage,
 	formatControlExecutionRows,
 	getControlExecutionPolicyFromConfig,
@@ -29,6 +30,25 @@ describe("control execution harness", () => {
 		expect(getControlExecutionPolicyFromConfig({})).toEqual(
 			defaultControlExecutionPolicy,
 		);
+		expect(
+			formatControlExecutionPolicyRows(defaultControlExecutionPolicy),
+		).toEqual([
+			"CONTROL EXECUTION POLICY",
+			"mode=disabled allowAdminDryRun=false",
+			"dry-run attempts blocked until controlExecutionMode=dry-run",
+			"admin dry-run blocked until allowAdminDryRun=true",
+		]);
+		expect(
+			formatControlExecutionPolicyRows({
+				mode: "dry-run",
+				allowAdminDryRun: true,
+			}),
+		).toEqual([
+			"CONTROL EXECUTION POLICY",
+			"mode=dry-run allowAdminDryRun=true",
+			"dry-run attempts enabled for adapter-declared commands",
+			"admin dry-run allowed after exact confirmation",
+		]);
 	});
 
 	test("blocks locked OS controls unless explicit dry-run policy is enabled", async () => {

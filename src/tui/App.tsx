@@ -34,8 +34,11 @@ import {
 } from "../core/connections";
 import {
 	type ControlExecutionPlan,
+	type ControlExecutionPolicy,
 	createControlExecutionPlan,
+	defaultControlExecutionPolicy,
 	formatControlExecutionAuditMessage,
+	formatControlExecutionPolicyRows,
 	formatControlExecutionResultAuditMessage,
 	formatControlExecutionRows,
 	getControlExecutionPolicyFromConfig,
@@ -262,6 +265,8 @@ export function App(): React.ReactElement {
 		useState<ActionControlSimulation>();
 	const [actionExecutionPlan, setActionExecutionPlan] =
 		useState<ControlExecutionPlan>();
+	const [controlExecutionPolicy, setControlExecutionPolicy] =
+		useState<ControlExecutionPolicy>(defaultControlExecutionPolicy);
 	const [events, setEvents] = useState<ConsoleEvent[]>([
 		createEvent("info", "picos console booted"),
 		createEvent("info", "write actions locked by policy"),
@@ -719,10 +724,12 @@ export function App(): React.ReactElement {
 		}
 
 		const config = await readConfig();
+		const policy = getControlExecutionPolicyFromConfig(config);
+		setControlExecutionPolicy(policy);
 		const executionPlan = createControlExecutionPlan(
 			actionPreviewPlan,
 			actionConfirmation,
-			getControlExecutionPolicyFromConfig(config),
+			policy,
 		);
 		setActionExecutionPlan(executionPlan);
 
@@ -1193,6 +1200,7 @@ export function App(): React.ReactElement {
 			setLanguage(config.language);
 			setDefaultPingHost(config.defaultPingHost);
 			setRemoteProfiles(config.remoteProfiles);
+			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
 			);
@@ -2164,6 +2172,7 @@ export function App(): React.ReactElement {
 					actionPreviewPlan={actionPreviewPlan}
 					actionSimulation={actionSimulation}
 					actionExecutionPlan={actionExecutionPlan}
+					controlExecutionPolicy={controlExecutionPolicy}
 					palette={palette}
 					focusArea={focusArea}
 					doctorChecks={doctorChecks}
@@ -2230,6 +2239,7 @@ export function App(): React.ReactElement {
 						actionPreviewPlan={actionPreviewPlan}
 						actionSimulation={actionSimulation}
 						actionExecutionPlan={actionExecutionPlan}
+						controlExecutionPolicy={controlExecutionPolicy}
 						events={events}
 						t={t}
 					/>
@@ -2329,6 +2339,7 @@ function MainWorkspace({
 	actionPreviewPlan,
 	actionSimulation,
 	actionExecutionPlan,
+	controlExecutionPolicy,
 	palette,
 	focusArea,
 	doctorChecks,
@@ -2397,6 +2408,7 @@ function MainWorkspace({
 	actionPreviewPlan?: ActionPreviewPlan;
 	actionSimulation?: ActionControlSimulation;
 	actionExecutionPlan?: ControlExecutionPlan;
+	controlExecutionPolicy: ControlExecutionPolicy;
 	palette: CommandPaletteState;
 	focusArea: FocusArea;
 	doctorChecks: DoctorCheck[];
@@ -2474,6 +2486,7 @@ function MainWorkspace({
 					actionPreviewPlan,
 					actionSimulation,
 					actionExecutionPlan,
+					controlExecutionPolicy,
 					palette,
 					focusArea,
 					doctorChecks,
@@ -2546,6 +2559,7 @@ function renderWorkspace(
 	actionPreviewPlan: ActionPreviewPlan | undefined,
 	actionSimulation: ActionControlSimulation | undefined,
 	actionExecutionPlan: ControlExecutionPlan | undefined,
+	controlExecutionPolicy: ControlExecutionPolicy,
 	palette: CommandPaletteState,
 	focusArea: FocusArea,
 	doctorChecks: DoctorCheck[],
@@ -2796,6 +2810,7 @@ function renderWorkspace(
 				previewPlan={actionPreviewPlan}
 				simulation={actionSimulation}
 				executionPlan={actionExecutionPlan}
+				policy={controlExecutionPolicy}
 				commandLine={commandLine}
 				visibleRows={Math.max(3, height - 7)}
 				t={t}
@@ -4112,6 +4127,7 @@ function ActionWorkspace({
 	previewPlan,
 	simulation,
 	executionPlan,
+	policy,
 	commandLine,
 	visibleRows,
 	t,
@@ -4122,6 +4138,7 @@ function ActionWorkspace({
 	previewPlan?: ActionPreviewPlan;
 	simulation?: ActionControlSimulation;
 	executionPlan?: ControlExecutionPlan;
+	policy: ControlExecutionPolicy;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -4137,9 +4154,11 @@ function ActionWorkspace({
 	const executionRows = executionPlan
 		? formatControlExecutionRows(executionPlan)
 		: [];
+	const policyRows = formatControlExecutionPolicyRows(policy);
 	const actionRows = Math.max(
 		3,
 		visibleRows -
+			policyRows.length -
 			previewRows.length -
 			confirmationRows.length -
 			simulationRows.length -
@@ -4181,6 +4200,13 @@ function ActionWorkspace({
 			{hiddenBelow > 0 ? (
 				<Text color="gray">↓ {hiddenBelow} more actions</Text>
 			) : null}
+			<Box marginTop={1} flexDirection="column">
+				{policyRows.map((row) => (
+					<Text key={row} color={getActionPreviewRowColor(row)}>
+						{row}
+					</Text>
+				))}
+			</Box>
 			{previewRows.length ? (
 				<Box marginTop={1} flexDirection="column">
 					{previewRows
@@ -4190,6 +4216,7 @@ function ActionWorkspace({
 								1,
 								visibleRows -
 									actionRows -
+									policyRows.length -
 									confirmationRows.length -
 									simulationRows.length -
 									executionRows.length,
@@ -4256,6 +4283,7 @@ function getActionPreviewRowColor(row: string): string {
 		row.startsWith("CONTROL PREVIEW") ||
 		row.startsWith("CONTROL CONFIRM") ||
 		row.startsWith("CONTROL SIMULATION") ||
+		row.startsWith("CONTROL EXECUTION POLICY") ||
 		row.startsWith("CONTROL EXECUTION")
 	) {
 		return "cyan";
@@ -4389,6 +4417,7 @@ function Inspector({
 	actionPreviewPlan,
 	actionSimulation,
 	actionExecutionPlan,
+	controlExecutionPolicy,
 	events,
 	t,
 }: {
@@ -4399,6 +4428,7 @@ function Inspector({
 	actionPreviewPlan?: ActionPreviewPlan;
 	actionSimulation?: ActionControlSimulation;
 	actionExecutionPlan?: ControlExecutionPlan;
+	controlExecutionPolicy: ControlExecutionPolicy;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -4411,6 +4441,9 @@ function Inspector({
 	const executionRows = actionExecutionPlan
 		? formatControlExecutionRows(actionExecutionPlan).slice(0, 4)
 		: [];
+	const policyRows = formatControlExecutionPolicyRows(
+		controlExecutionPolicy,
+	).slice(0, 4);
 	return (
 		<Box width={width} borderStyle="single" borderColor="gray" paddingX={1}>
 			<Box flexDirection="column">
@@ -4439,9 +4472,17 @@ function Inspector({
 						))}
 					</Box>
 				) : null}
+				<Box marginTop={1} flexDirection="column">
+					<Text color="gray">CONTROL POLICY</Text>
+					{policyRows.slice(1).map((row) => (
+						<Text key={row} color={getActionPreviewRowColor(row)}>
+							{row}
+						</Text>
+					))}
+				</Box>
 				{simulationRows.length ? (
 					<Box marginTop={1} flexDirection="column">
-						<Text color="gray">CONTROL POLICY</Text>
+						<Text color="gray">CONTROL SIMULATION</Text>
 						{simulationRows.slice(1).map((row) => (
 							<Text key={row} color={getActionPreviewRowColor(row)}>
 								{row}

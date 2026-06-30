@@ -937,6 +937,19 @@ Goal: let operators see and configure the dry-run execution policy while keeping
 - Default config still blocks the runner with `mutation-controls-disabled`.
 - Next: richer adapter dry-run coverage and explicit UI copy for policy state.
 
+## v0.4.7 - Control Policy Visibility
+
+Status: draft PR #69.
+
+Goal: make the current execution policy visible before an operator tries a dry-run.
+
+- Control execution policy rows now show mode and admin dry-run state.
+- Disabled policy copy explains `controlExecutionMode=dry-run`.
+- Admin policy copy explains `allowAdminDryRun=true`.
+- Action Center renders policy rows before preview, simulation, and execution rows.
+- Inspector renders policy rows even before a dry-run attempt.
+- Next: richer adapter dry-run coverage and policy-state shortcuts from the TUI.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
