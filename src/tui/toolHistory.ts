@@ -1,6 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+	type ConfigCleanupPreview,
+	createConfigCleanupPreview,
+	submitConfigCleanupConfirmation,
+} from "../core/configCleanup";
+import {
 	normalizeToolTargetPresets,
 	type ToolTargetPresetPreference,
 } from "../core/toolHistoryPreferences";
@@ -40,6 +45,7 @@ export type ToolTargetCleanupPreview = {
 	count: number;
 	confirmationPhrase: string;
 	rows: string[];
+	cleanup: ConfigCleanupPreview;
 };
 
 export type ToolTargetCleanupConfirmation = {
@@ -501,16 +507,23 @@ export function createToolTargetCleanupPreview(
 	const count = normalized.filter(
 		(current) => current.actionId === targetPreset.actionId,
 	).length;
-	const confirmationPhrase = `delete ${targetPreset.actionId}`;
+	const cleanup = createConfigCleanupPreview({
+		id: `tools.targets.${targetPreset.actionId}`,
+		label: "Tools target presets",
+		scope: targetPreset.actionId,
+		count,
+		verb: "delete",
+	});
 	return {
 		actionId: targetPreset.actionId,
 		count,
-		confirmationPhrase,
+		confirmationPhrase: cleanup.confirmationPhrase,
 		rows: [
 			"TOOL TARGET CLEANUP",
 			`action=${targetPreset.actionId} saved=${count}`,
-			`confirm ${confirmationPhrase} locked`,
+			`confirm ${cleanup.confirmationPhrase} locked`,
 		],
+		cleanup,
 	};
 }
 
@@ -529,7 +542,11 @@ export function submitToolTargetCleanupConfirmation(
 			message: "tool target action cleanup unavailable",
 		};
 	}
-	if (confirmation.trim() !== preview.confirmationPhrase) {
+	const cleanupConfirmation = submitConfigCleanupConfirmation(
+		preview.cleanup,
+		confirmation,
+	);
+	if (!cleanupConfirmation.confirmed) {
 		return {
 			confirmed: false,
 			removed: 0,

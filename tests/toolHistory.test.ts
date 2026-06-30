@@ -752,6 +752,20 @@ describe("TUI tool history", () => {
 			actionId: "tools.dns",
 			count: 2,
 			confirmationPhrase: "delete tools.dns",
+			cleanup: {
+				id: "tools.targets.tools.dns",
+				label: "Tools target presets",
+				scope: "tools.dns",
+				count: 2,
+				verb: "delete",
+				confirmationPhrase: "delete tools.dns",
+				rows: [
+					"CONFIG CLEANUP",
+					"target=Tools target presets",
+					"scope=tools.dns count=2",
+					"confirm delete tools.dns locked",
+				],
+			},
 			rows: [
 				"TOOL TARGET CLEANUP",
 				"action=tools.dns saved=2",

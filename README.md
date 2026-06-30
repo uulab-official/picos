@@ -178,6 +178,8 @@ Locked OS control previews now include visible execution policy rows plus a dry-
 
 Clipboard writes follow the same rule: platform adapters exist for `pbcopy`, `xclip`, and `clip.exe`, and confirmed plans execute through `safeExec()` stdin so copy text is never interpolated into a shell command. In the TUI, endpoint, process-resource, Tools summary/raw-output, and update handoff copy actions open a `:clipboard` confirmation prompt and log the resulting audit event, including fallback guidance when the platform clipboard tool is missing. Update handoff URL opening uses a separate `:external-open` confirmation prompt, only allows HTTPS URLs, and routes macOS `open`, Linux `xdg-open`, or Windows `rundll32 url.dll,FileProtocolHandler` through the same safe execution boundary. The `timeline.export` action writes the current console audit log under the picos config directory, and Tools history export writes selected or full diagnostic runs under the config `tools` directory.
 
+Config cleanup actions use the same exact-confirm posture. The shared cleanup model builds preview rows with a target, scope, affected item count, and a required phrase such as `delete tools.dns`; rejected confirmations leave persisted config unchanged. Tools saved-target bulk cleanup is the first consumer, and the same model is intended for log profiles, filter presets, and handoff shelves.
+
 All OS command execution must go through `src/utils/safeExec.ts`; OS-specific commands belong in `src/adapters`.
 
 ## Network Console Roadmap
