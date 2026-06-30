@@ -10,6 +10,7 @@ import {
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
+	getConfigManagedShelfFocusPreset,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceSectionJumpIndex,
 	getNextConfigManagedShelfTarget,
@@ -216,8 +217,34 @@ describe("config TUI panel", () => {
 			"CONFIG SHELF LANDING",
 			"source=config target=tools workspace=Tools",
 			"scope=saved targets, history filters, grouping, detail view",
+			"focus=toolTargetPresets cursor=0 detail=summary",
 			"next=review shelf controls  esc=clear landing",
 		]);
+	});
+
+	test("creates destination focus presets for managed shelf jumps", () => {
+		expect(getConfigManagedShelfFocusPreset("tools")).toEqual({
+			target: "tools",
+			workspace: "tools",
+			label: "Tools",
+			focusArea: "workspaces",
+			cursor: "toolTargetPresets",
+			index: 0,
+			detailView: "summary",
+			rows: [
+				"CONFIG SHELF FOCUS",
+				"target=tools workspace=Tools",
+				"focus=toolTargetPresets cursor=0 detail=summary",
+			],
+		});
+
+		expect(getConfigManagedShelfFocusPreset("remotes")).toMatchObject({
+			target: "remotes",
+			workspace: "remotes",
+			focusArea: "remotes",
+			cursor: "remoteProfiles",
+			index: 0,
+		});
 	});
 
 	test("moves selection and clamps adjusted retention values", () => {
