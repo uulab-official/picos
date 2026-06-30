@@ -1817,6 +1817,19 @@ Goal: make TCP diagnostics copyable at the exact row level without losing the ex
 - Tests cover row cursor wrapping, row-level clipboard preview shape, unavailable rows, and footer rendering.
 - Next: render the selected TCP row with an inline marker inside the detail pane.
 
+## v0.4.73 - TCP Row Inline Marker
+
+Status: draft PR #135 on `codex/picos-v0.4.73-tcp-row-marker`.
+
+Goal: make row-level TCP copy selection visible directly where operators read the raw diagnostic output.
+
+- Raw Tools detail rows now mark the selected TCP Target or Status row with `>`.
+- Other rows in the selected TCP section are indented with a stable two-space prefix so the cursor is easy to scan.
+- Summary and command detail tabs remain unchanged.
+- Raw output export and handoff text remain unmodified; the marker is only a TUI detail rendering affordance.
+- Tests cover the selected row marker and non-selected row indentation.
+- Next: show a compact copy-target preview row near the Tools detail footer before opening the clipboard confirmation.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
