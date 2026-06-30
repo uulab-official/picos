@@ -7,6 +7,7 @@ import {
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
 	getSelectedToolHistoryItem,
+	getSelectedToolOutputClipboardPreview,
 	moveToolHistorySelection,
 	rerunToolHistoryItem,
 } from "../src/tui/toolHistory";
@@ -178,7 +179,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · r rerun · action enter=target prompt · raw.view latest",
+			"shortcuts: j/k select · r rerun · c copy raw · action enter=target prompt · raw.view latest",
 		]);
 	});
 
@@ -277,5 +278,31 @@ describe("TUI tool history", () => {
 			label: "network.connect api.github.com:8443",
 		});
 		expect(rerunToolHistoryItem(undefined)).toBeUndefined();
+	});
+
+	test("creates a locked clipboard preview for selected tool raw output", () => {
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result,
+			},
+			"12:00:00",
+		);
+
+		expect(getSelectedToolOutputClipboardPreview(history, 0)).toEqual({
+			source: "tool-output",
+			label: "tools.dns example.com raw output",
+			copyText: "$ picos tools dns example.com\n[Summary]\nQuery: example.com",
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(getSelectedToolOutputClipboardPreview([], 0)).toBeUndefined();
 	});
 });
