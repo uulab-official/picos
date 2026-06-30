@@ -1577,6 +1577,19 @@ Goal: make cleanup handoff decisions visible before the operator leaves Status.
 - Tests cover selected detail rows and empty-detail fallback rows.
 - Next: add a small cleanup command preview/audit row after the operator jumps into the owning workspace.
 
+## v0.4.55 - Cleanup Jump Audit
+
+Status: draft PR #117.
+
+Goal: preserve cleanup context after the operator leaves Status for the owning workspace.
+
+- Status cleanup handoff now creates a small cleanup jump audit model from the selected shelf.
+- Destination workspaces render a `CLEANUP HANDOFF` row set when the current screen matches the handoff target.
+- Audit rows show source, target workspace, shortcut, affected count, exact phrase, and shelf detail.
+- Main workspace height is adjusted so the destination panel keeps room for the audit rows.
+- Tests cover audit model rows and empty audit formatting.
+- Next: make the destination handoff row actionable by opening the matching cleanup prompt directly.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

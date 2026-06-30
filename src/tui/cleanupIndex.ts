@@ -28,6 +28,17 @@ export type CleanupShelfIndex = {
 	shelves: CleanupShelf[];
 };
 
+export type CleanupJumpAudit = {
+	id: CleanupShelfId;
+	label: string;
+	screen: Screen;
+	workspace: string;
+	shortcut: string;
+	confirmationPhrase: string;
+	count: number;
+	detail: string;
+};
+
 export type CleanupShelfIndexInput = {
 	connectionFilterPresets?: string[];
 	customToolTargetPresets?: Array<{
@@ -179,6 +190,33 @@ export function formatCleanupShelfDetailRows(
 		`items=${shelf.count} detail=${shelf.detail}`,
 		`confirm=${shelf.confirmationPhrase}`,
 		`enter jumps to ${shelf.workspace}; press ${shelf.shortcut} then type exact phrase`,
+	];
+}
+
+export function createCleanupJumpAudit(shelf: CleanupShelf): CleanupJumpAudit {
+	return {
+		id: shelf.id,
+		label: shelf.label,
+		screen: shelf.screen,
+		workspace: shelf.workspace,
+		shortcut: shelf.shortcut,
+		confirmationPhrase: shelf.confirmationPhrase,
+		count: shelf.count,
+		detail: shelf.detail,
+	};
+}
+
+export function formatCleanupJumpAuditRows(
+	audit: CleanupJumpAudit | undefined,
+): string[] {
+	if (!audit) {
+		return [];
+	}
+
+	return [
+		`CLEANUP HANDOFF ${audit.label}`,
+		`from=Status target=${audit.workspace} shortcut=${audit.shortcut} count=${audit.count}`,
+		`confirm=${audit.confirmationPhrase} detail=${audit.detail}`,
 	];
 }
 
