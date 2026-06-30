@@ -4,6 +4,8 @@ import {
 	createOsLogSnapshot,
 	filterOsLogEntries,
 	formatOsLogRows,
+	nextOsLogLevelFilter,
+	type OsLogLevelFilter,
 	parseOsLogLines,
 } from "../src/core/osLogs";
 
@@ -116,6 +118,36 @@ describe("OS log reader", () => {
 		expect(filterOsLogEntries(entries, "missing")).toEqual([]);
 	});
 
+	test("filters log entries by severity level before query text", () => {
+		const entries = parseOsLogLines(
+			"kernel: error disk pressure\nlaunchd: service started\nkernel: warning thermal pressure",
+			10,
+		);
+
+		expect(filterOsLogEntries(entries, undefined, "warn")).toEqual([
+			{
+				index: 3,
+				level: "warn",
+				message: "kernel: warning thermal pressure",
+			},
+		]);
+		expect(
+			filterOsLogEntries(entries, "kernel", "fail").map((entry) => entry.index),
+		).toEqual([1]);
+		expect(filterOsLogEntries(entries, "kernel", "info")).toEqual([]);
+	});
+
+	test("cycles severity filters for keyboard use", () => {
+		const sequence: OsLogLevelFilter[] = [];
+		let current: OsLogLevelFilter = "all";
+		for (let index = 0; index < 4; index += 1) {
+			current = nextOsLogLevelFilter(current);
+			sequence.push(current);
+		}
+
+		expect(sequence).toEqual(["warn", "fail", "info", "all"]);
+	});
+
 	test("formats filtered rows with visible and total entry counts", () => {
 		const entries = parseOsLogLines(
 			"kernel: error disk pressure\nlaunchd: service started\nkernel: warning thermal pressure",
@@ -132,14 +164,13 @@ describe("OS log reader", () => {
 					note: "recent unified system log entries",
 					entries,
 				},
-				{ filter: "kernel" },
+				{ filter: "kernel", level: "warn" },
 			),
 		).toEqual([
 			"PICOS OS LOGS",
-			"source=macos-unified-log status=ok entries=2/3 filter=kernel",
+			"source=macos-unified-log status=ok entries=1/3 level=warn filter=kernel",
 			"command=log show --last 2m",
 			"note=recent unified system log entries",
-			"001 fail kernel: error disk pressure",
 			"003 warn kernel: warning thermal pressure",
 		]);
 	});

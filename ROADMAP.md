@@ -1095,6 +1095,19 @@ Goal: make Logs useful under pressure by adding the same keyboard search flow as
 - Tests cover core filtering, CLI filtered output, TUI row formatting, and preset cycling.
 - Next: live follow mode and severity-only quick filters.
 
+## v0.4.19 - Log Severity Quick Filters
+
+Status: draft PR #81.
+
+Goal: make noisy OS logs easier to triage from the keyboard.
+
+- `picos logs --level <all|warn|fail|info>` filters recent OS log rows by detected severity.
+- Severity filtering composes with `--filter <query>` and preserves original row numbers.
+- Logs workspace supports `e` to cycle `all -> warn -> fail -> info`.
+- Logs workspace header and status rows show the active severity level plus visible/total counts.
+- Tests cover severity filtering, keyboard cycle order, CLI output, and TUI row formatting.
+- Next: live follow mode and pinned severity/search profiles.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
