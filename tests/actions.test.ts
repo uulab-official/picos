@@ -17,8 +17,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 31,
-			enabled: 21,
+			total: 32,
+			enabled: 22,
 			locked: 10,
 			elevated: 4,
 		});
@@ -50,6 +50,7 @@ describe("action catalog", () => {
 			"routes.path",
 			"timeline.export",
 			"raw.view",
+			"tools.export",
 			"remote.profiles",
 		]);
 	});
@@ -167,5 +168,8 @@ describe("action catalog", () => {
 			"routes.path",
 		);
 		expect(getActionCatalog().map((action) => action.id)).toContain("raw.view");
+		expect(getActionCatalog().map((action) => action.id)).toContain(
+			"tools.export",
+		);
 	});
 });
