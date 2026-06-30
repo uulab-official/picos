@@ -57,6 +57,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub saved target preset values can now be edited with `M` from the TUI while preserving the preset action and label.
 - Tools Hub saved target preset actions can now be changed with `A` from the TUI using exact action ids or short aliases such as `ping`, `dns`, and `tcp`.
 - Tools Hub saved target presets can now be pinned to the top with `U`, preserving frequently used diagnostics ahead of OS-aware generated presets.
+- Tools Hub target preset selection now supports `n`/`N` forward/back cycling for faster navigation through longer target lists.
 - Connections and Ports workspaces now support `Tab` detail panes for focused detail, raw output, and process views.
 - Connections and Ports workspaces now support TUI endpoint search with `f`, `F`, `P`, and `]` filter preset controls.
 - Connections and Ports sort preferences now persist in config and restore on TUI boot.

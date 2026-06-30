@@ -287,6 +287,7 @@ import {
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
+	moveToolTargetPresetSelection,
 	nextToolHistoryDetailView,
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
@@ -3191,9 +3192,17 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (screen === "tools" && focusArea === "workspaces" && input === "n") {
+		if (
+			screen === "tools" &&
+			focusArea === "workspaces" &&
+			(input === "n" || input === "N")
+		) {
 			setSelectedToolTargetPresetIndex((index) => {
-				const next = getNextIndex(index, toolTargetPresets.length, "next");
+				const next = moveToolTargetPresetSelection(
+					index,
+					toolTargetPresets.length,
+					input === "N" ? "previous" : "next",
+				);
 				const preset = toolTargetPresets[next];
 				if (preset) {
 					log("info", `tool target ${preset.label} ${preset.target}`);

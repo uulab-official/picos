@@ -300,7 +300,7 @@ export function formatToolsWorkspaceRows(
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · U pin target · L label target · M edit target · A action target · X delete target · R run · r rerun · y summary · c raw",
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · R run · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -569,6 +569,14 @@ export function moveToolHistorySelection(
 	return (normalized + offset + total) % total;
 }
 
+export function moveToolTargetPresetSelection(
+	current: number,
+	total: number,
+	direction: "next" | "previous",
+): number {
+	return moveToolHistorySelection(current, total, direction);
+}
+
 export function moveFilteredToolHistorySelection(
 	history: ToolHistoryItem[],
 	current: number,
@@ -801,7 +809,7 @@ function formatToolTargetPresetRows(
 		presets.length - 1,
 	);
 	return [
-		"TARGET PRESETS n cycle · T save · U pin · L label · M edit · A action · X delete · R run",
+		"TARGET PRESETS n/N cycle · T save · U pin · L label · M edit · A action · X delete · R run",
 		...presets.map(
 			(preset, index) =>
 				`${index === normalizedIndex ? ">" : " "} ${preset.label} ${preset.target} ${preset.hint}`,
