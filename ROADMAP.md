@@ -2000,6 +2000,19 @@ Goal: make the selected-port Inspector policy rows point operators toward read-o
 - Tests cover the Inspector drill-down rows on selected listening PIDs.
 - Next: surface selected process cwd/open-file counts in the Ports Inspector so operators can see whether there is useful file evidence before jumping.
 
+## v0.4.87 - Port Inspector File Evidence
+
+Status: draft PR #149 on `codex/picos-v0.4.87-port-inspector-file-evidence`.
+
+Goal: show whether selected listening PIDs already have useful file evidence before leaving Ports.
+
+- Ports `I` now attempts a read-only process file snapshot for the selected PID without switching screens.
+- Port policy Inspector rows show loaded file evidence counts: cwd, open files, and selectable resources.
+- The evidence row only appears when the loaded snapshot PID matches the selected port PID.
+- The existing drill-down row still points operators to `picos process <pid> --files`, Processes `enter`, and selected-resource copy.
+- Tests cover PID-matched file evidence counts in selected-port Inspector rows.
+- Next: add a small stale/mismatch indicator when cached process file evidence belongs to a different PID.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
