@@ -164,6 +164,7 @@ import {
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
+	createCleanupHandoffHistoryExportPlan,
 	createCleanupHandoffReopenPlan,
 	createCleanupJumpAudit,
 	createCleanupJumpAuditFromHistory,
@@ -180,6 +181,7 @@ import {
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
+	writeCleanupHandoffHistoryExport,
 } from "./cleanupIndex";
 import {
 	appendClipboardConfirmationInput,
@@ -2414,6 +2416,38 @@ export function App(): React.ReactElement {
 		return true;
 	}, [cleanupHandoffHistory, log, selectedCleanupHandoffHistoryIndex]);
 
+	const exportCleanupHandoffHistory = useCallback(async () => {
+		const plan = createCleanupHandoffHistoryExportPlan(
+			cleanupHandoffHistory,
+			selectedCleanupHandoffHistoryIndex,
+			{
+				baseDir: dirname(getConfigPath()),
+				scope: "all",
+			},
+		);
+		if (!plan) {
+			log("warn", "no cleanup handoff history to export");
+			return false;
+		}
+
+		try {
+			const written = await writeCleanupHandoffHistoryExport(plan);
+			log(
+				"ok",
+				`cleanup history exported ${written.itemCount} entries to ${written.path}`,
+			);
+			return true;
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `cleanup history export failed ${caught.message}`
+					: `cleanup history export failed ${String(caught)}`,
+			);
+			return false;
+		}
+	}, [cleanupHandoffHistory, log, selectedCleanupHandoffHistoryIndex]);
+
 	useInput((input, key) => {
 		if (commandLine.active) {
 			if (key.escape) {
@@ -3245,6 +3279,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "R") {
 			reopenCleanupHandoffHistory();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "E") {
+			void exportCleanupHandoffHistory();
 			return;
 		}
 
@@ -7065,7 +7104,9 @@ function StatusWorkspace({
 					))}
 				</Box>
 				<Box marginTop={1} flexDirection="column">
-					<Text color="gray">CLEANUP HISTORY · [ cycle · R reopen</Text>
+					<Text color="gray">
+						CLEANUP HISTORY · [ cycle · R reopen · E export
+					</Text>
 					{formatCleanupHandoffHistoryIndexRows(
 						cleanupHandoffHistory,
 						selectedCleanupHandoffHistoryIndex,

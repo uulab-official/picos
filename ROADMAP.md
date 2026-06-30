@@ -1653,6 +1653,19 @@ Goal: let operators resume a previously opened or dismissed cleanup handoff dire
 - Tests cover reopen plan creation, restored jump audit shape, empty reopen formatting, and selected history metadata.
 - Next: promote cleanup history into a durable audit timeline/export or add explicit history clear/archive controls.
 
+## v0.4.61 - Export Cleanup Handoff History
+
+Status: draft PR #123.
+
+Goal: make cleanup handoff history durable enough for review, handoff, and release/debug evidence.
+
+- Cleanup handoff history now has markdown export plans for selected or all entries.
+- Export files are written under the picos config `cleanup` directory with timestamped `picos-cleanup-*.md` names.
+- Status workspace exposes `E` to export the current cleanup handoff history and logs the resulting path.
+- Exported entries include outcome, workspace, screen, shortcut, exact confirmation phrase, affected count, and shelf detail.
+- Tests cover selected/all export plans, empty export refusal, markdown content, stable paths, and file writes.
+- Next: add cleanup history clear/archive controls or surface exported cleanup logs inside Timeline.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { LogProfile } from "./logPanel";
 import type { Screen } from "./navigation";
 import type { ToolRunActionId } from "./toolHistory";
@@ -77,6 +79,15 @@ export type CleanupHandoffHistory = {
 	count: number;
 	detail: string;
 	outcome: CleanupHandoffHistoryOutcome;
+};
+
+export type CleanupHandoffHistoryExportScope = "selected" | "all";
+
+export type CleanupHandoffHistoryExportPlan = {
+	path: string;
+	content: string;
+	itemCount: number;
+	scope: CleanupHandoffHistoryExportScope;
 };
 
 export type CleanupShelfIndexInput = {
@@ -385,6 +396,74 @@ export function formatCleanupHandoffReopenRows(
 	];
 }
 
+export function formatCleanupHandoffHistoryExport(
+	histories: CleanupHandoffHistory[],
+	options: {
+		generatedAt?: string;
+		scope: CleanupHandoffHistoryExportScope;
+		selectedIndex?: number;
+	},
+): string {
+	const generatedAt = options.generatedAt ?? new Date().toISOString();
+	const items = getCleanupHandoffHistoryExportItems(
+		histories,
+		options.selectedIndex ?? 0,
+		options.scope,
+	);
+	return [
+		"# picos cleanup handoff history",
+		`generatedAt=${generatedAt}`,
+		`scope=${options.scope}`,
+		`entries=${items.length}`,
+		"",
+		...items.flatMap(formatCleanupHandoffHistoryExportItem),
+	].join("\n");
+}
+
+export function createCleanupHandoffHistoryExportPlan(
+	histories: CleanupHandoffHistory[],
+	selectedIndex: number,
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+		scope: CleanupHandoffHistoryExportScope;
+	},
+): CleanupHandoffHistoryExportPlan | undefined {
+	const items = getCleanupHandoffHistoryExportItems(
+		histories,
+		selectedIndex,
+		options.scope,
+	);
+	if (items.length === 0) {
+		return undefined;
+	}
+
+	const generatedAt = options.generatedAt ?? new Date();
+	const iso = generatedAt.toISOString();
+	return {
+		path: join(
+			options.baseDir,
+			"cleanup",
+			`picos-cleanup-${options.scope}-${iso.replaceAll(/[:.]/g, "")}.md`,
+		),
+		content: formatCleanupHandoffHistoryExport(items, {
+			generatedAt: iso,
+			scope: options.scope,
+			selectedIndex: options.scope === "selected" ? 0 : selectedIndex,
+		}),
+		itemCount: items.length,
+		scope: options.scope,
+	};
+}
+
+export async function writeCleanupHandoffHistoryExport(
+	plan: CleanupHandoffHistoryExportPlan,
+): Promise<CleanupHandoffHistoryExportPlan> {
+	await mkdir(dirname(plan.path), { recursive: true });
+	await writeFile(plan.path, plan.content, "utf8");
+	return plan;
+}
+
 export function formatCleanupHandoffHistoryRows(
 	history: CleanupHandoffHistory | undefined,
 ): string[] {
@@ -455,6 +534,31 @@ export function formatCleanupHandoffHistoryIndexRows(
 			: ["no cleanup handoff history yet"]),
 	];
 	return rows.slice(0, Math.max(1, visibleRows));
+}
+
+function getCleanupHandoffHistoryExportItems(
+	histories: CleanupHandoffHistory[],
+	selectedIndex: number,
+	scope: CleanupHandoffHistoryExportScope,
+): CleanupHandoffHistory[] {
+	if (scope === "all") {
+		return histories;
+	}
+
+	const selected = getSelectedCleanupHandoffHistory(histories, selectedIndex);
+	return selected ? [selected] : [];
+}
+
+function formatCleanupHandoffHistoryExportItem(
+	history: CleanupHandoffHistory,
+): string[] {
+	return [
+		`## ${history.label}`,
+		`outcome=${history.outcome}`,
+		`workspace=${history.workspace} screen=${history.screen} shortcut=${history.shortcut}`,
+		`confirm=${history.confirmationPhrase} count=${history.count} detail=${history.detail}`,
+		"",
+	];
 }
 
 export function getSelectedCleanupShelf(
