@@ -62,6 +62,32 @@ describe("clipboard preview", () => {
 		]);
 	});
 
+	test("clips multiline clipboard preview copy rows when requested", () => {
+		const preview = createClipboardPreview({
+			source: "tool-output",
+			label: "tools.tcp raw output",
+			copyText:
+				"first line is longer than the modal budget\nsecond line\nthird line\nfourth line",
+			details: ["path c raw"],
+		});
+
+		expect(
+			formatClipboardPreviewRows(preview, {
+				maxCopyLines: 3,
+				maxCopyLineLength: 18,
+			}),
+		).toEqual([
+			"CLIPBOARD PREVIEW tool-output",
+			"label tools.tcp raw output",
+			"detail path c raw",
+			"copy first line is l...",
+			"copy second line",
+			"copy third line",
+			"copy ... 1 more line",
+			"confirm copy locked",
+		]);
+	});
+
 	test("rejects empty clipboard preview values", () => {
 		expect(() =>
 			createClipboardPreview({
