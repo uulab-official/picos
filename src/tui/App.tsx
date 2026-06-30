@@ -191,6 +191,7 @@ import {
 import {
 	formatLogProfileLabel,
 	formatLogWorkspaceRows,
+	type LogFollowHistoryItem,
 	type LogProfile,
 	nextLogProfile,
 	nextLogSearchPreset,
@@ -278,6 +279,19 @@ type ToolCopyPreviewMode = "raw" | "summary" | false;
 
 const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
+
+function appendLogFollowHistory(
+	history: LogFollowHistoryItem[],
+	item: Omit<LogFollowHistoryItem, "label">,
+): LogFollowHistoryItem[] {
+	return [
+		...history,
+		{
+			...item,
+			label: new Date().toLocaleTimeString("en-GB", { hour12: false }),
+		},
+	].slice(-6);
+}
 
 type EditorPreview = {
 	path: string;
@@ -435,6 +449,9 @@ export function App(): React.ReactElement {
 	const [logFollowLastStatus, setLogFollowLastStatus] = useState<
 		"idle" | "ok" | "warn" | "fail"
 	>("idle");
+	const [logFollowHistory, setLogFollowHistory] = useState<
+		LogFollowHistoryItem[]
+	>([]);
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -1502,11 +1519,20 @@ export function App(): React.ReactElement {
 					setOsLogs(snapshot);
 					setLogFollowRefreshCount((count) => Math.min(count + 1, 9999));
 					setLogFollowLastStatus(snapshot.status);
+					setLogFollowHistory((history) =>
+						appendLogFollowHistory(history, {
+							status: snapshot.status,
+							entries: snapshot.entries.length,
+						}),
+					);
 				}
 			} catch (caught) {
 				if (!disposed) {
 					setLogFollowRefreshCount((count) => Math.min(count + 1, 9999));
 					setLogFollowLastStatus("fail");
+					setLogFollowHistory((history) =>
+						appendLogFollowHistory(history, { status: "fail", entries: 0 }),
+					);
 					log(
 						"fail",
 						caught instanceof Error
@@ -2258,6 +2284,7 @@ export function App(): React.ReactElement {
 		if (screen === "logs" && focusArea === "workspaces" && input === "C") {
 			setLogFollowRefreshCount(0);
 			setLogFollowLastStatus("idle");
+			setLogFollowHistory([]);
 			log("info", "logs follow state cleared");
 			return;
 		}
@@ -2712,6 +2739,7 @@ export function App(): React.ReactElement {
 					logFollowEnabled={logFollowEnabled}
 					logFollowRefreshCount={logFollowRefreshCount}
 					logFollowLastStatus={logFollowLastStatus}
+					logFollowHistory={logFollowHistory}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolTargetPresets={toolTargetPresets}
@@ -2892,6 +2920,7 @@ function MainWorkspace({
 	logFollowEnabled,
 	logFollowRefreshCount,
 	logFollowLastStatus,
+	logFollowHistory,
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolTargetPresets,
@@ -2974,6 +3003,7 @@ function MainWorkspace({
 	logFollowEnabled: boolean;
 	logFollowRefreshCount: number;
 	logFollowLastStatus: "idle" | "ok" | "warn" | "fail";
+	logFollowHistory: LogFollowHistoryItem[];
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolTargetPresets: ToolTargetPreset[];
@@ -3065,6 +3095,7 @@ function MainWorkspace({
 					logFollowEnabled,
 					logFollowRefreshCount,
 					logFollowLastStatus,
+					logFollowHistory,
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolTargetPresets,
@@ -3151,6 +3182,7 @@ function renderWorkspace(
 	logFollowEnabled: boolean,
 	logFollowRefreshCount: number,
 	logFollowLastStatus: "idle" | "ok" | "warn" | "fail",
+	logFollowHistory: LogFollowHistoryItem[],
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolTargetPresets: ToolTargetPreset[],
@@ -3392,6 +3424,7 @@ function renderWorkspace(
 				follow={logFollowEnabled}
 				followRefreshCount={logFollowRefreshCount}
 				followLastStatus={logFollowLastStatus}
+				followHistory={logFollowHistory}
 				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
 			/>
@@ -5140,6 +5173,7 @@ function LogWorkspace({
 	follow,
 	followRefreshCount,
 	followLastStatus,
+	followHistory,
 	commandLine,
 	visibleRows,
 }: {
@@ -5152,6 +5186,7 @@ function LogWorkspace({
 	follow: boolean;
 	followRefreshCount: number;
 	followLastStatus: "idle" | "ok" | "warn" | "fail";
+	followHistory: LogFollowHistoryItem[];
 	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
@@ -5184,6 +5219,7 @@ function LogWorkspace({
 				follow,
 				followRefreshCount,
 				followLastStatus,
+				followHistory,
 			},
 		),
 		...promptRows,

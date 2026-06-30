@@ -1175,6 +1175,20 @@ Goal: make live follow state inspectable and resettable without leaving the Logs
 - Tests cover follow tick/status header rendering and clear shortcut discovery.
 - Next: live follow history rows and explicit pause/resume controls.
 
+## v0.4.25 - Logs Follow History Rows
+
+Status: draft PR #87.
+
+Goal: make live follow refreshes auditable in the Logs panel without opening the timeline.
+
+- Logs workspace now renders a compact live follow history row after the OS log rows.
+- Follow history records the refresh label, status, and entry count for recent follow refreshes.
+- Follow history is bounded to the most recent six refreshes in TUI state and the latest three visible items in the row.
+- Follow success, warning snapshots, and exceptions all append visible history entries.
+- Pressing `C` clears follow counters, last status, and follow history together.
+- Tests cover bounded follow history row rendering alongside the existing header and shortcut rows.
+- Next: explicit follow pause/resume controls and follow-history export.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

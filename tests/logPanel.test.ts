@@ -55,6 +55,31 @@ describe("log TUI panel formatting", () => {
 		]);
 	});
 
+	test("formats bounded live follow history rows", () => {
+		expect(
+			formatLogWorkspaceRows(snapshot, 10, {
+				follow: true,
+				followRefreshCount: 2,
+				followLastStatus: "ok",
+				followHistory: [
+					{ status: "ok", entries: 3, label: "21:10:01" },
+					{ status: "warn", entries: 0, label: "21:10:04" },
+				],
+			}),
+		).toEqual([
+			"LOGS level=all search=- follow=on ticks=2 last=ok",
+			"PICOS OS LOGS",
+			"source=macos-unified-log status=ok entries=3",
+			"command=log show --last 2m",
+			"note=recent unified system log entries",
+			"001 info launchd: service started",
+			"002 warn kernel: thermal pressure",
+			"003 fail kernel: disk error",
+			"follow history: 21:10:01 ok entries=3 | 21:10:04 warn entries=0",
+			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · C follow-clear · r refresh",
+		]);
+	});
+
 	test("saves and cycles log search presets", () => {
 		expect(saveLogSearchPreset([], " kernel ")).toEqual(["kernel"]);
 		expect(saveLogSearchPreset(["error", "kernel"], "error")).toEqual([

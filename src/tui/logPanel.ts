@@ -8,6 +8,12 @@ import {
 import { formatOsLogRows, type OsLogSnapshot } from "../core/osLogs";
 import type { LogProfile } from "../core/types";
 
+export type LogFollowHistoryItem = {
+	status: "ok" | "warn" | "fail";
+	entries: number;
+	label: string;
+};
+
 export type { LogProfile };
 export {
 	formatLogProfileLabel,
@@ -28,6 +34,7 @@ export function formatLogWorkspaceRows(
 		follow?: boolean;
 		followRefreshCount?: number;
 		followLastStatus?: "idle" | "ok" | "warn" | "fail";
+		followHistory?: LogFollowHistoryItem[];
 	} = {},
 ): string[] {
 	const level = options.level ?? "all";
@@ -61,8 +68,29 @@ export function formatLogWorkspaceRows(
 	return [
 		header,
 		...formatOsLogRows(logs, { filter: query, level }),
+		...formatLogFollowHistoryRows(options.followHistory),
 		"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · C follow-clear · r refresh",
 	].slice(0, visibleRows);
+}
+
+function formatLogFollowHistoryRows(
+	history: LogFollowHistoryItem[] | undefined,
+): string[] {
+	const visible = history?.slice(-3) ?? [];
+	if (!visible.length) {
+		return [];
+	}
+	return [
+		`follow history: ${visible
+			.map(
+				(item) =>
+					`${item.label} ${item.status} entries=${Math.max(
+						0,
+						Math.floor(item.entries),
+					)}`,
+			)
+			.join(" | ")}`,
+	];
 }
 
 function formatLogPresetSummary(presets: string[] | undefined): string {
