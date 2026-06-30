@@ -18,6 +18,7 @@ export type Screen =
 	| "dns"
 	| "actions"
 	| "status"
+	| "config"
 	| "logs";
 
 export const screenOrder: Screen[] = [
@@ -40,6 +41,7 @@ export const screenOrder: Screen[] = [
 	"dns",
 	"actions",
 	"status",
+	"config",
 	"logs",
 ];
 

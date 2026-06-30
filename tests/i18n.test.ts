@@ -23,6 +23,10 @@ describe("i18n catalog", () => {
 		expect(translate("ko", "screen.ports")).toBe("포트");
 		expect(translate("ja", "screen.routes")).toBe("ルート");
 		expect(translate("zh", "screen.timeline")).toBe("时间线");
+		expect(translate("en", "screen.config")).toBe("Config");
+		expect(translate("ko", "screen.config")).toBe("설정");
+		expect(translate("ja", "screen.config")).toBe("設定");
+		expect(translate("zh", "screen.config")).toBe("设置");
 	});
 
 	test("falls back to English when a key is missing", () => {
