@@ -153,6 +153,9 @@ import {
 	createToolRunPlan,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getSelectedToolHistoryItem,
+	moveToolHistorySelection,
+	rerunToolHistoryItem,
 	type ToolHistoryItem,
 } from "./toolHistory";
 
@@ -252,6 +255,7 @@ export function App(): React.ReactElement {
 		direction: "asc",
 	});
 	const [toolHistory, setToolHistory] = useState<ToolHistoryItem[]>([]);
+	const [selectedToolHistoryIndex, setSelectedToolHistoryIndex] = useState(0);
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
@@ -472,7 +476,11 @@ export function App(): React.ReactElement {
 			const result = await runTool(plan.toolId, plan.args, {
 				timeoutMs: 10000,
 			});
-			setToolHistory((current) => appendToolHistory(current, { plan, result }));
+			setToolHistory((current) => {
+				const next = appendToolHistory(current, { plan, result });
+				setSelectedToolHistoryIndex(Math.max(0, next.length - 1));
+				return next;
+			});
 			log("ok", `${plan.label} completed`);
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
@@ -795,6 +803,7 @@ export function App(): React.ReactElement {
 					const latestTool = toolHistory.at(-1);
 					if (latestTool) {
 						setScreen("tools");
+						setSelectedToolHistoryIndex(Math.max(0, toolHistory.length - 1));
 						log("info", `raw.view latest ${latestTool.label}`);
 					} else {
 						log("warn", "raw.view has no tool history yet");
@@ -1200,6 +1209,35 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "r") {
+			const plan = rerunToolHistoryItem(
+				getSelectedToolHistoryItem(toolHistory, selectedToolHistoryIndex),
+			);
+			if (!plan) {
+				log("warn", "no tool history selected");
+				return;
+			}
+			void (async () => {
+				try {
+					const result = await runTool(plan.toolId, plan.args, {
+						timeoutMs: 10000,
+					});
+					setToolHistory((current) => {
+						const next = appendToolHistory(current, { plan, result });
+						setSelectedToolHistoryIndex(Math.max(0, next.length - 1));
+						return next;
+					});
+					log("ok", `${plan.label} rerun completed`);
+				} catch (caught) {
+					log(
+						"fail",
+						caught instanceof Error ? caught.message : String(caught),
+					);
+				}
+			})();
+			return;
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -1259,6 +1297,10 @@ export function App(): React.ReactElement {
 					),
 				);
 				setProcessClipboardPreview(false);
+			} else if (screen === "tools") {
+				setSelectedToolHistoryIndex((index) =>
+					moveToolHistorySelection(index, toolHistory.length, "next"),
+				);
 			} else {
 				setScreen((current) => moveScreen(current, "next"));
 			}
@@ -1300,6 +1342,10 @@ export function App(): React.ReactElement {
 					),
 				);
 				setProcessClipboardPreview(false);
+			} else if (screen === "tools") {
+				setSelectedToolHistoryIndex((index) =>
+					moveToolHistorySelection(index, toolHistory.length, "previous"),
+				);
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
 			}
@@ -1373,6 +1419,7 @@ export function App(): React.ReactElement {
 					routeSort={routeSort}
 					timelineFilter={timelineFilter}
 					toolHistory={toolHistory}
+					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					events={events}
 					t={t}
 				/>
@@ -1512,6 +1559,7 @@ function MainWorkspace({
 	routeSort,
 	timelineFilter,
 	toolHistory,
+	selectedToolHistoryIndex,
 	events,
 	t,
 }: {
@@ -1557,6 +1605,7 @@ function MainWorkspace({
 	routeSort: RouteSort;
 	timelineFilter: TimelineFilter;
 	toolHistory: ToolHistoryItem[];
+	selectedToolHistoryIndex: number;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -1611,6 +1660,7 @@ function MainWorkspace({
 					routeSort,
 					timelineFilter,
 					toolHistory,
+					selectedToolHistoryIndex,
 					events,
 					height,
 					t,
@@ -1660,6 +1710,7 @@ function renderWorkspace(
 	routeSort: RouteSort,
 	timelineFilter: TimelineFilter,
 	toolHistory: ToolHistoryItem[],
+	selectedToolHistoryIndex: number,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -1804,6 +1855,7 @@ function renderWorkspace(
 		return (
 			<ToolsWorkspace
 				history={toolHistory}
+				selectedIndex={selectedToolHistoryIndex}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
 				t={t}
@@ -2862,16 +2914,18 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 
 function ToolsWorkspace({
 	history,
+	selectedIndex,
 	commandLine,
 	visibleRows,
 	t,
 }: {
 	history: ToolHistoryItem[];
+	selectedIndex: number;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const rows = formatToolsWorkspaceRows(history, visibleRows);
+	const rows = formatToolsWorkspaceRows(history, visibleRows, selectedIndex);
 	const promptRows =
 		commandLine.active && commandLine.prompt.startsWith(toolPromptPrefix)
 			? formatToolPromptRows(commandLine.prompt, commandLine.value)

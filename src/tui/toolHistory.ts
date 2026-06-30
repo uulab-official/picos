@@ -22,6 +22,7 @@ export type ToolHistoryItem = {
 	time: string;
 	status: "ok" | "fail";
 	label: string;
+	plan: ToolRunPlan;
 	title: string;
 	summary: string;
 	rawOutput: string;
@@ -111,6 +112,7 @@ export function appendToolHistory(
 		time,
 		status: input.status ?? "ok",
 		label: input.plan.label,
+		plan: input.plan,
 		title: input.result.title,
 		summary: summarizeToolResult(input.result),
 		rawOutput: input.result.rawOutput,
@@ -121,20 +123,26 @@ export function appendToolHistory(
 export function formatToolsWorkspaceRows(
 	history: ToolHistoryItem[],
 	visibleRows: number,
+	selectedIndex = Math.max(0, history.length - 1),
 ): string[] {
-	const latest = history.at(-1);
+	const latest =
+		getSelectedToolHistoryItem(history, selectedIndex) ?? history.at(-1);
+	const historyRows = history.map(
+		(item, index) =>
+			`${index === selectedIndex ? ">" : " "} [${item.time}] ${item.status} ${item.label}`,
+	);
 	const bodyRows = latest
 		? [
-				`[${latest.time}] ${latest.status} ${latest.label}`,
+				...historyRows,
 				latest.summary,
 				"RAW",
 				...latest.rawOutput.split(/\r?\n/),
 			]
 		: ["no tool runs yet"];
 	return [
-		`TOOLS history=${history.length} latest=${latest?.title ?? "-"}`,
+		`TOOLS history=${history.length} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: action enter=target prompt · raw.view shows latest raw output",
+		"shortcuts: j/k select · r rerun · action enter=target prompt · raw.view latest",
 	].slice(0, visibleRows);
 }
 
@@ -147,6 +155,35 @@ export function formatToolPromptRows(prompt: string, value: string): string[] {
 		`TOOL TARGET ${actionId}`,
 		`:tool ${value || " "}  enter=run esc=cancel`,
 	];
+}
+
+export function moveToolHistorySelection(
+	current: number,
+	total: number,
+	direction: "next" | "previous",
+): number {
+	if (total <= 0) {
+		return 0;
+	}
+	const normalized = Math.min(Math.max(current, 0), total - 1);
+	const offset = direction === "next" ? 1 : -1;
+	return (normalized + offset + total) % total;
+}
+
+export function getSelectedToolHistoryItem(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+): ToolHistoryItem | undefined {
+	if (history.length <= 0) {
+		return undefined;
+	}
+	return history[Math.min(Math.max(selectedIndex, 0), history.length - 1)];
+}
+
+export function rerunToolHistoryItem(
+	item: ToolHistoryItem | undefined,
+): ToolRunPlan | undefined {
+	return item?.plan;
 }
 
 function summarizeToolResult(result: ToolResult): string {
