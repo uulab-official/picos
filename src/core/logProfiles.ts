@@ -1,6 +1,7 @@
 import type { LogProfile } from "./types";
 
 const maxLogProfiles = 6;
+const maxLogSearchPresets = 6;
 const logProfileLevels = new Set<LogProfile["level"]>([
 	"all",
 	"warn",
@@ -64,6 +65,49 @@ export function nextLogProfile(
 export function formatLogProfileLabel(profile: LogProfile): string {
 	const normalized = normalizeLogProfile(profile);
 	return `${normalized.level}:${normalized.query || "-"}`;
+}
+
+export function normalizeLogSearchPresets(input: unknown): string[] {
+	if (!Array.isArray(input)) {
+		return [];
+	}
+
+	const presets: string[] = [];
+	const seen = new Set<string>();
+	for (const candidate of input) {
+		if (typeof candidate !== "string") {
+			continue;
+		}
+		const preset = candidate.trim();
+		if (!preset || seen.has(preset)) {
+			continue;
+		}
+		presets.push(preset);
+		seen.add(preset);
+		if (presets.length >= maxLogSearchPresets) {
+			break;
+		}
+	}
+	return presets;
+}
+
+export function saveLogSearchPreset(
+	presets: string[],
+	query: string,
+): string[] {
+	return normalizeLogSearchPresets([query, ...presets]);
+}
+
+export function nextLogSearchPreset(
+	presets: string[],
+	current: string,
+): string | undefined {
+	const normalized = normalizeLogSearchPresets(presets);
+	if (normalized.length === 0) {
+		return undefined;
+	}
+	const index = normalized.indexOf(current);
+	return normalized[(index + 1) % normalized.length] ?? normalized[0];
 }
 
 function normalizeLogProfileInput(input: unknown): LogProfile | undefined {

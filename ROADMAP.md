@@ -1134,6 +1134,19 @@ Goal: make saved log triage profiles survive TUI restarts like an OS console pre
 - Tests cover config defaults, profile normalization, and config-store persistence.
 - Next: live log follow mode and persisted log search presets.
 
+## v0.4.22 - Persistent Log Search Presets
+
+Status: draft PR #84.
+
+Goal: make repeated log search terms survive TUI restarts and match the persistent profile workflow.
+
+- Config schema now includes `logSearchPresets` as a normalized string array.
+- Config loading trims search presets, drops blanks, de-duplicates entries, and keeps the first six presets.
+- TUI boot loads persisted log search presets alongside log profiles.
+- Logs search submit and `P` save the active search preset back to config.
+- Tests cover config defaults, preset normalization, config-store persistence, and existing Logs workspace preset cycling.
+- Next: live log follow mode with bounded refresh history.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

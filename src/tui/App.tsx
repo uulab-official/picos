@@ -6,6 +6,7 @@ import {
 	getConfigPath,
 	readConfig,
 	setConfigLogProfiles,
+	setConfigLogSearchPresets,
 } from "../config/store";
 import {
 	type ActionControlSimulation,
@@ -762,7 +763,18 @@ export function App(): React.ReactElement {
 		);
 		setLogSearchQuery(query);
 		if (query) {
-			setLogSearchPresets((current) => saveLogSearchPreset(current, query));
+			setLogSearchPresets((current) => {
+				const next = saveLogSearchPreset(current, query);
+				void setConfigLogSearchPresets(next).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `logs preset save failed ${caught.message}`
+							: `logs preset save failed ${String(caught)}`,
+					),
+				);
+				return next;
+			});
 		}
 		setCommandLine((current) => closeCommandLine(current));
 		log(
@@ -1446,6 +1458,7 @@ export function App(): React.ReactElement {
 			setDefaultPingHost(config.defaultPingHost);
 			setRemoteProfiles(config.remoteProfiles);
 			setLogProfiles(config.logProfiles);
+			setLogSearchPresets(config.logSearchPresets);
 			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
@@ -2115,9 +2128,18 @@ export function App(): React.ReactElement {
 				log("warn", "no logs search to save");
 				return;
 			}
-			setLogSearchPresets((current) =>
-				saveLogSearchPreset(current, logSearchQuery),
-			);
+			setLogSearchPresets((current) => {
+				const next = saveLogSearchPreset(current, logSearchQuery);
+				void setConfigLogSearchPresets(next).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `logs preset save failed ${caught.message}`
+							: `logs preset save failed ${String(caught)}`,
+					),
+				);
+				return next;
+			});
 			log("info", `logs preset saved ${logSearchQuery}`);
 			return;
 		}

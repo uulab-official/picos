@@ -18,6 +18,7 @@ describe("config schema", () => {
 			language: "en",
 			remoteProfiles: [],
 			logProfiles: [],
+			logSearchPresets: [],
 		});
 	});
 
@@ -84,5 +85,23 @@ describe("config schema", () => {
 			{ level: "all", query: "dns" },
 			{ level: "warn", query: "route" },
 		]);
+	});
+
+	test("normalizes persisted log search presets", () => {
+		expect(
+			mergeConfig({
+				logSearchPresets: [
+					" kernel ",
+					"",
+					"error",
+					"kernel",
+					"dns",
+					"route",
+					"boot",
+					"panic",
+					"ignored",
+				],
+			}).logSearchPresets,
+		).toEqual(["kernel", "error", "dns", "route", "boot", "panic"]);
 	});
 });
