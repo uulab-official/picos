@@ -141,6 +141,11 @@ import {
 } from "./processPanel";
 import { formatRoutePathRows, formatRouteWorkspaceRows } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
+import {
+	formatTimelineWorkspaceRows,
+	nextTimelineFilter,
+	type TimelineFilter,
+} from "./timelinePanel";
 
 type CommandStatus = "idle" | "running";
 
@@ -234,6 +239,7 @@ export function App(): React.ReactElement {
 		key: "default",
 		direction: "asc",
 	});
+	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -1115,6 +1121,15 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "timeline" && focusArea === "workspaces" && input === "t") {
+			setTimelineFilter((current) => {
+				const next = nextTimelineFilter(current);
+				log("info", `timeline filter ${next}`);
+				return next;
+			});
+			return;
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -1286,6 +1301,7 @@ export function App(): React.ReactElement {
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
+					timelineFilter={timelineFilter}
 					events={events}
 					t={t}
 				/>
@@ -1423,6 +1439,7 @@ function MainWorkspace({
 	routeTable,
 	routePath,
 	routeSort,
+	timelineFilter,
 	events,
 	t,
 }: {
@@ -1466,6 +1483,7 @@ function MainWorkspace({
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
+	timelineFilter: TimelineFilter;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -1518,6 +1536,7 @@ function MainWorkspace({
 					routeTable,
 					routePath,
 					routeSort,
+					timelineFilter,
 					events,
 					height,
 					t,
@@ -1565,6 +1584,7 @@ function renderWorkspace(
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
+	timelineFilter: TimelineFilter,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -1713,9 +1733,11 @@ function renderWorkspace(
 	}
 	if (screen === "timeline") {
 		return (
-			<ReferenceWorkspace
-				title={t("screen.timeline")}
-				actionId="timeline.export"
+			<TimelineWorkspace
+				events={events}
+				filter={timelineFilter}
+				visibleRows={Math.max(5, height - 7)}
+				t={t}
 			/>
 		);
 	}
@@ -2743,26 +2765,6 @@ function RoutesWorkspace({
 	);
 }
 
-function ReferenceWorkspace({
-	title,
-	actionId,
-}: {
-	title: string;
-	actionId: string;
-}): React.ReactElement {
-	return (
-		<Box flexDirection="column">
-			<Text bold>{title}</Text>
-			<Text color="gray">lazyifconfig-inspired module staged for picos.</Text>
-			<Box marginTop={1} flexDirection="column">
-				<Text>Action: {actionId}</Text>
-				<Text>Mode: read-only first</Text>
-				<Text>Next: adapter parser + raw output viewer</Text>
-			</Box>
-		</Box>
-	);
-}
-
 function getEndpointRowColor(row: string, tableHeader: string): string {
 	if (row === tableHeader || row === "RAW OUTPUT" || row.startsWith("DETAIL")) {
 		return "cyan";
@@ -2817,6 +2819,48 @@ function NetworkToolsWorkspace(): React.ReactElement {
 			</Box>
 		</Box>
 	);
+}
+
+function TimelineWorkspace({
+	events,
+	filter,
+	visibleRows,
+	t,
+}: {
+	events: ConsoleEvent[];
+	filter: TimelineFilter;
+	visibleRows: number;
+	t: (key: string) => string;
+}): React.ReactElement {
+	const rows = formatTimelineWorkspaceRows(events, visibleRows, filter);
+	return (
+		<Box flexDirection="column">
+			<Text bold>{t("screen.timeline")}</Text>
+			<Text color="gray">
+				t cycle filters · timeline.export writes current audit log
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				{rows.map((row) => (
+					<Text key={row} color={getTimelineRowColor(row)}>
+						{row}
+					</Text>
+				))}
+			</Box>
+		</Box>
+	);
+}
+
+function getTimelineRowColor(row: string): string {
+	if (row === "TIMELINE" || row.startsWith("SUMMARY")) {
+		return "cyan";
+	}
+	if (row.includes(" audit ")) {
+		return "yellow";
+	}
+	if (row.includes(" raw ")) {
+		return "magenta";
+	}
+	return "white";
 }
 
 function formatClipboardPromptRows(commandLine: CommandLineState): string[] {
