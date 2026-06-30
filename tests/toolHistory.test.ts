@@ -1117,6 +1117,7 @@ describe("TUI tool history", () => {
 			"summary=Summary: Query: example.com | A: 2",
 			"command=picos tools dns example.com",
 			"copy help: b row=- · v section=- · c raw=ok · y summary=ok",
+			"copy hint: b/v need TCP Target or Status rows; use c raw or y summary",
 			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
 		]);
 		expect(
@@ -1894,6 +1895,64 @@ describe("TUI tool history", () => {
 				"copy help: b row=ok · v section=ok · c raw=ok · y summary=ok",
 			),
 		).toBeLessThan(tcpRows.indexOf("copy mode: b row section=status row=2/2"));
+	});
+
+	test("formats copy unavailable hints for non-TCP tool runs", () => {
+		const dnsHistory = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result,
+			},
+			"12:00:00",
+		);
+		const tcpResult = {
+			title: "Telnet TCP Check",
+			sections: [
+				{
+					label: "Target",
+					lines: ["Host: example.com", "Port: 443"],
+				},
+				{ label: "Status", lines: ["OPEN"] },
+			],
+			rawOutput:
+				"$ picos tools telnet example.com 443\n[Target]\nHost: example.com\nPort: 443\n[Status]\nOPEN",
+		};
+		const tcpHistory = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "telnet",
+					args: ["example.com", "443"],
+					label: "network.connect example.com:443",
+				},
+				result: tcpResult,
+			},
+			"12:00:00",
+		);
+
+		const dnsRows = formatToolsWorkspaceRows(dnsHistory, 20);
+		const tcpRows = formatToolsWorkspaceRows(tcpHistory, 20);
+
+		expect(dnsRows).toContain(
+			"copy hint: b/v need TCP Target or Status rows; use c raw or y summary",
+		);
+		expect(tcpRows.some((row) => row.startsWith("copy hint:"))).toBeFalse();
+		expect(
+			dnsRows.indexOf(
+				"copy help: b row=- · v section=- · c raw=ok · y summary=ok",
+			),
+		).toBeLessThan(
+			dnsRows.indexOf(
+				"copy hint: b/v need TCP Target or Status rows; use c raw or y summary",
+			),
+		);
 	});
 
 	test("creates scoped export plans for selected tool history", () => {

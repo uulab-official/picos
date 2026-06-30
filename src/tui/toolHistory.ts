@@ -379,11 +379,16 @@ export function formatToolsWorkspaceRows(
 		latest && visibleRows >= 14
 			? formatToolCopyHelpPreview(latest, sectionClipboardSelection)
 			: undefined;
+	const copyUnavailableHint =
+		latest && visibleRows >= 14
+			? formatToolCopyUnavailableHint(latest, sectionClipboardSelection)
+			: undefined;
 	return [
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
 		...(copyHelpPreview ? [copyHelpPreview] : []),
+		...(copyUnavailableHint ? [copyUnavailableHint] : []),
 		...(copyModePreview ? [copyModePreview] : []),
 		...(copySectionPreview ? [copySectionPreview] : []),
 		...(copyTargetPreview ? [copyTargetPreview] : []),
@@ -1255,6 +1260,16 @@ function formatToolCopyHelpPreview(
 	);
 	const tcpAvailability = sectionRowCount > 0 ? "ok" : "-";
 	return `copy help: b row=${tcpAvailability} · v section=${tcpAvailability} · c raw=ok · y summary=ok`;
+}
+
+function formatToolCopyUnavailableHint(
+	item: ToolHistoryItem,
+	selection: ToolSectionClipboardSelection,
+): string | undefined {
+	if (getToolSectionClipboardRowCountForItem(item, selection) > 0) {
+		return undefined;
+	}
+	return "copy hint: b/v need TCP Target or Status rows; use c raw or y summary";
 }
 
 function truncateToolCopyPreviewValue(
