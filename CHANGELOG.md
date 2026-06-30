@@ -92,6 +92,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Logs now support pinned severity/search profiles in the TUI with `S` to save and `}` to cycle.
 - Logs severity/search profiles now persist in config, are loaded on TUI boot, and are normalized before writing.
 - Logs search presets now persist in config, load on TUI boot, and share the same de-duplication and trim rules as the Logs workspace.
+- Logs workspace now has `L` live follow mode, which refreshes OS log snapshots while the Logs panel is active and marks follow state in the header.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.

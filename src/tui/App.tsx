@@ -430,6 +430,7 @@ export function App(): React.ReactElement {
 	const [logSearchPresets, setLogSearchPresets] = useState<string[]>([]);
 	const [logLevelFilter, setLogLevelFilter] = useState<OsLogLevelFilter>("all");
 	const [logProfiles, setLogProfiles] = useState<LogProfile[]>([]);
+	const [logFollowEnabled, setLogFollowEnabled] = useState(false);
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -1481,6 +1482,41 @@ export function App(): React.ReactElement {
 		return () => clearInterval(timer);
 	}, [refresh, refreshInterval]);
 
+	useEffect(() => {
+		if (!logFollowEnabled || screen !== "logs") {
+			return;
+		}
+
+		let disposed = false;
+		const refreshLogs = async () => {
+			try {
+				const snapshot = await createOsLogSnapshot({
+					limit: 50,
+					timeoutMs: 3000,
+				});
+				if (!disposed) {
+					setOsLogs(snapshot);
+				}
+			} catch (caught) {
+				if (!disposed) {
+					log(
+						"fail",
+						caught instanceof Error
+							? `logs follow failed ${caught.message}`
+							: `logs follow failed ${String(caught)}`,
+					);
+				}
+			}
+		};
+
+		void refreshLogs();
+		const timer = setInterval(refreshLogs, Math.max(1000, refreshInterval));
+		return () => {
+			disposed = true;
+			clearInterval(timer);
+		};
+	}, [log, logFollowEnabled, refreshInterval, screen]);
+
 	useInput((input, key) => {
 		if (commandLine.active) {
 			if (key.escape) {
@@ -2204,6 +2240,13 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "logs" && focusArea === "workspaces" && input === "L") {
+			const next = !logFollowEnabled;
+			setLogFollowEnabled(next);
+			log(next ? "info" : "warn", `logs follow ${next ? "on" : "off"}`);
+			return;
+		}
+
 		if (screen === "logs" && focusArea === "workspaces" && input === "r") {
 			void (async () => {
 				try {
@@ -2651,6 +2694,7 @@ export function App(): React.ReactElement {
 					logSearchPresets={logSearchPresets}
 					logLevelFilter={logLevelFilter}
 					logProfiles={logProfiles}
+					logFollowEnabled={logFollowEnabled}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolTargetPresets={toolTargetPresets}
@@ -2828,6 +2872,7 @@ function MainWorkspace({
 	logSearchPresets,
 	logLevelFilter,
 	logProfiles,
+	logFollowEnabled,
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolTargetPresets,
@@ -2907,6 +2952,7 @@ function MainWorkspace({
 	logSearchPresets: string[];
 	logLevelFilter: OsLogLevelFilter;
 	logProfiles: LogProfile[];
+	logFollowEnabled: boolean;
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolTargetPresets: ToolTargetPreset[];
@@ -2995,6 +3041,7 @@ function MainWorkspace({
 					logSearchPresets,
 					logLevelFilter,
 					logProfiles,
+					logFollowEnabled,
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolTargetPresets,
@@ -3078,6 +3125,7 @@ function renderWorkspace(
 	logSearchPresets: string[],
 	logLevelFilter: OsLogLevelFilter,
 	logProfiles: LogProfile[],
+	logFollowEnabled: boolean,
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolTargetPresets: ToolTargetPreset[],
@@ -3316,6 +3364,7 @@ function renderWorkspace(
 				presets={logSearchPresets}
 				level={logLevelFilter}
 				profiles={logProfiles}
+				follow={logFollowEnabled}
 				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
 			/>
@@ -5061,6 +5110,7 @@ function LogWorkspace({
 	presets,
 	level,
 	profiles,
+	follow,
 	commandLine,
 	visibleRows,
 }: {
@@ -5070,6 +5120,7 @@ function LogWorkspace({
 	presets: string[];
 	level: OsLogLevelFilter;
 	profiles: LogProfile[];
+	follow: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
@@ -5094,7 +5145,7 @@ function LogWorkspace({
 		...formatLogWorkspaceRows(
 			logs,
 			Math.max(1, visibleRows - promptRows.length - doctorRows.length),
-			{ level, query, presets, profiles },
+			{ level, query, presets, profiles, follow },
 		),
 		...promptRows,
 		...doctorRows,

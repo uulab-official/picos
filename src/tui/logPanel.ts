@@ -25,12 +25,14 @@ export function formatLogWorkspaceRows(
 		query?: string;
 		presets?: string[];
 		profiles?: LogProfile[];
+		follow?: boolean;
 	} = {},
 ): string[] {
 	const level = options.level ?? "all";
 	const query = options.query?.trim() ?? "";
 	const header = [
 		`LOGS level=${level} search=${query || "-"}`,
+		`follow=${options.follow ? "on" : "off"}`,
 		formatLogPresetSummary(options.presets),
 		formatLogProfileSummary(options.profiles),
 	]
@@ -40,14 +42,14 @@ export function formatLogWorkspaceRows(
 		return [
 			header,
 			"No OS log snapshot yet. Run logs.read or refresh.",
-			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · r refresh",
+			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · r refresh",
 		].slice(0, visibleRows);
 	}
 
 	return [
 		header,
 		...formatOsLogRows(logs, { filter: query, level }),
-		"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · r refresh",
+		"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · r refresh",
 	].slice(0, visibleRows);
 }
 
