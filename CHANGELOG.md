@@ -49,6 +49,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub history now supports TUI grouping with `G` by tool/action or status while preserving visible selection targets.
 - Tools Hub history now supports session filter presets with `P` to save and `]` to cycle repeated queries.
 - Tools Hub history now supports `Tab` detail panes for raw output, summary metadata, and rerunnable command views.
+- Tools Hub now shows OS-aware target presets for default host, gateway, DNS servers, public IP, HTTPS, and TLS checks, with `n` to cycle and `R` to run.
 - Connections and Ports workspaces now support `Tab` detail panes for focused detail, raw output, and process views.
 - Connections and Ports workspaces now support TUI endpoint search with `f`, `F`, `P`, and `]` filter preset controls.
 - Timeline workspace now supports TUI event search presets and scoped audit exports for filtered timelines.

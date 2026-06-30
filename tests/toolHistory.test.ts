@@ -8,6 +8,7 @@ import {
 	appendToolHistory,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
+	createToolRunPlanFromPreset,
 	filterToolHistory,
 	formatToolHistoryExport,
 	formatToolPromptRows,
@@ -15,6 +16,7 @@ import {
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
+	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
@@ -138,6 +140,81 @@ describe("TUI tool history", () => {
 		});
 	});
 
+	test("builds OS-aware tool target presets from network state", () => {
+		const networkSummary: NetworkSummary = {
+			...summary,
+			interfaces: [
+				{
+					name: "Wi-Fi",
+					ipv4: "192.168.0.20",
+					ipv6: "fe80::1",
+					status: "connected",
+					kind: "wifiOrEthernet",
+					mac: "aa:bb:cc:dd:ee:ff",
+				},
+			],
+			primaryInterface: {
+				name: "Wi-Fi",
+				ipv4: "192.168.0.20",
+				status: "connected",
+				kind: "wifiOrEthernet",
+			},
+			gateway: "192.168.0.1",
+			dnsServers: ["1.1.1.1", "8.8.8.8"],
+		};
+
+		const presets = getToolTargetPresets(networkSummary, "google.com");
+
+		expect(presets.map((preset) => preset.id)).toEqual([
+			"default-ping",
+			"gateway-ping",
+			"dns-1",
+			"dns-2",
+			"public-ip",
+			"web-https",
+			"web-tls",
+		]);
+		expect(presets[1]).toEqual({
+			id: "gateway-ping",
+			label: "Gateway ping",
+			actionId: "ping.default",
+			target: "192.168.0.1",
+			hint: "primary gateway",
+		});
+		expect(createToolRunPlanFromPreset(presets[2])).toEqual({
+			actionId: "tools.dns",
+			toolId: "dns",
+			args: ["1.1.1.1"],
+			label: "tools.dns 1.1.1.1",
+		});
+		expect(createToolRunPlanFromPreset(presets[4])).toEqual({
+			actionId: "tools.ipInfo",
+			toolId: "ip-info",
+			args: ["203.0.113.10"],
+			label: "tools.ipInfo 203.0.113.10",
+		});
+		expect(
+			formatToolsWorkspaceRows(
+				[],
+				6,
+				0,
+				"",
+				"time",
+				"none",
+				[],
+				"raw",
+				presets,
+			),
+		).toEqual([
+			"TOOLS history=0 targets=7 active=Default ping:google.com selected=-",
+			"TARGET PRESETS n cycle · R run",
+			"> Default ping google.com default reachability target",
+			"  Gateway ping 192.168.0.1 primary gateway",
+			"  DNS server 1 1.1.1.1 resolver check",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+		]);
+	});
+
 	test("keeps latest tool results with stable raw handoff metadata", () => {
 		const history = appendToolHistory(
 			[],
@@ -195,7 +272,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -276,12 +353,12 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
 		]);
 		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
 			"TOOLS history=2 filter=missing matches=0 selected=-",
 			"no matching tool runs",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
@@ -340,7 +417,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -390,7 +467,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(history, 7, 0, "", "time", "status"),
@@ -429,7 +506,7 @@ describe("TUI tool history", () => {
 		).toEqual([
 			"TOOLS history=0 presets=connect,fail,dns selected=-",
 			"no tool runs yet",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -470,7 +547,7 @@ describe("TUI tool history", () => {
 			"status=ok",
 			"summary=Summary: Query: example.com | A: 2",
 			"command=picos tools dns example.com",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(

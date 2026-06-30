@@ -173,12 +173,14 @@ import {
 	appendToolHistory,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
+	createToolRunPlanFromPreset,
 	filterToolHistory,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
+	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
@@ -193,6 +195,7 @@ import {
 	type ToolHistoryGroup,
 	type ToolHistoryItem,
 	type ToolHistorySort,
+	type ToolTargetPreset,
 	writeToolHistoryExport,
 } from "./toolHistory";
 
@@ -226,6 +229,7 @@ export function App(): React.ReactElement {
 	const [focusArea, setFocusArea] = useState<FocusArea>("workspaces");
 	const [summary, setSummary] = useState<NetworkSummary>();
 	const summaryRef = useRef<NetworkSummary | undefined>(undefined);
+	const [defaultPingHost, setDefaultPingHost] = useState("google.com");
 	const [inventory, setInventory] = useState<SystemInventory>();
 	const [doctorChecks, setDoctorChecks] = useState<DoctorCheck[]>([]);
 	const [selectedActionIndex, setSelectedActionIndex] = useState(0);
@@ -310,6 +314,8 @@ export function App(): React.ReactElement {
 		useState<RouteDetailView>("table");
 	const [toolHistory, setToolHistory] = useState<ToolHistoryItem[]>([]);
 	const [selectedToolHistoryIndex, setSelectedToolHistoryIndex] = useState(0);
+	const [selectedToolTargetPresetIndex, setSelectedToolTargetPresetIndex] =
+		useState(0);
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolHistoryFilter, setToolHistoryFilter] = useState("");
@@ -353,6 +359,10 @@ export function App(): React.ReactElement {
 	const sortedPorts = useMemo(
 		() => sortListeningPorts(filterListeningPorts(ports, portFilter), portSort),
 		[portFilter, ports, portSort],
+	);
+	const toolTargetPresets = useMemo(
+		() => getToolTargetPresets(summary, defaultPingHost),
+		[defaultPingHost, summary],
 	);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
@@ -531,6 +541,21 @@ export function App(): React.ReactElement {
 		}
 	}, [commandLine.value, log]);
 
+	const runToolPlan = useCallback(
+		async (plan: NonNullable<ReturnType<typeof createToolRunPlan>>) => {
+			setScreen("tools");
+			const result = await runTool(plan.toolId, plan.args, {
+				timeoutMs: 10000,
+			});
+			setToolHistory((current) => {
+				const next = appendToolHistory(current, { plan, result });
+				setSelectedToolHistoryIndex(Math.max(0, next.length - 1));
+				return next;
+			});
+		},
+		[],
+	);
+
 	const submitToolCommand = useCallback(async () => {
 		const actionId = commandLine.prompt.slice(toolPromptPrefix.length);
 		try {
@@ -546,22 +571,14 @@ export function App(): React.ReactElement {
 				return;
 			}
 
-			setScreen("tools");
-			const result = await runTool(plan.toolId, plan.args, {
-				timeoutMs: 10000,
-			});
-			setToolHistory((current) => {
-				const next = appendToolHistory(current, { plan, result });
-				setSelectedToolHistoryIndex(Math.max(0, next.length - 1));
-				return next;
-			});
+			await runToolPlan(plan);
 			log("ok", `${plan.label} completed`);
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		} finally {
 			setCommandLine((current) => closeCommandLine(current));
 		}
-	}, [commandLine.prompt, commandLine.value, log]);
+	}, [commandLine.prompt, commandLine.value, log, runToolPlan]);
 
 	const submitToolHistoryFilterCommand = useCallback(() => {
 		const query = commandLine.value.trim();
@@ -1065,6 +1082,7 @@ export function App(): React.ReactElement {
 		readConfig().then(async (config) => {
 			setRefreshInterval(config.refreshInterval);
 			setLanguage(config.language);
+			setDefaultPingHost(config.defaultPingHost);
 			setRemoteProfiles(config.remoteProfiles);
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
@@ -1741,6 +1759,50 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "n") {
+			setSelectedToolTargetPresetIndex((index) => {
+				const next = getNextIndex(index, toolTargetPresets.length, "next");
+				const preset = toolTargetPresets[next];
+				if (preset) {
+					log("info", `tool target ${preset.label} ${preset.target}`);
+				}
+				return next;
+			});
+			setToolCopyPreview(false);
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "R") {
+			const preset =
+				toolTargetPresets[
+					Math.min(
+						Math.max(selectedToolTargetPresetIndex, 0),
+						toolTargetPresets.length - 1,
+					)
+				];
+			if (!preset) {
+				log("warn", "no tool target presets");
+				return;
+			}
+			const plan = createToolRunPlanFromPreset(preset);
+			if (!plan) {
+				log("warn", `cannot run tool preset ${preset.label}`);
+				return;
+			}
+			void (async () => {
+				try {
+					await runToolPlan(plan);
+					log("ok", `${preset.label} completed`);
+				} catch (caught) {
+					log(
+						"fail",
+						caught instanceof Error ? caught.message : String(caught),
+					);
+				}
+			})();
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "c") {
 			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
 				toolHistory,
@@ -2002,6 +2064,8 @@ export function App(): React.ReactElement {
 					timelineSearchPresets={timelineSearchPresets}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
+					toolTargetPresets={toolTargetPresets}
+					selectedToolTargetPresetIndex={selectedToolTargetPresetIndex}
 					toolHistoryFilter={toolHistoryFilter}
 					toolHistoryFilterPresets={toolHistoryFilterPresets}
 					toolHistorySort={toolHistorySort}
@@ -2159,6 +2223,8 @@ function MainWorkspace({
 	timelineSearchPresets,
 	toolHistory,
 	selectedToolHistoryIndex,
+	toolTargetPresets,
+	selectedToolTargetPresetIndex,
 	toolHistoryFilter,
 	toolHistoryFilterPresets,
 	toolHistorySort,
@@ -2222,6 +2288,8 @@ function MainWorkspace({
 	timelineSearchPresets: string[];
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
+	toolTargetPresets: ToolTargetPreset[];
+	selectedToolTargetPresetIndex: number;
 	toolHistoryFilter: string;
 	toolHistoryFilterPresets: string[];
 	toolHistorySort: ToolHistorySort;
@@ -2294,6 +2362,8 @@ function MainWorkspace({
 					timelineSearchPresets,
 					toolHistory,
 					selectedToolHistoryIndex,
+					toolTargetPresets,
+					selectedToolTargetPresetIndex,
 					toolHistoryFilter,
 					toolHistoryFilterPresets,
 					toolHistorySort,
@@ -2361,6 +2431,8 @@ function renderWorkspace(
 	timelineSearchPresets: string[],
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
+	toolTargetPresets: ToolTargetPreset[],
+	selectedToolTargetPresetIndex: number,
 	toolHistoryFilter: string,
 	toolHistoryFilterPresets: string[],
 	toolHistorySort: ToolHistorySort,
@@ -2521,6 +2593,8 @@ function renderWorkspace(
 			<ToolsWorkspace
 				history={toolHistory}
 				selectedIndex={selectedToolHistoryIndex}
+				targetPresets={toolTargetPresets}
+				selectedTargetPresetIndex={selectedToolTargetPresetIndex}
 				filterQuery={toolHistoryFilter}
 				filterPresets={toolHistoryFilterPresets}
 				sort={toolHistorySort}
@@ -3634,6 +3708,8 @@ function formatEndpointFilterPromptRows(
 function ToolsWorkspace({
 	history,
 	selectedIndex,
+	targetPresets,
+	selectedTargetPresetIndex,
 	filterQuery,
 	filterPresets,
 	sort,
@@ -3646,6 +3722,8 @@ function ToolsWorkspace({
 }: {
 	history: ToolHistoryItem[];
 	selectedIndex: number;
+	targetPresets: ToolTargetPreset[];
+	selectedTargetPresetIndex: number;
 	filterQuery: string;
 	filterPresets: string[];
 	sort: ToolHistorySort;
@@ -3671,6 +3749,8 @@ function ToolsWorkspace({
 		group,
 		filterPresets,
 		detailView,
+		targetPresets,
+		selectedTargetPresetIndex,
 	);
 	const selectedPreview =
 		copyPreview === "summary"
@@ -3697,7 +3777,7 @@ function ToolsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub history · tab detail · f filter · P save · ] preset · s sort
+				Tools Hub · n target · R run · tab detail · f filter · P save
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]
@@ -3715,6 +3795,12 @@ function ToolsWorkspace({
 function getToolRowColor(row: string): string {
 	if (row.startsWith("TOOLS") || row === "RAW" || row.startsWith("## ")) {
 		return "cyan";
+	}
+	if (row.startsWith("TARGET PRESETS")) {
+		return "cyan";
+	}
+	if (row.startsWith("> ") && !row.includes("[")) {
+		return "green";
 	}
 	if (row.startsWith("CLIPBOARD PREVIEW") || row.startsWith("confirm ")) {
 		return "yellow";

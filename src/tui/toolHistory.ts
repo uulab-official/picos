@@ -23,6 +23,14 @@ export type ToolRunPlan = {
 	label: string;
 };
 
+export type ToolTargetPreset = {
+	id: string;
+	label: string;
+	actionId: ToolRunActionId;
+	target: string;
+	hint: string;
+};
+
 export type ToolHistoryItem = {
 	id: string;
 	time: string;
@@ -123,6 +131,84 @@ export function createToolRunPlan(
 	return undefined;
 }
 
+export function createToolRunPlanFromPreset(
+	preset: ToolTargetPreset,
+): ToolRunPlan | undefined {
+	return createToolRunPlan(
+		preset.actionId,
+		preset.target,
+		undefined,
+		preset.target,
+	);
+}
+
+export function getToolTargetPresets(
+	summary: NetworkSummary | undefined,
+	defaultTarget: string,
+): ToolTargetPreset[] {
+	const fallbackTarget = defaultTarget.trim() || "example.com";
+	const presets: ToolTargetPreset[] = [
+		{
+			id: "default-ping",
+			label: "Default ping",
+			actionId: "ping.default",
+			target: fallbackTarget,
+			hint: "default reachability target",
+		},
+	];
+
+	if (summary?.gateway) {
+		presets.push({
+			id: "gateway-ping",
+			label: "Gateway ping",
+			actionId: "ping.default",
+			target: summary.gateway,
+			hint: "primary gateway",
+		});
+	}
+
+	for (const [index, server] of (summary?.dnsServers ?? [])
+		.slice(0, 2)
+		.entries()) {
+		presets.push({
+			id: `dns-${index + 1}`,
+			label: `DNS server ${index + 1}`,
+			actionId: "tools.dns",
+			target: server,
+			hint: "resolver check",
+		});
+	}
+
+	if (summary?.publicIp) {
+		presets.push({
+			id: "public-ip",
+			label: "Public IP",
+			actionId: "tools.ipInfo",
+			target: summary.publicIp,
+			hint: "external address metadata",
+		});
+	}
+
+	presets.push(
+		{
+			id: "web-https",
+			label: "HTTPS check",
+			actionId: "network.connect",
+			target: `${fallbackTarget}:443`,
+			hint: "default TLS port",
+		},
+		{
+			id: "web-tls",
+			label: "TLS inspect",
+			actionId: "tools.tls",
+			target: `${fallbackTarget}:443`,
+			hint: "certificate metadata",
+		},
+	);
+
+	return dedupeToolTargetPresets(presets);
+}
+
 export function appendToolHistory(
 	history: ToolHistoryItem[],
 	input: {
@@ -155,6 +241,8 @@ export function formatToolsWorkspaceRows(
 	group: ToolHistoryGroup = "none",
 	presets: string[] = [],
 	detailView: ToolHistoryDetailView = "raw",
+	targetPresets: ToolTargetPreset[] = [],
+	selectedTargetPresetIndex = 0,
 ): string[] {
 	const filtered = sortToolHistory(history, filterQuery, sort);
 	const latestIndex = getVisibleToolHistoryIndex(
@@ -172,13 +260,23 @@ export function formatToolsWorkspaceRows(
 	const bodyRows = latest
 		? [...historyRows, ...formatToolHistoryDetailRows(latest, detailView)]
 		: [history.length ? "no matching tool runs" : "no tool runs yet"];
+	const targetRows = formatToolTargetPresetRows(
+		targetPresets,
+		selectedTargetPresetIndex,
+	).slice(0, Math.max(0, visibleRows - 2));
+	const visibleBodyRows = targetRows.length && !latest ? [] : bodyRows;
 	const filter = filterQuery.trim();
 	const presetSummary = formatToolHistoryPresetSummary(presets);
 	const detailSummary = detailView === "raw" ? "" : ` detail=${detailView}`;
+	const activeTargetPreset =
+		targetPresets[
+			Math.min(Math.max(selectedTargetPresetIndex, 0), targetPresets.length - 1)
+		];
 	return [
-		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
-		...bodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
+		...targetRows,
+		...visibleBodyRows,
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -548,6 +646,26 @@ function formatToolHistoryPresetSummary(presets: string[]): string {
 	return presets.slice(0, 3).join(",");
 }
 
+function formatToolTargetPresetRows(
+	presets: ToolTargetPreset[],
+	selectedIndex: number,
+): string[] {
+	if (!presets.length) {
+		return [];
+	}
+	const normalizedIndex = Math.min(
+		Math.max(selectedIndex, 0),
+		presets.length - 1,
+	);
+	return [
+		"TARGET PRESETS n cycle · R run",
+		...presets.map(
+			(preset, index) =>
+				`${index === normalizedIndex ? ">" : " "} ${preset.label} ${preset.target} ${preset.hint}`,
+		),
+	];
+}
+
 function formatToolHistoryDetailRows(
 	item: ToolHistoryItem,
 	view: ToolHistoryDetailView,
@@ -633,4 +751,20 @@ function parseHostPortTarget(target: string): { host: string; port: string } {
 		host: hostPart || "example.com",
 		port: portPart || "443",
 	};
+}
+
+function dedupeToolTargetPresets(
+	presets: ToolTargetPreset[],
+): ToolTargetPreset[] {
+	const seen = new Set<string>();
+	const deduped: ToolTargetPreset[] = [];
+	for (const preset of presets) {
+		const key = `${preset.actionId}:${preset.target}`;
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		deduped.push(preset);
+	}
+	return deduped;
 }

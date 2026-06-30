@@ -15,7 +15,7 @@ export function getRoadmapItems(): RoadmapItem[] {
 		{ label: "OS-grade system inventory", status: "active" },
 		{ label: "Ping options and TCP connect tool", status: "active" },
 		{
-			label: "Routes, ports, connections, timeline, and tools workspaces",
+			label: "Routes, ports, connections, timeline, and preset-aware tools",
 			status: "active",
 		},
 		{ label: "DOS-style file manager and text editor", status: "next" },
