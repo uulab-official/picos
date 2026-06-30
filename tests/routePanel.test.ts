@@ -6,6 +6,8 @@ import {
 	formatRouteWorkspaceRows,
 	getRouteClipboardPreview,
 	nextRouteDetailView,
+	nextRouteFilterPreset,
+	saveRouteFilterPreset,
 } from "../src/tui/routePanel";
 
 const fixture: RouteTableResult = {
@@ -99,6 +101,32 @@ describe("route TUI panel formatting", () => {
 			"Internet:",
 			"default 192.168.0.1 UGSc en0",
 		]);
+	});
+
+	test("saves and cycles route filter presets", () => {
+		expect(saveRouteFilterPreset([], " utun ")).toEqual(["utun"]);
+		expect(saveRouteFilterPreset(["default", "utun"], "default")).toEqual([
+			"default",
+			"utun",
+		]);
+		expect(saveRouteFilterPreset(["vpn", "default", "utun"], "link")).toEqual([
+			"link",
+			"vpn",
+			"default",
+			"utun",
+		]);
+		expect(nextRouteFilterPreset(["utun", "default"], "")).toBe("utun");
+		expect(nextRouteFilterPreset(["utun", "default"], "utun")).toBe("default");
+		expect(nextRouteFilterPreset([], "utun")).toBeUndefined();
+	});
+
+	test("formats route rows with preset context", () => {
+		expect(
+			formatRouteWorkspaceRows(fixture, 11, {
+				filter: "utun",
+				presets: ["utun", "default", "link", "ipv6"],
+			})[0],
+		).toBe("SUMMARY routes=1/2 presets=utun|default|link command=netstat -rn");
 	});
 
 	test("creates route clipboard previews for table raw and path views", () => {

@@ -29,6 +29,32 @@ export function nextRouteDetailView(view: RouteDetailView): RouteDetailView {
 	return "table";
 }
 
+export function saveRouteFilterPreset(
+	presets: string[],
+	query: string,
+): string[] {
+	const normalized = query.trim();
+	if (!normalized) {
+		return presets;
+	}
+	return [
+		normalized,
+		...presets.filter((preset) => preset !== normalized),
+	].slice(0, 6);
+}
+
+export function nextRouteFilterPreset(
+	presets: string[],
+	currentQuery: string,
+): string | undefined {
+	if (presets.length === 0) {
+		return undefined;
+	}
+	const current = currentQuery.trim();
+	const index = presets.indexOf(current);
+	return presets[(index + 1) % presets.length] ?? presets[0];
+}
+
 export function formatRouteWorkspaceRows(
 	result: RouteTableResult,
 	visibleRows: number,
@@ -36,6 +62,7 @@ export function formatRouteWorkspaceRows(
 		copyPreview?: boolean;
 		filter?: string;
 		path?: RoutePathResult;
+		presets?: string[];
 		sort?: RouteSort;
 		view?: RouteDetailView;
 	} = {},
@@ -69,8 +96,16 @@ export function formatRouteWorkspaceRows(
 				view,
 			})
 		: [];
+	const presetSummary = formatRoutePresetSummary(options.presets);
 	const fullRows = [
-		`SUMMARY routes=${filter ? `${filteredRoutes.length}/${result.routes.length}` : result.routes.length} command=${result.command} ${result.args.join(" ")}`.trim(),
+		[
+			`SUMMARY routes=${filter ? `${filteredRoutes.length}/${result.routes.length}` : result.routes.length}`,
+			presetSummary,
+			`command=${result.command} ${result.args.join(" ")}`,
+		]
+			.filter(Boolean)
+			.join(" ")
+			.trim(),
 		...(filter
 			? [
 					`FILTER ${filter} matches=${filteredRoutes.length}/${result.routes.length}`,
@@ -126,6 +161,11 @@ export function formatRouteWorkspaceRows(
 		...rawRows,
 		...previewRows,
 	].slice(0, visibleRows);
+}
+
+function formatRoutePresetSummary(presets: string[] | undefined): string {
+	const visible = presets?.slice(0, 3).filter(Boolean) ?? [];
+	return visible.length ? `presets=${visible.join("|")}` : "";
 }
 
 export function getRouteClipboardPreview(
