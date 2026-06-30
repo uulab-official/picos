@@ -9,6 +9,7 @@ import {
 	createToolHistoryExportPlan,
 	createToolRunPlan,
 	createToolRunPlanFromPreset,
+	createToolTargetCleanupPreview,
 	filterToolHistory,
 	formatToolHistoryExport,
 	formatToolPromptRows,
@@ -36,6 +37,7 @@ import {
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
 	sortToolHistory,
+	submitToolTargetCleanupConfirmation,
 	writeToolHistoryExport,
 } from "../src/tui/toolHistory";
 
@@ -718,6 +720,65 @@ describe("TUI tool history", () => {
 		expect(removeToolTargetPresetsByAction(presets, undefined)).toEqual(
 			presets,
 		);
+	});
+
+	test("requires exact confirmation before bulk target action cleanup", () => {
+		const presets = [
+			{
+				id: "api-dns",
+				label: "API DNS",
+				actionId: "tools.dns" as const,
+				target: "api.example.com",
+				hint: "production api",
+			},
+			{
+				id: "edge-dns",
+				label: "Edge DNS",
+				actionId: "tools.dns" as const,
+				target: "edge.example.com",
+				hint: "edge dns",
+			},
+			{
+				id: "db-port",
+				label: "DB port",
+				actionId: "network.connect" as const,
+				target: "db.internal:5432",
+				hint: "internal db",
+			},
+		];
+		const preview = createToolTargetCleanupPreview(presets, presets[0]);
+
+		expect(preview).toEqual({
+			actionId: "tools.dns",
+			count: 2,
+			confirmationPhrase: "delete tools.dns",
+			rows: [
+				"TOOL TARGET CLEANUP",
+				"action=tools.dns saved=2",
+				"confirm delete tools.dns locked",
+			],
+		});
+		expect(
+			submitToolTargetCleanupConfirmation(presets, presets[0], "delete dns"),
+		).toEqual({
+			confirmed: false,
+			removed: 0,
+			presets,
+			message: "tool target action cleanup rejected tools.dns",
+		});
+		expect(
+			submitToolTargetCleanupConfirmation(
+				presets,
+				presets[0],
+				" delete tools.dns ",
+			),
+		).toEqual({
+			confirmed: true,
+			removed: 2,
+			presets: [presets[2]],
+			message: "tool target action removed tools.dns (2 presets)",
+		});
+		expect(createToolTargetCleanupPreview(presets, undefined)).toBeUndefined();
 	});
 
 	test("renames saved tool target presets by action and target only", () => {

@@ -277,6 +277,7 @@ import {
 	createToolHistoryExportPlan,
 	createToolRunPlan,
 	createToolRunPlanFromPreset,
+	createToolTargetCleanupPreview,
 	filterToolHistory,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
@@ -295,12 +296,12 @@ import {
 	promoteToolTargetPreset,
 	reassignToolTargetPresetAction,
 	removeToolTargetPreset,
-	removeToolTargetPresetsByAction,
 	renameToolTargetPreset,
 	rerunToolHistoryItem,
 	retargetToolTargetPreset,
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
+	submitToolTargetCleanupConfirmation,
 	type ToolHistoryDetailView,
 	type ToolHistoryExportScope,
 	type ToolHistoryGroup,
@@ -942,6 +943,46 @@ export function App(): React.ReactElement {
 			),
 		);
 		log("info", `tool target action updated ${preset.label}`);
+		setToolCopyPreview(false);
+	}, [
+		commandLine.value,
+		customToolTargetPresets,
+		log,
+		selectedToolTargetPresetIndex,
+		toolTargetPresets,
+	]);
+
+	const submitToolTargetCleanupCommand = useCallback(() => {
+		const preset =
+			toolTargetPresets[
+				Math.min(
+					Math.max(selectedToolTargetPresetIndex, 0),
+					toolTargetPresets.length - 1,
+				)
+			];
+		const confirmation = submitToolTargetCleanupConfirmation(
+			customToolTargetPresets,
+			preset,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!confirmation.confirmed) {
+			log("warn", confirmation.message);
+			return;
+		}
+		setCustomToolTargetPresets(confirmation.presets);
+		setSelectedToolTargetPresetIndex((index) =>
+			Math.min(index, Math.max(0, confirmation.presets.length - 1)),
+		);
+		void setConfigToolTargetPresets(confirmation.presets).catch((caught) =>
+			log(
+				"fail",
+				caught instanceof Error
+					? `tool target action cleanup failed ${caught.message}`
+					: `tool target action cleanup failed ${String(caught)}`,
+			),
+		);
+		log("info", confirmation.message);
 		setToolCopyPreview(false);
 	}, [
 		commandLine.value,
@@ -2132,11 +2173,14 @@ export function App(): React.ReactElement {
 																	? "tool target value cancelled"
 																	: commandLine.prompt === "tool-target-action"
 																		? "tool target action cancelled"
-																		: commandLine.prompt.startsWith(
-																					toolPromptPrefix,
-																				)
-																			? "tool target command cancelled"
-																			: "path command cancelled",
+																		: commandLine.prompt ===
+																				"tool-target-cleanup"
+																			? "tool target cleanup cancelled"
+																			: commandLine.prompt.startsWith(
+																						toolPromptPrefix,
+																					)
+																				? "tool target command cancelled"
+																				: "path command cancelled",
 				);
 				return;
 			}
@@ -2156,6 +2200,8 @@ export function App(): React.ReactElement {
 					submitToolTargetValueCommand();
 				} else if (commandLine.prompt === "tool-target-action") {
 					submitToolTargetActionCommand();
+				} else if (commandLine.prompt === "tool-target-cleanup") {
+					submitToolTargetCleanupCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (commandLine.prompt === "timeline-search") {
@@ -3335,31 +3381,16 @@ export function App(): React.ReactElement {
 				log("warn", "no tool target preset selected");
 				return;
 			}
-			const next = removeToolTargetPresetsByAction(
+			const preview = createToolTargetCleanupPreview(
 				customToolTargetPresets,
 				preset,
 			);
-			const removed = customToolTargetPresets.length - next.length;
-			if (!removed) {
+			if (!preview) {
 				log("warn", `tool target ${preset.label} is not a saved preset`);
 				return;
 			}
-			setCustomToolTargetPresets(next);
-			setSelectedToolTargetPresetIndex((index) =>
-				Math.min(index, Math.max(0, next.length - 1)),
-			);
-			void setConfigToolTargetPresets(next).catch((caught) =>
-				log(
-					"fail",
-					caught instanceof Error
-						? `tool target action cleanup failed ${caught.message}`
-						: `tool target action cleanup failed ${String(caught)}`,
-				),
-			);
-			log(
-				"info",
-				`tool target action removed ${preset.actionId} (${removed} presets)`,
-			);
+			setCommandLine(openCommandLine("tool-target-cleanup"));
+			log("warn", `tool target cleanup confirm ${preview.confirmationPhrase}`);
 			setToolCopyPreview(false);
 			return;
 		}
@@ -3757,6 +3788,7 @@ export function App(): React.ReactElement {
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolTargetPresets={toolTargetPresets}
+					customToolTargetPresets={customToolTargetPresets}
 					selectedToolTargetPresetIndex={selectedToolTargetPresetIndex}
 					toolHistoryFilter={toolHistoryFilter}
 					toolHistoryFilterPresets={toolHistoryFilterPresets}
@@ -3944,6 +3976,7 @@ function MainWorkspace({
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolTargetPresets,
+	customToolTargetPresets,
 	selectedToolTargetPresetIndex,
 	toolHistoryFilter,
 	toolHistoryFilterPresets,
@@ -4033,6 +4066,7 @@ function MainWorkspace({
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolTargetPresets: ToolTargetPreset[];
+	customToolTargetPresets: ToolTargetPreset[];
 	selectedToolTargetPresetIndex: number;
 	toolHistoryFilter: string;
 	toolHistoryFilterPresets: string[];
@@ -4131,6 +4165,7 @@ function MainWorkspace({
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolTargetPresets,
+					customToolTargetPresets,
 					selectedToolTargetPresetIndex,
 					toolHistoryFilter,
 					toolHistoryFilterPresets,
@@ -4224,6 +4259,7 @@ function renderWorkspace(
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolTargetPresets: ToolTargetPreset[],
+	customToolTargetPresets: ToolTargetPreset[],
 	selectedToolTargetPresetIndex: number,
 	toolHistoryFilter: string,
 	toolHistoryFilterPresets: string[],
@@ -4396,6 +4432,7 @@ function renderWorkspace(
 				history={toolHistory}
 				selectedIndex={selectedToolHistoryIndex}
 				targetPresets={toolTargetPresets}
+				customTargetPresets={customToolTargetPresets}
 				selectedTargetPresetIndex={selectedToolTargetPresetIndex}
 				filterQuery={toolHistoryFilter}
 				filterPresets={toolHistoryFilterPresets}
@@ -5602,6 +5639,7 @@ function ToolsWorkspace({
 	history,
 	selectedIndex,
 	targetPresets,
+	customTargetPresets,
 	selectedTargetPresetIndex,
 	filterQuery,
 	filterPresets,
@@ -5616,6 +5654,7 @@ function ToolsWorkspace({
 	history: ToolHistoryItem[];
 	selectedIndex: number;
 	targetPresets: ToolTargetPreset[];
+	customTargetPresets: ToolTargetPreset[];
 	selectedTargetPresetIndex: number;
 	filterQuery: string;
 	filterPresets: string[];
@@ -5657,6 +5696,17 @@ function ToolsWorkspace({
 	const copyRows = selectedPreview
 		? formatClipboardPreviewRows(selectedPreview)
 		: [];
+	const selectedTargetPreset =
+		targetPresets[
+			Math.min(Math.max(selectedTargetPresetIndex, 0), targetPresets.length - 1)
+		];
+	const cleanupPreview =
+		commandLine.active && commandLine.prompt === "tool-target-cleanup"
+			? createToolTargetCleanupPreview(
+					customTargetPresets,
+					selectedTargetPreset,
+				)
+			: undefined;
 	const promptRows =
 		commandLine.active && commandLine.prompt.startsWith(toolPromptPrefix)
 			? formatToolPromptRows(commandLine.prompt, commandLine.value)
@@ -5680,13 +5730,20 @@ function ToolsWorkspace({
 									"TOOL TARGET ACTION",
 									`:action ${commandLine.value || " "}  dns ping trace whois ip tls tcp`,
 								]
-							: [];
+							: commandLine.active &&
+									commandLine.prompt === "tool-target-cleanup" &&
+									cleanupPreview
+								? [
+										...cleanupPreview.rows,
+										`:cleanup ${commandLine.value || " "}  type="${cleanupPreview.confirmationPhrase}" enter=delete esc=cancel`,
+									]
+								: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
 				Tools Hub · n target · T save · U pin · L label · M target · A action ·
-				X delete · R run · tab detail · f filter · P save filter
+				X delete · D cleanup · R run · tab detail · f filter · P save filter
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]

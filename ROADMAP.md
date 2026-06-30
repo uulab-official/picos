@@ -1471,6 +1471,20 @@ Goal: make saved Tools Hub target shelves easy to prune when an operator has acc
 - Tests cover action-level removal, generated-preset refusal, and empty selection no-op behavior.
 - Next: explicit confirmation dialogs for larger config cleanups.
 
+## v0.4.47 - Tools Target Cleanup Confirmation
+
+Status: draft PR #109.
+
+Goal: make bulk config cleanup feel like an OS control surface by requiring visible, exact confirmation before deleting multiple saved targets.
+
+- Pressing `D` in the Tools workspace now opens a `:cleanup` prompt instead of immediately mutating saved target config.
+- The prompt shows the selected action id, affected saved preset count, and exact phrase such as `delete tools.dns`.
+- Bulk cleanup only executes when the typed phrase matches exactly after trimming whitespace.
+- Rejected confirmations leave saved presets unchanged and emit a warning event.
+- The Tools workspace header, README, and changelog now describe the confirmation gate.
+- Tests cover preview rows, exact confirmation, rejected confirmation, and no-selection behavior.
+- Next: reusable config-cleanup confirmation primitives for logs, filters, and handoff shelves.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
