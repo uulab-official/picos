@@ -80,6 +80,7 @@ picos connections --sort=-remotePort
 picos ports
 picos ports --filter node --sort process
 picos ports --sort=-pid
+picos process 12345
 picos locations
 picos remotes
 picos remote dev
@@ -122,6 +123,7 @@ Commands:
 - `picos ports --filter <query>`: filter listening ports by address, port, process, PID, user, or protocol.
 - `picos ports --sort <key>`: sort listening ports by `protocol`, `address`, `port`, `process`, `pid`, or `user`; prefix with `-` for descending.
 - `picos ports --raw`: print raw listening-port command output.
+- `picos process <pid>`: inspect one local process with parent PID, user, state, CPU, memory, elapsed time, path, and command where the OS exposes them.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
 - `picos remotes`: list configured remote file profiles without opening a network session.
 - `picos remote <id>`: inspect the remote provider boundary for a configured profile without opening a network session.
@@ -195,6 +197,7 @@ v0.2 expands picos toward an OS-like console:
 
 - System, hardware, storage, process, runtime, and permission inventory.
 - Network tools for ping, TCP connect, DNS, routes, ports, and connections.
+- Process drill-down for endpoint PIDs through `picos process <pid>`.
 - Telnet-like reachability is implemented as `picos connect`, a non-interactive TCP check, instead of an interactive telnet session.
 - DOS-style file navigation and text editing are planned after the read-only inventory and network tool layer is stable.
 

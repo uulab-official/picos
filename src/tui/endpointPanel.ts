@@ -200,6 +200,7 @@ function formatProcessRows(
 	return [
 		`${label} ${process.command}`,
 		`usage cpu=${process.cpu}% mem=${process.memory}%`,
+		`inspect picos process ${process.pid}`,
 	];
 }
 

@@ -20,6 +20,7 @@ import {
 import { infoCommand } from "./commands/info";
 import { pingCommand } from "./commands/ping";
 import { portsCommand } from "./commands/ports";
+import { processCommand } from "./commands/process";
 import { remoteCommand, remotesCommand } from "./commands/remotes";
 import { routeCommand, routesCommand } from "./commands/routes";
 import { toolsCommand } from "./commands/tools";
@@ -102,6 +103,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 			"Sort ports by protocol, address, port, process, pid, user, or prefix with - for descending",
 		)
 		.action(portsCommand);
+	cli
+		.command("process <pid>", "Inspect one local process by PID")
+		.action(processCommand);
 	cli
 		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")
 		.option("--timeout <ms>", "Tool timeout in milliseconds")

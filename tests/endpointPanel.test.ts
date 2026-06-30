@@ -152,6 +152,7 @@ describe("endpoint TUI panel formatting", () => {
 
 		expect(rows).toContain("process bun src/bin/picos.ts");
 		expect(rows).toContain("usage cpu=2.5% mem=1.1%");
+		expect(rows).toContain("inspect picos process 12345");
 	});
 
 	test("formats ports with clipped raw source output", () => {
@@ -294,5 +295,6 @@ describe("endpoint TUI panel formatting", () => {
 
 		expect(rows).toContain("snapshot node server.js");
 		expect(rows).toContain("usage cpu=8.0% mem=4.2%");
+		expect(rows).toContain("inspect picos process 12345");
 	});
 });
