@@ -62,6 +62,13 @@ describe("process CLI command", () => {
 				async () => ({
 					pid: 12345,
 					cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
+					fileEntries: [
+						{
+							descriptor: "txt",
+							label: "executable",
+							path: "/usr/local/bin/bun",
+						},
+					],
 					openFiles: ["/usr/local/bin/bun"],
 					rawOutput: "raw",
 				}),

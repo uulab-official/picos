@@ -117,7 +117,11 @@ import {
 	moveCommandPalette,
 	openCommandPalette,
 } from "./palette";
-import { formatProcessWorkspaceRows } from "./processPanel";
+import {
+	formatProcessWorkspaceRows,
+	getProcessFileSelectionCount,
+	getSelectedProcessFileRequest,
+} from "./processPanel";
 import { formatRoutePathRows, formatRouteWorkspaceRows } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 
@@ -200,6 +204,7 @@ export function App(): React.ReactElement {
 		useState<ProcessDetail>();
 	const [selectedProcessFiles, setSelectedProcessFiles] =
 		useState<ProcessFileSnapshot>();
+	const [selectedProcessFileIndex, setSelectedProcessFileIndex] = useState(0);
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
 	const [routePath, setRoutePath] = useState<RoutePathResult>();
 	const [routeSort, setRouteSort] = useState<RouteSort>({
@@ -475,6 +480,7 @@ export function App(): React.ReactElement {
 			]);
 			setSelectedProcessDetail(detail);
 			setSelectedProcessFiles(files);
+			setSelectedProcessFileIndex(0);
 			setScreen("processes");
 			log("ok", `process inspected ${request.command}`);
 		} catch (caught) {
@@ -489,6 +495,46 @@ export function App(): React.ReactElement {
 		selectedPortIndex,
 		sortedConnections,
 		sortedPorts,
+	]);
+
+	const openSelectedProcessFile = useCallback(async () => {
+		const request = getSelectedProcessFileRequest(
+			selectedProcessFiles,
+			selectedProcessFileIndex,
+		);
+		if (!request) {
+			log("warn", "selected process file is not a local filesystem path");
+			return;
+		}
+
+		try {
+			const entry = await fileProvider.stat(request.path);
+			if (entry.type === "directory" || entry.type === "symlink") {
+				if (entry.path !== fileRoot) {
+					setFileHistory((history) => pushFileHistory(history, fileRoot));
+				}
+				await loadFiles(entry.path);
+				setScreen("files");
+				setFocusArea("workspaces");
+				log("ok", `process file opened ${request.command}`);
+				return;
+			}
+
+			await previewFile(entry);
+			setScreen("editor");
+			setFocusArea("workspaces");
+			log("ok", `process file opened ${request.command}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [
+		fileProvider,
+		fileRoot,
+		loadFiles,
+		log,
+		previewFile,
+		selectedProcessFileIndex,
+		selectedProcessFiles,
 	]);
 
 	useEffect(() => {
@@ -825,6 +871,8 @@ export function App(): React.ReactElement {
 				focusArea === "workspaces"
 			) {
 				void inspectSelectedEndpointProcess();
+			} else if (screen === "processes" && focusArea === "workspaces") {
+				void openSelectedProcessFile();
 			} else if (screen === "files" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "files focus entered");
@@ -1002,6 +1050,14 @@ export function App(): React.ReactElement {
 					getNextIndex(index, portsResult?.ports.length ?? 0, "next"),
 				);
 				setPortCopyPreview(false);
+			} else if (screen === "processes") {
+				setSelectedProcessFileIndex((index) =>
+					getNextIndex(
+						index,
+						getProcessFileSelectionCount(selectedProcessFiles),
+						"next",
+					),
+				);
 			} else {
 				setScreen((current) => moveScreen(current, "next"));
 			}
@@ -1034,6 +1090,14 @@ export function App(): React.ReactElement {
 					getNextIndex(index, portsResult?.ports.length ?? 0, "previous"),
 				);
 				setPortCopyPreview(false);
+			} else if (screen === "processes") {
+				setSelectedProcessFileIndex((index) =>
+					getNextIndex(
+						index,
+						getProcessFileSelectionCount(selectedProcessFiles),
+						"previous",
+					),
+				);
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
 			}
@@ -1100,6 +1164,7 @@ export function App(): React.ReactElement {
 					portCopyPreview={portCopyPreview}
 					selectedProcessDetail={selectedProcessDetail}
 					selectedProcessFiles={selectedProcessFiles}
+					selectedProcessFileIndex={selectedProcessFileIndex}
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
@@ -1235,6 +1300,7 @@ function MainWorkspace({
 	portCopyPreview,
 	selectedProcessDetail,
 	selectedProcessFiles,
+	selectedProcessFileIndex,
 	routeTable,
 	routePath,
 	routeSort,
@@ -1276,6 +1342,7 @@ function MainWorkspace({
 	portCopyPreview: boolean;
 	selectedProcessDetail?: ProcessDetail;
 	selectedProcessFiles?: ProcessFileSnapshot;
+	selectedProcessFileIndex: number;
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
@@ -1326,6 +1393,7 @@ function MainWorkspace({
 					portCopyPreview,
 					selectedProcessDetail,
 					selectedProcessFiles,
+					selectedProcessFileIndex,
 					routeTable,
 					routePath,
 					routeSort,
@@ -1371,6 +1439,7 @@ function renderWorkspace(
 	portCopyPreview: boolean,
 	selectedProcessDetail: ProcessDetail | undefined,
 	selectedProcessFiles: ProcessFileSnapshot | undefined,
+	selectedProcessFileIndex: number,
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
@@ -1449,6 +1518,7 @@ function renderWorkspace(
 				inventory={inventory}
 				selectedProcess={selectedProcessDetail}
 				selectedFiles={selectedProcessFiles}
+				selectedFileIndex={selectedProcessFileIndex}
 				visibleRows={Math.max(6, height - 7)}
 			/>
 		);
@@ -2179,11 +2249,13 @@ function ProcessesWorkspace({
 	inventory,
 	selectedProcess,
 	selectedFiles,
+	selectedFileIndex,
 	visibleRows,
 }: {
 	inventory?: SystemInventory;
 	selectedProcess?: ProcessDetail;
 	selectedFiles?: ProcessFileSnapshot;
+	selectedFileIndex: number;
 	visibleRows: number;
 }): React.ReactElement {
 	const rows = formatProcessWorkspaceRows(
@@ -2191,12 +2263,13 @@ function ProcessesWorkspace({
 		selectedProcess,
 		selectedFiles,
 		visibleRows,
+		selectedFileIndex,
 	);
 	return (
 		<Box flexDirection="column">
 			<Text bold>Processes</Text>
 			<Text color="gray">
-				read-only process snapshot · endpoint enter opens PID detail
+				j/k select files · enter opens Files/Editor · endpoint enter opens PID
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
