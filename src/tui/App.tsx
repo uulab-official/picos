@@ -162,9 +162,11 @@ import {
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
+	nextToolHistorySort,
 	rerunToolHistoryItem,
 	type ToolHistoryExportScope,
 	type ToolHistoryItem,
+	type ToolHistorySort,
 	writeToolHistoryExport,
 } from "./toolHistory";
 
@@ -269,6 +271,8 @@ export function App(): React.ReactElement {
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolHistoryFilter, setToolHistoryFilter] = useState("");
+	const [toolHistorySort, setToolHistorySort] =
+		useState<ToolHistorySort>("time");
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
@@ -589,6 +593,7 @@ export function App(): React.ReactElement {
 				toolHistory,
 				selectedToolHistoryIndex,
 				toolHistoryFilter,
+				toolHistorySort,
 			);
 			const plan = createToolHistoryExportPlan(
 				toolHistory,
@@ -614,7 +619,13 @@ export function App(): React.ReactElement {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
 		},
-		[log, selectedToolHistoryIndex, toolHistory, toolHistoryFilter],
+		[
+			log,
+			selectedToolHistoryIndex,
+			toolHistory,
+			toolHistoryFilter,
+			toolHistorySort,
+		],
 	);
 
 	const selectRemoteProfile = useCallback(async () => {
@@ -1305,11 +1316,22 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "s") {
+			setToolHistorySort((current) => {
+				const next = nextToolHistorySort(current);
+				log("info", `tools sort ${next}`);
+				return next;
+			});
+			setToolCopyPreview(false);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "r") {
 			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
 				toolHistory,
 				selectedToolHistoryIndex,
 				toolHistoryFilter,
+				toolHistorySort,
 			);
 			const plan = rerunToolHistoryItem(
 				getSelectedToolHistoryItem(toolHistory, visibleToolHistoryIndex),
@@ -1344,6 +1366,7 @@ export function App(): React.ReactElement {
 				toolHistory,
 				selectedToolHistoryIndex,
 				toolHistoryFilter,
+				toolHistorySort,
 			);
 			const preview = getSelectedToolOutputClipboardPreview(
 				toolHistory,
@@ -1363,6 +1386,7 @@ export function App(): React.ReactElement {
 				toolHistory,
 				selectedToolHistoryIndex,
 				toolHistoryFilter,
+				toolHistorySort,
 			);
 			const preview = getSelectedToolSummaryClipboardPreview(
 				toolHistory,
@@ -1448,12 +1472,13 @@ export function App(): React.ReactElement {
 				setProcessClipboardPreview(false);
 			} else if (screen === "tools") {
 				setSelectedToolHistoryIndex((index) =>
-					toolHistoryFilter
+					toolHistoryFilter || toolHistorySort !== "time"
 						? moveFilteredToolHistorySelection(
 								toolHistory,
 								index,
 								toolHistoryFilter,
 								"next",
+								toolHistorySort,
 							)
 						: moveToolHistorySelection(index, toolHistory.length, "next"),
 				);
@@ -1501,12 +1526,13 @@ export function App(): React.ReactElement {
 				setProcessClipboardPreview(false);
 			} else if (screen === "tools") {
 				setSelectedToolHistoryIndex((index) =>
-					toolHistoryFilter
+					toolHistoryFilter || toolHistorySort !== "time"
 						? moveFilteredToolHistorySelection(
 								toolHistory,
 								index,
 								toolHistoryFilter,
 								"previous",
+								toolHistorySort,
 							)
 						: moveToolHistorySelection(index, toolHistory.length, "previous"),
 				);
@@ -1586,6 +1612,7 @@ export function App(): React.ReactElement {
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolHistoryFilter={toolHistoryFilter}
+					toolHistorySort={toolHistorySort}
 					toolCopyPreview={toolCopyPreview}
 					events={events}
 					t={t}
@@ -1728,6 +1755,7 @@ function MainWorkspace({
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolHistoryFilter,
+	toolHistorySort,
 	toolCopyPreview,
 	events,
 	t,
@@ -1776,6 +1804,7 @@ function MainWorkspace({
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolHistoryFilter: string;
+	toolHistorySort: ToolHistorySort;
 	toolCopyPreview: ToolCopyPreviewMode;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
@@ -1833,6 +1862,7 @@ function MainWorkspace({
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolHistoryFilter,
+					toolHistorySort,
 					toolCopyPreview,
 					events,
 					height,
@@ -1885,6 +1915,7 @@ function renderWorkspace(
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolHistoryFilter: string,
+	toolHistorySort: ToolHistorySort,
 	toolCopyPreview: ToolCopyPreviewMode,
 	events: ConsoleEvent[],
 	height: number,
@@ -2032,6 +2063,7 @@ function renderWorkspace(
 				history={toolHistory}
 				selectedIndex={selectedToolHistoryIndex}
 				filterQuery={toolHistoryFilter}
+				sort={toolHistorySort}
 				copyPreview={toolCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
@@ -3093,6 +3125,7 @@ function ToolsWorkspace({
 	history,
 	selectedIndex,
 	filterQuery,
+	sort,
 	copyPreview,
 	commandLine,
 	visibleRows,
@@ -3101,6 +3134,7 @@ function ToolsWorkspace({
 	history: ToolHistoryItem[];
 	selectedIndex: number;
 	filterQuery: string;
+	sort: ToolHistorySort;
 	copyPreview: ToolCopyPreviewMode;
 	commandLine: CommandLineState;
 	visibleRows: number;
@@ -3110,12 +3144,14 @@ function ToolsWorkspace({
 		history,
 		selectedIndex,
 		filterQuery,
+		sort,
 	);
 	const rows = formatToolsWorkspaceRows(
 		history,
 		visibleRows,
 		selectedIndex,
 		filterQuery,
+		sort,
 	);
 	const selectedPreview =
 		copyPreview === "summary"

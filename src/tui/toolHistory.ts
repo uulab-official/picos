@@ -36,6 +36,8 @@ export type ToolHistoryItem = {
 
 export type ToolHistoryExportScope = "selected" | "all";
 
+export type ToolHistorySort = "time" | "tool" | "status";
+
 export type ToolHistoryExportPlan = {
 	path: string;
 	content: string;
@@ -145,12 +147,14 @@ export function formatToolsWorkspaceRows(
 	visibleRows: number,
 	selectedIndex = Math.max(0, history.length - 1),
 	filterQuery = "",
+	sort: ToolHistorySort = "time",
 ): string[] {
-	const filtered = filterToolHistory(history, filterQuery);
+	const filtered = sortToolHistory(history, filterQuery, sort);
 	const latestIndex = getVisibleToolHistoryIndex(
 		history,
 		selectedIndex,
 		filterQuery,
+		sort,
 	);
 	const latest = filtered.find((entry) => entry.index === latestIndex)?.item;
 	const historyRows = filtered.map(
@@ -167,9 +171,9 @@ export function formatToolsWorkspaceRows(
 		: [history.length ? "no matching tool runs" : "no tool runs yet"];
 	const filter = filterQuery.trim();
 	return [
-		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""} selected=${latest?.title ?? "-"}`,
+		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: j/k select · f filter · F clear · r rerun · y summary · c raw · e export",
+		"shortcuts: j/k select · f filter · F clear · s sort · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -192,8 +196,9 @@ export function getVisibleToolHistoryIndex(
 	history: ToolHistoryItem[],
 	selectedIndex: number,
 	query: string,
+	sort: ToolHistorySort = "time",
 ): number {
-	const filtered = filterToolHistory(history, query);
+	const filtered = sortToolHistory(history, query, sort);
 	if (!filtered.length) {
 		return 0;
 	}
@@ -201,6 +206,43 @@ export function getVisibleToolHistoryIndex(
 		return selectedIndex;
 	}
 	return filtered[0]?.index ?? 0;
+}
+
+export function sortToolHistory(
+	history: ToolHistoryItem[],
+	query: string,
+	sort: ToolHistorySort,
+): FilteredToolHistoryItem[] {
+	const filtered = filterToolHistory(history, query);
+	if (sort === "time") {
+		return filtered;
+	}
+	return [...filtered].sort((left, right) => {
+		if (sort === "status") {
+			const status =
+				getToolHistoryStatusRank(left.item.status) -
+				getToolHistoryStatusRank(right.item.status);
+			return status || left.index - right.index;
+		}
+		const tool = left.item.plan.actionId.localeCompare(
+			right.item.plan.actionId,
+		);
+		return (
+			tool ||
+			left.item.label.localeCompare(right.item.label) ||
+			left.index - right.index
+		);
+	});
+}
+
+export function nextToolHistorySort(sort: ToolHistorySort): ToolHistorySort {
+	if (sort === "time") {
+		return "tool";
+	}
+	if (sort === "tool") {
+		return "status";
+	}
+	return "time";
 }
 
 export function formatToolPromptRows(prompt: string, value: string): string[] {
@@ -232,12 +274,18 @@ export function moveFilteredToolHistorySelection(
 	current: number,
 	query: string,
 	direction: "next" | "previous",
+	sort: ToolHistorySort = "time",
 ): number {
-	const filtered = filterToolHistory(history, query);
+	const filtered = sortToolHistory(history, query, sort);
 	if (filtered.length <= 0) {
 		return 0;
 	}
-	const visibleIndex = getVisibleToolHistoryIndex(history, current, query);
+	const visibleIndex = getVisibleToolHistoryIndex(
+		history,
+		current,
+		query,
+		sort,
+	);
 	const currentFilteredIndex = Math.max(
 		0,
 		filtered.findIndex((entry) => entry.index === visibleIndex),
@@ -397,6 +445,10 @@ function formatToolHistoryExportItem(item: ToolHistoryItem): string[] {
 		"```",
 		"",
 	];
+}
+
+function getToolHistoryStatusRank(status: ToolHistoryItem["status"]): number {
+	return status === "ok" ? 0 : 1;
 }
 
 function formatToolHistorySearchText(item: ToolHistoryItem): string {
