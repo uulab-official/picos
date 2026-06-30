@@ -239,6 +239,7 @@ import {
 	type ConfigManagedShelfTarget,
 	type ConfigWorkspaceItem,
 	type ConfigWorkspaceResetPreview,
+	createConfigManagedShelfFocusActionPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfHandoffRows,
@@ -3179,6 +3180,154 @@ export function App(): React.ReactElement {
 		return true;
 	}, [configShelfLandingTarget, log, screen]);
 
+	const runConfigShelfFocusAction = useCallback(() => {
+		if (!configShelfLandingTarget) {
+			return false;
+		}
+		const handoff = getConfigManagedShelfHandoff(configShelfLandingTarget);
+		if (handoff.workspace !== screen) {
+			return false;
+		}
+		const plan = createConfigManagedShelfFocusActionPlan(
+			configShelfLandingTarget,
+		);
+		if (plan.action === "openInterfacesWorkspace") {
+			setScreen("interfaces");
+			setSelectedInterfaceIndex(0);
+			log("info", "config shelf action open interfaces");
+			return true;
+		}
+		if (plan.action === "cycleRouteFilterPresets") {
+			const preset = nextRouteFilterPreset(routeFilterPresets, routeFilter);
+			setRouteCopyPreview(false);
+			if (!preset) {
+				setCommandLine(openCommandLine("route-filter"));
+				log("warn", "config shelf action route filter prompt");
+				return true;
+			}
+			const filtered = filterRouteEntries(routeTable?.routes ?? [], preset);
+			setRouteFilter(preset);
+			log(
+				filtered.length ? "info" : "warn",
+				`config shelf action route preset ${preset} matches ${filtered.length}`,
+			);
+			return true;
+		}
+		if (plan.action === "cycleConnectionFilterPresets") {
+			const preset = nextEndpointFilterPreset(
+				connectionFilterPresets,
+				connectionFilter,
+			);
+			setConnectionCopyPreview(false);
+			if (!preset) {
+				setCommandLine(
+					openCommandLine(`${endpointFilterPromptPrefix}connections`),
+				);
+				log("warn", "config shelf action connections filter prompt");
+				return true;
+			}
+			const filtered = filterConnections(connections, preset);
+			setConnectionFilter(preset);
+			setSelectedConnectionIndex(0);
+			log(
+				filtered.length ? "info" : "warn",
+				`config shelf action connections preset ${preset} matches ${filtered.length}`,
+			);
+			return true;
+		}
+		if (plan.action === "cyclePortFilterPresets") {
+			const preset = nextEndpointFilterPreset(portFilterPresets, portFilter);
+			setPortCopyPreview(false);
+			setPortProcessControlPreview(false);
+			if (!preset) {
+				setCommandLine(openCommandLine(`${endpointFilterPromptPrefix}ports`));
+				log("warn", "config shelf action ports filter prompt");
+				return true;
+			}
+			const filtered = filterListeningPorts(ports, preset);
+			setPortFilter(preset);
+			setSelectedPortIndex(0);
+			log(
+				filtered.length ? "info" : "warn",
+				`config shelf action ports preset ${preset} matches ${filtered.length}`,
+			);
+			return true;
+		}
+		if (plan.action === "cycleToolTargetPresets") {
+			setSelectedToolTargetPresetIndex((index) => {
+				const next = moveToolTargetPresetSelection(
+					index,
+					toolTargetPresets.length,
+					"next",
+				);
+				const preset = toolTargetPresets[next];
+				if (preset) {
+					log(
+						"info",
+						`config shelf action tool target ${preset.label} ${preset.target}`,
+					);
+				} else {
+					log("warn", "config shelf action no tool target presets");
+				}
+				return next;
+			});
+			setToolHistoryDetailView("summary");
+			setToolCopyPreview(false);
+			return true;
+		}
+		if (plan.action === "cycleLogProfiles") {
+			const profile = nextLogProfile(logProfiles, {
+				level: logLevelFilter,
+				query: logSearchQuery,
+			});
+			if (!profile) {
+				setCommandLine(openCommandLine("log-search"));
+				log("warn", "config shelf action logs search prompt");
+				return true;
+			}
+			const filtered = filterOsLogEntries(
+				osLogs?.entries ?? [],
+				profile.query,
+				profile.level,
+			);
+			setLogLevelFilter(profile.level);
+			setLogSearchQuery(profile.query);
+			log(
+				filtered.length ? "info" : "warn",
+				`config shelf action logs profile ${formatLogProfileLabel(profile)} matches ${filtered.length}`,
+			);
+			return true;
+		}
+		setFocusArea("remotes");
+		setSelectedRemoteIndex(0);
+		log(
+			remoteProfiles.length ? "info" : "warn",
+			remoteProfiles.length
+				? "config shelf action remote profile focus"
+				: "config shelf action no remote profiles",
+		);
+		return true;
+	}, [
+		configShelfLandingTarget,
+		connectionFilter,
+		connectionFilterPresets,
+		connections,
+		log,
+		logLevelFilter,
+		logProfiles,
+		logSearchQuery,
+		osLogs,
+		portFilter,
+		portFilterPresets,
+		ports,
+		remoteProfiles.length,
+		routeFilter,
+		routeFilterPresets,
+		routeTable,
+		screen,
+		toolTargetPresets,
+	]);
+
 	const jumpToConfigManagedShelf = useCallback(
 		(target: ConfigManagedShelfTarget) => {
 			const focus = getConfigManagedShelfFocusPreset(target);
@@ -3751,6 +3900,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (input === "\r" && openCleanupHandoffPrompt()) {
+			return;
+		}
+
+		if (input === "\r" && runConfigShelfFocusAction()) {
 			return;
 		}
 
@@ -7975,6 +8128,7 @@ function RoutesWorkspace({
 									? "cyan"
 									: row.startsWith("target=") ||
 											row.startsWith("focus=") ||
+											row.startsWith("enter=") ||
 											row.startsWith(":routes-cleanup") ||
 											row.startsWith("confirm ")
 										? "yellow"
@@ -8021,6 +8175,7 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 		row.startsWith("CLIPBOARD PREVIEW") ||
 		row.startsWith("target=") ||
 		row.startsWith("focus=") ||
+		row.startsWith("enter=") ||
 		row.startsWith("action=process.terminate") ||
 		row.startsWith("status=blocked") ||
 		row.startsWith("willExecute=false") ||
@@ -8292,6 +8447,7 @@ function getToolRowColor(row: string): string {
 		row.startsWith("CLIPBOARD PREVIEW") ||
 		row.startsWith("target=") ||
 		row.startsWith("focus=") ||
+		row.startsWith("enter=") ||
 		row.startsWith("copy help:") ||
 		row.startsWith("copy hint:") ||
 		row.startsWith("copy mode:") ||
@@ -9487,7 +9643,8 @@ function getOsLogRowColor(row: string): string {
 		row.startsWith(":logs-cleanup") ||
 		row.startsWith("confirm ") ||
 		row.startsWith("target=") ||
-		row.startsWith("focus=")
+		row.startsWith("focus=") ||
+		row.startsWith("enter=")
 	) {
 		return "yellow";
 	}

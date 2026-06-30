@@ -97,6 +97,20 @@ export type ConfigManagedShelfFocusPreset = ConfigManagedShelfHandoff & {
 	rows: string[];
 };
 
+export type ConfigManagedShelfFocusAction =
+	| "openInterfacesWorkspace"
+	| "cycleRouteFilterPresets"
+	| "cycleConnectionFilterPresets"
+	| "cyclePortFilterPresets"
+	| "cycleToolTargetPresets"
+	| "cycleLogProfiles"
+	| "enterRemoteProfiles";
+
+export type ConfigManagedShelfFocusActionPlan = ConfigManagedShelfHandoff & {
+	action: ConfigManagedShelfFocusAction;
+	rows: string[];
+};
+
 const configPolicyPresets: ConfigPolicyPresetPreview[] = [
 	{
 		id: "safe-readonly",
@@ -506,7 +520,7 @@ export function formatConfigManagedShelfFocusRows(
 ): string[] {
 	return [
 		...getConfigManagedShelfFocusPreset(target).rows,
-		"hint=config deep link active  esc clears landing",
+		formatConfigManagedShelfFocusEnterHint(target),
 	];
 }
 
@@ -546,6 +560,22 @@ export function getConfigManagedShelfFocusPreset(
 			"CONFIG SHELF FOCUS",
 			`target=${handoff.target} workspace=${handoff.label}`,
 			formatConfigManagedShelfFocusHint(focus),
+		],
+	};
+}
+
+export function createConfigManagedShelfFocusActionPlan(
+	target: ConfigManagedShelfTarget,
+): ConfigManagedShelfFocusActionPlan {
+	const handoff = getConfigManagedShelfHandoff(target);
+	const action = getConfigManagedShelfFocusAction(target);
+	return {
+		...handoff,
+		action,
+		rows: [
+			"CONFIG SHELF ACTION",
+			`target=${handoff.target} workspace=${handoff.label}`,
+			formatConfigManagedShelfFocusActionHint(target),
 		],
 	};
 }
@@ -680,6 +710,78 @@ function formatConfigManagedShelfFocusHint(
 ): string {
 	const detail = focus.detailView ? ` detail=${focus.detailView}` : "";
 	return `focus=${focus.cursor} cursor=${focus.index}${detail}`;
+}
+
+function getConfigManagedShelfFocusAction(
+	target: ConfigManagedShelfTarget,
+): ConfigManagedShelfFocusAction {
+	if (target === "network") {
+		return "openInterfacesWorkspace";
+	}
+	if (target === "routes") {
+		return "cycleRouteFilterPresets";
+	}
+	if (target === "connections") {
+		return "cycleConnectionFilterPresets";
+	}
+	if (target === "ports") {
+		return "cyclePortFilterPresets";
+	}
+	if (target === "tools") {
+		return "cycleToolTargetPresets";
+	}
+	if (target === "logs") {
+		return "cycleLogProfiles";
+	}
+	return "enterRemoteProfiles";
+}
+
+function formatConfigManagedShelfFocusEnterHint(
+	target: ConfigManagedShelfTarget,
+): string {
+	if (target === "network") {
+		return "enter=open interfaces  esc=clear landing";
+	}
+	if (target === "routes") {
+		return "enter=cycle route filter presets  esc=clear landing";
+	}
+	if (target === "connections") {
+		return "enter=cycle connection filter presets  esc=clear landing";
+	}
+	if (target === "ports") {
+		return "enter=cycle port filter presets  esc=clear landing";
+	}
+	if (target === "tools") {
+		return "enter=cycle tool target presets  esc=clear landing";
+	}
+	if (target === "logs") {
+		return "enter=cycle log profiles  esc=clear landing";
+	}
+	return "enter=remote profile focus  esc=clear landing";
+}
+
+function formatConfigManagedShelfFocusActionHint(
+	target: ConfigManagedShelfTarget,
+): string {
+	if (target === "network") {
+		return "enter=open interfaces  fallback=network overview";
+	}
+	if (target === "routes") {
+		return "enter=cycle route filter presets  fallback=open filter prompt";
+	}
+	if (target === "connections") {
+		return "enter=cycle connection filter presets  fallback=open filter prompt";
+	}
+	if (target === "ports") {
+		return "enter=cycle port filter presets  fallback=open filter prompt";
+	}
+	if (target === "tools") {
+		return "enter=cycle tool target presets  fallback=keep first target";
+	}
+	if (target === "logs") {
+		return "enter=cycle log profiles  fallback=open search prompt";
+	}
+	return "enter=remote profile focus  fallback=empty profile list";
 }
 
 function formatConfigSafetyPosture(items: ConfigWorkspaceItem[]): string {

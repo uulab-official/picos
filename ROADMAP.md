@@ -2300,6 +2300,20 @@ Goal: keep Config deep-link context visible inside the destination workspace, no
 - Tests cover focus row formatting and bounded row injection.
 - Next: turn focus rows into actionable per-workspace cursor anchors, such as jumping Logs to profile controls and Routes/Endpoints to saved preset shelves.
 
+## v0.4.110 - Config Shelf Focus Actions
+
+Status: draft PR #172 on `codex/picos-v0.4.110-config-shelf-focus-actions`.
+
+Goal: turn Config shelf focus rows into actionable deep-link controls.
+
+- Config now models enter action plans for each shelf focus target, including preset cycling, prompt fallback, Interfaces jump, and Remotes focus.
+- Workspace-local focus rows now show target-specific `enter=` guidance instead of passive hints.
+- Pressing `enter` while a Config shelf landing is active runs the matching focus action before normal workspace enter behavior.
+- Routes, Connections, and Ports cycle saved filter presets or open the matching filter prompt when no presets exist.
+- Tools cycles target presets and keeps summary detail visible; Logs cycles saved profiles or opens log search; Network jumps into Interfaces; Remotes enters profile focus.
+- Tests cover focus action plan formatting and bounded focus row injection.
+- Next: add explicit selected shelf-control cursors for Logs profiles and route/endpoint preset shelves instead of relying on single-key action anchors.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
