@@ -7881,6 +7881,7 @@ function ConnectionsWorkspace({
 						processes,
 						presets: filterPresets,
 						selectedIndex,
+						shelfFocus: configShelfFocusTarget === "connections",
 						sort,
 						view,
 					},
@@ -7984,6 +7985,7 @@ function PortsWorkspace({
 						processes,
 						presets: filterPresets,
 						selectedIndex,
+						shelfFocus: configShelfFocusTarget === "ports",
 						sort,
 						view,
 					},
@@ -8082,6 +8084,7 @@ function RoutesWorkspace({
 					filter: routeFilter,
 					path: routePath,
 					presets: routeFilterPresets,
+					shelfFocus: configShelfFocusTarget === "routes",
 					sort: routeSort,
 					view: routeDetailView,
 				},
@@ -8124,7 +8127,8 @@ function RoutesWorkspace({
 						<Text
 							key={key}
 							color={
-								row.startsWith("CONFIG SHELF")
+								row.startsWith("CONFIG SHELF") ||
+								row.startsWith("SHELF CONTROL")
 									? "cyan"
 									: row.startsWith("target=") ||
 											row.startsWith("focus=") ||
@@ -8136,9 +8140,11 @@ function RoutesWorkspace({
 											? "gray"
 											: isSection
 												? "cyan"
-												: row.startsWith("WARN")
-													? "yellow"
-													: "white"
+												: row.startsWith(">")
+													? "green"
+													: row.startsWith("WARN")
+														? "yellow"
+														: "white"
 							}
 						>
 							{row}
@@ -8165,6 +8171,7 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 		row === "RAW OUTPUT" ||
 		row === "FILTER" ||
 		row === "ENDPOINT FILTER CLEANUP" ||
+		row.startsWith("SHELF CONTROL") ||
 		row === "PORT PROCESS CONTROL" ||
 		row.startsWith("CONTROL EXECUTION") ||
 		row.startsWith("DETAIL")
@@ -9609,6 +9616,7 @@ function LogWorkspace({
 				followRefreshCount,
 				followLastStatus,
 				followHistory,
+				shelfFocus: configShelfFocusTarget === "logs",
 			},
 		),
 		...promptRows,
@@ -9634,6 +9642,7 @@ function LogWorkspace({
 function getOsLogRowColor(row: string): string {
 	if (
 		row.startsWith("CONFIG SHELF") ||
+		row.startsWith("SHELF CONTROL") ||
 		row.startsWith("LOGS") ||
 		row === "SEARCH"
 	) {
@@ -9650,6 +9659,9 @@ function getOsLogRowColor(row: string): string {
 	}
 	if (row.startsWith("PICOS") || row.startsWith("source=")) {
 		return "cyan";
+	}
+	if (row.startsWith(">")) {
+		return "green";
 	}
 	if (row.includes(" fail ")) {
 		return "red";

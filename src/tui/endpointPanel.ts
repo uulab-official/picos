@@ -398,6 +398,7 @@ export function formatConnectionsWorkspaceRows(
 		processes?: ProcessSummary[];
 		presets?: string[];
 		selectedIndex?: number;
+		shelfFocus?: boolean;
 		sort?: ConnectionSort;
 		view?: EndpointDetailView;
 	} = {},
@@ -431,6 +432,13 @@ export function formatConnectionsWorkspaceRows(
 			.filter(Boolean)
 			.join(" ")
 			.trim(),
+		...(options.shelfFocus
+			? formatEndpointPresetShelfControlRows(
+					"connections",
+					options.presets,
+					options.filter,
+				)
+			: []),
 		"ACTIVE",
 		...(endpointRows.length
 			? endpointRows
@@ -459,6 +467,7 @@ export function formatPortsWorkspaceRows(
 		processes?: ProcessSummary[];
 		presets?: string[];
 		selectedIndex?: number;
+		shelfFocus?: boolean;
 		sort?: PortSort;
 		view?: EndpointDetailView;
 	} = {},
@@ -488,6 +497,13 @@ export function formatPortsWorkspaceRows(
 			.filter(Boolean)
 			.join(" ")
 			.trim(),
+		...(options.shelfFocus
+			? formatEndpointPresetShelfControlRows(
+					"ports",
+					options.presets,
+					options.filter,
+				)
+			: []),
 		"LISTENING",
 		...(portRows.length ? portRows : ["no listening ports detected"]),
 		...formatPortDetailViewRows(
@@ -939,6 +955,27 @@ function countLabel(visible: number, total: number): string {
 function formatEndpointPresetSummary(presets: string[] | undefined): string {
 	const visible = presets?.slice(0, 3).filter(Boolean) ?? [];
 	return visible.length ? `presets=${visible.join("|")}` : "";
+}
+
+function formatEndpointPresetShelfControlRows(
+	kind: EndpointHandoffKind,
+	presets: string[] | undefined,
+	filter: string | undefined,
+): string[] {
+	const normalized = (presets ?? [])
+		.map((preset) => preset.trim())
+		.filter(Boolean);
+	const current = filter?.trim() || "-";
+	const next = nextEndpointFilterPreset(normalized, filter ?? "") ?? "-";
+	const noun = kind === "connections" ? "connection" : "port";
+	const action = normalized.length
+		? `enter=cycle ${noun} filter presets  ]=cycle P=save D=cleanup`
+		: `enter=open ${noun} filter prompt  P=save D=cleanup`;
+	return [
+		`SHELF CONTROL ${kind}.filters`,
+		`> current=${current} next=${next} saved=${normalized.length}`,
+		action,
+	];
 }
 
 function formatRawOutputRows(rawOutput: string, visibleRows: number): string[] {

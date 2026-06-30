@@ -124,6 +124,7 @@ export function formatLogWorkspaceRows(
 		followRefreshCount?: number;
 		followLastStatus?: "idle" | "ok" | "warn" | "fail";
 		followHistory?: LogFollowHistoryItem[];
+		shelfFocus?: boolean;
 	} = {},
 ): string[] {
 	const level = options.level ?? "all";
@@ -146,9 +147,16 @@ export function formatLogWorkspaceRows(
 	]
 		.filter(Boolean)
 		.join(" ");
+	const shelfControlRows = options.shelfFocus
+		? formatLogProfileShelfControlRows(options.profiles, {
+				level,
+				query,
+			})
+		: [];
 	if (!logs) {
 		return [
 			header,
+			...shelfControlRows,
 			"No OS log snapshot yet. Run logs.read or refresh.",
 			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · C follow-clear · r refresh",
 		].slice(0, visibleRows);
@@ -156,6 +164,7 @@ export function formatLogWorkspaceRows(
 
 	return [
 		header,
+		...shelfControlRows,
 		...formatOsLogRows(logs, { filter: query, level }),
 		...formatLogFollowHistoryRows(options.followHistory),
 		"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · C follow-clear · r refresh",
@@ -192,4 +201,22 @@ function formatLogProfileSummary(profiles: LogProfile[] | undefined): string {
 	return visible.length
 		? `profiles=${visible.map(formatLogProfileLabel).join("|")}`
 		: "";
+}
+
+function formatLogProfileShelfControlRows(
+	profiles: LogProfile[] | undefined,
+	current: LogProfile,
+): string[] {
+	const normalized = (profiles ?? []).map((profile) => ({
+		level: profile.level,
+		query: profile.query.trim(),
+	}));
+	const next = nextLogProfile(normalized, current);
+	return [
+		"SHELF CONTROL logs.profiles",
+		`> profile=${formatLogProfileLabel(current)} next=${next ? formatLogProfileLabel(next) : "-"} saved=${normalized.length}`,
+		normalized.length
+			? "enter=cycle log profiles  }=cycle S=save D=cleanup"
+			: "enter=open log search prompt  S=save D=cleanup",
+	];
 }

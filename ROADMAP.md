@@ -2314,6 +2314,19 @@ Goal: turn Config shelf focus rows into actionable deep-link controls.
 - Tests cover focus action plan formatting and bounded focus row injection.
 - Next: add explicit selected shelf-control cursors for Logs profiles and route/endpoint preset shelves instead of relying on single-key action anchors.
 
+## v0.4.111 - Config Shelf Control Cursors
+
+Status: draft PR #173 on `codex/picos-v0.4.111-shelf-control-cursors`.
+
+Goal: make Config shelf destinations show active OS-settings-style cursors on the saved control shelves they operate.
+
+- Routes now renders a selected `SHELF CONTROL routes.filters` row when a Config shelf landing is active, including current filter, next preset, saved count, and enter action.
+- Connections and Ports render selected endpoint filter shelf rows with the same current/next/saved control context.
+- Logs renders a selected profile shelf row with the current level/query profile, next saved profile, saved count, and enter action.
+- The TUI only enables these shelf-control rows while the matching Config shelf destination is active, preserving the normal workspace layout otherwise.
+- Tests cover selected shelf-control formatting for route filters, endpoint filters, and log profiles.
+- Next: add a compact Config-origin breadcrumb into the command prompt/edit dialogs so filter/search editing keeps the settings deep-link context visible.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

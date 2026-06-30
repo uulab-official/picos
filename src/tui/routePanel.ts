@@ -148,6 +148,7 @@ export function formatRouteWorkspaceRows(
 		filter?: string;
 		path?: RoutePathResult;
 		presets?: string[];
+		shelfFocus?: boolean;
 		sort?: RouteSort;
 		view?: RouteDetailView;
 	} = {},
@@ -182,6 +183,9 @@ export function formatRouteWorkspaceRows(
 			})
 		: [];
 	const presetSummary = formatRoutePresetSummary(options.presets);
+	const shelfControlRows = options.shelfFocus
+		? formatRoutePresetShelfControlRows(options.presets, filter)
+		: [];
 	const fullRows = [
 		[
 			`SUMMARY routes=${filter ? `${filteredRoutes.length}/${result.routes.length}` : result.routes.length}`,
@@ -191,6 +195,7 @@ export function formatRouteWorkspaceRows(
 			.filter(Boolean)
 			.join(" ")
 			.trim(),
+		...shelfControlRows,
 		...(filter
 			? [
 					`FILTER ${filter} matches=${filteredRoutes.length}/${result.routes.length}`,
@@ -216,6 +221,7 @@ export function formatRouteWorkspaceRows(
 
 	const fixedRows = [
 		fullRows[0],
+		...shelfControlRows,
 		...(filter
 			? [
 					`FILTER ${filter} matches=${filteredRoutes.length}/${result.routes.length}`,
@@ -251,6 +257,23 @@ export function formatRouteWorkspaceRows(
 function formatRoutePresetSummary(presets: string[] | undefined): string {
 	const visible = presets?.slice(0, 3).filter(Boolean) ?? [];
 	return visible.length ? `presets=${visible.join("|")}` : "";
+}
+
+function formatRoutePresetShelfControlRows(
+	presets: string[] | undefined,
+	filter: string,
+): string[] {
+	const normalized = normalizeRouteFilterPresets(presets ?? []);
+	const current = filter || "-";
+	const next = nextRouteFilterPreset(normalized, filter) ?? "-";
+	const action = normalized.length
+		? "enter=cycle route filter presets  ]=cycle P=save D=cleanup"
+		: "enter=open route filter prompt  P=save D=cleanup";
+	return [
+		"SHELF CONTROL routes.filters",
+		`> current=${current} next=${next} saved=${normalized.length}`,
+		action,
+	];
 }
 
 export function getRouteClipboardPreview(

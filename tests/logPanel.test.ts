@@ -49,6 +49,24 @@ describe("log TUI panel formatting", () => {
 		]);
 	});
 
+	test("formats selected log profile shelf controls for config focus", () => {
+		expect(
+			formatLogWorkspaceRows(snapshot, 8, {
+				query: "kernel",
+				level: "warn",
+				profiles: [
+					{ level: "warn", query: "kernel" },
+					{ level: "fail", query: "error" },
+				],
+				shelfFocus: true,
+			}).slice(1, 4),
+		).toEqual([
+			"SHELF CONTROL logs.profiles",
+			"> profile=warn:kernel next=fail:error saved=2",
+			"enter=cycle log profiles  }=cycle S=save D=cleanup",
+		]);
+	});
+
 	test("keeps no-snapshot rows useful for keyboard discovery", () => {
 		expect(formatLogWorkspaceRows(undefined, 5, { query: "" })).toEqual([
 			"LOGS level=all search=- follow=off",
