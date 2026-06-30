@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status now shows a cleanup archive browser, with `B` refreshing archived cleanup exports and `{` cycling selected archived rows.
 - Status cleanup export rows can now be archived with `X` after typing `archive cleanup export`, moving selected exports into `cleanup/archive`.
 - Status cleanup export rows can now be opened through the locked file-open confirmation with `V`.
 - Status now indexes cleanup export files, with `Y` refreshing the list and `}` cycling selected export rows.

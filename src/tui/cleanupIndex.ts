@@ -609,6 +609,38 @@ export async function readCleanupHandoffHistoryExportIndex(
 	return { baseDir, items };
 }
 
+export async function readCleanupHandoffHistoryExportArchiveIndex(
+	baseDir: string,
+	limit = 20,
+): Promise<CleanupHandoffHistoryExportIndex> {
+	const archiveDir = join(baseDir, "cleanup", "archive");
+	let files: string[];
+	try {
+		files = await readdir(archiveDir);
+	} catch {
+		return { baseDir, items: [] };
+	}
+
+	const items = (
+		await Promise.all(
+			files
+				.filter(isPicosCleanupHandoffHistoryExportFilename)
+				.map(async (fileName) => {
+					const path = join(archiveDir, fileName);
+					return createCleanupHandoffHistoryExportIndexItem(
+						fileName,
+						path,
+						await readFile(path, "utf8"),
+					);
+				}),
+		)
+	)
+		.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))
+		.slice(0, limit);
+
+	return { baseDir, items };
+}
+
 export function createCleanupHandoffHistoryExportArchivePlan(
 	baseDir: string,
 	path: string,
@@ -717,6 +749,42 @@ export function formatCleanupHandoffHistoryExportIndexRows(
 						].join(" "),
 					)
 			: ["no cleanup exports yet"]),
+		...pathRows,
+	].slice(0, visibleRows);
+}
+
+export function getSelectedCleanupHandoffHistoryExportArchive(
+	index: CleanupHandoffHistoryExportIndex,
+	selectedIndex: number,
+): CleanupHandoffHistoryExportIndexItem | undefined {
+	return getSelectedCleanupHandoffHistoryExport(index, selectedIndex);
+}
+
+export function formatCleanupHandoffHistoryExportArchiveIndexRows(
+	index: CleanupHandoffHistoryExportIndex,
+	selectedIndex = 0,
+	visibleRows = 5,
+): string[] {
+	const selected = getSelectedCleanupHandoffHistoryExportArchive(
+		index,
+		selectedIndex,
+	);
+	const pathRows = selected ? [`path=${selected.path}`] : [];
+	const budget = Math.max(0, visibleRows - 1 - pathRows.length);
+	return [
+		`CLEANUP ARCHIVE ${index.items.length} base=${index.baseDir}`,
+		...(index.items.length > 0
+			? index.items
+					.slice(0, budget)
+					.map((item, itemIndex) =>
+						[
+							itemIndex === selectedIndex ? ">" : " ",
+							item.scope.padEnd(8),
+							`entries=${item.entryCount}`,
+							item.generatedAt,
+						].join(" "),
+					)
+			: ["no archived cleanup exports yet"]),
 		...pathRows,
 	].slice(0, visibleRows);
 }

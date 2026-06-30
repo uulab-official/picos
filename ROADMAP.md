@@ -1720,6 +1720,20 @@ Goal: let operators retire stale cleanup export evidence from Status without del
 - Tests cover locked/confirmed archive plans, blocked non-export files, file movement, and index removal after archive.
 - Next: add a dedicated Cleanup Export viewer or archive browser.
 
+## v0.4.66 - Cleanup Export Archive Browser
+
+Status: draft PR #128.
+
+Goal: keep retired cleanup export evidence visible from Status after it has been archived.
+
+- Archived cleanup exports are indexed from `cleanup/archive`.
+- Status workspace renders a separate cleanup archive browser with scope, entry count, generated timestamp, and selected file path.
+- Pressing `B` in Status refreshes the cleanup archive browser.
+- Pressing `{` in Status cycles the selected archived cleanup export row.
+- Confirmed cleanup export archives refresh both the active export index and archive browser.
+- Tests cover archive index discovery, newest-first ordering, selected row clamping, empty rows, and path detail rows.
+- Next: add locked file-open or restore controls for archived cleanup exports.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
