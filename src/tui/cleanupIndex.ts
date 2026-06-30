@@ -340,6 +340,60 @@ export function formatCleanupHandoffHistoryRows(
 	];
 }
 
+export function appendCleanupHandoffHistory(
+	histories: CleanupHandoffHistory[],
+	history: CleanupHandoffHistory,
+	limit = 5,
+): CleanupHandoffHistory[] {
+	return [history, ...histories].slice(0, Math.max(1, limit));
+}
+
+export function getSelectedCleanupHandoffHistory(
+	histories: CleanupHandoffHistory[],
+	selectedIndex: number,
+): CleanupHandoffHistory | undefined {
+	if (histories.length === 0) {
+		return undefined;
+	}
+
+	const normalized = Math.min(Math.max(selectedIndex, 0), histories.length - 1);
+	return histories[normalized];
+}
+
+export function moveCleanupHandoffHistorySelection(
+	histories: CleanupHandoffHistory[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (histories.length === 0) {
+		return 0;
+	}
+
+	const normalized = Math.min(Math.max(selectedIndex, 0), histories.length - 1);
+	const offset = direction === "next" ? 1 : -1;
+	return (normalized + offset + histories.length) % histories.length;
+}
+
+export function formatCleanupHandoffHistoryIndexRows(
+	histories: CleanupHandoffHistory[],
+	selectedIndex: number,
+	visibleRows: number,
+): string[] {
+	const selected = getSelectedCleanupHandoffHistory(histories, selectedIndex);
+	const rows = [
+		`CLEANUP HISTORY entries=${histories.length}${
+			selected ? ` selected=${selected.workspace}` : ""
+		}`,
+		...(histories.length > 0
+			? histories.map((history, index) => {
+					const marker = selectedIndex === index ? "> " : "  ";
+					return `${marker}${history.outcome.padEnd(13)} ${history.workspace.padEnd(11)} ${history.shortcut.padEnd(2)} ${history.confirmationPhrase}  ${history.detail}`;
+				})
+			: ["no cleanup handoff history yet"]),
+	];
+	return rows.slice(0, Math.max(1, visibleRows));
+}
+
 export function getSelectedCleanupShelf(
 	index: CleanupShelfIndex,
 	selectedIndex: number,
