@@ -258,6 +258,8 @@ Default config:
 	"logProfiles": [],
 	"logSearchPresets": [],
 	"routeFilterPresets": [],
+	"connectionSort": "state",
+	"portSort": "port",
 	"connectionFilterPresets": [],
 	"portFilterPresets": []
 }
@@ -316,10 +318,14 @@ Endpoint filter presets are managed from the Connections and Ports workspaces wi
 
 ```json
 {
+	"connectionSort": "remotePort",
+	"portSort": "-pid",
 	"connectionFilterPresets": ["443", "ESTABLISHED"],
 	"portFilterPresets": ["node", "3000"]
 }
 ```
+
+Connections and Ports also persist the active `s` sort cycle as `connectionSort` and `portSort`. Prefix a sort key with `-` for descending order.
 
 Routes can also export the active table/raw/diagnostics/path detail view with `e`. Press `o` to create the same handoff file and prepare a locked external file-open preview; type `open` to launch the OS file viewer. Handoff files are written under your picos config directory in `routes/*.md` for external review or editor workflows.
 

@@ -52,6 +52,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub now shows OS-aware target presets for default host, gateway, DNS servers, public IP, HTTPS, and TLS checks, with `n` to cycle and `R` to run.
 - Connections and Ports workspaces now support `Tab` detail panes for focused detail, raw output, and process views.
 - Connections and Ports workspaces now support TUI endpoint search with `f`, `F`, `P`, and `]` filter preset controls.
+- Connections and Ports sort preferences now persist in config and restore on TUI boot.
 - Timeline workspace now supports TUI event search presets and scoped audit exports for filtered timelines.
 - Routes workspace now supports `Tab` detail panes for table, raw output, diagnostics, and destination path views.
 - Interfaces workspace now supports keyboard selection plus `Tab` panes for list, detail, traffic stats, and platform source views.
