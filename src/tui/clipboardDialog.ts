@@ -109,10 +109,31 @@ export async function submitClipboardConfirmation(
 		state: clearClipboardConfirmationState(),
 		event: {
 			level: result.success ? "ok" : "warn",
-			message: result.success
-				? `clipboard copied ${plan.label} via ${plan.adapter.command}`
-				: `clipboard locked ${plan.label} via ${plan.adapter.command}`,
+			message: formatClipboardResultMessage(
+				plan.label,
+				plan.adapter.command,
+				result,
+			),
 		},
 		result,
 	};
+}
+
+function formatClipboardResultMessage(
+	label: string,
+	adapter: string,
+	result: ClipboardWriteResult,
+): string {
+	if (result.success) {
+		return `clipboard copied ${label} via ${adapter}`;
+	}
+	if (!result.audit.confirmed) {
+		return `clipboard locked ${label} via ${adapter}`;
+	}
+	return [
+		`clipboard failed ${label} via ${adapter}`,
+		result.hint ? `· ${result.hint}` : "",
+	]
+		.filter(Boolean)
+		.join(" ");
 }

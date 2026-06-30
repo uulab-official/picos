@@ -159,4 +159,37 @@ describe("clipboard write planning", () => {
 			}),
 		});
 	});
+
+	test("returns platform fallback hints when clipboard tools fail", async () => {
+		const preview = createClipboardPreview({
+			source: "port",
+			label: "selected port",
+			copyText: "*:3000 node pid=12345",
+		});
+
+		const result = await runClipboardWritePlan(
+			buildClipboardWritePlan(preview, {
+				confirmation: "copy",
+				platform: "linux",
+			}),
+			async () => ({
+				command: "xclip",
+				args: ["-selection", "clipboard"],
+				stdout: "",
+				stderr: "spawn xclip ENOENT",
+				exitCode: 1,
+				success: false,
+			}),
+		);
+
+		expect(result).toEqual({
+			success: false,
+			audit: expect.objectContaining({
+				confirmed: true,
+				adapter: "xclip",
+			}),
+			error: "spawn xclip ENOENT",
+			hint: "Install xclip or wl-clipboard, then retry clipboard copy.",
+		});
+	});
 });
