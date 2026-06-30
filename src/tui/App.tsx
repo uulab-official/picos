@@ -272,15 +272,18 @@ import {
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
+	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
 	nextTimelineFilter,
 	nextTimelineSearchPreset,
 	saveTimelineSearchPreset,
+	submitTimelineSearchCleanupConfirmation,
 	type TimelineFilter,
 } from "./timelinePanel";
 import {
 	appendToolHistory,
+	createToolHistoryCleanupPreview,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
 	createToolRunPlanFromPreset,
@@ -308,6 +311,7 @@ import {
 	retargetToolTargetPreset,
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
+	submitToolHistoryCleanupConfirmation,
 	submitToolTargetCleanupConfirmation,
 	type ToolHistoryDetailView,
 	type ToolHistoryExportScope,
@@ -792,6 +796,31 @@ export function App(): React.ReactElement {
 		);
 	}, [commandLine.value, log, toolHistory]);
 
+	const submitToolHistoryCleanupCommand = useCallback(() => {
+		const confirmation = submitToolHistoryCleanupConfirmation(
+			toolHistoryFilterPresets,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!confirmation.confirmed) {
+			log("warn", confirmation.message);
+			return;
+		}
+		setToolHistoryFilterPresets(confirmation.presets);
+		setToolCopyPreview(false);
+		void setConfigToolHistoryPreferences({
+			filterPresets: confirmation.presets,
+		}).catch((caught) =>
+			log(
+				"fail",
+				caught instanceof Error
+					? `tool history filter cleanup failed ${caught.message}`
+					: `tool history filter cleanup failed ${String(caught)}`,
+			),
+		);
+		log("info", confirmation.message);
+	}, [commandLine.value, log, toolHistoryFilterPresets]);
+
 	const submitToolTargetLabelCommand = useCallback(() => {
 		const preset =
 			toolTargetPresets[
@@ -1122,6 +1151,20 @@ export function App(): React.ReactElement {
 				: "timeline search cleared",
 		);
 	}, [commandLine.value, events, log, timelineFilter]);
+
+	const submitTimelineSearchCleanupCommand = useCallback(() => {
+		const confirmation = submitTimelineSearchCleanupConfirmation(
+			timelineSearchPresets,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!confirmation.confirmed) {
+			log("warn", confirmation.message);
+			return;
+		}
+		setTimelineSearchPresets(confirmation.presets);
+		log("info", confirmation.message);
+	}, [commandLine.value, log, timelineSearchPresets]);
 
 	const submitLogSearchCommand = useCallback(() => {
 		const query = commandLine.value.trim();
@@ -2260,40 +2303,47 @@ export function App(): React.ReactElement {
 									? "route filter cleanup cancelled"
 									: commandLine.prompt === "tool-filter"
 										? "tool history filter cancelled"
-										: commandLine.prompt.startsWith(endpointFilterPromptPrefix)
-											? "endpoint filter cancelled"
+										: commandLine.prompt === "tool-history-cleanup"
+											? "tool history filter cleanup cancelled"
 											: commandLine.prompt.startsWith(
-														endpointFilterCleanupPromptPrefix,
+														endpointFilterPromptPrefix,
 													)
-												? "endpoint filter cleanup cancelled"
-												: commandLine.prompt === "timeline-search"
-													? "timeline search cancelled"
-													: commandLine.prompt === "control-confirm"
-														? "control confirmation cancelled"
-														: commandLine.prompt === "external-open"
-															? "external open confirmation cancelled"
-															: commandLine.prompt === "file-open"
-																? "file open confirmation cancelled"
-																: commandLine.prompt === "log-search"
-																	? "logs search cancelled"
-																	: commandLine.prompt === "logs-cleanup"
-																		? "logs cleanup cancelled"
-																		: commandLine.prompt === "tool-target-label"
-																			? "tool target label cancelled"
-																			: commandLine.prompt ===
-																					"tool-target-value"
-																				? "tool target value cancelled"
+												? "endpoint filter cancelled"
+												: commandLine.prompt.startsWith(
+															endpointFilterCleanupPromptPrefix,
+														)
+													? "endpoint filter cleanup cancelled"
+													: commandLine.prompt === "timeline-search"
+														? "timeline search cancelled"
+														: commandLine.prompt === "timeline-search-cleanup"
+															? "timeline search cleanup cancelled"
+															: commandLine.prompt === "control-confirm"
+																? "control confirmation cancelled"
+																: commandLine.prompt === "external-open"
+																	? "external open confirmation cancelled"
+																	: commandLine.prompt === "file-open"
+																		? "file open confirmation cancelled"
+																		: commandLine.prompt === "log-search"
+																			? "logs search cancelled"
+																			: commandLine.prompt === "logs-cleanup"
+																				? "logs cleanup cancelled"
 																				: commandLine.prompt ===
-																						"tool-target-action"
-																					? "tool target action cancelled"
+																						"tool-target-label"
+																					? "tool target label cancelled"
 																					: commandLine.prompt ===
-																							"tool-target-cleanup"
-																						? "tool target cleanup cancelled"
-																						: commandLine.prompt.startsWith(
-																									toolPromptPrefix,
-																								)
-																							? "tool target command cancelled"
-																							: "path command cancelled",
+																							"tool-target-value"
+																						? "tool target value cancelled"
+																						: commandLine.prompt ===
+																								"tool-target-action"
+																							? "tool target action cancelled"
+																							: commandLine.prompt ===
+																									"tool-target-cleanup"
+																								? "tool target cleanup cancelled"
+																								: commandLine.prompt.startsWith(
+																											toolPromptPrefix,
+																										)
+																									? "tool target command cancelled"
+																									: "path command cancelled",
 				);
 				return;
 			}
@@ -2309,6 +2359,8 @@ export function App(): React.ReactElement {
 					submitRouteFilterCleanupCommand();
 				} else if (commandLine.prompt === "tool-filter") {
 					submitToolHistoryFilterCommand();
+				} else if (commandLine.prompt === "tool-history-cleanup") {
+					submitToolHistoryCleanupCommand();
 				} else if (commandLine.prompt === "tool-target-label") {
 					submitToolTargetLabelCommand();
 				} else if (commandLine.prompt === "tool-target-value") {
@@ -2325,6 +2377,8 @@ export function App(): React.ReactElement {
 					submitEndpointFilterCleanupCommand();
 				} else if (commandLine.prompt === "timeline-search") {
 					submitTimelineSearchCommand();
+				} else if (commandLine.prompt === "timeline-search-cleanup") {
+					submitTimelineSearchCleanupCommand();
 				} else if (commandLine.prompt === "log-search") {
 					submitLogSearchCommand();
 				} else if (commandLine.prompt === "logs-cleanup") {
@@ -3105,6 +3159,20 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "timeline" && focusArea === "workspaces" && input === "D") {
+			const preview = createTimelineSearchCleanupPreview(timelineSearchPresets);
+			if (!preview) {
+				log("warn", "no timeline search presets to clean");
+				return;
+			}
+			setCommandLine(openCommandLine("timeline-search-cleanup"));
+			log(
+				"warn",
+				`timeline search cleanup confirm ${preview.confirmationPhrase}`,
+			);
+			return;
+		}
+
 		if (screen === "timeline" && focusArea === "workspaces" && input === "]") {
 			const preset = nextTimelineSearchPreset(
 				timelineSearchPresets,
@@ -3313,6 +3381,21 @@ export function App(): React.ReactElement {
 				return next;
 			});
 			log("info", `tools preset saved ${toolHistoryFilter}`);
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "C") {
+			const preview = createToolHistoryCleanupPreview(toolHistoryFilterPresets);
+			if (!preview) {
+				log("warn", "no tools filter presets to clean");
+				return;
+			}
+			setCommandLine(openCommandLine("tool-history-cleanup"));
+			setToolCopyPreview(false);
+			log(
+				"warn",
+				`tool history filter cleanup confirm ${preview.confirmationPhrase}`,
+			);
 			return;
 		}
 
@@ -5933,6 +6016,10 @@ function ToolsWorkspace({
 					selectedTargetPreset,
 				)
 			: undefined;
+	const historyCleanupPreview =
+		commandLine.active && commandLine.prompt === "tool-history-cleanup"
+			? createToolHistoryCleanupPreview(filterPresets)
+			: undefined;
 	const promptRows =
 		commandLine.active && commandLine.prompt.startsWith(toolPromptPrefix)
 			? formatToolPromptRows(commandLine.prompt, commandLine.value)
@@ -5963,13 +6050,21 @@ function ToolsWorkspace({
 										...cleanupPreview.rows,
 										`:cleanup ${commandLine.value || " "}  type="${cleanupPreview.confirmationPhrase}" enter=delete esc=cancel`,
 									]
-								: [];
+								: commandLine.active &&
+										commandLine.prompt === "tool-history-cleanup" &&
+										historyCleanupPreview
+									? [
+											...historyCleanupPreview.rows,
+											`:history-cleanup ${commandLine.value || " "}  type="${historyCleanupPreview.confirmationPhrase}" enter=clear esc=cancel`,
+										]
+									: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
 				Tools Hub · n target · T save · U pin · L label · M target · A action ·
-				X delete · D cleanup · R run · tab detail · f filter · P save filter
+				X delete · D target cleanup · C filter cleanup · R run · tab detail · f
+				filter · P save filter
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]
@@ -5985,7 +6080,12 @@ function ToolsWorkspace({
 }
 
 function getToolRowColor(row: string): string {
-	if (row.startsWith("TOOLS") || row === "RAW" || row.startsWith("## ")) {
+	if (
+		row.startsWith("TOOLS") ||
+		row === "RAW" ||
+		row.startsWith("## ") ||
+		row === "TOOLS HISTORY CLEANUP"
+	) {
 		return "cyan";
 	}
 	if (row.startsWith("TARGET PRESETS")) {
@@ -5994,7 +6094,11 @@ function getToolRowColor(row: string): string {
 	if (row.startsWith("> ") && !row.includes("[")) {
 		return "green";
 	}
-	if (row.startsWith("CLIPBOARD PREVIEW") || row.startsWith("confirm ")) {
+	if (
+		row.startsWith("CLIPBOARD PREVIEW") ||
+		row.startsWith(":history-cleanup") ||
+		row.startsWith("confirm ")
+	) {
 		return "yellow";
 	}
 	if (row.includes(" fail ")) {
@@ -6047,7 +6151,7 @@ function TimelineWorkspace({
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const promptRows = formatTimelineSearchPromptRows(commandLine);
+	const promptRows = formatTimelineSearchPromptRows(commandLine, presets);
 	const rows = [
 		...formatTimelineWorkspaceRows(
 			events,
@@ -6064,7 +6168,8 @@ function TimelineWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.timeline")}</Text>
 			<Text color="gray">
-				t filter · f search · P save · ] preset · timeline.export scoped log
+				t filter · f search · P save · ] preset · D cleanup · timeline.export
+				scoped log
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
@@ -6079,19 +6184,41 @@ function TimelineWorkspace({
 
 function formatTimelineSearchPromptRows(
 	commandLine: CommandLineState,
+	presets: string[] = [],
 ): string[] {
-	if (!commandLine.active || commandLine.prompt !== "timeline-search") {
+	if (!commandLine.active) {
 		return [];
 	}
-	return [
-		"SEARCH",
-		`:search ${commandLine.value || " "}  enter=apply esc=cancel`,
-	];
+	if (commandLine.prompt === "timeline-search") {
+		return [
+			"SEARCH",
+			`:search ${commandLine.value || " "}  enter=apply esc=cancel`,
+		];
+	}
+	if (commandLine.prompt === "timeline-search-cleanup") {
+		const preview = createTimelineSearchCleanupPreview(presets);
+		if (!preview) {
+			return [];
+		}
+		return [
+			...preview.rows,
+			`:timeline-cleanup ${commandLine.value || " "}  type="${preview.confirmationPhrase}" enter=clear esc=cancel`,
+		];
+	}
+	return [];
 }
 
 function getTimelineRowColor(row: string): string {
-	if (row === "TIMELINE" || row === "SEARCH" || row.startsWith("SUMMARY")) {
+	if (
+		row === "TIMELINE" ||
+		row === "SEARCH" ||
+		row === "TIMELINE SEARCH CLEANUP" ||
+		row.startsWith("SUMMARY")
+	) {
 		return "cyan";
+	}
+	if (row.startsWith(":timeline-cleanup") || row.startsWith("confirm ")) {
+		return "yellow";
 	}
 	if (row.includes(" audit ")) {
 		return "yellow";

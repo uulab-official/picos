@@ -1526,6 +1526,20 @@ Goal: make saved route, connection, and port filter shelves manageable with the 
 - Tests cover route cleanup preview/confirmation and endpoint cleanup preview/confirmation.
 - Next: bring cleanup confirmation to Timeline and Tools history filter shelves.
 
+## v0.4.51 - Timeline and Tools History Cleanup Confirmation
+
+Status: draft PR #113.
+
+Goal: finish the filter-preset cleanup sweep across the remaining event/history shelves.
+
+- Timeline workspace now supports `D` to open exact `clear timeline` confirmation for saved timeline search presets.
+- Tools workspace now supports `C` to open exact `clear tools history` confirmation for saved Tools history filter presets without colliding with `D` target-action cleanup.
+- Cleanup previews show affected preset counts and reuse the shared config cleanup rows.
+- Rejected confirmations leave preset shelves untouched and emit warning events.
+- Confirmed Tools history cleanup persists the empty filter preset shelf back to config.
+- Tests cover Timeline search cleanup preview/confirmation and Tools history filter cleanup preview/confirmation.
+- Next: add a compact cleanup index/status row so operators can see all cleanable shelves at a glance.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

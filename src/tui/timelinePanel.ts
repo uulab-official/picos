@@ -1,6 +1,25 @@
+import {
+	type ConfigCleanupPreview,
+	createConfigCleanupPreview,
+	submitConfigCleanupConfirmation,
+} from "../core/configCleanup";
 import type { ConsoleEvent } from "./events";
 
 export type TimelineFilter = "all" | "network" | "audit" | "action" | "raw";
+
+export type TimelineSearchCleanupPreview = {
+	count: number;
+	confirmationPhrase: string;
+	cleanup: ConfigCleanupPreview;
+	rows: string[];
+};
+
+export type TimelineSearchCleanupConfirmation = {
+	confirmed: boolean;
+	message: string;
+	presets: string[];
+	removed: number;
+};
 
 const timelineFilters: TimelineFilter[] = [
 	"all",
@@ -54,7 +73,7 @@ export function formatTimelineWorkspaceRows(
 		...(eventRows.length
 			? eventRows.slice(Math.max(0, eventRows.length - bodyRows))
 			: ["no timeline events"]),
-		"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+		"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 	].slice(0, visibleRows);
 }
 
@@ -99,6 +118,65 @@ export function nextTimelineSearchPreset(
 	}
 	const index = presets.indexOf(currentQuery.trim());
 	return presets[(index + 1) % presets.length] ?? presets[0];
+}
+
+export function createTimelineSearchCleanupPreview(
+	presets: string[],
+): TimelineSearchCleanupPreview | undefined {
+	const normalized = presets.map((preset) => preset.trim()).filter(Boolean);
+	if (!normalized.length) {
+		return undefined;
+	}
+	const cleanup = createConfigCleanupPreview({
+		id: "timeline.searches",
+		label: "Timeline search presets",
+		scope: "timeline",
+		count: normalized.length,
+		verb: "clear",
+	});
+	return {
+		count: normalized.length,
+		confirmationPhrase: cleanup.confirmationPhrase,
+		cleanup,
+		rows: [
+			"TIMELINE SEARCH CLEANUP",
+			`presets=${normalized.length}`,
+			`confirm ${cleanup.confirmationPhrase} locked`,
+		],
+	};
+}
+
+export function submitTimelineSearchCleanupConfirmation(
+	presets: string[],
+	confirmation: string,
+): TimelineSearchCleanupConfirmation {
+	const preview = createTimelineSearchCleanupPreview(presets);
+	if (!preview) {
+		return {
+			confirmed: false,
+			message: "timeline search cleanup unavailable",
+			presets,
+			removed: 0,
+		};
+	}
+	const cleanupConfirmation = submitConfigCleanupConfirmation(
+		preview.cleanup,
+		confirmation,
+	);
+	if (!cleanupConfirmation.confirmed) {
+		return {
+			confirmed: false,
+			message: "timeline search cleanup rejected",
+			presets,
+			removed: 0,
+		};
+	}
+	return {
+		confirmed: true,
+		message: `timeline search cleanup removed ${preview.count} presets`,
+		presets: [],
+		removed: preview.count,
+	};
 }
 
 function formatTimelineSummary(
