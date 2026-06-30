@@ -338,6 +338,8 @@ export function formatPortProcessControlInspectorRows(
 		"PORT CONTROL",
 		`target=${preview.port.localAddress}:${preview.port.localPort} pid=${preview.port.pid} process=${preview.port.command}`,
 		...executionRows.slice(1),
+		`drilldown enter=process picos process ${preview.port.pid} --files`,
+		"files from Processes: enter opens cwd/open file; c copies selected resource",
 	];
 }
 

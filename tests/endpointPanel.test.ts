@@ -798,6 +798,8 @@ describe("endpoint TUI panel formatting", () => {
 			"blockers=mutation-controls-disabled",
 			"adapter=linux",
 			"command=kill -TERM 777",
+			"drilldown enter=process picos process 777 --files",
+			"files from Processes: enter opens cwd/open file; c copies selected resource",
 		]);
 	});
 
