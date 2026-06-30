@@ -6,6 +6,9 @@ import {
 	createToolRunPlan,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getSelectedToolHistoryItem,
+	moveToolHistorySelection,
+	rerunToolHistoryItem,
 } from "../src/tui/toolHistory";
 
 const result: ToolResult = {
@@ -139,6 +142,12 @@ describe("TUI tool history", () => {
 				time: "12:00:00",
 				status: "ok",
 				label: "tools.dns example.com",
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
 				title: "DNS Lookup",
 				summary: "Summary: Query: example.com | A: 2",
 				rawOutput: result.rawOutput,
@@ -162,14 +171,48 @@ describe("TUI tool history", () => {
 		);
 
 		expect(formatToolsWorkspaceRows(history, 8)).toEqual([
-			"TOOLS history=1 latest=DNS Lookup",
-			"[12:00:00] ok tools.dns example.com",
+			"TOOLS history=1 selected=DNS Lookup",
+			"> [12:00:00] ok tools.dns example.com",
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: action enter=target prompt · raw.view shows latest raw output",
+			"shortcuts: j/k select · r rerun · action enter=target prompt · raw.view latest",
+		]);
+	});
+
+	test("formats selected tool history rows for keyboard navigation", () => {
+		const history = appendToolHistory(
+			appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			),
+			{
+				plan: {
+					actionId: "ping.default",
+					toolId: "ping",
+					args: ["8.8.8.8"],
+					label: "ping.default 8.8.8.8",
+				},
+				result: { ...result, title: "Ping" },
+			},
+			"12:00:01",
+		);
+
+		expect(formatToolsWorkspaceRows(history, 5, 0).slice(0, 3)).toEqual([
+			"TOOLS history=2 selected=DNS Lookup",
+			"> [12:00:00] ok tools.dns example.com",
+			"  [12:00:01] ok ping.default 8.8.8.8",
 		]);
 	});
 
@@ -181,5 +224,58 @@ describe("TUI tool history", () => {
 			":tool api.github.com 443  enter=run esc=cancel",
 		]);
 		expect(formatToolPromptRows("route", "8.8.8.8")).toEqual([]);
+	});
+
+	test("moves selected tool history with wraparound", () => {
+		expect(moveToolHistorySelection(0, 3, "previous")).toBe(2);
+		expect(moveToolHistorySelection(2, 3, "next")).toBe(0);
+		expect(moveToolHistorySelection(99, 3, "next")).toBe(0);
+		expect(moveToolHistorySelection(0, 0, "next")).toBe(0);
+	});
+
+	test("selects and reruns previous tool history entries", () => {
+		const history = [
+			...appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			),
+			...appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "network.connect",
+						toolId: "port-check",
+						args: ["api.github.com", "8443"],
+						label: "network.connect api.github.com:8443",
+					},
+					result: {
+						...result,
+						title: "TCP Port Check",
+						rawOutput: "$ picos tools port-check api.github.com 8443",
+					},
+				},
+				"12:00:01",
+			),
+		];
+
+		expect(getSelectedToolHistoryItem(history, 1)?.label).toBe(
+			"network.connect api.github.com:8443",
+		);
+		expect(rerunToolHistoryItem(history[1])).toEqual({
+			actionId: "network.connect",
+			toolId: "port-check",
+			args: ["api.github.com", "8443"],
+			label: "network.connect api.github.com:8443",
+		});
+		expect(rerunToolHistoryItem(undefined)).toBeUndefined();
 	});
 });
