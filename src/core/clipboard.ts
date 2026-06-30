@@ -2,8 +2,9 @@ import { clipboardWriteCommand as linuxClipboardWriteCommand } from "../adapters
 import { clipboardWriteCommand as macosClipboardWriteCommand } from "../adapters/macos";
 import { clipboardWriteCommand as windowsClipboardWriteCommand } from "../adapters/windows";
 import type { ClipboardPreview } from "../tui/clipboardPreview";
+import { safeExec } from "../utils/safeExec";
 import type { ActionPrivilege, ActionRisk } from "./actions";
-import type { SupportedPlatform } from "./types";
+import type { SafeExecResult, SupportedPlatform } from "./types";
 
 export type ClipboardWriteAdapter = {
 	command: string;
@@ -36,6 +37,18 @@ export type ClipboardAuditEvent = {
 	adapter: string;
 	preview: string;
 };
+
+export type ClipboardWriteResult = {
+	success: boolean;
+	audit: ClipboardAuditEvent;
+	error?: string;
+};
+
+export type ClipboardWriteRunner = (
+	command: string,
+	args: string[],
+	options: { stdin: string },
+) => Promise<SafeExecResult>;
 
 export function buildClipboardWritePlan(
 	preview: ClipboardPreview,
@@ -76,6 +89,32 @@ export function createClipboardAuditEvent(
 		confirmed: plan.confirmed,
 		adapter: plan.adapter.command,
 		preview: plan.previewText,
+	};
+}
+
+export async function runClipboardWritePlan(
+	plan: ClipboardWritePlan,
+	runner: ClipboardWriteRunner = (command, args, options) =>
+		safeExec(command, args, { stdin: options.stdin }),
+): Promise<ClipboardWriteResult> {
+	const audit = createClipboardAuditEvent(plan);
+	if (!plan.enabled) {
+		return {
+			success: false,
+			audit,
+			error: `Clipboard write is locked: ${plan.reason}`,
+		};
+	}
+
+	const result = await runner(plan.adapter.command, plan.adapter.args, {
+		stdin: plan.previewText,
+	});
+	return {
+		success: result.success,
+		audit,
+		...(result.success
+			? {}
+			: { error: result.stderr || "Clipboard write failed" }),
 	};
 }
 
