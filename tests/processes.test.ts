@@ -144,6 +144,18 @@ describe("process inventory", () => {
 		expect(parseLsofProcessFiles(output, 3)).toEqual({
 			pid: 12345,
 			cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
+			fileEntries: [
+				{
+					descriptor: "txt",
+					label: "executable",
+					path: "/usr/local/bin/bun",
+				},
+				{
+					descriptor: "1",
+					label: "fd",
+					path: "/Users/bonjin/Documents/workspace/uulab/picos/README.md",
+				},
+			],
 			openFiles: [
 				"/usr/local/bin/bun",
 				"/Users/bonjin/Documents/workspace/uulab/picos/README.md",
@@ -152,14 +164,56 @@ describe("process inventory", () => {
 		});
 	});
 
+	test("keeps lsof file descriptors for labeled process file navigation", () => {
+		const output = [
+			"p12345",
+			"fcwd",
+			"n/Users/bonjin/Documents/workspace/uulab/picos",
+			"ftxt",
+			"n/usr/local/bin/bun",
+			"fmem",
+			"n/usr/lib/libSystem.B.dylib",
+			"f1",
+			"n/Users/bonjin/Documents/workspace/uulab/picos/picos.log",
+		].join("\n");
+
+		expect(parseLsofProcessFiles(output, 3)?.fileEntries).toEqual([
+			{
+				descriptor: "txt",
+				label: "executable",
+				path: "/usr/local/bin/bun",
+			},
+			{
+				descriptor: "mem",
+				label: "mapped",
+				path: "/usr/lib/libSystem.B.dylib",
+			},
+			{
+				descriptor: "1",
+				label: "fd",
+				path: "/Users/bonjin/Documents/workspace/uulab/picos/picos.log",
+			},
+		]);
+	});
+
 	test("formats process file snapshots", () => {
-		expect(
-			formatProcessFileSnapshot({
-				pid: 12345,
-				cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
-				openFiles: ["/usr/local/bin/bun"],
-				rawOutput: "raw",
-			}),
-		).toContain("CWD:      /Users/bonjin/Documents/workspace/uulab/picos");
+		const output = formatProcessFileSnapshot({
+			pid: 12345,
+			cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
+			fileEntries: [
+				{
+					descriptor: "txt",
+					label: "executable",
+					path: "/usr/local/bin/bun",
+				},
+			],
+			openFiles: ["/usr/local/bin/bun"],
+			rawOutput: "raw",
+		});
+
+		expect(output).toContain(
+			"CWD:      /Users/bonjin/Documents/workspace/uulab/picos",
+		);
+		expect(output).toContain("txt  executable  /usr/local/bin/bun");
 	});
 });

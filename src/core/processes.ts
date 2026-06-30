@@ -11,9 +11,16 @@ export type ProcessDetail = ProcessSummary & {
 	started?: string;
 };
 
+export type ProcessOpenFile = {
+	descriptor: string;
+	label: string;
+	path: string;
+};
+
 export type ProcessFileSnapshot = {
 	pid: number;
 	cwd?: string;
+	fileEntries: ProcessOpenFile[];
 	openFiles: string[];
 	rawOutput: string;
 };
@@ -211,6 +218,7 @@ export function parseLsofProcessFiles(
 	}
 	const snapshot: ProcessFileSnapshot = {
 		pid: Number(pidLine.slice(1)),
+		fileEntries: [],
 		openFiles: [],
 		rawOutput: stdout,
 	};
@@ -235,9 +243,30 @@ export function parseLsofProcessFiles(
 		if (!seen.has(path) && snapshot.openFiles.length < limit) {
 			seen.add(path);
 			snapshot.openFiles.push(path);
+			snapshot.fileEntries.push({
+				descriptor: fileKind,
+				label: labelProcessFileDescriptor(fileKind),
+				path,
+			});
 		}
 	}
 	return snapshot;
+}
+
+function labelProcessFileDescriptor(descriptor: string): string {
+	if (descriptor === "txt") {
+		return "executable";
+	}
+	if (descriptor === "mem") {
+		return "mapped";
+	}
+	if (descriptor === "rtd") {
+		return "root";
+	}
+	if (/^\d/.test(descriptor)) {
+		return "fd";
+	}
+	return descriptor || "file";
 }
 
 export function formatProcessDetail(detail: ProcessDetail): string {
@@ -265,8 +294,18 @@ export function formatProcessFileSnapshot(
 	if (!snapshot) {
 		return ["", "Files", "  file snapshot unavailable"].join("\n");
 	}
-	const files = snapshot.openFiles.length
-		? snapshot.openFiles.map((path) => `  ${path}`)
+	const fileEntries = snapshot.fileEntries.length
+		? snapshot.fileEntries
+		: snapshot.openFiles.map((path) => ({
+				descriptor: "file",
+				label: "file",
+				path,
+			}));
+	const files = fileEntries.length
+		? fileEntries.map(
+				(entry) =>
+					`  ${entry.descriptor.padEnd(4)} ${entry.label.padEnd(11)} ${entry.path}`,
+			)
 		: ["  - none detected"];
 	return [
 		"",

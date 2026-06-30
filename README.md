@@ -42,6 +42,7 @@ Keyboard controls:
 - Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `f` filters by name/path/type, `enter` applies the filter, `esc` clears it, `c`/`m`/`x` open locked copy/move/delete previews, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
 - Routes workspace: `s` cycles route row sorting and `:` opens destination path lookup
 - Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `j/k` selects endpoints, `enter` opens the selected PID in Processes, `s` cycles endpoint sorting, PID matches show process snapshots, and `c` opens a copy preview
+- Processes workspace: endpoint handoffs show PID detail plus labeled cwd/open-file rows; `j/k` selects a process file and `enter` opens it in Files or Editor when it is a local filesystem path
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh
