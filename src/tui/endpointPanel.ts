@@ -1,19 +1,41 @@
-import type { ConnectionsResult } from "../core/connections";
-import type { PortsResult } from "../core/ports";
+import {
+	type ConnectionSort,
+	type ConnectionsResult,
+	filterConnections,
+	sortConnections,
+} from "../core/connections";
+import {
+	filterListeningPorts,
+	type PortSort,
+	type PortsResult,
+	sortListeningPorts,
+} from "../core/ports";
 
 export function formatConnectionsWorkspaceRows(
 	result: ConnectionsResult,
 	visibleRows: number,
+	options: { filter?: string; sort?: ConnectionSort } = {},
 ): string[] {
-	const established = result.connections.filter(
+	const filtered = filterConnections(result.connections, options.filter);
+	const sorted = sortConnections(filtered, options.sort);
+	const established = filtered.filter(
 		(connection) => connection.state === "ESTABLISHED",
 	).length;
-	const endpointRows = result.connections.map(
+	const endpointRows = sorted.map(
 		(connection) =>
 			`${connection.protocol.padEnd(6)} ${clip(`${connection.localAddress}:${connection.localPort}`, 24).padEnd(24)} ${clip(`${connection.remoteAddress}:${connection.remotePort}`, 24).padEnd(24)} ${connection.state ?? "-"}`,
 	);
 	const rows = [
-		`SUMMARY connections=${result.connections.length} established=${established} command=${result.command} ${result.args.join(" ")}`.trim(),
+		[
+			`SUMMARY connections=${countLabel(filtered.length, result.connections.length)}`,
+			`established=${established}`,
+			options.sort ? `sort=${options.sort.key} ${options.sort.direction}` : "",
+			options.filter?.trim() ? `filter=${options.filter.trim()}` : "",
+			`command=${result.command} ${result.args.join(" ")}`,
+		]
+			.filter(Boolean)
+			.join(" ")
+			.trim(),
 		"ACTIVE",
 		...(endpointRows.length
 			? endpointRows
@@ -27,19 +49,34 @@ export function formatConnectionsWorkspaceRows(
 export function formatPortsWorkspaceRows(
 	result: PortsResult,
 	visibleRows: number,
+	options: { filter?: string; sort?: PortSort } = {},
 ): string[] {
-	const portRows = result.ports.map(
+	const filtered = filterListeningPorts(result.ports, options.filter);
+	const sorted = sortListeningPorts(filtered, options.sort);
+	const portRows = sorted.map(
 		(port) =>
 			`${port.protocol.padEnd(6)} ${clip(`${port.localAddress}:${port.localPort}`, 24).padEnd(24)} ${clip(port.command, 18).padEnd(18)} ${port.pid.padEnd(7)} ${clip(port.user, 12)}`,
 	);
 	const rows = [
-		`SUMMARY ports=${result.ports.length} command=${result.command} ${result.args.join(" ")}`.trim(),
+		[
+			`SUMMARY ports=${countLabel(filtered.length, result.ports.length)}`,
+			options.sort ? `sort=${options.sort.key} ${options.sort.direction}` : "",
+			options.filter?.trim() ? `filter=${options.filter.trim()}` : "",
+			`command=${result.command} ${result.args.join(" ")}`,
+		]
+			.filter(Boolean)
+			.join(" ")
+			.trim(),
 		"LISTENING",
 		...(portRows.length ? portRows : ["no listening ports detected"]),
 		"RAW OUTPUT",
 		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
 	];
 	return fitRows(rows, visibleRows, "ports");
+}
+
+function countLabel(visible: number, total: number): string {
+	return visible === total ? String(visible) : `${visible}/${total}`;
 }
 
 function formatRawOutputRows(rawOutput: string, visibleRows: number): string[] {

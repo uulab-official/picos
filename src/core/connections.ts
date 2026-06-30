@@ -12,6 +12,31 @@ export type ConnectionsResult = {
 	rawOutput: string;
 };
 
+export type ConnectionSortKey =
+	| "protocol"
+	| "local"
+	| "localPort"
+	| "remote"
+	| "remotePort"
+	| "state"
+	| "pid";
+
+export type ConnectionSort = {
+	key: ConnectionSortKey;
+	direction: "asc" | "desc";
+};
+
+const connectionSortCycle: ConnectionSort[] = [
+	{ key: "state", direction: "asc" },
+	{ key: "remote", direction: "asc" },
+	{ key: "remotePort", direction: "asc" },
+	{ key: "local", direction: "asc" },
+	{ key: "localPort", direction: "asc" },
+	{ key: "protocol", direction: "asc" },
+	{ key: "pid", direction: "asc" },
+	{ key: "pid", direction: "desc" },
+];
+
 export function buildConnectionsCommand(
 	platform: SupportedPlatform = process.platform,
 ): { command: string; args: string[] } {
@@ -54,18 +79,163 @@ export function parseConnections(input: string): ActiveConnection[] {
 	return connections;
 }
 
-export function formatConnections(result: ConnectionsResult): string {
+export function filterConnections(
+	connections: ActiveConnection[],
+	query: string | number | undefined,
+): ActiveConnection[] {
+	const normalized = normalizeFilterQuery(query);
+	if (!normalized) {
+		return connections;
+	}
+	return connections.filter((connection) =>
+		connectionSearchText(connection).includes(normalized),
+	);
+}
+
+function normalizeFilterQuery(query: string | number | undefined): string {
+	return query === undefined ? "" : String(query).trim().toLowerCase();
+}
+
+export function parseConnectionSort(value: string | undefined): ConnectionSort {
+	if (!value) {
+		return { key: "state", direction: "asc" };
+	}
+	const direction = value.startsWith("-") ? "desc" : "asc";
+	const key = value.replace(/^-/, "");
+	if (!isConnectionSortKey(key)) {
+		throw new Error(`Invalid connection sort: ${value}`);
+	}
+	return { key, direction };
+}
+
+export function sortConnections(
+	connections: ActiveConnection[],
+	sort: ConnectionSort = { key: "state", direction: "asc" },
+): ActiveConnection[] {
+	return connections
+		.map((connection, index) => ({ connection, index }))
+		.sort((left, right) => {
+			const compared = compareConnection(
+				left.connection,
+				right.connection,
+				sort.key,
+			);
+			return (
+				(sort.direction === "desc" ? -compared : compared) ||
+				left.index - right.index
+			);
+		})
+		.map((item) => item.connection);
+}
+
+export function nextConnectionSort(current: ConnectionSort): ConnectionSort {
+	const index = connectionSortCycle.findIndex(
+		(item) => item.key === current.key && item.direction === current.direction,
+	);
+	return (
+		connectionSortCycle[(index + 1) % connectionSortCycle.length] ??
+		connectionSortCycle[0]
+	);
+}
+
+export function formatConnections(
+	result: ConnectionsResult,
+	options: { filter?: string | number; sort?: ConnectionSort } = {},
+): string {
+	const filtered = filterConnections(result.connections, options.filter);
+	const sorted = sortConnections(filtered, options.sort);
+	const filter = normalizeFilterQuery(options.filter);
 	const lines = ["picos connections", ""];
 	lines.push("[Summary]");
-	lines.push(`Connections: ${result.connections.length}`);
+	lines.push(
+		filtered.length === result.connections.length
+			? `Connections: ${filtered.length}`
+			: `Connections: ${filtered.length} / ${result.connections.length}`,
+	);
+	if (filter) {
+		lines.push(`Filter: ${filter}`);
+	}
+	if (options.sort) {
+		lines.push(`Sort: ${options.sort.key} ${options.sort.direction}`);
+	}
 	lines.push("");
 	lines.push("[Active]");
-	for (const connection of result.connections.slice(0, 100)) {
+	for (const connection of sorted.slice(0, 100)) {
 		lines.push(
 			`${connection.protocol.padEnd(6)} ${formatEndpoint(connection.localAddress, connection.localPort).padEnd(28)} ${formatEndpoint(connection.remoteAddress, connection.remotePort).padEnd(28)} ${connection.state ?? "-"}${connection.pid ? ` pid=${connection.pid}` : ""}`,
 		);
 	}
 	return lines.join("\n");
+}
+
+function connectionSearchText(connection: ActiveConnection): string {
+	return [
+		connection.protocol,
+		connection.localAddress,
+		connection.localPort,
+		connection.remoteAddress,
+		connection.remotePort,
+		connection.state,
+		connection.pid,
+	]
+		.filter(Boolean)
+		.join(" ")
+		.toLowerCase();
+}
+
+function compareConnection(
+	left: ActiveConnection,
+	right: ActiveConnection,
+	key: ConnectionSortKey,
+): number {
+	if (key === "localPort") {
+		return compareNumericText(left.localPort, right.localPort);
+	}
+	if (key === "remotePort") {
+		return compareNumericText(left.remotePort, right.remotePort);
+	}
+	return connectionSortValue(left, key).localeCompare(
+		connectionSortValue(right, key),
+		undefined,
+		{ numeric: true, sensitivity: "base" },
+	);
+}
+
+function compareNumericText(left: string, right: string): number {
+	const leftNumber = Number(left);
+	const rightNumber = Number(right);
+	if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+		return leftNumber - rightNumber;
+	}
+	return left.localeCompare(right, undefined, {
+		numeric: true,
+		sensitivity: "base",
+	});
+}
+
+function connectionSortValue(
+	connection: ActiveConnection,
+	key: Exclude<ConnectionSortKey, "localPort" | "remotePort">,
+): string {
+	if (key === "local") {
+		return connection.localAddress;
+	}
+	if (key === "remote") {
+		return connection.remoteAddress;
+	}
+	return connection[key] ?? "";
+}
+
+function isConnectionSortKey(value: string): value is ConnectionSortKey {
+	return [
+		"protocol",
+		"local",
+		"localPort",
+		"remote",
+		"remotePort",
+		"state",
+		"pid",
+	].includes(value);
 }
 
 function parseConnectionParts(

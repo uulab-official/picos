@@ -41,7 +41,7 @@ Keyboard controls:
 - `?` or `/`: open the command palette, then type to filter commands
 - Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `f` filters by name/path/type, `enter` applies the filter, `esc` clears it, `c`/`m`/`x` open locked copy/move/delete previews, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
 - Routes workspace: `s` cycles route row sorting and `:` opens destination path lookup
-- Connections and Ports workspaces: show parsed rows plus clipped raw OS command output
+- Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `s` cycles endpoint sorting
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh
@@ -75,7 +75,11 @@ picos routes --sort interface
 picos routes --sort=-metric
 picos route 8.8.8.8
 picos connections
+picos connections --filter 443 --sort remotePort
+picos connections --sort=-remotePort
 picos ports
+picos ports --filter node --sort process
+picos ports --sort=-pid
 picos locations
 picos remotes
 picos remote dev
@@ -111,8 +115,12 @@ Commands:
 - `picos routes --raw`: print the raw route command output.
 - `picos route <destination>`: inspect how the OS routes a destination.
 - `picos connections`: list active TCP/UDP endpoints from the local OS.
+- `picos connections --filter <query>`: filter connections by address, port, state, protocol, or PID.
+- `picos connections --sort <key>`: sort connections by `protocol`, `local`, `localPort`, `remote`, `remotePort`, `state`, or `pid`; prefix with `-` for descending.
 - `picos connections --raw`: print raw connection command output.
 - `picos ports`: list listening TCP ports with process metadata where available.
+- `picos ports --filter <query>`: filter listening ports by address, port, process, PID, user, or protocol.
+- `picos ports --sort <key>`: sort listening ports by `protocol`, `address`, `port`, `process`, `pid`, or `user`; prefix with `-` for descending.
 - `picos ports --raw`: print raw listening-port command output.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
 - `picos remotes`: list configured remote file profiles without opening a network session.
@@ -152,8 +160,8 @@ Reference-inspired modules now tracked in picos:
 - Interface type, CIDR prefix, MAC/netmask, MTU, RX/TX counters, gateway, and DNS inventory
 - Subnet/network grouping for LAN, loopback, VPN, container, link-local, and public addresses
 - Route Inspector with TUI diagnostics, destination path lookup, route rows, and raw command output
-- Connections view with parsed rows and raw OS command output
-- Ports view with process metadata and raw OS command output
+- Connections view with parsed rows, CLI filtering/sorting, TUI sort cycling, and raw OS command output
+- Ports view with process metadata, CLI filtering/sorting, TUI sort cycling, and raw OS command output
 - Tools Hub
 - Timeline
 - Raw output viewer

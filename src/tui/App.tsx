@@ -10,8 +10,10 @@ import {
 } from "../core/actions";
 import { runPing } from "../core/command";
 import {
+	type ConnectionSort,
 	type ConnectionsResult,
 	getActiveConnections,
+	nextConnectionSort,
 } from "../core/connections";
 import { runDoctorChecks } from "../core/doctor";
 import {
@@ -23,7 +25,12 @@ import {
 	withParentDirectoryEntry,
 } from "../core/files";
 import { getNetworkSummary } from "../core/network";
-import { getListeningPorts, type PortsResult } from "../core/ports";
+import {
+	getListeningPorts,
+	nextPortSort,
+	type PortSort,
+	type PortsResult,
+} from "../core/ports";
 import {
 	createRemoteFileContext,
 	type RemoteFileContext,
@@ -166,6 +173,14 @@ export function App(): React.ReactElement {
 	const [connectionsResult, setConnectionsResult] =
 		useState<ConnectionsResult>();
 	const [portsResult, setPortsResult] = useState<PortsResult>();
+	const [connectionSort, setConnectionSort] = useState<ConnectionSort>({
+		key: "state",
+		direction: "asc",
+	});
+	const [portSort, setPortSort] = useState<PortSort>({
+		key: "port",
+		direction: "asc",
+	});
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
 	const [routePath, setRoutePath] = useState<RoutePathResult>();
 	const [routeSort, setRouteSort] = useState<RouteSort>({
@@ -803,6 +818,28 @@ export function App(): React.ReactElement {
 			log("info", "route destination prompt opened");
 		}
 
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "s"
+		) {
+			setConnectionSort((current) => {
+				const next = nextConnectionSort(current);
+				log("info", `connections sort ${next.key} ${next.direction}`);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "s") {
+			setPortSort((current) => {
+				const next = nextPortSort(current);
+				log("info", `ports sort ${next.key} ${next.direction}`);
+				return next;
+			});
+			return;
+		}
+
 		if (screen === "routes" && focusArea === "workspaces" && input === "s") {
 			setRouteSort((current) => {
 				const next = nextRouteSort(current);
@@ -924,6 +961,8 @@ export function App(): React.ReactElement {
 					ports={ports}
 					connectionsResult={connectionsResult}
 					portsResult={portsResult}
+					connectionSort={connectionSort}
+					portSort={portSort}
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
@@ -1051,6 +1090,8 @@ function MainWorkspace({
 	ports,
 	connectionsResult,
 	portsResult,
+	connectionSort,
+	portSort,
 	routeTable,
 	routePath,
 	routeSort,
@@ -1084,6 +1125,8 @@ function MainWorkspace({
 	ports: ListeningPort[];
 	connectionsResult?: ConnectionsResult;
 	portsResult?: PortsResult;
+	connectionSort: ConnectionSort;
+	portSort: PortSort;
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
@@ -1126,6 +1169,8 @@ function MainWorkspace({
 					ports,
 					connectionsResult,
 					portsResult,
+					connectionSort,
+					portSort,
 					routeTable,
 					routePath,
 					routeSort,
@@ -1163,6 +1208,8 @@ function renderWorkspace(
 	ports: ListeningPort[],
 	connectionsResult: ConnectionsResult | undefined,
 	portsResult: PortsResult | undefined,
+	connectionSort: ConnectionSort,
+	portSort: PortSort,
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
@@ -1272,6 +1319,7 @@ function renderWorkspace(
 		return (
 			<ConnectionsWorkspace
 				result={connectionsResult}
+				sort={connectionSort}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -1281,6 +1329,7 @@ function renderWorkspace(
 		return (
 			<PortsWorkspace
 				result={portsResult}
+				sort={portSort}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -2104,15 +2153,17 @@ function InterfacesWorkspace({
 
 function ConnectionsWorkspace({
 	result,
+	sort,
 	visibleRows,
 	t,
 }: {
 	result?: ConnectionsResult;
+	sort: ConnectionSort;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const rows = result
-		? formatConnectionsWorkspaceRows(result, visibleRows)
+		? formatConnectionsWorkspaceRows(result, visibleRows, { sort })
 		: ["loading connections..."];
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
@@ -2125,7 +2176,7 @@ function ConnectionsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
-				active endpoints from netstat · raw source output · read-only
+				active endpoints from netstat · s sort · raw source output
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -2147,15 +2198,17 @@ function ConnectionsWorkspace({
 
 function PortsWorkspace({
 	result,
+	sort,
 	visibleRows,
 	t,
 }: {
 	result?: PortsResult;
+	sort: PortSort;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const rows = result
-		? formatPortsWorkspaceRows(result, visibleRows)
+		? formatPortsWorkspaceRows(result, visibleRows, { sort })
 		: ["loading listening ports..."];
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
@@ -2168,7 +2221,7 @@ function PortsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
-				listening TCP ports from lsof/ss/netstat · raw source output
+				listening TCP ports from lsof/ss/netstat · s sort · raw source output
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
