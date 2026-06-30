@@ -221,6 +221,9 @@ function classifyTimelineEvent(
 		message.includes("control preview") ||
 		message.includes("control simulation") ||
 		message.includes("control execution") ||
+		message.includes("ports file evidence unavailable") ||
+		message.includes("ports file evidence error") ||
+		message.includes("ports file evidence failed") ||
 		message.includes("audit") ||
 		message.includes("locked") ||
 		message.includes("failed")

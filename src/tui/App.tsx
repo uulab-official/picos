@@ -3521,7 +3521,7 @@ export function App(): React.ReactElement {
 							files ? "info" : "warn",
 							files
 								? `ports file evidence loaded pid ${preview.port.pid}`
-								: `ports file evidence unavailable pid ${preview.port.pid}`,
+								: `ports file evidence unavailable pid=${preview.port.pid} reason=no snapshot returned`,
 						);
 					} catch (caught) {
 						log(
