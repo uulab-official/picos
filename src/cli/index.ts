@@ -81,10 +81,26 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	cli
 		.command("connections", "List active network connections")
 		.option("--raw", "Print raw connections command output")
+		.option(
+			"--filter <query>",
+			"Filter connections by address, port, state, protocol, or PID",
+		)
+		.option(
+			"--sort <key>",
+			"Sort connections by protocol, local, localPort, remote, remotePort, state, pid, or prefix with - for descending",
+		)
 		.action(connectionsCommand);
 	cli
 		.command("ports", "List listening TCP ports")
 		.option("--raw", "Print raw ports command output")
+		.option(
+			"--filter <query>",
+			"Filter ports by address, port, process, PID, user, or protocol",
+		)
+		.option(
+			"--sort <key>",
+			"Sort ports by protocol, address, port, process, pid, user, or prefix with - for descending",
+		)
 		.action(portsCommand);
 	cli
 		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")

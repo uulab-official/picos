@@ -377,6 +377,20 @@ Goal: make Connections and Ports feel like inspectable OS panels instead of pars
 - Refresh and action execution preserve raw output state for the visible workspaces.
 - Next: sorting/filtering/detail panes for Connections and Ports, then safe copy actions.
 
+## v0.3.26 - Endpoint Filter And Sort
+
+Status: draft PR #27.
+
+Goal: make Connections and Ports scannable when real systems have hundreds of endpoints.
+
+- Connection core supports stable filtering and sorting by protocol, local address, local port, remote address, remote port, state, or PID.
+- Port core supports stable filtering and sorting by protocol, address, port, process, PID, or user.
+- `picos connections --filter <query> --sort <key>` exposes endpoint filtering and sorting from CLI.
+- `picos ports --filter <query> --sort <key>` exposes listening-port filtering and sorting from CLI.
+- Connections and Ports workspaces support `s` to cycle endpoint sort state from the keyboard.
+- Endpoint workspace summaries show filtered counts and active sort context.
+- Next: endpoint detail panes, safe copy actions, and process attribution improvements.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -384,7 +398,7 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
-- Connections and Ports: parsed rows and raw output landed; next sorting, filtering, details panes, and safe copy actions.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, and TUI sort cycling landed; next details panes and safe copy actions.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: address/status/public-IP changes and local export.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.

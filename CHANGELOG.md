@@ -21,6 +21,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - `picos ports` listening TCP port inspector with process metadata where available.
 - TUI Connections and Ports workspaces backed by live read-only OS data.
 - TUI Connections and Ports workspaces now show clipped raw OS command output beside parsed endpoint rows.
+- Connections and Ports now support endpoint filtering and sorting in CLI, with TUI sort cycling.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.

@@ -1,11 +1,17 @@
 import {
 	formatConnections,
 	getActiveConnections,
+	parseConnectionSort,
 } from "../../core/connections";
 
 export async function connectionsCommand(
-	options: { raw?: boolean } = {},
+	options: { raw?: boolean; filter?: string; sort?: string } = {},
 ): Promise<void> {
 	const result = await getActiveConnections();
-	console.log(options.raw ? result.rawOutput : formatConnections(result));
+	const sort = parseConnectionSort(options.sort);
+	console.log(
+		options.raw
+			? result.rawOutput
+			: formatConnections(result, { filter: options.filter, sort }),
+	);
 }
