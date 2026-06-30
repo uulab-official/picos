@@ -9,6 +9,7 @@ import {
 	formatConnectionsWorkspaceRows,
 	formatPortProcessControlConfirmationAuditMessage,
 	formatPortProcessControlExecutionRows,
+	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
@@ -761,6 +762,42 @@ describe("endpoint TUI panel formatting", () => {
 			"blockers=mutation-controls-disabled",
 			"adapter=macos",
 			"command=kill -TERM 12345",
+		]);
+	});
+
+	test("formats selected port process control inspector rows", () => {
+		const preview = createSelectedPortProcessControlPreview(
+			[
+				{
+					protocol: "tcp",
+					localAddress: "127.0.0.1",
+					localPort: "5173",
+					pid: "777",
+					command: "vite",
+					user: "alice",
+				},
+			],
+			0,
+		);
+		if (!preview) {
+			throw new Error("expected port process control preview");
+		}
+
+		expect(
+			formatPortProcessControlInspectorRows(preview, {
+				adapter: "linux",
+				command: "kill",
+				args: ["-TERM", "<pid>"],
+				note: "terminate a selected user-owned process",
+			}),
+		).toEqual([
+			"PORT CONTROL",
+			"target=127.0.0.1:5173 pid=777 process=vite",
+			"status=blocked policy=disabled confirmed=false dryRun=true",
+			"willExecute=false reason=mutation-controls-disabled",
+			"blockers=mutation-controls-disabled",
+			"adapter=linux",
+			"command=kill -TERM 777",
 		]);
 	});
 

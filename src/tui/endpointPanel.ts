@@ -323,6 +323,24 @@ export function formatPortProcessControlExecutionRows(
 	);
 }
 
+export function formatPortProcessControlInspectorRows(
+	preview: PortProcessControlPreview,
+	commandPreview?: ActionPreviewCommand,
+	policy: ControlExecutionPolicy = defaultControlExecutionPolicy,
+): string[] {
+	const executionRows = formatPortProcessControlExecutionRows(
+		preview,
+		undefined,
+		commandPreview,
+		policy,
+	);
+	return [
+		"PORT CONTROL",
+		`target=${preview.port.localAddress}:${preview.port.localPort} pid=${preview.port.pid} process=${preview.port.command}`,
+		...executionRows.slice(1),
+	];
+}
+
 export function getSelectedConnectionClipboardPreview(
 	connections: ActiveConnection[],
 	selectedIndex: number,

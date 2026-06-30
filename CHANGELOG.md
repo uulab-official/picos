@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Ports now support `I` to pin the selected listening PID's process-control policy and blockers in the side Inspector without opening the confirmation prompt.
 - Ports `K` process-control prompts now show shared control execution blocker rows and log a matching control execution audit event after confirmation.
 - Ports `K` process-control previews now open an exact `:port-control` confirmation prompt and record accepted/rejected audit events while execution remains disabled.
 - Ports workspace now exposes a lazyifconfig-inspired locked process termination preview for the selected listening port with `K`, including PID, process, user, exact confirmation text, and dry-run lock rows.
