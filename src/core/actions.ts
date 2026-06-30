@@ -18,7 +18,8 @@ export type PicosAction = {
 		| "tools"
 		| "timeline"
 		| "raw"
-		| "remote";
+		| "remote"
+		| "clipboard";
 	risk: ActionRisk;
 	privilege: ActionPrivilege;
 	enabled: boolean;
@@ -273,6 +274,18 @@ const actionCatalog: PicosAction[] = [
 		enabled: false,
 		confirmationRequired: true,
 		confirmationPhrase: "copy file",
+	},
+	{
+		id: "clipboard.write",
+		title: "Write clipboard",
+		description:
+			"Write a selected endpoint or process resource summary after preview.",
+		category: "clipboard",
+		risk: "write",
+		privilege: "user",
+		enabled: false,
+		confirmationRequired: true,
+		confirmationPhrase: "copy",
 	},
 	{
 		id: "files.move",

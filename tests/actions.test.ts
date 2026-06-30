@@ -17,9 +17,9 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 30,
+			total: 31,
 			enabled: 21,
-			locked: 9,
+			locked: 10,
 			elevated: 4,
 		});
 	});
@@ -100,6 +100,16 @@ describe("action catalog", () => {
 				enabled: false,
 				confirmationRequired: true,
 				confirmationPhrase: "copy file",
+			}),
+		);
+		expect(catalog).toContainEqual(
+			expect.objectContaining({
+				id: "clipboard.write",
+				risk: "write",
+				privilege: "user",
+				enabled: false,
+				confirmationRequired: true,
+				confirmationPhrase: "copy",
 			}),
 		);
 		expect(catalog).toContainEqual(
