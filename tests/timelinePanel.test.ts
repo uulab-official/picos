@@ -4,6 +4,7 @@ import {
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
+	getSelectedTimelineClipboardPreview,
 	nextTimelineFilter,
 	nextTimelineSearchPreset,
 	saveTimelineSearchPreset,
@@ -169,6 +170,24 @@ describe("timeline TUI panel formatting", () => {
 			"[12:00:11] WARN audit  ports file evidence unavailable pid=777 reason=no snapshot returned",
 			"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
+	});
+
+	test("creates clipboard previews for selected audit timeline rows", () => {
+		const preview = getSelectedTimelineClipboardPreview(events, {
+			filter: "audit",
+			selectedIndex: 1,
+		});
+
+		expect(preview).toEqual({
+			source: "timeline-audit",
+			label: "timeline audit 12:00:06",
+			copyText:
+				'[12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
+			details: ["filter=audit", "eventId=12:00:06-warn-control-preview"],
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
 	});
 
 	test("filters network state-change events separately from actions", () => {

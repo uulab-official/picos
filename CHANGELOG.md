@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Timeline now supports a locked `c` copy preview for the latest filtered event, including audit row metadata.
 - Timeline audit filters now retain Ports file evidence lookup gaps so unavailable selected-PID snapshots remain searchable after leaving Ports.
 - Ports Inspector file evidence now shows unavailable/error rows when selected PID file lookup returns no snapshot or fails.
 - Ports Inspector file evidence now marks cached PID mismatches as stale instead of silently omitting the evidence row.

@@ -3,6 +3,10 @@ import {
 	createConfigCleanupPreview,
 	submitConfigCleanupConfirmation,
 } from "../core/configCleanup";
+import {
+	type ClipboardPreview,
+	createClipboardPreview,
+} from "./clipboardPreview";
 import type { ConsoleEvent } from "./events";
 
 export type TimelineFilter = "all" | "network" | "audit" | "action" | "raw";
@@ -95,6 +99,40 @@ export function filterTimelineEvents(
 	});
 }
 
+export function getSelectedTimelineClipboardPreview(
+	events: ConsoleEvent[],
+	options: {
+		filter?: TimelineFilter;
+		query?: string;
+		selectedIndex?: number;
+	} = {},
+): ClipboardPreview | undefined {
+	const filter = options.filter ?? "all";
+	const filtered = filterTimelineEvents(events, options.query, filter);
+	const index = getSelectedTimelineIndex(
+		filtered.length,
+		options.selectedIndex,
+	);
+	if (index === undefined) {
+		return undefined;
+	}
+	const event = filtered[index];
+	if (!event) {
+		return undefined;
+	}
+	const kind = classifyTimelineEvent(event);
+	return createClipboardPreview({
+		source: kind === "audit" ? "timeline-audit" : "timeline-event",
+		label: `timeline ${kind} ${event.time}`,
+		copyText: formatTimelineEvent(event, kind),
+		details: [
+			`filter=${filter}`,
+			options.query?.trim() ? `query=${options.query.trim()}` : "",
+			`eventId=${event.id}`,
+		],
+	});
+}
+
 export function saveTimelineSearchPreset(
 	presets: string[],
 	query: string,
@@ -177,6 +215,16 @@ export function submitTimelineSearchCleanupConfirmation(
 		presets: [],
 		removed: preview.count,
 	};
+}
+
+function getSelectedTimelineIndex(
+	length: number,
+	selectedIndex: number | undefined,
+): number | undefined {
+	if (length <= 0) {
+		return undefined;
+	}
+	return Math.min(Math.max(selectedIndex ?? length - 1, 0), length - 1);
 }
 
 function formatTimelineSummary(

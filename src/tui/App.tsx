@@ -320,6 +320,7 @@ import {
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
+	getSelectedTimelineClipboardPreview,
 	nextTimelineFilter,
 	nextTimelineSearchPreset,
 	saveTimelineSearchPreset,
@@ -3854,6 +3855,19 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "timeline" && focusArea === "workspaces" && input === "c") {
+			const preview = getSelectedTimelineClipboardPreview(events, {
+				filter: timelineFilter,
+				query: timelineSearchQuery,
+			});
+			if (!preview) {
+				log("warn", "no timeline row to copy");
+				return;
+			}
+			openClipboardConfirmation(preview);
+			return;
+		}
+
 		if (screen === "timeline" && focusArea === "workspaces" && input === "P") {
 			if (!timelineSearchQuery.trim()) {
 				log("warn", "no timeline search to save");
@@ -7178,8 +7192,8 @@ function TimelineWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.timeline")}</Text>
 			<Text color="gray">
-				t filter · f search · P save · ] preset · D cleanup · timeline.export
-				scoped log
+				t filter · f search · c copy latest · P save · ] preset · D cleanup ·
+				timeline.export scoped log
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
