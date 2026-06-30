@@ -44,6 +44,24 @@ describe("clipboard preview", () => {
 		]);
 	});
 
+	test("formats optional clipboard preview details before confirmation", () => {
+		const preview = createClipboardPreview({
+			source: "tool-row",
+			label: "network.connect example.com:443 status row 2",
+			copyText: "Elapsed: 42ms",
+			details: ["path b row", "section status row 2/2"],
+		});
+
+		expect(formatClipboardPreviewRows(preview)).toEqual([
+			"CLIPBOARD PREVIEW tool-row",
+			"label network.connect example.com:443 status row 2",
+			"detail path b row",
+			"detail section status row 2/2",
+			"copy Elapsed: 42ms",
+			"confirm copy locked",
+		]);
+	});
+
 	test("rejects empty clipboard preview values", () => {
 		expect(() =>
 			createClipboardPreview({

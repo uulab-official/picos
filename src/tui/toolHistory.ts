@@ -890,6 +890,7 @@ export function getSelectedToolOutputClipboardPreview(
 		source: "tool-output",
 		label: `${item.label} raw output`,
 		copyText: item.rawOutput,
+		details: formatToolClipboardPreviewDetails(item, "c raw"),
 	});
 }
 
@@ -905,6 +906,7 @@ export function getSelectedToolSummaryClipboardPreview(
 		source: "tool-summary",
 		label: `${item.label} summary`,
 		copyText: item.summary,
+		details: formatToolClipboardPreviewDetails(item, "y summary"),
 	});
 }
 
@@ -936,6 +938,9 @@ export function getSelectedToolSectionClipboardPreview(
 		source: selection === "target" ? "tool-target" : "tool-status",
 		label: `${item.label} ${selection} fields`,
 		copyText: sectionLines.join("\n"),
+		details: formatToolClipboardPreviewDetails(item, "v section", [
+			`section ${selection} rows ${sectionLines.length}`,
+		]),
 	});
 }
 
@@ -975,7 +980,23 @@ export function getSelectedToolSectionRowClipboardPreview(
 		source: "tool-row",
 		label: `${item.label} ${selection} row ${bounded + 1}`,
 		copyText: sectionLines[bounded] ?? "",
+		details: formatToolClipboardPreviewDetails(item, "b row", [
+			`section ${selection} row ${bounded + 1}/${sectionLines.length}`,
+		]),
 	});
+}
+
+function formatToolClipboardPreviewDetails(
+	item: ToolHistoryItem,
+	path: string,
+	extra: string[] = [],
+): string[] {
+	return [
+		`path ${path}`,
+		...extra,
+		`tool ${item.plan.toolId}`,
+		`action ${item.plan.actionId}`,
+	];
 }
 
 export function formatToolHistoryExport(

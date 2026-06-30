@@ -1224,6 +1224,7 @@ describe("TUI tool history", () => {
 			source: "tool-output",
 			label: "tools.dns example.com raw output",
 			copyText: "$ picos tools dns example.com\n[Summary]\nQuery: example.com",
+			details: ["path c raw", "tool dns", "action tools.dns"],
 			confirmation: "copy",
 			enabled: false,
 			reason: "Clipboard writes require explicit confirmation plumbing.",
@@ -1250,6 +1251,7 @@ describe("TUI tool history", () => {
 			source: "tool-summary",
 			label: "tools.dns example.com summary",
 			copyText: "Summary: Query: example.com | A: 2",
+			details: ["path y summary", "tool dns", "action tools.dns"],
 			confirmation: "copy",
 			enabled: false,
 			reason: "Clipboard writes require explicit confirmation plumbing.",
@@ -1294,6 +1296,12 @@ describe("TUI tool history", () => {
 			label: "network.connect example.com:443 target fields",
 			copyText:
 				"Host: example.com\nPort: 443\nCommand: picos tools telnet example.com 443\nTimeout: 2000ms",
+			details: [
+				"path v section",
+				"section target rows 4",
+				"tool telnet",
+				"action network.connect",
+			],
 			confirmation: "copy",
 			enabled: false,
 			reason: "Clipboard writes require explicit confirmation plumbing.",
@@ -1359,6 +1367,12 @@ describe("TUI tool history", () => {
 				label: "network.connect example.com:443 target fields",
 				copyText:
 					"Host: example.com\nPort: 443\nCommand: picos tools telnet example.com 443\nTimeout: 2000ms",
+				details: [
+					"path v section",
+					"section target rows 4",
+					"tool telnet",
+					"action network.connect",
+				],
 			}),
 		);
 		expect(
@@ -1368,6 +1382,12 @@ describe("TUI tool history", () => {
 				source: "tool-status",
 				label: "network.connect example.com:443 status fields",
 				copyText: "OPEN\nElapsed: 42ms",
+				details: [
+					"path v section",
+					"section status rows 2",
+					"tool telnet",
+					"action network.connect",
+				],
 			}),
 		);
 		expect(nextToolSectionClipboardSelection("target")).toBe("status");
@@ -1444,6 +1464,12 @@ describe("TUI tool history", () => {
 				source: "tool-row",
 				label: "network.connect example.com:443 target row 3",
 				copyText: "Command: picos tools telnet example.com 443",
+				details: [
+					"path b row",
+					"section target row 3/4",
+					"tool telnet",
+					"action network.connect",
+				],
 			}),
 		);
 		expect(
@@ -1453,6 +1479,12 @@ describe("TUI tool history", () => {
 				source: "tool-row",
 				label: "network.connect example.com:443 status row 2",
 				copyText: "Elapsed: 42ms",
+				details: [
+					"path b row",
+					"section status row 2/2",
+					"tool telnet",
+					"action network.connect",
+				],
 			}),
 		);
 		expect(

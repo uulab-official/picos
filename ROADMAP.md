@@ -1907,6 +1907,20 @@ Goal: explain why TCP-only copy actions are unavailable without making operators
 - Tests cover non-TCP hints, TCP omission, and placement after the copy availability strip.
 - Next: add Tools copy availability to the locked clipboard confirmation prompt so the modal echoes the selected copy path.
 
+## v0.4.80 - Tools Clipboard Path Modal
+
+Status: draft PR #142 on `codex/picos-v0.4.80-tools-clipboard-path-modal`.
+
+Goal: make locked clipboard confirmations repeat the selected Tools copy path before the operator types `copy`.
+
+- Clipboard previews now support optional detail rows shown before the payload and confirmation line.
+- Tools raw, summary, TCP section, and TCP row previews include path/tool/action details in the locked modal.
+- TCP section previews include the selected section and row count.
+- TCP row previews include the selected section and bounded row position.
+- Existing non-Tools clipboard previews keep their current compact rows.
+- Tests cover optional detail rows plus Tools raw, summary, section, and row metadata.
+- Next: add compact clipboard preview clipping so large raw payloads do not dominate the confirmation modal.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
