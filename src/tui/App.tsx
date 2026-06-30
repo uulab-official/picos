@@ -291,6 +291,7 @@ import {
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
 	nextToolHistorySort,
+	removeToolTargetPreset,
 	rerunToolHistoryItem,
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
@@ -3046,6 +3047,40 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "X") {
+			const preset =
+				toolTargetPresets[
+					Math.min(
+						Math.max(selectedToolTargetPresetIndex, 0),
+						toolTargetPresets.length - 1,
+					)
+				];
+			if (!preset) {
+				log("warn", "no tool target preset selected");
+				return;
+			}
+			const next = removeToolTargetPreset(customToolTargetPresets, preset);
+			if (next.length === customToolTargetPresets.length) {
+				log("warn", `tool target ${preset.label} is not a saved preset`);
+				return;
+			}
+			setCustomToolTargetPresets(next);
+			setSelectedToolTargetPresetIndex((index) =>
+				Math.min(index, Math.max(0, next.length - 1)),
+			);
+			void setConfigToolTargetPresets(next).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target delete failed ${caught.message}`
+						: `tool target delete failed ${String(caught)}`,
+				),
+			);
+			log("info", `tool target removed ${preset.label} ${preset.target}`);
+			setToolCopyPreview(false);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "R") {
 			const preset =
 				toolTargetPresets[
@@ -5271,8 +5306,8 @@ function ToolsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub · n target · T save target · R run · tab detail · f filter · P
-				save filter
+				Tools Hub · n target · T save target · X delete target · R run · tab
+				detail · f filter · P save filter
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]
