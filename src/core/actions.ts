@@ -17,6 +17,7 @@ export type PicosAction = {
 		| "ports"
 		| "tools"
 		| "timeline"
+		| "logs"
 		| "raw"
 		| "remote"
 		| "clipboard";
@@ -264,6 +265,17 @@ const actionCatalog: PicosAction[] = [
 		title: "Export timeline",
 		description: "Save local in-app network events to a timestamped file.",
 		category: "timeline",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "logs.read",
+		title: "Read OS logs",
+		description:
+			"Read recent local OS log entries through the platform log adapter.",
+		category: "logs",
 		risk: "read",
 		privilege: "none",
 		enabled: true,

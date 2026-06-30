@@ -29,6 +29,28 @@ export function interfaceStatsCommand(): { command: string; args: string[] } {
 	return { command: "netstat", args: ["-ibn"] };
 }
 
+export function osLogCommand(): {
+	source: string;
+	command: string;
+	args: string[];
+	note: string;
+} {
+	return {
+		source: "macos-unified-log",
+		command: "log",
+		args: [
+			"show",
+			"--style",
+			"compact",
+			"--last",
+			"2m",
+			"--predicate",
+			'process != ""',
+		],
+		note: "recent unified system log entries",
+	};
+}
+
 export function controlPreviewCommand(
 	actionId: string,
 ): ActionPreviewCommand | undefined {

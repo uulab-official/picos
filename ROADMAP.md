@@ -1067,6 +1067,21 @@ Goal: make the console feel more like a tiny OS by surfacing live local resource
 - Tests cover snapshot construction, formatting, and CLI output.
 - Next: Logs workspace real OS log readers and TUI monitor refresh shortcuts.
 
+## v0.4.17 - OS Logs Snapshot
+
+Status: draft PR #79.
+
+Goal: make Logs a real OS console panel instead of a placeholder diagnostics buffer.
+
+- `picos logs --limit <n>` reads recent local OS log entries.
+- macOS uses the unified log, Linux uses `journalctl`, and Windows uses the System event log.
+- Log commands are adapter-owned and executed only through `safeExec()`.
+- Log snapshots include source, command preview, status, note, severity hints, and bounded raw rows.
+- TUI Logs workspace renders the latest OS log snapshot and keeps the doctor buffer as supporting context.
+- Action Center includes the read-only `logs.read` action for keyboard-driven refresh.
+- Tests cover platform command construction, parsing, formatting, action catalog visibility, and CLI output.
+- Next: log filtering/search presets and live follow mode.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

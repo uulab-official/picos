@@ -39,6 +39,24 @@ export function interfaceStatsCommand(): { command: string; args: string[] } {
 	};
 }
 
+export function osLogCommand(limit = 50): {
+	source: string;
+	command: string;
+	args: string[];
+	note: string;
+} {
+	return {
+		source: "windows-system-event-log",
+		command: "powershell",
+		args: [
+			"-NoProfile",
+			"-Command",
+			`Get-WinEvent -LogName System -MaxEvents ${limit} | Format-Table -AutoSize TimeCreated,ProviderName,LevelDisplayName,Id,Message`,
+		],
+		note: "recent Windows System event log entries",
+	};
+}
+
 export function controlPreviewCommand(
 	actionId: string,
 ): ActionPreviewCommand | undefined {

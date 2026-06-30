@@ -86,6 +86,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - `picos update` and the Status workspace now include a read-only GitHub Release latest check alongside the npm registry check.
 - `picos release-health` now prints package, artifact, CI, and manual release workflow health rows for pre-publish review.
 - `picos monitor` and the TUI Dashboard/System workspaces now show a read-only system monitor snapshot with load average, memory usage, CPU, and top process rows.
+- `picos logs` and the TUI Logs workspace now read recent local OS logs through macOS, Linux, and Windows adapters while keeping the command read-only and routed through `safeExec()`.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.
