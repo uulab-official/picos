@@ -1667,6 +1667,75 @@ describe("TUI tool history", () => {
 		);
 	});
 
+	test("truncates long TCP copy preview values for narrow-safe footers", () => {
+		const tcpResult = {
+			title: "Telnet TCP Check",
+			sections: [
+				{
+					label: "Target",
+					lines: [
+						"Host: very-long-service-name-with-an-extra-long-preview.internal.example.com",
+						"Port: 443",
+						"Command: picos tools telnet very-long-service-name-with-an-extra-long-preview.internal.example.com 443",
+						"Timeout: 2000ms",
+					],
+				},
+				{
+					label: "Status",
+					lines: [
+						"OPEN",
+						"Error: connect ETIMEDOUT very-long-service-name-with-an-extra-long-preview.internal.example.com:443 after repeated retries",
+					],
+				},
+			],
+			rawOutput:
+				"$ picos tools telnet very-long-service-name-with-an-extra-long-preview.internal.example.com 443\n[Target]\nHost: very-long-service-name-with-an-extra-long-preview.internal.example.com\nPort: 443\nCommand: picos tools telnet very-long-service-name-with-an-extra-long-preview.internal.example.com 443\nTimeout: 2000ms\n[Status]\nOPEN\nError: connect ETIMEDOUT very-long-service-name-with-an-extra-long-preview.internal.example.com:443 after repeated retries",
+		};
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "telnet",
+					args: [
+						"very-long-service-name-with-an-extra-long-preview.internal.example.com",
+						"443",
+					],
+					label:
+						"network.connect very-long-service-name-with-an-extra-long-preview.internal.example.com:443",
+				},
+				result: tcpResult,
+			},
+			"12:00:00",
+		);
+		const rows = formatToolsWorkspaceRows(
+			history,
+			20,
+			0,
+			"",
+			"time",
+			"none",
+			[],
+			"raw",
+			[],
+			0,
+			"status",
+			1,
+		);
+
+		const sectionPreview = rows.find((row) => row.startsWith("copy section:"));
+		const targetPreview = rows.find((row) => row.startsWith("copy target:"));
+		expect(sectionPreview).toBe(
+			"copy section: section=status rows=2 first=OPEN",
+		);
+		expect(targetPreview).toStartWith(
+			"copy target: section=status rows=2 row=2 text=Error: connect ETIMEDOUT",
+		);
+		expect(targetPreview).toEndWith("...");
+		expect(targetPreview).not.toContain("repeated retries");
+		expect(targetPreview?.length).toBeLessThanOrEqual(120);
+	});
+
 	test("creates scoped export plans for selected tool history", () => {
 		const history = appendToolHistory(
 			appendToolHistory(
