@@ -1,14 +1,81 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+	access,
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	archiveHandoffFile,
 	formatHandoffIndexRows,
 	getSelectedHandoffIndexItem,
 	readHandoffIndex,
 } from "../src/core/handoffIndex";
 
 describe("handoff index", () => {
+	test("archives only picos-owned handoff files under the config tree", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-handoff-archive-"));
+		try {
+			await mkdir(join(root, "routes"), { recursive: true });
+			const handoffPath = join(
+				root,
+				"routes",
+				"picos-routes-raw-2026-06-30T120000000Z.md",
+			);
+			await writeFile(
+				handoffPath,
+				[
+					"# picos route handoff",
+					"generatedAt=2026-06-30T12:00:00.000Z",
+					"view=raw",
+					"",
+				].join("\n"),
+			);
+
+			const result = await archiveHandoffFile(root, handoffPath);
+
+			expect(result).toMatchObject({
+				status: "archived",
+				sourcePath: handoffPath,
+			});
+			expect(result.archivedPath).toContain(join(root, "archive", "routes"));
+			expect(await readFile(result.archivedPath, "utf8")).toContain("view=raw");
+			expect(await pathExists(handoffPath)).toBe(false);
+			expect((await readHandoffIndex(root)).items).toHaveLength(0);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("refuses to archive files outside picos handoff directories", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-handoff-archive-"));
+		const outside = await mkdtemp(join(tmpdir(), "picos-outside-"));
+		try {
+			const outsidePath = join(
+				outside,
+				"picos-routes-raw-2026-06-30T120000000Z.md",
+			);
+			await writeFile(outsidePath, "generatedAt=2026-06-30T12:00:00.000Z\n");
+
+			const result = await archiveHandoffFile(root, outsidePath);
+
+			expect(result).toEqual({
+				status: "blocked",
+				sourcePath: outsidePath,
+				archivedPath: "",
+				message: "handoff archive is limited to picos-owned handoff files",
+			});
+			expect(await pathExists(outsidePath)).toBe(true);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+			await rm(outside, { recursive: true, force: true });
+		}
+	});
+
 	test("lists route and endpoint handoff files newest first", async () => {
 		const root = await mkdtemp(join(tmpdir(), "picos-handoff-index-"));
 		try {
@@ -92,7 +159,7 @@ describe("handoff index", () => {
 				],
 			},
 			1,
-			4,
+			5,
 		);
 
 		expect(rows).toEqual([
@@ -100,6 +167,7 @@ describe("handoff index", () => {
 			"  endpoint ports raw 2026-06-30T13:00:00.000Z ports raw output",
 			"> route routes diagnostics 2026-06-30T12:00:00.000Z route diagnostics",
 			"open target=/tmp/picos/routes/picos-routes-diagnostics.md",
+			"archive target=/tmp/picos/routes/picos-routes-diagnostics.md",
 		]);
 		expect(
 			getSelectedHandoffIndexItem(
@@ -122,3 +190,12 @@ describe("handoff index", () => {
 		).toBe("route raw output");
 	});
 });
+
+async function pathExists(path: string): Promise<boolean> {
+	try {
+		await access(path);
+		return true;
+	} catch {
+		return false;
+	}
+}

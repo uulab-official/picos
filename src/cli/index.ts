@@ -135,6 +135,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.action(updateCommand);
 	cli
 		.command("handoffs", "List route and endpoint handoff files")
+		.option("--archive <path>", "Archive a picos route/endpoint handoff file")
 		.action(handoffsCommand);
 	cli
 		.command("release-health", "Check release automation health")

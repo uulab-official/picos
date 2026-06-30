@@ -78,6 +78,7 @@ import {
 	withParentDirectoryEntry,
 } from "../core/files";
 import {
+	archiveHandoffFile,
 	formatHandoffIndexRows,
 	getSelectedHandoffIndexItem,
 	type HandoffIndex,
@@ -1130,6 +1131,23 @@ export function App(): React.ReactElement {
 		setScreen("status");
 		log("info", `file open confirmation opened for ${item.label}`);
 	}, [handoffIndex, log, selectedHandoffIndex]);
+
+	const archiveSelectedHandoffFile = useCallback(async () => {
+		const item = getSelectedHandoffIndexItem(
+			handoffIndex,
+			selectedHandoffIndex,
+		);
+		if (!item) {
+			log("warn", "no handoff file selected");
+			return;
+		}
+		const result = await archiveHandoffFile(handoffIndex.baseDir, item.path);
+		log(
+			result.status === "archived" ? "ok" : "warn",
+			`handoff archive ${result.message}`,
+		);
+		await refreshHandoffIndex(false);
+	}, [handoffIndex, log, refreshHandoffIndex, selectedHandoffIndex]);
 
 	const exportToolHistory = useCallback(
 		async (scope: ToolHistoryExportScope) => {
@@ -2567,6 +2585,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "O") {
 			openSelectedHandoffFile();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "A") {
+			void archiveSelectedHandoffFile();
 			return;
 		}
 
@@ -5847,7 +5870,9 @@ function StatusWorkspace({
 				</Box>
 			) : null}
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">HANDOFF INDEX · H refresh · ] select · O open</Text>
+				<Text color="gray">
+					HANDOFF INDEX · H refresh · ] select · O open · A archive
+				</Text>
 				{formatHandoffIndexRows(handoffIndex, selectedHandoffIndex, 6).map(
 					(row) => (
 						<Text
@@ -5859,7 +5884,9 @@ function StatusWorkspace({
 										? "cyan"
 										: row.startsWith("open target")
 											? "gray"
-											: "white"
+											: row.startsWith("archive target")
+												? "gray"
+												: "white"
 							}
 						>
 							{row}

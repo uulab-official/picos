@@ -1355,6 +1355,19 @@ Goal: let repeated diagnostics start from the operator's own saved targets, not 
 - Tests cover config defaults, config-store persistence, target preset normalization, de-duplication, and custom preset merge order.
 - Next: handoff file cleanup/archive controls and richer custom target editing.
 
+## v0.4.38 - Handoff Archive Controls
+
+Status: draft PR #100.
+
+Goal: keep exported route/endpoint evidence useful after it leaves the active panel without letting cleanup touch arbitrary files.
+
+- Core handoff archive moves are limited to picos-owned route/endpoint Markdown files under the config directory.
+- Archived files move into `archive/routes` or `archive/endpoints`, leaving the active handoff index clean.
+- `picos handoffs --archive <path>` archives a selected route/endpoint evidence file from the CLI.
+- Status workspace now shows `archive target=...` and supports `A` to archive the selected handoff file, then refreshes the handoff index.
+- Tests cover archive path scoping, blocked outside files, CLI archive output, and updated handoff index rows.
+- Next: richer handoff retention policies and custom Tools target editing.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

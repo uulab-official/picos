@@ -1,5 +1,5 @@
-import { readdir, readFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { mkdir, readdir, readFile, rename } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import type { FileOpenSource } from "./fileOpen";
 
 export type HandoffIndexKind = "routes" | "connections" | "ports";
@@ -17,6 +17,13 @@ export type HandoffIndexItem = {
 export type HandoffIndex = {
 	baseDir: string;
 	items: HandoffIndexItem[];
+};
+
+export type HandoffArchiveResult = {
+	status: "archived" | "blocked";
+	sourcePath: string;
+	archivedPath: string;
+	message: string;
 };
 
 type HandoffDirectory = {
@@ -53,8 +60,10 @@ export function formatHandoffIndexRows(
 	visibleRows = 8,
 ): string[] {
 	const selected = getSelectedHandoffIndexItem(index, selectedIndex);
-	const selectedPath = selected ? [`open target=${selected.path}`] : [];
-	const budget = Math.max(0, visibleRows - 1 - selectedPath.length);
+	const selectedTargets = selected
+		? [`open target=${selected.path}`, `archive target=${selected.path}`]
+		: [];
+	const budget = Math.max(0, visibleRows - 1 - selectedTargets.length);
 	return [
 		`HANDOFFS ${index.items.length} base=${index.baseDir}`,
 		...index.items
@@ -69,7 +78,7 @@ export function formatHandoffIndexRows(
 					item.label,
 				].join(" "),
 			),
-		...selectedPath,
+		...selectedTargets,
 	].slice(0, visibleRows);
 }
 
@@ -83,6 +92,32 @@ export function getSelectedHandoffIndexItem(
 	return index.items[
 		Math.min(Math.max(selectedIndex, 0), index.items.length - 1)
 	];
+}
+
+export async function archiveHandoffFile(
+	baseDir: string,
+	targetPath: string,
+): Promise<HandoffArchiveResult> {
+	const match = getHandoffArchiveMatch(baseDir, targetPath);
+	if (!match) {
+		return {
+			status: "blocked",
+			sourcePath: targetPath,
+			archivedPath: "",
+			message: "handoff archive is limited to picos-owned handoff files",
+		};
+	}
+
+	const archiveDir = join(resolve(baseDir), "archive", match.dir);
+	const archivedPath = join(archiveDir, basename(match.target));
+	await mkdir(archiveDir, { recursive: true });
+	await rename(match.target, archivedPath);
+	return {
+		status: "archived",
+		sourcePath: match.target,
+		archivedPath,
+		message: `archived ${basename(match.target)}`,
+	};
 }
 
 async function readHandoffDirectory(
@@ -121,6 +156,23 @@ function isPicosHandoffFilename(
 		return /^picos-routes-[a-z-]+-\d{4}-\d{2}-\d{2}T/.test(filename);
 	}
 	return /^picos-(connections|ports)-[a-z-]+-\d{4}-\d{2}-\d{2}T/.test(filename);
+}
+
+function getHandoffArchiveMatch(
+	baseDir: string,
+	targetPath: string,
+): { dir: HandoffDirectory["dir"]; target: string } | undefined {
+	const target = resolve(targetPath);
+	for (const directory of handoffDirectories) {
+		const handoffDir = resolve(baseDir, directory.dir);
+		if (
+			dirname(target) === handoffDir &&
+			isPicosHandoffFilename(directory.dir, basename(target))
+		) {
+			return { dir: directory.dir, target };
+		}
+	}
+	return undefined;
 }
 
 async function parseHandoffFile(
