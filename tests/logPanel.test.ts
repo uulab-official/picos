@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { OsLogSnapshot } from "../src/core/osLogs";
 import {
+	createLogCleanupPreview,
 	formatLogProfileLabel,
 	formatLogWorkspaceRows,
 	type LogProfile,
@@ -8,6 +9,7 @@ import {
 	nextLogSearchPreset,
 	saveLogProfile,
 	saveLogSearchPreset,
+	submitLogCleanupConfirmation,
 } from "../src/tui/logPanel";
 
 const snapshot: OsLogSnapshot = {
@@ -129,5 +131,54 @@ describe("log TUI panel formatting", () => {
 			),
 		).toEqual({ level: "fail", query: "error" });
 		expect(nextLogProfile([], { level: "all", query: "" })).toBeUndefined();
+	});
+
+	test("requires exact confirmation before clearing saved log presets", () => {
+		const presets = ["kernel", "dns"];
+		const profiles: LogProfile[] = [{ level: "warn", query: "kernel" }];
+		const preview = createLogCleanupPreview(presets, profiles);
+
+		expect(preview).toEqual({
+			count: 3,
+			confirmationPhrase: "clear logs",
+			cleanup: {
+				id: "logs.presets",
+				label: "Logs presets",
+				scope: "logs",
+				count: 3,
+				verb: "clear",
+				confirmationPhrase: "clear logs",
+				rows: [
+					"CONFIG CLEANUP",
+					"target=Logs presets",
+					"scope=logs count=3",
+					"confirm clear logs locked",
+				],
+			},
+			rows: [
+				"LOGS CLEANUP",
+				"search-presets=2 profiles=1",
+				"confirm clear logs locked",
+			],
+		});
+		expect(
+			submitLogCleanupConfirmation(presets, profiles, "clear log"),
+		).toEqual({
+			confirmed: false,
+			message: "logs cleanup rejected",
+			presets,
+			profiles,
+			removed: 0,
+		});
+		expect(
+			submitLogCleanupConfirmation(presets, profiles, " clear logs "),
+		).toEqual({
+			confirmed: true,
+			message: "logs cleanup removed 3 presets",
+			presets: [],
+			profiles: [],
+			removed: 3,
+		});
+		expect(createLogCleanupPreview([], [])).toBeUndefined();
 	});
 });
