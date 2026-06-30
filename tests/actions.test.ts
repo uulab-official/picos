@@ -263,6 +263,7 @@ describe("action catalog", () => {
 				"Restart-Service -Name '<service>' -WhatIf",
 			],
 			note: "restart a Windows service with WhatIf preview",
+			dryRunExecutable: true,
 		});
 		expect(linuxControlPreviewCommand("network.inspect")).toBeUndefined();
 	});

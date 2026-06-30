@@ -142,6 +142,7 @@ function classifyTimelineEvent(
 		message.includes("control confirmation") ||
 		message.includes("control preview") ||
 		message.includes("control simulation") ||
+		message.includes("control execution") ||
 		message.includes("audit") ||
 		message.includes("locked") ||
 		message.includes("failed")
