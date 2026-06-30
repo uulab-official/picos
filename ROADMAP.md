@@ -950,6 +950,19 @@ Goal: make the current execution policy visible before an operator tries a dry-r
 - Inspector renders policy rows even before a dry-run attempt.
 - Next: richer adapter dry-run coverage and policy-state shortcuts from the TUI.
 
+## v0.4.8 - Read-Only Update Check
+
+Status: draft PR #70.
+
+Goal: bring lazy terminal-tool update awareness into picos without executing installers.
+
+- `picos update` checks the npm registry for the latest `@uulab/picos` version.
+- Update check output shows package, current version, latest version, status, registry URL, and install hint.
+- Registry failures are shown as read-only diagnostics instead of throwing opaque errors.
+- Action Center exposes `picos.update` as a safe read-only action.
+- Status workspace shows the latest update-check result after the action runs.
+- Next: locked self-update/apply preview with explicit confirmation and release-note handoff.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

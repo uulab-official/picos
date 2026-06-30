@@ -291,6 +291,16 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "picos.update",
+		title: "Check for updates",
+		description: "Read npm registry metadata for the latest picos version.",
+		category: "system",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "remote.profiles",
 		title: "List remote profiles",
 		description:
