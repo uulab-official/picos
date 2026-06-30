@@ -759,17 +759,31 @@ Goal: make Route Inspector navigation match the focused tab model used by endpoi
 - Table view remains the default to preserve the current route table plus path overview.
 - Next: interface platform detail tabs.
 
+## v0.3.56 - Interface Detail Tabs
+
+Status: draft PR #57.
+
+Goal: make Interfaces behave like a focused lazyifconfig-style adapter inspector instead of a flat inventory list.
+
+- Interfaces support `list`, `detail`, `stats`, and `platform` view modes.
+- The TUI Interfaces workspace cycles detail views with `Tab`.
+- The TUI Interfaces workspace uses `j/k` to select the active adapter.
+- Detail view focuses CIDR, IPv4/IPv6, MAC, netmask, gateway, and DNS for the selected adapter.
+- Stats view focuses MTU, RX/TX bytes, RX/TX packets, and link status for the selected adapter.
+- Platform view explains the OS data sources used for interface inventory and statistics.
+- Next: richer subnet labels and VPN route hints.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
-- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
+- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, stable row sorting, keyboard selection, and list/detail/stats/platform panes landed; next richer subnet labels.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
-- Route Inspector depth: route diagnostics, raw/table/diagnostics/path tabs, destination path lookup UI, and sortable rows landed; next VPN route hints and interface platform detail.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, detail/raw/process tabs, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next interface platform detail tabs.
-- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, raw output handoff, locked summary/raw-output copy shortcuts, and scoped markdown export landed; next platform detail tabs for routes/endpoints/interfaces.
+- Route Inspector depth: route diagnostics, raw/table/diagnostics/path tabs, destination path lookup UI, and sortable rows landed; next VPN route hints.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, detail/raw/process tabs, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer endpoint search.
+- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, raw output handoff, locked summary/raw-output copy shortcuts, and scoped markdown export landed; next platform-aware presets and export scopes.
 - Timeline: live EventDock history, network/action/audit/raw filters, audit export, latest audit reload, and network status/address/public-IP change events landed; next richer event search and export scopes.
-- Raw output viewer for routes, connections, ports, and Tools history landed; next interface platform detail tabs.
+- Raw output viewer for routes, connections, ports, and Tools history landed; next richer platform source viewers.
 
 ## v0.4.0 - Privileged Controls Framework
 
