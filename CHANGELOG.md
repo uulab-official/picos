@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status now indexes Timeline audit export files, with refresh, selection, and locked file-open controls.
 - Timeline now supports `e` to export the selected filtered/search-matched row as a single audit file.
 - Timeline now supports a visible `j`/`k` cursor so older filtered audit rows can be selected before opening the locked copy preview.
 - Timeline now supports a locked `c` copy preview for the latest filtered event, including audit row metadata.

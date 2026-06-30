@@ -23,6 +23,20 @@ export type ConsoleAuditExportRead = {
 	events: AuditLogEvent[];
 };
 
+export type ConsoleAuditExportIndexItem = {
+	fileName: string;
+	path: string;
+	generatedAt: string;
+	scope: "all" | "filtered" | "selected";
+	query?: string;
+	entryCount: number;
+};
+
+export type ConsoleAuditExportIndex = {
+	baseDir: string;
+	items: ConsoleAuditExportIndexItem[];
+};
+
 export function formatConsoleAuditLog(
 	events: AuditLogEvent[],
 	options: {
@@ -129,6 +143,79 @@ export async function readLatestConsoleAuditExport(
 	};
 }
 
+export async function readConsoleAuditExportIndex(
+	baseDir: string,
+	limit = 20,
+): Promise<ConsoleAuditExportIndex> {
+	const auditDir = join(baseDir, "audit");
+	let files: string[];
+	try {
+		files = await readdir(auditDir);
+	} catch {
+		return { baseDir, items: [] };
+	}
+
+	const items = (
+		await Promise.all(
+			files
+				.filter((file) => /^picos-audit-.+\.log$/.test(file))
+				.map(async (fileName) => {
+					const path = join(auditDir, fileName);
+					return createConsoleAuditExportIndexItem(
+						fileName,
+						path,
+						await readFile(path, "utf8"),
+					);
+				}),
+		)
+	)
+		.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))
+		.slice(0, limit);
+
+	return { baseDir, items };
+}
+
+export function getSelectedConsoleAuditExport(
+	index: ConsoleAuditExportIndex,
+	selectedIndex: number,
+): ConsoleAuditExportIndexItem | undefined {
+	if (index.items.length === 0) {
+		return undefined;
+	}
+	return index.items[
+		Math.min(Math.max(selectedIndex, 0), index.items.length - 1)
+	];
+}
+
+export function formatConsoleAuditExportIndexRows(
+	index: ConsoleAuditExportIndex,
+	selectedIndex = 0,
+	visibleRows = 5,
+): string[] {
+	const selected = getSelectedConsoleAuditExport(index, selectedIndex);
+	const pathRows = selected ? [`path=${selected.path}`] : [];
+	const budget = Math.max(0, visibleRows - 1 - pathRows.length);
+	return [
+		`AUDIT EXPORTS ${index.items.length} base=${index.baseDir}`,
+		...(index.items.length > 0
+			? index.items
+					.slice(0, budget)
+					.map((item, itemIndex) =>
+						[
+							itemIndex === selectedIndex ? ">" : " ",
+							item.scope,
+							`events=${item.entryCount}`,
+							item.generatedAt,
+							item.query ? `query=${item.query}` : "",
+						]
+							.filter(Boolean)
+							.join(" "),
+					)
+			: ["no audit exports yet"]),
+		...pathRows,
+	].slice(0, visibleRows);
+}
+
 function createPersistedEventId(
 	time: string,
 	level: AuditLogEventLevel,
@@ -152,4 +239,50 @@ function toAuditLogEventLevel(level: string | undefined): AuditLogEventLevel {
 		return normalized;
 	}
 	return "info";
+}
+
+function createConsoleAuditExportIndexItem(
+	fileName: string,
+	path: string,
+	content: string,
+): ConsoleAuditExportIndexItem {
+	const metadata = parseAuditMetadata(content);
+	return {
+		fileName,
+		path,
+		generatedAt:
+			metadata.generatedAt ?? generatedAtFromAuditFilename(fileName) ?? "-",
+		scope: normalizeAuditExportScope(metadata.scope),
+		...(metadata.query ? { query: metadata.query } : {}),
+		entryCount: Number.parseInt(metadata.events ?? "0", 10) || 0,
+	};
+}
+
+function parseAuditMetadata(content: string): Record<string, string> {
+	const metadata: Record<string, string> = {};
+	for (const line of content.split(/\r?\n/).slice(0, 12)) {
+		const match = /^([A-Za-z][A-Za-z0-9]*)=(.*)$/.exec(line);
+		if (match) {
+			metadata[match[1]] = match[2] ?? "";
+		}
+	}
+	return metadata;
+}
+
+function normalizeAuditExportScope(
+	value: string | undefined,
+): ConsoleAuditExportIndexItem["scope"] {
+	if (value === "filtered" || value === "selected") {
+		return value;
+	}
+	return "all";
+}
+
+function generatedAtFromAuditFilename(fileName: string): string | undefined {
+	const match = /(\d{4}-\d{2}-\d{2}T\d{6}\d{3}Z)\.log$/.exec(fileName);
+	if (!match?.[1]) {
+		return undefined;
+	}
+	const value = match[1];
+	return `${value.slice(0, 13)}:${value.slice(13, 15)}:${value.slice(15, 17)}.${value.slice(17, 20)}Z`;
 }
