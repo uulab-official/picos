@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { getActionCatalog, getActionSummary } from "../src/core/actions";
+import {
+	createActionPreviewPlan,
+	formatActionPreviewRows,
+	getActionCatalog,
+	getActionSummary,
+} from "../src/core/actions";
 
 describe("action catalog", () => {
 	test("keeps write and destructive actions locked by default", () => {
@@ -171,5 +176,42 @@ describe("action catalog", () => {
 		expect(getActionCatalog().map((action) => action.id)).toContain(
 			"tools.export",
 		);
+	});
+
+	test("creates dry-run previews for locked OS-changing actions", () => {
+		const plan = createActionPreviewPlan("dns.flush", "macos");
+
+		expect(plan).toBeDefined();
+		if (!plan) {
+			throw new Error("expected dns.flush preview plan");
+		}
+		expect(plan).toEqual({
+			actionId: "dns.flush",
+			title: "Flush DNS cache",
+			risk: "write",
+			privilege: "admin",
+			enabled: false,
+			dryRun: true,
+			confirmationPhrase: "flush dns",
+			blockedReason: "disabled-by-default",
+			preview: [
+				"Risk: write",
+				"Privilege: admin",
+				"Platform: macos",
+				'Confirmation: type "flush dns"',
+				"Dry run: no OS command will be executed",
+			],
+		});
+		expect(formatActionPreviewRows(plan)).toEqual([
+			"CONTROL PREVIEW dns.flush",
+			"state=locked risk=write privilege=admin dryRun=true",
+			"confirm=flush dns",
+			"blocked=disabled-by-default",
+			"Risk: write",
+			"Privilege: admin",
+			"Platform: macos",
+			'Confirmation: type "flush dns"',
+			"Dry run: no OS command will be executed",
+		]);
 	});
 });

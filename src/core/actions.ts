@@ -27,6 +27,18 @@ export type PicosAction = {
 	confirmationPhrase?: string;
 };
 
+export type ActionPreviewPlan = {
+	actionId: string;
+	title: string;
+	risk: ActionRisk;
+	privilege: ActionPrivilege;
+	enabled: boolean;
+	dryRun: boolean;
+	confirmationPhrase?: string;
+	blockedReason?: "disabled-by-default" | "confirmation-required";
+	preview: string[];
+};
+
 const actionCatalog: PicosAction[] = [
 	{
 		id: "network.inspect",
@@ -384,4 +396,51 @@ export function getActionSummary(): {
 		locked: catalog.filter((action) => !action.enabled).length,
 		elevated: catalog.filter((action) => action.privilege === "admin").length,
 	};
+}
+
+export function createActionPreviewPlan(
+	actionId: string,
+	platform: string,
+): ActionPreviewPlan | undefined {
+	const action = actionCatalog.find((candidate) => candidate.id === actionId);
+	if (!action) {
+		return undefined;
+	}
+	const blockedReason = !action.enabled
+		? "disabled-by-default"
+		: action.confirmationRequired
+			? "confirmation-required"
+			: undefined;
+	const preview = [
+		`Risk: ${action.risk}`,
+		`Privilege: ${action.privilege}`,
+		`Platform: ${platform}`,
+	];
+	if (action.confirmationPhrase) {
+		preview.push(`Confirmation: type "${action.confirmationPhrase}"`);
+	}
+	preview.push("Dry run: no OS command will be executed");
+
+	return {
+		actionId: action.id,
+		title: action.title,
+		risk: action.risk,
+		privilege: action.privilege,
+		enabled: action.enabled,
+		dryRun: true,
+		confirmationPhrase: action.confirmationPhrase,
+		blockedReason,
+		preview,
+	};
+}
+
+export function formatActionPreviewRows(plan: ActionPreviewPlan): string[] {
+	const state = plan.enabled ? "ready" : "locked";
+	return [
+		`CONTROL PREVIEW ${plan.actionId}`,
+		`state=${state} risk=${plan.risk} privilege=${plan.privilege} dryRun=${plan.dryRun}`,
+		...(plan.confirmationPhrase ? [`confirm=${plan.confirmationPhrase}`] : []),
+		...(plan.blockedReason ? [`blocked=${plan.blockedReason}`] : []),
+		...plan.preview,
+	];
 }

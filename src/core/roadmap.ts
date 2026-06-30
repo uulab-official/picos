@@ -19,7 +19,10 @@ export function getRoadmapItems(): RoadmapItem[] {
 			status: "active",
 		},
 		{ label: "DOS-style file manager and text editor", status: "next" },
-		{ label: "First privileged action prototype", status: "next" },
+		{
+			label: "Privileged control previews and confirmations",
+			status: "active",
+		},
 		{ label: "Plugin system for Docker, SSH, logs, monitor", status: "locked" },
 	];
 }
