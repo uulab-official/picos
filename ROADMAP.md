@@ -1082,6 +1082,19 @@ Goal: make Logs a real OS console panel instead of a placeholder diagnostics buf
 - Tests cover platform command construction, parsing, formatting, action catalog visibility, and CLI output.
 - Next: log filtering/search presets and live follow mode.
 
+## v0.4.18 - Log Search Presets
+
+Status: draft PR #80.
+
+Goal: make Logs useful under pressure by adding the same keyboard search flow as the other dense console panels.
+
+- `picos logs --filter <query>` filters recent OS logs by severity, row number, or message text.
+- Filtered output keeps original log row numbers and shows visible/total counts.
+- Logs workspace supports `f` search, `F` clear, `P` save preset, `]` cycle preset, and `r` log-only refresh.
+- Logs workspace rows show active search and saved preset context before the OS log rows.
+- Tests cover core filtering, CLI filtered output, TUI row formatting, and preset cycling.
+- Next: live follow mode and severity-only quick filters.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
