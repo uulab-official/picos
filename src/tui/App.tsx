@@ -153,11 +153,14 @@ import {
 	appendToolHistory,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
+	filterToolHistory,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
+	getVisibleToolHistoryIndex,
+	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
 	rerunToolHistoryItem,
 	type ToolHistoryExportScope,
@@ -265,6 +268,7 @@ export function App(): React.ReactElement {
 	const [selectedToolHistoryIndex, setSelectedToolHistoryIndex] = useState(0);
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
+	const [toolHistoryFilter, setToolHistoryFilter] = useState("");
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
@@ -498,6 +502,21 @@ export function App(): React.ReactElement {
 		}
 	}, [commandLine.prompt, commandLine.value, log]);
 
+	const submitToolHistoryFilterCommand = useCallback(() => {
+		const query = commandLine.value.trim();
+		const filtered = filterToolHistory(toolHistory, query);
+		setToolHistoryFilter(query);
+		setToolCopyPreview(false);
+		setSelectedToolHistoryIndex(filtered[0]?.index ?? 0);
+		setCommandLine((current) => closeCommandLine(current));
+		log(
+			filtered.length ? "info" : "warn",
+			query
+				? `tools filter ${query} matches ${filtered.length}`
+				: "tools filter cleared",
+		);
+	}, [commandLine.value, log, toolHistory]);
+
 	const submitClipboardCommand = useCallback(async () => {
 		try {
 			const outcome = await submitClipboardConfirmation(clipboardConfirmation, {
@@ -566,9 +585,14 @@ export function App(): React.ReactElement {
 
 	const exportToolHistory = useCallback(
 		async (scope: ToolHistoryExportScope) => {
-			const plan = createToolHistoryExportPlan(
+			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
 				toolHistory,
 				selectedToolHistoryIndex,
+				toolHistoryFilter,
+			);
+			const plan = createToolHistoryExportPlan(
+				toolHistory,
+				visibleToolHistoryIndex,
 				{
 					baseDir: dirname(getConfigPath()),
 					scope,
@@ -590,7 +614,7 @@ export function App(): React.ReactElement {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
 		},
-		[log, selectedToolHistoryIndex, toolHistory],
+		[log, selectedToolHistoryIndex, toolHistory, toolHistoryFilter],
 	);
 
 	const selectRemoteProfile = useCallback(async () => {
@@ -936,9 +960,11 @@ export function App(): React.ReactElement {
 						? "route path command cancelled"
 						: commandLine.prompt === "clipboard"
 							? "clipboard confirmation cancelled"
-							: commandLine.prompt.startsWith(toolPromptPrefix)
-								? "tool target command cancelled"
-								: "path command cancelled",
+							: commandLine.prompt === "tool-filter"
+								? "tool history filter cancelled"
+								: commandLine.prompt.startsWith(toolPromptPrefix)
+									? "tool target command cancelled"
+									: "path command cancelled",
 				);
 				return;
 			}
@@ -948,6 +974,8 @@ export function App(): React.ReactElement {
 					void submitClipboardCommand();
 				} else if (commandLine.prompt === "route") {
 					void submitRouteDestinationCommand();
+				} else if (commandLine.prompt === "tool-filter") {
+					submitToolHistoryFilterCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -1261,9 +1289,30 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "f") {
+			setCommandLine(openCommandLine("tool-filter"));
+			log("info", "tool history filter opened");
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "F") {
+			setToolHistoryFilter("");
+			setToolCopyPreview(false);
+			setSelectedToolHistoryIndex((index) =>
+				Math.min(index, Math.max(0, toolHistory.length - 1)),
+			);
+			log("info", "tool history filter cleared");
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "r") {
+			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
+				toolHistory,
+				selectedToolHistoryIndex,
+				toolHistoryFilter,
+			);
 			const plan = rerunToolHistoryItem(
-				getSelectedToolHistoryItem(toolHistory, selectedToolHistoryIndex),
+				getSelectedToolHistoryItem(toolHistory, visibleToolHistoryIndex),
 			);
 			if (!plan) {
 				log("warn", "no tool history selected");
@@ -1291,9 +1340,14 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "tools" && focusArea === "workspaces" && input === "c") {
-			const preview = getSelectedToolOutputClipboardPreview(
+			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
 				toolHistory,
 				selectedToolHistoryIndex,
+				toolHistoryFilter,
+			);
+			const preview = getSelectedToolOutputClipboardPreview(
+				toolHistory,
+				visibleToolHistoryIndex,
 			);
 			if (!preview) {
 				log("warn", "no tool output selected");
@@ -1305,9 +1359,14 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "tools" && focusArea === "workspaces" && input === "y") {
-			const preview = getSelectedToolSummaryClipboardPreview(
+			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
 				toolHistory,
 				selectedToolHistoryIndex,
+				toolHistoryFilter,
+			);
+			const preview = getSelectedToolSummaryClipboardPreview(
+				toolHistory,
+				visibleToolHistoryIndex,
 			);
 			if (!preview) {
 				log("warn", "no tool summary selected");
@@ -1389,7 +1448,14 @@ export function App(): React.ReactElement {
 				setProcessClipboardPreview(false);
 			} else if (screen === "tools") {
 				setSelectedToolHistoryIndex((index) =>
-					moveToolHistorySelection(index, toolHistory.length, "next"),
+					toolHistoryFilter
+						? moveFilteredToolHistorySelection(
+								toolHistory,
+								index,
+								toolHistoryFilter,
+								"next",
+							)
+						: moveToolHistorySelection(index, toolHistory.length, "next"),
 				);
 				setToolCopyPreview(false);
 			} else {
@@ -1435,7 +1501,14 @@ export function App(): React.ReactElement {
 				setProcessClipboardPreview(false);
 			} else if (screen === "tools") {
 				setSelectedToolHistoryIndex((index) =>
-					moveToolHistorySelection(index, toolHistory.length, "previous"),
+					toolHistoryFilter
+						? moveFilteredToolHistorySelection(
+								toolHistory,
+								index,
+								toolHistoryFilter,
+								"previous",
+							)
+						: moveToolHistorySelection(index, toolHistory.length, "previous"),
 				);
 				setToolCopyPreview(false);
 			} else {
@@ -1512,6 +1585,7 @@ export function App(): React.ReactElement {
 					timelineFilter={timelineFilter}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
+					toolHistoryFilter={toolHistoryFilter}
 					toolCopyPreview={toolCopyPreview}
 					events={events}
 					t={t}
@@ -1653,6 +1727,7 @@ function MainWorkspace({
 	timelineFilter,
 	toolHistory,
 	selectedToolHistoryIndex,
+	toolHistoryFilter,
 	toolCopyPreview,
 	events,
 	t,
@@ -1700,6 +1775,7 @@ function MainWorkspace({
 	timelineFilter: TimelineFilter;
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
+	toolHistoryFilter: string;
 	toolCopyPreview: ToolCopyPreviewMode;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
@@ -1756,6 +1832,7 @@ function MainWorkspace({
 					timelineFilter,
 					toolHistory,
 					selectedToolHistoryIndex,
+					toolHistoryFilter,
 					toolCopyPreview,
 					events,
 					height,
@@ -1807,6 +1884,7 @@ function renderWorkspace(
 	timelineFilter: TimelineFilter,
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
+	toolHistoryFilter: string,
 	toolCopyPreview: ToolCopyPreviewMode,
 	events: ConsoleEvent[],
 	height: number,
@@ -1953,6 +2031,7 @@ function renderWorkspace(
 			<ToolsWorkspace
 				history={toolHistory}
 				selectedIndex={selectedToolHistoryIndex}
+				filterQuery={toolHistoryFilter}
 				copyPreview={toolCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
@@ -3013,6 +3092,7 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 function ToolsWorkspace({
 	history,
 	selectedIndex,
+	filterQuery,
 	copyPreview,
 	commandLine,
 	visibleRows,
@@ -3020,17 +3100,31 @@ function ToolsWorkspace({
 }: {
 	history: ToolHistoryItem[];
 	selectedIndex: number;
+	filterQuery: string;
 	copyPreview: ToolCopyPreviewMode;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const rows = formatToolsWorkspaceRows(history, visibleRows, selectedIndex);
+	const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
+		history,
+		selectedIndex,
+		filterQuery,
+	);
+	const rows = formatToolsWorkspaceRows(
+		history,
+		visibleRows,
+		selectedIndex,
+		filterQuery,
+	);
 	const selectedPreview =
 		copyPreview === "summary"
-			? getSelectedToolSummaryClipboardPreview(history, selectedIndex)
+			? getSelectedToolSummaryClipboardPreview(history, visibleToolHistoryIndex)
 			: copyPreview === "raw"
-				? getSelectedToolOutputClipboardPreview(history, selectedIndex)
+				? getSelectedToolOutputClipboardPreview(
+						history,
+						visibleToolHistoryIndex,
+					)
 				: undefined;
 	const copyRows = selectedPreview
 		? formatClipboardPreviewRows(selectedPreview)
@@ -3038,12 +3132,17 @@ function ToolsWorkspace({
 	const promptRows =
 		commandLine.active && commandLine.prompt.startsWith(toolPromptPrefix)
 			? formatToolPromptRows(commandLine.prompt, commandLine.value)
-			: [];
+			: commandLine.active && commandLine.prompt === "tool-filter"
+				? [
+						"TOOL HISTORY FILTER",
+						`:filter ${commandLine.value || " "}  enter=apply esc=cancel`,
+					]
+				: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub history · DNS/RDAP/IP/TCP/TLS/ping/traceroute
+				Tools Hub history · f filter · F clear · DNS/RDAP/IP/TCP/TLS
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]

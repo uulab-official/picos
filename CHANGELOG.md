@@ -44,6 +44,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub selected raw output now opens the same locked clipboard confirmation flow with `c`.
 - Tools Hub selected summaries now open the locked clipboard confirmation flow with `y`.
 - Tools Hub history can now export selected or full diagnostic runs to scoped markdown files under the picos config directory.
+- Tools Hub history now supports TUI filtering with `f`, clearing with `F`, and filter-aware selection/copy/rerun/export.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.
