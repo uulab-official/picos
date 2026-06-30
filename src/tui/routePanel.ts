@@ -3,7 +3,16 @@ import type {
 	RouteSort,
 	RouteTableResult,
 } from "../core/routes";
-import { filterRouteEntries, sortRouteEntries } from "../core/routes";
+import {
+	filterRouteEntries,
+	formatRouteTable,
+	sortRouteEntries,
+} from "../core/routes";
+import {
+	type ClipboardPreview,
+	createClipboardPreview,
+	formatClipboardPreviewRows,
+} from "./clipboardPreview";
 
 export type RouteDetailView = "table" | "raw" | "diagnostics" | "path";
 
@@ -24,6 +33,7 @@ export function formatRouteWorkspaceRows(
 	result: RouteTableResult,
 	visibleRows: number,
 	options: {
+		copyPreview?: boolean;
 		filter?: string;
 		path?: RoutePathResult;
 		sort?: RouteSort;
@@ -48,8 +58,17 @@ export function formatRouteWorkspaceRows(
 			view,
 			diagnosticRows,
 			options.path,
+			options.copyPreview ?? false,
 		);
 	}
+	const previewRows = options.copyPreview
+		? formatRouteClipboardPreviewRows(result, {
+				filter,
+				path: options.path,
+				sort: options.sort,
+				view,
+			})
+		: [];
 	const fullRows = [
 		`SUMMARY routes=${filter ? `${filteredRoutes.length}/${result.routes.length}` : result.routes.length} command=${result.command} ${result.args.join(" ")}`.trim(),
 		...(filter
@@ -68,6 +87,7 @@ export function formatRouteWorkspaceRows(
 		...(routeRows.length ? routeRows : ["no routes detected"]),
 		"RAW OUTPUT",
 		...formatRouteRawRows(result.rawOutput, Math.max(0, visibleRows - 6)),
+		...previewRows,
 	];
 
 	if (fullRows.length <= visibleRows) {
@@ -93,7 +113,7 @@ export function formatRouteWorkspaceRows(
 	const rawRows = ["RAW OUTPUT", ...formatRouteRawRows(result.rawOutput, 1)];
 	const routeBudget = Math.max(
 		1,
-		visibleRows - fixedRows.length - rawRows.length,
+		visibleRows - fixedRows.length - rawRows.length - previewRows.length,
 	);
 
 	return [
@@ -104,7 +124,58 @@ export function formatRouteWorkspaceRows(
 			"routes",
 		),
 		...rawRows,
+		...previewRows,
 	].slice(0, visibleRows);
+}
+
+export function getRouteClipboardPreview(
+	result: RouteTableResult,
+	options: {
+		filter?: string;
+		path?: RoutePathResult;
+		sort?: RouteSort;
+		view?: RouteDetailView;
+	} = {},
+): ClipboardPreview | undefined {
+	const view = options.view ?? "table";
+	if (view === "raw") {
+		return createClipboardPreview({
+			source: "route-raw",
+			label: "route raw output",
+			copyText: result.rawOutput,
+		});
+	}
+	if (view === "path") {
+		if (!options.path) {
+			return undefined;
+		}
+		return createClipboardPreview({
+			source: "route-path",
+			label: `route path ${options.path.destination}`,
+			copyText: options.path.rawOutput,
+		});
+	}
+	if (view === "diagnostics") {
+		const copyText = result.diagnostics
+			.map(
+				(diagnostic) =>
+					`${diagnostic.status.toUpperCase()} ${diagnostic.label}${diagnostic.detail ? ` · ${diagnostic.detail}` : ""}`,
+			)
+			.join("\n");
+		return createClipboardPreview({
+			source: "route-diagnostics",
+			label: "route diagnostics",
+			copyText: copyText || "WARN No diagnostics available",
+		});
+	}
+	return createClipboardPreview({
+		source: "route-table",
+		label: "route table",
+		copyText: formatRouteTable(result, {
+			filter: options.filter,
+			sort: options.sort,
+		}),
+	});
 }
 
 function formatRouteDetailViewRows(
@@ -113,14 +184,22 @@ function formatRouteDetailViewRows(
 	view: Exclude<RouteDetailView, "table">,
 	diagnosticRows: string[],
 	path: RoutePathResult | undefined,
+	copyPreview: boolean,
 ): string[] {
 	const summary =
 		`SUMMARY routes=${result.routes.length} view=${view} command=${result.command} ${result.args.join(" ")}`.trim();
+	const previewRows = copyPreview
+		? formatRouteClipboardPreviewRows(result, { path, view })
+		: [];
 	if (view === "raw") {
 		return [
 			summary,
 			"RAW OUTPUT",
-			...formatRouteRawRows(result.rawOutput, Math.max(0, visibleRows - 2)),
+			...formatRouteRawRows(
+				result.rawOutput,
+				Math.max(0, visibleRows - 2 - previewRows.length),
+			),
+			...previewRows,
 		].slice(0, visibleRows);
 	}
 	if (view === "diagnostics") {
@@ -130,6 +209,7 @@ function formatRouteDetailViewRows(
 			...(diagnosticRows.length
 				? diagnosticRows
 				: ["WARN No diagnostics available"]),
+			...previewRows,
 		].slice(0, visibleRows);
 	}
 	return [
@@ -137,7 +217,21 @@ function formatRouteDetailViewRows(
 		...(path
 			? formatRoutePathRows(path, Math.max(0, visibleRows - 1))
 			: ["PATH destination lookup: press : then enter host or IP"]),
+		...previewRows,
 	].slice(0, visibleRows);
+}
+
+function formatRouteClipboardPreviewRows(
+	result: RouteTableResult,
+	options: {
+		filter?: string;
+		path?: RoutePathResult;
+		sort?: RouteSort;
+		view?: RouteDetailView;
+	},
+): string[] {
+	const preview = getRouteClipboardPreview(result, options);
+	return preview ? formatClipboardPreviewRows(preview) : [];
 }
 
 export function formatRouteRawRows(

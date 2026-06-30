@@ -4,6 +4,7 @@ import {
 	formatRoutePathRows,
 	formatRouteRawRows,
 	formatRouteWorkspaceRows,
+	getRouteClipboardPreview,
 	nextRouteDetailView,
 } from "../src/tui/routePanel";
 
@@ -97,6 +98,60 @@ describe("route TUI panel formatting", () => {
 			"$ netstat -rn",
 			"Internet:",
 			"default 192.168.0.1 UGSc en0",
+		]);
+	});
+
+	test("creates route clipboard previews for table raw and path views", () => {
+		expect(
+			getRouteClipboardPreview(fixture, {
+				filter: "utun",
+				sort: { key: "interface", direction: "asc" },
+				view: "table",
+			}),
+		).toEqual({
+			source: "route-table",
+			label: "route table",
+			copyText:
+				"picos routes\n\n[Summary]\nRoutes: 1/2\nFilter: utun matches 1/2\nSort: interface asc\nPASS Default route present\n\n[Routes]\n10.8.0.0/24        link               utun0      ipv4",
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(getRouteClipboardPreview(fixture, { view: "raw" })).toMatchObject({
+			source: "route-raw",
+			label: "route raw output",
+			copyText: "$ netstat -rn\nInternet:\ndefault 192.168.0.1 UGSc en0",
+		});
+		expect(
+			getRouteClipboardPreview(fixture, {
+				path: pathFixture,
+				view: "path",
+			}),
+		).toMatchObject({
+			source: "route-path",
+			label: "route path 8.8.8.8",
+			copyText:
+				"$ route -n get 8.8.8.8\nroute to: 8.8.8.8\ngateway: 192.168.0.1\ninterface: en0",
+		});
+		expect(getRouteClipboardPreview(fixture, { view: "path" })).toBeUndefined();
+	});
+
+	test("formats route clipboard preview rows for the active view", () => {
+		expect(
+			formatRouteWorkspaceRows(fixture, 9, {
+				copyPreview: true,
+				view: "raw",
+			}),
+		).toEqual([
+			"SUMMARY routes=2 view=raw command=netstat -rn",
+			"RAW OUTPUT",
+			"$ netstat -rn",
+			"Internet:",
+			"default 192.168.0.1 UGSc en0",
+			"CLIPBOARD PREVIEW route-raw",
+			"label route raw output",
+			"copy $ netstat -rn\nInternet:\ndefault 192.168.0.1 UGSc en0",
+			"confirm copy locked",
 		]);
 	});
 

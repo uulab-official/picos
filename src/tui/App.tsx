@@ -233,6 +233,7 @@ import {
 import {
 	formatRoutePathRows,
 	formatRouteWorkspaceRows,
+	getRouteClipboardPreview,
 	nextRouteDetailView,
 	type RouteDetailView,
 } from "./routePanel";
@@ -421,6 +422,7 @@ export function App(): React.ReactElement {
 	const [routeFilter, setRouteFilter] = useState("");
 	const [routeDetailView, setRouteDetailView] =
 		useState<RouteDetailView>("table");
+	const [routeCopyPreview, setRouteCopyPreview] = useState(false);
 	const [toolHistory, setToolHistory] = useState<ToolHistoryItem[]>([]);
 	const [selectedToolHistoryIndex, setSelectedToolHistoryIndex] = useState(0);
 	const [selectedToolTargetPresetIndex, setSelectedToolTargetPresetIndex] =
@@ -666,6 +668,7 @@ export function App(): React.ReactElement {
 		const query = commandLine.value.trim();
 		const filtered = filterRouteEntries(routeTable?.routes ?? [], query);
 		setRouteFilter(query);
+		setRouteCopyPreview(false);
 		setCommandLine((current) => closeCommandLine(current));
 		log(
 			filtered.length ? "info" : "warn",
@@ -894,6 +897,7 @@ export function App(): React.ReactElement {
 				setConnectionCopyPreview(false);
 				setPortCopyPreview(false);
 				setProcessClipboardPreview(false);
+				setRouteCopyPreview(false);
 				setToolCopyPreview(false);
 			}
 		} catch (caught) {
@@ -1575,6 +1579,7 @@ export function App(): React.ReactElement {
 					setConnectionCopyPreview(false);
 					setPortCopyPreview(false);
 					setProcessClipboardPreview(false);
+					setRouteCopyPreview(false);
 					setToolCopyPreview(false);
 				}
 				if (commandLine.prompt === "external-open") {
@@ -1879,12 +1884,14 @@ export function App(): React.ReactElement {
 
 		if (screen === "routes" && focusArea === "workspaces" && input === "f") {
 			setCommandLine(openCommandLine("route-filter"));
+			setRouteCopyPreview(false);
 			log("info", "route filter opened");
 			return;
 		}
 
 		if (screen === "routes" && focusArea === "workspaces" && input === "F") {
 			setRouteFilter("");
+			setRouteCopyPreview(false);
 			log("info", "route filter cleared");
 			return;
 		}
@@ -1895,6 +1902,7 @@ export function App(): React.ReactElement {
 				log("info", `route detail ${next}`);
 				return next;
 			});
+			setRouteCopyPreview(false);
 			return;
 		}
 
@@ -2141,6 +2149,27 @@ export function App(): React.ReactElement {
 				log("info", `route sort ${next.key} ${next.direction}`);
 				return next;
 			});
+			setRouteCopyPreview(false);
+			return;
+		}
+
+		if (screen === "routes" && focusArea === "workspaces" && input === "c") {
+			if (!routeTable) {
+				log("warn", "no route table loaded");
+				return;
+			}
+			const preview = getRouteClipboardPreview(routeTable, {
+				filter: routeFilter,
+				path: routePath,
+				sort: routeSort,
+				view: routeDetailView,
+			});
+			if (!preview) {
+				log("warn", "no route clipboard target");
+				return;
+			}
+			setRouteCopyPreview(true);
+			openClipboardConfirmation(preview);
 			return;
 		}
 
@@ -2761,6 +2790,7 @@ export function App(): React.ReactElement {
 					routeSort={routeSort}
 					routeFilter={routeFilter}
 					routeDetailView={routeDetailView}
+					routeCopyPreview={routeCopyPreview}
 					timelineFilter={timelineFilter}
 					timelineSearchQuery={timelineSearchQuery}
 					timelineSearchPresets={timelineSearchPresets}
@@ -2943,6 +2973,7 @@ function MainWorkspace({
 	routeSort,
 	routeFilter,
 	routeDetailView,
+	routeCopyPreview,
 	timelineFilter,
 	timelineSearchQuery,
 	timelineSearchPresets,
@@ -3027,6 +3058,7 @@ function MainWorkspace({
 	routeSort: RouteSort;
 	routeFilter: string;
 	routeDetailView: RouteDetailView;
+	routeCopyPreview: boolean;
 	timelineFilter: TimelineFilter;
 	timelineSearchQuery: string;
 	timelineSearchPresets: string[];
@@ -3120,6 +3152,7 @@ function MainWorkspace({
 					routeSort,
 					routeFilter,
 					routeDetailView,
+					routeCopyPreview,
 					timelineFilter,
 					timelineSearchQuery,
 					timelineSearchPresets,
@@ -3208,6 +3241,7 @@ function renderWorkspace(
 	routeSort: RouteSort,
 	routeFilter: string,
 	routeDetailView: RouteDetailView,
+	routeCopyPreview: boolean,
 	timelineFilter: TimelineFilter,
 	timelineSearchQuery: string,
 	timelineSearchPresets: string[],
@@ -3343,6 +3377,7 @@ function renderWorkspace(
 				routeSort={routeSort}
 				routeFilter={routeFilter}
 				routeDetailView={routeDetailView}
+				copyPreview={routeCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
 				t={t}
@@ -4462,6 +4497,7 @@ function RoutesWorkspace({
 	routeSort,
 	routeFilter,
 	routeDetailView,
+	copyPreview,
 	commandLine,
 	visibleRows,
 	t,
@@ -4471,6 +4507,7 @@ function RoutesWorkspace({
 	routeSort: RouteSort;
 	routeFilter: string;
 	routeDetailView: RouteDetailView;
+	copyPreview: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -4489,6 +4526,7 @@ function RoutesWorkspace({
 				routeTable,
 				Math.max(4, visibleRows - pathRows.length - promptRows.length),
 				{
+					copyPreview,
 					filter: routeFilter,
 					path: routePath,
 					sort: routeSort,
@@ -4511,8 +4549,8 @@ function RoutesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
-				route table diagnostics · f filter · F clear · tab detail · s sort · :
-				path
+				route table diagnostics · f filter · F clear · c copy · tab detail · s
+				sort · : path
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {
