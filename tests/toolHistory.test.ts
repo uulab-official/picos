@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ToolResult } from "../src/core/tools";
 import type { NetworkSummary } from "../src/core/types";
 import {
 	appendToolHistory,
+	createToolHistoryExportPlan,
 	createToolRunPlan,
+	formatToolHistoryExport,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
 	getSelectedToolHistoryItem,
@@ -11,6 +16,7 @@ import {
 	getSelectedToolSummaryClipboardPreview,
 	moveToolHistorySelection,
 	rerunToolHistoryItem,
+	writeToolHistoryExport,
 } from "../src/tui/toolHistory";
 
 const result: ToolResult = {
@@ -180,7 +186,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · r rerun · y copy summary · c copy raw · action enter=target prompt",
+			"shortcuts: j/k select · r rerun · y summary · c raw · e export · E export all",
 		]);
 	});
 
@@ -331,5 +337,114 @@ describe("TUI tool history", () => {
 			reason: "Clipboard writes require explicit confirmation plumbing.",
 		});
 		expect(getSelectedToolSummaryClipboardPreview([], 0)).toBeUndefined();
+	});
+
+	test("creates scoped export plans for selected tool history", () => {
+		const history = appendToolHistory(
+			appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			),
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "port-check",
+					args: ["api.github.com", "443"],
+					label: "network.connect api.github.com:443",
+				},
+				result: {
+					...result,
+					title: "TCP Port Check",
+					rawOutput: "$ picos tools port-check api.github.com 443",
+				},
+			},
+			"12:00:01",
+		);
+
+		expect(
+			createToolHistoryExportPlan(history, 1, {
+				baseDir: "/Users/bonjin/.config/picos",
+				scope: "selected",
+				generatedAt: new Date("2026-06-30T04:00:00.000Z"),
+			}),
+		).toEqual({
+			path: "/Users/bonjin/.config/picos/tools/picos-tools-selected-2026-06-30T040000000Z.md",
+			content: [
+				"# picos tools history",
+				"generatedAt=2026-06-30T04:00:00.000Z",
+				"scope=selected",
+				"runs=1",
+				"",
+				"## [12:00:01] network.connect api.github.com:443",
+				"status=ok",
+				"title=TCP Port Check",
+				"summary=Summary: Query: example.com | A: 2",
+				"command=picos tools port-check api.github.com 443",
+				"",
+				"```txt",
+				"$ picos tools port-check api.github.com 443",
+				"```",
+				"",
+			].join("\n"),
+			itemCount: 1,
+			scope: "selected",
+		});
+		expect(
+			formatToolHistoryExport(history, {
+				scope: "all",
+				generatedAt: "2026-06-30T04:00:00.000Z",
+			}),
+		).toContain("runs=2");
+		expect(
+			createToolHistoryExportPlan([], 0, {
+				baseDir: "/Users/bonjin/.config/picos",
+				scope: "selected",
+			}),
+		).toBeUndefined();
+	});
+
+	test("writes tool history export files", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-tools-export-"));
+		try {
+			const history = appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			);
+			const plan = createToolHistoryExportPlan(history, 0, {
+				baseDir: root,
+				scope: "selected",
+				generatedAt: new Date("2026-06-30T04:00:00.000Z"),
+			});
+
+			if (!plan) {
+				throw new Error("expected tool history export plan");
+			}
+			const written = await writeToolHistoryExport(plan);
+
+			expect(written).toEqual(plan);
+			expect(await readFile(written.path, "utf8")).toContain(
+				"tools.dns example.com",
+			);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
 	});
 });

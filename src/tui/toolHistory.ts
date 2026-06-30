@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { ToolId, ToolResult } from "../core/tools";
 import type { NetworkSummary } from "../core/types";
 import {
@@ -30,6 +32,15 @@ export type ToolHistoryItem = {
 	title: string;
 	summary: string;
 	rawOutput: string;
+};
+
+export type ToolHistoryExportScope = "selected" | "all";
+
+export type ToolHistoryExportPlan = {
+	path: string;
+	content: string;
+	itemCount: number;
+	scope: ToolHistoryExportScope;
 };
 
 export function createToolRunPlan(
@@ -146,7 +157,7 @@ export function formatToolsWorkspaceRows(
 	return [
 		`TOOLS history=${history.length} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: j/k select · r rerun · y copy summary · c copy raw · action enter=target prompt",
+		"shortcuts: j/k select · r rerun · y summary · c raw · e export · E export all",
 	].slice(0, visibleRows);
 }
 
@@ -220,12 +231,106 @@ export function getSelectedToolSummaryClipboardPreview(
 	});
 }
 
+export function formatToolHistoryExport(
+	history: ToolHistoryItem[],
+	options: {
+		generatedAt?: string;
+		scope: ToolHistoryExportScope;
+		selectedIndex?: number;
+	},
+): string {
+	const generatedAt = options.generatedAt ?? new Date().toISOString();
+	const items = getToolHistoryExportItems(
+		history,
+		options.selectedIndex ?? Math.max(0, history.length - 1),
+		options.scope,
+	);
+	return [
+		"# picos tools history",
+		`generatedAt=${generatedAt}`,
+		`scope=${options.scope}`,
+		`runs=${items.length}`,
+		"",
+		...items.flatMap(formatToolHistoryExportItem),
+	].join("\n");
+}
+
+export function createToolHistoryExportPlan(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+		scope: ToolHistoryExportScope;
+	},
+): ToolHistoryExportPlan | undefined {
+	const items = getToolHistoryExportItems(
+		history,
+		selectedIndex,
+		options.scope,
+	);
+	if (!items.length) {
+		return undefined;
+	}
+	const generatedAt = options.generatedAt ?? new Date();
+	const iso = generatedAt.toISOString();
+	return {
+		path: join(
+			options.baseDir,
+			"tools",
+			`picos-tools-${options.scope}-${iso.replaceAll(/[:.]/g, "")}.md`,
+		),
+		content: formatToolHistoryExport(items, {
+			generatedAt: iso,
+			scope: options.scope,
+			selectedIndex: options.scope === "selected" ? 0 : selectedIndex,
+		}),
+		itemCount: items.length,
+		scope: options.scope,
+	};
+}
+
+export async function writeToolHistoryExport(
+	plan: ToolHistoryExportPlan,
+): Promise<ToolHistoryExportPlan> {
+	await mkdir(dirname(plan.path), { recursive: true });
+	await writeFile(plan.path, plan.content, "utf8");
+	return plan;
+}
+
 function summarizeToolResult(result: ToolResult): string {
 	const section = result.sections[0];
 	if (!section) {
 		return result.title;
 	}
 	return `${section.label}: ${section.lines.slice(0, 2).join(" | ")}`;
+}
+
+function getToolHistoryExportItems(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	scope: ToolHistoryExportScope,
+): ToolHistoryItem[] {
+	if (scope === "all") {
+		return history;
+	}
+	const item = getSelectedToolHistoryItem(history, selectedIndex);
+	return item ? [item] : [];
+}
+
+function formatToolHistoryExportItem(item: ToolHistoryItem): string[] {
+	return [
+		`## [${item.time}] ${item.label}`,
+		`status=${item.status}`,
+		`title=${item.title}`,
+		`summary=${item.summary}`,
+		`command=picos tools ${item.plan.toolId} ${item.plan.args.join(" ")}`,
+		"",
+		"```txt",
+		item.rawOutput,
+		"```",
+		"",
+	];
 }
 
 function createToolHistoryId(time: string, label: string): string {

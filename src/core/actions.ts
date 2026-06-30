@@ -232,6 +232,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "tools.export",
+		title: "Export tools history",
+		description:
+			"Save scoped Tools Hub history to a timestamped markdown file.",
+		category: "tools",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "remote.profiles",
 		title: "List remote profiles",
 		description:

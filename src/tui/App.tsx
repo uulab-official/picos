@@ -151,6 +151,7 @@ import {
 } from "./timelinePanel";
 import {
 	appendToolHistory,
+	createToolHistoryExportPlan,
 	createToolRunPlan,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
@@ -159,7 +160,9 @@ import {
 	getSelectedToolSummaryClipboardPreview,
 	moveToolHistorySelection,
 	rerunToolHistoryItem,
+	type ToolHistoryExportScope,
 	type ToolHistoryItem,
+	writeToolHistoryExport,
 } from "./toolHistory";
 
 type CommandStatus = "idle" | "running";
@@ -561,6 +564,35 @@ export function App(): React.ReactElement {
 		[log],
 	);
 
+	const exportToolHistory = useCallback(
+		async (scope: ToolHistoryExportScope) => {
+			const plan = createToolHistoryExportPlan(
+				toolHistory,
+				selectedToolHistoryIndex,
+				{
+					baseDir: dirname(getConfigPath()),
+					scope,
+				},
+			);
+			if (!plan) {
+				log("warn", "no tool history to export");
+				return;
+			}
+
+			try {
+				const written = await writeToolHistoryExport(plan);
+				setScreen("tools");
+				log(
+					"ok",
+					`tools exported ${written.scope} ${written.itemCount} run(s) ${written.path}`,
+				);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[log, selectedToolHistoryIndex, toolHistory],
+	);
+
 	const selectRemoteProfile = useCallback(async () => {
 		const profile = remoteProfiles[selectedRemoteIndex];
 		if (!profile) {
@@ -817,6 +849,10 @@ export function App(): React.ReactElement {
 					}
 				}
 
+				if (action.id === "tools.export") {
+					await exportToolHistory("all");
+				}
+
 				if (
 					action.id === "process.inspect" ||
 					action.id === "remote.sftp.connect"
@@ -846,7 +882,15 @@ export function App(): React.ReactElement {
 				setCommandStatus("idle");
 			}
 		},
-		[events, fileRoot, log, refresh, refreshFiles, toolHistory],
+		[
+			events,
+			exportToolHistory,
+			fileRoot,
+			log,
+			refresh,
+			refreshFiles,
+			toolHistory,
+		],
 	);
 
 	useEffect(() => {
@@ -1271,6 +1315,16 @@ export function App(): React.ReactElement {
 			}
 			setToolCopyPreview("summary");
 			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "e") {
+			void exportToolHistory("selected");
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "E") {
+			void exportToolHistory("all");
 			return;
 		}
 

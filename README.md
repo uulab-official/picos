@@ -153,7 +153,7 @@ Every future write/destructive action must define:
 - adapter-owned OS commands
 - tests for default locked behavior
 
-Clipboard writes follow the same rule: platform adapters exist for `pbcopy`, `xclip`, and `clip.exe`, and confirmed plans execute through `safeExec()` stdin so copy text is never interpolated into a shell command. In the TUI, endpoint, process-resource, and Tools summary/raw-output copy actions open a `:clipboard` confirmation prompt and log the resulting audit event, including fallback guidance when the platform clipboard tool is missing. The `timeline.export` action writes the current console audit log under the picos config directory.
+Clipboard writes follow the same rule: platform adapters exist for `pbcopy`, `xclip`, and `clip.exe`, and confirmed plans execute through `safeExec()` stdin so copy text is never interpolated into a shell command. In the TUI, endpoint, process-resource, and Tools summary/raw-output copy actions open a `:clipboard` confirmation prompt and log the resulting audit event, including fallback guidance when the platform clipboard tool is missing. The `timeline.export` action writes the current console audit log under the picos config directory, and Tools history export writes selected or full diagnostic runs under the config `tools` directory.
 
 All OS command execution must go through `src/utils/safeExec.ts`; OS-specific commands belong in `src/adapters`.
 
@@ -169,7 +169,7 @@ Reference-inspired modules now tracked in picos:
 - Route Inspector with TUI diagnostics, destination path lookup, route rows, and raw command output
 - Connections view with parsed rows, CLI filtering/sorting, TUI selection details, PID process enrichment, copy preview, and raw OS command output
 - Ports view with process metadata, CLI filtering/sorting, TUI selection details, PID process enrichment, copy preview, and raw OS command output
-- Tools Hub with read-only DNS/RDAP/IP/TCP/TLS/ping/traceroute commands, target prompts, selectable result history, rerun, locked summary/raw-output copy, and raw output handoff
+- Tools Hub with read-only DNS/RDAP/IP/TCP/TLS/ping/traceroute commands, target prompts, selectable result history, rerun, locked summary/raw-output copy, scoped markdown export, and raw output handoff
 - Timeline with network/action/audit/raw event filters, audit export, latest audit reload, and network state-change events
 - Raw output viewer
 
