@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Config managed shelves can now be cycled with `g/G` and handed off with `enter` into Network, Routes, Connections, Ports, Tools, Logs, or Remotes.
 - Config workspace now shows managed shelf summaries for network defaults, Tools defaults, Logs, Remotes, and workspace-owned presets.
 - Config section detail panes now show section shortcut numbers and per-section action hints for display, safety, retention, and connectivity controls.
 - Config workspace now shows a section detail pane with config path, selected value, active safety posture, and per-section persistence hints.

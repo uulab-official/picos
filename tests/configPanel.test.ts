@@ -5,11 +5,13 @@ import {
 	applyConfigPolicyPreset,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceSectionJumpIndex,
+	getNextConfigManagedShelfTarget,
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
 	submitConfigWorkspaceResetConfirmation,
@@ -30,7 +32,7 @@ describe("config TUI panel", () => {
 		expect(formatConfigWorkspaceRows(items, 1, 10)).toEqual([
 			"CONFIG WORKSPACE",
 			"1 display  2 safety  3 retention  4 connectivity",
-			"j/k select  +/- save  enter edit/show  P policy  R reset",
+			"j/k select  +/- save  enter edit/jump  g/G shelf  P policy  R reset",
 			"[3] RETENTION",
 			"  auditArchiveRetentionLimit  10       archived Timeline audit logs kept before prune",
 			"> toolTargetPresetLimit       8        saved Tools target presets kept",
@@ -71,7 +73,7 @@ describe("config TUI panel", () => {
 		expect(formatConfigWorkspaceRows(items, 6, 18)).toEqual([
 			"CONFIG WORKSPACE",
 			"1 display  2 safety  3 retention  4 connectivity",
-			"j/k select  +/- save  enter edit/show  P policy  R reset",
+			"j/k select  +/- save  enter edit/jump  g/G shelf  P policy  R reset",
 			"[3] RETENTION",
 			"  auditArchiveRetentionLimit  10       archived Timeline audit logs kept before prune",
 			"  toolTargetPresetLimit       8        saved Tools target presets kept",
@@ -183,6 +185,30 @@ describe("config TUI panel", () => {
 			"tools defaults targets=1 filters=1 sort=status group=tool detail=summary",
 			"workspace behavior logs=1 searches=1 remotes=1 publicIp=true experimental=false",
 			"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
+		]);
+	});
+
+	test("cycles managed shelf handoff targets for workspace jumps", () => {
+		expect(getNextConfigManagedShelfTarget("network", "next")).toBe("routes");
+		expect(getNextConfigManagedShelfTarget("routes", "next")).toBe(
+			"connections",
+		);
+		expect(getNextConfigManagedShelfTarget("connections", "next")).toBe(
+			"ports",
+		);
+		expect(getNextConfigManagedShelfTarget("ports", "next")).toBe("tools");
+		expect(getNextConfigManagedShelfTarget("tools", "next")).toBe("logs");
+		expect(getNextConfigManagedShelfTarget("logs", "next")).toBe("remotes");
+		expect(getNextConfigManagedShelfTarget("remotes", "next")).toBe("network");
+		expect(getNextConfigManagedShelfTarget("network", "previous")).toBe(
+			"remotes",
+		);
+		expect(getNextConfigManagedShelfTarget(undefined, "next")).toBe("network");
+
+		expect(formatConfigManagedShelfHandoffRows("tools")).toEqual([
+			"CONFIG SHELF HANDOFF",
+			"target=tools workspace=Tools",
+			"enter jump=tools  g/G cycle shelf",
 		]);
 	});
 

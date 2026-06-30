@@ -2249,6 +2249,19 @@ Goal: make Config reveal workspace-owned settings shelves instead of hiding them
 - Tests cover managed shelf row formatting across network, tools, workspace behavior, logs, and remotes settings.
 - Next: add keyboard handoffs from managed shelf rows into Routes, Connections, Ports, Tools, Logs, and Remotes.
 
+## v0.4.106 - Config Managed Shelf Handoffs
+
+Status: draft PR #168 on `codex/picos-v0.4.106-config-shelf-handoffs`.
+
+Goal: make Config managed shelves navigable so settings discovery can hand operators into the owning OS workspace.
+
+- Config now models managed shelf handoff targets for Network, Routes, Connections, Ports, Tools, Logs, and Remotes.
+- Pressing `g` or `G` in Config cycles the active managed shelf target.
+- Config renders a shelf handoff pane with the target workspace and `enter` jump hint.
+- Pressing `enter` on Config still edits `defaultPingHost` when that row is selected; otherwise, when a shelf target is armed, it jumps to the target workspace.
+- Tests cover shelf target cycling, wraparound, default selection, and handoff row formatting.
+- Next: add shelf-specific detail/deep-link states for presets and cleanup prompts inside the destination workspaces.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
