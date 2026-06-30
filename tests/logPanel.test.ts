@@ -32,23 +32,24 @@ describe("log TUI panel formatting", () => {
 				level: "warn",
 				presets: ["kernel", "error"],
 				profiles,
+				follow: true,
 			}),
 		).toEqual([
-			"LOGS level=warn search=kernel presets=kernel|error profiles=warn:kernel",
+			"LOGS level=warn search=kernel follow=on presets=kernel|error profiles=warn:kernel",
 			"PICOS OS LOGS",
 			"source=macos-unified-log status=ok entries=1/3 level=warn filter=kernel",
 			"command=log show --last 2m",
 			"note=recent unified system log entries",
 			"002 warn kernel: thermal pressure",
-			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · r refresh",
+			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · r refresh",
 		]);
 	});
 
 	test("keeps no-snapshot rows useful for keyboard discovery", () => {
 		expect(formatLogWorkspaceRows(undefined, 5, { query: "" })).toEqual([
-			"LOGS level=all search=-",
+			"LOGS level=all search=- follow=off",
 			"No OS log snapshot yet. Run logs.read or refresh.",
-			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · r refresh",
+			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · r refresh",
 		]);
 	});
 

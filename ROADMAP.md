@@ -1147,6 +1147,20 @@ Goal: make repeated log search terms survive TUI restarts and match the persiste
 - Tests cover config defaults, preset normalization, config-store persistence, and existing Logs workspace preset cycling.
 - Next: live log follow mode with bounded refresh history.
 
+## v0.4.23 - Logs Live Follow Mode
+
+Status: draft PR #85.
+
+Goal: make Logs usable as a watchable OS console panel instead of only a manual snapshot viewer.
+
+- Logs workspace header now shows `follow=on/off`.
+- Logs workspace shortcut help includes `L follow`.
+- Pressing `L` in the Logs workspace toggles live follow mode and records the state transition in the event dock.
+- When follow is enabled and the operator is viewing Logs, picos refreshes recent OS log snapshots on the configured refresh interval.
+- Follow refresh failures are recorded as visible console events while successful follow refreshes update the panel quietly.
+- Tests cover follow header/shortcut formatting in both snapshot and no-snapshot states.
+- Next: bounded live-follow history and pause/clear controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
