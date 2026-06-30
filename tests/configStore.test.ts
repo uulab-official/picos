@@ -10,6 +10,7 @@ import {
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
 	setConfigToolHistoryPreferences,
+	setConfigToolTargetPresets,
 } from "../src/config/store";
 
 const tempDirs: string[] = [];
@@ -182,5 +183,47 @@ describe("config store", () => {
 		expect(JSON.parse(raw).toolHistorySort).toBe("status");
 		expect(JSON.parse(raw).toolHistoryGroup).toBe("tool");
 		expect(JSON.parse(raw).toolHistoryDetailView).toBe("command");
+	});
+
+	test("persists normalized tool target presets without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await setConfigToolTargetPresets(
+			[
+				{
+					id: " api ",
+					label: " API DNS ",
+					actionId: "tools.dns",
+					target: " api.example.com ",
+					hint: " production api ",
+				},
+				{
+					actionId: "network.connect",
+					target: "db.internal:5432",
+				},
+			],
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.toolTargetPresets).toEqual([
+			{
+				id: "api",
+				label: "API DNS",
+				actionId: "tools.dns",
+				target: "api.example.com",
+				hint: "production api",
+			},
+			{
+				id: "network-connect-db-internal-5432",
+				label: "network.connect db.internal:5432",
+				actionId: "network.connect",
+				target: "db.internal:5432",
+				hint: "custom target",
+			},
+		]);
+		expect(config.theme).toBe("dark");
+
+		const raw = await readFile(path, "utf8");
+		expect(JSON.parse(raw).toolTargetPresets).toEqual(config.toolTargetPresets);
 	});
 });

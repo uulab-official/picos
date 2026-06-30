@@ -219,6 +219,13 @@ export type PicosConfig = {
 	toolHistorySort: string;
 	toolHistoryGroup: string;
 	toolHistoryDetailView: string;
+	toolTargetPresets: Array<{
+		id: string;
+		label: string;
+		actionId: string;
+		target: string;
+		hint: string;
+	}>;
 };
 
 export type Language = "en" | "ko" | "ja" | "zh";

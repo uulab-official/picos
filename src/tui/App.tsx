@@ -11,6 +11,7 @@ import {
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
 	setConfigToolHistoryPreferences,
+	setConfigToolTargetPresets,
 } from "../config/store";
 import {
 	type ActionControlSimulation,
@@ -291,6 +292,7 @@ import {
 	nextToolHistorySort,
 	rerunToolHistoryItem,
 	saveToolHistoryPreset,
+	saveToolTargetPreset,
 	type ToolHistoryDetailView,
 	type ToolHistoryExportScope,
 	type ToolHistoryGroup,
@@ -458,6 +460,9 @@ export function App(): React.ReactElement {
 	const [selectedToolHistoryIndex, setSelectedToolHistoryIndex] = useState(0);
 	const [selectedToolTargetPresetIndex, setSelectedToolTargetPresetIndex] =
 		useState(0);
+	const [customToolTargetPresets, setCustomToolTargetPresets] = useState<
+		ToolTargetPreset[]
+	>([]);
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolHistoryFilter, setToolHistoryFilter] = useState("");
@@ -515,8 +520,9 @@ export function App(): React.ReactElement {
 		[portFilter, ports, portSort],
 	);
 	const toolTargetPresets = useMemo(
-		() => getToolTargetPresets(summary, defaultPingHost),
-		[defaultPingHost, summary],
+		() =>
+			getToolTargetPresets(summary, defaultPingHost, customToolTargetPresets),
+		[customToolTargetPresets, defaultPingHost, summary],
 	);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
@@ -1812,6 +1818,9 @@ export function App(): React.ReactElement {
 			setToolHistoryDetailView(
 				config.toolHistoryDetailView as ToolHistoryDetailView,
 			);
+			setCustomToolTargetPresets(
+				config.toolTargetPresets as ToolTargetPreset[],
+			);
 			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
@@ -2981,6 +2990,35 @@ export function App(): React.ReactElement {
 				}
 				return next;
 			});
+			setToolCopyPreview(false);
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "T") {
+			const preset =
+				toolTargetPresets[
+					Math.min(
+						Math.max(selectedToolTargetPresetIndex, 0),
+						toolTargetPresets.length - 1,
+					)
+				];
+			if (!preset) {
+				log("warn", "no tool target preset to save");
+				return;
+			}
+			setCustomToolTargetPresets((current) => {
+				const next = saveToolTargetPreset(current, preset);
+				void setConfigToolTargetPresets(next).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `tool target save failed ${caught.message}`
+							: `tool target save failed ${String(caught)}`,
+					),
+				);
+				return next;
+			});
+			log("info", `tool target saved ${preset.label} ${preset.target}`);
 			setToolCopyPreview(false);
 			return;
 		}
@@ -5210,7 +5248,8 @@ function ToolsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub · n target · R run · tab detail · f filter · P save
+				Tools Hub · n target · T save target · R run · tab detail · f filter · P
+				save filter
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]

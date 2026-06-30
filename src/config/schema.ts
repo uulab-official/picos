@@ -15,6 +15,7 @@ import {
 	normalizeToolHistoryFilterPresets,
 	normalizeToolHistoryGroupPreference,
 	normalizeToolHistorySortPreference,
+	normalizeToolTargetPresets,
 } from "../core/toolHistoryPreferences";
 import type { PicosConfig, SupportedPlatform } from "../core/types";
 import { isSupportedLanguage } from "../i18n/catalog";
@@ -40,6 +41,7 @@ export const defaultConfig: PicosConfig = {
 	toolHistorySort: "time",
 	toolHistoryGroup: "none",
 	toolHistoryDetailView: "raw",
+	toolTargetPresets: [],
 };
 
 export type ConfigInput = Record<string, unknown>;
@@ -152,6 +154,9 @@ export function mergeConfig(
 	merged.toolHistoryDetailView = normalizeToolHistoryDetailPreference(
 		input.toolHistoryDetailView,
 	);
+	merged.toolTargetPresets = normalizeToolTargetPresets(
+		input.toolTargetPresets,
+	);
 
 	return merged;
 }
@@ -246,6 +251,12 @@ export function coerceConfigValue(
 
 	if (key === "toolHistoryDetailView") {
 		return normalizeToolHistoryDetailPreference(value);
+	}
+
+	if (key === "toolTargetPresets") {
+		throw new Error(
+			"toolTargetPresets must be edited as JSON in the config file",
+		);
 	}
 
 	return value;

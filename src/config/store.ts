@@ -20,6 +20,7 @@ import {
 	normalizeToolHistoryFilterPresets,
 	normalizeToolHistoryGroupPreference,
 	normalizeToolHistorySortPreference,
+	normalizeToolTargetPresets,
 	type ToolHistoryDetailPreference,
 	type ToolHistoryGroupPreference,
 	type ToolHistorySortPreference,
@@ -192,6 +193,19 @@ export async function setConfigToolHistoryPreferences(
 					),
 				}
 			: {}),
+	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigToolTargetPresets(
+	presets: unknown,
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = {
+		...config,
+		toolTargetPresets: normalizeToolTargetPresets(presets),
 	};
 	await writeConfig(next, path);
 	return next;

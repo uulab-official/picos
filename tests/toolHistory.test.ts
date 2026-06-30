@@ -24,8 +24,10 @@ import {
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
 	nextToolHistorySort,
+	normalizeToolTargetPresets,
 	rerunToolHistoryItem,
 	saveToolHistoryPreset,
+	saveToolTargetPreset,
 	sortToolHistory,
 	writeToolHistoryExport,
 } from "../src/tui/toolHistory";
@@ -207,12 +209,71 @@ describe("TUI tool history", () => {
 			),
 		).toEqual([
 			"TOOLS history=0 targets=7 active=Default ping:google.com selected=-",
-			"TARGET PRESETS n cycle · R run",
+			"TARGET PRESETS n cycle · T save · R run",
 			"> Default ping google.com default reachability target",
 			"  Gateway ping 192.168.0.1 primary gateway",
 			"  DNS server 1 1.1.1.1 resolver check",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
 		]);
+	});
+
+	test("merges normalized custom tool target presets before OS presets", () => {
+		const custom = normalizeToolTargetPresets([
+			{
+				id: " api ",
+				label: " API DNS ",
+				actionId: "tools.dns",
+				target: " api.example.com ",
+				hint: " production api ",
+			},
+			{
+				id: "bad",
+				label: "Bad",
+				actionId: "tools.bad",
+				target: "ignored",
+			},
+			{
+				id: "api-duplicate",
+				label: "Duplicate",
+				actionId: "tools.dns",
+				target: "api.example.com",
+			},
+			{
+				id: "",
+				actionId: "network.connect",
+				target: "db.internal:5432",
+			},
+		]);
+
+		expect(custom).toEqual([
+			{
+				id: "api",
+				label: "API DNS",
+				actionId: "tools.dns",
+				target: "api.example.com",
+				hint: "production api",
+			},
+			{
+				id: "network-connect-db-internal-5432",
+				label: "network.connect db.internal:5432",
+				actionId: "network.connect",
+				target: "db.internal:5432",
+				hint: "custom target",
+			},
+		]);
+
+		const presets = getToolTargetPresets(summary, "google.com", custom);
+		expect(presets.slice(0, 3).map((preset) => preset.id)).toEqual([
+			"api",
+			"network-connect-db-internal-5432",
+			"default-ping",
+		]);
+		expect(createToolRunPlanFromPreset(presets[1])).toEqual({
+			actionId: "network.connect",
+			toolId: "port-check",
+			args: ["db.internal", "5432"],
+			label: "network.connect db.internal:5432",
+		});
 	});
 
 	test("keeps latest tool results with stable raw handoff metadata", () => {
@@ -272,7 +333,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -353,12 +414,12 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
 		]);
 		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
 			"TOOLS history=2 filter=missing matches=0 selected=-",
 			"no matching tool runs",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
@@ -417,7 +478,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -467,7 +528,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(history, 7, 0, "", "time", "status"),
@@ -506,7 +567,62 @@ describe("TUI tool history", () => {
 		).toEqual([
 			"TOOLS history=0 presets=connect,fail,dns selected=-",
 			"no tool runs yet",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
+		]);
+	});
+
+	test("saves normalized tool target presets without duplicates", () => {
+		const presets = saveToolTargetPreset(
+			[
+				{
+					id: "api-dns",
+					label: "API DNS",
+					actionId: "tools.dns",
+					target: "api.example.com",
+					hint: "production api",
+				},
+			],
+			{
+				id: "db-port",
+				label: "DB port",
+				actionId: "network.connect",
+				target: " db.internal:5432 ",
+				hint: "internal db",
+			},
+			3,
+		);
+
+		expect(presets).toEqual([
+			{
+				id: "db-port",
+				label: "DB port",
+				actionId: "network.connect",
+				target: "db.internal:5432",
+				hint: "internal db",
+			},
+			{
+				id: "api-dns",
+				label: "API DNS",
+				actionId: "tools.dns",
+				target: "api.example.com",
+				hint: "production api",
+			},
+		]);
+		expect(saveToolTargetPreset(presets, presets[1], 3)).toEqual([
+			{
+				id: "api-dns",
+				label: "API DNS",
+				actionId: "tools.dns",
+				target: "api.example.com",
+				hint: "production api",
+			},
+			{
+				id: "db-port",
+				label: "DB port",
+				actionId: "network.connect",
+				target: "db.internal:5432",
+				hint: "internal db",
+			},
 		]);
 	});
 
@@ -547,7 +663,7 @@ describe("TUI tool history", () => {
 			"status=ok",
 			"summary=Summary: Query: example.com | A: 2",
 			"command=picos tools dns example.com",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(
