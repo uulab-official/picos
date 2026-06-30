@@ -32,9 +32,9 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 33,
+			total: 34,
 			enabled: 23,
-			locked: 10,
+			locked: 11,
 			elevated: 4,
 		});
 	});
@@ -88,6 +88,19 @@ describe("action catalog", () => {
 				risk: "read",
 				privilege: "none",
 				enabled: true,
+			}),
+		);
+	});
+
+	test("keeps self-update apply locked behind confirmation", () => {
+		expect(getActionCatalog()).toContainEqual(
+			expect.objectContaining({
+				id: "picos.update.apply",
+				risk: "write",
+				privilege: "user",
+				enabled: false,
+				confirmationRequired: true,
+				confirmationPhrase: "update picos",
 			}),
 		);
 	});

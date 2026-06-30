@@ -78,6 +78,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Action Center now exposes `x` for policy-gated dry-run attempts, backed by `controlExecutionMode` and `allowAdminDryRun` config.
 - Action Center and Inspector now show the current control execution policy, including dry-run/admin blockers, before an attempt is made.
 - `picos update` and the `picos.update` action now run a read-only npm registry check, surfacing latest version, status, registry URL, and install hint without executing an installer.
+- Update checks now create a locked self-update apply preview when a newer version is available, showing the npm dry-run command and exact confirmation phrase while keeping package mutation disabled.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.

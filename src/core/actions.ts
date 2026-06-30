@@ -301,6 +301,18 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "picos.update.apply",
+		title: "Apply picos update",
+		description:
+			"Preview npm global update command before any package mutation.",
+		category: "system",
+		risk: "write",
+		privilege: "user",
+		enabled: false,
+		confirmationRequired: true,
+		confirmationPhrase: "update picos",
+	},
+	{
 		id: "remote.profiles",
 		title: "List remote profiles",
 		description:

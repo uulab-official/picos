@@ -96,6 +96,8 @@ import type {
 } from "../core/types";
 import {
 	checkForPackageUpdate,
+	createUpdateApplyPreview,
+	formatUpdateApplyPreviewRows,
 	formatUpdateCheckRows,
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
@@ -1168,6 +1170,12 @@ export function App(): React.ReactElement {
 					setScreen("status");
 					for (const row of formatUpdateCheckRows(result)) {
 						log(result.status === "unknown" ? "warn" : "info", row);
+					}
+					const applyPreview = createUpdateApplyPreview(result);
+					if (applyPreview) {
+						for (const row of formatUpdateApplyPreviewRows(applyPreview)) {
+							log("warn", row);
+						}
 					}
 				}
 
@@ -4308,7 +4316,8 @@ function getActionPreviewRowColor(row: string): string {
 		row.startsWith("CONTROL CONFIRM") ||
 		row.startsWith("CONTROL SIMULATION") ||
 		row.startsWith("CONTROL EXECUTION POLICY") ||
-		row.startsWith("CONTROL EXECUTION")
+		row.startsWith("CONTROL EXECUTION") ||
+		row.startsWith("PICOS UPDATE APPLY PREVIEW")
 	) {
 		return "cyan";
 	}
@@ -4392,6 +4401,9 @@ function StatusWorkspace({
 	updateCheckResult?: PackageUpdateCheckResult;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const updateApplyPreview = updateCheckResult
+		? createUpdateApplyPreview(updateCheckResult)
+		: undefined;
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -4421,6 +4433,18 @@ function StatusWorkspace({
 					<Text color="gray">Run picos.update or `picos update`.</Text>
 				)}
 			</Box>
+			{updateApplyPreview ? (
+				<Box marginTop={1} flexDirection="column">
+					<Text color="gray">UPDATE APPLY PREVIEW</Text>
+					{formatUpdateApplyPreviewRows(updateApplyPreview)
+						.slice(1)
+						.map((row) => (
+							<Text key={row} color={getActionPreviewRowColor(row)}>
+								{row}
+							</Text>
+						))}
+				</Box>
+			) : null}
 			<Text color="gray">{t("status.roadmap")}</Text>
 			<Box marginTop={1} flexDirection="column">
 				{getRoadmapItems().map((item) => (
