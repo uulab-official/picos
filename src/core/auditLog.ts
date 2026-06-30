@@ -14,6 +14,8 @@ export type ConsoleAuditExportPlan = {
 	path: string;
 	content: string;
 	eventCount: number;
+	query?: string;
+	scope?: "all" | "filtered";
 };
 
 export type ConsoleAuditExportRead = {
@@ -25,12 +27,16 @@ export function formatConsoleAuditLog(
 	events: AuditLogEvent[],
 	options: {
 		generatedAt?: string;
+		query?: string;
+		scope?: "all" | "filtered";
 	} = {},
 ): string {
 	const generatedAt = options.generatedAt ?? new Date().toISOString();
 	return [
 		"# picos audit log",
 		`generatedAt=${generatedAt}`,
+		...(options.scope ? [`scope=${options.scope}`] : []),
+		...(options.query ? [`query=${options.query}`] : []),
 		`events=${events.length}`,
 		"",
 		...events.map(
@@ -46,18 +52,28 @@ export function createConsoleAuditExportPlan(
 	options: {
 		baseDir: string;
 		generatedAt?: Date;
+		query?: string;
+		scope?: "all" | "filtered";
 	},
 ): ConsoleAuditExportPlan {
 	const generatedAt = options.generatedAt ?? new Date();
 	const iso = generatedAt.toISOString();
+	const scope = options.scope ?? "all";
+	const fileScope = scope === "filtered" ? "filtered-" : "";
 	return {
 		path: join(
 			options.baseDir,
 			"audit",
-			`picos-audit-${iso.replaceAll(/[:.]/g, "")}.log`,
+			`picos-audit-${fileScope}${iso.replaceAll(/[:.]/g, "")}.log`,
 		),
-		content: formatConsoleAuditLog(events, { generatedAt: iso }),
+		content: formatConsoleAuditLog(events, {
+			generatedAt: iso,
+			query: options.query,
+			scope: options.scope,
+		}),
 		eventCount: events.length,
+		...(options.query ? { query: options.query } : {}),
+		...(options.scope ? { scope: options.scope } : {}),
 	};
 }
 

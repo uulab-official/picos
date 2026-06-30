@@ -162,8 +162,11 @@ import {
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
+	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
 	nextTimelineFilter,
+	nextTimelineSearchPreset,
+	saveTimelineSearchPreset,
 	type TimelineFilter,
 } from "./timelinePanel";
 import {
@@ -320,6 +323,10 @@ export function App(): React.ReactElement {
 	const [toolHistoryDetailView, setToolHistoryDetailView] =
 		useState<ToolHistoryDetailView>("raw");
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
+	const [timelineSearchQuery, setTimelineSearchQuery] = useState("");
+	const [timelineSearchPresets, setTimelineSearchPresets] = useState<string[]>(
+		[],
+	);
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -614,6 +621,24 @@ export function App(): React.ReactElement {
 		}
 		setCommandLine((current) => closeCommandLine(current));
 	}, [commandLine.prompt, commandLine.value, connections, log, ports]);
+
+	const submitTimelineSearchCommand = useCallback(() => {
+		const query = commandLine.value.trim();
+		const filtered = filterTimelineEvents(events, query, timelineFilter);
+		setTimelineSearchQuery(query);
+		if (query) {
+			setTimelineSearchPresets((current) =>
+				saveTimelineSearchPreset(current, query),
+			);
+		}
+		setCommandLine((current) => closeCommandLine(current));
+		log(
+			filtered.length ? "info" : "warn",
+			query
+				? `timeline search ${query} matches ${filtered.length}`
+				: "timeline search cleared",
+		);
+	}, [commandLine.value, events, log, timelineFilter]);
 
 	const submitClipboardCommand = useCallback(async () => {
 		try {
@@ -949,11 +974,23 @@ export function App(): React.ReactElement {
 				}
 
 				if (action.id === "timeline.export") {
-					const plan = createConsoleAuditExportPlan(events, {
+					const scopedEvents = filterTimelineEvents(
+						events,
+						timelineSearchQuery,
+						timelineFilter,
+					);
+					const scoped =
+						timelineFilter !== "all" || Boolean(timelineSearchQuery.trim());
+					const plan = createConsoleAuditExportPlan(scopedEvents, {
 						baseDir: dirname(getConfigPath()),
+						query: timelineSearchQuery.trim() || undefined,
+						scope: scoped ? "filtered" : undefined,
 					});
 					const written = await writeConsoleAuditExport(plan);
-					log("ok", `audit exported ${written.path}`);
+					log(
+						"ok",
+						`audit exported ${written.path} events=${written.eventCount}`,
+					);
 				}
 
 				const toolPlan = createToolRunPlan(
@@ -1018,6 +1055,8 @@ export function App(): React.ReactElement {
 			log,
 			refresh,
 			refreshFiles,
+			timelineFilter,
+			timelineSearchQuery,
 			toolHistory,
 		],
 	);
@@ -1069,9 +1108,11 @@ export function App(): React.ReactElement {
 								? "tool history filter cancelled"
 								: commandLine.prompt.startsWith(endpointFilterPromptPrefix)
 									? "endpoint filter cancelled"
-									: commandLine.prompt.startsWith(toolPromptPrefix)
-										? "tool target command cancelled"
-										: "path command cancelled",
+									: commandLine.prompt === "timeline-search"
+										? "timeline search cancelled"
+										: commandLine.prompt.startsWith(toolPromptPrefix)
+											? "tool target command cancelled"
+											: "path command cancelled",
 				);
 				return;
 			}
@@ -1085,6 +1126,8 @@ export function App(): React.ReactElement {
 					submitToolHistoryFilterCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
+				} else if (commandLine.prompt === "timeline-search") {
+					submitTimelineSearchCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -1543,6 +1586,48 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "timeline" && focusArea === "workspaces" && input === "f") {
+			setCommandLine(openCommandLine("timeline-search"));
+			log("info", "timeline search opened");
+			return;
+		}
+
+		if (screen === "timeline" && focusArea === "workspaces" && input === "F") {
+			setTimelineSearchQuery("");
+			log("info", "timeline search cleared");
+			return;
+		}
+
+		if (screen === "timeline" && focusArea === "workspaces" && input === "P") {
+			if (!timelineSearchQuery.trim()) {
+				log("warn", "no timeline search to save");
+				return;
+			}
+			setTimelineSearchPresets((current) =>
+				saveTimelineSearchPreset(current, timelineSearchQuery),
+			);
+			log("info", `timeline preset saved ${timelineSearchQuery}`);
+			return;
+		}
+
+		if (screen === "timeline" && focusArea === "workspaces" && input === "]") {
+			const preset = nextTimelineSearchPreset(
+				timelineSearchPresets,
+				timelineSearchQuery,
+			);
+			if (!preset) {
+				log("warn", "no timeline search presets");
+				return;
+			}
+			const filtered = filterTimelineEvents(events, preset, timelineFilter);
+			setTimelineSearchQuery(preset);
+			log(
+				filtered.length ? "info" : "warn",
+				`timeline preset ${preset} matches ${filtered.length}`,
+			);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "f") {
 			setCommandLine(openCommandLine("tool-filter"));
 			log("info", "tool history filter opened");
@@ -1913,6 +1998,8 @@ export function App(): React.ReactElement {
 					routeSort={routeSort}
 					routeDetailView={routeDetailView}
 					timelineFilter={timelineFilter}
+					timelineSearchQuery={timelineSearchQuery}
+					timelineSearchPresets={timelineSearchPresets}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolHistoryFilter={toolHistoryFilter}
@@ -2068,6 +2155,8 @@ function MainWorkspace({
 	routeSort,
 	routeDetailView,
 	timelineFilter,
+	timelineSearchQuery,
+	timelineSearchPresets,
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolHistoryFilter,
@@ -2129,6 +2218,8 @@ function MainWorkspace({
 	routeSort: RouteSort;
 	routeDetailView: RouteDetailView;
 	timelineFilter: TimelineFilter;
+	timelineSearchQuery: string;
+	timelineSearchPresets: string[];
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolHistoryFilter: string;
@@ -2199,6 +2290,8 @@ function MainWorkspace({
 					routeSort,
 					routeDetailView,
 					timelineFilter,
+					timelineSearchQuery,
+					timelineSearchPresets,
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolHistoryFilter,
@@ -2264,6 +2357,8 @@ function renderWorkspace(
 	routeSort: RouteSort,
 	routeDetailView: RouteDetailView,
 	timelineFilter: TimelineFilter,
+	timelineSearchQuery: string,
+	timelineSearchPresets: string[],
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolHistoryFilter: string,
@@ -2446,6 +2541,9 @@ function renderWorkspace(
 			<TimelineWorkspace
 				events={events}
 				filter={timelineFilter}
+				query={timelineSearchQuery}
+				presets={timelineSearchPresets}
+				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -3657,20 +3755,38 @@ function NetworkToolsWorkspace(): React.ReactElement {
 function TimelineWorkspace({
 	events,
 	filter,
+	query,
+	presets,
+	commandLine,
 	visibleRows,
 	t,
 }: {
 	events: ConsoleEvent[];
 	filter: TimelineFilter;
+	query: string;
+	presets: string[];
+	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const rows = formatTimelineWorkspaceRows(events, visibleRows, filter);
+	const promptRows = formatTimelineSearchPromptRows(commandLine);
+	const rows = [
+		...formatTimelineWorkspaceRows(
+			events,
+			Math.max(1, visibleRows - promptRows.length),
+			filter,
+			{
+				presets,
+				query,
+			},
+		),
+		...promptRows,
+	];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.timeline")}</Text>
 			<Text color="gray">
-				t cycle filters · timeline.export writes current audit log
+				t filter · f search · P save · ] preset · timeline.export scoped log
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
@@ -3683,8 +3799,20 @@ function TimelineWorkspace({
 	);
 }
 
+function formatTimelineSearchPromptRows(
+	commandLine: CommandLineState,
+): string[] {
+	if (!commandLine.active || commandLine.prompt !== "timeline-search") {
+		return [];
+	}
+	return [
+		"SEARCH",
+		`:search ${commandLine.value || " "}  enter=apply esc=cancel`,
+	];
+}
+
 function getTimelineRowColor(row: string): string {
-	if (row === "TIMELINE" || row.startsWith("SUMMARY")) {
+	if (row === "TIMELINE" || row === "SEARCH" || row.startsWith("SUMMARY")) {
 		return "cyan";
 	}
 	if (row.includes(" audit ")) {

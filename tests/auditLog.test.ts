@@ -75,6 +75,42 @@ describe("console audit export", () => {
 		});
 	});
 
+	test("creates scoped export plans for searched timeline events", () => {
+		expect(
+			createConsoleAuditExportPlan(
+				[
+					{
+						id: "12:00:00-info-network",
+						level: "info",
+						time: "12:00:00",
+						message: "network public ip changed",
+					},
+				],
+				{
+					baseDir: "/Users/bonjin/.config/picos",
+					generatedAt: new Date("2026-06-30T03:00:00.000Z"),
+					scope: "filtered",
+					query: "network",
+				},
+			),
+		).toEqual({
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-06-30T030000000Z.log",
+			content: [
+				"# picos audit log",
+				"generatedAt=2026-06-30T03:00:00.000Z",
+				"scope=filtered",
+				"query=network",
+				"events=1",
+				"",
+				"[12:00:00] INFO network public ip changed",
+				"",
+			].join("\n"),
+			eventCount: 1,
+			scope: "filtered",
+			query: "network",
+		});
+	});
+
 	test("writes audit export files and creates the audit directory", async () => {
 		const root = await mkdtemp(join(tmpdir(), "picos-audit-"));
 		try {

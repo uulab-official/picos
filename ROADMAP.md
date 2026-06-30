@@ -801,16 +801,31 @@ Goal: make Connections and Ports practical when endpoint lists grow large during
 - Endpoint summaries show active filters and the first saved presets.
 - Next: richer event search and export scopes.
 
+## v0.3.59 - Timeline Search Export
+
+Status: draft PR #60.
+
+Goal: make Timeline useful as an operator audit console when event history grows.
+
+- Timeline now supports search prompts opened with `f`.
+- `F` clears the active timeline search.
+- `P` saves the active timeline search as a session preset.
+- `]` cycles saved timeline search presets.
+- Timeline summaries show search match counts and visible kind counters.
+- `timeline.export` writes the current filtered/search scope when Timeline filtering or search is active.
+- Scoped audit exports include `scope=filtered` and `query=` metadata plus a filtered filename.
+- Next: platform-aware Tools presets and release/version hardening.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
-- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, stable row sorting, keyboard selection, and list/detail/stats/platform panes landed; next richer event search.
-- Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification plus operator scope/hint labels landed; next richer event search.
-- Route Inspector depth: route diagnostics, raw/table/diagnostics/path tabs, destination path lookup UI, sortable rows, VPN route hints, and split-tunnel diagnostics landed; next richer event search.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, TUI filter presets, selection details, detail/raw/process tabs, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer event search.
+- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, stable row sorting, keyboard selection, and list/detail/stats/platform panes landed; next platform-aware Tools presets.
+- Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification plus operator scope/hint labels landed; next platform-aware Tools presets.
+- Route Inspector depth: route diagnostics, raw/table/diagnostics/path tabs, destination path lookup UI, sortable rows, VPN route hints, and split-tunnel diagnostics landed; next platform-aware Tools presets.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, TUI filter presets, selection details, detail/raw/process tabs, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next platform-aware Tools presets.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, raw output handoff, locked summary/raw-output copy shortcuts, and scoped markdown export landed; next platform-aware presets and export scopes.
-- Timeline: live EventDock history, network/action/audit/raw filters, audit export, latest audit reload, and network status/address/public-IP change events landed; next richer event search and export scopes.
+- Timeline: live EventDock history, network/action/audit/raw filters, search presets, scoped audit export, latest audit reload, and network status/address/public-IP change events landed; next platform-aware Tools presets.
 - Raw output viewer for routes, connections, ports, and Tools history landed; next richer platform source viewers.
 
 ## v0.4.0 - Privileged Controls Framework

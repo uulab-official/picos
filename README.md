@@ -45,6 +45,7 @@ Keyboard controls:
 - Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `j/k` selects endpoints, `f` filters, `F` clears, `P` saves the active filter, `]` cycles filter presets, `Tab` cycles detail/raw/process panes, `enter` opens the selected PID in Processes, `s` cycles endpoint sorting, PID matches show process snapshots, and `c` opens a locked clipboard preview
 - Processes workspace: endpoint handoffs show PID detail plus labeled cwd/open-file/resource rows; `j/k` selects an item, `enter` opens local filesystem paths in Files or Editor, socket/pipe/unix resources are logged for inspection, and `c` opens a locked clipboard preview
 - Tools workspace: `j/k` selects previous runs, `Tab` cycles raw/summary/command detail panes, `f` filters history, `P` saves the active filter as a session preset, `]` cycles saved presets, `s` cycles sorting, `G` groups by tool/action or status, `r` reruns, `y` copies summaries, `c` copies raw output, and `e`/`E` exports selected/all runs
+- Timeline workspace: `t` cycles event kinds, `f` searches, `F` clears search, `P` saves search, `]` cycles presets, and `timeline.export` writes the current filtered scope
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh
@@ -172,7 +173,7 @@ Reference-inspired modules now tracked in picos:
 - Connections view with parsed rows, CLI filtering/sorting, TUI search presets, detail/raw/process panes, PID process enrichment, copy preview, and raw OS command output
 - Ports view with process metadata, CLI filtering/sorting, TUI search presets, detail/raw/process panes, PID process enrichment, copy preview, and raw OS command output
 - Tools Hub with read-only DNS/RDAP/IP/TCP/TLS/ping/traceroute commands, target prompts, filterable/sortable/groupable/selectable result history, raw/summary/command detail panes, session filter presets, rerun, locked summary/raw-output copy, scoped markdown export, and raw output handoff
-- Timeline with network/action/audit/raw event filters, audit export, latest audit reload, and network state-change events
+- Timeline with network/action/audit/raw event filters, search presets, scoped audit export, latest audit reload, and network state-change events
 - Raw output viewer
 
 See [docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md](docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md).
