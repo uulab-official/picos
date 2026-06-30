@@ -9,6 +9,7 @@ import {
 	formatConfigManagedShelfFocusRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
+	formatConfigManagedShelfPromptBreadcrumbRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
@@ -301,6 +302,18 @@ describe("config TUI panel", () => {
 				"enter=cycle log profiles  fallback=open search prompt",
 			],
 		});
+	});
+
+	test("formats prompt breadcrumbs for config-origin shelf edits", () => {
+		expect(formatConfigManagedShelfPromptBreadcrumbRows("routes")).toEqual([
+			"CONFIG ORIGIN Config > Routes",
+			"scope=routes.filters prompt=filter enter=apply esc=keep landing",
+		]);
+
+		expect(formatConfigManagedShelfPromptBreadcrumbRows("logs")).toEqual([
+			"CONFIG ORIGIN Config > Logs",
+			"scope=logs.profiles prompt=search enter=apply esc=keep landing",
+		]);
 	});
 
 	test("moves selection and clamps adjusted retention values", () => {

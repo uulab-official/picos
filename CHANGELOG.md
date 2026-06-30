@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Config-origin filter/search prompts now show breadcrumbs in Routes, Connections, Ports, and Logs so shelf edits keep their settings-center context.
 - Config shelf deep links now render selected shelf-control cursor rows in Routes, Connections, Ports, and Logs so saved filters/profiles feel like active OS settings controls.
 - Config shelf focus rows now expose `enter` actions that cycle destination presets, open filter/search prompts, move to Interfaces, or enter Remotes focus while the landing is active.
 - Config shelf destinations now render workspace-local focus rows so Network, Routes, Connections, Ports, Tools, Logs, and Remotes keep the deep-link context visible near active controls.

@@ -244,6 +244,7 @@ import {
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
+	formatConfigManagedShelfPromptBreadcrumbRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
@@ -7864,6 +7865,11 @@ function ConnectionsWorkspace({
 }): React.ReactElement {
 	const promptRows = [
 		...formatClipboardPromptRows(commandLine),
+		...(configShelfFocusTarget === "connections" &&
+		commandLine.active &&
+		commandLine.prompt === `${endpointFilterPromptPrefix}connections`
+			? formatConfigManagedShelfPromptBreadcrumbRows("connections")
+			: []),
 		...formatEndpointFilterPromptRows(
 			commandLine,
 			"connections",
@@ -7969,6 +7975,11 @@ function PortsWorkspace({
 	);
 	const promptRows = [
 		...formatClipboardPromptRows(commandLine),
+		...(configShelfFocusTarget === "ports" &&
+		commandLine.active &&
+		commandLine.prompt === `${endpointFilterPromptPrefix}ports`
+			? formatConfigManagedShelfPromptBreadcrumbRows("ports")
+			: []),
 		...formatEndpointFilterPromptRows(commandLine, "ports", filterPresets),
 		...processControlPromptRows,
 	];
@@ -8063,7 +8074,12 @@ function RoutesWorkspace({
 		commandLine.active && commandLine.prompt === "route"
 			? [`:route ${commandLine.value || " "}`]
 			: commandLine.active && commandLine.prompt === "route-filter"
-				? [`:routes-filter ${commandLine.value || " "}`]
+				? [
+						...(configShelfFocusTarget === "routes"
+							? formatConfigManagedShelfPromptBreadcrumbRows("routes")
+							: []),
+						`:routes-filter ${commandLine.value || " "}`,
+					]
 				: commandLine.active &&
 						commandLine.prompt === "route-filter-cleanup" &&
 						cleanupPreview
@@ -8128,9 +8144,11 @@ function RoutesWorkspace({
 							key={key}
 							color={
 								row.startsWith("CONFIG SHELF") ||
+								row.startsWith("CONFIG ORIGIN") ||
 								row.startsWith("SHELF CONTROL")
 									? "cyan"
 									: row.startsWith("target=") ||
+											row.startsWith("scope=") ||
 											row.startsWith("focus=") ||
 											row.startsWith("enter=") ||
 											row.startsWith(":routes-cleanup") ||
@@ -8167,6 +8185,7 @@ function RoutesWorkspace({
 function getEndpointRowColor(row: string, tableHeader: string): string {
 	if (
 		row.startsWith("CONFIG SHELF") ||
+		row.startsWith("CONFIG ORIGIN") ||
 		row === tableHeader ||
 		row === "RAW OUTPUT" ||
 		row === "FILTER" ||
@@ -8181,6 +8200,7 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 	if (
 		row.startsWith("CLIPBOARD PREVIEW") ||
 		row.startsWith("target=") ||
+		row.startsWith("scope=") ||
 		row.startsWith("focus=") ||
 		row.startsWith("enter=") ||
 		row.startsWith("action=process.terminate") ||
@@ -9581,7 +9601,13 @@ function LogWorkspace({
 			: undefined;
 	const promptRows =
 		commandLine.active && commandLine.prompt === "log-search"
-			? ["SEARCH", `:logs ${commandLine.value || " "}  enter=apply esc=cancel`]
+			? [
+					...(configShelfFocusTarget === "logs"
+						? formatConfigManagedShelfPromptBreadcrumbRows("logs")
+						: []),
+					"SEARCH",
+					`:logs ${commandLine.value || " "}  enter=apply esc=cancel`,
+				]
 			: commandLine.active &&
 					commandLine.prompt === "logs-cleanup" &&
 					cleanupPreview
@@ -9642,6 +9668,7 @@ function LogWorkspace({
 function getOsLogRowColor(row: string): string {
 	if (
 		row.startsWith("CONFIG SHELF") ||
+		row.startsWith("CONFIG ORIGIN") ||
 		row.startsWith("SHELF CONTROL") ||
 		row.startsWith("LOGS") ||
 		row === "SEARCH"
@@ -9652,6 +9679,7 @@ function getOsLogRowColor(row: string): string {
 		row.startsWith(":logs-cleanup") ||
 		row.startsWith("confirm ") ||
 		row.startsWith("target=") ||
+		row.startsWith("scope=") ||
 		row.startsWith("focus=") ||
 		row.startsWith("enter=")
 	) {

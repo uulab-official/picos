@@ -2327,6 +2327,20 @@ Goal: make Config shelf destinations show active OS-settings-style cursors on th
 - Tests cover selected shelf-control formatting for route filters, endpoint filters, and log profiles.
 - Next: add a compact Config-origin breadcrumb into the command prompt/edit dialogs so filter/search editing keeps the settings deep-link context visible.
 
+## v0.4.112 - Config Prompt Breadcrumbs
+
+Status: draft PR #174 on `codex/picos-v0.4.112-config-prompt-breadcrumbs`.
+
+Goal: keep Config shelf origin visible while operators edit destination filters and searches.
+
+- Config now formats reusable prompt breadcrumb rows for managed shelf destinations.
+- Routes filter prompts show `CONFIG ORIGIN Config > Routes` plus `scope=routes.filters` while a Config shelf landing is active.
+- Connections and Ports filter prompts show matching Config-origin breadcrumbs for endpoint filter edits.
+- Logs search prompts show Config-origin breadcrumbs for log profile/search edits.
+- Endpoint, route, and log row color rules now distinguish Config origin rows and scope rows from normal command input.
+- Tests cover Config prompt breadcrumb formatting.
+- Next: extend the same breadcrumb model to cleanup confirmations and external handoff dialogs so destructive/locked flows keep their origin path visible.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
