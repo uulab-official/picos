@@ -1433,6 +1433,18 @@ Goal: make repeated Tools Hub diagnostics behave more like an operator favorites
 - Tests cover saved target promotion, already-top no-op behavior, non-saved target no-op behavior, and existing Tools Hub rendering.
 - Next: target preset previous/next navigation and retention policy controls.
 
+## v0.4.44 - Tools Target Preset Navigation
+
+Status: draft PR #106.
+
+Goal: make long Tools Hub target shelves quick to scan without one-way cycling.
+
+- Tools workspace now supports `n`/`N` to move forward/back through OS-aware and saved target presets.
+- Target selection uses a tested wraparound helper for both directions.
+- The target preset header and shortcut footer now expose the bidirectional cycle controls.
+- Tests cover forward wraparound, backward wraparound, out-of-range normalization, and empty target lists.
+- Next: retention policy controls for saved target presets.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
