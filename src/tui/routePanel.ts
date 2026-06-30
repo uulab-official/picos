@@ -3,7 +3,7 @@ import type {
 	RouteSort,
 	RouteTableResult,
 } from "../core/routes";
-import { sortRouteEntries } from "../core/routes";
+import { filterRouteEntries, sortRouteEntries } from "../core/routes";
 
 export type RouteDetailView = "table" | "raw" | "diagnostics" | "path";
 
@@ -24,13 +24,16 @@ export function formatRouteWorkspaceRows(
 	result: RouteTableResult,
 	visibleRows: number,
 	options: {
+		filter?: string;
 		path?: RoutePathResult;
 		sort?: RouteSort;
 		view?: RouteDetailView;
 	} = {},
 ): string[] {
 	const view = options.view ?? "table";
-	const routeRows = sortRouteEntries(result.routes, options.sort).map(
+	const filter = options.filter?.trim() ?? "";
+	const filteredRoutes = filterRouteEntries(result.routes, filter);
+	const routeRows = sortRouteEntries(filteredRoutes, options.sort).map(
 		(route) =>
 			`${clip(route.destination, 18).padEnd(18)} ${clip(route.gateway, 16).padEnd(16)} ${clip(route.interfaceName, 10).padEnd(10)} ${route.family}`,
 	);
@@ -48,7 +51,12 @@ export function formatRouteWorkspaceRows(
 		);
 	}
 	const fullRows = [
-		`SUMMARY routes=${result.routes.length} command=${result.command} ${result.args.join(" ")}`.trim(),
+		`SUMMARY routes=${filter ? `${filteredRoutes.length}/${result.routes.length}` : result.routes.length} command=${result.command} ${result.args.join(" ")}`.trim(),
+		...(filter
+			? [
+					`FILTER ${filter} matches=${filteredRoutes.length}/${result.routes.length}`,
+				]
+			: []),
 		...(options.sort
 			? [`SORT ${options.sort.key} ${options.sort.direction}`]
 			: []),
@@ -68,6 +76,11 @@ export function formatRouteWorkspaceRows(
 
 	const fixedRows = [
 		fullRows[0],
+		...(filter
+			? [
+					`FILTER ${filter} matches=${filteredRoutes.length}/${result.routes.length}`,
+				]
+			: []),
 		...(options.sort
 			? [`SORT ${options.sort.key} ${options.sort.direction}`]
 			: []),

@@ -6,12 +6,14 @@ import {
 } from "../../core/routes";
 
 export async function routesCommand(
-	options: { raw?: boolean; sort?: string } = {},
+	options: { filter?: string; raw?: boolean; sort?: string } = {},
 ): Promise<void> {
 	const result = await runRouteTable();
 	const sort = parseRouteSort(options.sort);
 	console.log(
-		options.raw ? result.rawOutput : formatRouteTable(result, { sort }),
+		options.raw
+			? result.rawOutput
+			: formatRouteTable(result, { filter: options.filter, sort }),
 	);
 }
 

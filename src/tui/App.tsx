@@ -93,6 +93,7 @@ import {
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
 import {
+	filterRouteEntries,
 	nextRouteSort,
 	type RoutePathResult,
 	type RouteSort,
@@ -417,6 +418,7 @@ export function App(): React.ReactElement {
 		key: "default",
 		direction: "asc",
 	});
+	const [routeFilter, setRouteFilter] = useState("");
 	const [routeDetailView, setRouteDetailView] =
 		useState<RouteDetailView>("table");
 	const [toolHistory, setToolHistory] = useState<ToolHistoryItem[]>([]);
@@ -659,6 +661,19 @@ export function App(): React.ReactElement {
 			setCommandLine((current) => closeCommandLine(current));
 		}
 	}, [commandLine.value, log]);
+
+	const submitRouteFilterCommand = useCallback(() => {
+		const query = commandLine.value.trim();
+		const filtered = filterRouteEntries(routeTable?.routes ?? [], query);
+		setRouteFilter(query);
+		setCommandLine((current) => closeCommandLine(current));
+		log(
+			filtered.length ? "info" : "warn",
+			query
+				? `route filter ${query} matches ${filtered.length}`
+				: "route filter cleared",
+		);
+	}, [commandLine.value, log, routeTable]);
 
 	const runToolPlan = useCallback(
 		async (plan: NonNullable<ReturnType<typeof createToolRunPlan>>) => {
@@ -1571,21 +1586,23 @@ export function App(): React.ReactElement {
 						? "route path command cancelled"
 						: commandLine.prompt === "clipboard"
 							? "clipboard confirmation cancelled"
-							: commandLine.prompt === "tool-filter"
-								? "tool history filter cancelled"
-								: commandLine.prompt.startsWith(endpointFilterPromptPrefix)
-									? "endpoint filter cancelled"
-									: commandLine.prompt === "timeline-search"
-										? "timeline search cancelled"
-										: commandLine.prompt === "control-confirm"
-											? "control confirmation cancelled"
-											: commandLine.prompt === "external-open"
-												? "external open confirmation cancelled"
-												: commandLine.prompt === "log-search"
-													? "logs search cancelled"
-													: commandLine.prompt.startsWith(toolPromptPrefix)
-														? "tool target command cancelled"
-														: "path command cancelled",
+							: commandLine.prompt === "route-filter"
+								? "route filter cancelled"
+								: commandLine.prompt === "tool-filter"
+									? "tool history filter cancelled"
+									: commandLine.prompt.startsWith(endpointFilterPromptPrefix)
+										? "endpoint filter cancelled"
+										: commandLine.prompt === "timeline-search"
+											? "timeline search cancelled"
+											: commandLine.prompt === "control-confirm"
+												? "control confirmation cancelled"
+												: commandLine.prompt === "external-open"
+													? "external open confirmation cancelled"
+													: commandLine.prompt === "log-search"
+														? "logs search cancelled"
+														: commandLine.prompt.startsWith(toolPromptPrefix)
+															? "tool target command cancelled"
+															: "path command cancelled",
 				);
 				return;
 			}
@@ -1595,6 +1612,8 @@ export function App(): React.ReactElement {
 					void submitClipboardCommand();
 				} else if (commandLine.prompt === "route") {
 					void submitRouteDestinationCommand();
+				} else if (commandLine.prompt === "route-filter") {
+					submitRouteFilterCommand();
 				} else if (commandLine.prompt === "tool-filter") {
 					submitToolHistoryFilterCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
@@ -1856,6 +1875,18 @@ export function App(): React.ReactElement {
 		if (screen === "routes" && focusArea === "workspaces" && input === ":") {
 			setCommandLine(openCommandLine("route"));
 			log("info", "route destination prompt opened");
+		}
+
+		if (screen === "routes" && focusArea === "workspaces" && input === "f") {
+			setCommandLine(openCommandLine("route-filter"));
+			log("info", "route filter opened");
+			return;
+		}
+
+		if (screen === "routes" && focusArea === "workspaces" && input === "F") {
+			setRouteFilter("");
+			log("info", "route filter cleared");
+			return;
 		}
 
 		if (screen === "routes" && focusArea === "workspaces" && key.tab) {
@@ -2728,6 +2759,7 @@ export function App(): React.ReactElement {
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
+					routeFilter={routeFilter}
 					routeDetailView={routeDetailView}
 					timelineFilter={timelineFilter}
 					timelineSearchQuery={timelineSearchQuery}
@@ -2909,6 +2941,7 @@ function MainWorkspace({
 	routeTable,
 	routePath,
 	routeSort,
+	routeFilter,
 	routeDetailView,
 	timelineFilter,
 	timelineSearchQuery,
@@ -2992,6 +3025,7 @@ function MainWorkspace({
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
+	routeFilter: string;
 	routeDetailView: RouteDetailView;
 	timelineFilter: TimelineFilter;
 	timelineSearchQuery: string;
@@ -3084,6 +3118,7 @@ function MainWorkspace({
 					routeTable,
 					routePath,
 					routeSort,
+					routeFilter,
 					routeDetailView,
 					timelineFilter,
 					timelineSearchQuery,
@@ -3171,6 +3206,7 @@ function renderWorkspace(
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
+	routeFilter: string,
 	routeDetailView: RouteDetailView,
 	timelineFilter: TimelineFilter,
 	timelineSearchQuery: string,
@@ -3305,6 +3341,7 @@ function renderWorkspace(
 				routeTable={routeTable}
 				routePath={routePath}
 				routeSort={routeSort}
+				routeFilter={routeFilter}
 				routeDetailView={routeDetailView}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
@@ -4423,6 +4460,7 @@ function RoutesWorkspace({
 	routeTable,
 	routePath,
 	routeSort,
+	routeFilter,
 	routeDetailView,
 	commandLine,
 	visibleRows,
@@ -4431,6 +4469,7 @@ function RoutesWorkspace({
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
+	routeFilter: string;
 	routeDetailView: RouteDetailView;
 	commandLine: CommandLineState;
 	visibleRows: number;
@@ -4439,7 +4478,9 @@ function RoutesWorkspace({
 	const promptRows =
 		commandLine.active && commandLine.prompt === "route"
 			? [`:route ${commandLine.value || " "}`]
-			: [];
+			: commandLine.active && commandLine.prompt === "route-filter"
+				? [`:routes-filter ${commandLine.value || " "}`]
+				: [];
 	const pathRows = routePath
 		? formatRoutePathRows(routePath, Math.max(4, Math.floor(visibleRows / 3)))
 		: ["PATH destination lookup: press : then enter host or IP"];
@@ -4447,7 +4488,12 @@ function RoutesWorkspace({
 		? formatRouteWorkspaceRows(
 				routeTable,
 				Math.max(4, visibleRows - pathRows.length - promptRows.length),
-				{ path: routePath, sort: routeSort, view: routeDetailView },
+				{
+					filter: routeFilter,
+					path: routePath,
+					sort: routeSort,
+					view: routeDetailView,
+				},
 			)
 		: ["loading route table..."];
 	const rows =
@@ -4465,7 +4511,8 @@ function RoutesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
-				route table diagnostics · tab detail · s sort · : path lookup
+				route table diagnostics · f filter · F clear · tab detail · s sort · :
+				path
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {
@@ -4474,7 +4521,8 @@ function RoutesWorkspace({
 						row === "ROUTES" ||
 						row === "RAW OUTPUT" ||
 						row === "RAW PATH" ||
-						row.startsWith("PATH ");
+						row.startsWith("PATH ") ||
+						row.startsWith("FILTER ");
 					return (
 						<Text
 							key={key}
@@ -4486,6 +4534,14 @@ function RoutesWorkspace({
 						</Text>
 					);
 				})}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">COMMAND LINE</Text>
+				<Text>
+					picos routes --filter {routeFilter || "<query>"} · picos routes
+					{" --sort "}
+					{routeSort.key}
+				</Text>
 			</Box>
 		</Box>
 	);

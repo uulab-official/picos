@@ -85,6 +85,10 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.command("routes", "Inspect local route table")
 		.option("--raw", "Print raw route command output")
 		.option(
+			"--filter <query>",
+			"Filter routes by destination, gateway, interface, family, metric, protocol, or flags",
+		)
+		.option(
 			"--sort <key>",
 			"Sort routes by default, destination, gateway, interface, family, metric, or prefix with - for descending",
 		)

@@ -3,6 +3,7 @@ import {
 	buildRoutePathCommand,
 	buildRouteTableCommand,
 	diagnoseRoutes,
+	filterRouteEntries,
 	formatRouteTable,
 	nextRouteSort,
 	parseLinuxIpRoutes,
@@ -231,6 +232,45 @@ describe("lazyifconfig-style route inspector", () => {
 		).toEqual([20, 30, 100]);
 	});
 
+	test("filters route rows by destination gateway interface family and protocol", () => {
+		const routes = [
+			{
+				destination: "default",
+				gateway: "192.168.0.1",
+				interfaceName: "en0",
+				family: "ipv4" as const,
+				protocol: "dhcp",
+			},
+			{
+				destination: "10.8.0.0/24",
+				gateway: "link",
+				interfaceName: "utun0",
+				family: "ipv4" as const,
+				protocol: "static",
+			},
+			{
+				destination: "fe80::/64",
+				gateway: "link",
+				interfaceName: "en0",
+				family: "ipv6" as const,
+			},
+		];
+
+		expect(
+			filterRouteEntries(routes, "utun").map((route) => route.destination),
+		).toEqual(["10.8.0.0/24"]);
+		expect(
+			filterRouteEntries(routes, "192.168").map((route) => route.gateway),
+		).toEqual(["192.168.0.1"]);
+		expect(
+			filterRouteEntries(routes, "ipv6").map((route) => route.family),
+		).toEqual(["ipv6"]);
+		expect(
+			filterRouteEntries(routes, "static").map((route) => route.protocol),
+		).toEqual(["static"]);
+		expect(filterRouteEntries(routes, "  ").length).toBe(3);
+	});
+
 	test("parses route sort options", () => {
 		expect(parseRouteSort("interface")).toEqual({
 			direction: "asc",
@@ -285,6 +325,36 @@ describe("lazyifconfig-style route inspector", () => {
 			),
 		).toContain(
 			"Sort: interface asc\n\n[Routes]\ndefault            192.168.0.1        en0        ipv4\n10.8.0.0/24        link               utun0      ipv4",
+		);
+	});
+
+	test("formats route tables with selected filter context", () => {
+		expect(
+			formatRouteTable(
+				{
+					command: "netstat",
+					args: ["-rn"],
+					diagnostics: [],
+					rawOutput: "",
+					routes: [
+						{
+							destination: "default",
+							gateway: "192.168.0.1",
+							interfaceName: "en0",
+							family: "ipv4",
+						},
+						{
+							destination: "10.8.0.0/24",
+							gateway: "link",
+							interfaceName: "utun0",
+							family: "ipv4",
+						},
+					],
+				},
+				{ filter: "utun" },
+			),
+		).toContain(
+			"Filter: utun matches 1/2\n\n[Routes]\n10.8.0.0/24        link               utun0      ipv4",
 		);
 	});
 });

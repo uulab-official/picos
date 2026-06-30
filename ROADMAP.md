@@ -1189,6 +1189,20 @@ Goal: make live follow refreshes auditable in the Logs panel without opening the
 - Tests cover bounded follow history row rendering alongside the existing header and shortcut rows.
 - Next: explicit follow pause/resume controls and follow-history export.
 
+## v0.4.26 - Route Filter Controls
+
+Status: draft PR #88.
+
+Goal: make large route tables searchable from both CLI automation and the keyboard-driven Route workspace.
+
+- Core route rows can now be filtered by destination, gateway, interface, family, metric, protocol, or flags.
+- `picos routes --filter <query>` prints match counts and only matching route rows.
+- Routes workspace table view shows visible filter context with matched/total route counts.
+- Pressing `f` in Routes opens a filter prompt, and `F` clears the active filter.
+- Route filtering composes with existing route sorting and destination path lookup.
+- Tests cover route filter matching, CLI table formatting, and TUI filter row rendering.
+- Next: route filter presets and raw-output open/copy handoff.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
