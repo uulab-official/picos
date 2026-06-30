@@ -242,6 +242,7 @@ import {
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfHandoffRows,
+	formatConfigManagedShelfLandingRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
@@ -642,6 +643,8 @@ export function App(): React.ReactElement {
 	const [configResetPreview, setConfigResetPreview] =
 		useState<ConfigWorkspaceResetPreview>();
 	const [selectedConfigShelfTarget, setSelectedConfigShelfTarget] =
+		useState<ConfigManagedShelfTarget>();
+	const [configShelfLandingTarget, setConfigShelfLandingTarget] =
 		useState<ConfigManagedShelfTarget>();
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
@@ -3161,6 +3164,19 @@ export function App(): React.ReactElement {
 		return true;
 	}, [cleanupJumpAudit, log, screen]);
 
+	const dismissConfigShelfLanding = useCallback(() => {
+		if (!configShelfLandingTarget) {
+			return false;
+		}
+		const handoff = getConfigManagedShelfHandoff(configShelfLandingTarget);
+		if (handoff.workspace !== screen) {
+			return false;
+		}
+		setConfigShelfLandingTarget(undefined);
+		log("info", `config shelf landing cleared ${handoff.label}`);
+		return true;
+	}, [configShelfLandingTarget, log, screen]);
+
 	const reopenCleanupHandoffHistory = useCallback(() => {
 		const history = getSelectedCleanupHandoffHistory(
 			cleanupHandoffHistory,
@@ -3633,6 +3649,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (key.escape && dismissCleanupHandoff()) {
+			return;
+		}
+
+		if (key.escape && dismissConfigShelfLanding()) {
 			return;
 		}
 
@@ -4628,6 +4648,7 @@ export function App(): React.ReactElement {
 				setFocusArea(
 					handoff.workspace === "remotes" ? "remotes" : "workspaces",
 				);
+				setConfigShelfLandingTarget(handoff.target);
 				log("info", `config shelf jump ${handoff.target} -> ${handoff.label}`);
 				return;
 			}
@@ -5794,6 +5815,7 @@ export function App(): React.ReactElement {
 					configResetPreview={configResetPreview}
 					configManagedShelfRows={configManagedShelfRows}
 					configManagedShelfHandoffRows={configManagedShelfHandoffRows}
+					configShelfLandingTarget={configShelfLandingTarget}
 					cleanupShelfIndex={cleanupShelfIndex}
 					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 					cleanupJumpAudit={cleanupJumpAudit}
@@ -6010,6 +6032,7 @@ function MainWorkspace({
 	configResetPreview,
 	configManagedShelfRows,
 	configManagedShelfHandoffRows,
+	configShelfLandingTarget,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
 	cleanupJumpAudit,
@@ -6125,6 +6148,7 @@ function MainWorkspace({
 	configResetPreview?: ConfigWorkspaceResetPreview;
 	configManagedShelfRows: string[];
 	configManagedShelfHandoffRows: string[];
+	configShelfLandingTarget?: ConfigManagedShelfTarget;
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
 	cleanupJumpAudit?: CleanupJumpAudit;
@@ -6164,9 +6188,17 @@ function MainWorkspace({
 				...formatCleanupHandoffDismissRows(cleanupHandoffDismissPlan),
 			]
 		: [];
+	const configShelfLandingRows =
+		configShelfLandingTarget &&
+		getConfigManagedShelfHandoff(configShelfLandingTarget).workspace === screen
+			? formatConfigManagedShelfLandingRows(configShelfLandingTarget)
+			: [];
 	const workspaceHeight =
-		cleanupJumpAuditRows.length > 0
-			? Math.max(1, height - cleanupJumpAuditRows.length)
+		cleanupJumpAuditRows.length > 0 || configShelfLandingRows.length > 0
+			? Math.max(
+					1,
+					height - cleanupJumpAuditRows.length - configShelfLandingRows.length,
+				)
 			: height;
 
 	return (
@@ -6197,6 +6229,24 @@ function MainWorkspace({
 													: row.startsWith("confirm=")
 														? "yellow"
 														: "white"
+									}
+								>
+									{row}
+								</Text>
+							))}
+						</Box>
+					) : null}
+					{configShelfLandingRows.length > 0 ? (
+						<Box flexDirection="column">
+							{configShelfLandingRows.map((row) => (
+								<Text
+									key={row}
+									color={
+										row.startsWith("CONFIG SHELF")
+											? "cyan"
+											: row.startsWith("next=")
+												? "gray"
+												: "yellow"
 									}
 								>
 									{row}

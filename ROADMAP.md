@@ -2262,6 +2262,19 @@ Goal: make Config managed shelves navigable so settings discovery can hand opera
 - Tests cover shelf target cycling, wraparound, default selection, and handoff row formatting.
 - Next: add shelf-specific detail/deep-link states for presets and cleanup prompts inside the destination workspaces.
 
+## v0.4.107 - Config Shelf Landing Banners
+
+Status: draft PR #169 on `codex/picos-v0.4.107-config-shelf-landing`.
+
+Goal: make Config shelf jumps arrive with visible destination context instead of silently changing workspaces.
+
+- Config now formats shelf landing rows with source, target, workspace, scope, and `esc` clear guidance.
+- Shelf landing scopes summarize the destination settings surface, including network defaults, route filters, endpoint filters, Tools saved targets, Logs profiles, and Remotes profiles.
+- Config shelf jumps store a landing target, and the destination workspace renders a landing banner only when that target belongs to the current screen.
+- Pressing `esc` on the destination clears the Config shelf landing banner and restores normal workspace context.
+- Tests cover Tools landing row formatting and existing handoff target behavior.
+- Next: add shelf-specific destination cursor presets, such as jumping Tools to saved target controls and Logs to saved profile controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
