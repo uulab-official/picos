@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { submitActionPreviewConfirmation } from "../src/core/actions";
+import {
+	createControlExecutionPlan,
+	runControlExecutionPlan,
+} from "../src/core/controlExecution";
 import {
 	checkForPackageUpdate,
+	createUpdateApplyActionPreviewPlan,
 	createUpdateApplyPreview,
 	createUpdateReleaseHandoff,
 	formatUpdateApplyPreviewRows,
@@ -102,6 +108,103 @@ describe("update check", () => {
 			"command=npm install -g @uulab/picos@0.3.0 --dry-run",
 			"blocked=confirmation-required",
 		]);
+	});
+
+	test("creates a control execution preview for npm dry-run self-updates", () => {
+		const preview = createUpdateApplyPreview({
+			packageName: "@uulab/picos",
+			currentVersion: "0.2.0",
+			latestVersion: "0.3.0",
+			status: "update-available",
+			registryUrl: "https://registry.npmjs.org/@uulab%2Fpicos/latest",
+			installHint: "npm install -g @uulab/picos@0.3.0",
+		});
+		if (!preview) {
+			throw new Error("expected update apply preview");
+		}
+
+		const plan = createUpdateApplyActionPreviewPlan(preview, "darwin");
+
+		expect(plan).toEqual({
+			actionId: "picos.update.apply",
+			title: "Apply picos update",
+			risk: "write",
+			privilege: "user",
+			enabled: false,
+			dryRun: true,
+			confirmationPhrase: "update picos",
+			blockedReason: "disabled-by-default",
+			commandPreview: {
+				adapter: "macos",
+				command: "npm",
+				args: ["install", "-g", "@uulab/picos@0.3.0", "--dry-run"],
+				note: "npm package manager dry-run for picos self-update",
+				dryRunExecutable: true,
+			},
+			preview: [
+				"Risk: write",
+				"Privilege: user",
+				"Platform: darwin",
+				'Confirmation: type "update picos"',
+				"Adapter: macos",
+				"Command: npm install -g @uulab/picos@0.3.0 --dry-run",
+				"Dry run: no OS command will be executed",
+			],
+		});
+	});
+
+	test("runs self-update npm dry-run only after policy and confirmation allow it", async () => {
+		const preview = createUpdateApplyPreview({
+			packageName: "@uulab/picos",
+			currentVersion: "0.2.0",
+			latestVersion: "0.3.0",
+			status: "update-available",
+			registryUrl: "https://registry.npmjs.org/@uulab%2Fpicos/latest",
+			installHint: "npm install -g @uulab/picos@0.3.0",
+		});
+		if (!preview) {
+			throw new Error("expected update apply preview");
+		}
+		const actionPlan = createUpdateApplyActionPreviewPlan(preview, "darwin");
+		const confirmation = submitActionPreviewConfirmation(
+			actionPlan,
+			"update picos",
+		);
+		const executionPlan = createControlExecutionPlan(actionPlan, confirmation, {
+			mode: "dry-run",
+			allowAdminDryRun: false,
+		});
+		const calls: Array<{ command: string; args: string[] }> = [];
+
+		const result = await runControlExecutionPlan(
+			executionPlan,
+			async (command, args) => {
+				calls.push({ command, args });
+				return {
+					command,
+					args,
+					exitCode: 0,
+					success: true,
+					stdout: "dry run ok",
+					stderr: "",
+				};
+			},
+		);
+
+		expect(executionPlan.status).toBe("dry-run-ready");
+		expect(executionPlan.blockers).toEqual([]);
+		expect(calls).toEqual([
+			{
+				command: "npm",
+				args: ["install", "-g", "@uulab/picos@0.3.0", "--dry-run"],
+			},
+		]);
+		expect(result.success).toBe(true);
+		expect(result.stdout).toBe("dry run ok");
+		expect(result.audit.status).toBe("dry-run-executed");
+		expect(result.audit.command).toBe(
+			"npm install -g @uulab/picos@0.3.0 --dry-run",
+		);
 	});
 
 	test("refuses self-update apply preview when no newer version is known", () => {

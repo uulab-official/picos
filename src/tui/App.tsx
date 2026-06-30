@@ -96,6 +96,7 @@ import type {
 } from "../core/types";
 import {
 	checkForPackageUpdate,
+	createUpdateApplyActionPreviewPlan,
 	createUpdateApplyPreview,
 	createUpdateReleaseHandoff,
 	formatUpdateApplyPreviewRows,
@@ -1067,6 +1068,34 @@ export function App(): React.ReactElement {
 		async (action: PicosAction) => {
 			if (!action.enabled) {
 				const platform = currentPlatform();
+				if (action.id === "picos.update.apply") {
+					const applyPreview = updateCheckResult
+						? createUpdateApplyPreview(updateCheckResult)
+						: undefined;
+					if (!applyPreview) {
+						setScreen("status");
+						log(
+							"warn",
+							updateCheckResult
+								? "picos.update.apply has no available update to preview"
+								: "run picos.update before opening update apply preview",
+						);
+						return;
+					}
+					const preview = createUpdateApplyActionPreviewPlan(
+						applyPreview,
+						platform,
+					);
+					setActionPreviewPlan(preview);
+					setActionConfirmation(undefined);
+					setActionSimulation(createActionControlSimulation(preview));
+					setActionExecutionPlan(undefined);
+					setScreen("actions");
+					setFocusArea("actions");
+					log("warn", formatActionPreviewAuditMessage(preview));
+					return;
+				}
+
 				const preview = createActionPreviewPlan(
 					action.id,
 					platform,
@@ -1260,6 +1289,7 @@ export function App(): React.ReactElement {
 			timelineFilter,
 			timelineSearchQuery,
 			toolHistory,
+			updateCheckResult,
 		],
 	);
 

@@ -1002,6 +1002,19 @@ Goal: make update handoff links usable from the keyboard without bypassing clipb
 - Clipboard previews now support `update-handoff` as a source.
 - Next: policy-gated dry-run execution for the npm dry-run command and optional open-in-browser handoff.
 
+## v0.4.12 - Update Dry-Run Execution Gate
+
+Status: draft PR #74.
+
+Goal: route picos self-update dry-run attempts through the same control execution policy as OS controls.
+
+- Update apply previews now convert into Action Center control preview plans.
+- The npm update command is marked dry-run executable only when it includes `--dry-run`.
+- `picos.update.apply` opens the Action Center preview after `picos.update` finds a newer version.
+- Exact `update picos` confirmation and the configured control execution policy gate the npm dry-run attempt.
+- Tests cover the preview conversion and policy-gated npm dry-run runner path.
+- Next: optional open-in-browser handoff and faster policy-state shortcuts from the TUI.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

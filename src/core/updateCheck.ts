@@ -1,3 +1,10 @@
+import {
+	type ActionPreviewCommand,
+	type ActionPreviewPlan,
+	createActionPreviewPlan,
+} from "./actions";
+import type { SupportedPlatform } from "./types";
+
 export type UpdateCheckStatus = "up-to-date" | "update-available" | "unknown";
 
 export type PackageUpdateCheckResult = {
@@ -144,6 +151,21 @@ export function formatUpdateApplyPreviewRows(
 	];
 }
 
+export function createUpdateApplyActionPreviewPlan(
+	preview: UpdateApplyPreview,
+	platform: SupportedPlatform,
+): ActionPreviewPlan {
+	const plan = createActionPreviewPlan(
+		preview.actionId,
+		platform,
+		createUpdateApplyCommandPreview(preview, platform),
+	);
+	if (!plan) {
+		throw new Error("Update apply action is not registered");
+	}
+	return plan;
+}
+
 export function createUpdateReleaseHandoff(
 	result: PackageUpdateCheckResult,
 ): UpdateReleaseHandoff | undefined {
@@ -196,6 +218,24 @@ export function getSelectedUpdateReleaseHandoffLink(
 function createNpmLatestUrl(packageName: string): string {
 	const encodedName = encodeURIComponent(packageName).replace("%40", "@");
 	return `https://registry.npmjs.org/${encodedName}/latest`;
+}
+
+function createUpdateApplyCommandPreview(
+	preview: UpdateApplyPreview,
+	platform: SupportedPlatform,
+): ActionPreviewCommand {
+	return {
+		adapter:
+			platform === "darwin"
+				? "macos"
+				: platform === "win32"
+					? "windows"
+					: "linux",
+		command: preview.command,
+		args: preview.args,
+		note: "npm package manager dry-run for picos self-update",
+		dryRunExecutable: true,
+	};
 }
 
 function compareSemver(left: string, right: string): number {
