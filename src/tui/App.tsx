@@ -175,6 +175,7 @@ import {
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
+	formatCleanupHandoffHistoryExportArchiveIndexRows,
 	formatCleanupHandoffHistoryExportArchiveRows,
 	formatCleanupHandoffHistoryExportIndexRows,
 	formatCleanupHandoffHistoryIndexRows,
@@ -188,6 +189,7 @@ import {
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
+	readCleanupHandoffHistoryExportArchiveIndex,
 	readCleanupHandoffHistoryExportIndex,
 	readLatestCleanupHandoffHistoryExport,
 	writeCleanupHandoffHistoryExport,
@@ -440,6 +442,15 @@ export function App(): React.ReactElement {
 		});
 	const [selectedCleanupExportIndex, setSelectedCleanupExportIndex] =
 		useState(0);
+	const [cleanupExportArchiveIndex, setCleanupExportArchiveIndex] =
+		useState<CleanupHandoffHistoryExportIndex>({
+			baseDir: dirname(getConfigPath()),
+			items: [],
+		});
+	const [
+		selectedCleanupExportArchiveIndex,
+		setSelectedCleanupExportArchiveIndex,
+	] = useState(0);
 	const [cleanupExportArchivePlan, setCleanupExportArchivePlan] =
 		useState<CleanupHandoffHistoryExportArchivePlan>();
 	const [handoffIndex, setHandoffIndex] = useState<HandoffIndex>({
@@ -2358,9 +2369,20 @@ export function App(): React.ReactElement {
 				baseDir: dirname(getConfigPath()),
 				items: [],
 			}));
+			const cleanupArchiveExports =
+				await readCleanupHandoffHistoryExportArchiveIndex(
+					dirname(getConfigPath()),
+				).catch(() => ({
+					baseDir: dirname(getConfigPath()),
+					items: [],
+				}));
 			setCleanupExportIndex(cleanupExports);
 			setSelectedCleanupExportIndex((current) =>
 				Math.min(current, Math.max(0, cleanupExports.items.length - 1)),
+			);
+			setCleanupExportArchiveIndex(cleanupArchiveExports);
+			setSelectedCleanupExportArchiveIndex((current) =>
+				Math.min(current, Math.max(0, cleanupArchiveExports.items.length - 1)),
 			);
 			setEvents(
 				[
@@ -2525,6 +2547,31 @@ export function App(): React.ReactElement {
 		[log],
 	);
 
+	const refreshCleanupExportArchiveIndex = useCallback(
+		async (announce = true) => {
+			const baseDir = dirname(getConfigPath());
+			try {
+				const index =
+					await readCleanupHandoffHistoryExportArchiveIndex(baseDir);
+				setCleanupExportArchiveIndex(index);
+				setSelectedCleanupExportArchiveIndex((current) =>
+					Math.min(current, Math.max(0, index.items.length - 1)),
+				);
+				if (announce) {
+					log("info", `cleanup archive indexed ${index.items.length}`);
+				}
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `cleanup archive index failed ${caught.message}`
+						: `cleanup archive index failed ${String(caught)}`,
+				);
+			}
+		},
+		[log],
+	);
+
 	const submitCleanupExportArchiveCommand = useCallback(async () => {
 		if (!cleanupExportArchivePlan) {
 			setCommandLine((current) => closeCommandLine(current));
@@ -2545,12 +2592,14 @@ export function App(): React.ReactElement {
 		);
 		if (result.status === "archived") {
 			await refreshCleanupExportIndex(false);
+			await refreshCleanupExportArchiveIndex(false);
 		}
 	}, [
 		cleanupExportArchivePlan,
 		cleanupExportIndex.baseDir,
 		commandLine.value,
 		log,
+		refreshCleanupExportArchiveIndex,
 		refreshCleanupExportIndex,
 	]);
 
@@ -3467,6 +3516,11 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "status" && focusArea === "workspaces" && input === "B") {
+			void refreshCleanupExportArchiveIndex();
+			return;
+		}
+
 		if (screen === "status" && focusArea === "workspaces" && input === "}") {
 			if (cleanupExportIndex.items.length === 0) {
 				log("warn", "no cleanup exports indexed");
@@ -3476,6 +3530,20 @@ export function App(): React.ReactElement {
 				const next = (index + 1) % cleanupExportIndex.items.length;
 				const item = cleanupExportIndex.items[next];
 				log("info", `cleanup export selected ${item?.fileName ?? next + 1}`);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "{") {
+			if (cleanupExportArchiveIndex.items.length === 0) {
+				log("warn", "no cleanup archive indexed");
+				return;
+			}
+			setSelectedCleanupExportArchiveIndex((index) => {
+				const next = (index + 1) % cleanupExportArchiveIndex.items.length;
+				const item = cleanupExportArchiveIndex.items[next];
+				log("info", `cleanup archive selected ${item?.fileName ?? next + 1}`);
 				return next;
 			});
 			return;
@@ -4530,6 +4598,8 @@ export function App(): React.ReactElement {
 					}
 					cleanupExportIndex={cleanupExportIndex}
 					selectedCleanupExportIndex={selectedCleanupExportIndex}
+					cleanupExportArchiveIndex={cleanupExportArchiveIndex}
+					selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
 					selectedHandoffIndex={selectedHandoffIndex}
@@ -4726,6 +4796,8 @@ function MainWorkspace({
 	selectedCleanupHandoffHistoryIndex,
 	cleanupExportIndex: _cleanupExportIndex,
 	selectedCleanupExportIndex: _selectedCleanupExportIndex,
+	cleanupExportArchiveIndex: _cleanupExportArchiveIndex,
+	selectedCleanupExportArchiveIndex: _selectedCleanupExportArchiveIndex,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
 	selectedHandoffIndex,
@@ -4824,6 +4896,8 @@ function MainWorkspace({
 	selectedCleanupHandoffHistoryIndex: number;
 	cleanupExportIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportIndex: number;
+	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
+	selectedCleanupExportArchiveIndex: number;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
 	selectedHandoffIndex: number;
@@ -4974,6 +5048,8 @@ function MainWorkspace({
 						selectedCleanupHandoffHistoryIndex,
 						_cleanupExportIndex,
 						_selectedCleanupExportIndex,
+						_cleanupExportArchiveIndex,
+						_selectedCleanupExportArchiveIndex,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
 						selectedHandoffIndex,
@@ -5076,6 +5152,8 @@ function renderWorkspace(
 	selectedCleanupHandoffHistoryIndex: number,
 	cleanupExportIndex: CleanupHandoffHistoryExportIndex,
 	selectedCleanupExportIndex: number,
+	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex,
+	selectedCleanupExportArchiveIndex: number,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
 	selectedHandoffIndex: number,
@@ -5308,6 +5386,8 @@ function renderWorkspace(
 				selectedCleanupHandoffHistoryIndex={selectedCleanupHandoffHistoryIndex}
 				cleanupExportIndex={cleanupExportIndex}
 				selectedCleanupExportIndex={selectedCleanupExportIndex}
+				cleanupExportArchiveIndex={cleanupExportArchiveIndex}
+				selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 				commandLine={commandLine}
 				t={t}
 			/>
@@ -7089,6 +7169,8 @@ function StatusWorkspace({
 	selectedCleanupHandoffHistoryIndex,
 	cleanupExportIndex,
 	selectedCleanupExportIndex,
+	cleanupExportArchiveIndex,
+	selectedCleanupExportArchiveIndex,
 	commandLine,
 	t,
 }: {
@@ -7106,6 +7188,8 @@ function StatusWorkspace({
 	selectedCleanupHandoffHistoryIndex: number;
 	cleanupExportIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportIndex: number;
+	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
+	selectedCleanupExportArchiveIndex: number;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -7419,6 +7503,29 @@ function StatusWorkspace({
 							row.startsWith(">")
 								? "yellow"
 								: row.startsWith("CLEANUP EXPORTS")
+									? "cyan"
+									: row.startsWith("path=") || row.startsWith("no ")
+										? "gray"
+										: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">CLEANUP ARCHIVE · B refresh · {"{"} select</Text>
+				{formatCleanupHandoffHistoryExportArchiveIndexRows(
+					cleanupExportArchiveIndex,
+					selectedCleanupExportArchiveIndex,
+					4,
+				).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith(">")
+								? "yellow"
+								: row.startsWith("CLEANUP ARCHIVE")
 									? "cyan"
 									: row.startsWith("path=") || row.startsWith("no ")
 										? "gray"
