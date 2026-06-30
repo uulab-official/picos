@@ -236,6 +236,7 @@ import {
 	type ConfigWorkspaceResetPreview,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
@@ -6578,6 +6579,7 @@ function renderWorkspace(
 				selectedIndex={selectedConfigIndex}
 				resetPreview={configResetPreview}
 				commandLine={commandLine}
+				configPath={getConfigPath()}
 				visibleRows={Math.max(5, height - 7)}
 			/>
 		);
@@ -8447,15 +8449,20 @@ function ConfigWorkspace({
 	selectedIndex,
 	resetPreview,
 	commandLine,
+	configPath,
 	visibleRows,
 }: {
 	items: ConfigWorkspaceItem[];
 	selectedIndex: number;
 	resetPreview?: ConfigWorkspaceResetPreview;
 	commandLine: CommandLineState;
+	configPath: string;
 	visibleRows: number;
 }): React.ReactElement {
 	const rows = formatConfigWorkspaceRows(items, selectedIndex, visibleRows);
+	const detailRows = formatConfigWorkspaceDetailRows(items, selectedIndex, {
+		configPath,
+	}).slice(0, Math.max(0, visibleRows - rows.length - 1));
 	return (
 		<Box flexDirection="column">
 			{rows.map((row) => (
@@ -8476,6 +8483,26 @@ function ConfigWorkspace({
 					{row}
 				</Text>
 			))}
+			{detailRows.length > 0 ? (
+				<Box marginTop={1} flexDirection="column">
+					{detailRows.map((row) => (
+						<Text
+							key={row}
+							color={
+								row.startsWith("CONFIG SECTION")
+									? "cyan"
+									: row.startsWith("posture=")
+										? "yellow"
+										: row.startsWith("persist=")
+											? "gray"
+											: "white"
+							}
+						>
+							{row}
+						</Text>
+					))}
+				</Box>
+			) : null}
 			{resetPreview ? (
 				<Box marginTop={1} flexDirection="column">
 					{resetPreview.rows
