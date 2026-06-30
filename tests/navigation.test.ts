@@ -46,6 +46,7 @@ describe("TUI navigation", () => {
 			"dns",
 			"actions",
 			"status",
+			"config",
 			"logs",
 		]);
 		expect(moveScreen("dashboard", "next")).toBe("files");
@@ -57,6 +58,7 @@ describe("TUI navigation", () => {
 		expect(getScreenIndex("dashboard")).toBe(0);
 		expect(getScreenIndex("remotes")).toBe(2);
 		expect(getScreenIndex("status")).toBe(18);
+		expect(getScreenIndex("config")).toBe(19);
 	});
 
 	test("enters and leaves child focus for workspace panels", () => {

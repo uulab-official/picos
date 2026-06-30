@@ -12,6 +12,7 @@ import {
 	setConfigRouteFilterPresets,
 	setConfigToolHistoryPreferences,
 	setConfigToolTargetPresets,
+	setConfigValue,
 } from "../config/store";
 import {
 	type ActionControlSimulation,
@@ -226,6 +227,14 @@ import {
 	closeCommandLine,
 	openCommandLine,
 } from "./commandLine";
+import {
+	adjustConfigWorkspaceItem,
+	type ConfigWorkspaceItem,
+	createConfigWorkspaceItems,
+	formatConfigWorkspaceRows,
+	getConfigWorkspaceItem,
+	moveConfigWorkspaceSelection,
+} from "./configPanel";
 import {
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
@@ -607,6 +616,7 @@ export function App(): React.ReactElement {
 	const [toolTargetPresetLimit, setToolTargetPresetLimit] = useState(8);
 	const [auditArchiveRetentionLimit, setAuditArchiveRetentionLimit] =
 		useState(10);
+	const [selectedConfigIndex, setSelectedConfigIndex] = useState(0);
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolSectionClipboardSelection, setToolSectionClipboardSelection] =
@@ -673,6 +683,22 @@ export function App(): React.ReactElement {
 			getToolTargetPresets(summary, defaultPingHost, customToolTargetPresets),
 		[customToolTargetPresets, defaultPingHost, summary],
 	);
+	const configWorkspaceItems = useMemo(
+		() =>
+			createConfigWorkspaceItems({
+				auditArchiveRetentionLimit,
+				toolTargetPresetLimit,
+			}),
+		[auditArchiveRetentionLimit, toolTargetPresetLimit],
+	);
+	useEffect(() => {
+		setSelectedConfigIndex((index) =>
+			Math.min(
+				Math.max(index, 0),
+				Math.max(0, configWorkspaceItems.length - 1),
+			),
+		);
+	}, [configWorkspaceItems.length]);
 	const portProcessControlInspectorRows = useMemo(() => {
 		if (!portProcessControlInspector || screen !== "ports") {
 			return [];
@@ -748,6 +774,56 @@ export function App(): React.ReactElement {
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
 	}, []);
+
+	const saveConfigWorkspaceAdjustment = useCallback(
+		(direction: "increase" | "decrease") => {
+			const item = getConfigWorkspaceItem(
+				configWorkspaceItems,
+				selectedConfigIndex,
+			);
+			if (!item) {
+				log("warn", "no config item selected");
+				return;
+			}
+			const nextValue = adjustConfigWorkspaceItem(item, direction);
+			if (nextValue === item.value) {
+				log("warn", `${item.key} already at ${item.value}`);
+				return;
+			}
+			if (item.key === "auditArchiveRetentionLimit") {
+				setAuditArchiveRetentionLimit(nextValue);
+			}
+			if (item.key === "toolTargetPresetLimit") {
+				setToolTargetPresetLimit(nextValue);
+				setCustomToolTargetPresets((current) => current.slice(0, nextValue));
+			}
+			void (async () => {
+				try {
+					const config = await setConfigValue(item.key, String(nextValue));
+					if (item.key === "toolTargetPresetLimit") {
+						const trimmed = await setConfigToolTargetPresets(
+							config.toolTargetPresets,
+						);
+						setToolTargetPresetLimit(trimmed.toolTargetPresetLimit);
+						setCustomToolTargetPresets(
+							trimmed.toolTargetPresets as ToolTargetPreset[],
+						);
+					} else {
+						setAuditArchiveRetentionLimit(config.auditArchiveRetentionLimit);
+					}
+					log("ok", `config ${item.key}=${nextValue}`);
+				} catch (caught) {
+					log(
+						"fail",
+						caught instanceof Error
+							? `config save failed ${caught.message}`
+							: `config save failed ${String(caught)}`,
+					);
+				}
+			})();
+		},
+		[configWorkspaceItems, log, selectedConfigIndex],
+	);
 
 	const previewFile = useCallback(
 		async (entry: FileEntry) => {
@@ -4137,6 +4213,72 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (
+			screen === "config" &&
+			focusArea === "workspaces" &&
+			(key.downArrow || input === "j")
+		) {
+			setSelectedConfigIndex((index) => {
+				const next = moveConfigWorkspaceSelection(
+					index,
+					configWorkspaceItems.length,
+					"next",
+				);
+				const item = getConfigWorkspaceItem(configWorkspaceItems, next);
+				log("info", `config selected ${item?.key ?? next + 1}`);
+				return next;
+			});
+			return;
+		}
+
+		if (
+			screen === "config" &&
+			focusArea === "workspaces" &&
+			(key.upArrow || input === "k")
+		) {
+			setSelectedConfigIndex((index) => {
+				const next = moveConfigWorkspaceSelection(
+					index,
+					configWorkspaceItems.length,
+					"previous",
+				);
+				const item = getConfigWorkspaceItem(configWorkspaceItems, next);
+				log("info", `config selected ${item?.key ?? next + 1}`);
+				return next;
+			});
+			return;
+		}
+
+		if (
+			screen === "config" &&
+			focusArea === "workspaces" &&
+			(input === "+" || input === "=")
+		) {
+			saveConfigWorkspaceAdjustment("increase");
+			return;
+		}
+
+		if (
+			screen === "config" &&
+			focusArea === "workspaces" &&
+			(input === "-" || input === "_")
+		) {
+			saveConfigWorkspaceAdjustment("decrease");
+			return;
+		}
+
+		if (screen === "config" && focusArea === "workspaces" && input === "\r") {
+			const configAction = actions.find(
+				(action) => action.id === "config.show",
+			);
+			if (!configAction) {
+				log("warn", "config action unavailable");
+				return;
+			}
+			void runAction(configAction);
+			return;
+		}
+
 		if (screen === "processes" && focusArea === "workspaces" && input === "c") {
 			if (getProcessFileSelectionCount(selectedProcessFiles) <= 0) {
 				log("warn", "no process resource selected");
@@ -5284,6 +5426,8 @@ export function App(): React.ReactElement {
 					toolCopyPreview={toolCopyPreview}
 					toolSectionClipboardSelection={toolSectionClipboardSelection}
 					toolSectionClipboardRowIndex={toolSectionClipboardRowIndex}
+					configWorkspaceItems={configWorkspaceItems}
+					selectedConfigIndex={selectedConfigIndex}
 					cleanupShelfIndex={cleanupShelfIndex}
 					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 					cleanupJumpAudit={cleanupJumpAudit}
@@ -5495,6 +5639,8 @@ function MainWorkspace({
 	toolCopyPreview,
 	toolSectionClipboardSelection,
 	toolSectionClipboardRowIndex,
+	configWorkspaceItems,
+	selectedConfigIndex,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
 	cleanupJumpAudit,
@@ -5605,6 +5751,8 @@ function MainWorkspace({
 	toolCopyPreview: ToolCopyPreviewMode;
 	toolSectionClipboardSelection: ToolSectionClipboardSelection;
 	toolSectionClipboardRowIndex: number;
+	configWorkspaceItems: ConfigWorkspaceItem[];
+	selectedConfigIndex: number;
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
 	cleanupJumpAudit?: CleanupJumpAudit;
@@ -5768,6 +5916,8 @@ function MainWorkspace({
 						toolCopyPreview,
 						toolSectionClipboardSelection,
 						toolSectionClipboardRowIndex,
+						configWorkspaceItems,
+						selectedConfigIndex,
 						cleanupShelfIndex,
 						selectedCleanupShelfIndex,
 						cleanupHandoffHistory,
@@ -5883,6 +6033,8 @@ function renderWorkspace(
 	toolCopyPreview: ToolCopyPreviewMode,
 	toolSectionClipboardSelection: ToolSectionClipboardSelection,
 	toolSectionClipboardRowIndex: number,
+	configWorkspaceItems: ConfigWorkspaceItem[],
+	selectedConfigIndex: number,
 	cleanupShelfIndex: CleanupShelfIndex,
 	selectedCleanupShelfIndex: number,
 	cleanupHandoffHistory: CleanupHandoffHistory[],
@@ -6146,6 +6298,15 @@ function renderWorkspace(
 				selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 				commandLine={commandLine}
 				t={t}
+			/>
+		);
+	}
+	if (screen === "config") {
+		return (
+			<ConfigWorkspace
+				items={configWorkspaceItems}
+				selectedIndex={selectedConfigIndex}
+				visibleRows={Math.max(5, height - 7)}
 			/>
 		);
 	}
@@ -8005,6 +8166,40 @@ function CommandPaletteWorkspace({
 				</Text>
 				<Text color="gray">read runs now · write/destructive stay locked</Text>
 			</Box>
+		</Box>
+	);
+}
+
+function ConfigWorkspace({
+	items,
+	selectedIndex,
+	visibleRows,
+}: {
+	items: ConfigWorkspaceItem[];
+	selectedIndex: number;
+	visibleRows: number;
+}): React.ReactElement {
+	const rows = formatConfigWorkspaceRows(items, selectedIndex, visibleRows);
+	return (
+		<Box flexDirection="column">
+			{rows.map((row) => (
+				<Text
+					key={row}
+					color={
+						row.startsWith("CONFIG")
+							? "cyan"
+							: row.startsWith(">")
+								? "cyan"
+								: row.startsWith("selected=")
+									? "yellow"
+									: row.startsWith("j/k")
+										? "gray"
+										: "white"
+					}
+				>
+					{row}
+				</Text>
+			))}
 		</Box>
 	);
 }

@@ -27,6 +27,7 @@ type TranslationKey =
 	| "screen.dns"
 	| "screen.actions"
 	| "screen.status"
+	| "screen.config"
 	| "screen.logs"
 	| "dashboard.systemLink"
 	| "dashboard.primaryInterface"
@@ -69,6 +70,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"screen.dns": "DNS",
 		"screen.actions": "Actions",
 		"screen.status": "Status",
+		"screen.config": "Config",
 		"screen.logs": "Logs",
 		"dashboard.systemLink": "SYSTEM LINK",
 		"dashboard.primaryInterface": "PRIMARY INTERFACE",
@@ -110,6 +112,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"screen.dns": "DNS",
 		"screen.actions": "액션",
 		"screen.status": "상태",
+		"screen.config": "설정",
 		"screen.logs": "로그",
 		"dashboard.systemLink": "시스템 연결",
 		"dashboard.primaryInterface": "주 인터페이스",
@@ -151,6 +154,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"screen.dns": "DNS",
 		"screen.actions": "アクション",
 		"screen.status": "状態",
+		"screen.config": "設定",
 		"screen.logs": "ログ",
 		"dashboard.systemLink": "システム接続",
 		"dashboard.primaryInterface": "主インターフェース",
@@ -192,6 +196,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"screen.dns": "DNS",
 		"screen.actions": "操作",
 		"screen.status": "状态",
+		"screen.config": "设置",
 		"screen.logs": "日志",
 		"dashboard.systemLink": "系统连接",
 		"dashboard.primaryInterface": "主接口",

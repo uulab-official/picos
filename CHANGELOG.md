@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- TUI now includes a Config workspace for keyboard-driven retention controls, including `auditArchiveRetentionLimit` and `toolTargetPresetLimit`.
 - Audit archive retention can now be configured with `auditArchiveRetentionLimit`, and Status uses that value when previewing archived Timeline prune candidates.
 - Status archived Timeline audit exports now support an exact-confirm retention prune preview with `M` and `prune audit archive`.
 - Status now shows archived Timeline audit exports, with `U` refresh, `(` selection, and `J` locked file-open controls.

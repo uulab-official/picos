@@ -2154,7 +2154,21 @@ Goal: let operators tune archived Timeline evidence retention without code chang
 - Status `M` retention previews use the configured limit instead of a hard-coded count.
 - `config.show` logs the active audit archive and Tools target retention limits for quick operator inspection.
 - Tests cover defaults, merge normalization, config-set coercion, invalid lower bounds, and oversized clamping.
-- Next: add a visible Config workspace editor for retention controls instead of relying on CLI config commands.
+- Next: add more Config workspace rows for language, refresh cadence, and execution policy.
+
+## v0.4.99 - Config Workspace Retention Controls
+
+Status: draft PR #161 on `codex/picos-v0.4.99-config-workspace-retention`.
+
+Goal: make picos configuration feel like part of the terminal OS instead of a CLI-only side channel.
+
+- The TUI screen order now includes a Config workspace after Status.
+- Config rows expose `auditArchiveRetentionLimit` and `toolTargetPresetLimit` as keyboard-selectable retention controls.
+- `j/k` or arrow keys move the selected config row, while `+/-` adjusts and persists the selected value.
+- `enter` on Config runs the existing `config.show` action so operators can audit the config path and active retention values.
+- Sidebar and Inspector labels include `screen.config` translations for English, Korean, Japanese, and Chinese.
+- Tests cover screen order, config row formatting, selection movement, value clamping, and i18n labels.
+- Next: expand Config workspace to language, refresh cadence, default ping host, and execution policy controls.
 
 ## v0.5.0 - Developer Environment Plugins
 
