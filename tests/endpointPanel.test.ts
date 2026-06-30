@@ -7,6 +7,7 @@ import {
 	createEndpointHandoffPlan,
 	createSelectedPortProcessControlPreview,
 	formatConnectionsWorkspaceRows,
+	formatPortProcessControlConfirmationAuditMessage,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
@@ -16,6 +17,7 @@ import {
 	nextEndpointFilterPreset,
 	saveEndpointFilterPreset,
 	submitEndpointFilterCleanupConfirmation,
+	submitPortProcessControlConfirmation,
 	writeEndpointHandoffPlan,
 } from "../src/tui/endpointPanel";
 
@@ -663,6 +665,63 @@ describe("endpoint TUI panel formatting", () => {
 				0,
 			),
 		).toBeUndefined();
+	});
+
+	test("records selected port process control confirmations without execution", () => {
+		const preview = createSelectedPortProcessControlPreview(
+			[
+				{
+					protocol: "tcp",
+					localAddress: "*",
+					localPort: "3000",
+					pid: "12345",
+					command: "node",
+					user: "alice",
+				},
+			],
+			0,
+		);
+		if (!preview) {
+			throw new Error("expected port process control preview");
+		}
+
+		const accepted = submitPortProcessControlConfirmation(
+			preview,
+			" kill pid 12345 ",
+		);
+		expect(accepted).toEqual({
+			actionId: "process.terminate",
+			status: "confirmed-disabled",
+			expectedPhrase: "kill pid 12345",
+			receivedPhrase: "kill pid 12345",
+			confirmed: true,
+			executionEnabled: false,
+			risk: "destructive",
+			privilege: "user",
+			port: preview.port,
+		});
+		expect(formatPortProcessControlConfirmationAuditMessage(accepted)).toBe(
+			"port process control process.terminate status=confirmed-disabled risk=destructive privilege=user executionEnabled=false port=*:3000 pid=12345 process=node user=alice",
+		);
+
+		const rejected = submitPortProcessControlConfirmation(
+			preview,
+			"kill process",
+		);
+		expect(rejected).toEqual({
+			actionId: "process.terminate",
+			status: "rejected",
+			expectedPhrase: "kill pid 12345",
+			receivedPhrase: "kill process",
+			confirmed: false,
+			executionEnabled: false,
+			risk: "destructive",
+			privilege: "user",
+			port: preview.port,
+		});
+		expect(formatPortProcessControlConfirmationAuditMessage(rejected)).toBe(
+			"port process control process.terminate status=rejected risk=destructive privilege=user executionEnabled=false port=*:3000 pid=12345 process=node user=alice",
+		);
 	});
 
 	test("formats selected port process control previews in the detail pane", () => {
