@@ -1602,6 +1602,18 @@ Goal: make Status cleanup handoff operate like a real console workflow instead o
 - Tests cover action plan matching, non-matching screen fallback, and action row formatting.
 - Next: add a dismiss/clear handoff action so normal destination `enter` behavior can resume after the cleanup prompt is reviewed.
 
+## v0.4.57 - Clearable Cleanup Handoff
+
+Status: draft PR #119.
+
+Goal: let operators review cleanup handoff context without permanently stealing the destination workspace's normal `enter` behavior.
+
+- Destination cleanup handoffs now expose a dismiss plan only on the matching target screen.
+- Pressing `esc` on a matching destination handoff clears the audit banner and restores the workspace's normal `enter` behavior.
+- The handoff banner now shows `CLEANUP DISMISS esc clears handoff` plus the restored workspace context.
+- Tests cover matching dismiss plans, non-matching fallback, and dismiss row formatting.
+- Next: add a tiny handoff history row in Status so recently dismissed cleanup jumps remain auditable without blocking workspace controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
