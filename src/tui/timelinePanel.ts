@@ -1,4 +1,8 @@
 import {
+	type ConsoleAuditExportPlan,
+	createConsoleAuditExportPlan,
+} from "../core/auditLog";
+import {
 	type ConfigCleanupPreview,
 	createConfigCleanupPreview,
 	submitConfigCleanupConfirmation,
@@ -91,7 +95,7 @@ export function formatTimelineWorkspaceRows(
 		),
 		"TIMELINE",
 		...(visibleEventRows.length ? visibleEventRows : ["no timeline events"]),
-		"FILTERS t cycle · j/k select · c copy selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 	].slice(0, visibleRows);
 }
 
@@ -144,6 +148,37 @@ export function getSelectedTimelineClipboardPreview(
 			options.query?.trim() ? `query=${options.query.trim()}` : "",
 			`eventId=${event.id}`,
 		],
+	});
+}
+
+export function getSelectedTimelineAuditExportPlan(
+	events: ConsoleEvent[],
+	options: {
+		baseDir: string;
+		filter?: TimelineFilter;
+		generatedAt?: Date;
+		query?: string;
+		selectedIndex?: number;
+	},
+): ConsoleAuditExportPlan | undefined {
+	const filter = options.filter ?? "all";
+	const filtered = filterTimelineEvents(events, options.query, filter);
+	const index = getSelectedTimelineIndex(
+		filtered.length,
+		options.selectedIndex,
+	);
+	if (index === undefined) {
+		return undefined;
+	}
+	const event = filtered[index];
+	if (!event) {
+		return undefined;
+	}
+	return createConsoleAuditExportPlan([event], {
+		baseDir: options.baseDir,
+		generatedAt: options.generatedAt,
+		query: options.query?.trim() || undefined,
+		scope: "selected",
 	});
 }
 

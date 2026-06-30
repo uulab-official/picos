@@ -320,6 +320,7 @@ import {
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
+	getSelectedTimelineAuditExportPlan,
 	getSelectedTimelineClipboardPreview,
 	moveTimelineSelection,
 	nextTimelineFilter,
@@ -3905,6 +3906,35 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "timeline" && focusArea === "workspaces" && input === "e") {
+			const plan = getSelectedTimelineAuditExportPlan(events, {
+				baseDir: dirname(getConfigPath()),
+				filter: timelineFilter,
+				query: timelineSearchQuery,
+				selectedIndex: selectedTimelineIndex,
+			});
+			if (!plan) {
+				log("warn", "no timeline row to export");
+				return;
+			}
+			void writeConsoleAuditExport(plan)
+				.then((written) => {
+					log(
+						"ok",
+						`audit selected exported ${written.path} events=${written.eventCount}`,
+					);
+				})
+				.catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `audit selected export failed ${caught.message}`
+							: `audit selected export failed ${String(caught)}`,
+					),
+				);
+			return;
+		}
+
 		if (screen === "timeline" && focusArea === "workspaces" && input === "P") {
 			if (!timelineSearchQuery.trim()) {
 				log("warn", "no timeline search to save");
@@ -7238,8 +7268,8 @@ function TimelineWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.timeline")}</Text>
 			<Text color="gray">
-				t filter · j/k select · f search · c copy selected · P save · ] preset ·
-				D cleanup · timeline.export scoped log
+				t filter · j/k select · f search · c copy selected · e export selected ·
+				P save · ] preset · D cleanup · timeline.export scoped log
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (

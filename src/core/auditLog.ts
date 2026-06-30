@@ -15,7 +15,7 @@ export type ConsoleAuditExportPlan = {
 	content: string;
 	eventCount: number;
 	query?: string;
-	scope?: "all" | "filtered";
+	scope?: "all" | "filtered" | "selected";
 };
 
 export type ConsoleAuditExportRead = {
@@ -28,7 +28,7 @@ export function formatConsoleAuditLog(
 	options: {
 		generatedAt?: string;
 		query?: string;
-		scope?: "all" | "filtered";
+		scope?: "all" | "filtered" | "selected";
 	} = {},
 ): string {
 	const generatedAt = options.generatedAt ?? new Date().toISOString();
@@ -53,13 +53,14 @@ export function createConsoleAuditExportPlan(
 		baseDir: string;
 		generatedAt?: Date;
 		query?: string;
-		scope?: "all" | "filtered";
+		scope?: "all" | "filtered" | "selected";
 	},
 ): ConsoleAuditExportPlan {
 	const generatedAt = options.generatedAt ?? new Date();
 	const iso = generatedAt.toISOString();
 	const scope = options.scope ?? "all";
-	const fileScope = scope === "filtered" ? "filtered-" : "";
+	const fileScope =
+		scope === "filtered" || scope === "selected" ? `${scope}-` : "";
 	return {
 		path: join(
 			options.baseDir,
