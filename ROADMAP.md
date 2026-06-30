@@ -1706,6 +1706,20 @@ Goal: make cleanup export evidence inspectable from the Status console while pre
 - Tests cover cleanup export file-open planning under the config `cleanup` directory.
 - Next: add archive/delete controls for stale cleanup exports with exact confirmation.
 
+## v0.4.65 - Archive Cleanup Export Files
+
+Status: draft PR #127.
+
+Goal: let operators retire stale cleanup export evidence from Status without deleting it or bypassing exact confirmation.
+
+- Cleanup export archive plans now carry risk, privilege, exact confirmation phrase, source path, archive path, and lock reason.
+- Only picos-owned `cleanup/picos-cleanup-(all|selected)-*.md` files can be archived.
+- Confirmed archives move the selected export into `cleanup/archive`.
+- Status workspace exposes `X` to open the selected cleanup export archive confirmation.
+- The cleanup export index hint now shows `Y refresh`, `}` select, `V open`, and `X archive`.
+- Tests cover locked/confirmed archive plans, blocked non-export files, file movement, and index removal after archive.
+- Next: add a dedicated Cleanup Export viewer or archive browser.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
