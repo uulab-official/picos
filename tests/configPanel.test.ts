@@ -4,6 +4,7 @@ import {
 	applyConfigPolicyPreset,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceSectionJumpIndex,
@@ -81,6 +82,44 @@ describe("config TUI panel", () => {
 			"  controlExecutionMode        disabled OS mutation execution mode",
 			"> allowAdminDryRun            false    allow admin-class dry-run previews",
 			"selected=allowAdminDryRun values=true|false section=safety",
+		]);
+	});
+
+	test("formats section detail panes with config path and safety posture", () => {
+		const items = createConfigWorkspaceItems({
+			language: "ko",
+			refreshInterval: 5000,
+			defaultPingHost: "internal.example",
+			controlExecutionMode: "dry-run",
+			allowAdminDryRun: true,
+			auditArchiveRetentionLimit: 12,
+			toolTargetPresetLimit: 6,
+		});
+
+		expect(
+			formatConfigWorkspaceDetailRows(items, 2, {
+				configPath: "/tmp/picos/config.json",
+			}),
+		).toEqual([
+			"CONFIG SECTION DETAIL",
+			"section=DISPLAY items=2",
+			"config=/tmp/picos/config.json",
+			"selected=language value=ko",
+			"posture=admin dry-run previews",
+			"persist=+/- writes language or refreshInterval",
+		]);
+
+		expect(
+			formatConfigWorkspaceDetailRows(items, 5, {
+				configPath: "/tmp/picos/config.json",
+			}),
+		).toEqual([
+			"CONFIG SECTION DETAIL",
+			"section=SAFETY items=2",
+			"config=/tmp/picos/config.json",
+			"selected=controlExecutionMode value=dry-run",
+			"posture=admin dry-run previews",
+			"persist=+/- writes policy, P cycles preset, R exact reset",
 		]);
 	});
 

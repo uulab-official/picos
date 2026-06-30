@@ -2208,7 +2208,20 @@ Goal: make Config scale like an OS settings center instead of a flat list as pic
 - Pressing `1`, `2`, `3`, or `4` in Config jumps directly to display, safety, retention, or connectivity controls.
 - Selected row status now includes its section for choice/boolean controls.
 - Tests cover section metadata, section jump indexes, section header rendering, and existing value adjustment behavior.
-- Next: add section detail panes with active safety posture, config path, and per-section persistence hints.
+- Next: add section action hints for reset, policy presets, and connectivity editing so Config can grow more OS settings without hidden controls.
+
+## v0.4.103 - Config Section Detail Pane
+
+Status: draft PR #165 on `codex/picos-v0.4.103-config-section-details`.
+
+Goal: make Config explain the selected settings group like an OS control panel instead of only listing editable rows.
+
+- Config now formats a section detail pane for the selected row.
+- The detail pane shows the selected section, item count, config file path, selected key/value, active safety posture, and section-specific persistence hint.
+- Safety posture is derived from `controlExecutionMode` plus `allowAdminDryRun`, showing safe read-only, user dry-run previews, or admin dry-run previews.
+- The TUI renders the detail pane under the Config rows when terminal height allows it.
+- Tests cover detail rows for display and safety sections, including config path and safety posture.
+- Next: add section action hints for reset, policy presets, and connectivity editing so Config can grow more OS settings without hidden controls.
 
 ## v0.5.0 - Developer Environment Plugins
 

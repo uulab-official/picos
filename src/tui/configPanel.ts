@@ -374,6 +374,26 @@ export function formatConfigWorkspaceRows(
 	return rows.slice(0, Math.max(0, visibleRows));
 }
 
+export function formatConfigWorkspaceDetailRows(
+	items: ConfigWorkspaceItem[],
+	selectedIndex: number,
+	options: { configPath: string },
+): string[] {
+	const selected = getConfigWorkspaceItem(items, selectedIndex);
+	const section = selected?.section ?? "display";
+	const sectionItems = items.filter((item) => item.section === section);
+	return [
+		"CONFIG SECTION DETAIL",
+		`section=${getConfigSectionLabel(section)} items=${sectionItems.length}`,
+		`config=${options.configPath}`,
+		selected
+			? `selected=${selected.key} value=${selected.value}`
+			: "selected=-",
+		`posture=${formatConfigSafetyPosture(items)}`,
+		`persist=${getConfigSectionPersistHint(section)}`,
+	];
+}
+
 function createConfigWorkspaceBodyRows(
 	items: ConfigWorkspaceItem[],
 	selectedIndex: number,
@@ -406,6 +426,41 @@ function formatConfigSectionHeader(
 		(candidate) => candidate.id === sectionId,
 	);
 	return `[${section?.shortcut ?? "?"}] ${section?.label ?? sectionId.toUpperCase()}`;
+}
+
+function getConfigSectionLabel(sectionId: ConfigWorkspaceSectionId): string {
+	return (
+		configSections.find((section) => section.id === sectionId)?.label ??
+		sectionId.toUpperCase()
+	);
+}
+
+function getConfigSectionPersistHint(
+	sectionId: ConfigWorkspaceSectionId,
+): string {
+	if (sectionId === "display") {
+		return "+/- writes language or refreshInterval";
+	}
+	if (sectionId === "safety") {
+		return "+/- writes policy, P cycles preset, R exact reset";
+	}
+	if (sectionId === "retention") {
+		return "+/- writes bounded retention limits";
+	}
+	return "enter edits defaultPingHost";
+}
+
+function formatConfigSafetyPosture(items: ConfigWorkspaceItem[]): string {
+	const mode = String(
+		items.find((item) => item.key === "controlExecutionMode")?.value ??
+			"disabled",
+	);
+	const allowAdminDryRun =
+		items.find((item) => item.key === "allowAdminDryRun")?.value === true;
+	if (mode !== "dry-run") {
+		return "safe read-only";
+	}
+	return allowAdminDryRun ? "admin dry-run previews" : "user dry-run previews";
 }
 
 function matchesConfigPolicyPreset(
