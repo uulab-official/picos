@@ -1328,6 +1328,20 @@ Goal: make exported route/endpoint evidence discoverable after it leaves the act
 - Tests cover index parsing, newest-first ordering, row formatting, selected item clamping, and CLI output.
 - Next: persisted Tools Hub history preferences and handoff file cleanup/archive controls.
 
+## v0.4.36 - Persistent Tools Hub Preferences
+
+Status: draft PR #98.
+
+Goal: make the Tools Hub feel like a persistent OS console workspace instead of a fresh session every restart.
+
+- Config schema now includes `toolHistoryFilterPresets`, `toolHistorySort`, `toolHistoryGroup`, and `toolHistoryDetailView`.
+- Config loading trims tool filter presets, drops blanks, de-duplicates entries, keeps the first six, and falls back invalid view preferences to safe defaults.
+- TUI boot restores Tools Hub filter presets, sort, group, and detail view preferences.
+- Pressing `P` in Tools persists the current history filter presets to config.
+- Pressing `s`, `G`, or `Tab` in Tools persists the next sort, group, or detail view preference.
+- Tests cover config defaults, invalid preference fallback, config-store persistence, and existing Tools Hub rendering/navigation behavior.
+- Next: handoff file cleanup/archive controls and persisted Tools target presets.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

@@ -24,6 +24,10 @@ describe("config schema", () => {
 			portSort: "port",
 			connectionFilterPresets: [],
 			portFilterPresets: [],
+			toolHistoryFilterPresets: [],
+			toolHistorySort: "time",
+			toolHistoryGroup: "none",
+			toolHistoryDetailView: "raw",
 		});
 	});
 
@@ -186,6 +190,46 @@ describe("config schema", () => {
 		).toMatchObject({
 			connectionSort: "state",
 			portSort: "port",
+		});
+	});
+
+	test("normalizes persisted tool history preferences", () => {
+		expect(
+			mergeConfig({
+				toolHistoryFilterPresets: [
+					" dns ",
+					"",
+					"fail",
+					"dns",
+					"tls",
+					"trace",
+					"rdap",
+					"ping",
+					"ignored",
+				],
+				toolHistorySort: "status",
+				toolHistoryGroup: "tool",
+				toolHistoryDetailView: "command",
+			}),
+		).toMatchObject({
+			toolHistoryFilterPresets: ["dns", "fail", "tls", "trace", "rdap", "ping"],
+			toolHistorySort: "status",
+			toolHistoryGroup: "tool",
+			toolHistoryDetailView: "command",
+		});
+
+		expect(
+			mergeConfig({
+				toolHistoryFilterPresets: "dns",
+				toolHistorySort: "unsafe",
+				toolHistoryGroup: "unsafe",
+				toolHistoryDetailView: "unsafe",
+			}),
+		).toMatchObject({
+			toolHistoryFilterPresets: [],
+			toolHistorySort: "time",
+			toolHistoryGroup: "none",
+			toolHistoryDetailView: "raw",
 		});
 	});
 });
