@@ -375,10 +375,15 @@ export function formatToolsWorkspaceRows(
 				sectionClipboardRowIndex,
 			)
 		: undefined;
+	const copyHelpPreview =
+		latest && visibleRows >= 14
+			? formatToolCopyHelpPreview(latest, sectionClipboardSelection)
+			: undefined;
 	return [
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
+		...(copyHelpPreview ? [copyHelpPreview] : []),
 		...(copyModePreview ? [copyModePreview] : []),
 		...(copySectionPreview ? [copySectionPreview] : []),
 		...(copyTargetPreview ? [copyTargetPreview] : []),
@@ -1238,6 +1243,18 @@ function formatToolCopyModePreview(
 		return undefined;
 	}
 	return `copy mode: v section section=${mode} rows=${count}`;
+}
+
+function formatToolCopyHelpPreview(
+	item: ToolHistoryItem,
+	selection: ToolSectionClipboardSelection,
+): string {
+	const sectionRowCount = getToolSectionClipboardRowCountForItem(
+		item,
+		selection,
+	);
+	const tcpAvailability = sectionRowCount > 0 ? "ok" : "-";
+	return `copy help: b row=${tcpAvailability} · v section=${tcpAvailability} · c raw=ok · y summary=ok`;
 }
 
 function truncateToolCopyPreviewValue(

@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Tools workspace now shows a compact `copy help:` strip on taller terminals, grouping `b`, `v`, `c`, and `y` copy availability for the selected run.
 - Tools workspace now shows a compact `copy mode:` row for the last armed Tools copy preview, covering raw output, TCP section, and TCP row copy flows.
 - Tools TCP copy preview rows now truncate long values so shortcut/footer controls stay readable in narrow terminals.
 - Tools workspace now shows a compact `copy section` row for the active TCP section before whole-section clipboard copy.
