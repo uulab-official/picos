@@ -210,6 +210,7 @@ export type PicosConfig = {
 	remoteProfiles: SftpRemoteProfile[];
 	logProfiles: LogProfile[];
 	logSearchPresets: string[];
+	routeFilterPresets: string[];
 };
 
 export type Language = "en" | "ko" | "ja" | "zh";

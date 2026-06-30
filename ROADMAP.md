@@ -1232,6 +1232,20 @@ Goal: make repeated route-table triage one-keystroke recoverable inside the Rout
 - Tests cover save/cycle helper behavior and visible preset summary rows.
 - Next: persistent route presets and raw-output external handoff.
 
+## v0.4.29 - Persistent Route Filter Presets
+
+Status: draft PR #91.
+
+Goal: make saved route triage filters survive TUI restarts like other OS console preferences.
+
+- Config schema now includes `routeFilterPresets` as a normalized string array.
+- Config loading trims presets, drops blanks, de-duplicates entries, and keeps the first six route filters.
+- TUI boot loads route filter presets alongside log presets, language, refresh interval, and remote profiles.
+- Pressing `P` in Routes persists the current route filter to config as well as the live TUI session.
+- `routeFilterPresets` cannot be written through generic `picos config set`; it is managed by the Routes workspace.
+- Tests cover config defaults, preset normalization, config-store persistence, and existing Route workspace preset rendering.
+- Next: raw-output external handoff and route preset profiles.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

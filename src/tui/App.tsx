@@ -7,6 +7,7 @@ import {
 	readConfig,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
+	setConfigRouteFilterPresets,
 } from "../config/store";
 import {
 	type ActionControlSimulation,
@@ -1503,6 +1504,7 @@ export function App(): React.ReactElement {
 			setRemoteProfiles(config.remoteProfiles);
 			setLogProfiles(config.logProfiles);
 			setLogSearchPresets(config.logSearchPresets);
+			setRouteFilterPresets(config.routeFilterPresets);
 			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
@@ -1904,9 +1906,18 @@ export function App(): React.ReactElement {
 				log("warn", "no route filter to save");
 				return;
 			}
-			setRouteFilterPresets((current) =>
-				saveRouteFilterPreset(current, routeFilter),
-			);
+			setRouteFilterPresets((current) => {
+				const next = saveRouteFilterPreset(current, routeFilter);
+				void setConfigRouteFilterPresets(next).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `route preset save failed ${caught.message}`
+							: `route preset save failed ${String(caught)}`,
+					),
+				);
+				return next;
+			});
 			setRouteCopyPreview(false);
 			log("info", `route preset saved ${routeFilter}`);
 			return;

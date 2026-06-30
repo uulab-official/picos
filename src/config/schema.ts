@@ -4,6 +4,7 @@ import {
 	normalizeLogSearchPresets,
 } from "../core/logProfiles";
 import { normalizeRemoteProfiles } from "../core/remotes";
+import { normalizeRouteFilterPresets } from "../core/routePresets";
 import type { PicosConfig, SupportedPlatform } from "../core/types";
 import { isSupportedLanguage } from "../i18n/catalog";
 
@@ -19,6 +20,7 @@ export const defaultConfig: PicosConfig = {
 	remoteProfiles: [],
 	logProfiles: [],
 	logSearchPresets: [],
+	routeFilterPresets: [],
 };
 
 export type ConfigInput = Record<string, unknown>;
@@ -106,6 +108,9 @@ export function mergeConfig(
 	merged.remoteProfiles = normalizeRemoteProfiles(input.remoteProfiles);
 	merged.logProfiles = normalizeLogProfiles(input.logProfiles);
 	merged.logSearchPresets = normalizeLogSearchPresets(input.logSearchPresets);
+	merged.routeFilterPresets = normalizeRouteFilterPresets(
+		input.routeFilterPresets,
+	);
 
 	return merged;
 }
@@ -164,6 +169,10 @@ export function coerceConfigValue(
 
 	if (key === "logSearchPresets") {
 		throw new Error("logSearchPresets are managed from the Logs workspace");
+	}
+
+	if (key === "routeFilterPresets") {
+		throw new Error("routeFilterPresets are managed from the Routes workspace");
 	}
 
 	return value;

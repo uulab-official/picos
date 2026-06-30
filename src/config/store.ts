@@ -5,6 +5,7 @@ import {
 	normalizeLogProfiles,
 	normalizeLogSearchPresets,
 } from "../core/logProfiles";
+import { normalizeRouteFilterPresets } from "../core/routePresets";
 import type { LogProfile, PicosConfig } from "../core/types";
 import {
 	coerceConfigValue,
@@ -77,6 +78,19 @@ export async function setConfigLogSearchPresets(
 	const next = {
 		...config,
 		logSearchPresets: normalizeLogSearchPresets(presets),
+	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigRouteFilterPresets(
+	presets: string[],
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = {
+		...config,
+		routeFilterPresets: normalizeRouteFilterPresets(presets),
 	};
 	await writeConfig(next, path);
 	return next;
