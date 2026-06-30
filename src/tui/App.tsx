@@ -101,6 +101,8 @@ import {
 	formatUpdateApplyPreviewRows,
 	formatUpdateCheckRows,
 	formatUpdateReleaseHandoffRows,
+	getSelectedUpdateReleaseHandoffLink,
+	getUpdateReleaseHandoffLinks,
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
 import { VERSION } from "../core/version";
@@ -114,7 +116,10 @@ import {
 	createClipboardConfirmationState,
 	submitClipboardConfirmation,
 } from "./clipboardDialog";
-import { formatClipboardPreviewRows } from "./clipboardPreview";
+import {
+	createClipboardPreview,
+	formatClipboardPreviewRows,
+} from "./clipboardPreview";
 import {
 	applyCommandLineInput,
 	type CommandLineState,
@@ -278,6 +283,8 @@ export function App(): React.ReactElement {
 		useState<ControlExecutionPolicy>(defaultControlExecutionPolicy);
 	const [updateCheckResult, setUpdateCheckResult] =
 		useState<PackageUpdateCheckResult>();
+	const [selectedUpdateHandoffIndex, setSelectedUpdateHandoffIndex] =
+		useState(0);
 	const [events, setEvents] = useState<ConsoleEvent[]>([
 		createEvent("info", "picos console booted"),
 		createEvent("info", "write actions locked by policy"),
@@ -828,6 +835,32 @@ export function App(): React.ReactElement {
 		[log],
 	);
 
+	const openSelectedUpdateHandoffClipboard = useCallback(() => {
+		const handoff = updateCheckResult
+			? createUpdateReleaseHandoff(updateCheckResult)
+			: undefined;
+		if (!handoff) {
+			log("warn", "no update handoff link selected");
+			return;
+		}
+		const link = getSelectedUpdateReleaseHandoffLink(
+			handoff,
+			selectedUpdateHandoffIndex,
+		);
+		openClipboardConfirmation(
+			createClipboardPreview({
+				source: "update-handoff",
+				label: link.label,
+				copyText: link.url,
+			}),
+		);
+	}, [
+		log,
+		openClipboardConfirmation,
+		selectedUpdateHandoffIndex,
+		updateCheckResult,
+	]);
+
 	const exportToolHistory = useCallback(
 		async (scope: ToolHistoryExportScope) => {
 			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
@@ -1169,6 +1202,7 @@ export function App(): React.ReactElement {
 						currentVersion: VERSION,
 					});
 					setUpdateCheckResult(result);
+					setSelectedUpdateHandoffIndex(0);
 					setScreen("status");
 					for (const row of formatUpdateCheckRows(result)) {
 						log(result.status === "unknown" ? "warn" : "info", row);
@@ -1754,6 +1788,28 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "status" && focusArea === "workspaces" && input === "n") {
+			const handoff = updateCheckResult
+				? createUpdateReleaseHandoff(updateCheckResult)
+				: undefined;
+			if (!handoff) {
+				log("warn", "no update handoff links");
+				return;
+			}
+			const links = getUpdateReleaseHandoffLinks(handoff);
+			setSelectedUpdateHandoffIndex((index) => {
+				const next = (index + 1) % links.length;
+				log("info", `update handoff selected ${links[next].label}`);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "c") {
+			openSelectedUpdateHandoffClipboard();
+			return;
+		}
+
 		if (screen === "processes" && focusArea === "workspaces" && input === "c") {
 			if (getProcessFileSelectionCount(selectedProcessFiles) <= 0) {
 				log("warn", "no process resource selected");
@@ -2263,6 +2319,7 @@ export function App(): React.ReactElement {
 					toolHistoryGroup={toolHistoryGroup}
 					toolHistoryDetailView={toolHistoryDetailView}
 					toolCopyPreview={toolCopyPreview}
+					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					events={events}
 					t={t}
 				/>
@@ -2431,6 +2488,7 @@ function MainWorkspace({
 	toolHistoryGroup,
 	toolHistoryDetailView,
 	toolCopyPreview,
+	selectedUpdateHandoffIndex,
 	events,
 	t,
 }: {
@@ -2501,6 +2559,7 @@ function MainWorkspace({
 	toolHistoryGroup: ToolHistoryGroup;
 	toolHistoryDetailView: ToolHistoryDetailView;
 	toolCopyPreview: ToolCopyPreviewMode;
+	selectedUpdateHandoffIndex: number;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -2580,6 +2639,7 @@ function MainWorkspace({
 					toolHistoryGroup,
 					toolHistoryDetailView,
 					toolCopyPreview,
+					selectedUpdateHandoffIndex,
 					events,
 					height,
 					t,
@@ -2654,6 +2714,7 @@ function renderWorkspace(
 	toolHistoryGroup: ToolHistoryGroup,
 	toolHistoryDetailView: ToolHistoryDetailView,
 	toolCopyPreview: ToolCopyPreviewMode,
+	selectedUpdateHandoffIndex: number,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -2858,7 +2919,13 @@ function renderWorkspace(
 		);
 	}
 	if (screen === "status") {
-		return <StatusWorkspace updateCheckResult={updateCheckResult} t={t} />;
+		return (
+			<StatusWorkspace
+				updateCheckResult={updateCheckResult}
+				selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
+				t={t}
+			/>
+		);
 	}
 	if (screen === "logs") {
 		return <LogWorkspace checks={doctorChecks} />;
@@ -4404,9 +4471,11 @@ function CommandPaletteWorkspace({
 
 function StatusWorkspace({
 	updateCheckResult,
+	selectedUpdateHandoffIndex,
 	t,
 }: {
 	updateCheckResult?: PackageUpdateCheckResult;
+	selectedUpdateHandoffIndex: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const updateApplyPreview = updateCheckResult
@@ -4415,6 +4484,9 @@ function StatusWorkspace({
 	const updateReleaseHandoff = updateCheckResult
 		? createUpdateReleaseHandoff(updateCheckResult)
 		: undefined;
+	const updateReleaseLinks = updateReleaseHandoff
+		? getUpdateReleaseHandoffLinks(updateReleaseHandoff)
+		: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -4458,7 +4530,7 @@ function StatusWorkspace({
 			) : null}
 			{updateReleaseHandoff ? (
 				<Box marginTop={1} flexDirection="column">
-					<Text color="gray">RELEASE HANDOFF</Text>
+					<Text color="gray">RELEASE HANDOFF · n cycle · c copy</Text>
 					{formatUpdateReleaseHandoffRows(updateReleaseHandoff)
 						.slice(1)
 						.map((row) => (
@@ -4466,6 +4538,14 @@ function StatusWorkspace({
 								{row}
 							</Text>
 						))}
+					{updateReleaseLinks.map((link, index) => (
+						<Text
+							key={link.key}
+							color={index === selectedUpdateHandoffIndex ? "yellow" : "gray"}
+						>
+							{index === selectedUpdateHandoffIndex ? ">" : " "} {link.label}
+						</Text>
+					))}
 				</Box>
 			) : null}
 			<Text color="gray">{t("status.roadmap")}</Text>

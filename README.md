@@ -47,6 +47,7 @@ Keyboard controls:
 - Processes workspace: endpoint handoffs show PID detail plus labeled cwd/open-file/resource rows; `j/k` selects an item, `enter` opens local filesystem paths in Files or Editor, socket/pipe/unix resources are logged for inspection, and `c` opens a locked clipboard preview
 - Tools workspace: `n` cycles OS-aware target presets, `R` runs the selected preset, `j/k` selects previous runs, `Tab` cycles raw/summary/command detail panes, `f` filters history, `P` saves the active filter as a session preset, `]` cycles saved presets, `s` cycles sorting, `G` groups by tool/action or status, `r` reruns, `y` copies summaries, `c` copies raw output, and `e`/`E` exports selected/all runs
 - Timeline workspace: `t` cycles event kinds, `f` searches, `F` clears search, `P` saves search, `]` cycles presets, and `timeline.export` writes the current filtered scope
+- Status workspace: after `picos.update`, `n` cycles release handoff links and `c` opens the locked clipboard confirmation for the selected link
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh

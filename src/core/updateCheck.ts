@@ -33,6 +33,12 @@ export type UpdateReleaseHandoff = {
 	changelogUrl: string;
 };
 
+export type UpdateReleaseHandoffLink = {
+	key: "npm" | "github" | "changelog";
+	label: string;
+	url: string;
+};
+
 export type PackageUpdateFetch = (
 	input: string | URL | Request,
 	init?: RequestInit,
@@ -166,6 +172,25 @@ export function formatUpdateReleaseHandoffRows(
 		`github=${handoff.githubReleaseUrl}`,
 		`changelog=${handoff.changelogUrl}`,
 	];
+}
+
+export function getUpdateReleaseHandoffLinks(
+	handoff: UpdateReleaseHandoff,
+): UpdateReleaseHandoffLink[] {
+	return [
+		{ key: "npm", label: "npm package", url: handoff.npmUrl },
+		{ key: "github", label: "GitHub Release", url: handoff.githubReleaseUrl },
+		{ key: "changelog", label: "CHANGELOG", url: handoff.changelogUrl },
+	];
+}
+
+export function getSelectedUpdateReleaseHandoffLink(
+	handoff: UpdateReleaseHandoff,
+	selectedIndex: number,
+): UpdateReleaseHandoffLink {
+	const links = getUpdateReleaseHandoffLinks(handoff);
+	const index = ((selectedIndex % links.length) + links.length) % links.length;
+	return links[index];
 }
 
 function createNpmLatestUrl(packageName: string): string {
