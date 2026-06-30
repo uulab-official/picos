@@ -2129,6 +2129,20 @@ Goal: make archived Timeline evidence reviewable from Status instead of hiding i
 - Tests cover archive row formatting and locked open plans for archived Timeline audit logs.
 - Next: add retention policy previews for old archived Timeline exports, still locked behind exact confirmation.
 
+## v0.4.97 - Timeline Archive Retention
+
+Status: draft PR #159 on `codex/picos-v0.4.97-timeline-archive-retention`.
+
+Goal: make archived Timeline evidence manageable without unsafe broad deletes.
+
+- Core audit archive retention plans keep the newest archived audit exports and mark older files as prune candidates.
+- Retention pruning is destructive, user-privileged, and locked behind the exact phrase `prune audit archive`.
+- Prune execution revalidates every candidate path against `audit/archive/picos-audit-*.log` before deleting.
+- Status now supports `M` in the Audit Archive shelf to preview the retention plan and open the exact-confirm prompt.
+- Confirmed pruning refreshes the archived audit browser.
+- Tests cover locked previews, retained/candidate rows, blocked prune attempts, confirmed deletion, and post-prune archive index state.
+- Next: make the audit archive retention limit configurable from the picos config screen.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

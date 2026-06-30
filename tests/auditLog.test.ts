@@ -4,14 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	archiveConsoleAuditExport,
+	createConsoleAuditArchiveRetentionPlan,
 	createConsoleAuditExportArchivePlan,
 	createConsoleAuditExportPlan,
+	formatConsoleAuditArchiveRetentionRows,
 	formatConsoleAuditExportArchiveIndexRows,
 	formatConsoleAuditExportArchiveRows,
 	formatConsoleAuditExportIndexRows,
 	formatConsoleAuditLog,
 	getSelectedConsoleAuditExport,
 	parseConsoleAuditLog,
+	pruneConsoleAuditArchive,
 	readConsoleAuditExportArchiveIndex,
 	readConsoleAuditExportIndex,
 	readLatestConsoleAuditExport,
@@ -419,6 +422,140 @@ describe("console audit export", () => {
 					"picos-audit-selected-2026-07-01T030000000Z.log",
 				)}`,
 			]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("previews archive retention before pruning old audit exports", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-audit-retention-"));
+		try {
+			await mkdir(join(root, "audit", "archive"), { recursive: true });
+			for (const stamp of [
+				"2026-07-01T030000000Z",
+				"2026-07-01T020000000Z",
+				"2026-07-01T010000000Z",
+			]) {
+				await writeFile(
+					join(root, "audit", "archive", `picos-audit-selected-${stamp}.log`),
+					[
+						"# picos audit log",
+						`generatedAt=${stamp.replace(
+							/T(\d{2})(\d{2})(\d{2})(\d{3})Z$/,
+							"T$1:$2:$3.$4Z",
+						)}`,
+						"scope=selected",
+						"events=1",
+						"",
+						"[12:00:06] WARN control preview dns.flush",
+						"",
+					].join("\n"),
+					"utf8",
+				);
+			}
+
+			const index = await readConsoleAuditExportArchiveIndex(root);
+			const plan = createConsoleAuditArchiveRetentionPlan(index, {
+				maxItems: 1,
+			});
+
+			expect(plan).toMatchObject({
+				baseDir: root,
+				maxItems: 1,
+				risk: "destructive",
+				privilege: "user",
+				confirmationRequired: true,
+				confirmationPhrase: "prune audit archive",
+				confirmed: false,
+				enabled: false,
+				reason: "type prune audit archive to remove 2 archived audit exports",
+			});
+			expect(plan.retainedItems.map((item) => item.fileName)).toEqual([
+				"picos-audit-selected-2026-07-01T030000000Z.log",
+			]);
+			expect(plan.candidateItems.map((item) => item.fileName)).toEqual([
+				"picos-audit-selected-2026-07-01T020000000Z.log",
+				"picos-audit-selected-2026-07-01T010000000Z.log",
+			]);
+			expect(formatConsoleAuditArchiveRetentionRows(plan)).toEqual([
+				"AUDIT ARCHIVE RETENTION max=1 candidates=2",
+				"risk=destructive privilege=user confirmed=false",
+				"confirm prune audit archive locked",
+				"keep picos-audit-selected-2026-07-01T030000000Z.log",
+				"remove picos-audit-selected-2026-07-01T020000000Z.log",
+				"remove picos-audit-selected-2026-07-01T010000000Z.log",
+				"reason=type prune audit archive to remove 2 archived audit exports",
+			]);
+
+			expect(await pruneConsoleAuditArchive(plan)).toEqual({
+				status: "blocked",
+				removed: 0,
+				removedPaths: [],
+				message:
+					"audit archive retention is locked: type prune audit archive to remove 2 archived audit exports",
+			});
+			expect(
+				(await readConsoleAuditExportArchiveIndex(root)).items,
+			).toHaveLength(3);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("prunes confirmed old audit archive exports inside the picos archive", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-audit-prune-"));
+		try {
+			await mkdir(join(root, "audit", "archive"), { recursive: true });
+			for (const stamp of [
+				"2026-07-01T030000000Z",
+				"2026-07-01T020000000Z",
+				"2026-07-01T010000000Z",
+			]) {
+				await writeFile(
+					join(root, "audit", "archive", `picos-audit-selected-${stamp}.log`),
+					[
+						"# picos audit log",
+						`generatedAt=${stamp.replace(
+							/T(\d{2})(\d{2})(\d{2})(\d{3})Z$/,
+							"T$1:$2:$3.$4Z",
+						)}`,
+						"scope=selected",
+						"events=1",
+						"",
+					].join("\n"),
+					"utf8",
+				);
+			}
+			const index = await readConsoleAuditExportArchiveIndex(root);
+			const plan = createConsoleAuditArchiveRetentionPlan(index, {
+				maxItems: 1,
+				confirmation: "prune audit archive",
+			});
+
+			expect(await pruneConsoleAuditArchive(plan)).toEqual({
+				status: "pruned",
+				removed: 2,
+				removedPaths: [
+					join(
+						root,
+						"audit",
+						"archive",
+						"picos-audit-selected-2026-07-01T020000000Z.log",
+					),
+					join(
+						root,
+						"audit",
+						"archive",
+						"picos-audit-selected-2026-07-01T010000000Z.log",
+					),
+				],
+				message: "pruned 2 archived audit exports",
+			});
+			expect(
+				(await readConsoleAuditExportArchiveIndex(root)).items.map(
+					(item) => item.fileName,
+				),
+			).toEqual(["picos-audit-selected-2026-07-01T030000000Z.log"]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
