@@ -1368,6 +1368,18 @@ Goal: keep exported route/endpoint evidence useful after it leaves the active pa
 - Tests cover archive path scoping, blocked outside files, CLI archive output, and updated handoff index rows.
 - Next: richer handoff retention policies and custom Tools target editing.
 
+## v0.4.39 - Tools Target Preset Management
+
+Status: draft PR #101.
+
+Goal: make saved Tools Hub targets maintainable from the keyboard after repeated diagnostics.
+
+- Tools workspace now supports `X` to remove the selected saved target preset from config.
+- Removal matches saved presets by action and target, so renamed labels still clean up the same target.
+- OS-aware presets such as default host, gateway, DNS servers, public IP, HTTPS, and TLS remain generated and cannot be deleted from config.
+- Tests cover saved target removal, non-saved target no-op behavior, and existing Tools Hub row rendering.
+- Next: richer custom target editing and retention policies.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
