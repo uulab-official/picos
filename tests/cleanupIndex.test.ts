@@ -4,12 +4,15 @@ import {
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
+	createCleanupHandoffReopenPlan,
 	createCleanupJumpAudit,
+	createCleanupJumpAuditFromHistory,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
 	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
+	formatCleanupHandoffReopenRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
@@ -294,11 +297,13 @@ describe("cleanup shelf index", () => {
 		const promptOpened = createCleanupHandoffHistory(audit, "prompt-opened");
 
 		expect(dismissed).toEqual({
+			id: "routes",
 			label: "Route filters",
 			workspace: "Routes",
 			screen: "routes",
 			shortcut: "D",
 			confirmationPhrase: "clear routes",
+			count: 1,
 			detail: "filters=1",
 			outcome: "dismissed",
 		});
@@ -363,5 +368,50 @@ describe("cleanup shelf index", () => {
 			"CLEANUP HISTORY entries=0",
 			"no cleanup handoff history yet",
 		]);
+	});
+
+	test("creates cleanup handoff reopen plans from selected history", () => {
+		const index = createCleanupShelfIndex({
+			connectionFilterPresets: ["443"],
+		});
+		const shelf = getSelectedCleanupShelf(index, 0);
+
+		if (!shelf) {
+			throw new Error("expected cleanup shelf");
+		}
+
+		const history = createCleanupHandoffHistory(
+			createCleanupJumpAudit(shelf),
+			"dismissed",
+		);
+		const plan = createCleanupHandoffReopenPlan(history);
+
+		expect(plan).toEqual({
+			id: "connections",
+			label: "Connection filters",
+			workspace: "Connections",
+			screen: "connections",
+			shortcut: "D",
+			confirmationPhrase: "clear connections",
+			count: 1,
+			detail: "filters=1",
+		});
+		expect(createCleanupJumpAuditFromHistory(history)).toEqual({
+			id: "connections",
+			label: "Connection filters",
+			workspace: "Connections",
+			screen: "connections",
+			shortcut: "D",
+			confirmationPhrase: "clear connections",
+			count: 1,
+			detail: "filters=1",
+		});
+		expect(formatCleanupHandoffReopenRows(plan)).toEqual([
+			"CLEANUP REOPEN Connection filters",
+			"R jumps to Connections and restores handoff",
+			"shortcut=D confirm=clear connections detail=filters=1 count=1",
+		]);
+		expect(createCleanupHandoffReopenPlan(undefined)).toBeUndefined();
+		expect(formatCleanupHandoffReopenRows(undefined)).toEqual([]);
 	});
 });
