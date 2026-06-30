@@ -352,13 +352,26 @@ Goal: make the final release steps reviewable before any tag, GitHub Release, or
 - Release docs and README include the command planner in the public release flow.
 - Next: return to lazyifconfig parity with sortable route/interface rows and raw-output viewers.
 
+## v0.3.24 - Sortable Network Rows
+
+Status: draft PR #25.
+
+Goal: make dense route and interface tables easier to scan like a daily terminal console.
+
+- Route core supports stable row sorting by default priority, destination, gateway, interface, family, or metric.
+- `picos routes --sort <key>` and `picos routes --sort=-metric` expose route sorting from CLI.
+- Routes workspace supports `s` to cycle route sort state from the keyboard.
+- Route workspace rows show the active sort context.
+- Interface summaries use a stable console-friendly order: physical, VPN, bridge, container, link-local, loopback, then unknown.
+- Next: raw-output viewer tabs for ports, connections, tools, and platform route details.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
 
-- Interface details: MAC/prefix/gateway and MTU/RX/TX counters landed; next sortable rows and raw platform detail.
+- Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
-- Route Inspector depth: route diagnostics, raw output view, and destination path lookup UI landed; next VPN route hints.
+- Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
 - Connections and Ports: sorting, filtering, details panes, process metadata, safe copy actions.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: address/status/public-IP changes and local export.

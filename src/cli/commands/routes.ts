@@ -1,14 +1,18 @@
 import {
 	formatRouteTable,
+	parseRouteSort,
 	runRoutePath,
 	runRouteTable,
 } from "../../core/routes";
 
 export async function routesCommand(
-	options: { raw?: boolean } = {},
+	options: { raw?: boolean; sort?: string } = {},
 ): Promise<void> {
 	const result = await runRouteTable();
-	console.log(options.raw ? result.rawOutput : formatRouteTable(result));
+	const sort = parseRouteSort(options.sort);
+	console.log(
+		options.raw ? result.rawOutput : formatRouteTable(result, { sort }),
+	);
 }
 
 export async function routeCommand(destination: string): Promise<void> {

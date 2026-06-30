@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	classifyNetworkAddress,
 	inferInterfaceKind,
+	sortNetworkInterfaces,
 	summarizeNetworkInterfaces,
 } from "../src/core/network";
 
@@ -102,6 +103,31 @@ describe("network summary", () => {
 			txBytes: 654321,
 			txPackets: 200,
 		});
+	});
+
+	test("sorts interface rows for dense console scanning", () => {
+		expect(
+			sortNetworkInterfaces([
+				{
+					name: "utun4",
+					status: "connected",
+					kind: "vpn",
+					ipv4: "100.64.0.10",
+				},
+				{
+					name: "docker0",
+					status: "connected",
+					kind: "container",
+					ipv4: "172.17.0.2",
+				},
+				{
+					name: "en0",
+					status: "connected",
+					kind: "wifiOrEthernet",
+					ipv4: "192.168.0.12",
+				},
+			]).map((item) => item.name),
+		).toEqual(["en0", "utun4", "docker0"]);
 	});
 
 	test("reports offline when no external address exists", () => {

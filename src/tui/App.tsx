@@ -27,7 +27,9 @@ import {
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
 import {
+	nextRouteSort,
 	type RoutePathResult,
+	type RouteSort,
 	type RouteTableResult,
 	runRoutePath,
 	runRouteTable,
@@ -158,6 +160,10 @@ export function App(): React.ReactElement {
 	const [ports, setPorts] = useState<ListeningPort[]>([]);
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
 	const [routePath, setRoutePath] = useState<RoutePathResult>();
+	const [routeSort, setRouteSort] = useState<RouteSort>({
+		key: "default",
+		direction: "asc",
+	});
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -787,6 +793,15 @@ export function App(): React.ReactElement {
 			log("info", "route destination prompt opened");
 		}
 
+		if (screen === "routes" && focusArea === "workspaces" && input === "s") {
+			setRouteSort((current) => {
+				const next = nextRouteSort(current);
+				log("info", `route sort ${next.key} ${next.direction}`);
+				return next;
+			});
+			return;
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -899,6 +914,7 @@ export function App(): React.ReactElement {
 					ports={ports}
 					routeTable={routeTable}
 					routePath={routePath}
+					routeSort={routeSort}
 					events={events}
 					t={t}
 				/>
@@ -1023,6 +1039,7 @@ function MainWorkspace({
 	ports,
 	routeTable,
 	routePath,
+	routeSort,
 	events,
 	t,
 }: {
@@ -1053,6 +1070,7 @@ function MainWorkspace({
 	ports: ListeningPort[];
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
+	routeSort: RouteSort;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -1092,6 +1110,7 @@ function MainWorkspace({
 					ports,
 					routeTable,
 					routePath,
+					routeSort,
 					events,
 					height,
 					t,
@@ -1126,6 +1145,7 @@ function renderWorkspace(
 	ports: ListeningPort[],
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
+	routeSort: RouteSort,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -1221,6 +1241,7 @@ function renderWorkspace(
 			<RoutesWorkspace
 				routeTable={routeTable}
 				routePath={routePath}
+				routeSort={routeSort}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
 				t={t}
@@ -2158,12 +2179,14 @@ function PortsWorkspace({
 function RoutesWorkspace({
 	routeTable,
 	routePath,
+	routeSort,
 	commandLine,
 	visibleRows,
 	t,
 }: {
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
+	routeSort: RouteSort;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -2179,6 +2202,7 @@ function RoutesWorkspace({
 		? formatRouteWorkspaceRows(
 				routeTable,
 				Math.max(4, visibleRows - pathRows.length - promptRows.length),
+				{ sort: routeSort },
 			)
 		: ["loading route table..."];
 	const rows = [...tableRows, ...pathRows, ...promptRows].slice(0, visibleRows);
@@ -2193,7 +2217,7 @@ function RoutesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
-				route table diagnostics · raw command output · read-only
+				route table diagnostics · s sort · : path lookup · raw output
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {

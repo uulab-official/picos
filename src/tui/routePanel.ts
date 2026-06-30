@@ -1,10 +1,16 @@
-import type { RoutePathResult, RouteTableResult } from "../core/routes";
+import type {
+	RoutePathResult,
+	RouteSort,
+	RouteTableResult,
+} from "../core/routes";
+import { sortRouteEntries } from "../core/routes";
 
 export function formatRouteWorkspaceRows(
 	result: RouteTableResult,
 	visibleRows: number,
+	options: { sort?: RouteSort } = {},
 ): string[] {
-	const routeRows = result.routes.map(
+	const routeRows = sortRouteEntries(result.routes, options.sort).map(
 		(route) =>
 			`${clip(route.destination, 18).padEnd(18)} ${clip(route.gateway, 16).padEnd(16)} ${clip(route.interfaceName, 10).padEnd(10)} ${route.family}`,
 	);
@@ -14,6 +20,9 @@ export function formatRouteWorkspaceRows(
 	);
 	const fullRows = [
 		`SUMMARY routes=${result.routes.length} command=${result.command} ${result.args.join(" ")}`.trim(),
+		...(options.sort
+			? [`SORT ${options.sort.key} ${options.sort.direction}`]
+			: []),
 		"DIAGNOSTICS",
 		...(diagnosticRows.length
 			? diagnosticRows
@@ -30,6 +39,9 @@ export function formatRouteWorkspaceRows(
 
 	const fixedRows = [
 		fullRows[0],
+		...(options.sort
+			? [`SORT ${options.sort.key} ${options.sort.direction}`]
+			: []),
 		"DIAGNOSTICS",
 		...(diagnosticRows.length
 			? diagnosticRows

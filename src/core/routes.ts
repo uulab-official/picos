@@ -14,6 +14,31 @@ export type RouteEntry = {
 	protocol?: string;
 };
 
+export type RouteSortKey =
+	| "default"
+	| "destination"
+	| "gateway"
+	| "interface"
+	| "family"
+	| "metric";
+
+export type SortDirection = "asc" | "desc";
+
+export type RouteSort = {
+	key: RouteSortKey;
+	direction: SortDirection;
+};
+
+const routeSortCycle: RouteSort[] = [
+	{ key: "default", direction: "asc" },
+	{ key: "destination", direction: "asc" },
+	{ key: "gateway", direction: "asc" },
+	{ key: "interface", direction: "asc" },
+	{ key: "family", direction: "asc" },
+	{ key: "metric", direction: "asc" },
+	{ key: "metric", direction: "desc" },
+];
+
 export type RouteDiagnostic = {
 	status: "pass" | "warn";
 	label: string;
@@ -240,6 +265,41 @@ export function diagnoseRoutes(routes: RouteEntry[]): RouteDiagnostic[] {
 	return diagnostics;
 }
 
+export function parseRouteSort(value: string | undefined): RouteSort {
+	if (!value) {
+		return { key: "default", direction: "asc" };
+	}
+	const direction: SortDirection = value.startsWith("-") ? "desc" : "asc";
+	const key = value.replace(/^-/, "");
+	if (!isRouteSortKey(key)) {
+		throw new Error(`Invalid route sort: ${value}`);
+	}
+	return { key, direction };
+}
+
+export function sortRouteEntries(
+	routes: RouteEntry[],
+	sort: RouteSort = { key: "default", direction: "asc" },
+): RouteEntry[] {
+	return routes
+		.map((route, index) => ({ route, index }))
+		.sort((left, right) => {
+			const compared = compareRoutes(left.route, right.route, sort.key);
+			const directed = sort.direction === "desc" ? -compared : compared;
+			return directed || left.index - right.index;
+		})
+		.map((item) => item.route);
+}
+
+export function nextRouteSort(current: RouteSort): RouteSort {
+	const index = routeSortCycle.findIndex(
+		(item) => item.key === current.key && item.direction === current.direction,
+	);
+	return (
+		routeSortCycle[(index + 1) % routeSortCycle.length] ?? routeSortCycle[0]
+	);
+}
+
 export function parseLinuxRoutePath(
 	destination: string,
 	output: string,
@@ -273,21 +333,82 @@ export function parseMacosRoutePath(
 	return result;
 }
 
-export function formatRouteTable(result: RouteTableResult): string {
+export function formatRouteTable(
+	result: RouteTableResult,
+	options: { sort?: RouteSort } = {},
+): string {
 	const lines = ["picos routes", ""];
 	lines.push("[Summary]");
 	lines.push(`Routes: ${result.routes.length}`);
+	if (options.sort) {
+		lines.push(`Sort: ${options.sort.key} ${options.sort.direction}`);
+	}
 	for (const diagnostic of result.diagnostics) {
 		lines.push(`${diagnostic.status.toUpperCase()} ${diagnostic.label}`);
 	}
 	lines.push("");
 	lines.push("[Routes]");
-	for (const route of result.routes.slice(0, 80)) {
+	for (const route of sortRouteEntries(result.routes, options.sort).slice(
+		0,
+		80,
+	)) {
 		lines.push(
 			`${route.destination.padEnd(18)} ${route.gateway.padEnd(18)} ${route.interfaceName.padEnd(10)} ${route.family}`,
 		);
 	}
 	return lines.join("\n");
+}
+
+function compareRoutes(
+	left: RouteEntry,
+	right: RouteEntry,
+	key: RouteSortKey,
+): number {
+	if (key === "default") {
+		return (
+			Number(right.destination === "default") -
+				Number(left.destination === "default") ||
+			compareRouteField(left.destination, right.destination)
+		);
+	}
+	if (key === "metric") {
+		return (
+			(left.metric ?? Number.POSITIVE_INFINITY) -
+			(right.metric ?? Number.POSITIVE_INFINITY)
+		);
+	}
+	return compareRouteField(
+		routeSortValue(left, key),
+		routeSortValue(right, key),
+	);
+}
+
+function routeSortValue(
+	route: RouteEntry,
+	key: Exclude<RouteSortKey, "default" | "metric">,
+): string {
+	if (key === "interface") {
+		return route.interfaceName;
+	}
+	return route[key];
+}
+
+function compareRouteField(left: string, right: string): number {
+	return left.localeCompare(right, undefined, {
+		numeric: true,
+		sensitivity: "base",
+	});
+}
+
+function isRouteSortKey(value: string): value is RouteSortKey {
+	return [
+		"default",
+		"destination",
+		"gateway",
+		"interface",
+		"family",
+		"metric",
+	].includes(value);
 }
 
 function isLinuxRouteLine(line: string): boolean {

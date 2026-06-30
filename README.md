@@ -40,6 +40,7 @@ Keyboard controls:
 - `enter`: enter the focused workspace mode, run the selected action, open a directory, or preview a file
 - `?` or `/`: open the command palette, then type to filter commands
 - Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `f` filters by name/path/type, `enter` applies the filter, `esc` clears it, `c`/`m`/`x` open locked copy/move/delete previews, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
+- Routes workspace: `s` cycles route row sorting and `:` opens destination path lookup
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh
@@ -69,6 +70,8 @@ picos tools port-check github.com 443
 picos tools tls github.com:443
 picos tools traceroute 8.8.8.8
 picos routes
+picos routes --sort interface
+picos routes --sort=-metric
 picos route 8.8.8.8
 picos connections
 picos ports
@@ -103,6 +106,7 @@ Commands:
 - `picos tools ping <host>`: run platform ping through Tools Hub.
 - `picos tools traceroute <host>`: run platform traceroute/tracert through Tools Hub.
 - `picos routes`: inspect the local route table.
+- `picos routes --sort <key>`: sort route rows by `default`, `destination`, `gateway`, `interface`, `family`, or `metric`; prefix with `-` for descending.
 - `picos routes --raw`: print the raw route command output.
 - `picos route <destination>`: inspect how the OS routes a destination.
 - `picos connections`: list active TCP/UDP endpoints from the local OS.

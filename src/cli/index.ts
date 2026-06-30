@@ -70,6 +70,10 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	cli
 		.command("routes", "Inspect local route table")
 		.option("--raw", "Print raw route command output")
+		.option(
+			"--sort <key>",
+			"Sort routes by default, destination, gateway, interface, family, metric, or prefix with - for descending",
+		)
 		.action(routesCommand);
 	cli
 		.command("route <destination>", "Inspect route path to a destination")
