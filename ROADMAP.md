@@ -590,6 +590,19 @@ Goal: make the console feel more OS-like by recording network state changes duri
 - First refresh seeds the snapshot without noisy state-change output.
 - Next: tools/raw platform detail tabs for DNS, ping, traceroute, RDAP, IP info, and TCP checks.
 
+## v0.3.43 - Tools History Raw Handoff
+
+Status: draft PR #44.
+
+Goal: make Tools Hub behave like an OS utility panel instead of a static command queue.
+
+- Read-only `tools.*` and `network.connect` actions are mapped to safe default `picos tools` run plans.
+- TUI Tools workspace stores recent tool result history.
+- Latest tool result summary and raw output are visible directly inside the Tools workspace.
+- `raw.view` can jump back to the latest tool raw output when history exists.
+- Tool result history is capped so repeated diagnostics do not overwhelm the console.
+- Next: target input prompts for DNS/RDAP/IP/TCP/TLS/ping/traceroute.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -598,7 +611,7 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
 - Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer endpoint/platform detail tabs.
-- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools; next raw result panes and history handoff.
+- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with recent result history and raw output handoff; next target input prompts.
 - Timeline: live EventDock history, network/action/audit/raw filters, audit export, latest audit reload, and network status/address/public-IP change events landed; next richer event search and export scopes.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.
 
