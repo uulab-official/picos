@@ -169,7 +169,7 @@ Reference-inspired modules now tracked in picos:
 - Route Inspector with TUI diagnostics, destination path lookup, route rows, and raw command output
 - Connections view with parsed rows, CLI filtering/sorting, TUI selection details, PID process enrichment, copy preview, and raw OS command output
 - Ports view with process metadata, CLI filtering/sorting, TUI selection details, PID process enrichment, copy preview, and raw OS command output
-- Tools Hub with read-only DNS/RDAP/IP/TCP/TLS/ping/traceroute commands, recent result history, and raw output handoff
+- Tools Hub with read-only DNS/RDAP/IP/TCP/TLS/ping/traceroute commands, target prompts, recent result history, and raw output handoff
 - Timeline with network/action/audit/raw event filters, audit export, latest audit reload, and network state-change events
 - Raw output viewer
 

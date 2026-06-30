@@ -31,8 +31,9 @@ export function createToolRunPlan(
 	actionId: string,
 	defaultTarget: string,
 	summary?: NetworkSummary,
+	targetInput = "",
 ): ToolRunPlan | undefined {
-	const target = defaultTarget || "example.com";
+	const target = targetInput.trim() || defaultTarget || "example.com";
 	if (actionId === "tools.dns") {
 		return {
 			actionId,
@@ -58,7 +59,7 @@ export function createToolRunPlan(
 		};
 	}
 	if (actionId === "tools.ipInfo") {
-		const ip = summary?.publicIp ?? "8.8.8.8";
+		const ip = (targetInput.trim() || summary?.publicIp) ?? "8.8.8.8";
 		return {
 			actionId,
 			toolId: "ip-info",
@@ -67,19 +68,21 @@ export function createToolRunPlan(
 		};
 	}
 	if (actionId === "tools.tls") {
+		const tlsTarget = target.includes(":") ? target : `${target}:443`;
 		return {
 			actionId,
 			toolId: "tls",
-			args: [`${target}:443`],
-			label: `${actionId} ${target}:443`,
+			args: [tlsTarget],
+			label: `${actionId} ${tlsTarget}`,
 		};
 	}
 	if (actionId === "network.connect") {
+		const { host, port } = parseHostPortTarget(target);
 		return {
 			actionId,
 			toolId: "port-check",
-			args: [target, "443"],
-			label: `${actionId} ${target}:443`,
+			args: [host, port],
+			label: `${actionId} ${host}:${port}`,
 		};
 	}
 	if (actionId === "ping.default") {
@@ -131,8 +134,19 @@ export function formatToolsWorkspaceRows(
 	return [
 		`TOOLS history=${history.length} latest=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: action enter=run · raw.view shows latest raw output",
+		"shortcuts: action enter=target prompt · raw.view shows latest raw output",
 	].slice(0, visibleRows);
+}
+
+export function formatToolPromptRows(prompt: string, value: string): string[] {
+	if (!prompt.startsWith("tool:")) {
+		return [];
+	}
+	const actionId = prompt.slice("tool:".length);
+	return [
+		`TOOL TARGET ${actionId}`,
+		`:tool ${value || " "}  enter=run esc=cancel`,
+	];
 }
 
 function summarizeToolResult(result: ToolResult): string {
@@ -148,4 +162,19 @@ function createToolHistoryId(time: string, label: string): string {
 		.toLowerCase()
 		.replaceAll(/[^a-z0-9]+/g, "-")
 		.replaceAll(/^-|-$/g, "")}`;
+}
+
+function parseHostPortTarget(target: string): { host: string; port: string } {
+	const [hostPart, portPart] = target.split(/\s+/, 2);
+	if (hostPart?.includes(":") && !portPart) {
+		const separator = hostPart.lastIndexOf(":");
+		return {
+			host: hostPart.slice(0, separator),
+			port: hostPart.slice(separator + 1) || "443",
+		};
+	}
+	return {
+		host: hostPart || "example.com",
+		port: portPart || "443",
+	};
 }

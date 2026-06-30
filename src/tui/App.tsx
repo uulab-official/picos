@@ -151,11 +151,14 @@ import {
 import {
 	appendToolHistory,
 	createToolRunPlan,
+	formatToolPromptRows,
 	formatToolsWorkspaceRows,
 	type ToolHistoryItem,
 } from "./toolHistory";
 
 type CommandStatus = "idle" | "running";
+
+const toolPromptPrefix = "tool:";
 
 type EditorPreview = {
 	path: string;
@@ -449,6 +452,34 @@ export function App(): React.ReactElement {
 			setCommandLine((current) => closeCommandLine(current));
 		}
 	}, [commandLine.value, log]);
+
+	const submitToolCommand = useCallback(async () => {
+		const actionId = commandLine.prompt.slice(toolPromptPrefix.length);
+		try {
+			const config = await readConfig();
+			const plan = createToolRunPlan(
+				actionId,
+				config.defaultPingHost,
+				summaryRef.current,
+				commandLine.value,
+			);
+			if (!plan) {
+				log("warn", `unknown tool action ${actionId}`);
+				return;
+			}
+
+			setScreen("tools");
+			const result = await runTool(plan.toolId, plan.args, {
+				timeoutMs: 10000,
+			});
+			setToolHistory((current) => appendToolHistory(current, { plan, result }));
+			log("ok", `${plan.label} completed`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		} finally {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+	}, [commandLine.prompt, commandLine.value, log]);
 
 	const submitClipboardCommand = useCallback(async () => {
 		try {
@@ -756,13 +787,8 @@ export function App(): React.ReactElement {
 				);
 				if (toolPlan) {
 					setScreen("tools");
-					const result = await runTool(toolPlan.toolId, toolPlan.args, {
-						timeoutMs: 10000,
-					});
-					setToolHistory((current) =>
-						appendToolHistory(current, { plan: toolPlan, result }),
-					);
-					log("ok", `${toolPlan.label} completed`);
+					setCommandLine(openCommandLine(`${toolPromptPrefix}${action.id}`));
+					log("info", `${toolPlan.label} target prompt opened`);
 				}
 
 				if (action.id === "raw.view") {
@@ -849,7 +875,9 @@ export function App(): React.ReactElement {
 						? "route path command cancelled"
 						: commandLine.prompt === "clipboard"
 							? "clipboard confirmation cancelled"
-							: "path command cancelled",
+							: commandLine.prompt.startsWith(toolPromptPrefix)
+								? "tool target command cancelled"
+								: "path command cancelled",
 				);
 				return;
 			}
@@ -859,6 +887,8 @@ export function App(): React.ReactElement {
 					void submitClipboardCommand();
 				} else if (commandLine.prompt === "route") {
 					void submitRouteDestinationCommand();
+				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
+					void submitToolCommand();
 				} else {
 					void submitPathCommand();
 				}
@@ -1774,6 +1804,7 @@ function renderWorkspace(
 		return (
 			<ToolsWorkspace
 				history={toolHistory}
+				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
 				t={t}
 			/>
@@ -2831,14 +2862,20 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 
 function ToolsWorkspace({
 	history,
+	commandLine,
 	visibleRows,
 	t,
 }: {
 	history: ToolHistoryItem[];
+	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const rows = formatToolsWorkspaceRows(history, visibleRows);
+	const promptRows =
+		commandLine.active && commandLine.prompt.startsWith(toolPromptPrefix)
+			? formatToolPromptRows(commandLine.prompt, commandLine.value)
+			: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
@@ -2846,7 +2883,7 @@ function ToolsWorkspace({
 				Tools Hub history · DNS/RDAP/IP/TCP/TLS/ping/traceroute
 			</Text>
 			<Box marginTop={1} flexDirection="column">
-				{rows.map((row) => (
+				{[...promptRows, ...rows].slice(0, visibleRows).map((row) => (
 					<Text key={row} color={getToolRowColor(row)}>
 						{row}
 					</Text>
