@@ -2063,6 +2063,19 @@ Goal: make audit rows portable as operator evidence without bypassing clipboard 
 - Tests cover audit-row clipboard preview text and metadata.
 - Next: add a visible Timeline cursor so copy/export can target older rows without changing filters.
 
+## v0.4.92 - Timeline Visible Cursor
+
+Status: draft PR #154 on `codex/picos-v0.4.92-timeline-visible-cursor`.
+
+Goal: let operators target older Timeline audit rows without changing filters or relying on the latest row.
+
+- Timeline rows now support a visible `>` cursor when the TUI passes a selected index.
+- Timeline `j`/`k` move the selected filtered/search-matched row with wraparound.
+- Timeline `c` now copies the selected row rather than always copying the latest row.
+- Summary rows show `selected=n/total` when a cursor is active.
+- Tests cover cursor rendering and wraparound movement.
+- Next: add a Timeline selected-row export helper for writing one audit row to the audit directory.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
