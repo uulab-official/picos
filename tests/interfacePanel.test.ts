@@ -64,12 +64,16 @@ const fixture: NetworkSummary = {
 		{
 			kind: "lan",
 			label: "LAN",
+			scope: "private",
+			hint: "RFC1918 private network for local devices",
 			interfaces: ["en0"],
 			addresses: ["192.168.0.20"],
 		},
 		{
 			kind: "vpn",
 			label: "VPN",
+			scope: "tunnel",
+			hint: "tunnel interface likely carries private or corporate routes",
 			interfaces: ["utun4"],
 			addresses: ["fe80::2"],
 		},
@@ -137,8 +141,8 @@ describe("interface TUI panel formatting", () => {
 			"PLATFORM darwin",
 			"SOURCES node:os.networkInterfaces, netstat -ib, route/get gateway, dns.getServers",
 			"PRIMARY en0",
-			"GROUP LAN interfaces=en0 addresses=192.168.0.20",
-			"GROUP VPN interfaces=utun4 addresses=fe80::2",
+			"GROUP LAN scope=private interfaces=en0 addresses=192.168.0.20",
+			"  hint=RFC1918 private network for local devices",
 		]);
 	});
 });

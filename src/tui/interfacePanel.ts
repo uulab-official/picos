@@ -142,12 +142,15 @@ function formatInterfacePlatformRows(summary: NetworkSummary): string[] {
 		`PLATFORM ${summary.platform}`,
 		`SOURCES node:os.networkInterfaces, ${platformStatsSource(summary.platform)}, route/get gateway, dns.getServers`,
 		`PRIMARY ${summary.primaryInterface?.name ?? "-"}`,
-		...summary.networkGroups.map(formatNetworkGroupRow),
+		...summary.networkGroups.flatMap(formatNetworkGroupRows),
 	];
 }
 
-function formatNetworkGroupRow(group: NetworkGroupSummary): string {
-	return `GROUP ${group.label} interfaces=${group.interfaces.join(",") || "-"} addresses=${group.addresses.join(",") || "-"}`;
+function formatNetworkGroupRows(group: NetworkGroupSummary): string[] {
+	return [
+		`GROUP ${group.label} scope=${group.scope} interfaces=${group.interfaces.join(",") || "-"} addresses=${group.addresses.join(",") || "-"}`,
+		`  hint=${group.hint}`,
+	];
 }
 
 function formatGroupSummary(groups: NetworkGroupSummary[]): string {

@@ -113,6 +113,58 @@ describe("lazyifconfig-style route inspector", () => {
 		);
 	});
 
+	test("diagnoses VPN routes and split tunnel hints", () => {
+		expect(
+			diagnoseRoutes([
+				{
+					destination: "default",
+					gateway: "192.168.0.1",
+					interfaceName: "en0",
+					family: "ipv4",
+				},
+				{
+					destination: "10.8.0.0/24",
+					gateway: "link",
+					interfaceName: "utun4",
+					family: "ipv4",
+				},
+				{
+					destination: "100.64.0.0/10",
+					gateway: "link",
+					interfaceName: "wg0",
+					family: "ipv4",
+				},
+			]),
+		).toEqual(
+			expect.arrayContaining([
+				{
+					status: "pass",
+					label: "VPN routes detected",
+					detail: "utun4, wg0",
+				},
+				{
+					status: "warn",
+					label: "Split tunnel likely",
+					detail: "default=en0 vpn=utun4, wg0",
+				},
+			]),
+		);
+		expect(
+			diagnoseRoutes([
+				{
+					destination: "default",
+					gateway: "link",
+					interfaceName: "utun4",
+					family: "ipv4",
+				},
+			]),
+		).toContainEqual({
+			status: "pass",
+			label: "VPN default route active",
+			detail: "utun4",
+		});
+	});
+
 	test("parses route path output", () => {
 		expect(
 			parseLinuxRoutePath(

@@ -276,6 +276,8 @@ function summarizeNetworkGroups(
 			const group = groups.get(kind) ?? {
 				kind,
 				label: networkGroupLabel(kind),
+				scope: networkGroupScope(kind),
+				hint: networkGroupHint(kind),
 				interfaces: [],
 				addresses: [],
 			};
@@ -303,6 +305,32 @@ function networkGroupLabel(kind: NetworkGroupKind): string {
 		unassigned: "Unassigned",
 	};
 	return labels[kind];
+}
+
+function networkGroupScope(kind: NetworkGroupKind): string {
+	const scopes: Record<NetworkGroupKind, string> = {
+		lan: "private",
+		loopback: "host",
+		vpn: "tunnel",
+		container: "virtual",
+		linkLocal: "local",
+		public: "internet",
+		unassigned: "none",
+	};
+	return scopes[kind];
+}
+
+function networkGroupHint(kind: NetworkGroupKind): string {
+	const hints: Record<NetworkGroupKind, string> = {
+		lan: "RFC1918 private network for local devices",
+		loopback: "local host-only traffic",
+		vpn: "tunnel interface likely carries private or corporate routes",
+		container: "local virtualization or container bridge network",
+		linkLocal: "self-assigned local segment without routed internet",
+		public: "publicly routable address exposed on this host",
+		unassigned: "no routable address assigned",
+	};
+	return hints[kind];
 }
 
 function isPrivateIpv4(address: string): boolean {

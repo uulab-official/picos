@@ -53,6 +53,8 @@ export type NetworkInterfaceStatsMap = Record<string, NetworkInterfaceStats>;
 export type NetworkGroupSummary = {
 	kind: NetworkGroupKind;
 	label: string;
+	scope: string;
+	hint: string;
 	interfaces: string[];
 	addresses: string[];
 };
