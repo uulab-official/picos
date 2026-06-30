@@ -8,6 +8,13 @@ export type FileOpenSource =
 	| "cleanup-export"
 	| "timeline-export";
 
+export type FileOpenOrigin = {
+	kind: "config-shelf";
+	target: string;
+	label: string;
+	scope: string;
+};
+
 export type FileOpenAdapter = {
 	platform: SupportedPlatform;
 	command: string;
@@ -18,6 +25,7 @@ export type FileOpenPlan = {
 	source: FileOpenSource;
 	label: string;
 	path: string;
+	origin?: FileOpenOrigin;
 	risk: "write";
 	privilege: "user";
 	confirmationRequired: true;
@@ -33,6 +41,7 @@ export type FileOpenAudit = {
 	source: FileOpenSource;
 	label: string;
 	path: string;
+	origin?: FileOpenOrigin;
 	risk: "write";
 	privilege: "user";
 	confirmed: boolean;
@@ -56,6 +65,7 @@ export function buildFileOpenPlan({
 	baseDir,
 	confirmation,
 	label,
+	origin,
 	path,
 	platform,
 	source,
@@ -63,6 +73,7 @@ export function buildFileOpenPlan({
 	baseDir: string;
 	confirmation?: string;
 	label: string;
+	origin?: FileOpenOrigin;
 	path: string;
 	platform: SupportedPlatform;
 	source: FileOpenSource;
@@ -81,6 +92,7 @@ export function buildFileOpenPlan({
 		source,
 		label,
 		path,
+		...(origin ? { origin } : {}),
 		risk: "write",
 		privilege: "user",
 		confirmationRequired: true,
@@ -95,12 +107,27 @@ export function buildFileOpenPlan({
 export function formatFileOpenPlanRows(plan: FileOpenPlan): string[] {
 	return [
 		`FILE OPEN ${plan.source}`,
+		...(plan.origin
+			? [
+					`origin=${plan.origin.kind} target=${plan.origin.target} scope=${plan.origin.scope} label=${plan.origin.label}`,
+				]
+			: []),
 		`label ${plan.label}`,
 		`risk=${plan.risk} privilege=${plan.privilege} confirmed=${plan.confirmed}`,
 		`confirm ${plan.confirmationPhrase} ${plan.enabled ? "ready" : "locked"}`,
 		`adapter=${formatFileOpenAdapterName(plan.adapter.platform)}`,
 		`command=${formatFileOpenCommand(plan.adapter)}`,
 		`path=${plan.path}`,
+	];
+}
+
+export function formatFileOpenOriginRows(plan: FileOpenPlan): string[] {
+	if (!plan.origin) {
+		return [];
+	}
+	return [
+		`CONFIG ORIGIN Config > ${plan.origin.label}`,
+		`scope=${plan.origin.scope} dialog=file-open locked esc=keep landing`,
 	];
 }
 
@@ -132,6 +159,7 @@ function createFileOpenAudit(plan: FileOpenPlan): FileOpenAudit {
 		source: plan.source,
 		label: plan.label,
 		path: plan.path,
+		...(plan.origin ? { origin: plan.origin } : {}),
 		risk: plan.risk,
 		privilege: plan.privilege,
 		confirmed: plan.confirmed,

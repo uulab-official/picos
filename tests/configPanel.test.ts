@@ -3,6 +3,7 @@ import { defaultConfig } from "../src/config/schema";
 import {
 	adjustConfigWorkspaceItem,
 	applyConfigPolicyPreset,
+	createConfigManagedShelfFileOpenOrigin,
 	createConfigManagedShelfFocusActionPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
@@ -331,6 +332,13 @@ describe("config TUI panel", () => {
 	});
 
 	test("formats locked dialog breadcrumbs for config-origin file opens", () => {
+		expect(createConfigManagedShelfFileOpenOrigin("routes")).toEqual({
+			kind: "config-shelf",
+			target: "routes",
+			label: "Routes",
+			scope: "routes.filters",
+		});
+
 		expect(
 			formatConfigManagedShelfLockedDialogBreadcrumbRows("routes", "file-open"),
 		).toEqual([

@@ -2368,6 +2368,19 @@ Goal: keep Config shelf origin visible in locked evidence-opening dialogs.
 - Tests cover locked dialog breadcrumb formatting for route and log shelf origins.
 - Next: persist Config-origin metadata on file-open plans themselves so origin breadcrumbs survive workspace changes and exported evidence queues.
 
+## v0.4.115 - File Open Origin Plans
+
+Status: draft PR #177 on `codex/picos-v0.4.115-file-open-origin-plans`.
+
+Goal: make locked evidence-opening dialogs carry their Config shelf origin as part of the plan instead of relying on current workspace state.
+
+- File-open plans now accept structured Config shelf origin metadata with target, label, and scope.
+- File-open previews render plan-owned origin metadata so the selected settings path survives the move into Status.
+- Confirmed file-open submissions rebuild plans while preserving the original origin metadata.
+- Config managed shelf helpers now create reusable file-open origin metadata from shelf targets.
+- Tests cover plan-owned origin rows, preview metadata, audit preservation, and Config shelf origin creation.
+- Next: write Config-origin metadata into exported evidence files and handoff indexes so reopened evidence can recover its settings source after restart.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

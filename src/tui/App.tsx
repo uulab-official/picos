@@ -86,6 +86,7 @@ import {
 import {
 	buildFileOpenPlan,
 	type FileOpenPlan,
+	formatFileOpenOriginRows,
 	formatFileOpenPlanRows,
 	runFileOpenPlan,
 } from "../core/fileOpen";
@@ -239,13 +240,13 @@ import {
 	type ConfigManagedShelfTarget,
 	type ConfigWorkspaceItem,
 	type ConfigWorkspaceResetPreview,
+	createConfigManagedShelfFileOpenOrigin,
 	createConfigManagedShelfFocusActionPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfCleanupBreadcrumbRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
-	formatConfigManagedShelfLockedDialogBreadcrumbRows,
 	formatConfigManagedShelfPromptBreadcrumbRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
@@ -431,6 +432,12 @@ const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
 const endpointFilterCleanupPromptPrefix = "endpoint-filter-cleanup:";
 const portProcessControlPrompt = "port-process-control";
+
+function createActiveFileOpenOrigin(
+	target: ConfigManagedShelfTarget | undefined,
+) {
+	return target ? createConfigManagedShelfFileOpenOrigin(target) : undefined;
+}
 
 function appendLogFollowHistory(
 	history: LogFollowHistoryItem[],
@@ -2033,6 +2040,7 @@ export function App(): React.ReactElement {
 			baseDir: dirname(getConfigPath()),
 			source: fileOpenPlan.source,
 			label: fileOpenPlan.label,
+			origin: fileOpenPlan.origin,
 			path: fileOpenPlan.path,
 			platform: currentPlatform(),
 			confirmation: commandLine.value,
@@ -2129,6 +2137,7 @@ export function App(): React.ReactElement {
 			baseDir: handoffIndex.baseDir,
 			source: item.source,
 			label: item.label,
+			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: item.path,
 			platform: currentPlatform(),
 		});
@@ -2139,7 +2148,7 @@ export function App(): React.ReactElement {
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
 		log("info", `file open confirmation opened for ${item.label}`);
-	}, [handoffIndex, log, selectedHandoffIndex]);
+	}, [configShelfLandingTarget, handoffIndex, log, selectedHandoffIndex]);
 
 	const openSelectedAuditExportFile = useCallback(() => {
 		const item = getSelectedConsoleAuditExport(
@@ -2154,6 +2163,7 @@ export function App(): React.ReactElement {
 			baseDir: auditExportIndex.baseDir,
 			source: "timeline-export",
 			label: `audit export ${item.scope} ${item.generatedAt}`,
+			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: item.path,
 			platform: currentPlatform(),
 		});
@@ -2165,7 +2175,12 @@ export function App(): React.ReactElement {
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
 		log("info", `audit export open confirmation opened for ${item.fileName}`);
-	}, [auditExportIndex, log, selectedAuditExportIndex]);
+	}, [
+		auditExportIndex,
+		configShelfLandingTarget,
+		log,
+		selectedAuditExportIndex,
+	]);
 
 	const openSelectedAuditExportArchiveFile = useCallback(() => {
 		const item = getSelectedConsoleAuditExport(
@@ -2180,6 +2195,7 @@ export function App(): React.ReactElement {
 			baseDir: auditExportArchiveIndex.baseDir,
 			source: "timeline-export",
 			label: `archived audit export ${item.scope} ${item.generatedAt}`,
+			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: item.path,
 			platform: currentPlatform(),
 		});
@@ -2194,7 +2210,12 @@ export function App(): React.ReactElement {
 			"info",
 			`archived audit export open confirmation opened for ${item.fileName}`,
 		);
-	}, [auditExportArchiveIndex, log, selectedAuditExportArchiveIndex]);
+	}, [
+		auditExportArchiveIndex,
+		configShelfLandingTarget,
+		log,
+		selectedAuditExportArchiveIndex,
+	]);
 
 	const openAuditArchiveRetentionPreview = useCallback(() => {
 		const plan = createConsoleAuditArchiveRetentionPlan(
@@ -2253,6 +2274,7 @@ export function App(): React.ReactElement {
 			baseDir: cleanupExportIndex.baseDir,
 			source: "cleanup-export",
 			label: `cleanup export ${item.scope} ${item.generatedAt}`,
+			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: item.path,
 			platform: currentPlatform(),
 		});
@@ -2263,7 +2285,12 @@ export function App(): React.ReactElement {
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
 		log("info", `cleanup export open confirmation opened for ${item.fileName}`);
-	}, [cleanupExportIndex, log, selectedCleanupExportIndex]);
+	}, [
+		cleanupExportIndex,
+		configShelfLandingTarget,
+		log,
+		selectedCleanupExportIndex,
+	]);
 
 	const openSelectedCleanupExportArchive = useCallback(() => {
 		const item = getSelectedCleanupHandoffHistoryExport(
@@ -2408,6 +2435,7 @@ export function App(): React.ReactElement {
 				baseDir,
 				source: "route-handoff",
 				label: written.label,
+				origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 				path: written.path,
 				platform: currentPlatform(),
 			});
@@ -2421,6 +2449,7 @@ export function App(): React.ReactElement {
 		}
 	}, [
 		log,
+		configShelfLandingTarget,
 		refreshHandoffIndex,
 		routeDetailView,
 		routeFilter,
@@ -2514,6 +2543,7 @@ export function App(): React.ReactElement {
 					baseDir,
 					source: "endpoint-handoff",
 					label: written.label,
+					origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 					path: written.path,
 					platform: currentPlatform(),
 				});
@@ -2531,6 +2561,7 @@ export function App(): React.ReactElement {
 			connectionFilter,
 			connectionSort,
 			connectionsResult,
+			configShelfLandingTarget,
 			log,
 			portDetailView,
 			portFilter,
@@ -6908,7 +6939,6 @@ function renderWorkspace(
 				selectedAuditExportArchiveIndex={selectedAuditExportArchiveIndex}
 				externalOpenPlan={externalOpenPlan}
 				fileOpenPlan={fileOpenPlan}
-				configShelfLandingTarget={configShelfLandingTarget}
 				auditExportArchivePlan={auditExportArchivePlan}
 				auditArchiveRetentionPlan={auditArchiveRetentionPlan}
 				cleanupExportArchivePlan={cleanupExportArchivePlan}
@@ -9084,7 +9114,6 @@ function StatusWorkspace({
 	selectedAuditExportArchiveIndex,
 	externalOpenPlan,
 	fileOpenPlan,
-	configShelfLandingTarget,
 	auditExportArchivePlan,
 	auditArchiveRetentionPlan,
 	cleanupExportArchivePlan,
@@ -9110,7 +9139,6 @@ function StatusWorkspace({
 	selectedAuditExportArchiveIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
-	configShelfLandingTarget?: ConfigManagedShelfTarget;
 	auditExportArchivePlan?: ConsoleAuditExportArchivePlan;
 	auditArchiveRetentionPlan?: ConsoleAuditArchiveRetentionPlan;
 	cleanupExportArchivePlan?: CleanupHandoffHistoryExportArchivePlan;
@@ -9275,12 +9303,7 @@ function StatusWorkspace({
 					{formatFileOpenPromptRows(
 						commandLine,
 						fileOpenPlan,
-						configShelfLandingTarget
-							? formatConfigManagedShelfLockedDialogBreadcrumbRows(
-									configShelfLandingTarget,
-									"file-open",
-								)
-							: [],
+						formatFileOpenOriginRows(fileOpenPlan),
 					).map((row) => (
 						<Text
 							key={row}

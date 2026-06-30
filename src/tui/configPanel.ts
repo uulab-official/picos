@@ -1,4 +1,5 @@
 import { defaultConfig } from "../config/schema";
+import type { FileOpenOrigin } from "../core/fileOpen";
 import type { PicosConfig } from "../core/types";
 import type { FocusArea, Screen } from "./navigation";
 import { getNextIndex } from "./navigation";
@@ -609,6 +610,18 @@ export function formatConfigManagedShelfLockedDialogBreadcrumbRows(
 		`CONFIG ORIGIN Config > ${handoff.label}`,
 		`scope=${getConfigManagedShelfPromptScope(target)} dialog=${dialog} locked esc=keep landing`,
 	];
+}
+
+export function createConfigManagedShelfFileOpenOrigin(
+	target: ConfigManagedShelfTarget,
+): FileOpenOrigin {
+	const handoff = getConfigManagedShelfHandoff(target);
+	return {
+		kind: "config-shelf",
+		target,
+		label: handoff.label,
+		scope: getConfigManagedShelfPromptScope(target),
+	};
 }
 
 function createConfigWorkspaceBodyRows(

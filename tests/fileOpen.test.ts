@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	buildFileOpenPlan,
+	formatFileOpenOriginRows,
 	formatFileOpenPlanRows,
 	runFileOpenPlan,
 } from "../src/core/fileOpen";
@@ -167,6 +168,54 @@ describe("external file open planning", () => {
 			"command=rundll32 url.dll,FileProtocolHandler /Users/me/.config/picos/routes/picos-routes-diagnostics.md",
 			"path=/Users/me/.config/picos/routes/picos-routes-diagnostics.md",
 		]);
+	});
+
+	test("preserves config-origin metadata on file open plans", async () => {
+		const origin = {
+			kind: "config-shelf" as const,
+			target: "routes",
+			label: "Routes",
+			scope: "routes.filters",
+		};
+		const plan = buildFileOpenPlan({
+			baseDir,
+			label: "route raw output",
+			path: handoffPath,
+			platform: "linux",
+			source: "route-handoff",
+			origin,
+		});
+
+		expect(plan.origin).toEqual(origin);
+		expect(formatFileOpenOriginRows(plan)).toEqual([
+			"CONFIG ORIGIN Config > Routes",
+			"scope=routes.filters dialog=file-open locked esc=keep landing",
+		]);
+		expect(formatFileOpenPlanRows(plan)).toContain(
+			"origin=config-shelf target=routes scope=routes.filters label=Routes",
+		);
+
+		const opened = await runFileOpenPlan(
+			buildFileOpenPlan({
+				baseDir,
+				label: plan.label,
+				path: plan.path,
+				platform: "linux",
+				source: plan.source,
+				confirmation: "open",
+				origin: plan.origin,
+			}),
+			async (command, args) => ({
+				command,
+				args,
+				stdout: "opened",
+				stderr: "",
+				exitCode: 0,
+				success: true,
+			}),
+		);
+
+		expect(opened.audit.origin).toEqual(origin);
 	});
 
 	test("runs file open plans only after exact confirmation", async () => {
