@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Config section detail panes now show section shortcut numbers and per-section action hints for display, safety, retention, and connectivity controls.
 - Config workspace now shows a section detail pane with config path, selected value, active safety posture, and per-section persistence hints.
 - Config workspace now groups controls into retention, display, connectivity, and safety sections with `1..4` section jumps.
 - Config workspace now supports `P` policy preset cycling across safe read-only, user dry-run, and admin dry-run modes, plus `R` exact-confirm reset previews for core controls.

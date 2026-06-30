@@ -2223,6 +2223,20 @@ Goal: make Config explain the selected settings group like an OS control panel i
 - Tests cover detail rows for display and safety sections, including config path and safety posture.
 - Next: add section action hints for reset, policy presets, and connectivity editing so Config can grow more OS settings without hidden controls.
 
+## v0.4.104 - Config Section Action Hints
+
+Status: draft PR #166 on `codex/picos-v0.4.104-config-section-actions`.
+
+Goal: make Config section details expose the exact keyboard actions available for each OS-like settings group.
+
+- Config section detail rows now include the section shortcut number beside the section label and item count.
+- Display detail rows advertise `+/-` language/refresh adjustment and exact reset.
+- Safety detail rows advertise `+/-` policy adjustment, `P` preset cycling, and exact reset.
+- Retention detail rows advertise bounded retention adjustment and exact reset.
+- Connectivity detail rows advertise `enter` host editing and exact reset.
+- Tests cover display, safety, and connectivity detail rows with action hints.
+- Next: add more OS settings shelves under Config for network defaults, tool defaults, and workspace behavior without flattening the panel.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

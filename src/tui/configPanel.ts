@@ -384,13 +384,14 @@ export function formatConfigWorkspaceDetailRows(
 	const sectionItems = items.filter((item) => item.section === section);
 	return [
 		"CONFIG SECTION DETAIL",
-		`section=${getConfigSectionLabel(section)} items=${sectionItems.length}`,
+		`section=${getConfigSectionLabel(section)} items=${sectionItems.length} shortcut=${getConfigSectionShortcut(section)}`,
 		`config=${options.configPath}`,
 		selected
 			? `selected=${selected.key} value=${selected.value}`
 			: "selected=-",
 		`posture=${formatConfigSafetyPosture(items)}`,
 		`persist=${getConfigSectionPersistHint(section)}`,
+		`actions=${getConfigSectionActionHint(section)}`,
 	];
 }
 
@@ -435,6 +436,12 @@ function getConfigSectionLabel(sectionId: ConfigWorkspaceSectionId): string {
 	);
 }
 
+function getConfigSectionShortcut(sectionId: ConfigWorkspaceSectionId): number {
+	return (
+		configSections.find((section) => section.id === sectionId)?.shortcut ?? 0
+	);
+}
+
 function getConfigSectionPersistHint(
 	sectionId: ConfigWorkspaceSectionId,
 ): string {
@@ -448,6 +455,21 @@ function getConfigSectionPersistHint(
 		return "+/- writes bounded retention limits";
 	}
 	return "enter edits defaultPingHost";
+}
+
+function getConfigSectionActionHint(
+	sectionId: ConfigWorkspaceSectionId,
+): string {
+	if (sectionId === "display") {
+		return "+/- adjust language/refresh, R exact reset";
+	}
+	if (sectionId === "safety") {
+		return "+/- adjust policy, P cycle preset, R exact reset";
+	}
+	if (sectionId === "retention") {
+		return "+/- adjust retention limits, R exact reset";
+	}
+	return "enter edit defaultPingHost, R exact reset";
 }
 
 function formatConfigSafetyPosture(items: ConfigWorkspaceItem[]): string {
