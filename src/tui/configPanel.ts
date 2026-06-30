@@ -1,3 +1,4 @@
+import { defaultConfig } from "../config/schema";
 import type { PicosConfig } from "../core/types";
 import { getNextIndex } from "./navigation";
 
@@ -13,6 +14,93 @@ export type ConfigWorkspaceItemKey =
 type ConfigWorkspaceItemKind = "number" | "choice" | "text" | "boolean";
 
 type ConfigWorkspaceValue = number | string | boolean;
+
+export type ConfigPolicyPresetId =
+	| "safe-readonly"
+	| "user-dry-run"
+	| "admin-dry-run";
+
+type ConfigPolicyValues = Pick<
+	PicosConfig,
+	"controlExecutionMode" | "allowAdminDryRun" | "enableExperimentalControls"
+>;
+
+export type ConfigPolicyPresetPreview = {
+	id: ConfigPolicyPresetId;
+	label: string;
+	values: ConfigPolicyValues;
+	rows: string[];
+};
+
+export type ConfigWorkspaceResetPreview = {
+	scope: "core controls";
+	confirmationPhrase: "reset config";
+	values: ConfigWorkspaceResetValues;
+	changedKeys: ConfigWorkspaceResetKey[];
+	rows: string[];
+};
+
+export type ConfigWorkspaceResetConfirmation = {
+	confirmed: boolean;
+	message: string;
+	preview: ConfigWorkspaceResetPreview;
+};
+
+type ConfigWorkspaceResetKey =
+	| "auditArchiveRetentionLimit"
+	| "toolTargetPresetLimit"
+	| "language"
+	| "refreshInterval"
+	| "defaultPingHost"
+	| "controlExecutionMode"
+	| "allowAdminDryRun"
+	| "enableExperimentalControls";
+
+type ConfigWorkspaceResetValues = Pick<PicosConfig, ConfigWorkspaceResetKey>;
+
+const configPolicyPresets: ConfigPolicyPresetPreview[] = [
+	{
+		id: "safe-readonly",
+		label: "Safe read-only",
+		values: {
+			controlExecutionMode: "disabled",
+			allowAdminDryRun: false,
+			enableExperimentalControls: false,
+		},
+		rows: [],
+	},
+	{
+		id: "user-dry-run",
+		label: "User dry-run",
+		values: {
+			controlExecutionMode: "dry-run",
+			allowAdminDryRun: false,
+			enableExperimentalControls: true,
+		},
+		rows: [],
+	},
+	{
+		id: "admin-dry-run",
+		label: "Admin dry-run",
+		values: {
+			controlExecutionMode: "dry-run",
+			allowAdminDryRun: true,
+			enableExperimentalControls: true,
+		},
+		rows: [],
+	},
+];
+
+const resetKeys: ConfigWorkspaceResetKey[] = [
+	"auditArchiveRetentionLimit",
+	"toolTargetPresetLimit",
+	"language",
+	"refreshInterval",
+	"defaultPingHost",
+	"controlExecutionMode",
+	"allowAdminDryRun",
+	"enableExperimentalControls",
+];
 
 export type ConfigWorkspaceItem = {
 	key: ConfigWorkspaceItemKey;
@@ -102,6 +190,77 @@ export function createConfigWorkspaceItems(
 	];
 }
 
+export function getNextConfigPolicyPreset(
+	config: ConfigPolicyValues,
+): ConfigPolicyPresetId {
+	const currentIndex = configPolicyPresets.findIndex((preset) =>
+		matchesConfigPolicyPreset(config, preset),
+	);
+	return (
+		configPolicyPresets[
+			getNextIndex(
+				currentIndex >= 0 ? currentIndex : 0,
+				configPolicyPresets.length,
+				"next",
+			)
+		]?.id ?? "safe-readonly"
+	);
+}
+
+export function applyConfigPolicyPreset(
+	id: ConfigPolicyPresetId,
+): ConfigPolicyPresetPreview {
+	const preset =
+		configPolicyPresets.find((candidate) => candidate.id === id) ??
+		configPolicyPresets[0];
+	const values = { ...preset.values };
+	return {
+		id: preset.id,
+		label: preset.label,
+		values,
+		rows: [
+			"CONFIG POLICY PRESET",
+			`preset=${preset.label}`,
+			`controlExecutionMode=${values.controlExecutionMode}`,
+			`allowAdminDryRun=${values.allowAdminDryRun}`,
+			`enableExperimentalControls=${values.enableExperimentalControls}`,
+		],
+	};
+}
+
+export function createConfigWorkspaceResetPreview(
+	config: ConfigWorkspaceResetValues,
+): ConfigWorkspaceResetPreview {
+	const values = createDefaultResetValues();
+	const changedKeys = resetKeys.filter((key) => config[key] !== values[key]);
+	return {
+		scope: "core controls",
+		confirmationPhrase: "reset config",
+		values,
+		changedKeys,
+		rows: [
+			"CONFIG RESET",
+			`scope=core controls changed=${changedKeys.length}`,
+			"confirm reset config locked",
+			...changedKeys.map((key) => `${key} ${config[key]} -> ${values[key]}`),
+		],
+	};
+}
+
+export function submitConfigWorkspaceResetConfirmation(
+	preview: ConfigWorkspaceResetPreview,
+	confirmation: string,
+): ConfigWorkspaceResetConfirmation {
+	const confirmed = confirmation.trim() === preview.confirmationPhrase;
+	return {
+		confirmed,
+		message: confirmed
+			? `config reset confirmed ${preview.scope} (${preview.changedKeys.length} values)`
+			: `config reset rejected ${preview.scope}`,
+		preview,
+	};
+}
+
 export function moveConfigWorkspaceSelection(
 	current: number,
 	total: number,
@@ -171,7 +330,7 @@ export function formatConfigWorkspaceRows(
 	});
 	const rows = [
 		"CONFIG WORKSPACE",
-		"j/k select  +/- adjust+save  enter edit/show  values persist to picos config",
+		"j/k select  +/- save  enter edit/show  P policy  R reset",
 		...bodyRows,
 		selected
 			? selected.kind === "number"
@@ -182,4 +341,29 @@ export function formatConfigWorkspaceRows(
 			: "selected=-",
 	];
 	return rows.slice(0, Math.max(0, visibleRows));
+}
+
+function matchesConfigPolicyPreset(
+	config: ConfigPolicyValues,
+	preset: ConfigPolicyPresetPreview,
+): boolean {
+	return (
+		config.controlExecutionMode === preset.values.controlExecutionMode &&
+		config.allowAdminDryRun === preset.values.allowAdminDryRun &&
+		config.enableExperimentalControls ===
+			preset.values.enableExperimentalControls
+	);
+}
+
+function createDefaultResetValues(): ConfigWorkspaceResetValues {
+	return {
+		auditArchiveRetentionLimit: defaultConfig.auditArchiveRetentionLimit,
+		toolTargetPresetLimit: defaultConfig.toolTargetPresetLimit,
+		language: defaultConfig.language,
+		refreshInterval: defaultConfig.refreshInterval,
+		defaultPingHost: defaultConfig.defaultPingHost,
+		controlExecutionMode: defaultConfig.controlExecutionMode,
+		allowAdminDryRun: defaultConfig.allowAdminDryRun,
+		enableExperimentalControls: defaultConfig.enableExperimentalControls,
+	};
 }

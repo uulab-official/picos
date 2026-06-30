@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Config workspace now supports `P` policy preset cycling across safe read-only, user dry-run, and admin dry-run modes, plus `R` exact-confirm reset previews for core controls.
 - Config workspace now exposes language, refresh interval, default ping host, and dry-run execution policy controls beside retention settings.
 - TUI now includes a Config workspace for keyboard-driven retention controls, including `auditArchiveRetentionLimit` and `toolTargetPresetLimit`.
 - Audit archive retention can now be configured with `auditArchiveRetentionLimit`, and Status uses that value when previewing archived Timeline prune candidates.
