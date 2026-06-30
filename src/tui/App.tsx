@@ -159,6 +159,7 @@ import { currentPlatform } from "../utils/platform";
 import {
 	appendCleanupHandoffHistory,
 	type CleanupHandoffHistory,
+	type CleanupHandoffHistoryExportIndex,
 	type CleanupJumpAudit,
 	type CleanupShelfIndex,
 	createCleanupHandoffActionPlan,
@@ -171,6 +172,7 @@ import {
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
+	formatCleanupHandoffHistoryExportIndexRows,
 	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
 	formatCleanupHandoffReopenRows,
@@ -181,6 +183,7 @@ import {
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
+	readCleanupHandoffHistoryExportIndex,
 	readLatestCleanupHandoffHistoryExport,
 	writeCleanupHandoffHistoryExport,
 } from "./cleanupIndex";
@@ -425,6 +428,13 @@ export function App(): React.ReactElement {
 		selectedCleanupHandoffHistoryIndex,
 		setSelectedCleanupHandoffHistoryIndex,
 	] = useState(0);
+	const [cleanupExportIndex, setCleanupExportIndex] =
+		useState<CleanupHandoffHistoryExportIndex>({
+			baseDir: dirname(getConfigPath()),
+			items: [],
+		});
+	const [selectedCleanupExportIndex, setSelectedCleanupExportIndex] =
+		useState(0);
 	const [handoffIndex, setHandoffIndex] = useState<HandoffIndex>({
 		baseDir: dirname(getConfigPath()),
 		items: [],
@@ -2287,6 +2297,16 @@ export function App(): React.ReactElement {
 			const persistedCleanup = await readLatestCleanupHandoffHistoryExport(
 				dirname(getConfigPath()),
 			).catch(() => undefined);
+			const cleanupExports = await readCleanupHandoffHistoryExportIndex(
+				dirname(getConfigPath()),
+			).catch(() => ({
+				baseDir: dirname(getConfigPath()),
+				items: [],
+			}));
+			setCleanupExportIndex(cleanupExports);
+			setSelectedCleanupExportIndex((current) =>
+				Math.min(current, Math.max(0, cleanupExports.items.length - 1)),
+			);
 			setEvents(
 				[
 					...(persisted?.events ?? []),
@@ -2426,6 +2446,30 @@ export function App(): React.ReactElement {
 		return true;
 	}, [cleanupHandoffHistory, log, selectedCleanupHandoffHistoryIndex]);
 
+	const refreshCleanupExportIndex = useCallback(
+		async (announce = true) => {
+			const baseDir = dirname(getConfigPath());
+			try {
+				const index = await readCleanupHandoffHistoryExportIndex(baseDir);
+				setCleanupExportIndex(index);
+				setSelectedCleanupExportIndex((current) =>
+					Math.min(current, Math.max(0, index.items.length - 1)),
+				);
+				if (announce) {
+					log("info", `cleanup exports indexed ${index.items.length}`);
+				}
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `cleanup export index failed ${caught.message}`
+						: `cleanup export index failed ${String(caught)}`,
+				);
+			}
+		},
+		[log],
+	);
+
 	const exportCleanupHandoffHistory = useCallback(async () => {
 		const plan = createCleanupHandoffHistoryExportPlan(
 			cleanupHandoffHistory,
@@ -2446,6 +2490,7 @@ export function App(): React.ReactElement {
 				"ok",
 				`cleanup history exported ${written.itemCount} entries to ${written.path}`,
 			);
+			await refreshCleanupExportIndex(false);
 			return true;
 		} catch (caught) {
 			log(
@@ -2456,7 +2501,12 @@ export function App(): React.ReactElement {
 			);
 			return false;
 		}
-	}, [cleanupHandoffHistory, log, selectedCleanupHandoffHistoryIndex]);
+	}, [
+		cleanupHandoffHistory,
+		log,
+		refreshCleanupExportIndex,
+		selectedCleanupHandoffHistoryIndex,
+	]);
 
 	useInput((input, key) => {
 		if (commandLine.active) {
@@ -3317,6 +3367,25 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "H") {
 			void refreshHandoffIndex();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "Y") {
+			void refreshCleanupExportIndex();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "}") {
+			if (cleanupExportIndex.items.length === 0) {
+				log("warn", "no cleanup exports indexed");
+				return;
+			}
+			setSelectedCleanupExportIndex((index) => {
+				const next = (index + 1) % cleanupExportIndex.items.length;
+				const item = cleanupExportIndex.items[next];
+				log("info", `cleanup export selected ${item?.fileName ?? next + 1}`);
+				return next;
+			});
 			return;
 		}
 
@@ -4357,6 +4426,8 @@ export function App(): React.ReactElement {
 					selectedCleanupHandoffHistoryIndex={
 						selectedCleanupHandoffHistoryIndex
 					}
+					cleanupExportIndex={cleanupExportIndex}
+					selectedCleanupExportIndex={selectedCleanupExportIndex}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
 					selectedHandoffIndex={selectedHandoffIndex}
@@ -4550,6 +4621,8 @@ function MainWorkspace({
 	cleanupJumpAudit,
 	cleanupHandoffHistory,
 	selectedCleanupHandoffHistoryIndex,
+	cleanupExportIndex: _cleanupExportIndex,
+	selectedCleanupExportIndex: _selectedCleanupExportIndex,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
 	selectedHandoffIndex,
@@ -4645,6 +4718,8 @@ function MainWorkspace({
 	cleanupJumpAudit?: CleanupJumpAudit;
 	cleanupHandoffHistory: CleanupHandoffHistory[];
 	selectedCleanupHandoffHistoryIndex: number;
+	cleanupExportIndex: CleanupHandoffHistoryExportIndex;
+	selectedCleanupExportIndex: number;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
 	selectedHandoffIndex: number;
@@ -4792,6 +4867,8 @@ function MainWorkspace({
 						selectedCleanupShelfIndex,
 						cleanupHandoffHistory,
 						selectedCleanupHandoffHistoryIndex,
+						_cleanupExportIndex,
+						_selectedCleanupExportIndex,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
 						selectedHandoffIndex,
@@ -4891,6 +4968,8 @@ function renderWorkspace(
 	selectedCleanupShelfIndex: number,
 	cleanupHandoffHistory: CleanupHandoffHistory[],
 	selectedCleanupHandoffHistoryIndex: number,
+	cleanupExportIndex: CleanupHandoffHistoryExportIndex,
+	selectedCleanupExportIndex: number,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
 	selectedHandoffIndex: number,
@@ -5119,6 +5198,8 @@ function renderWorkspace(
 				selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 				cleanupHandoffHistory={cleanupHandoffHistory}
 				selectedCleanupHandoffHistoryIndex={selectedCleanupHandoffHistoryIndex}
+				cleanupExportIndex={cleanupExportIndex}
+				selectedCleanupExportIndex={selectedCleanupExportIndex}
 				commandLine={commandLine}
 				t={t}
 			/>
@@ -6897,6 +6978,8 @@ function StatusWorkspace({
 	selectedCleanupShelfIndex,
 	cleanupHandoffHistory,
 	selectedCleanupHandoffHistoryIndex,
+	cleanupExportIndex,
+	selectedCleanupExportIndex,
 	commandLine,
 	t,
 }: {
@@ -6911,6 +6994,8 @@ function StatusWorkspace({
 	selectedCleanupShelfIndex: number;
 	cleanupHandoffHistory: CleanupHandoffHistory[];
 	selectedCleanupHandoffHistoryIndex: number;
+	cleanupExportIndex: CleanupHandoffHistoryExportIndex;
+	selectedCleanupExportIndex: number;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -7180,6 +7265,29 @@ function StatusWorkspace({
 						</Text>
 					),
 				)}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">CLEANUP EXPORTS · Y refresh · {"}"} select</Text>
+				{formatCleanupHandoffHistoryExportIndexRows(
+					cleanupExportIndex,
+					selectedCleanupExportIndex,
+					5,
+				).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith(">")
+								? "yellow"
+								: row.startsWith("CLEANUP EXPORTS")
+									? "cyan"
+									: row.startsWith("path=") || row.startsWith("no ")
+										? "gray"
+										: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
 			</Box>
 			<Text color="gray">{t("status.roadmap")}</Text>
 			<Box marginTop={1} flexDirection="column">

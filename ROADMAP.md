@@ -1679,6 +1679,20 @@ Goal: make exported cleanup decisions visible again inside the console after res
 - Tests cover export parsing, latest export discovery, missing-directory fallback, and Timeline event shape.
 - Next: add a Cleanup Export viewer/index or explicit clear/archive controls for exported cleanup files.
 
+## v0.4.63 - Cleanup Export Status Index
+
+Status: draft PR #125.
+
+Goal: make durable cleanup export files visible from the Status console without leaving picos.
+
+- Cleanup export files are indexed from the picos config `cleanup` directory.
+- Status workspace renders a cleanup export index with scope, entry count, generated timestamp, and selected file path.
+- Pressing `Y` in Status refreshes the cleanup export index.
+- Pressing `}` in Status cycles the selected cleanup export row.
+- Exporting cleanup history with `E` refreshes the index so the new file appears immediately.
+- Tests cover export index discovery, newest-first ordering, selected row clamping, empty rows, and path detail rows.
+- Next: add file-open/archive controls for selected cleanup exports or a dedicated Cleanup Export viewer.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
