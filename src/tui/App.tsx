@@ -13,7 +13,6 @@ import {
 	readLatestConsoleAuditExport,
 	writeConsoleAuditExport,
 } from "../core/auditLog";
-import { runPing } from "../core/command";
 import {
 	type ConnectionSort,
 	type ConnectionsResult,
@@ -59,6 +58,7 @@ import {
 } from "../core/routes";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
+import { runTool } from "../core/tools";
 import type {
 	ActiveConnection,
 	DoctorCheck,
@@ -148,6 +148,12 @@ import {
 	nextTimelineFilter,
 	type TimelineFilter,
 } from "./timelinePanel";
+import {
+	appendToolHistory,
+	createToolRunPlan,
+	formatToolsWorkspaceRows,
+	type ToolHistoryItem,
+} from "./toolHistory";
 
 type CommandStatus = "idle" | "running";
 
@@ -242,6 +248,7 @@ export function App(): React.ReactElement {
 		key: "default",
 		direction: "asc",
 	});
+	const [toolHistory, setToolHistory] = useState<ToolHistoryItem[]>([]);
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
@@ -698,12 +705,6 @@ export function App(): React.ReactElement {
 					}
 				}
 
-				if (action.id === "ping.default") {
-					const config = await readConfig();
-					const result = await runPing(config.defaultPingHost);
-					log(result.success ? "ok" : "fail", `ping ${config.defaultPingHost}`);
-				}
-
 				if (action.id === "config.show") {
 					const config = await readConfig();
 					log("info", `config path ${getConfigPath()}`);
@@ -748,15 +749,34 @@ export function App(): React.ReactElement {
 					log("ok", `audit exported ${written.path}`);
 				}
 
+				const toolPlan = createToolRunPlan(
+					action.id,
+					(await readConfig()).defaultPingHost,
+					summaryRef.current,
+				);
+				if (toolPlan) {
+					setScreen("tools");
+					const result = await runTool(toolPlan.toolId, toolPlan.args, {
+						timeoutMs: 10000,
+					});
+					setToolHistory((current) =>
+						appendToolHistory(current, { plan: toolPlan, result }),
+					);
+					log("ok", `${toolPlan.label} completed`);
+				}
+
+				if (action.id === "raw.view") {
+					const latestTool = toolHistory.at(-1);
+					if (latestTool) {
+						setScreen("tools");
+						log("info", `raw.view latest ${latestTool.label}`);
+					} else {
+						log("warn", "raw.view has no tool history yet");
+					}
+				}
+
 				if (
-					action.id === "network.connect" ||
 					action.id === "process.inspect" ||
-					action.id === "tools.dns" ||
-					action.id === "tools.traceroute" ||
-					action.id === "tools.whois" ||
-					action.id === "tools.ipInfo" ||
-					action.id === "tools.tls" ||
-					action.id === "raw.view" ||
 					action.id === "remote.sftp.connect"
 				) {
 					log(
@@ -784,7 +804,7 @@ export function App(): React.ReactElement {
 				setCommandStatus("idle");
 			}
 		},
-		[events, fileRoot, log, refresh, refreshFiles],
+		[events, fileRoot, log, refresh, refreshFiles, toolHistory],
 	);
 
 	useEffect(() => {
@@ -1322,6 +1342,7 @@ export function App(): React.ReactElement {
 					routePath={routePath}
 					routeSort={routeSort}
 					timelineFilter={timelineFilter}
+					toolHistory={toolHistory}
 					events={events}
 					t={t}
 				/>
@@ -1460,6 +1481,7 @@ function MainWorkspace({
 	routePath,
 	routeSort,
 	timelineFilter,
+	toolHistory,
 	events,
 	t,
 }: {
@@ -1504,6 +1526,7 @@ function MainWorkspace({
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
 	timelineFilter: TimelineFilter;
+	toolHistory: ToolHistoryItem[];
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -1557,6 +1580,7 @@ function MainWorkspace({
 					routePath,
 					routeSort,
 					timelineFilter,
+					toolHistory,
 					events,
 					height,
 					t,
@@ -1605,6 +1629,7 @@ function renderWorkspace(
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
 	timelineFilter: TimelineFilter,
+	toolHistory: ToolHistoryItem[],
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -1746,7 +1771,13 @@ function renderWorkspace(
 		);
 	}
 	if (screen === "tools") {
-		return <ToolsWorkspace t={t} />;
+		return (
+			<ToolsWorkspace
+				history={toolHistory}
+				visibleRows={Math.max(7, height - 7)}
+				t={t}
+			/>
+		);
 	}
 	if (screen === "networkTools") {
 		return <NetworkToolsWorkspace />;
@@ -2799,25 +2830,46 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 }
 
 function ToolsWorkspace({
+	history,
+	visibleRows,
 	t,
 }: {
+	history: ToolHistoryItem[];
+	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const rows = formatToolsWorkspaceRows(history, visibleRows);
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
-			<Text color="gray">Tools Hub queue</Text>
+			<Text color="gray">
+				Tools Hub history · DNS/RDAP/IP/TCP/TLS/ping/traceroute
+			</Text>
 			<Box marginTop={1} flexDirection="column">
-				<Text>tools.dns DNS lookup</Text>
-				<Text>tools.whois WHOIS/RDAP lookup</Text>
-				<Text>tools.ipInfo IP information</Text>
-				<Text>tools.tls TLS inspector</Text>
-				<Text>tools.traceroute Traceroute</Text>
-				<Text>ping.default Ping default host</Text>
-				<Text>raw.view Raw command output viewer</Text>
+				{rows.map((row) => (
+					<Text key={row} color={getToolRowColor(row)}>
+						{row}
+					</Text>
+				))}
 			</Box>
 		</Box>
 	);
+}
+
+function getToolRowColor(row: string): string {
+	if (row.startsWith("TOOLS") || row === "RAW") {
+		return "cyan";
+	}
+	if (row.includes(" fail ")) {
+		return "red";
+	}
+	if (row.includes(" ok ")) {
+		return "green";
+	}
+	if (row.startsWith("shortcuts:")) {
+		return "gray";
+	}
+	return "white";
 }
 
 function NetworkToolsWorkspace(): React.ReactElement {
