@@ -1203,6 +1203,21 @@ Goal: make large route tables searchable from both CLI automation and the keyboa
 - Tests cover route filter matching, CLI table formatting, and TUI filter row rendering.
 - Next: route filter presets and raw-output open/copy handoff.
 
+## v0.4.27 - Route Clipboard Handoff
+
+Status: draft PR #89.
+
+Goal: make route inspection output portable without bypassing the explicit clipboard confirmation model.
+
+- Routes workspace can stage locked clipboard previews with `c`.
+- Table view copies the filtered/sorted `picos routes` table output.
+- Raw view copies the adapter-owned route command raw output.
+- Diagnostics view copies route diagnostic rows.
+- Path view copies destination path raw output when a path lookup is loaded.
+- Route clipboard previews use the same exact `copy` confirmation and audit event path as endpoints, process resources, tools, and update links.
+- Tests cover table/raw/path clipboard previews and active-view preview row rendering.
+- Next: route filter presets and raw-output external handoff.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

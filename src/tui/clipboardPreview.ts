@@ -2,6 +2,10 @@ export type ClipboardPreviewSource =
 	| "connection"
 	| "port"
 	| "process-resource"
+	| "route-diagnostics"
+	| "route-path"
+	| "route-raw"
+	| "route-table"
 	| "tool-summary"
 	| "tool-output"
 	| "update-handoff";
