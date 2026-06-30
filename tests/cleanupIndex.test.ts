@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createCleanupShelfIndex,
+	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
 	getSelectedCleanupShelf,
 	moveCleanupShelfSelection,
@@ -151,6 +152,25 @@ describe("cleanup shelf index", () => {
 			"  Timeline    D  count=0  clear timeline  searches=0",
 			"> Tools       C  count=1  clear tools history  filters=1",
 			"  Tools       D  count=1  delete <action id>  saved-targets=1",
+		]);
+		expect(formatCleanupShelfDetailRows(index, 4)).toEqual([
+			"CLEANUP DETAIL Tools history filters",
+			"target=Tools screen=tools shortcut=C",
+			"items=1 detail=filters=1",
+			"confirm=clear tools history",
+			"enter jumps to Tools; press C then type exact phrase",
+		]);
+	});
+
+	test("keeps cleanup detail pane useful with no active shelf", () => {
+		const index = createCleanupShelfIndex({
+			timelineSearchPresets: [""],
+		});
+
+		expect(formatCleanupShelfDetailRows(index, 0)).toEqual([
+			"CLEANUP DETAIL none",
+			"no active cleanup shelf selected",
+			"save presets first, then return to Status",
 		]);
 	});
 });

@@ -159,6 +159,7 @@ import { currentPlatform } from "../utils/platform";
 import {
 	type CleanupShelfIndex,
 	createCleanupShelfIndex,
+	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
 	getSelectedCleanupShelf,
 	moveCleanupShelfSelection,
@@ -6834,6 +6835,27 @@ function StatusWorkspace({
 						{row}
 					</Text>
 				))}
+				<Box marginTop={1} flexDirection="column">
+					{formatCleanupShelfDetailRows(
+						cleanupShelfIndex,
+						selectedCleanupShelfIndex,
+					).map((row) => (
+						<Text
+							key={row}
+							color={
+								row.startsWith("CLEANUP DETAIL")
+									? "cyan"
+									: row.startsWith("confirm=")
+										? "yellow"
+										: row.startsWith("no ")
+											? "gray"
+											: "white"
+							}
+						>
+							{row}
+						</Text>
+					))}
+				</Box>
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">

@@ -1565,6 +1565,18 @@ Goal: make the Status cleanup index operate like a keyboard-driven OS console hu
 - Tests cover active-shelf selection, wraparound, empty-index behavior, selected row formatting, and target workspace metadata.
 - Next: add a focused Status cleanup detail pane that previews the exact cleanup command flow before jumping.
 
+## v0.4.54 - Cleanup Detail Pane
+
+Status: draft PR #116.
+
+Goal: make cleanup handoff decisions visible before the operator leaves Status.
+
+- Status now renders a cleanup detail pane for the selected active cleanup shelf.
+- Detail rows show target workspace, target screen id, cleanup shortcut, affected item count, shelf-specific details, exact confirmation phrase, and jump instruction.
+- Empty cleanup indexes keep a useful detail pane explaining that no active cleanup shelf is selected.
+- Tests cover selected detail rows and empty-detail fallback rows.
+- Next: add a small cleanup command preview/audit row after the operator jumps into the owning workspace.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

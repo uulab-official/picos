@@ -160,6 +160,28 @@ export function formatCleanupShelfIndexRows(
 	return rows.slice(0, Math.max(1, visibleRows));
 }
 
+export function formatCleanupShelfDetailRows(
+	index: CleanupShelfIndex,
+	selectedIndex: number,
+): string[] {
+	const shelf = getSelectedCleanupShelf(index, selectedIndex);
+	if (!shelf) {
+		return [
+			"CLEANUP DETAIL none",
+			"no active cleanup shelf selected",
+			"save presets first, then return to Status",
+		];
+	}
+
+	return [
+		`CLEANUP DETAIL ${shelf.label}`,
+		`target=${shelf.workspace} screen=${shelf.screen} shortcut=${shelf.shortcut}`,
+		`items=${shelf.count} detail=${shelf.detail}`,
+		`confirm=${shelf.confirmationPhrase}`,
+		`enter jumps to ${shelf.workspace}; press ${shelf.shortcut} then type exact phrase`,
+	];
+}
+
 export function getSelectedCleanupShelf(
 	index: CleanupShelfIndex,
 	selectedIndex: number,
