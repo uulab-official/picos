@@ -1843,6 +1843,19 @@ Goal: show exactly what TCP data will be copied before the operator opens the cl
 - Tests cover the preview row position and text beside the shortcut footer.
 - Next: add a compact section preview summary for whole-section `v` copies.
 
+## v0.4.75 - TCP Section Preview Summary
+
+Status: draft PR #137 on `codex/picos-v0.4.75-tcp-section-preview-summary`.
+
+Goal: make whole-section TCP copy as inspectable as row copy before clipboard confirmation.
+
+- Tools workspace now adds a compact `copy section:` row before the row-level `copy target:` row when the selected run has rows for the active TCP section.
+- The section preview shows active section, section row count, and the first row that will be included in `v` whole-section copy.
+- The row preview remains focused on the active `b` row copy target.
+- Non-TCP runs and empty TCP sections keep both preview rows hidden.
+- Tests cover section preview ordering beside the row preview.
+- Next: add truncation for long copy preview values so footer controls remain readable in narrow terminals.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
