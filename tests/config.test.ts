@@ -19,6 +19,7 @@ describe("config schema", () => {
 			remoteProfiles: [],
 			logProfiles: [],
 			logSearchPresets: [],
+			routeFilterPresets: [],
 		});
 	});
 
@@ -103,5 +104,23 @@ describe("config schema", () => {
 				],
 			}).logSearchPresets,
 		).toEqual(["kernel", "error", "dns", "route", "boot", "panic"]);
+	});
+
+	test("normalizes persisted route filter presets", () => {
+		expect(
+			mergeConfig({
+				routeFilterPresets: [
+					" utun ",
+					"",
+					"default",
+					"utun",
+					"link",
+					"ipv6",
+					"vpn",
+					"metric",
+					"ignored",
+				],
+			}).routeFilterPresets,
+		).toEqual(["utun", "default", "link", "ipv6", "vpn", "metric"]);
 	});
 });

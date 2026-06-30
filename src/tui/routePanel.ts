@@ -1,3 +1,7 @@
+import {
+	normalizeRouteFilterPresets,
+	saveRouteFilterPresetValue,
+} from "../core/routePresets";
 import type {
 	RoutePathResult,
 	RouteSort,
@@ -33,14 +37,7 @@ export function saveRouteFilterPreset(
 	presets: string[],
 	query: string,
 ): string[] {
-	const normalized = query.trim();
-	if (!normalized) {
-		return presets;
-	}
-	return [
-		normalized,
-		...presets.filter((preset) => preset !== normalized),
-	].slice(0, 6);
+	return saveRouteFilterPresetValue(presets, query);
 }
 
 export function nextRouteFilterPreset(
@@ -50,9 +47,10 @@ export function nextRouteFilterPreset(
 	if (presets.length === 0) {
 		return undefined;
 	}
+	const normalized = normalizeRouteFilterPresets(presets);
 	const current = currentQuery.trim();
-	const index = presets.indexOf(current);
-	return presets[(index + 1) % presets.length] ?? presets[0];
+	const index = normalized.indexOf(current);
+	return normalized[(index + 1) % normalized.length] ?? normalized[0];
 }
 
 export function formatRouteWorkspaceRows(

@@ -256,7 +256,8 @@ Default config:
 	"allowAdminDryRun": false,
 	"remoteProfiles": [],
 	"logProfiles": [],
-	"logSearchPresets": []
+	"logSearchPresets": [],
+	"routeFilterPresets": []
 }
 ```
 
@@ -298,6 +299,14 @@ Log profiles and search presets are managed from the Logs workspace. Press `P` t
 {
 	"logSearchPresets": ["kernel", "dns"],
 	"logProfiles": [{ "level": "warn", "query": "kernel" }]
+}
+```
+
+Route filter presets are managed from the Routes workspace. Press `P` to persist the current route filter and `]` to cycle saved filters:
+
+```json
+{
+	"routeFilterPresets": ["utun", "default", "link"]
 }
 ```
 

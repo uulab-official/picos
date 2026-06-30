@@ -6,6 +6,7 @@ import {
 	readConfig,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
+	setConfigRouteFilterPresets,
 } from "../src/config/store";
 
 const tempDirs: string[] = [];
@@ -62,5 +63,29 @@ describe("config store", () => {
 			"panic",
 		]);
 		expect(config.theme).toBe("dark");
+	});
+
+	test("persists normalized route filter presets without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await setConfigRouteFilterPresets(
+			[" utun ", "", "default", "utun", "link", "ipv6", "vpn", "metric", "x"],
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.routeFilterPresets).toEqual([
+			"utun",
+			"default",
+			"link",
+			"ipv6",
+			"vpn",
+			"metric",
+		]);
+		expect(config.theme).toBe("dark");
+
+		const raw = await readFile(path, "utf8");
+		expect(JSON.parse(raw).routeFilterPresets).toEqual(
+			config.routeFilterPresets,
+		);
 	});
 });
