@@ -64,6 +64,8 @@ import { getNetworkSummary } from "../core/network";
 import {
 	createOsLogSnapshot,
 	filterOsLogEntries,
+	nextOsLogLevelFilter,
+	type OsLogLevelFilter,
 	type OsLogSnapshot,
 } from "../core/osLogs";
 import {
@@ -417,6 +419,7 @@ export function App(): React.ReactElement {
 	);
 	const [logSearchQuery, setLogSearchQuery] = useState("");
 	const [logSearchPresets, setLogSearchPresets] = useState<string[]>([]);
+	const [logLevelFilter, setLogLevelFilter] = useState<OsLogLevelFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -743,7 +746,11 @@ export function App(): React.ReactElement {
 
 	const submitLogSearchCommand = useCallback(() => {
 		const query = commandLine.value.trim();
-		const filtered = filterOsLogEntries(osLogs?.entries ?? [], query);
+		const filtered = filterOsLogEntries(
+			osLogs?.entries ?? [],
+			query,
+			logLevelFilter,
+		);
 		setLogSearchQuery(query);
 		if (query) {
 			setLogSearchPresets((current) => saveLogSearchPreset(current, query));
@@ -755,7 +762,7 @@ export function App(): React.ReactElement {
 				? `logs search ${query} matches ${filtered.length}`
 				: "logs search cleared",
 		);
-	}, [commandLine.value, log, osLogs]);
+	}, [commandLine.value, log, logLevelFilter, osLogs]);
 
 	const submitControlConfirmationCommand = useCallback(() => {
 		if (!actionPreviewPlan) {
@@ -2064,6 +2071,23 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "logs" && focusArea === "workspaces" && input === "e") {
+			setLogLevelFilter((current) => {
+				const next = nextOsLogLevelFilter(current);
+				const filtered = filterOsLogEntries(
+					osLogs?.entries ?? [],
+					logSearchQuery,
+					next,
+				);
+				log(
+					filtered.length ? "info" : "warn",
+					`logs level ${next} matches ${filtered.length}`,
+				);
+				return next;
+			});
+			return;
+		}
+
 		if (screen === "logs" && focusArea === "workspaces" && input === "f") {
 			setCommandLine(openCommandLine("log-search"));
 			log("info", "logs search opened");
@@ -2094,7 +2118,11 @@ export function App(): React.ReactElement {
 				log("warn", "no logs search presets");
 				return;
 			}
-			const filtered = filterOsLogEntries(osLogs?.entries ?? [], preset);
+			const filtered = filterOsLogEntries(
+				osLogs?.entries ?? [],
+				preset,
+				logLevelFilter,
+			);
 			setLogSearchQuery(preset);
 			log(
 				filtered.length ? "info" : "warn",
@@ -2548,6 +2576,7 @@ export function App(): React.ReactElement {
 					timelineSearchPresets={timelineSearchPresets}
 					logSearchQuery={logSearchQuery}
 					logSearchPresets={logSearchPresets}
+					logLevelFilter={logLevelFilter}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolTargetPresets={toolTargetPresets}
@@ -2723,6 +2752,7 @@ function MainWorkspace({
 	timelineSearchPresets,
 	logSearchQuery,
 	logSearchPresets,
+	logLevelFilter,
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolTargetPresets,
@@ -2800,6 +2830,7 @@ function MainWorkspace({
 	timelineSearchPresets: string[];
 	logSearchQuery: string;
 	logSearchPresets: string[];
+	logLevelFilter: OsLogLevelFilter;
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolTargetPresets: ToolTargetPreset[];
@@ -2886,6 +2917,7 @@ function MainWorkspace({
 					timelineSearchPresets,
 					logSearchQuery,
 					logSearchPresets,
+					logLevelFilter,
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolTargetPresets,
@@ -2967,6 +2999,7 @@ function renderWorkspace(
 	timelineSearchPresets: string[],
 	logSearchQuery: string,
 	logSearchPresets: string[],
+	logLevelFilter: OsLogLevelFilter,
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolTargetPresets: ToolTargetPreset[],
@@ -3203,6 +3236,7 @@ function renderWorkspace(
 				checks={doctorChecks}
 				query={logSearchQuery}
 				presets={logSearchPresets}
+				level={logLevelFilter}
 				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
 			/>
@@ -4946,6 +4980,7 @@ function LogWorkspace({
 	checks,
 	query,
 	presets,
+	level,
 	commandLine,
 	visibleRows,
 }: {
@@ -4953,6 +4988,7 @@ function LogWorkspace({
 	checks: DoctorCheck[];
 	query: string;
 	presets: string[];
+	level: OsLogLevelFilter;
 	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
@@ -4977,7 +5013,7 @@ function LogWorkspace({
 		...formatLogWorkspaceRows(
 			logs,
 			Math.max(1, visibleRows - promptRows.length - doctorRows.length),
-			{ query, presets },
+			{ level, query, presets },
 		),
 		...promptRows,
 		...doctorRows,

@@ -91,6 +91,7 @@ picos process 12345 --files
 picos monitor
 picos logs --limit 20
 picos logs --limit 50 --filter kernel
+picos logs --level warn
 picos update
 picos release-health
 picos locations
@@ -138,7 +139,7 @@ Commands:
 - `picos process <pid>`: inspect one local process with parent PID, user, state, CPU, memory, elapsed time, path, and command where the OS exposes them.
 - `picos process <pid> --files`: include current working directory and open file snapshot where available.
 - `picos monitor`: print a read-only system monitor snapshot with load average, memory usage, CPU, and top process rows.
-- `picos logs --limit <n> --filter <query>`: read recent local OS log entries through the platform adapter; macOS uses unified logs, Linux uses `journalctl`, Windows uses the System event log, and filters can match severity, row number, or text.
+- `picos logs --limit <n> --level <all|warn|fail|info> --filter <query>`: read recent local OS log entries through the platform adapter; macOS uses unified logs, Linux uses `journalctl`, Windows uses the System event log, and filters can match severity, row number, or text.
 - `picos update`: check npm registry metadata and GitHub Releases for the latest `@uulab/picos` version, then print install, npm package, GitHub Release, and CHANGELOG handoff links without running an installer; the TUI `picos.update` action also stages a locked apply preview when an update exists, and `picos.update.apply` can route that preview through the Action Center confirmation plus control execution policy for npm `--dry-run`.
 - `picos release-health`: print package metadata, dist artifact, CI, and manual release workflow health rows before publishing.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.

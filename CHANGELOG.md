@@ -88,6 +88,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - `picos monitor` and the TUI Dashboard/System workspaces now show a read-only system monitor snapshot with load average, memory usage, CPU, and top process rows.
 - `picos logs` and the TUI Logs workspace now read recent local OS logs through macOS, Linux, and Windows adapters while keeping the command read-only and routed through `safeExec()`.
 - Logs now support CLI filtering with `picos logs --filter <query>` plus TUI search, clear, save, preset cycling, and log-only refresh shortcuts.
+- Logs now support severity quick filters with `picos logs --level <all|warn|fail|info>` and the TUI `e` cycle shortcut.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.

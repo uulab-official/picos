@@ -1,16 +1,22 @@
-import { formatOsLogRows, type OsLogSnapshot } from "../core/osLogs";
+import {
+	formatOsLogRows,
+	type OsLogLevelFilter,
+	type OsLogSnapshot,
+} from "../core/osLogs";
 
 export function formatLogWorkspaceRows(
 	logs: OsLogSnapshot | undefined,
 	visibleRows: number,
 	options: {
+		level?: OsLogLevelFilter;
 		query?: string;
 		presets?: string[];
 	} = {},
 ): string[] {
+	const level = options.level ?? "all";
 	const query = options.query?.trim() ?? "";
 	const header = [
-		`LOGS search=${query || "-"}`,
+		`LOGS level=${level} search=${query || "-"}`,
 		formatLogPresetSummary(options.presets),
 	]
 		.filter(Boolean)
@@ -19,14 +25,14 @@ export function formatLogWorkspaceRows(
 		return [
 			header,
 			"No OS log snapshot yet. Run logs.read or refresh.",
-			"shortcuts: f search · F clear · P save · ] preset · r refresh",
+			"shortcuts: e level · f search · F clear · P save · ] preset · r refresh",
 		].slice(0, visibleRows);
 	}
 
 	return [
 		header,
-		...formatOsLogRows(logs, { filter: query }),
-		"shortcuts: f search · F clear · P save · ] preset · r refresh",
+		...formatOsLogRows(logs, { filter: query, level }),
+		"shortcuts: e level · f search · F clear · P save · ] preset · r refresh",
 	].slice(0, visibleRows);
 }
 

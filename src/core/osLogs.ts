@@ -6,6 +6,8 @@ import type { SafeExecResult, SupportedPlatform } from "./types";
 
 export type OsLogLevel = "info" | "warn" | "fail";
 
+export type OsLogLevelFilter = "all" | OsLogLevel;
+
 export type OsLogEntry = {
 	index: number;
 	level: OsLogLevel;
@@ -27,6 +29,7 @@ export type OsLogSnapshot = OsLogCommand & {
 
 export type OsLogFormatOptions = {
 	filter?: string;
+	level?: OsLogLevelFilter;
 };
 
 export type OsLogOptions = {
@@ -98,13 +101,17 @@ export function parseOsLogLines(
 export function filterOsLogEntries(
 	entries: OsLogEntry[],
 	query: string | undefined,
+	level: OsLogLevelFilter = "all",
 ): OsLogEntry[] {
 	const normalized = query?.trim().toLowerCase() ?? "";
-	if (!normalized) {
-		return entries;
-	}
-	return entries.filter((entry) =>
-		[
+	return entries.filter((entry) => {
+		if (level !== "all" && entry.level !== level) {
+			return false;
+		}
+		if (!normalized) {
+			return true;
+		}
+		return [
 			String(entry.index).padStart(3, "0"),
 			String(entry.index),
 			entry.level,
@@ -112,8 +119,16 @@ export function filterOsLogEntries(
 		]
 			.join(" ")
 			.toLowerCase()
-			.includes(normalized),
-	);
+			.includes(normalized);
+	});
+}
+
+export function nextOsLogLevelFilter(
+	current: OsLogLevelFilter,
+): OsLogLevelFilter {
+	const filters: OsLogLevelFilter[] = ["all", "warn", "fail", "info"];
+	const index = filters.indexOf(current);
+	return filters[(index + 1) % filters.length] ?? "all";
 }
 
 export function formatOsLogRows(
@@ -121,13 +136,15 @@ export function formatOsLogRows(
 	options: OsLogFormatOptions = {},
 ): string[] {
 	const query = options.filter?.trim() ?? "";
-	const entries = filterOsLogEntries(snapshot.entries, query);
+	const level = options.level ?? "all";
+	const entries = filterOsLogEntries(snapshot.entries, query, level);
 	const rows = [
 		"PICOS OS LOGS",
 		[
 			`source=${snapshot.source}`,
 			`status=${snapshot.status}`,
-			`entries=${formatEntryCount(entries.length, snapshot.entries.length, query)}`,
+			`entries=${formatEntryCount(entries.length, snapshot.entries.length, query, level)}`,
+			level === "all" ? "" : `level=${level}`,
 			query ? `filter=${query}` : "",
 		]
 			.filter(Boolean)
@@ -139,7 +156,11 @@ export function formatOsLogRows(
 		rows.push(`error=${snapshot.error}`);
 	}
 	if (entries.length === 0) {
-		rows.push(query ? "no matching log entries" : "no recent log entries");
+		rows.push(
+			query || level !== "all"
+				? "no matching log entries"
+				: "no recent log entries",
+		);
 		return rows;
 	}
 	return [
@@ -184,6 +205,9 @@ function formatEntryCount(
 	visibleCount: number,
 	totalCount: number,
 	query: string,
+	level: OsLogLevelFilter,
 ): string {
-	return query ? `${visibleCount}/${totalCount}` : String(totalCount);
+	return query || level !== "all"
+		? `${visibleCount}/${totalCount}`
+		: String(totalCount);
 }

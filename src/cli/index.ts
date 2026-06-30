@@ -52,6 +52,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.command("logs", "Read recent OS log entries")
 		.option("--limit <n>", "Maximum number of log entries")
 		.option("--filter <query>", "Filter log rows by level, index, or text")
+		.option("--level <level>", "Filter by severity: all, warn, fail, or info")
 		.action(logsCommand);
 	cli.command("doctor", "Run network diagnostics").action(doctorCommand);
 	cli.command("pwd", "Print current picos file root").action(pwdCommand);

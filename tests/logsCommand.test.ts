@@ -47,6 +47,7 @@ describe("logs CLI command", () => {
 		try {
 			await logsCommand({
 				filter: "kernel",
+				level: "fail",
 				snapshot: {
 					source: "systemd-journal",
 					status: "ok",
@@ -65,8 +66,8 @@ describe("logs CLI command", () => {
 		}
 
 		const output = lines.join("\n");
-		expect(output).toContain("entries=2/3 filter=kernel");
-		expect(output).toContain("001 warn kernel: warning pressure");
+		expect(output).toContain("entries=1/3 level=fail filter=kernel");
+		expect(output).not.toContain("001 warn kernel: warning pressure");
 		expect(output).not.toContain("sshd: accepted key");
 		expect(output).toContain("003 fail kernel: error disk");
 	});
