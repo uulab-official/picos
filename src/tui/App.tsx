@@ -175,8 +175,10 @@ import {
 	openCommandLine,
 } from "./commandLine";
 import {
+	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
 	type EndpointDetailView,
+	type EndpointHandoffKind,
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
@@ -186,6 +188,7 @@ import {
 	nextEndpointDetailView,
 	nextEndpointFilterPreset,
 	saveEndpointFilterPreset,
+	submitEndpointFilterCleanupConfirmation,
 	writeEndpointHandoffPlan,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
@@ -255,6 +258,7 @@ import {
 	getSelectedProcessResourceRequest,
 } from "./processPanel";
 import {
+	createRouteFilterCleanupPreview,
 	createRouteRawHandoffPlan,
 	formatRoutePathRows,
 	formatRouteWorkspaceRows,
@@ -263,6 +267,7 @@ import {
 	nextRouteFilterPreset,
 	type RouteDetailView,
 	saveRouteFilterPreset,
+	submitRouteFilterCleanupConfirmation,
 	writeRouteRawHandoffPlan,
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
@@ -318,6 +323,7 @@ type ToolCopyPreviewMode = "raw" | "summary" | false;
 
 const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
+const endpointFilterCleanupPromptPrefix = "endpoint-filter-cleanup:";
 
 function appendLogFollowHistory(
 	history: LogFollowHistoryItem[],
@@ -1032,6 +1038,72 @@ export function App(): React.ReactElement {
 		}
 		setCommandLine((current) => closeCommandLine(current));
 	}, [commandLine.prompt, commandLine.value, connections, log, ports]);
+
+	const submitRouteFilterCleanupCommand = useCallback(() => {
+		const confirmation = submitRouteFilterCleanupConfirmation(
+			routeFilterPresets,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!confirmation.confirmed) {
+			log("warn", confirmation.message);
+			return;
+		}
+		setRouteFilterPresets(confirmation.presets);
+		setRouteCopyPreview(false);
+		void setConfigRouteFilterPresets(confirmation.presets).catch((caught) =>
+			log(
+				"fail",
+				caught instanceof Error
+					? `route filter cleanup failed ${caught.message}`
+					: `route filter cleanup failed ${String(caught)}`,
+			),
+		);
+		log("info", confirmation.message);
+	}, [commandLine.value, log, routeFilterPresets]);
+
+	const submitEndpointFilterCleanupCommand = useCallback(() => {
+		const kind = commandLine.prompt.slice(
+			endpointFilterCleanupPromptPrefix.length,
+		) as EndpointHandoffKind;
+		const presets =
+			kind === "connections" ? connectionFilterPresets : portFilterPresets;
+		const confirmation = submitEndpointFilterCleanupConfirmation(
+			kind,
+			presets,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!confirmation.confirmed) {
+			log("warn", confirmation.message);
+			return;
+		}
+		if (kind === "connections") {
+			setConnectionFilterPresets(confirmation.presets);
+			setConnectionCopyPreview(false);
+			setSelectedConnectionIndex(0);
+		} else {
+			setPortFilterPresets(confirmation.presets);
+			setPortCopyPreview(false);
+			setSelectedPortIndex(0);
+		}
+		void setConfigEndpointFilterPresets(kind, confirmation.presets).catch(
+			(caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `${kind} filter cleanup failed ${caught.message}`
+						: `${kind} filter cleanup failed ${String(caught)}`,
+				),
+		);
+		log("info", confirmation.message);
+	}, [
+		commandLine.prompt,
+		commandLine.value,
+		connectionFilterPresets,
+		log,
+		portFilterPresets,
+	]);
 
 	const submitTimelineSearchCommand = useCallback(() => {
 		const query = commandLine.value.trim();
@@ -2184,37 +2256,44 @@ export function App(): React.ReactElement {
 							? "clipboard confirmation cancelled"
 							: commandLine.prompt === "route-filter"
 								? "route filter cancelled"
-								: commandLine.prompt === "tool-filter"
-									? "tool history filter cancelled"
-									: commandLine.prompt.startsWith(endpointFilterPromptPrefix)
-										? "endpoint filter cancelled"
-										: commandLine.prompt === "timeline-search"
-											? "timeline search cancelled"
-											: commandLine.prompt === "control-confirm"
-												? "control confirmation cancelled"
-												: commandLine.prompt === "external-open"
-													? "external open confirmation cancelled"
-													: commandLine.prompt === "file-open"
-														? "file open confirmation cancelled"
-														: commandLine.prompt === "log-search"
-															? "logs search cancelled"
-															: commandLine.prompt === "logs-cleanup"
-																? "logs cleanup cancelled"
-																: commandLine.prompt === "tool-target-label"
-																	? "tool target label cancelled"
-																	: commandLine.prompt === "tool-target-value"
-																		? "tool target value cancelled"
-																		: commandLine.prompt ===
-																				"tool-target-action"
-																			? "tool target action cancelled"
+								: commandLine.prompt === "route-filter-cleanup"
+									? "route filter cleanup cancelled"
+									: commandLine.prompt === "tool-filter"
+										? "tool history filter cancelled"
+										: commandLine.prompt.startsWith(endpointFilterPromptPrefix)
+											? "endpoint filter cancelled"
+											: commandLine.prompt.startsWith(
+														endpointFilterCleanupPromptPrefix,
+													)
+												? "endpoint filter cleanup cancelled"
+												: commandLine.prompt === "timeline-search"
+													? "timeline search cancelled"
+													: commandLine.prompt === "control-confirm"
+														? "control confirmation cancelled"
+														: commandLine.prompt === "external-open"
+															? "external open confirmation cancelled"
+															: commandLine.prompt === "file-open"
+																? "file open confirmation cancelled"
+																: commandLine.prompt === "log-search"
+																	? "logs search cancelled"
+																	: commandLine.prompt === "logs-cleanup"
+																		? "logs cleanup cancelled"
+																		: commandLine.prompt === "tool-target-label"
+																			? "tool target label cancelled"
 																			: commandLine.prompt ===
-																					"tool-target-cleanup"
-																				? "tool target cleanup cancelled"
-																				: commandLine.prompt.startsWith(
-																							toolPromptPrefix,
-																						)
-																					? "tool target command cancelled"
-																					: "path command cancelled",
+																					"tool-target-value"
+																				? "tool target value cancelled"
+																				: commandLine.prompt ===
+																						"tool-target-action"
+																					? "tool target action cancelled"
+																					: commandLine.prompt ===
+																							"tool-target-cleanup"
+																						? "tool target cleanup cancelled"
+																						: commandLine.prompt.startsWith(
+																									toolPromptPrefix,
+																								)
+																							? "tool target command cancelled"
+																							: "path command cancelled",
 				);
 				return;
 			}
@@ -2226,6 +2305,8 @@ export function App(): React.ReactElement {
 					void submitRouteDestinationCommand();
 				} else if (commandLine.prompt === "route-filter") {
 					submitRouteFilterCommand();
+				} else if (commandLine.prompt === "route-filter-cleanup") {
+					submitRouteFilterCleanupCommand();
 				} else if (commandLine.prompt === "tool-filter") {
 					submitToolHistoryFilterCommand();
 				} else if (commandLine.prompt === "tool-target-label") {
@@ -2238,6 +2319,10 @@ export function App(): React.ReactElement {
 					submitToolTargetCleanupCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
+				} else if (
+					commandLine.prompt.startsWith(endpointFilterCleanupPromptPrefix)
+				) {
+					submitEndpointFilterCleanupCommand();
 				} else if (commandLine.prompt === "timeline-search") {
 					submitTimelineSearchCommand();
 				} else if (commandLine.prompt === "log-search") {
@@ -2537,6 +2622,18 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "routes" && focusArea === "workspaces" && input === "D") {
+			const preview = createRouteFilterCleanupPreview(routeFilterPresets);
+			if (!preview) {
+				log("warn", "no route filter presets to clean");
+				return;
+			}
+			setCommandLine(openCommandLine("route-filter-cleanup"));
+			setRouteCopyPreview(false);
+			log("warn", `route filter cleanup confirm ${preview.confirmationPhrase}`);
+			return;
+		}
+
 		if (screen === "routes" && focusArea === "workspaces" && input === "]") {
 			const preset = nextRouteFilterPreset(routeFilterPresets, routeFilter);
 			if (!preset) {
@@ -2657,6 +2754,30 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "D"
+		) {
+			const preview = createEndpointFilterCleanupPreview(
+				"connections",
+				connectionFilterPresets,
+			);
+			if (!preview) {
+				log("warn", "no connections filter presets to clean");
+				return;
+			}
+			setCommandLine(
+				openCommandLine(`${endpointFilterCleanupPromptPrefix}connections`),
+			);
+			setConnectionCopyPreview(false);
+			log(
+				"warn",
+				`connections filter cleanup confirm ${preview.confirmationPhrase}`,
+			);
+			return;
+		}
+
 		if (screen === "ports" && focusArea === "workspaces" && input === "P") {
 			if (!portFilter.trim()) {
 				log("warn", "no ports filter to save");
@@ -2676,6 +2797,23 @@ export function App(): React.ReactElement {
 			});
 			setPortCopyPreview(false);
 			log("info", `ports preset saved ${portFilter}`);
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "D") {
+			const preview = createEndpointFilterCleanupPreview(
+				"ports",
+				portFilterPresets,
+			);
+			if (!preview) {
+				log("warn", "no ports filter presets to clean");
+				return;
+			}
+			setCommandLine(
+				openCommandLine(`${endpointFilterCleanupPromptPrefix}ports`),
+			);
+			setPortCopyPreview(false);
+			log("warn", `ports filter cleanup confirm ${preview.confirmationPhrase}`);
 			return;
 		}
 
@@ -5424,7 +5562,11 @@ function ConnectionsWorkspace({
 }): React.ReactElement {
 	const promptRows = [
 		...formatClipboardPromptRows(commandLine),
-		...formatEndpointFilterPromptRows(commandLine, "connections"),
+		...formatEndpointFilterPromptRows(
+			commandLine,
+			"connections",
+			filterPresets,
+		),
 	];
 	const rows = result
 		? [
@@ -5455,8 +5597,8 @@ function ConnectionsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
-				active endpoints · f filter · P save · ] preset · e export · o open ·
-				tab detail · j/k select
+				active endpoints · f filter · P save · ] preset · D cleanup · e export ·
+				o open · tab detail · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -5501,7 +5643,10 @@ function PortsWorkspace({
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const promptRows = formatClipboardPromptRows(commandLine);
+	const promptRows = [
+		...formatClipboardPromptRows(commandLine),
+		...formatEndpointFilterPromptRows(commandLine, "ports", filterPresets),
+	];
 	const rows = result
 		? [
 				...formatPortsWorkspaceRows(
@@ -5531,8 +5676,8 @@ function PortsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
-				listening ports · f filter · P save · ] preset · e export · o open · tab
-				detail · j/k select
+				listening ports · f filter · P save · ] preset · D cleanup · e export ·
+				o open · tab detail · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -5574,12 +5719,23 @@ function RoutesWorkspace({
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const cleanupPreview =
+		commandLine.active && commandLine.prompt === "route-filter-cleanup"
+			? createRouteFilterCleanupPreview(routeFilterPresets)
+			: undefined;
 	const promptRows =
 		commandLine.active && commandLine.prompt === "route"
 			? [`:route ${commandLine.value || " "}`]
 			: commandLine.active && commandLine.prompt === "route-filter"
 				? [`:routes-filter ${commandLine.value || " "}`]
-				: [];
+				: commandLine.active &&
+						commandLine.prompt === "route-filter-cleanup" &&
+						cleanupPreview
+					? [
+							...cleanupPreview.rows,
+							`:routes-cleanup ${commandLine.value || " "}  type="${cleanupPreview.confirmationPhrase}" enter=clear esc=cancel`,
+						]
+					: [];
 	const pathRows = routePath
 		? formatRoutePathRows(routePath, Math.max(4, Math.floor(visibleRows / 3)))
 		: ["PATH destination lookup: press : then enter host or IP"];
@@ -5613,7 +5769,7 @@ function RoutesWorkspace({
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
 				route table diagnostics · f filter · F clear · P save · ] preset · c
-				copy · e export · o open · tab detail · s sort · : path
+				copy · D cleanup · e export · o open · tab detail · s sort · : path
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {
@@ -5622,13 +5778,20 @@ function RoutesWorkspace({
 						row === "ROUTES" ||
 						row === "RAW OUTPUT" ||
 						row === "RAW PATH" ||
+						row === "ROUTE FILTER CLEANUP" ||
 						row.startsWith("PATH ") ||
 						row.startsWith("FILTER ");
 					return (
 						<Text
 							key={key}
 							color={
-								isSection ? "cyan" : row.startsWith("WARN") ? "yellow" : "white"
+								row.startsWith(":routes-cleanup") || row.startsWith("confirm ")
+									? "yellow"
+									: isSection
+										? "cyan"
+										: row.startsWith("WARN")
+											? "yellow"
+											: "white"
 							}
 						>
 							{row}
@@ -5653,11 +5816,16 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 		row === tableHeader ||
 		row === "RAW OUTPUT" ||
 		row === "FILTER" ||
+		row === "ENDPOINT FILTER CLEANUP" ||
 		row.startsWith("DETAIL")
 	) {
 		return "cyan";
 	}
-	if (row.startsWith("CLIPBOARD PREVIEW")) {
+	if (
+		row.startsWith("CLIPBOARD PREVIEW") ||
+		row.startsWith(":filter-cleanup") ||
+		row.startsWith("confirm ")
+	) {
 		return "yellow";
 	}
 	if (row.startsWith(">")) {
@@ -5669,17 +5837,28 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 function formatEndpointFilterPromptRows(
 	commandLine: CommandLineState,
 	kind: "connections" | "ports",
+	presets: string[] = [],
 ): string[] {
-	if (
-		!commandLine.active ||
-		commandLine.prompt !== `${endpointFilterPromptPrefix}${kind}`
-	) {
+	if (!commandLine.active) {
 		return [];
 	}
-	return [
-		"FILTER",
-		`:filter ${commandLine.value || " "}  enter=apply esc=cancel`,
-	];
+	if (commandLine.prompt === `${endpointFilterPromptPrefix}${kind}`) {
+		return [
+			"FILTER",
+			`:filter ${commandLine.value || " "}  enter=apply esc=cancel`,
+		];
+	}
+	if (commandLine.prompt === `${endpointFilterCleanupPromptPrefix}${kind}`) {
+		const preview = createEndpointFilterCleanupPreview(kind, presets);
+		if (!preview) {
+			return [];
+		}
+		return [
+			...preview.rows,
+			`:filter-cleanup ${commandLine.value || " "}  type="${preview.confirmationPhrase}" enter=clear esc=cancel`,
+		];
+	}
+	return [];
 }
 
 function ToolsWorkspace({

@@ -1512,6 +1512,20 @@ Goal: let operators prune Logs search presets and severity/search profiles throu
 - Tests cover preview rows, rejected confirmation, confirmed cleanup, and empty shelf no-op behavior.
 - Next: apply the same cleanup model to route/endpoint filter preset shelves.
 
+## v0.4.50 - Route and Endpoint Filter Cleanup Confirmation
+
+Status: draft PR #112.
+
+Goal: make saved route, connection, and port filter shelves manageable with the same exact-confirm cleanup posture as Tools and Logs.
+
+- Routes workspace now supports `D` to open a cleanup confirmation for saved route filter presets.
+- Connections and Ports workspaces now support `D` to clean their own saved filter preset shelves independently.
+- Cleanup previews show affected preset counts and exact phrases: `clear routes`, `clear connections`, or `clear ports`.
+- Rejected confirmations leave saved filter config untouched and emit warning events.
+- Confirmed cleanup persists the empty shelf back to config while leaving the active filter text available for the current inspection.
+- Tests cover route cleanup preview/confirmation and endpoint cleanup preview/confirmation.
+- Next: bring cleanup confirmation to Timeline and Tools history filter shelves.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

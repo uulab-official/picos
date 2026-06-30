@@ -42,8 +42,8 @@ Keyboard controls:
 - Action Center: `enter` on locked write/admin/destructive actions opens a dry-run control preview with risk, privilege, confirmation phrase, lock reason, adapter-owned OS command preview when available, and an audit/timeline event; after `picos.update`, the locked `picos.update.apply` action opens the npm `--dry-run` update preview; the panel always shows the current execution policy, also shows a blocked policy simulation, after a preview `c` opens a typed confirmation prompt, and `x` attempts an opt-in dry-run execution through the configured policy
 - Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `f` filters by name/path/type, `enter` applies the filter, `esc` clears it, `c`/`m`/`x` open locked copy/move/delete previews, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
 - Interfaces workspace: `j/k` selects interfaces and `Tab` cycles list/detail/stats/platform source panes
-- Routes workspace: `f` filters route rows, `F` clears the filter, `P` saves the active filter, `]` cycles saved filters, `c` opens a locked clipboard preview for the active table/raw/diagnostics/path view, `Tab` cycles table/raw/diagnostics/path panes, `s` cycles route row sorting, and `:` opens destination path lookup
-- Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `j/k` selects endpoints, `f` filters, `F` clears, `P` saves the active filter, `]` cycles filter presets, `Tab` cycles detail/raw/process panes, `enter` opens the selected PID in Processes, `s` cycles endpoint sorting, PID matches show process snapshots, and `c` opens a locked clipboard preview
+- Routes workspace: `f` filters route rows, `F` clears the filter, `P` saves the active filter, `]` cycles saved filters, `D` opens an exact `clear routes` confirmation for clearing saved route filter presets, `c` opens a locked clipboard preview for the active table/raw/diagnostics/path view, `Tab` cycles table/raw/diagnostics/path panes, `s` cycles route row sorting, and `:` opens destination path lookup
+- Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `j/k` selects endpoints, `f` filters, `F` clears, `P` saves the active filter, `]` cycles filter presets, `D` opens an exact `clear connections` or `clear ports` confirmation for clearing saved endpoint filter presets, `Tab` cycles detail/raw/process panes, `enter` opens the selected PID in Processes, `s` cycles endpoint sorting, PID matches show process snapshots, and `c` opens a locked clipboard preview
 - Processes workspace: endpoint handoffs show PID detail plus labeled cwd/open-file/resource rows; `j/k` selects an item, `enter` opens local filesystem paths in Files or Editor, socket/pipe/unix resources are logged for inspection, and `c` opens a locked clipboard preview
 - Logs workspace: `e` cycles severity, `f` searches, `F` clears, `P` saves search text to config, `]` cycles search presets, `S` saves the current severity/search profile to config, `}` cycles profiles, `D` opens an exact `clear logs` confirmation for clearing saved search presets and profiles, `L` toggles live follow refresh while viewing Logs, `C` clears follow counters/history, and `r` refreshes logs only
 - Tools workspace: `n`/`N` cycles OS-aware and saved target presets forward/back, `T` saves the active target preset to config, `U` pins the selected saved target preset to the top, `L` renames the selected saved target preset, `M` edits the selected saved target value, `A` changes the selected saved target action, `X` deletes the selected saved target preset, `D` opens an exact `delete <action id>` confirmation for removing all saved target presets with the selected saved action, `R` runs the selected preset, `j/k` selects previous runs, `Tab` cycles raw/summary/command detail panes, `f` filters history, `P` saves the active filter to config, `]` cycles saved presets, `s` cycles sorting, `G` groups by tool/action or status, `r` reruns, `y` copies summaries, `c` copies raw output, and `e`/`E` exports selected/all runs
@@ -316,7 +316,7 @@ Log profiles and search presets are managed from the Logs workspace. Press `P` t
 }
 ```
 
-Route filter presets are managed from the Routes workspace. Press `P` to persist the current route filter and `]` to cycle saved filters:
+Route filter presets are managed from the Routes workspace. Press `P` to persist the current route filter, `]` to cycle saved filters, and `D` to open an exact `clear routes` cleanup confirmation:
 
 ```json
 {
@@ -324,7 +324,7 @@ Route filter presets are managed from the Routes workspace. Press `P` to persist
 }
 ```
 
-Endpoint filter presets are managed from the Connections and Ports workspaces with the same `P` save and `]` cycle controls:
+Endpoint filter presets are managed from the Connections and Ports workspaces with the same `P` save, `]` cycle, and `D` cleanup controls. Connections require exact `clear connections`; Ports require exact `clear ports`:
 
 ```json
 {

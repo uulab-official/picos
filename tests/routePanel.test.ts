@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RoutePathResult, RouteTableResult } from "../src/core/routes";
 import {
+	createRouteFilterCleanupPreview,
 	createRouteRawHandoffPlan,
 	formatRoutePathRows,
 	formatRouteRawRows,
@@ -12,6 +13,7 @@ import {
 	nextRouteDetailView,
 	nextRouteFilterPreset,
 	saveRouteFilterPreset,
+	submitRouteFilterCleanupConfirmation,
 	writeRouteRawHandoffPlan,
 } from "../src/tui/routePanel";
 
@@ -123,6 +125,52 @@ describe("route TUI panel formatting", () => {
 		expect(nextRouteFilterPreset(["utun", "default"], "")).toBe("utun");
 		expect(nextRouteFilterPreset(["utun", "default"], "utun")).toBe("default");
 		expect(nextRouteFilterPreset([], "utun")).toBeUndefined();
+	});
+
+	test("requires exact confirmation before clearing saved route filter presets", () => {
+		const presets = ["utun", "default"];
+		const preview = createRouteFilterCleanupPreview(presets);
+
+		expect(preview).toEqual({
+			count: 2,
+			confirmationPhrase: "clear routes",
+			cleanup: {
+				id: "routes.filters",
+				label: "Route filter presets",
+				scope: "routes",
+				count: 2,
+				verb: "clear",
+				confirmationPhrase: "clear routes",
+				rows: [
+					"CONFIG CLEANUP",
+					"target=Route filter presets",
+					"scope=routes count=2",
+					"confirm clear routes locked",
+				],
+			},
+			rows: [
+				"ROUTE FILTER CLEANUP",
+				"presets=2",
+				"confirm clear routes locked",
+			],
+		});
+		expect(
+			submitRouteFilterCleanupConfirmation(presets, "clear route"),
+		).toEqual({
+			confirmed: false,
+			message: "route filter cleanup rejected",
+			presets,
+			removed: 0,
+		});
+		expect(
+			submitRouteFilterCleanupConfirmation(presets, " clear routes "),
+		).toEqual({
+			confirmed: true,
+			message: "route filter cleanup removed 2 presets",
+			presets: [],
+			removed: 2,
+		});
+		expect(createRouteFilterCleanupPreview([])).toBeUndefined();
 	});
 
 	test("formats route rows with preset context", () => {

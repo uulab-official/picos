@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
@@ -13,6 +14,7 @@ import {
 	nextEndpointDetailView,
 	nextEndpointFilterPreset,
 	saveEndpointFilterPreset,
+	submitEndpointFilterCleanupConfirmation,
 	writeEndpointHandoffPlan,
 } from "../src/tui/endpointPanel";
 
@@ -98,6 +100,66 @@ describe("endpoint TUI panel formatting", () => {
 		expect(nextEndpointFilterPreset(["443", "node"], "443")).toBe("node");
 		expect(nextEndpointFilterPreset(["443", "node"], "node")).toBe("443");
 		expect(nextEndpointFilterPreset([], "443")).toBeUndefined();
+	});
+
+	test("requires exact confirmation before clearing saved endpoint filter presets", () => {
+		const presets = ["443", "node"];
+		const preview = createEndpointFilterCleanupPreview("connections", presets);
+
+		expect(preview).toEqual({
+			kind: "connections",
+			count: 2,
+			confirmationPhrase: "clear connections",
+			cleanup: {
+				id: "connections.filters",
+				label: "Connections filter presets",
+				scope: "connections",
+				count: 2,
+				verb: "clear",
+				confirmationPhrase: "clear connections",
+				rows: [
+					"CONFIG CLEANUP",
+					"target=Connections filter presets",
+					"scope=connections count=2",
+					"confirm clear connections locked",
+				],
+			},
+			rows: [
+				"ENDPOINT FILTER CLEANUP",
+				"kind=connections presets=2",
+				"confirm clear connections locked",
+			],
+		});
+		expect(
+			submitEndpointFilterCleanupConfirmation(
+				"connections",
+				presets,
+				"clear connection",
+			),
+		).toEqual({
+			confirmed: false,
+			kind: "connections",
+			message: "connections filter cleanup rejected",
+			presets,
+			removed: 0,
+		});
+		expect(
+			submitEndpointFilterCleanupConfirmation(
+				"connections",
+				presets,
+				" clear connections ",
+			),
+		).toEqual({
+			confirmed: true,
+			kind: "connections",
+			message: "connections filter cleanup removed 2 presets",
+			presets: [],
+			removed: 2,
+		});
+		expect(
+			createEndpointFilterCleanupPreview("ports", ["8080"])?.confirmationPhrase,
+		).toBe("clear ports");
+		expect(createEndpointFilterCleanupPreview("ports", [])).toBeUndefined();
 	});
 
 	test("formats selected connection details and copy preview", () => {

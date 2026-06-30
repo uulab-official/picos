@@ -1,6 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+	type ConfigCleanupPreview,
+	createConfigCleanupPreview,
+	submitConfigCleanupConfirmation,
+} from "../core/configCleanup";
+import {
 	type ConnectionSort,
 	type ConnectionsResult,
 	filterConnections,
@@ -42,6 +47,22 @@ export type EndpointHandoffPlan = {
 	view: EndpointDetailView;
 };
 
+export type EndpointFilterCleanupPreview = {
+	kind: EndpointHandoffKind;
+	count: number;
+	confirmationPhrase: string;
+	cleanup: ConfigCleanupPreview;
+	rows: string[];
+};
+
+export type EndpointFilterCleanupConfirmation = {
+	confirmed: boolean;
+	kind: EndpointHandoffKind;
+	message: string;
+	presets: string[];
+	removed: number;
+};
+
 export function nextEndpointDetailView(
 	view: EndpointDetailView,
 ): EndpointDetailView {
@@ -78,6 +99,72 @@ export function nextEndpointFilterPreset(
 	const current = currentQuery.trim();
 	const index = presets.indexOf(current);
 	return presets[(index + 1) % presets.length] ?? presets[0];
+}
+
+export function createEndpointFilterCleanupPreview(
+	kind: EndpointHandoffKind,
+	presets: string[],
+): EndpointFilterCleanupPreview | undefined {
+	const normalized = presets.map((preset) => preset.trim()).filter(Boolean);
+	if (!normalized.length) {
+		return undefined;
+	}
+	const labelPrefix = kind === "connections" ? "Connections" : "Ports";
+	const cleanup = createConfigCleanupPreview({
+		id: `${kind}.filters`,
+		label: `${labelPrefix} filter presets`,
+		scope: kind,
+		count: normalized.length,
+		verb: "clear",
+	});
+	return {
+		kind,
+		count: normalized.length,
+		confirmationPhrase: cleanup.confirmationPhrase,
+		cleanup,
+		rows: [
+			"ENDPOINT FILTER CLEANUP",
+			`kind=${kind} presets=${normalized.length}`,
+			`confirm ${cleanup.confirmationPhrase} locked`,
+		],
+	};
+}
+
+export function submitEndpointFilterCleanupConfirmation(
+	kind: EndpointHandoffKind,
+	presets: string[],
+	confirmation: string,
+): EndpointFilterCleanupConfirmation {
+	const preview = createEndpointFilterCleanupPreview(kind, presets);
+	if (!preview) {
+		return {
+			confirmed: false,
+			kind,
+			message: `${kind} filter cleanup unavailable`,
+			presets,
+			removed: 0,
+		};
+	}
+	const cleanupConfirmation = submitConfigCleanupConfirmation(
+		preview.cleanup,
+		confirmation,
+	);
+	if (!cleanupConfirmation.confirmed) {
+		return {
+			confirmed: false,
+			kind,
+			message: `${kind} filter cleanup rejected`,
+			presets,
+			removed: 0,
+		};
+	}
+	return {
+		confirmed: true,
+		kind,
+		message: `${kind} filter cleanup removed ${preview.count} presets`,
+		presets: [],
+		removed: preview.count,
+	};
 }
 
 export function getSelectedConnectionProcessRequest(
