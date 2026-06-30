@@ -26,6 +26,20 @@ export function interfaceStatsCommand(): { command: string; args: string[] } {
 	return { command: "ip", args: ["-s", "link"] };
 }
 
+export function osLogCommand(limit = 50): {
+	source: string;
+	command: string;
+	args: string[];
+	note: string;
+} {
+	return {
+		source: "systemd-journal",
+		command: "journalctl",
+		args: ["-n", String(limit), "--no-pager", "-o", "short-iso"],
+		note: "recent systemd journal entries",
+	};
+}
+
 export function controlPreviewCommand(
 	actionId: string,
 ): ActionPreviewCommand | undefined {

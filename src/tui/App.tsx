@@ -62,6 +62,11 @@ import {
 } from "../core/files";
 import { getNetworkSummary } from "../core/network";
 import {
+	createOsLogSnapshot,
+	formatOsLogRows,
+	type OsLogSnapshot,
+} from "../core/osLogs";
+import {
 	filterListeningPorts,
 	getListeningPorts,
 	nextPortSort,
@@ -285,6 +290,7 @@ export function App(): React.ReactElement {
 	const [defaultPingHost, setDefaultPingHost] = useState("google.com");
 	const [inventory, setInventory] = useState<SystemInventory>();
 	const [systemMonitor, setSystemMonitor] = useState<SystemMonitorSnapshot>();
+	const [osLogs, setOsLogs] = useState<OsLogSnapshot>();
 	const [doctorChecks, setDoctorChecks] = useState<DoctorCheck[]>([]);
 	const [selectedActionIndex, setSelectedActionIndex] = useState(0);
 	const [actionPreviewPlan, setActionPreviewPlan] =
@@ -1098,12 +1104,16 @@ export function App(): React.ReactElement {
 				nextPorts,
 				nextRouteTable,
 				nextMonitor,
+				nextOsLogs,
 			] = await Promise.all([
 				getNetworkSummary(),
 				getActiveConnections().catch(() => undefined),
 				getListeningPorts().catch(() => undefined),
 				runRouteTable().catch(() => undefined),
 				getSystemMonitorSnapshot().catch(() => undefined),
+				createOsLogSnapshot({ limit: 24, timeoutMs: 3000 }).catch(
+					() => undefined,
+				),
 			]);
 			const networkEvents = createNetworkTimelineEvents(
 				summaryRef.current,
@@ -1122,6 +1132,9 @@ export function App(): React.ReactElement {
 			setInventory(await createSystemInventory({ network: nextSummary }));
 			if (nextMonitor) {
 				setSystemMonitor(nextMonitor);
+			}
+			if (nextOsLogs) {
+				setOsLogs(nextOsLogs);
 			}
 			if (nextConnections) {
 				setConnectionsResult(nextConnections);
@@ -1208,6 +1221,16 @@ export function App(): React.ReactElement {
 				if (action.id === "system.inventory") {
 					setInventory(await createSystemInventory());
 					log("ok", "system inventory refreshed");
+				}
+
+				if (action.id === "logs.read") {
+					const snapshot = await createOsLogSnapshot({ limit: 50 });
+					setOsLogs(snapshot);
+					setScreen("logs");
+					log(
+						snapshot.status === "ok" ? "ok" : "warn",
+						`logs read ${snapshot.entries.length}`,
+					);
 				}
 
 				if (action.id === "doctor.run") {
@@ -2384,6 +2407,7 @@ export function App(): React.ReactElement {
 					summary={summary}
 					inventory={inventory}
 					systemMonitor={systemMonitor}
+					osLogs={osLogs}
 					error={error}
 					actions={actions}
 					selectedActionIndex={selectedActionIndex}
@@ -2556,6 +2580,7 @@ function MainWorkspace({
 	summary,
 	inventory,
 	systemMonitor,
+	osLogs,
 	error,
 	actions,
 	selectedActionIndex,
@@ -2630,6 +2655,7 @@ function MainWorkspace({
 	summary?: NetworkSummary;
 	inventory?: SystemInventory;
 	systemMonitor?: SystemMonitorSnapshot;
+	osLogs?: OsLogSnapshot;
 	error?: string;
 	actions: PicosAction[];
 	selectedActionIndex: number;
@@ -2714,6 +2740,7 @@ function MainWorkspace({
 					summary,
 					inventory,
 					systemMonitor,
+					osLogs,
 					actions,
 					selectedActionIndex,
 					actionPreviewPlan,
@@ -2792,6 +2819,7 @@ function renderWorkspace(
 	summary: NetworkSummary | undefined,
 	inventory: SystemInventory | undefined,
 	systemMonitor: SystemMonitorSnapshot | undefined,
+	osLogs: OsLogSnapshot | undefined,
 	actions: PicosAction[],
 	selectedActionIndex: number,
 	actionPreviewPlan: ActionPreviewPlan | undefined,
@@ -3074,7 +3102,13 @@ function renderWorkspace(
 		);
 	}
 	if (screen === "logs") {
-		return <LogWorkspace checks={doctorChecks} />;
+		return (
+			<LogWorkspace
+				logs={osLogs}
+				checks={doctorChecks}
+				visibleRows={Math.max(6, height - 7)}
+			/>
+		);
 	}
 	return (
 		<DashboardWorkspace
@@ -4810,28 +4844,66 @@ function StatusWorkspace({
 }
 
 function LogWorkspace({
+	logs,
 	checks,
+	visibleRows,
 }: {
+	logs?: OsLogSnapshot;
 	checks: DoctorCheck[];
+	visibleRows: number;
 }): React.ReactElement {
+	const rows = logs ? formatOsLogRows(logs).slice(0, visibleRows) : [];
 	return (
 		<Box flexDirection="column">
-			<Text bold>Diagnostics Buffer</Text>
-			{checks.length ? (
-				checks.map((check) => (
-					<Text
-						key={check.label}
-						color={check.status === "pass" ? "green" : "yellow"}
-					>
-						{check.status.toUpperCase().padEnd(5)} {check.label}
-						{check.detail ? ` · ${check.detail}` : ""}
+			<Text bold>OS Logs</Text>
+			<Text color="gray">
+				recent platform logs · read-only · action logs.read
+			</Text>
+			{rows.length ? (
+				rows.map((row) => (
+					<Text key={row} color={getOsLogRowColor(row)}>
+						{clip(row, 110)}
 					</Text>
 				))
 			) : (
-				<Text color="gray">No diagnostics yet. Press d.</Text>
+				<Text color="gray">
+					No OS log snapshot yet. Run logs.read or refresh.
+				</Text>
 			)}
+			{checks.length ? (
+				<Box marginTop={1} flexDirection="column">
+					<Text color="gray">doctor buffer</Text>
+					{checks
+						.slice(0, Math.max(1, Math.min(4, visibleRows - 4)))
+						.map((check) => (
+							<Text
+								key={check.label}
+								color={check.status === "pass" ? "green" : "yellow"}
+							>
+								{check.status.toUpperCase().padEnd(5)} {check.label}
+								{check.detail ? ` · ${check.detail}` : ""}
+							</Text>
+						))}
+				</Box>
+			) : null}
 		</Box>
 	);
+}
+
+function getOsLogRowColor(row: string): string {
+	if (row.startsWith("PICOS") || row.startsWith("source=")) {
+		return "cyan";
+	}
+	if (row.includes(" fail ")) {
+		return "red";
+	}
+	if (row.includes(" warn ") || row.startsWith("error=")) {
+		return "yellow";
+	}
+	if (row.startsWith("command=") || row.startsWith("note=")) {
+		return "gray";
+	}
+	return "white";
 }
 
 function Inspector({

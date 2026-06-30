@@ -18,6 +18,7 @@ import {
 	typeCommand,
 } from "./commands/files";
 import { infoCommand } from "./commands/info";
+import { logsCommand } from "./commands/logs";
 import { monitorCommand } from "./commands/monitor";
 import { pingCommand } from "./commands/ping";
 import { portsCommand } from "./commands/ports";
@@ -47,6 +48,10 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	cli
 		.command("monitor", "Print a live system monitor snapshot")
 		.action(monitorCommand);
+	cli
+		.command("logs", "Read recent OS log entries")
+		.option("--limit <n>", "Maximum number of log entries")
+		.action(logsCommand);
 	cli.command("doctor", "Run network diagnostics").action(doctorCommand);
 	cli.command("pwd", "Print current picos file root").action(pwdCommand);
 	cli
