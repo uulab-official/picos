@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
 	createCleanupShelfIndex,
 	formatCleanupShelfIndexRows,
+	getSelectedCleanupShelf,
+	moveCleanupShelfSelection,
 } from "../src/tui/cleanupIndex";
 
 describe("cleanup shelf index", () => {
@@ -28,6 +30,7 @@ describe("cleanup shelf index", () => {
 					id: "logs",
 					label: "Logs presets",
 					count: 3,
+					screen: "logs",
 					workspace: "Logs",
 					shortcut: "D",
 					confirmationPhrase: "clear logs",
@@ -37,6 +40,7 @@ describe("cleanup shelf index", () => {
 					id: "routes",
 					label: "Route filters",
 					count: 2,
+					screen: "routes",
 					workspace: "Routes",
 					shortcut: "D",
 					confirmationPhrase: "clear routes",
@@ -46,6 +50,7 @@ describe("cleanup shelf index", () => {
 					id: "connections",
 					label: "Connection filters",
 					count: 2,
+					screen: "connections",
 					workspace: "Connections",
 					shortcut: "D",
 					confirmationPhrase: "clear connections",
@@ -55,6 +60,7 @@ describe("cleanup shelf index", () => {
 					id: "ports",
 					label: "Port filters",
 					count: 1,
+					screen: "ports",
 					workspace: "Ports",
 					shortcut: "D",
 					confirmationPhrase: "clear ports",
@@ -64,6 +70,7 @@ describe("cleanup shelf index", () => {
 					id: "timeline",
 					label: "Timeline searches",
 					count: 0,
+					screen: "timeline",
 					workspace: "Timeline",
 					shortcut: "D",
 					confirmationPhrase: "clear timeline",
@@ -73,6 +80,7 @@ describe("cleanup shelf index", () => {
 					id: "tools-history",
 					label: "Tools history filters",
 					count: 2,
+					screen: "tools",
 					workspace: "Tools",
 					shortcut: "C",
 					confirmationPhrase: "clear tools history",
@@ -82,6 +90,7 @@ describe("cleanup shelf index", () => {
 					id: "tool-targets",
 					label: "Tool targets",
 					count: 2,
+					screen: "tools",
 					workspace: "Tools",
 					shortcut: "D",
 					confirmationPhrase: "delete <action id>",
@@ -106,9 +115,42 @@ describe("cleanup shelf index", () => {
 
 		expect(index.activeShelves).toBe(0);
 		expect(index.totalItems).toBe(0);
+		expect(getSelectedCleanupShelf(index, 0)).toBeUndefined();
+		expect(moveCleanupShelfSelection(index, 0, "next")).toBe(0);
 		expect(formatCleanupShelfIndexRows(index, 3)).toEqual([
 			"CLEANUP INDEX active=0 items=0",
 			"no saved preset shelves to clean",
+		]);
+	});
+
+	test("selects active cleanup shelves for status handoff", () => {
+		const index = createCleanupShelfIndex({
+			connectionFilterPresets: ["443"],
+			customToolTargetPresets: [
+				{ actionId: "tools.dns", target: "example.com" },
+			],
+			logSearchPresets: ["kernel"],
+			portFilterPresets: ["3000"],
+			routeFilterPresets: ["default"],
+			timelineSearchPresets: [],
+			toolHistoryFilterPresets: ["dns"],
+		});
+
+		expect(getSelectedCleanupShelf(index, 0)?.screen).toBe("logs");
+		expect(getSelectedCleanupShelf(index, 4)?.id).toBe("tools-history");
+		expect(getSelectedCleanupShelf(index, 99)?.id).toBe("tool-targets");
+		expect(moveCleanupShelfSelection(index, 4, "next")).toBe(5);
+		expect(moveCleanupShelfSelection(index, 5, "next")).toBe(0);
+		expect(moveCleanupShelfSelection(index, 0, "previous")).toBe(5);
+		expect(formatCleanupShelfIndexRows(index, 8, 4)).toEqual([
+			"CLEANUP INDEX active=6 items=6 selected=Tools",
+			"  Logs        D  count=1  clear logs  search=1 profiles=0",
+			"  Routes      D  count=1  clear routes  filters=1",
+			"  Connections D  count=1  clear connections  filters=1",
+			"  Ports       D  count=1  clear ports  filters=1",
+			"  Timeline    D  count=0  clear timeline  searches=0",
+			"> Tools       C  count=1  clear tools history  filters=1",
+			"  Tools       D  count=1  delete <action id>  saved-targets=1",
 		]);
 	});
 });

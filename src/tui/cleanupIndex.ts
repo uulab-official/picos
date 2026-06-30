@@ -1,4 +1,5 @@
 import type { LogProfile } from "./logPanel";
+import type { Screen } from "./navigation";
 import type { ToolRunActionId } from "./toolHistory";
 
 export type CleanupShelfId =
@@ -14,6 +15,7 @@ export type CleanupShelf = {
 	id: CleanupShelfId;
 	label: string;
 	count: number;
+	screen: Screen;
 	workspace: string;
 	shortcut: string;
 	confirmationPhrase: string;
@@ -56,6 +58,7 @@ export function createCleanupShelfIndex(
 			id: "logs",
 			label: "Logs presets",
 			count: logSearchCount + logProfileCount,
+			screen: "logs",
 			workspace: "Logs",
 			shortcut: "D",
 			confirmationPhrase: "clear logs",
@@ -65,6 +68,7 @@ export function createCleanupShelfIndex(
 			id: "routes",
 			label: "Route filters",
 			count: routeCount,
+			screen: "routes",
 			workspace: "Routes",
 			shortcut: "D",
 			confirmationPhrase: "clear routes",
@@ -74,6 +78,7 @@ export function createCleanupShelfIndex(
 			id: "connections",
 			label: "Connection filters",
 			count: connectionCount,
+			screen: "connections",
 			workspace: "Connections",
 			shortcut: "D",
 			confirmationPhrase: "clear connections",
@@ -83,6 +88,7 @@ export function createCleanupShelfIndex(
 			id: "ports",
 			label: "Port filters",
 			count: portCount,
+			screen: "ports",
 			workspace: "Ports",
 			shortcut: "D",
 			confirmationPhrase: "clear ports",
@@ -92,6 +98,7 @@ export function createCleanupShelfIndex(
 			id: "timeline",
 			label: "Timeline searches",
 			count: timelineCount,
+			screen: "timeline",
 			workspace: "Timeline",
 			shortcut: "D",
 			confirmationPhrase: "clear timeline",
@@ -101,6 +108,7 @@ export function createCleanupShelfIndex(
 			id: "tools-history",
 			label: "Tools history filters",
 			count: toolHistoryCount,
+			screen: "tools",
 			workspace: "Tools",
 			shortcut: "C",
 			confirmationPhrase: "clear tools history",
@@ -110,6 +118,7 @@ export function createCleanupShelfIndex(
 			id: "tool-targets",
 			label: "Tool targets",
 			count: toolTargetCount,
+			screen: "tools",
 			workspace: "Tools",
 			shortcut: "D",
 			confirmationPhrase: "delete <action id>",
@@ -126,17 +135,67 @@ export function createCleanupShelfIndex(
 export function formatCleanupShelfIndexRows(
 	index: CleanupShelfIndex,
 	visibleRows: number,
+	selectedIndex?: number,
 ): string[] {
+	const selectedShelf =
+		selectedIndex === undefined
+			? undefined
+			: getSelectedCleanupShelf(index, selectedIndex);
 	const rows = [
-		`CLEANUP INDEX active=${index.activeShelves} items=${index.totalItems}`,
+		`CLEANUP INDEX active=${index.activeShelves} items=${index.totalItems}${
+			selectedShelf ? ` selected=${selectedShelf.workspace}` : ""
+		}`,
 		...(index.totalItems > 0
-			? index.shelves.map(
-					(shelf) =>
-						`${shelf.workspace.padEnd(11)} ${shelf.shortcut.padEnd(2)} count=${shelf.count}  ${shelf.confirmationPhrase}  ${shelf.detail}`,
-				)
+			? index.shelves.map((shelf) => {
+					const marker =
+						selectedIndex === undefined
+							? ""
+							: selectedShelf?.id === shelf.id
+								? "> "
+								: "  ";
+					return `${marker}${shelf.workspace.padEnd(11)} ${shelf.shortcut.padEnd(2)} count=${shelf.count}  ${shelf.confirmationPhrase}  ${shelf.detail}`;
+				})
 			: ["no saved preset shelves to clean"]),
 	];
 	return rows.slice(0, Math.max(1, visibleRows));
+}
+
+export function getSelectedCleanupShelf(
+	index: CleanupShelfIndex,
+	selectedIndex: number,
+): CleanupShelf | undefined {
+	const activeShelves = getActiveCleanupShelves(index);
+	if (activeShelves.length === 0) {
+		return undefined;
+	}
+
+	const normalized = Math.min(
+		Math.max(selectedIndex, 0),
+		activeShelves.length - 1,
+	);
+	return activeShelves[normalized];
+}
+
+export function moveCleanupShelfSelection(
+	index: CleanupShelfIndex,
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	const activeShelves = getActiveCleanupShelves(index);
+	if (activeShelves.length === 0) {
+		return 0;
+	}
+
+	const normalized = Math.min(
+		Math.max(selectedIndex, 0),
+		activeShelves.length - 1,
+	);
+	const offset = direction === "next" ? 1 : -1;
+	return (normalized + offset + activeShelves.length) % activeShelves.length;
+}
+
+function getActiveCleanupShelves(index: CleanupShelfIndex): CleanupShelf[] {
+	return index.shelves.filter((shelf) => shelf.count > 0);
 }
 
 function countText(values: string[] | undefined): number {

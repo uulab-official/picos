@@ -1552,6 +1552,19 @@ Goal: make saved preset cleanup discoverable from one OS-console status surface.
 - Tests cover non-empty and empty cleanup index rows.
 - Next: add keyboard handoff from Status cleanup index rows into the owning workspace.
 
+## v0.4.53 - Cleanup Index Keyboard Handoff
+
+Status: draft PR #115.
+
+Goal: make the Status cleanup index operate like a keyboard-driven OS console hub, not just a static checklist.
+
+- Cleanup shelves now carry their owning TUI workspace target.
+- Status cleanup index rows can be selected with `j/k` or arrow keys.
+- Pressing `enter` on a selected active cleanup shelf jumps to the owning workspace and logs the cleanup shortcut plus exact confirmation phrase.
+- Zero-count shelves remain visible for awareness but are skipped by selection and handoff.
+- Tests cover active-shelf selection, wraparound, empty-index behavior, selected row formatting, and target workspace metadata.
+- Next: add a focused Status cleanup detail pane that previews the exact cleanup command flow before jumping.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

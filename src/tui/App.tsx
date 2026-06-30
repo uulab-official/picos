@@ -160,6 +160,8 @@ import {
 	type CleanupShelfIndex,
 	createCleanupShelfIndex,
 	formatCleanupShelfIndexRows,
+	getSelectedCleanupShelf,
+	moveCleanupShelfSelection,
 } from "./cleanupIndex";
 import {
 	appendClipboardConfirmationInput,
@@ -393,6 +395,7 @@ export function App(): React.ReactElement {
 		useState<GitHubReleaseCheckResult>();
 	const [selectedUpdateHandoffIndex, setSelectedUpdateHandoffIndex] =
 		useState(0);
+	const [selectedCleanupShelfIndex, setSelectedCleanupShelfIndex] = useState(0);
 	const [handoffIndex, setHandoffIndex] = useState<HandoffIndex>({
 		baseDir: dirname(getConfigPath()),
 		items: [],
@@ -574,6 +577,15 @@ export function App(): React.ReactElement {
 			toolHistoryFilterPresets,
 		],
 	);
+
+	useEffect(() => {
+		setSelectedCleanupShelfIndex((index) =>
+			Math.min(
+				Math.max(index, 0),
+				Math.max(0, cleanupShelfIndex.activeShelves - 1),
+			),
+		);
+	}, [cleanupShelfIndex.activeShelves]);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
@@ -3057,6 +3069,67 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (
+			screen === "status" &&
+			focusArea === "workspaces" &&
+			(key.downArrow || input === "j")
+		) {
+			if (cleanupShelfIndex.activeShelves === 0) {
+				log("warn", "no cleanup shelves with saved items");
+				return;
+			}
+			setSelectedCleanupShelfIndex((index) => {
+				const next = moveCleanupShelfSelection(
+					cleanupShelfIndex,
+					index,
+					"next",
+				);
+				const shelf = getSelectedCleanupShelf(cleanupShelfIndex, next);
+				log("info", `cleanup shelf selected ${shelf?.label ?? next + 1}`);
+				return next;
+			});
+			return;
+		}
+
+		if (
+			screen === "status" &&
+			focusArea === "workspaces" &&
+			(key.upArrow || input === "k")
+		) {
+			if (cleanupShelfIndex.activeShelves === 0) {
+				log("warn", "no cleanup shelves with saved items");
+				return;
+			}
+			setSelectedCleanupShelfIndex((index) => {
+				const next = moveCleanupShelfSelection(
+					cleanupShelfIndex,
+					index,
+					"previous",
+				);
+				const shelf = getSelectedCleanupShelf(cleanupShelfIndex, next);
+				log("info", `cleanup shelf selected ${shelf?.label ?? next + 1}`);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "\r") {
+			const shelf = getSelectedCleanupShelf(
+				cleanupShelfIndex,
+				selectedCleanupShelfIndex,
+			);
+			if (!shelf) {
+				log("warn", "no cleanup shelf selected");
+				return;
+			}
+			setScreen(shelf.screen);
+			log(
+				"info",
+				`cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
+			);
+			return;
+		}
+
 		if (screen === "status" && focusArea === "workspaces" && input === "H") {
 			void refreshHandoffIndex();
 			return;
@@ -4093,6 +4166,7 @@ export function App(): React.ReactElement {
 					toolHistoryDetailView={toolHistoryDetailView}
 					toolCopyPreview={toolCopyPreview}
 					cleanupShelfIndex={cleanupShelfIndex}
+					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
 					selectedHandoffIndex={selectedHandoffIndex}
@@ -4282,6 +4356,7 @@ function MainWorkspace({
 	toolHistoryDetailView,
 	toolCopyPreview,
 	cleanupShelfIndex,
+	selectedCleanupShelfIndex,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
 	selectedHandoffIndex,
@@ -4373,6 +4448,7 @@ function MainWorkspace({
 	toolHistoryDetailView: ToolHistoryDetailView;
 	toolCopyPreview: ToolCopyPreviewMode;
 	cleanupShelfIndex: CleanupShelfIndex;
+	selectedCleanupShelfIndex: number;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
 	selectedHandoffIndex: number;
@@ -4473,6 +4549,7 @@ function MainWorkspace({
 					toolHistoryDetailView,
 					toolCopyPreview,
 					cleanupShelfIndex,
+					selectedCleanupShelfIndex,
 					selectedUpdateHandoffIndex,
 					handoffIndex,
 					selectedHandoffIndex,
@@ -4568,6 +4645,7 @@ function renderWorkspace(
 	toolHistoryDetailView: ToolHistoryDetailView,
 	toolCopyPreview: ToolCopyPreviewMode,
 	cleanupShelfIndex: CleanupShelfIndex,
+	selectedCleanupShelfIndex: number,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
 	selectedHandoffIndex: number,
@@ -4793,6 +4871,7 @@ function renderWorkspace(
 				externalOpenPlan={externalOpenPlan}
 				fileOpenPlan={fileOpenPlan}
 				cleanupShelfIndex={cleanupShelfIndex}
+				selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 				commandLine={commandLine}
 				t={t}
 			/>
@@ -6568,6 +6647,7 @@ function StatusWorkspace({
 	externalOpenPlan,
 	fileOpenPlan,
 	cleanupShelfIndex,
+	selectedCleanupShelfIndex,
 	commandLine,
 	t,
 }: {
@@ -6579,6 +6659,7 @@ function StatusWorkspace({
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
 	cleanupShelfIndex: CleanupShelfIndex;
+	selectedCleanupShelfIndex: number;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -6731,17 +6812,23 @@ function StatusWorkspace({
 			) : null}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
-					CLEANUP INDEX · jump to workspace then type shown phrase
+					CLEANUP INDEX · j/k select · enter jump · type shown phrase
 				</Text>
-				{formatCleanupShelfIndexRows(cleanupShelfIndex, 8).map((row) => (
+				{formatCleanupShelfIndexRows(
+					cleanupShelfIndex,
+					8,
+					selectedCleanupShelfIndex,
+				).map((row) => (
 					<Text
 						key={row}
 						color={
-							row.startsWith("CLEANUP INDEX")
-								? "cyan"
-								: row.includes("count=0") || row.startsWith("no ")
-									? "gray"
-									: "white"
+							row.startsWith(">")
+								? "yellow"
+								: row.startsWith("CLEANUP INDEX")
+									? "cyan"
+									: row.includes("count=0") || row.startsWith("no ")
+										? "gray"
+										: "white"
 						}
 					>
 						{row}
