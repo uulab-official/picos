@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { ConsoleEvent } from "../src/tui/events";
 import {
+	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
 	nextTimelineFilter,
+	nextTimelineSearchPreset,
+	saveTimelineSearchPreset,
 	type TimelineFilter,
 } from "../src/tui/timelinePanel";
 
@@ -67,7 +70,7 @@ describe("timeline TUI panel formatting", () => {
 			"[12:00:03] WARN audit  clipboard locked selected port via xclip",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
 			"[12:00:05] INFO raw    raw.view queued for adapter implementation",
-			"FILTERS t cycle · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
 		]);
 	});
 
@@ -76,7 +79,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/6 network=1 audit=1 action=3 raw=1 filter=audit",
 			"TIMELINE",
 			"[12:00:03] WARN audit  clipboard locked selected port via xclip",
-			"FILTERS t cycle · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
 		]);
 	});
 
@@ -85,7 +88,35 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/6 network=1 audit=1 action=3 raw=1 filter=network",
 			"TIMELINE",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
-			"FILTERS t cycle · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
 		]);
+	});
+
+	test("searches timeline events and keeps preset helpers stable", () => {
+		expect(
+			filterTimelineEvents(events, "clipboard").map((event) => event.id),
+		).toEqual(["12:00:03-warn-clipboard"]);
+		expect(
+			formatTimelineWorkspaceRows(events, 5, "all", {
+				query: "network",
+				presets: ["network", "clipboard"],
+			}),
+		).toEqual([
+			"SUMMARY events=2/6 network=1 audit=0 action=1 raw=0 filter=all search=network presets=network|clipboard",
+			"TIMELINE",
+			"[12:00:01] RUN  action network.inspect started",
+			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
+			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+		]);
+		expect(saveTimelineSearchPreset([], " network ")).toEqual(["network"]);
+		expect(saveTimelineSearchPreset(["audit", "network"], "audit")).toEqual([
+			"audit",
+			"network",
+		]);
+		expect(nextTimelineSearchPreset(["network", "audit"], "")).toBe("network");
+		expect(nextTimelineSearchPreset(["network", "audit"], "network")).toBe(
+			"audit",
+		);
+		expect(nextTimelineSearchPreset([], "network")).toBeUndefined();
 	});
 });
