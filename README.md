@@ -153,7 +153,7 @@ Every future write/destructive action must define:
 - adapter-owned OS commands
 - tests for default locked behavior
 
-Clipboard writes follow the same rule: platform adapters exist for `pbcopy`, `xclip`, and `clip.exe`, and confirmed plans execute through `safeExec()` stdin so copy text is never interpolated into a shell command. In the TUI, endpoint and process-resource copy actions open a `:clipboard` confirmation prompt and log the resulting audit event.
+Clipboard writes follow the same rule: platform adapters exist for `pbcopy`, `xclip`, and `clip.exe`, and confirmed plans execute through `safeExec()` stdin so copy text is never interpolated into a shell command. In the TUI, endpoint and process-resource copy actions open a `:clipboard` confirmation prompt and log the resulting audit event. The `timeline.export` action writes the current console audit log under the picos config directory.
 
 All OS command execution must go through `src/utils/safeExec.ts`; OS-specific commands belong in `src/adapters`.
 

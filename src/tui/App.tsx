@@ -8,6 +8,10 @@ import {
 	getActionSummary,
 	type PicosAction,
 } from "../core/actions";
+import {
+	createConsoleAuditExportPlan,
+	writeConsoleAuditExport,
+} from "../core/auditLog";
 import { runPing } from "../core/command";
 import {
 	type ConnectionSort,
@@ -714,6 +718,14 @@ export function App(): React.ReactElement {
 					log("info", "route destination prompt opened");
 				}
 
+				if (action.id === "timeline.export") {
+					const plan = createConsoleAuditExportPlan(events, {
+						baseDir: dirname(getConfigPath()),
+					});
+					const written = await writeConsoleAuditExport(plan);
+					log("ok", `audit exported ${written.path}`);
+				}
+
 				if (
 					action.id === "network.connect" ||
 					action.id === "process.inspect" ||
@@ -722,7 +734,6 @@ export function App(): React.ReactElement {
 					action.id === "tools.whois" ||
 					action.id === "tools.ipInfo" ||
 					action.id === "tools.tls" ||
-					action.id === "timeline.export" ||
 					action.id === "raw.view" ||
 					action.id === "remote.sftp.connect"
 				) {
@@ -751,7 +762,7 @@ export function App(): React.ReactElement {
 				setCommandStatus("idle");
 			}
 		},
-		[fileRoot, log, refresh, refreshFiles],
+		[events, fileRoot, log, refresh, refreshFiles],
 	);
 
 	useEffect(() => {
