@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -25,6 +25,8 @@ import {
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
+	parseCleanupHandoffHistoryExport,
+	readLatestCleanupHandoffHistoryExport,
 	writeCleanupHandoffHistoryExport,
 } from "../src/tui/cleanupIndex";
 
@@ -518,6 +520,91 @@ describe("cleanup shelf index", () => {
 
 			expect(written).toEqual(plan);
 			expect(await readFile(written.path, "utf8")).toContain("Port filters");
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("parses cleanup handoff exports into timeline events", () => {
+		expect(
+			parseCleanupHandoffHistoryExport(
+				[
+					"# picos cleanup handoff history",
+					"generatedAt=2026-07-01T01:00:00.000Z",
+					"scope=all",
+					"entries=1",
+					"",
+					"## Route filters",
+					"outcome=dismissed",
+					"workspace=Routes screen=routes shortcut=D",
+					"confirm=clear routes count=1 detail=filters=1",
+					"",
+				].join("\n"),
+			),
+		).toEqual([
+			{
+				id: "persisted-cleanup-01:00:00-info-route-filters-dismissed",
+				level: "info",
+				time: "01:00:00",
+				message:
+					"cleanup history dismissed Route filters workspace=Routes screen=routes shortcut=D confirm=clear routes count=1 detail=filters=1",
+			},
+		]);
+	});
+
+	test("reads the latest cleanup handoff export from the config cleanup directory", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-cleanup-read-"));
+		try {
+			const cleanupDir = join(root, "cleanup");
+			await mkdir(cleanupDir, { recursive: true });
+			await writeFile(
+				join(cleanupDir, "picos-cleanup-all-2026-06-30T030000000Z.md"),
+				[
+					"# picos cleanup handoff history",
+					"generatedAt=2026-06-30T03:00:00.000Z",
+					"scope=all",
+					"entries=1",
+					"",
+					"## Old filters",
+					"outcome=dismissed",
+					"workspace=Routes screen=routes shortcut=D",
+					"confirm=clear routes count=1 detail=filters=1",
+					"",
+				].join("\n"),
+				"utf8",
+			);
+			await writeFile(
+				join(cleanupDir, "picos-cleanup-all-2026-07-01T010000000Z.md"),
+				[
+					"# picos cleanup handoff history",
+					"generatedAt=2026-07-01T01:00:00.000Z",
+					"scope=all",
+					"entries=1",
+					"",
+					"## Port filters",
+					"outcome=prompt-opened",
+					"workspace=Ports screen=ports shortcut=D",
+					"confirm=clear ports count=1 detail=filters=1",
+					"",
+				].join("\n"),
+				"utf8",
+			);
+
+			expect(await readLatestCleanupHandoffHistoryExport(root)).toEqual({
+				path: join(cleanupDir, "picos-cleanup-all-2026-07-01T010000000Z.md"),
+				events: [
+					{
+						id: "persisted-cleanup-01:00:00-info-port-filters-prompt-opened",
+						level: "info",
+						time: "01:00:00",
+						message:
+							"cleanup history prompt-opened Port filters workspace=Ports screen=ports shortcut=D confirm=clear ports count=1 detail=filters=1",
+					},
+				],
+			});
+			expect(
+				await readLatestCleanupHandoffHistoryExport(join(root, "missing")),
+			).toBeUndefined();
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
