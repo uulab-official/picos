@@ -182,6 +182,20 @@ describe("route TUI panel formatting", () => {
 		).toBe("SUMMARY routes=1/2 presets=utun|default|link command=netstat -rn");
 	});
 
+	test("formats selected route preset shelf controls for config focus", () => {
+		expect(
+			formatRouteWorkspaceRows(fixture, 8, {
+				filter: "utun",
+				presets: ["utun", "default"],
+				shelfFocus: true,
+			}).slice(1, 4),
+		).toEqual([
+			"SHELF CONTROL routes.filters",
+			"> current=utun next=default saved=2",
+			"enter=cycle route filter presets  ]=cycle P=save D=cleanup",
+		]);
+	});
+
 	test("creates route clipboard previews for table raw and path views", () => {
 		expect(
 			getRouteClipboardPreview(fixture, {

@@ -92,6 +92,36 @@ describe("endpoint TUI panel formatting", () => {
 		);
 	});
 
+	test("formats selected endpoint preset shelf controls for config focus", () => {
+		const result = {
+			command: "netstat",
+			args: ["-an"],
+			connections: [
+				{
+					protocol: "tcp4",
+					localAddress: "192.168.0.20",
+					localPort: "61000",
+					remoteAddress: "142.250.207.14",
+					remotePort: "443",
+					state: "SYN_SENT",
+				},
+			],
+			rawOutput: "$ netstat -an\nraw",
+		};
+
+		expect(
+			formatConnectionsWorkspaceRows(result, 8, {
+				filter: "443",
+				presets: ["443", "node"],
+				shelfFocus: true,
+			}).slice(1, 4),
+		).toEqual([
+			"SHELF CONTROL connections.filters",
+			"> current=443 next=node saved=2",
+			"enter=cycle connection filter presets  ]=cycle P=save D=cleanup",
+		]);
+	});
+
 	test("saves and cycles endpoint search presets", () => {
 		expect(saveEndpointFilterPreset([], " 443 ")).toEqual(["443"]);
 		expect(saveEndpointFilterPreset(["node", "443"], "node")).toEqual([
