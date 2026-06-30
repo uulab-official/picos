@@ -94,6 +94,11 @@ import type {
 	SftpRemoteProfile,
 	SystemInventory,
 } from "../core/types";
+import {
+	checkForPackageUpdate,
+	formatUpdateCheckRows,
+	type PackageUpdateCheckResult,
+} from "../core/updateCheck";
 import { VERSION } from "../core/version";
 import { createTranslator } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
@@ -267,6 +272,8 @@ export function App(): React.ReactElement {
 		useState<ControlExecutionPlan>();
 	const [controlExecutionPolicy, setControlExecutionPolicy] =
 		useState<ControlExecutionPolicy>(defaultControlExecutionPolicy);
+	const [updateCheckResult, setUpdateCheckResult] =
+		useState<PackageUpdateCheckResult>();
 	const [events, setEvents] = useState<ConsoleEvent[]>([
 		createEvent("info", "picos console booted"),
 		createEvent("info", "write actions locked by policy"),
@@ -1150,6 +1157,18 @@ export function App(): React.ReactElement {
 
 				if (action.id === "tools.export") {
 					await exportToolHistory("all");
+				}
+
+				if (action.id === "picos.update") {
+					const result = await checkForPackageUpdate({
+						packageName: "@uulab/picos",
+						currentVersion: VERSION,
+					});
+					setUpdateCheckResult(result);
+					setScreen("status");
+					for (const row of formatUpdateCheckRows(result)) {
+						log(result.status === "unknown" ? "warn" : "info", row);
+					}
 				}
 
 				if (
@@ -2173,6 +2192,7 @@ export function App(): React.ReactElement {
 					actionSimulation={actionSimulation}
 					actionExecutionPlan={actionExecutionPlan}
 					controlExecutionPolicy={controlExecutionPolicy}
+					updateCheckResult={updateCheckResult}
 					palette={palette}
 					focusArea={focusArea}
 					doctorChecks={doctorChecks}
@@ -2340,6 +2360,7 @@ function MainWorkspace({
 	actionSimulation,
 	actionExecutionPlan,
 	controlExecutionPolicy,
+	updateCheckResult,
 	palette,
 	focusArea,
 	doctorChecks,
@@ -2409,6 +2430,7 @@ function MainWorkspace({
 	actionSimulation?: ActionControlSimulation;
 	actionExecutionPlan?: ControlExecutionPlan;
 	controlExecutionPolicy: ControlExecutionPolicy;
+	updateCheckResult?: PackageUpdateCheckResult;
 	palette: CommandPaletteState;
 	focusArea: FocusArea;
 	doctorChecks: DoctorCheck[];
@@ -2487,6 +2509,7 @@ function MainWorkspace({
 					actionSimulation,
 					actionExecutionPlan,
 					controlExecutionPolicy,
+					updateCheckResult,
 					palette,
 					focusArea,
 					doctorChecks,
@@ -2560,6 +2583,7 @@ function renderWorkspace(
 	actionSimulation: ActionControlSimulation | undefined,
 	actionExecutionPlan: ControlExecutionPlan | undefined,
 	controlExecutionPolicy: ControlExecutionPolicy,
+	updateCheckResult: PackageUpdateCheckResult | undefined,
 	palette: CommandPaletteState,
 	focusArea: FocusArea,
 	doctorChecks: DoctorCheck[],
@@ -2818,7 +2842,7 @@ function renderWorkspace(
 		);
 	}
 	if (screen === "status") {
-		return <StatusWorkspace t={t} />;
+		return <StatusWorkspace updateCheckResult={updateCheckResult} t={t} />;
 	}
 	if (screen === "logs") {
 		return <LogWorkspace checks={doctorChecks} />;
@@ -4362,8 +4386,10 @@ function CommandPaletteWorkspace({
 }
 
 function StatusWorkspace({
+	updateCheckResult,
 	t,
 }: {
+	updateCheckResult?: PackageUpdateCheckResult;
 	t: (key: string) => string;
 }): React.ReactElement {
 	return (
@@ -4372,6 +4398,29 @@ function StatusWorkspace({
 			<Text>
 				{t("status.version")}: {VERSION}
 			</Text>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">UPDATE CHECK</Text>
+				{updateCheckResult ? (
+					formatUpdateCheckRows(updateCheckResult)
+						.slice(1)
+						.map((row) => (
+							<Text
+								key={row}
+								color={
+									row.includes("update-available")
+										? "yellow"
+										: row.startsWith("error=")
+											? "red"
+											: "white"
+								}
+							>
+								{row}
+							</Text>
+						))
+				) : (
+					<Text color="gray">Run picos.update or `picos update`.</Text>
+				)}
+			</Box>
 			<Text color="gray">{t("status.roadmap")}</Text>
 			<Box marginTop={1} flexDirection="column">
 				{getRoadmapItems().map((item) => (

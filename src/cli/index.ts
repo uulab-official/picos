@@ -24,6 +24,7 @@ import { processCommand } from "./commands/process";
 import { remoteCommand, remotesCommand } from "./commands/remotes";
 import { routeCommand, routesCommand } from "./commands/routes";
 import { toolsCommand } from "./commands/tools";
+import { updateCommand } from "./commands/update";
 
 export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	if (argv.length === 0) {
@@ -112,6 +113,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.option("--timeout <ms>", "Tool timeout in milliseconds")
 		.option("--raw", "Print raw tool output")
 		.action(toolsCommand);
+	cli
+		.command("update", "Check npm for a newer picos version")
+		.action(updateCommand);
 	cli.command("dns [action]", "Show DNS information").action(dnsCommand);
 	cli
 		.command("config [action] [key] [value]", "Show or update config")

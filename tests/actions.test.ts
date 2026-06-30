@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 32,
-			enabled: 22,
+			total: 33,
+			enabled: 23,
 			locked: 10,
 			elevated: 4,
 		});
@@ -66,6 +66,7 @@ describe("action catalog", () => {
 			"timeline.export",
 			"raw.view",
 			"tools.export",
+			"picos.update",
 			"remote.profiles",
 		]);
 	});
