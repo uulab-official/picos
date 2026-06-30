@@ -45,6 +45,7 @@ export function formatTimelineWorkspaceRows(
 	options: {
 		presets?: string[];
 		query?: string;
+		selectedIndex?: number;
 	} = {},
 ): string[] {
 	const query = options.query?.trim() ?? "";
@@ -64,6 +65,20 @@ export function formatTimelineWorkspaceRows(
 		formatTimelineEvent(event, kind),
 	);
 	const bodyRows = Math.max(0, visibleRows - 3);
+	const selectedIndex =
+		options.selectedIndex === undefined
+			? undefined
+			: getSelectedTimelineIndex(visible.length, options.selectedIndex);
+	const firstVisibleIndex = Math.max(0, eventRows.length - bodyRows);
+	const visibleEventRows = eventRows
+		.slice(firstVisibleIndex)
+		.map((row, index) =>
+			formatTimelineSelectionMarker(
+				row,
+				firstVisibleIndex + index,
+				selectedIndex,
+			),
+		);
 	return [
 		formatTimelineSummary(
 			query ? visible.map(({ event }) => event) : events,
@@ -72,12 +87,11 @@ export function formatTimelineWorkspaceRows(
 			filter,
 			query,
 			options.presets,
+			selectedIndex,
 		),
 		"TIMELINE",
-		...(eventRows.length
-			? eventRows.slice(Math.max(0, eventRows.length - bodyRows))
-			: ["no timeline events"]),
-		"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		...(visibleEventRows.length ? visibleEventRows : ["no timeline events"]),
+		"FILTERS t cycle · j/k select · c copy selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 	].slice(0, visibleRows);
 }
 
@@ -131,6 +145,17 @@ export function getSelectedTimelineClipboardPreview(
 			`eventId=${event.id}`,
 		],
 	});
+}
+
+export function moveTimelineSelection(
+	currentIndex: number,
+	delta: number,
+	length: number,
+): number {
+	if (length <= 0) {
+		return 0;
+	}
+	return (currentIndex + delta + length) % length;
 }
 
 export function saveTimelineSearchPreset(
@@ -234,6 +259,7 @@ function formatTimelineSummary(
 	filter: TimelineFilter,
 	query: string,
 	presets: string[] | undefined,
+	selectedIndex: number | undefined,
 ): string {
 	const counts = countedEvents.reduce(
 		(current, event) => {
@@ -253,6 +279,9 @@ function formatTimelineSummary(
 		`raw=${counts.raw}`,
 		`filter=${filter}`,
 		query ? `search=${query}` : "",
+		selectedIndex === undefined
+			? ""
+			: `selected=${selectedIndex + 1}/${visibleCount}`,
 		formatTimelinePresetSummary(presets),
 	]
 		.filter(Boolean)
@@ -309,6 +338,17 @@ function timelineSearchText(
 function formatTimelinePresetSummary(presets: string[] | undefined): string {
 	const visible = presets?.slice(0, 3).filter(Boolean) ?? [];
 	return visible.length ? `presets=${visible.join("|")}` : "";
+}
+
+function formatTimelineSelectionMarker(
+	row: string,
+	index: number,
+	selectedIndex: number | undefined,
+): string {
+	if (selectedIndex === undefined) {
+		return row;
+	}
+	return `${index === selectedIndex ? ">" : " "} ${row}`;
 }
 
 function countLabel(

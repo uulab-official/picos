@@ -321,6 +321,7 @@ import {
 	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
 	getSelectedTimelineClipboardPreview,
+	moveTimelineSelection,
 	nextTimelineFilter,
 	nextTimelineSearchPreset,
 	saveTimelineSearchPreset,
@@ -590,6 +591,7 @@ export function App(): React.ReactElement {
 		useState<ToolHistoryDetailView>("raw");
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [timelineSearchQuery, setTimelineSearchQuery] = useState("");
+	const [selectedTimelineIndex, setSelectedTimelineIndex] = useState(0);
 	const [timelineSearchPresets, setTimelineSearchPresets] = useState<string[]>(
 		[],
 	);
@@ -696,6 +698,18 @@ export function App(): React.ReactElement {
 			),
 		);
 	}, [cleanupShelfIndex.activeShelves]);
+	const visibleTimelineEvents = useMemo(
+		() => filterTimelineEvents(events, timelineSearchQuery, timelineFilter),
+		[events, timelineFilter, timelineSearchQuery],
+	);
+	useEffect(() => {
+		setSelectedTimelineIndex((index) =>
+			Math.min(
+				Math.max(index, 0),
+				Math.max(0, visibleTimelineEvents.length - 1),
+			),
+		);
+	}, [visibleTimelineEvents.length]);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
@@ -3855,10 +3869,33 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (
+			screen === "timeline" &&
+			focusArea === "workspaces" &&
+			(input === "j" || input === "k")
+		) {
+			if (visibleTimelineEvents.length === 0) {
+				log("warn", "no timeline row to select");
+				return;
+			}
+			const next = moveTimelineSelection(
+				selectedTimelineIndex,
+				input === "j" ? 1 : -1,
+				visibleTimelineEvents.length,
+			);
+			setSelectedTimelineIndex(next);
+			log(
+				"info",
+				`timeline selected ${next + 1}/${visibleTimelineEvents.length}`,
+			);
+			return;
+		}
+
 		if (screen === "timeline" && focusArea === "workspaces" && input === "c") {
 			const preview = getSelectedTimelineClipboardPreview(events, {
 				filter: timelineFilter,
 				query: timelineSearchQuery,
+				selectedIndex: selectedTimelineIndex,
 			});
 			if (!preview) {
 				log("warn", "no timeline row to copy");
@@ -4848,6 +4885,7 @@ export function App(): React.ReactElement {
 					routeCopyPreview={routeCopyPreview}
 					timelineFilter={timelineFilter}
 					timelineSearchQuery={timelineSearchQuery}
+					selectedTimelineIndex={selectedTimelineIndex}
 					timelineSearchPresets={timelineSearchPresets}
 					logSearchQuery={logSearchQuery}
 					logSearchPresets={logSearchPresets}
@@ -5052,6 +5090,7 @@ function MainWorkspace({
 	routeCopyPreview,
 	timelineFilter,
 	timelineSearchQuery,
+	selectedTimelineIndex,
 	timelineSearchPresets,
 	logSearchQuery,
 	logSearchPresets,
@@ -5155,6 +5194,7 @@ function MainWorkspace({
 	routeCopyPreview: boolean;
 	timelineFilter: TimelineFilter;
 	timelineSearchQuery: string;
+	selectedTimelineIndex: number;
 	timelineSearchPresets: string[];
 	logSearchQuery: string;
 	logSearchPresets: string[];
@@ -5311,6 +5351,7 @@ function MainWorkspace({
 						routeCopyPreview,
 						timelineFilter,
 						timelineSearchQuery,
+						selectedTimelineIndex,
 						timelineSearchPresets,
 						logSearchQuery,
 						logSearchPresets,
@@ -5419,6 +5460,7 @@ function renderWorkspace(
 	routeCopyPreview: boolean,
 	timelineFilter: TimelineFilter,
 	timelineSearchQuery: string,
+	selectedTimelineIndex: number,
 	timelineSearchPresets: string[],
 	logSearchQuery: string,
 	logSearchPresets: string[],
@@ -5644,6 +5686,7 @@ function renderWorkspace(
 				events={events}
 				filter={timelineFilter}
 				query={timelineSearchQuery}
+				selectedIndex={selectedTimelineIndex}
 				presets={timelineSearchPresets}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
@@ -7162,6 +7205,7 @@ function TimelineWorkspace({
 	events,
 	filter,
 	query,
+	selectedIndex,
 	presets,
 	commandLine,
 	visibleRows,
@@ -7170,6 +7214,7 @@ function TimelineWorkspace({
 	events: ConsoleEvent[];
 	filter: TimelineFilter;
 	query: string;
+	selectedIndex: number;
 	presets: string[];
 	commandLine: CommandLineState;
 	visibleRows: number;
@@ -7184,6 +7229,7 @@ function TimelineWorkspace({
 			{
 				presets,
 				query,
+				selectedIndex,
 			},
 		),
 		...promptRows,
@@ -7192,8 +7238,8 @@ function TimelineWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.timeline")}</Text>
 			<Text color="gray">
-				t filter · f search · c copy latest · P save · ] preset · D cleanup ·
-				timeline.export scoped log
+				t filter · j/k select · f search · c copy selected · P save · ] preset ·
+				D cleanup · timeline.export scoped log
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
