@@ -844,13 +844,16 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 
 ## v0.4.0 - Privileged Controls Framework
 
+Status: draft PR #62.
+
 Goal: prepare real OS mutation without making it casual or dangerous.
 
-- Preview/dry-run framework.
-- Confirmation phrase flow.
-- Admin/elevation detection by platform.
-- Audit log for write/destructive attempts.
-- First controlled mutation prototype.
+- Action Center now creates dry-run preview plans for locked OS-changing actions.
+- Previews include risk, privilege, platform, confirmation phrase, and lock reason.
+- Locked write/destructive/admin actions show preview rows instead of only logging a lock warning.
+- Inspector shows the active control preview beside the selected action.
+- No OS mutation command is executed by this framework step.
+- Next: adapter-owned dry-run command previews and audit records for write/destructive attempts.
 
 ## v0.5.0 - Developer Environment Plugins
 

@@ -4,6 +4,9 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getConfigPath, readConfig } from "../config/store";
 import {
+	type ActionPreviewPlan,
+	createActionPreviewPlan,
+	formatActionPreviewRows,
 	getActionCatalog,
 	getActionSummary,
 	type PicosAction,
@@ -233,6 +236,8 @@ export function App(): React.ReactElement {
 	const [inventory, setInventory] = useState<SystemInventory>();
 	const [doctorChecks, setDoctorChecks] = useState<DoctorCheck[]>([]);
 	const [selectedActionIndex, setSelectedActionIndex] = useState(0);
+	const [actionPreviewPlan, setActionPreviewPlan] =
+		useState<ActionPreviewPlan>();
 	const [events, setEvents] = useState<ConsoleEvent[]>([
 		createEvent("info", "picos console booted"),
 		createEvent("info", "write actions locked by policy"),
@@ -928,10 +933,14 @@ export function App(): React.ReactElement {
 	const runAction = useCallback(
 		async (action: PicosAction) => {
 			if (!action.enabled) {
-				log("warn", `${action.id} is locked`);
+				const preview = createActionPreviewPlan(action.id, currentPlatform());
+				setActionPreviewPlan(preview);
+				setScreen("actions");
+				log("warn", `${action.id} preview only`);
 				return;
 			}
 
+			setActionPreviewPlan(undefined);
 			setCommandStatus("running");
 			log("run", `${action.id} started`);
 
@@ -2018,6 +2027,7 @@ export function App(): React.ReactElement {
 					error={error}
 					actions={actions}
 					selectedActionIndex={selectedActionIndex}
+					actionPreviewPlan={actionPreviewPlan}
 					palette={palette}
 					focusArea={focusArea}
 					doctorChecks={doctorChecks}
@@ -2081,6 +2091,7 @@ export function App(): React.ReactElement {
 						screen={screen}
 						summary={summary}
 						selectedAction={selectedAction}
+						actionPreviewPlan={actionPreviewPlan}
 						events={events}
 						t={t}
 					/>
@@ -2177,6 +2188,7 @@ function MainWorkspace({
 	error,
 	actions,
 	selectedActionIndex,
+	actionPreviewPlan,
 	palette,
 	focusArea,
 	doctorChecks,
@@ -2242,6 +2254,7 @@ function MainWorkspace({
 	error?: string;
 	actions: PicosAction[];
 	selectedActionIndex: number;
+	actionPreviewPlan?: ActionPreviewPlan;
 	palette: CommandPaletteState;
 	focusArea: FocusArea;
 	doctorChecks: DoctorCheck[];
@@ -2316,6 +2329,7 @@ function MainWorkspace({
 					inventory,
 					actions,
 					selectedActionIndex,
+					actionPreviewPlan,
 					palette,
 					focusArea,
 					doctorChecks,
@@ -2385,6 +2399,7 @@ function renderWorkspace(
 	inventory: SystemInventory | undefined,
 	actions: PicosAction[],
 	selectedActionIndex: number,
+	actionPreviewPlan: ActionPreviewPlan | undefined,
 	palette: CommandPaletteState,
 	focusArea: FocusArea,
 	doctorChecks: DoctorCheck[],
@@ -2632,6 +2647,7 @@ function renderWorkspace(
 				actions={actions}
 				selectedIndex={selectedActionIndex}
 				focused={focusArea === "actions"}
+				previewPlan={actionPreviewPlan}
 				visibleRows={Math.max(3, height - 7)}
 				t={t}
 			/>
@@ -3944,16 +3960,20 @@ function ActionWorkspace({
 	actions,
 	selectedIndex,
 	focused,
+	previewPlan,
 	visibleRows,
 	t,
 }: {
 	actions: PicosAction[];
 	selectedIndex: number;
 	focused: boolean;
+	previewPlan?: ActionPreviewPlan;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const window = getVisibleWindow(actions.length, selectedIndex, visibleRows);
+	const previewRows = previewPlan ? formatActionPreviewRows(previewPlan) : [];
+	const actionRows = Math.max(3, visibleRows - previewRows.length - 1);
+	const window = getVisibleWindow(actions.length, selectedIndex, actionRows);
 	const visibleActions = actions.slice(window.start, window.end);
 	const hiddenAbove = window.start;
 	const hiddenBelow = actions.length - window.end;
@@ -3988,8 +4008,32 @@ function ActionWorkspace({
 			{hiddenBelow > 0 ? (
 				<Text color="gray">↓ {hiddenBelow} more actions</Text>
 			) : null}
+			{previewRows.length ? (
+				<Box marginTop={1} flexDirection="column">
+					{previewRows
+						.slice(0, Math.max(1, visibleRows - actionRows))
+						.map((row) => (
+							<Text key={row} color={getActionPreviewRowColor(row)}>
+								{row}
+							</Text>
+						))}
+				</Box>
+			) : null}
 		</Box>
 	);
+}
+
+function getActionPreviewRowColor(row: string): string {
+	if (row.startsWith("CONTROL PREVIEW")) {
+		return "cyan";
+	}
+	if (row.startsWith("blocked=") || row.includes("destructive")) {
+		return "yellow";
+	}
+	if (row.includes("admin")) {
+		return "magenta";
+	}
+	return "white";
 }
 
 function CommandPaletteWorkspace({
@@ -4102,6 +4146,7 @@ function Inspector({
 	screen,
 	summary,
 	selectedAction,
+	actionPreviewPlan,
 	events,
 	t,
 }: {
@@ -4109,9 +4154,13 @@ function Inspector({
 	screen: Screen;
 	summary?: NetworkSummary;
 	selectedAction: PicosAction;
+	actionPreviewPlan?: ActionPreviewPlan;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
+	const previewRows = actionPreviewPlan
+		? formatActionPreviewRows(actionPreviewPlan).slice(0, 5)
+		: [];
 	return (
 		<Box width={width} borderStyle="single" borderColor="gray" paddingX={1}>
 			<Box flexDirection="column">
@@ -4130,6 +4179,16 @@ function Inspector({
 					</Text>
 					<Text color="gray">{selectedAction.description}</Text>
 				</Box>
+				{previewRows.length ? (
+					<Box marginTop={1} flexDirection="column">
+						<Text color="gray">CONTROL PREVIEW</Text>
+						{previewRows.slice(1).map((row) => (
+							<Text key={row} color={getActionPreviewRowColor(row)}>
+								{row}
+							</Text>
+						))}
+					</Box>
+				) : null}
 				<Box marginTop={1} flexDirection="column">
 					<Text color="gray">NETWORK</Text>
 					<Text>IPv4: {summary?.primaryInterface?.ipv4 ?? "-"}</Text>
