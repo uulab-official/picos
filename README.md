@@ -132,7 +132,7 @@ Commands:
 - `picos ports --raw`: print raw listening-port command output.
 - `picos process <pid>`: inspect one local process with parent PID, user, state, CPU, memory, elapsed time, path, and command where the OS exposes them.
 - `picos process <pid> --files`: include current working directory and open file snapshot where available.
-- `picos update`: check npm registry metadata for the latest `@uulab/picos` version and print an install hint without running an installer; the TUI `picos.update` action also stages a locked apply preview when an update exists.
+- `picos update`: check npm registry metadata for the latest `@uulab/picos` version and print install, npm package, GitHub Release, and CHANGELOG handoff links without running an installer; the TUI `picos.update` action also stages a locked apply preview when an update exists.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
 - `picos remotes`: list configured remote file profiles without opening a network session.
 - `picos remote <id>`: inspect the remote provider boundary for a configured profile without opening a network session.

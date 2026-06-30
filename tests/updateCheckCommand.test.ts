@@ -23,5 +23,9 @@ describe("update CLI command", () => {
 		expect(writes.join("\n")).toContain(
 			"install=npm install -g @uulab/picos@0.3.0",
 		);
+		expect(writes.join("\n")).toContain("PICOS UPDATE RELEASE HANDOFF");
+		expect(writes.join("\n")).toContain(
+			"github=https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+		);
 	});
 });

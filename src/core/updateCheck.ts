@@ -24,6 +24,15 @@ export type UpdateApplyPreview = {
 	blockedReason: "confirmation-required";
 };
 
+export type UpdateReleaseHandoff = {
+	packageName: string;
+	currentVersion: string;
+	latestVersion: string;
+	npmUrl: string;
+	githubReleaseUrl: string;
+	changelogUrl: string;
+};
+
 export type PackageUpdateFetch = (
 	input: string | URL | Request,
 	init?: RequestInit,
@@ -126,6 +135,36 @@ export function formatUpdateApplyPreviewRows(
 		`confirm=${preview.confirmationPhrase}`,
 		`command=${[preview.command, ...preview.args].join(" ")}`,
 		`blocked=${preview.blockedReason}`,
+	];
+}
+
+export function createUpdateReleaseHandoff(
+	result: PackageUpdateCheckResult,
+): UpdateReleaseHandoff | undefined {
+	if (!result.latestVersion) {
+		return undefined;
+	}
+
+	return {
+		packageName: result.packageName,
+		currentVersion: result.currentVersion,
+		latestVersion: result.latestVersion,
+		npmUrl: `https://www.npmjs.com/package/${result.packageName}/v/${result.latestVersion}`,
+		githubReleaseUrl: `https://github.com/uulab-official/picos/releases/tag/v${result.latestVersion}`,
+		changelogUrl:
+			"https://github.com/uulab-official/picos/blob/main/CHANGELOG.md",
+	};
+}
+
+export function formatUpdateReleaseHandoffRows(
+	handoff: UpdateReleaseHandoff,
+): string[] {
+	return [
+		"PICOS UPDATE RELEASE HANDOFF",
+		`package=${handoff.packageName} current=${handoff.currentVersion} latest=${handoff.latestVersion}`,
+		`npm=${handoff.npmUrl}`,
+		`github=${handoff.githubReleaseUrl}`,
+		`changelog=${handoff.changelogUrl}`,
 	];
 }
 

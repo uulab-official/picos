@@ -976,6 +976,19 @@ Goal: make update application visible as an OS-style control while keeping packa
 - Action Center catalog includes `picos.update.apply` as a locked write action.
 - Next: release-note handoff and policy-gated dry-run execution for the npm dry-run command.
 
+## v0.4.10 - Update Release Handoff
+
+Status: draft PR #72.
+
+Goal: let operators inspect update context before deciding whether to apply anything.
+
+- Update checks can derive npm package, GitHub Release, and CHANGELOG handoff links for the latest version.
+- `picos update` prints release handoff rows after the read-only registry check.
+- Status workspace renders release handoff rows after `picos.update`.
+- Release handoff is only created when a latest version is known.
+- The apply path remains locked and preview-only.
+- Next: policy-gated dry-run execution for the npm dry-run command and copy/open helpers for handoff URLs.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
