@@ -20,6 +20,14 @@ import {
 	readLatestConsoleAuditExport,
 	writeConsoleAuditExport,
 } from "../src/core/auditLog";
+import type { FileOpenOrigin } from "../src/core/fileOpen";
+
+const timelineOrigin: FileOpenOrigin = {
+	kind: "config-shelf",
+	target: "logs",
+	label: "Logs",
+	scope: "logs.profiles",
+};
 
 describe("console audit export", () => {
 	test("formats console events as a durable audit log", () => {
@@ -120,6 +128,31 @@ describe("console audit export", () => {
 			scope: "filtered",
 			query: "network",
 		});
+	});
+
+	test("writes config-origin metadata into audit exports", () => {
+		const plan = createConsoleAuditExportPlan(
+			[
+				{
+					id: "12:00:00-info-logs",
+					level: "info",
+					time: "12:00:00",
+					message: "logs profile opened",
+				},
+			],
+			{
+				baseDir: "/Users/bonjin/.config/picos",
+				generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+				origin: timelineOrigin,
+				scope: "selected",
+			},
+		);
+
+		expect(plan.origin).toEqual(timelineOrigin);
+		expect(plan.content).toContain("originKind=config-shelf\n");
+		expect(plan.content).toContain("originTarget=logs\n");
+		expect(plan.content).toContain("originLabel=Logs\n");
+		expect(plan.content).toContain("originScope=logs.profiles\n");
 	});
 
 	test("writes audit export files and creates the audit directory", async () => {
@@ -243,6 +276,10 @@ describe("console audit export", () => {
 					"generatedAt=2026-07-01T03:00:00.000Z",
 					"scope=selected",
 					"query=control",
+					"originKind=config-shelf",
+					"originTarget=logs",
+					"originLabel=Logs",
+					"originScope=logs.profiles",
 					"events=1",
 					"",
 					"[12:00:06] WARN control preview dns.flush",
@@ -272,10 +309,11 @@ describe("console audit export", () => {
 				generatedAt: "2026-07-01T03:00:00.000Z",
 				query: "control",
 				scope: "selected",
+				origin: timelineOrigin,
 			});
 			expect(formatConsoleAuditExportIndexRows(index, 0, 4)).toEqual([
 				`AUDIT EXPORTS 2 base=${root}`,
-				"> selected events=1 2026-07-01T03:00:00.000Z query=control",
+				"> selected events=1 2026-07-01T03:00:00.000Z query=control origin=Config>Logs scope=logs.profiles",
 				"  filtered events=2 2026-07-01T02:00:00.000Z",
 				`path=${join(
 					root,

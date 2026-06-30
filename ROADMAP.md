@@ -2395,6 +2395,21 @@ Goal: persist Config shelf origin metadata into exported evidence files and reco
 - Tests cover route export metadata, endpoint export metadata, handoff index restoration, and Status row origin hints.
 - Next: extend the same durable origin metadata to Timeline and cleanup export indexes.
 
+## v0.4.117 - Timeline Cleanup Origin Indexes
+
+Status: draft PR #179 on `codex/picos-v0.4.117-export-origin-indexes`.
+
+Goal: keep Config shelf origin metadata durable across Timeline audit exports and cleanup history exports.
+
+- Timeline audit export plans now accept Config-origin metadata and write it into exported audit log files.
+- Timeline audit export indexes restore origin metadata and show Config source hints in Status rows.
+- Cleanup handoff history export plans now accept Config-origin metadata and write it into exported cleanup files.
+- Cleanup export indexes restore origin metadata and show Config source hints in Status rows.
+- Status locked file-open plans for Timeline, archived Timeline, and cleanup exports now prefer recovered index origin metadata before falling back to current Config landing state.
+- Timeline selected-row exports, Timeline scoped exports, and cleanup history exports snapshot the active Config shelf origin when available.
+- Tests cover audit export metadata, cleanup export metadata, index restoration, and Status row origin hints.
+- Next: add a compact origin detail pane in Status so selected evidence can show source, scope, path, and retention/archive controls together.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

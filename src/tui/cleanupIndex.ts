@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { AuditLogEvent } from "../core/auditLog";
+import type { FileOpenOrigin } from "../core/fileOpen";
 import type { LogProfile } from "./logPanel";
 import type { Screen } from "./navigation";
 import type { ToolRunActionId } from "./toolHistory";
@@ -88,6 +89,7 @@ export type CleanupHandoffHistoryExportPlan = {
 	path: string;
 	content: string;
 	itemCount: number;
+	origin?: FileOpenOrigin;
 	scope: CleanupHandoffHistoryExportScope;
 };
 
@@ -102,6 +104,7 @@ export type CleanupHandoffHistoryExportIndexItem = {
 	scope: CleanupHandoffHistoryExportScope;
 	entryCount: number;
 	generatedAt: string;
+	origin?: FileOpenOrigin;
 };
 
 export type CleanupHandoffHistoryExportIndex = {
@@ -439,6 +442,7 @@ export function formatCleanupHandoffHistoryExport(
 	histories: CleanupHandoffHistory[],
 	options: {
 		generatedAt?: string;
+		origin?: FileOpenOrigin;
 		scope: CleanupHandoffHistoryExportScope;
 		selectedIndex?: number;
 	},
@@ -453,6 +457,7 @@ export function formatCleanupHandoffHistoryExport(
 		"# picos cleanup handoff history",
 		`generatedAt=${generatedAt}`,
 		`scope=${options.scope}`,
+		...formatCleanupExportOriginMetadata(options.origin),
 		`entries=${items.length}`,
 		"",
 		...items.flatMap(formatCleanupHandoffHistoryExportItem),
@@ -465,6 +470,7 @@ export function createCleanupHandoffHistoryExportPlan(
 	options: {
 		baseDir: string;
 		generatedAt?: Date;
+		origin?: FileOpenOrigin;
 		scope: CleanupHandoffHistoryExportScope;
 	},
 ): CleanupHandoffHistoryExportPlan | undefined {
@@ -487,10 +493,12 @@ export function createCleanupHandoffHistoryExportPlan(
 		),
 		content: formatCleanupHandoffHistoryExport(items, {
 			generatedAt: iso,
+			origin: options.origin,
 			scope: options.scope,
 			selectedIndex: options.scope === "selected" ? 0 : selectedIndex,
 		}),
 		itemCount: items.length,
+		...(options.origin ? { origin: options.origin } : {}),
 		scope: options.scope,
 	};
 }
@@ -746,7 +754,10 @@ export function formatCleanupHandoffHistoryExportIndexRows(
 							item.scope.padEnd(8),
 							`entries=${item.entryCount}`,
 							item.generatedAt,
-						].join(" "),
+							formatCleanupExportOriginHint(item.origin),
+						]
+							.filter(Boolean)
+							.join(" "),
 					)
 			: ["no cleanup exports yet"]),
 		...pathRows,
@@ -782,7 +793,10 @@ export function formatCleanupHandoffHistoryExportArchiveIndexRows(
 							item.scope.padEnd(8),
 							`entries=${item.entryCount}`,
 							item.generatedAt,
-						].join(" "),
+							formatCleanupExportOriginHint(item.origin),
+						]
+							.filter(Boolean)
+							.join(" "),
 					)
 			: ["no archived cleanup exports yet"]),
 		...pathRows,
@@ -892,6 +906,8 @@ function createCleanupHandoffHistoryExportIndexItem(
 	content: string,
 ): CleanupHandoffHistoryExportIndexItem {
 	const lines = content.split(/\r?\n/);
+	const metadata = parseCleanupExportMetadata(content);
+	const origin = parseCleanupExportOriginMetadata(metadata);
 	return {
 		fileName,
 		path,
@@ -907,7 +923,61 @@ function createCleanupHandoffHistoryExportIndexItem(
 			lines
 				.find((line) => line.startsWith("generatedAt="))
 				?.replace("generatedAt=", "") ?? "",
+		...(origin ? { origin } : {}),
 	};
+}
+
+function formatCleanupExportOriginMetadata(
+	origin: FileOpenOrigin | undefined,
+): string[] {
+	if (!origin) {
+		return [];
+	}
+	return [
+		`originKind=${sanitizeCleanupExportMetadata(origin.kind)}`,
+		`originTarget=${sanitizeCleanupExportMetadata(origin.target)}`,
+		`originLabel=${sanitizeCleanupExportMetadata(origin.label)}`,
+		`originScope=${sanitizeCleanupExportMetadata(origin.scope)}`,
+	];
+}
+
+function parseCleanupExportMetadata(content: string): Record<string, string> {
+	const metadata: Record<string, string> = {};
+	for (const line of content.split(/\r?\n/).slice(0, 12)) {
+		const match = /^([A-Za-z][A-Za-z0-9]*)=(.*)$/.exec(line);
+		if (match) {
+			metadata[match[1]] = match[2] ?? "";
+		}
+	}
+	return metadata;
+}
+
+function parseCleanupExportOriginMetadata(
+	metadata: Record<string, string>,
+): FileOpenOrigin | undefined {
+	if (metadata.originKind !== "config-shelf") {
+		return undefined;
+	}
+	const { originTarget, originLabel, originScope } = metadata;
+	if (!originTarget || !originLabel || !originScope) {
+		return undefined;
+	}
+	return {
+		kind: "config-shelf",
+		target: originTarget,
+		label: originLabel,
+		scope: originScope,
+	};
+}
+
+function formatCleanupExportOriginHint(
+	origin: FileOpenOrigin | undefined,
+): string {
+	return origin ? `origin=Config>${origin.label} scope=${origin.scope}` : "";
+}
+
+function sanitizeCleanupExportMetadata(value: string): string {
+	return value.replaceAll(/\r?\n/g, " ").trim();
 }
 
 function isPicosCleanupHandoffHistoryExportFilename(fileName: string): boolean {
