@@ -354,10 +354,14 @@ export function formatToolsWorkspaceRows(
 				sectionClipboardRowIndex,
 			)
 		: undefined;
+	const copySectionPreview = latest
+		? formatToolSectionCopyPreview(latest, sectionClipboardSelection)
+		: undefined;
 	return [
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
+		...(copySectionPreview ? [copySectionPreview] : []),
 		...(copyTargetPreview ? [copyTargetPreview] : []),
 		`shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=${sectionClipboardSelection}${sectionRowSummary} · v copy section · c raw`,
 	].slice(0, visibleRows);
@@ -1174,6 +1178,17 @@ function formatToolSectionCopyTargetPreview(
 	}
 	const boundedRowIndex = Math.min(Math.max(rowIndex, 0), rows.length - 1);
 	return `copy target: section=${selection} rows=${rows.length} row=${boundedRowIndex + 1} text=${rows[boundedRowIndex]}`;
+}
+
+function formatToolSectionCopyPreview(
+	item: ToolHistoryItem,
+	selection: ToolSectionClipboardSelection,
+): string | undefined {
+	const rows = getToolSectionClipboardRows(item, selection);
+	if (rows.length <= 0) {
+		return undefined;
+	}
+	return `copy section: section=${selection} rows=${rows.length} first=${rows[0]}`;
 }
 
 function formatRawToolOutputRows(

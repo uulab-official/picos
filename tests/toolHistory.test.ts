@@ -1613,6 +1613,60 @@ describe("TUI tool history", () => {
 		);
 	});
 
+	test("formats a compact TCP section preview beside the row target", () => {
+		const tcpResult = {
+			title: "Telnet TCP Check",
+			sections: [
+				{
+					label: "Target",
+					lines: [
+						"Host: example.com",
+						"Port: 443",
+						"Command: picos tools telnet example.com 443",
+						"Timeout: 2000ms",
+					],
+				},
+				{ label: "Status", lines: ["OPEN", "Elapsed: 42ms"] },
+			],
+			rawOutput:
+				"$ picos tools telnet example.com 443\n[Target]\nHost: example.com\nPort: 443\nCommand: picos tools telnet example.com 443\nTimeout: 2000ms\n[Status]\nOPEN\nElapsed: 42ms",
+		};
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "telnet",
+					args: ["example.com", "443"],
+					label: "network.connect example.com:443",
+				},
+				result: tcpResult,
+			},
+			"12:00:00",
+		);
+		const rows = formatToolsWorkspaceRows(
+			history,
+			20,
+			0,
+			"",
+			"time",
+			"none",
+			[],
+			"raw",
+			[],
+			0,
+			"target",
+			2,
+		);
+
+		expect(rows.at(-3)).toBe(
+			"copy section: section=target rows=4 first=Host: example.com",
+		);
+		expect(rows.at(-2)).toBe(
+			"copy target: section=target rows=4 row=3 text=Command: picos tools telnet example.com 443",
+		);
+	});
+
 	test("creates scoped export plans for selected tool history", () => {
 		const history = appendToolHistory(
 			appendToolHistory(
