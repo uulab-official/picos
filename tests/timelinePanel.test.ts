@@ -32,9 +32,15 @@ const events: ConsoleEvent[] = [
 		message: "clipboard locked selected port via xclip",
 	},
 	{
-		id: "12:00:04-info-raw",
+		id: "12:00:04-info-network-public",
 		level: "info",
 		time: "12:00:04",
+		message: "network public ip 203.0.113.10 -> 203.0.113.11",
+	},
+	{
+		id: "12:00:04-info-raw",
+		level: "info",
+		time: "12:00:05",
 		message: "raw.view queued for adapter implementation",
 	},
 ];
@@ -48,27 +54,37 @@ describe("timeline TUI panel formatting", () => {
 			sequence.push(current);
 		}
 
-		expect(sequence).toEqual(["audit", "action", "raw", "all", "audit"]);
+		expect(sequence).toEqual(["network", "audit", "action", "raw", "all"]);
 	});
 
 	test("formats all timeline events with summary counters", () => {
-		expect(formatTimelineWorkspaceRows(events, 8, "all")).toEqual([
-			"SUMMARY events=5 audit=1 action=3 raw=1 filter=all",
+		expect(formatTimelineWorkspaceRows(events, 9, "all")).toEqual([
+			"SUMMARY events=6 network=1 audit=1 action=3 raw=1 filter=all",
 			"TIMELINE",
 			"[12:00:00] INFO action picos console booted",
 			"[12:00:01] RUN  action network.inspect started",
 			"[12:00:02] OK   action routes listed 8",
 			"[12:00:03] WARN audit  clipboard locked selected port via xclip",
-			"[12:00:04] INFO raw    raw.view queued for adapter implementation",
+			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
+			"[12:00:05] INFO raw    raw.view queued for adapter implementation",
 			"FILTERS t cycle · timeline.export writes audit file",
 		]);
 	});
 
 	test("filters audit events and keeps terminal height bounded", () => {
 		expect(formatTimelineWorkspaceRows(events, 4, "audit")).toEqual([
-			"SUMMARY events=1/5 audit=1 action=3 raw=1 filter=audit",
+			"SUMMARY events=1/6 network=1 audit=1 action=3 raw=1 filter=audit",
 			"TIMELINE",
 			"[12:00:03] WARN audit  clipboard locked selected port via xclip",
+			"FILTERS t cycle · timeline.export writes audit file",
+		]);
+	});
+
+	test("filters network state-change events separately from actions", () => {
+		expect(formatTimelineWorkspaceRows(events, 4, "network")).toEqual([
+			"SUMMARY events=1/6 network=1 audit=1 action=3 raw=1 filter=network",
+			"TIMELINE",
+			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
 			"FILTERS t cycle · timeline.export writes audit file",
 		]);
 	});

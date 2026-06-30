@@ -1,8 +1,14 @@
 import type { ConsoleEvent } from "./events";
 
-export type TimelineFilter = "all" | "audit" | "action" | "raw";
+export type TimelineFilter = "all" | "network" | "audit" | "action" | "raw";
 
-const timelineFilters: TimelineFilter[] = ["all", "audit", "action", "raw"];
+const timelineFilters: TimelineFilter[] = [
+	"all",
+	"network",
+	"audit",
+	"action",
+	"raw",
+];
 
 export function nextTimelineFilter(current: TimelineFilter): TimelineFilter {
 	const index = timelineFilters.indexOf(current);
@@ -45,13 +51,14 @@ function formatTimelineSummary(
 			current[classifyTimelineEvent(event)] += 1;
 			return current;
 		},
-		{ action: 0, audit: 0, raw: 0 } satisfies Record<
+		{ network: 0, action: 0, audit: 0, raw: 0 } satisfies Record<
 			Exclude<TimelineFilter, "all">,
 			number
 		>,
 	);
 	return [
 		`SUMMARY events=${countLabel(visibleCount, events.length, filter)}`,
+		`network=${counts.network}`,
 		`audit=${counts.audit}`,
 		`action=${counts.action}`,
 		`raw=${counts.raw}`,
@@ -73,6 +80,14 @@ function classifyTimelineEvent(
 	}
 	if (message.includes("raw.")) {
 		return "raw";
+	}
+	if (
+		message.startsWith("network status ") ||
+		message.startsWith("network primary ") ||
+		message.startsWith("network public ip ") ||
+		message.startsWith("network interface ")
+	) {
+		return "network";
 	}
 	return "action";
 }

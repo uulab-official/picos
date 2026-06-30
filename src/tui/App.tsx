@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getConfigPath, readConfig } from "../config/store";
 import {
 	getActionCatalog,
@@ -123,6 +123,7 @@ import {
 	type Screen,
 	screenOrder,
 } from "./navigation";
+import { createNetworkTimelineEvents } from "./networkTimeline";
 import {
 	appendCommandPaletteQuery,
 	backspaceCommandPaletteQuery,
@@ -173,6 +174,7 @@ export function App(): React.ReactElement {
 	const [screen, setScreen] = useState<Screen>("dashboard");
 	const [focusArea, setFocusArea] = useState<FocusArea>("workspaces");
 	const [summary, setSummary] = useState<NetworkSummary>();
+	const summaryRef = useRef<NetworkSummary | undefined>(undefined);
 	const [inventory, setInventory] = useState<SystemInventory>();
 	const [doctorChecks, setDoctorChecks] = useState<DoctorCheck[]>([]);
 	const [selectedActionIndex, setSelectedActionIndex] = useState(0);
@@ -636,7 +638,20 @@ export function App(): React.ReactElement {
 					getListeningPorts().catch(() => undefined),
 					runRouteTable().catch(() => undefined),
 				]);
+			const networkEvents = createNetworkTimelineEvents(
+				summaryRef.current,
+				nextSummary,
+			);
+			summaryRef.current = nextSummary;
 			setSummary(nextSummary);
+			if (networkEvents.length) {
+				setEvents((current) =>
+					networkEvents.reduce(
+						(nextEvents, event) => appendEvent(nextEvents, event),
+						current,
+					),
+				);
+			}
 			setInventory(await createSystemInventory({ network: nextSummary }));
 			if (nextConnections) {
 				setConnectionsResult(nextConnections);
