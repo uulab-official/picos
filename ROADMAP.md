@@ -2076,6 +2076,19 @@ Goal: let operators target older Timeline audit rows without changing filters or
 - Tests cover cursor rendering and wraparound movement.
 - Next: add a Timeline selected-row export helper for writing one audit row to the audit directory.
 
+## v0.4.93 - Timeline Selected Export
+
+Status: draft PR #155 on `codex/picos-v0.4.93-timeline-selected-export`.
+
+Goal: make the selected Timeline row portable as a one-event audit file without exporting the whole filtered scope.
+
+- Audit export plans now support `scope=selected` and write `picos-audit-selected-*.log`.
+- Timeline exposes a selected-row export helper that respects the active filter, search query, and visible cursor.
+- Timeline `e` writes the selected event to the picos audit directory and logs the result.
+- Timeline footer text advertises `e export selected` beside copy/search/export controls.
+- Tests cover selected-row export plan content, file path, query metadata, and cursor targeting.
+- Next: add a selected-row open/handoff index so exported Timeline evidence can be reopened from Status.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
