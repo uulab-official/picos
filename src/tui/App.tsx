@@ -245,6 +245,7 @@ import {
 	formatConfigManagedShelfCleanupBreadcrumbRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
+	formatConfigManagedShelfLockedDialogBreadcrumbRows,
 	formatConfigManagedShelfPromptBreadcrumbRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
@@ -6907,6 +6908,7 @@ function renderWorkspace(
 				selectedAuditExportArchiveIndex={selectedAuditExportArchiveIndex}
 				externalOpenPlan={externalOpenPlan}
 				fileOpenPlan={fileOpenPlan}
+				configShelfLandingTarget={configShelfLandingTarget}
 				auditExportArchivePlan={auditExportArchivePlan}
 				auditArchiveRetentionPlan={auditArchiveRetentionPlan}
 				cleanupExportArchivePlan={cleanupExportArchivePlan}
@@ -8654,9 +8656,11 @@ function formatExternalOpenPromptRows(
 function formatFileOpenPromptRows(
 	commandLine: CommandLineState,
 	plan: FileOpenPlan,
+	breadcrumbRows: string[] = [],
 ): string[] {
 	return commandLine.active && commandLine.prompt === "file-open"
 		? [
+				...breadcrumbRows,
 				`FILE OPEN CONFIRM ${plan.label}`,
 				`:file-open ${commandLine.value || " "}  type="${plan.confirmationPhrase}" enter=open esc=cancel`,
 			]
@@ -9080,6 +9084,7 @@ function StatusWorkspace({
 	selectedAuditExportArchiveIndex,
 	externalOpenPlan,
 	fileOpenPlan,
+	configShelfLandingTarget,
 	auditExportArchivePlan,
 	auditArchiveRetentionPlan,
 	cleanupExportArchivePlan,
@@ -9105,6 +9110,7 @@ function StatusWorkspace({
 	selectedAuditExportArchiveIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
+	configShelfLandingTarget?: ConfigManagedShelfTarget;
 	auditExportArchivePlan?: ConsoleAuditExportArchivePlan;
 	auditArchiveRetentionPlan?: ConsoleAuditArchiveRetentionPlan;
 	cleanupExportArchivePlan?: CleanupHandoffHistoryExportArchivePlan;
@@ -9266,8 +9272,20 @@ function StatusWorkspace({
 								{row}
 							</Text>
 						))}
-					{formatFileOpenPromptRows(commandLine, fileOpenPlan).map((row) => (
-						<Text key={row} color="yellow">
+					{formatFileOpenPromptRows(
+						commandLine,
+						fileOpenPlan,
+						configShelfLandingTarget
+							? formatConfigManagedShelfLockedDialogBreadcrumbRows(
+									configShelfLandingTarget,
+									"file-open",
+								)
+							: [],
+					).map((row) => (
+						<Text
+							key={row}
+							color={row.startsWith("CONFIG ORIGIN") ? "cyan" : "yellow"}
+						>
 							{row}
 						</Text>
 					))}
