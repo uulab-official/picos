@@ -28,6 +28,7 @@ describe("config schema", () => {
 			toolHistorySort: "time",
 			toolHistoryGroup: "none",
 			toolHistoryDetailView: "raw",
+			toolTargetPresets: [],
 		});
 	});
 
@@ -231,5 +232,50 @@ describe("config schema", () => {
 			toolHistoryGroup: "none",
 			toolHistoryDetailView: "raw",
 		});
+	});
+
+	test("normalizes persisted tool target presets", () => {
+		expect(
+			mergeConfig({
+				toolTargetPresets: [
+					{
+						id: " api ",
+						label: " API DNS ",
+						actionId: "tools.dns",
+						target: " api.example.com ",
+						hint: " production api ",
+					},
+					{
+						id: "bad",
+						actionId: "tools.bad",
+						target: "ignored",
+					},
+					{
+						id: "api-duplicate",
+						actionId: "tools.dns",
+						target: "api.example.com",
+					},
+					{
+						actionId: "network.connect",
+						target: "db.internal:5432",
+					},
+				],
+			}).toolTargetPresets,
+		).toEqual([
+			{
+				id: "api",
+				label: "API DNS",
+				actionId: "tools.dns",
+				target: "api.example.com",
+				hint: "production api",
+			},
+			{
+				id: "network-connect-db-internal-5432",
+				label: "network.connect db.internal:5432",
+				actionId: "network.connect",
+				target: "db.internal:5432",
+				hint: "custom target",
+			},
+		]);
 	});
 });

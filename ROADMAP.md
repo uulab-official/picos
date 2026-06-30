@@ -1342,6 +1342,19 @@ Goal: make the Tools Hub feel like a persistent OS console workspace instead of 
 - Tests cover config defaults, invalid preference fallback, config-store persistence, and existing Tools Hub rendering/navigation behavior.
 - Next: handoff file cleanup/archive controls and persisted Tools target presets.
 
+## v0.4.37 - Persistent Tools Target Presets
+
+Status: draft PR #99.
+
+Goal: let repeated diagnostics start from the operator's own saved targets, not only the current OS snapshot.
+
+- Config schema now includes `toolTargetPresets`.
+- Target presets are normalized, trimmed, de-duplicated by action and target, capped at eight entries, and invalid actions are dropped.
+- TUI boot restores saved target presets before OS-aware presets such as default host, gateway, DNS servers, public IP, HTTPS, and TLS.
+- Pressing `T` in Tools saves the active target preset to config; `n` cycles saved and OS-aware presets, and `R` runs the selected preset.
+- Tests cover config defaults, config-store persistence, target preset normalization, de-duplication, and custom preset merge order.
+- Next: handoff file cleanup/archive controls and richer custom target editing.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

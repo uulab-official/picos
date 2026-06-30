@@ -1,5 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import {
+	normalizeToolTargetPresets,
+	type ToolTargetPresetPreference,
+} from "../core/toolHistoryPreferences";
 import type { ToolId, ToolResult } from "../core/tools";
 import type { NetworkSummary } from "../core/types";
 import {
@@ -30,6 +34,8 @@ export type ToolTargetPreset = {
 	target: string;
 	hint: string;
 };
+
+export { normalizeToolTargetPresets };
 
 export type ToolHistoryItem = {
 	id: string;
@@ -145,9 +151,11 @@ export function createToolRunPlanFromPreset(
 export function getToolTargetPresets(
 	summary: NetworkSummary | undefined,
 	defaultTarget: string,
+	customPresets: ToolTargetPresetPreference[] = [],
 ): ToolTargetPreset[] {
 	const fallbackTarget = defaultTarget.trim() || "example.com";
 	const presets: ToolTargetPreset[] = [
+		...normalizeToolTargetPresets(customPresets),
 		{
 			id: "default-ping",
 			label: "Default ping",
@@ -276,7 +284,7 @@ export function formatToolsWorkspaceRows(
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · n target · R run · r rerun · y summary · c raw",
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · R run · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -385,6 +393,25 @@ export function saveToolHistoryPreset(
 		normalized,
 		...presets.filter((preset) => preset !== normalized),
 	].slice(0, limit);
+}
+
+export function saveToolTargetPreset(
+	presets: ToolTargetPreset[],
+	preset: ToolTargetPreset | undefined,
+	limit = 8,
+): ToolTargetPreset[] {
+	const [nextPreset] = normalizeToolTargetPresets(preset ? [preset] : []);
+	if (!nextPreset) {
+		return normalizeToolTargetPresets(presets).slice(0, limit);
+	}
+	return normalizeToolTargetPresets([
+		nextPreset,
+		...presets.filter(
+			(current) =>
+				`${current.actionId}:${current.target.trim()}` !==
+				`${nextPreset.actionId}:${nextPreset.target}`,
+		),
+	]).slice(0, limit);
 }
 
 export function nextToolHistoryPreset(
@@ -658,7 +685,7 @@ function formatToolTargetPresetRows(
 		presets.length - 1,
 	);
 	return [
-		"TARGET PRESETS n cycle · R run",
+		"TARGET PRESETS n cycle · T save · R run",
 		...presets.map(
 			(preset, index) =>
 				`${index === normalizedIndex ? ">" : " "} ${preset.label} ${preset.target} ${preset.hint}`,
