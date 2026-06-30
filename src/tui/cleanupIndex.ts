@@ -48,6 +48,12 @@ export type CleanupHandoffActionPlan = {
 	confirmationPhrase: string;
 };
 
+export type CleanupHandoffDismissPlan = {
+	label: string;
+	screen: Screen;
+	workspace: string;
+};
+
 export type CleanupShelfIndexInput = {
 	connectionFilterPresets?: string[];
 	customToolTargetPresets?: Array<{
@@ -258,6 +264,34 @@ export function formatCleanupHandoffActionRows(
 		"CLEANUP ACTION open prompt",
 		`enter opens ${plan.workspace} cleanup shortcut=${plan.shortcut}`,
 		`confirm=${plan.confirmationPhrase}`,
+	];
+}
+
+export function createCleanupHandoffDismissPlan(
+	audit: CleanupJumpAudit | undefined,
+	currentScreen: Screen,
+): CleanupHandoffDismissPlan | undefined {
+	if (!audit || audit.screen !== currentScreen) {
+		return undefined;
+	}
+
+	return {
+		label: audit.label,
+		screen: audit.screen,
+		workspace: audit.workspace,
+	};
+}
+
+export function formatCleanupHandoffDismissRows(
+	plan: CleanupHandoffDismissPlan | undefined,
+): string[] {
+	if (!plan) {
+		return [];
+	}
+
+	return [
+		"CLEANUP DISMISS esc clears handoff",
+		`normal ${plan.workspace} enter behavior resumes`,
 	];
 }
 

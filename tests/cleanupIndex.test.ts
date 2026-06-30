@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createCleanupHandoffActionPlan,
+	createCleanupHandoffDismissPlan,
 	createCleanupJumpAudit,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
+	formatCleanupHandoffDismissRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
@@ -240,5 +242,34 @@ describe("cleanup shelf index", () => {
 			"confirm=clear connections",
 		]);
 		expect(formatCleanupHandoffActionRows(undefined)).toEqual([]);
+	});
+
+	test("creates dismiss plans so handoffs can restore normal workspace controls", () => {
+		const index = createCleanupShelfIndex({
+			portFilterPresets: ["3000"],
+		});
+		const shelf = getSelectedCleanupShelf(index, 0);
+
+		if (!shelf) {
+			throw new Error("expected cleanup shelf");
+		}
+
+		const audit = createCleanupJumpAudit(shelf);
+		const plan = createCleanupHandoffDismissPlan(audit, "ports");
+
+		expect(plan).toEqual({
+			label: "Port filters",
+			screen: "ports",
+			workspace: "Ports",
+		});
+		expect(
+			createCleanupHandoffDismissPlan(audit, "connections"),
+		).toBeUndefined();
+		expect(createCleanupHandoffDismissPlan(undefined, "ports")).toBeUndefined();
+		expect(formatCleanupHandoffDismissRows(plan)).toEqual([
+			"CLEANUP DISMISS esc clears handoff",
+			"normal Ports enter behavior resumes",
+		]);
+		expect(formatCleanupHandoffDismissRows(undefined)).toEqual([]);
 	});
 });

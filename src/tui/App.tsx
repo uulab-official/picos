@@ -160,9 +160,11 @@ import {
 	type CleanupJumpAudit,
 	type CleanupShelfIndex,
 	createCleanupHandoffActionPlan,
+	createCleanupHandoffDismissPlan,
 	createCleanupJumpAudit,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
+	formatCleanupHandoffDismissRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
@@ -2347,6 +2349,20 @@ export function App(): React.ReactElement {
 		return true;
 	}, [cleanupJumpAudit, log, screen]);
 
+	const dismissCleanupHandoff = useCallback(() => {
+		const plan = createCleanupHandoffDismissPlan(cleanupJumpAudit, screen);
+		if (!plan) {
+			return false;
+		}
+
+		setCleanupJumpAudit(undefined);
+		log(
+			"info",
+			`cleanup handoff dismissed ${plan.label}; normal ${plan.workspace} controls restored`,
+		);
+		return true;
+	}, [cleanupJumpAudit, log, screen]);
+
 	useInput((input, key) => {
 		if (commandLine.active) {
 			if (key.escape) {
@@ -2567,6 +2583,10 @@ export function App(): React.ReactElement {
 
 			setFileFilter((current) => appendFileFilterQuery(current, input));
 			setSelectedFileIndex(0);
+			return;
+		}
+
+		if (key.escape && dismissCleanupHandoff()) {
 			return;
 		}
 
@@ -4503,10 +4523,15 @@ function MainWorkspace({
 		cleanupJumpAudit,
 		screen,
 	);
+	const cleanupHandoffDismissPlan = createCleanupHandoffDismissPlan(
+		cleanupJumpAudit,
+		screen,
+	);
 	const cleanupJumpAuditRows = cleanupHandoffActionPlan
 		? [
 				...formatCleanupJumpAuditRows(cleanupJumpAudit),
 				...formatCleanupHandoffActionRows(cleanupHandoffActionPlan),
+				...formatCleanupHandoffDismissRows(cleanupHandoffDismissPlan),
 			]
 		: [];
 	const workspaceHeight =
@@ -4537,9 +4562,11 @@ function MainWorkspace({
 											? "cyan"
 											: row.startsWith("CLEANUP ACTION")
 												? "cyan"
-												: row.startsWith("confirm=")
-													? "yellow"
-													: "white"
+												: row.startsWith("CLEANUP DISMISS")
+													? "gray"
+													: row.startsWith("confirm=")
+														? "yellow"
+														: "white"
 									}
 								>
 									{row}
