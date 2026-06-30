@@ -257,7 +257,9 @@ Default config:
 	"remoteProfiles": [],
 	"logProfiles": [],
 	"logSearchPresets": [],
-	"routeFilterPresets": []
+	"routeFilterPresets": [],
+	"connectionFilterPresets": [],
+	"portFilterPresets": []
 }
 ```
 
@@ -307,6 +309,15 @@ Route filter presets are managed from the Routes workspace. Press `P` to persist
 ```json
 {
 	"routeFilterPresets": ["utun", "default", "link"]
+}
+```
+
+Endpoint filter presets are managed from the Connections and Ports workspaces with the same `P` save and `]` cycle controls:
+
+```json
+{
+	"connectionFilterPresets": ["443", "ESTABLISHED"],
+	"portFilterPresets": ["node", "3000"]
 }
 ```
 

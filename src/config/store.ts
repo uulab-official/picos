@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname } from "node:path";
+import { normalizeEndpointFilterPresets } from "../core/endpointPresets";
 import {
 	normalizeLogProfiles,
 	normalizeLogSearchPresets,
@@ -91,6 +92,22 @@ export async function setConfigRouteFilterPresets(
 	const next = {
 		...config,
 		routeFilterPresets: normalizeRouteFilterPresets(presets),
+	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigEndpointFilterPresets(
+	kind: "connections" | "ports",
+	presets: string[],
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const key =
+		kind === "connections" ? "connectionFilterPresets" : "portFilterPresets";
+	const next = {
+		...config,
+		[key]: normalizeEndpointFilterPresets(presets),
 	};
 	await writeConfig(next, path);
 	return next;

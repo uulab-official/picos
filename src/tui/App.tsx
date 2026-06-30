@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	getConfigPath,
 	readConfig,
+	setConfigEndpointFilterPresets,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
@@ -1712,6 +1713,8 @@ export function App(): React.ReactElement {
 			setLogProfiles(config.logProfiles);
 			setLogSearchPresets(config.logSearchPresets);
 			setRouteFilterPresets(config.routeFilterPresets);
+			setConnectionFilterPresets(config.connectionFilterPresets);
+			setPortFilterPresets(config.portFilterPresets);
 			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
@@ -2239,9 +2242,20 @@ export function App(): React.ReactElement {
 				log("warn", "no connections filter to save");
 				return;
 			}
-			setConnectionFilterPresets((current) =>
-				saveEndpointFilterPreset(current, connectionFilter),
-			);
+			setConnectionFilterPresets((current) => {
+				const next = saveEndpointFilterPreset(current, connectionFilter);
+				void setConfigEndpointFilterPresets("connections", next).catch(
+					(caught) =>
+						log(
+							"fail",
+							caught instanceof Error
+								? `connections preset save failed ${caught.message}`
+								: `connections preset save failed ${String(caught)}`,
+						),
+				);
+				return next;
+			});
+			setConnectionCopyPreview(false);
 			log("info", `connections preset saved ${connectionFilter}`);
 			return;
 		}
@@ -2251,9 +2265,19 @@ export function App(): React.ReactElement {
 				log("warn", "no ports filter to save");
 				return;
 			}
-			setPortFilterPresets((current) =>
-				saveEndpointFilterPreset(current, portFilter),
-			);
+			setPortFilterPresets((current) => {
+				const next = saveEndpointFilterPreset(current, portFilter);
+				void setConfigEndpointFilterPresets("ports", next).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `ports preset save failed ${caught.message}`
+							: `ports preset save failed ${String(caught)}`,
+					),
+				);
+				return next;
+			});
+			setPortCopyPreview(false);
 			log("info", `ports preset saved ${portFilter}`);
 			return;
 		}

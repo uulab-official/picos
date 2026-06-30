@@ -20,6 +20,8 @@ describe("config schema", () => {
 			logProfiles: [],
 			logSearchPresets: [],
 			routeFilterPresets: [],
+			connectionFilterPresets: [],
+			portFilterPresets: [],
 		});
 	});
 
@@ -122,5 +124,44 @@ describe("config schema", () => {
 				],
 			}).routeFilterPresets,
 		).toEqual(["utun", "default", "link", "ipv6", "vpn", "metric"]);
+	});
+
+	test("normalizes persisted endpoint filter presets", () => {
+		expect(
+			mergeConfig({
+				connectionFilterPresets: [
+					" 443 ",
+					"",
+					"node",
+					"443",
+					"ESTABLISHED",
+					"127.0.0.1",
+					"postgres",
+					"udp",
+					"ignored",
+				],
+				portFilterPresets: [
+					" node ",
+					"",
+					"3000",
+					"node",
+					"postgres",
+					"tcp",
+					"5432",
+					"listen",
+					"ignored",
+				],
+			}),
+		).toMatchObject({
+			connectionFilterPresets: [
+				"443",
+				"node",
+				"ESTABLISHED",
+				"127.0.0.1",
+				"postgres",
+				"udp",
+			],
+			portFilterPresets: ["node", "3000", "postgres", "tcp", "5432", "listen"],
+		});
 	});
 });

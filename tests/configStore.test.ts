@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	readConfig,
+	setConfigEndpointFilterPresets,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
@@ -87,5 +88,44 @@ describe("config store", () => {
 		expect(JSON.parse(raw).routeFilterPresets).toEqual(
 			config.routeFilterPresets,
 		);
+	});
+
+	test("persists normalized endpoint filter presets without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await setConfigEndpointFilterPresets(
+			"connections",
+			[" 443 ", "", "node", "443", "ESTABLISHED", "127.0.0.1", "pg", "udp"],
+			path,
+		);
+		await setConfigEndpointFilterPresets(
+			"ports",
+			[" node ", "", "3000", "node", "postgres", "tcp", "5432", "listen"],
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.connectionFilterPresets).toEqual([
+			"443",
+			"node",
+			"ESTABLISHED",
+			"127.0.0.1",
+			"pg",
+			"udp",
+		]);
+		expect(config.portFilterPresets).toEqual([
+			"node",
+			"3000",
+			"postgres",
+			"tcp",
+			"5432",
+			"listen",
+		]);
+		expect(config.theme).toBe("dark");
+
+		const raw = await readFile(path, "utf8");
+		expect(JSON.parse(raw).connectionFilterPresets).toEqual(
+			config.connectionFilterPresets,
+		);
+		expect(JSON.parse(raw).portFilterPresets).toEqual(config.portFilterPresets);
 	});
 });

@@ -112,6 +112,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Routes workspace can now export the active table/raw/diagnostics/path view to a timestamped handoff file with `e`.
 - Routes workspace can now prepare an external file-open preview for exported handoff files with `o`, locked behind exact `open` confirmation.
 - Connections and Ports workspaces can now export and open active raw/detail/process evidence handoff files with `e` and `o`.
+- Connections and Ports filter presets now persist in config, load on TUI boot, and are normalized before writing.
 - Release readiness policy, package publish metadata, and `bun run release:check` for pre-publish validation.
 - CI release readiness job and manual dry-run-first npm release workflow.
 - Version bump helper for dry-run planning and synchronized `package.json` / runtime `VERSION` updates.
