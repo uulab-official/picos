@@ -1,6 +1,8 @@
 import {
 	checkForPackageUpdate,
+	createUpdateReleaseHandoff,
 	formatUpdateCheckRows,
+	formatUpdateReleaseHandoffRows,
 	type PackageUpdateCheckOptions,
 } from "../../core/updateCheck";
 import { VERSION } from "../../core/version";
@@ -14,5 +16,11 @@ export async function updateCommand(
 		fetch: options.fetch,
 	});
 
-	console.log(formatUpdateCheckRows(result).join("\n"));
+	const handoff = createUpdateReleaseHandoff(result);
+	console.log(
+		[
+			...formatUpdateCheckRows(result),
+			...(handoff ? ["", ...formatUpdateReleaseHandoffRows(handoff)] : []),
+		].join("\n"),
+	);
 }

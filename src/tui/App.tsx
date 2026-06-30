@@ -97,8 +97,10 @@ import type {
 import {
 	checkForPackageUpdate,
 	createUpdateApplyPreview,
+	createUpdateReleaseHandoff,
 	formatUpdateApplyPreviewRows,
 	formatUpdateCheckRows,
+	formatUpdateReleaseHandoffRows,
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
 import { VERSION } from "../core/version";
@@ -1175,6 +1177,12 @@ export function App(): React.ReactElement {
 					if (applyPreview) {
 						for (const row of formatUpdateApplyPreviewRows(applyPreview)) {
 							log("warn", row);
+						}
+					}
+					const releaseHandoff = createUpdateReleaseHandoff(result);
+					if (releaseHandoff) {
+						for (const row of formatUpdateReleaseHandoffRows(releaseHandoff)) {
+							log("info", row);
 						}
 					}
 				}
@@ -4404,6 +4412,9 @@ function StatusWorkspace({
 	const updateApplyPreview = updateCheckResult
 		? createUpdateApplyPreview(updateCheckResult)
 		: undefined;
+	const updateReleaseHandoff = updateCheckResult
+		? createUpdateReleaseHandoff(updateCheckResult)
+		: undefined;
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -4440,6 +4451,18 @@ function StatusWorkspace({
 						.slice(1)
 						.map((row) => (
 							<Text key={row} color={getActionPreviewRowColor(row)}>
+								{row}
+							</Text>
+						))}
+				</Box>
+			) : null}
+			{updateReleaseHandoff ? (
+				<Box marginTop={1} flexDirection="column">
+					<Text color="gray">RELEASE HANDOFF</Text>
+					{formatUpdateReleaseHandoffRows(updateReleaseHandoff)
+						.slice(1)
+						.map((row) => (
+							<Text key={row} color="cyan">
 								{row}
 							</Text>
 						))}
