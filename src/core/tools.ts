@@ -317,12 +317,23 @@ export async function runPortCheck(
 	runtime: ToolRuntime = {},
 	options: { commandId?: "port-check" | "telnet"; title?: string } = {},
 ): Promise<ToolResult> {
+	const commandId = options.commandId ?? "port-check";
 	const result = await runTcpConnect(host, port, {
 		timeoutMs: runtime.timeoutMs,
 		connect: runtime.connect,
 		now: runtime.now,
 	});
+	const timeoutMs = runtime.timeoutMs ?? 5000;
 	const sections = [
+		{
+			label: "Target",
+			lines: [
+				`Host: ${result.host}`,
+				`Port: ${result.port}`,
+				`Command: picos tools ${commandId} ${result.host} ${result.port}`,
+				`Timeout: ${timeoutMs}ms`,
+			],
+		},
 		{
 			label: "Status",
 			lines: [
@@ -336,7 +347,10 @@ export async function runPortCheck(
 	return {
 		title: options.title ?? "TCP Port Check",
 		sections,
-		rawOutput: `$ picos tools ${options.commandId ?? "port-check"} ${result.host} ${result.port}\n${sections[0].lines.join("\n")}`,
+		rawOutput: [
+			`$ picos tools ${commandId} ${result.host} ${result.port}`,
+			...sections.flatMap(sectionToRaw),
+		].join("\n"),
 	};
 }
 
