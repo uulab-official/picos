@@ -2050,6 +2050,19 @@ Goal: make Ports file evidence lookup gaps searchable after operators leave the 
 - Tests cover unavailable file evidence records in the Timeline audit filter.
 - Next: add a compact Timeline detail copy/export helper for selected audit rows.
 
+## v0.4.91 - Timeline Audit Copy Preview
+
+Status: draft PR #153 on `codex/picos-v0.4.91-timeline-audit-copy-preview`.
+
+Goal: make audit rows portable as operator evidence without bypassing clipboard confirmation.
+
+- Timeline now exposes a selected/latest event clipboard preview using the shared locked clipboard model.
+- Audit rows use the `timeline-audit` copy source and include filter plus event id details.
+- Timeline `c` opens a locked copy confirmation for the latest filtered/search-matched row.
+- General non-audit Timeline rows can share the same helper through the `timeline-event` source.
+- Tests cover audit-row clipboard preview text and metadata.
+- Next: add a visible Timeline cursor so copy/export can target older rows without changing filters.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
