@@ -1868,6 +1868,19 @@ Goal: keep TCP copy preview rows readable when command, host, or error text is l
 - Tests cover row preview truncation and bounded preview row length.
 - Next: add a compact copy-preview mode indicator so operators can see whether `b`, `v`, or `c` was last armed.
 
+## v0.4.77 - Tool Copy Mode Indicator
+
+Status: draft PR #139 on `codex/picos-v0.4.77-tool-copy-mode-indicator`.
+
+Goal: make the active Tools copy workflow visible before the exact clipboard confirmation is submitted.
+
+- Tools workspace now shows a compact `copy mode:` row when a copy preview is armed.
+- The indicator distinguishes `b` row copy, `v` TCP section copy, `c` raw output copy, and `y` summary copy without changing the clipboard payload.
+- TCP row mode includes the active section and row position, while TCP section mode includes the selected section and row count.
+- The indicator is colored with the existing clipboard preview styling in the TUI.
+- Tests cover raw, section, and row copy mode rows alongside the existing TCP preview rows.
+- Next: add a Tools copy help strip that groups `b`, `v`, `c`, and `y` with their current availability.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

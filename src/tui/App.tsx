@@ -355,6 +355,7 @@ import {
 	saveToolTargetPreset,
 	submitToolHistoryCleanupConfirmation,
 	submitToolTargetCleanupConfirmation,
+	type ToolCopyPreviewMode,
 	type ToolHistoryDetailView,
 	type ToolHistoryExportScope,
 	type ToolHistoryGroup,
@@ -366,12 +367,6 @@ import {
 } from "./toolHistory";
 
 type CommandStatus = "idle" | "running";
-type ToolCopyPreviewMode =
-	| "raw"
-	| "summary"
-	| ToolSectionClipboardSelection
-	| "row"
-	| false;
 
 const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
@@ -6733,6 +6728,7 @@ function ToolsWorkspace({
 		selectedTargetPresetIndex,
 		sectionClipboardSelection,
 		sectionClipboardRowIndex,
+		copyPreview,
 	);
 	const selectedPreview =
 		copyPreview === "summary"
@@ -6850,6 +6846,7 @@ function getToolRowColor(row: string): string {
 	}
 	if (
 		row.startsWith("CLIPBOARD PREVIEW") ||
+		row.startsWith("copy mode:") ||
 		row.startsWith(":history-cleanup") ||
 		row.startsWith("confirm ")
 	) {
