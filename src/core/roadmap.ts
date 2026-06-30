@@ -13,7 +13,7 @@ export function getRoadmapItems(): RoadmapItem[] {
 		{ label: "Keyboard-driven TUI shell", status: "active" },
 		{ label: "Action permission and confirmation model", status: "active" },
 		{ label: "OS-grade system inventory", status: "active" },
-		{ label: "Ping options and TCP connect tool", status: "active" },
+		{ label: "Ping, telnet alias, and TCP connect tool", status: "active" },
 		{
 			label: "Routes, ports, connections, timeline, and preset-aware tools",
 			status: "active",

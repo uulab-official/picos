@@ -71,6 +71,7 @@ picos info --full
 picos doctor
 picos ping google.com --count 4 --timeout 10000
 picos connect example.com 443
+picos telnet example.com 443
 picos tools dns example.com
 picos tools whois github.com
 picos tools ip-info 8.8.8.8
@@ -117,6 +118,7 @@ Commands:
 - `picos ping <host>`: run a safe ping test without shell interpolation.
 - `picos ping <host> --count <n> --timeout <ms>`: run ping with bounded count and timeout options.
 - `picos connect <host> <port>`: run a safe TCP connect reachability check.
+- `picos telnet <host> <port>`: alias the TCP connect check with a familiar telnet-style command name; this is non-interactive and does not open a shell session.
 - `picos tools`: list lazyifconfig-style Tools Hub commands.
 - `picos tools dns <target>`: resolve DNS records and reverse DNS.
 - `picos tools whois <target>`: read public RDAP registration metadata.
@@ -230,7 +232,7 @@ v0.2 expands picos toward an OS-like console:
 - System, hardware, storage, process, runtime, and permission inventory.
 - Network tools for ping, TCP connect, DNS, routes, ports, and connections.
 - Process drill-down for endpoint PIDs through `picos process <pid>`.
-- Telnet-like reachability is implemented as `picos connect`, a non-interactive TCP check, instead of an interactive telnet session.
+- Telnet-like reachability is available through `picos connect` and the `picos telnet` alias as non-interactive TCP checks instead of interactive shell sessions.
 - DOS-style file navigation and text editing are planned after the read-only inventory and network tool layer is stable.
 
 v0.3 starts that filesystem layer with local read-only file commands and a provider boundary for future editor and SFTP support.
