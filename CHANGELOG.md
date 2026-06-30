@@ -23,6 +23,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - TUI Connections and Ports workspaces now show clipped raw OS command output beside parsed endpoint rows.
 - Connections and Ports now support endpoint filtering and sorting in CLI, with TUI sort cycling.
 - Connections and Ports workspaces now support endpoint selection, detail rows, and safe copy previews.
+- Connections and Ports detail rows now enrich matching PIDs with process command, CPU, and memory snapshots.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.
