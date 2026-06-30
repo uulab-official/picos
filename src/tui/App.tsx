@@ -331,8 +331,8 @@ import {
 	formatToolsWorkspaceRows,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
+	getSelectedToolSectionClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
-	getSelectedToolTargetClipboardPreview,
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
@@ -342,6 +342,7 @@ import {
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
 	nextToolHistorySort,
+	nextToolSectionClipboardSelection,
 	promoteToolTargetPreset,
 	reassignToolTargetPresetAction,
 	removeToolTargetPreset,
@@ -357,12 +358,17 @@ import {
 	type ToolHistoryGroup,
 	type ToolHistoryItem,
 	type ToolHistorySort,
+	type ToolSectionClipboardSelection,
 	type ToolTargetPreset,
 	writeToolHistoryExport,
 } from "./toolHistory";
 
 type CommandStatus = "idle" | "running";
-type ToolCopyPreviewMode = "raw" | "summary" | "target" | false;
+type ToolCopyPreviewMode =
+	| "raw"
+	| "summary"
+	| ToolSectionClipboardSelection
+	| false;
 
 const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
@@ -553,6 +559,8 @@ export function App(): React.ReactElement {
 	const [toolTargetPresetLimit, setToolTargetPresetLimit] = useState(8);
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
+	const [toolSectionClipboardSelection, setToolSectionClipboardSelection] =
+		useState<ToolSectionClipboardSelection>("target");
 	const [toolHistoryFilter, setToolHistoryFilter] = useState("");
 	const [toolHistoryFilterPresets, setToolHistoryFilterPresets] = useState<
 		string[]
@@ -4341,6 +4349,16 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "V") {
+			setToolSectionClipboardSelection((current) => {
+				const next = nextToolSectionClipboardSelection(current);
+				log("info", `tools copy section ${next}`);
+				return next;
+			});
+			setToolCopyPreview(false);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "v") {
 			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
 				toolHistory,
@@ -4348,15 +4366,16 @@ export function App(): React.ReactElement {
 				toolHistoryFilter,
 				toolHistorySort,
 			);
-			const preview = getSelectedToolTargetClipboardPreview(
+			const preview = getSelectedToolSectionClipboardPreview(
 				toolHistory,
 				visibleToolHistoryIndex,
+				toolSectionClipboardSelection,
 			);
 			if (!preview) {
-				log("warn", "no tool target fields selected");
+				log("warn", `no tool ${toolSectionClipboardSelection} fields selected`);
 				return;
 			}
-			setToolCopyPreview("target");
+			setToolCopyPreview(toolSectionClipboardSelection);
 			openClipboardConfirmation(preview);
 			return;
 		}
@@ -4610,6 +4629,7 @@ export function App(): React.ReactElement {
 					toolHistoryGroup={toolHistoryGroup}
 					toolHistoryDetailView={toolHistoryDetailView}
 					toolCopyPreview={toolCopyPreview}
+					toolSectionClipboardSelection={toolSectionClipboardSelection}
 					cleanupShelfIndex={cleanupShelfIndex}
 					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 					cleanupJumpAudit={cleanupJumpAudit}
@@ -4810,6 +4830,7 @@ function MainWorkspace({
 	toolHistoryGroup,
 	toolHistoryDetailView,
 	toolCopyPreview,
+	toolSectionClipboardSelection,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
 	cleanupJumpAudit,
@@ -4910,6 +4931,7 @@ function MainWorkspace({
 	toolHistoryGroup: ToolHistoryGroup;
 	toolHistoryDetailView: ToolHistoryDetailView;
 	toolCopyPreview: ToolCopyPreviewMode;
+	toolSectionClipboardSelection: ToolSectionClipboardSelection;
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
 	cleanupJumpAudit?: CleanupJumpAudit;
@@ -5063,6 +5085,7 @@ function MainWorkspace({
 						toolHistoryGroup,
 						toolHistoryDetailView,
 						toolCopyPreview,
+						toolSectionClipboardSelection,
 						cleanupShelfIndex,
 						selectedCleanupShelfIndex,
 						cleanupHandoffHistory,
@@ -5167,6 +5190,7 @@ function renderWorkspace(
 	toolHistoryGroup: ToolHistoryGroup,
 	toolHistoryDetailView: ToolHistoryDetailView,
 	toolCopyPreview: ToolCopyPreviewMode,
+	toolSectionClipboardSelection: ToolSectionClipboardSelection,
 	cleanupShelfIndex: CleanupShelfIndex,
 	selectedCleanupShelfIndex: number,
 	cleanupHandoffHistory: CleanupHandoffHistory[],
@@ -5349,6 +5373,7 @@ function renderWorkspace(
 				group={toolHistoryGroup}
 				detailView={toolHistoryDetailView}
 				copyPreview={toolCopyPreview}
+				sectionClipboardSelection={toolSectionClipboardSelection}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
 				t={t}
@@ -6606,6 +6631,7 @@ function ToolsWorkspace({
 	group,
 	detailView,
 	copyPreview,
+	sectionClipboardSelection,
 	commandLine,
 	visibleRows,
 	t,
@@ -6621,6 +6647,7 @@ function ToolsWorkspace({
 	group: ToolHistoryGroup;
 	detailView: ToolHistoryDetailView;
 	copyPreview: ToolCopyPreviewMode;
+	sectionClipboardSelection: ToolSectionClipboardSelection;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -6642,14 +6669,16 @@ function ToolsWorkspace({
 		detailView,
 		targetPresets,
 		selectedTargetPresetIndex,
+		sectionClipboardSelection,
 	);
 	const selectedPreview =
 		copyPreview === "summary"
 			? getSelectedToolSummaryClipboardPreview(history, visibleToolHistoryIndex)
-			: copyPreview === "target"
-				? getSelectedToolTargetClipboardPreview(
+			: copyPreview === "target" || copyPreview === "status"
+				? getSelectedToolSectionClipboardPreview(
 						history,
 						visibleToolHistoryIndex,
+						copyPreview,
 					)
 				: copyPreview === "raw"
 					? getSelectedToolOutputClipboardPreview(

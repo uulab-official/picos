@@ -1789,6 +1789,20 @@ Goal: let operators copy the useful TCP Target fields without grabbing an entire
 - Tests cover the Target section extraction, locked preview shape, and empty-history behavior.
 - Next: add a small detail selector so TCP Target and Status fields can be copied independently.
 
+## v0.4.71 - TCP Copy Section Selector
+
+Status: draft PR #133 on `codex/picos-v0.4.71-tcp-copy-section-selector`.
+
+Goal: let operators choose which TCP detail section they want to copy before opening the locked clipboard preview.
+
+- Tools workspace now uses `V` to toggle TCP field-copy selection between `target` and `status`.
+- `v` opens a locked clipboard preview for the currently selected TCP section.
+- Target section copy preserves host, port, command, and timeout rows.
+- Status section copy preserves `OPEN`/`CLOSED`, elapsed time, and socket error rows when present.
+- Runs without the selected section keep the copy action unavailable instead of copying unrelated output.
+- Tests cover the section preview helper, selector cycling, and shortcut rendering.
+- Next: add per-row cursor selection inside TCP detail sections.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
