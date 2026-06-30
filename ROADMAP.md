@@ -989,6 +989,19 @@ Goal: let operators inspect update context before deciding whether to apply anyt
 - The apply path remains locked and preview-only.
 - Next: policy-gated dry-run execution for the npm dry-run command and copy/open helpers for handoff URLs.
 
+## v0.4.11 - Update Handoff Copy Controls
+
+Status: draft PR #73.
+
+Goal: make update handoff links usable from the keyboard without bypassing clipboard safety.
+
+- Release handoff links are modeled as selectable `npm`, `github`, and `changelog` rows.
+- Status workspace shows the selected handoff link with a cursor.
+- `n` cycles the selected update handoff link.
+- `c` opens the existing locked `:clipboard` confirmation prompt for the selected link.
+- Clipboard previews now support `update-handoff` as a source.
+- Next: policy-gated dry-run execution for the npm dry-run command and optional open-in-browser handoff.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

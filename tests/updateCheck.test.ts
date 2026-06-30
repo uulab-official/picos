@@ -6,6 +6,8 @@ import {
 	formatUpdateApplyPreviewRows,
 	formatUpdateCheckRows,
 	formatUpdateReleaseHandoffRows,
+	getSelectedUpdateReleaseHandoffLink,
+	getUpdateReleaseHandoffLinks,
 } from "../src/core/updateCheck";
 
 describe("update check", () => {
@@ -145,6 +147,28 @@ describe("update check", () => {
 			"github=https://github.com/uulab-official/picos/releases/tag/v0.3.0",
 			"changelog=https://github.com/uulab-official/picos/blob/main/CHANGELOG.md",
 		]);
+		expect(getUpdateReleaseHandoffLinks(handoff)).toEqual([
+			{
+				key: "npm",
+				label: "npm package",
+				url: "https://www.npmjs.com/package/@uulab/picos/v/0.3.0",
+			},
+			{
+				key: "github",
+				label: "GitHub Release",
+				url: "https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+			},
+			{
+				key: "changelog",
+				label: "CHANGELOG",
+				url: "https://github.com/uulab-official/picos/blob/main/CHANGELOG.md",
+			},
+		]);
+		expect(getSelectedUpdateReleaseHandoffLink(handoff, 4)).toEqual({
+			key: "github",
+			label: "GitHub Release",
+			url: "https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+		});
 	});
 
 	test("does not create release-note handoff rows without a latest version", () => {

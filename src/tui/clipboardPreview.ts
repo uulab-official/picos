@@ -3,7 +3,8 @@ export type ClipboardPreviewSource =
 	| "port"
 	| "process-resource"
 	| "tool-summary"
-	| "tool-output";
+	| "tool-output"
+	| "update-handoff";
 
 export type ClipboardPreview = {
 	source: ClipboardPreviewSource;

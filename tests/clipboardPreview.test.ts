@@ -28,6 +28,22 @@ describe("clipboard preview", () => {
 		]);
 	});
 
+	test("builds locked previews for update handoff links", () => {
+		const preview = createClipboardPreview({
+			source: "update-handoff",
+			label: "GitHub Release",
+			copyText: "https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+		});
+
+		expect(preview.source).toBe("update-handoff");
+		expect(formatClipboardPreviewRows(preview)).toEqual([
+			"CLIPBOARD PREVIEW update-handoff",
+			"label GitHub Release",
+			"copy https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+			"confirm copy locked",
+		]);
+	});
+
 	test("rejects empty clipboard preview values", () => {
 		expect(() =>
 			createClipboardPreview({
