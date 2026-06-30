@@ -416,6 +416,19 @@ Goal: make selected endpoints explain which local process owns them when PID dat
 - TUI Connections and Ports pass the live system inventory process list into endpoint detail formatting.
 - Next: deeper process detail commands, cwd/user/session enrichment, and confirmed clipboard integration.
 
+## v0.3.29 - Process Detail Inspector
+
+Status: draft PR #30.
+
+Goal: let endpoint PID hints drill into a read-only process detail command.
+
+- `picos process <pid>` validates PID input before building OS commands.
+- POSIX process detail uses `ps -p` with parent PID, user, state, CPU, memory, elapsed time, and command.
+- Windows process detail uses PowerShell CIM process lookup with JSON parsing.
+- Endpoint detail rows now show `inspect picos process <pid>` when a process snapshot is matched.
+- Action Center exposes `process.inspect` as a read-only system action with a CLI hint.
+- Next: cwd/open-file enrichment and TUI command handoff from selected endpoint rows.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -423,7 +436,7 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, copy previews, and PID process enrichment landed; next deeper process detail commands and optional confirmed clipboard integration.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, copy previews, PID process enrichment, and `picos process <pid>` drill-down landed; next cwd/open-file enrichment and optional confirmed clipboard integration.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: address/status/public-IP changes and local export.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.

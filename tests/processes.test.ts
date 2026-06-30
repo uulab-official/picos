@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { parsePsOutput } from "../src/core/processes";
+import {
+	buildProcessDetailCommand,
+	formatProcessDetail,
+	parsePosixProcessDetail,
+	parsePsOutput,
+	parseWindowsProcessDetail,
+	validateProcessId,
+} from "../src/core/processes";
 
 describe("process inventory", () => {
 	test("parses bounded ps output", () => {
@@ -17,5 +24,92 @@ describe("process inventory", () => {
 				command: "bun src/bin/picos.ts",
 			},
 		]);
+	});
+
+	test("validates process ids before building commands", () => {
+		expect(validateProcessId("12345")).toBe(12345);
+		expect(() => validateProcessId("0")).toThrow("Invalid process id");
+		expect(() => validateProcessId("12;rm")).toThrow("Invalid process id");
+	});
+
+	test("builds platform process detail commands", () => {
+		expect(buildProcessDetailCommand(12345, "darwin")).toEqual({
+			command: "ps",
+			args: [
+				"-p",
+				"12345",
+				"-o",
+				"pid=,ppid=,user=,stat=,pcpu=,pmem=,etime=,command=",
+			],
+		});
+		expect(buildProcessDetailCommand(12345, "linux")).toEqual({
+			command: "ps",
+			args: [
+				"-p",
+				"12345",
+				"-o",
+				"pid=,ppid=,user=,stat=,pcpu=,pmem=,etime=,command=",
+			],
+		});
+		expect(buildProcessDetailCommand(12345, "win32")).toEqual({
+			command: "powershell",
+			args: [
+				"-NoProfile",
+				"-Command",
+				'Get-CimInstance Win32_Process -Filter "ProcessId = 12345" | Select-Object ProcessId,ParentProcessId,Name,CommandLine,ExecutablePath,CreationDate | ConvertTo-Json -Compress',
+			],
+		});
+	});
+
+	test("parses POSIX process detail output", () => {
+		const output = "12345 1 bonjin S 2.5 1.1 01:23 bun src/bin/picos.ts --dev";
+
+		expect(parsePosixProcessDetail(output)).toEqual({
+			pid: 12345,
+			ppid: 1,
+			user: "bonjin",
+			state: "S",
+			cpu: "2.5",
+			memory: "1.1",
+			elapsed: "01:23",
+			command: "bun src/bin/picos.ts --dev",
+		});
+	});
+
+	test("parses Windows process detail JSON", () => {
+		expect(
+			parseWindowsProcessDetail(
+				JSON.stringify({
+					ProcessId: 12345,
+					ParentProcessId: 1,
+					Name: "node.exe",
+					CommandLine: "node server.js",
+					ExecutablePath: "C:\\\\Program Files\\\\nodejs\\\\node.exe",
+					CreationDate: "20260630100000.000000+540",
+				}),
+			),
+		).toEqual({
+			pid: 12345,
+			ppid: 1,
+			name: "node.exe",
+			command: "node server.js",
+			executablePath: "C:\\\\Program Files\\\\nodejs\\\\node.exe",
+			started: "20260630100000.000000+540",
+		});
+	});
+
+	test("formats process detail for CLI use", () => {
+		expect(
+			formatProcessDetail({
+				pid: 12345,
+				ppid: 1,
+				user: "bonjin",
+				state: "S",
+				cpu: "2.5",
+				memory: "1.1",
+				elapsed: "01:23",
+				command: "bun src/bin/picos.ts --dev",
+			}),
+		).toContain("Command:  bun src/bin/picos.ts --dev");
 	});
 });

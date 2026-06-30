@@ -547,6 +547,7 @@ export function App(): React.ReactElement {
 
 				if (
 					action.id === "network.connect" ||
+					action.id === "process.inspect" ||
 					action.id === "tools.dns" ||
 					action.id === "tools.traceroute" ||
 					action.id === "tools.whois" ||
@@ -556,7 +557,12 @@ export function App(): React.ReactElement {
 					action.id === "raw.view" ||
 					action.id === "remote.sftp.connect"
 				) {
-					log("info", `${action.id} queued for adapter implementation`);
+					log(
+						"info",
+						action.id === "process.inspect"
+							? "use picos process <pid> from endpoint detail"
+							: `${action.id} queued for adapter implementation`,
+					);
 				}
 
 				if (action.id === "connections.list") {

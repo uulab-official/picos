@@ -131,6 +131,16 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "process.inspect",
+		title: "Inspect process",
+		description: "Inspect one local PID with command, parent, user, and usage.",
+		category: "system",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "tools.dns",
 		title: "DNS lookup",
 		description: "Run DNS lookup tooling from the picos Tools Hub.",
