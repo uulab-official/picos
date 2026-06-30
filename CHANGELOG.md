@@ -76,6 +76,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Action Center now shows blocked control policy simulations and logs simulation audit records with approval blockers such as mutation, admin, confirmation, and execution-disabled requirements.
 - Control execution harness now defaults to disabled, requires explicit dry-run opt-in plus exact confirmation, and only runs adapter-declared dry-run commands through an injected/safe runner.
 - Action Center now exposes `x` for policy-gated dry-run attempts, backed by `controlExecutionMode` and `allowAdminDryRun` config.
+- Action Center and Inspector now show the current control execution policy, including dry-run/admin blockers, before an attempt is made.
 - Remotes workspace profile focus and locked remote file context staging for the Files workspace.
 - Files workspace parent `..` entry, relative `.`/`..` path input, and `b` back navigation history.
 - Files workspace filtering with `f`, typed name/path/type matching, apply/clear controls, and parent `..` visibility.
