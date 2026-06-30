@@ -125,4 +125,40 @@ describe("TUI clipboard confirmation dialog", () => {
 			}),
 		});
 	});
+
+	test("reports clipboard tool failures with fallback guidance", async () => {
+		const preview = createClipboardPreview({
+			source: "port",
+			label: "selected port",
+			copyText: "*:3000 node pid=12345",
+		});
+
+		const outcome = await submitClipboardConfirmation(
+			{ active: true, preview, value: "copy" },
+			{
+				platform: "linux",
+				runner: async () => ({
+					command: "xclip",
+					args: ["-selection", "clipboard"],
+					stdout: "",
+					stderr: "spawn xclip ENOENT",
+					exitCode: 1,
+					success: false,
+				}),
+			},
+		);
+
+		expect(outcome).toEqual({
+			state: { active: false, value: "" },
+			event: {
+				level: "warn",
+				message:
+					"clipboard failed selected port via xclip · Install xclip or wl-clipboard, then retry clipboard copy.",
+			},
+			result: expect.objectContaining({
+				success: false,
+				hint: "Install xclip or wl-clipboard, then retry clipboard copy.",
+			}),
+		});
+	});
 });

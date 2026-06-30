@@ -539,6 +539,18 @@ Goal: make the OS console's safety/audit trail exportable instead of only visibl
 - The enabled `timeline.export` action writes the current TUI event/audit log and reports the output path.
 - Next: clipboard tool fallback hints and a richer timeline workspace for state changes.
 
+## v0.3.39 - Clipboard Fallback Hints
+
+Status: draft PR #40.
+
+Goal: make confirmed clipboard failures diagnosable from inside the terminal OS.
+
+- Clipboard write failures include platform fallback hints for `pbcopy`, `xclip`, and `clip.exe`.
+- Linux failures suggest installing `xclip` or `wl-clipboard`.
+- Confirmed execution failures render as `clipboard failed` events instead of `clipboard locked` confirmation failures.
+- Locked confirmation failures keep the existing no-spawn `clipboard locked` audit behavior.
+- Next: richer Timeline workspace and raw action audit filters.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -546,7 +558,7 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, and process resource classification landed; next clipboard fallback hints.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, and process resource classification landed; next richer Timeline workspace and action audit filters.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: EventDock audit export landed; next address/status/public-IP changes and richer local export.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.

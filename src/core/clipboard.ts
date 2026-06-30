@@ -42,6 +42,7 @@ export type ClipboardWriteResult = {
 	success: boolean;
 	audit: ClipboardAuditEvent;
 	error?: string;
+	hint?: string;
 };
 
 export type ClipboardWriteRunner = (
@@ -114,8 +115,24 @@ export async function runClipboardWritePlan(
 		audit,
 		...(result.success
 			? {}
-			: { error: result.stderr || "Clipboard write failed" }),
+			: {
+					error: result.stderr || "Clipboard write failed",
+					hint: getClipboardFallbackHint(plan.adapter.command),
+				}),
 	};
+}
+
+export function getClipboardFallbackHint(command: string): string {
+	if (command === "pbcopy") {
+		return "Ensure pbcopy is available in PATH, then retry clipboard copy.";
+	}
+	if (command === "xclip") {
+		return "Install xclip or wl-clipboard, then retry clipboard copy.";
+	}
+	if (command === "clip.exe") {
+		return "Ensure clip.exe is available from System32, then retry clipboard copy.";
+	}
+	return `Ensure ${command} is installed and available in PATH.`;
 }
 
 function getClipboardWriteAdapter(
