@@ -6,6 +6,7 @@ import {
 	createConfigWorkspaceResetPreview,
 	formatConfigWorkspaceRows,
 	getConfigWorkspaceEditPrompt,
+	getConfigWorkspaceSectionJumpIndex,
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
 	submitConfigWorkspaceResetConfirmation,
@@ -25,15 +26,61 @@ describe("config TUI panel", () => {
 
 		expect(formatConfigWorkspaceRows(items, 1, 10)).toEqual([
 			"CONFIG WORKSPACE",
+			"1 display  2 safety  3 retention  4 connectivity",
 			"j/k select  +/- save  enter edit/show  P policy  R reset",
-			"  auditArchiveRetentionLimit  10   archived Timeline audit logs kept before prune",
-			"> toolTargetPresetLimit       8    saved Tools target presets kept",
-			"  language                    en   interface language",
-			"  refreshInterval             3000 refresh cadence in ms",
+			"[3] RETENTION",
+			"  auditArchiveRetentionLimit  10       archived Timeline audit logs kept before prune",
+			"> toolTargetPresetLimit       8        saved Tools target presets kept",
+			"[1] DISPLAY",
+			"  language                    en       interface language",
+			"  refreshInterval             3000     refresh cadence in ms",
+			"[4] CONNECTIVITY",
+		]);
+	});
+
+	test("groups config controls into OS-like sections", () => {
+		const items = createConfigWorkspaceItems({
+			language: "en",
+			refreshInterval: 3000,
+			defaultPingHost: "google.com",
+			controlExecutionMode: "disabled",
+			allowAdminDryRun: false,
+			auditArchiveRetentionLimit: 10,
+			toolTargetPresetLimit: 8,
+		});
+
+		expect(items.map((item) => `${item.section}:${item.key}`)).toEqual([
+			"retention:auditArchiveRetentionLimit",
+			"retention:toolTargetPresetLimit",
+			"display:language",
+			"display:refreshInterval",
+			"connectivity:defaultPingHost",
+			"safety:controlExecutionMode",
+			"safety:allowAdminDryRun",
+		]);
+		expect(getConfigWorkspaceSectionJumpIndex(items, "display")).toBe(2);
+		expect(getConfigWorkspaceSectionJumpIndex(items, "safety")).toBe(5);
+		expect(getConfigWorkspaceSectionJumpIndex(items, "retention")).toBe(0);
+		expect(getConfigWorkspaceSectionJumpIndex(items, "connectivity")).toBe(4);
+		expect(
+			getConfigWorkspaceSectionJumpIndex(items, "missing"),
+		).toBeUndefined();
+		expect(formatConfigWorkspaceRows(items, 6, 18)).toEqual([
+			"CONFIG WORKSPACE",
+			"1 display  2 safety  3 retention  4 connectivity",
+			"j/k select  +/- save  enter edit/show  P policy  R reset",
+			"[3] RETENTION",
+			"  auditArchiveRetentionLimit  10       archived Timeline audit logs kept before prune",
+			"  toolTargetPresetLimit       8        saved Tools target presets kept",
+			"[1] DISPLAY",
+			"  language                    en       interface language",
+			"  refreshInterval             3000     refresh cadence in ms",
+			"[4] CONNECTIVITY",
 			"  defaultPingHost             google.com default host for picos ping",
+			"[2] SAFETY",
 			"  controlExecutionMode        disabled OS mutation execution mode",
-			"  allowAdminDryRun            false allow admin-class dry-run previews",
-			"selected=toolTargetPresetLimit range=1..24",
+			"> allowAdminDryRun            false    allow admin-class dry-run previews",
+			"selected=allowAdminDryRun values=true|false section=safety",
 		]);
 	});
 

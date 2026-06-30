@@ -239,6 +239,7 @@ import {
 	formatConfigWorkspaceRows,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
+	getConfigWorkspaceSectionJumpIndex,
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
 	submitConfigWorkspaceResetConfirmation,
@@ -4424,6 +4425,36 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "o") {
 			openSelectedUpdateHandoffExternal();
+			return;
+		}
+
+		if (
+			screen === "config" &&
+			focusArea === "workspaces" &&
+			["1", "2", "3", "4"].includes(input)
+		) {
+			const section =
+				input === "1"
+					? "display"
+					: input === "2"
+						? "safety"
+						: input === "3"
+							? "retention"
+							: "connectivity";
+			const next = getConfigWorkspaceSectionJumpIndex(
+				configWorkspaceItems,
+				section,
+			);
+			if (next === undefined) {
+				log("warn", `config section unavailable ${section}`);
+				return;
+			}
+			setSelectedConfigIndex(next);
+			const item = getConfigWorkspaceItem(configWorkspaceItems, next);
+			log(
+				"info",
+				`config section ${section} selected ${item?.key ?? next + 1}`,
+			);
 			return;
 		}
 

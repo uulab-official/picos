@@ -2195,7 +2195,20 @@ Goal: make picos configuration feel more like an OS settings panel, with explici
 - Reset previews list changed values and require the exact phrase `reset config` before writing config.
 - Confirmed resets restore language, refresh cadence, default ping host, retention limits, dry-run policy, and experimental controls while preserving unrelated saved shelves.
 - Tests cover policy preset cycling, preset row formatting, reset preview rows, and rejected/confirmed exact confirmations.
-- Next: add Config sections for display, safety, retention, and connectivity groups so the settings panel scales without becoming a flat list.
+- Next: add section detail panes with active safety posture, config path, and per-section persistence hints.
+
+## v0.4.102 - Config Sectioned Settings Center
+
+Status: draft PR #164 on `codex/picos-v0.4.102-config-sections`.
+
+Goal: make Config scale like an OS settings center instead of a flat list as picos grows more controls.
+
+- Config rows now belong to retention, display, connectivity, or safety sections.
+- The Config workspace renders section headers and a `1..4` section jump strip above the editable rows.
+- Pressing `1`, `2`, `3`, or `4` in Config jumps directly to display, safety, retention, or connectivity controls.
+- Selected row status now includes its section for choice/boolean controls.
+- Tests cover section metadata, section jump indexes, section header rendering, and existing value adjustment behavior.
+- Next: add section detail panes with active safety posture, config path, and per-section persistence hints.
 
 ## v0.5.0 - Developer Environment Plugins
 
