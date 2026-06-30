@@ -74,6 +74,10 @@ import {
 import { getControlPreviewCommand } from "../core/controlPreview";
 import { runDoctorChecks } from "../core/doctor";
 import {
+	formatConnectionSortPreference,
+	formatPortSortPreference,
+} from "../core/endpointSort";
+import {
 	buildExternalOpenPlan,
 	type ExternalOpenPlan,
 	formatExternalOpenPlanRows,
@@ -236,6 +240,7 @@ import {
 	type ConfigWorkspaceResetPreview,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
 	getConfigWorkspaceEditPrompt,
@@ -629,6 +634,7 @@ export function App(): React.ReactElement {
 	const [selectedConfigIndex, setSelectedConfigIndex] = useState(0);
 	const [enableExperimentalControls, setEnableExperimentalControls] =
 		useState(false);
+	const [showPublicIp, setShowPublicIp] = useState(true);
 	const [configResetPreview, setConfigResetPreview] =
 		useState<ConfigWorkspaceResetPreview>();
 	const [toolCopyPreview, setToolCopyPreview] =
@@ -715,6 +721,58 @@ export function App(): React.ReactElement {
 			defaultPingHost,
 			language,
 			refreshInterval,
+			toolTargetPresetLimit,
+		],
+	);
+	const configManagedShelfRows = useMemo(
+		() =>
+			formatConfigManagedShelfRows({
+				auditArchiveRetentionLimit,
+				allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
+				connectionFilterPresets,
+				connectionSort: formatConnectionSortPreference(connectionSort),
+				controlExecutionMode: controlExecutionPolicy.mode,
+				defaultPingHost,
+				enableExperimentalControls,
+				language,
+				logProfiles,
+				logSearchPresets,
+				portFilterPresets,
+				portSort: formatPortSortPreference(portSort),
+				refreshInterval,
+				remoteProfiles,
+				routeFilterPresets,
+				showPublicIp,
+				theme: "dark",
+				toolHistoryDetailView,
+				toolHistoryFilterPresets,
+				toolHistoryGroup,
+				toolHistorySort,
+				toolTargetPresetLimit,
+				toolTargetPresets: customToolTargetPresets,
+			}),
+		[
+			auditArchiveRetentionLimit,
+			connectionFilterPresets,
+			connectionSort,
+			controlExecutionPolicy.allowAdminDryRun,
+			controlExecutionPolicy.mode,
+			customToolTargetPresets,
+			defaultPingHost,
+			enableExperimentalControls,
+			language,
+			logProfiles,
+			logSearchPresets,
+			portFilterPresets,
+			portSort,
+			refreshInterval,
+			remoteProfiles,
+			routeFilterPresets,
+			showPublicIp,
+			toolHistoryDetailView,
+			toolHistoryFilterPresets,
+			toolHistoryGroup,
+			toolHistorySort,
 			toolTargetPresetLimit,
 		],
 	);
@@ -809,6 +867,7 @@ export function App(): React.ReactElement {
 		setRefreshInterval(config.refreshInterval);
 		setDefaultPingHost(config.defaultPingHost);
 		setEnableExperimentalControls(config.enableExperimentalControls);
+		setShowPublicIp(config.showPublicIp);
 		setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 		setCustomToolTargetPresets(config.toolTargetPresets as ToolTargetPreset[]);
 	}, []);
@@ -5695,6 +5754,7 @@ export function App(): React.ReactElement {
 					configWorkspaceItems={configWorkspaceItems}
 					selectedConfigIndex={selectedConfigIndex}
 					configResetPreview={configResetPreview}
+					configManagedShelfRows={configManagedShelfRows}
 					cleanupShelfIndex={cleanupShelfIndex}
 					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 					cleanupJumpAudit={cleanupJumpAudit}
@@ -5909,6 +5969,7 @@ function MainWorkspace({
 	configWorkspaceItems,
 	selectedConfigIndex,
 	configResetPreview,
+	configManagedShelfRows,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
 	cleanupJumpAudit,
@@ -6022,6 +6083,7 @@ function MainWorkspace({
 	configWorkspaceItems: ConfigWorkspaceItem[];
 	selectedConfigIndex: number;
 	configResetPreview?: ConfigWorkspaceResetPreview;
+	configManagedShelfRows: string[];
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
 	cleanupJumpAudit?: CleanupJumpAudit;
@@ -6188,6 +6250,7 @@ function MainWorkspace({
 						configWorkspaceItems,
 						selectedConfigIndex,
 						configResetPreview,
+						configManagedShelfRows,
 						cleanupShelfIndex,
 						selectedCleanupShelfIndex,
 						cleanupHandoffHistory,
@@ -6306,6 +6369,7 @@ function renderWorkspace(
 	configWorkspaceItems: ConfigWorkspaceItem[],
 	selectedConfigIndex: number,
 	configResetPreview: ConfigWorkspaceResetPreview | undefined,
+	configManagedShelfRows: string[],
 	cleanupShelfIndex: CleanupShelfIndex,
 	selectedCleanupShelfIndex: number,
 	cleanupHandoffHistory: CleanupHandoffHistory[],
@@ -6580,6 +6644,7 @@ function renderWorkspace(
 				resetPreview={configResetPreview}
 				commandLine={commandLine}
 				configPath={getConfigPath()}
+				managedShelfRows={configManagedShelfRows}
 				visibleRows={Math.max(5, height - 7)}
 			/>
 		);
@@ -8450,6 +8515,7 @@ function ConfigWorkspace({
 	resetPreview,
 	commandLine,
 	configPath,
+	managedShelfRows,
 	visibleRows,
 }: {
 	items: ConfigWorkspaceItem[];
@@ -8457,12 +8523,17 @@ function ConfigWorkspace({
 	resetPreview?: ConfigWorkspaceResetPreview;
 	commandLine: CommandLineState;
 	configPath: string;
+	managedShelfRows: string[];
 	visibleRows: number;
 }): React.ReactElement {
 	const rows = formatConfigWorkspaceRows(items, selectedIndex, visibleRows);
 	const detailRows = formatConfigWorkspaceDetailRows(items, selectedIndex, {
 		configPath,
 	}).slice(0, Math.max(0, visibleRows - rows.length - 1));
+	const shelfRows = managedShelfRows.slice(
+		0,
+		Math.max(0, visibleRows - rows.length - detailRows.length - 2),
+	);
 	return (
 		<Box flexDirection="column">
 			{rows.map((row) => (
@@ -8496,6 +8567,24 @@ function ConfigWorkspace({
 										: row.startsWith("persist=") || row.startsWith("actions=")
 											? "gray"
 											: "white"
+							}
+						>
+							{row}
+						</Text>
+					))}
+				</Box>
+			) : null}
+			{shelfRows.length > 0 ? (
+				<Box marginTop={1} flexDirection="column">
+					{shelfRows.map((row) => (
+						<Text
+							key={row}
+							color={
+								row.startsWith("CONFIG MANAGED")
+									? "cyan"
+									: row.startsWith("managed-by=")
+										? "gray"
+										: "white"
 							}
 						>
 							{row}
