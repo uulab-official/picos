@@ -8,6 +8,7 @@ import {
 	createSelectedPortProcessControlPreview,
 	formatConnectionsWorkspaceRows,
 	formatPortProcessControlConfirmationAuditMessage,
+	formatPortProcessControlExecutionRows,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
@@ -722,6 +723,45 @@ describe("endpoint TUI panel formatting", () => {
 		expect(formatPortProcessControlConfirmationAuditMessage(rejected)).toBe(
 			"port process control process.terminate status=rejected risk=destructive privilege=user executionEnabled=false port=*:3000 pid=12345 process=node user=alice",
 		);
+	});
+
+	test("formats selected port process control execution policy blockers", () => {
+		const preview = createSelectedPortProcessControlPreview(
+			[
+				{
+					protocol: "tcp",
+					localAddress: "*",
+					localPort: "3000",
+					pid: "12345",
+					command: "node",
+					user: "alice",
+				},
+			],
+			0,
+		);
+		if (!preview) {
+			throw new Error("expected port process control preview");
+		}
+		const confirmation = submitPortProcessControlConfirmation(
+			preview,
+			"kill pid 12345",
+		);
+
+		expect(
+			formatPortProcessControlExecutionRows(preview, confirmation, {
+				adapter: "macos",
+				command: "kill",
+				args: ["-TERM", "<pid>"],
+				note: "terminate a selected user-owned process",
+			}),
+		).toEqual([
+			"CONTROL EXECUTION process.terminate",
+			"status=blocked policy=disabled confirmed=true dryRun=true",
+			"willExecute=false reason=mutation-controls-disabled",
+			"blockers=mutation-controls-disabled",
+			"adapter=macos",
+			"command=kill -TERM 12345",
+		]);
 	});
 
 	test("formats selected port process control previews in the detail pane", () => {
