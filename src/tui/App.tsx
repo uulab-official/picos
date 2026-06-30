@@ -156,12 +156,14 @@ import {
 	formatToolsWorkspaceRows,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
+	getSelectedToolSummaryClipboardPreview,
 	moveToolHistorySelection,
 	rerunToolHistoryItem,
 	type ToolHistoryItem,
 } from "./toolHistory";
 
 type CommandStatus = "idle" | "running";
+type ToolCopyPreviewMode = "raw" | "summary" | false;
 
 const toolPromptPrefix = "tool:";
 
@@ -258,7 +260,8 @@ export function App(): React.ReactElement {
 	});
 	const [toolHistory, setToolHistory] = useState<ToolHistoryItem[]>([]);
 	const [selectedToolHistoryIndex, setSelectedToolHistoryIndex] = useState(0);
-	const [toolCopyPreview, setToolCopyPreview] = useState(false);
+	const [toolCopyPreview, setToolCopyPreview] =
+		useState<ToolCopyPreviewMode>(false);
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
@@ -1252,7 +1255,21 @@ export function App(): React.ReactElement {
 				log("warn", "no tool output selected");
 				return;
 			}
-			setToolCopyPreview(true);
+			setToolCopyPreview("raw");
+			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "y") {
+			const preview = getSelectedToolSummaryClipboardPreview(
+				toolHistory,
+				selectedToolHistoryIndex,
+			);
+			if (!preview) {
+				log("warn", "no tool summary selected");
+				return;
+			}
+			setToolCopyPreview("summary");
 			openClipboardConfirmation(preview);
 			return;
 		}
@@ -1629,7 +1646,7 @@ function MainWorkspace({
 	timelineFilter: TimelineFilter;
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
-	toolCopyPreview: boolean;
+	toolCopyPreview: ToolCopyPreviewMode;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -1736,7 +1753,7 @@ function renderWorkspace(
 	timelineFilter: TimelineFilter,
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
-	toolCopyPreview: boolean,
+	toolCopyPreview: ToolCopyPreviewMode,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -2949,15 +2966,18 @@ function ToolsWorkspace({
 }: {
 	history: ToolHistoryItem[];
 	selectedIndex: number;
-	copyPreview: boolean;
+	copyPreview: ToolCopyPreviewMode;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const rows = formatToolsWorkspaceRows(history, visibleRows, selectedIndex);
-	const selectedPreview = copyPreview
-		? getSelectedToolOutputClipboardPreview(history, selectedIndex)
-		: undefined;
+	const selectedPreview =
+		copyPreview === "summary"
+			? getSelectedToolSummaryClipboardPreview(history, selectedIndex)
+			: copyPreview === "raw"
+				? getSelectedToolOutputClipboardPreview(history, selectedIndex)
+				: undefined;
 	const copyRows = selectedPreview
 		? formatClipboardPreviewRows(selectedPreview)
 		: [];

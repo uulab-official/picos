@@ -42,6 +42,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub actions now open target prompts so operators can run DNS/RDAP/IP/TCP/TLS/ping/traceroute against custom hosts, IPs, and ports.
 - Tools Hub history now supports keyboard selection and rerunning selected read-only diagnostics.
 - Tools Hub selected raw output now opens the same locked clipboard confirmation flow with `c`.
+- Tools Hub selected summaries now open the locked clipboard confirmation flow with `y`.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.

@@ -642,6 +642,18 @@ Goal: let operators safely copy selected Tools output without bypassing picos' c
 - Moving history selection clears stale copy previews.
 - Next: copy selected summary separately and export scoped tool history.
 
+## v0.3.47 - Tools Summary Clipboard Confirmation
+
+Status: draft PR #48.
+
+Goal: make Tools history useful for quick handoff, not only raw terminal capture.
+
+- Selected Tools history summaries can produce locked clipboard previews.
+- Tools workspace uses `y` for selected summary copy and keeps `c` for raw output copy.
+- Summary and raw previews track their own display mode so the visible preview matches the pending confirmation.
+- Both paths use the existing exact `copy` confirmation prompt and clipboard audit flow.
+- Next: export scoped Tools history from the TUI.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -650,7 +662,7 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
 - Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer endpoint/platform detail tabs.
-- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, selectable result history, rerun, raw output handoff, and locked raw-output copy shortcut landed; next summary copy and scoped history export.
+- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, selectable result history, rerun, raw output handoff, and locked summary/raw-output copy shortcuts landed; next scoped history export.
 - Timeline: live EventDock history, network/action/audit/raw filters, audit export, latest audit reload, and network status/address/public-IP change events landed; next richer event search and export scopes.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.
 

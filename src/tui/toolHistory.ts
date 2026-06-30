@@ -146,7 +146,7 @@ export function formatToolsWorkspaceRows(
 	return [
 		`TOOLS history=${history.length} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: j/k select · r rerun · c copy raw · action enter=target prompt · raw.view latest",
+		"shortcuts: j/k select · r rerun · y copy summary · c copy raw · action enter=target prompt",
 	].slice(0, visibleRows);
 }
 
@@ -202,6 +202,21 @@ export function getSelectedToolOutputClipboardPreview(
 		source: "tool-output",
 		label: `${item.label} raw output`,
 		copyText: item.rawOutput,
+	});
+}
+
+export function getSelectedToolSummaryClipboardPreview(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const item = getSelectedToolHistoryItem(history, selectedIndex);
+	if (!item) {
+		return undefined;
+	}
+	return createClipboardPreview({
+		source: "tool-summary",
+		label: `${item.label} summary`,
+		copyText: item.summary,
 	});
 }
 

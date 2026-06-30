@@ -2,6 +2,7 @@ export type ClipboardPreviewSource =
 	| "connection"
 	| "port"
 	| "process-resource"
+	| "tool-summary"
 	| "tool-output";
 
 export type ClipboardPreview = {
