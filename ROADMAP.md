@@ -963,6 +963,19 @@ Goal: bring lazy terminal-tool update awareness into picos without executing ins
 - Status workspace shows the latest update-check result after the action runs.
 - Next: locked self-update/apply preview with explicit confirmation and release-note handoff.
 
+## v0.4.9 - Locked Self-Update Apply Preview
+
+Status: draft PR #71.
+
+Goal: make update application visible as an OS-style control while keeping package mutation locked.
+
+- Update checks can derive a `picos.update.apply` preview only when a newer version is known.
+- The apply preview is risk `write`, privilege `user`, disabled by default, and requires `update picos`.
+- The preview command uses `npm install -g @uulab/picos@<version> --dry-run`.
+- Status workspace renders the locked apply preview after an update check finds a newer version.
+- Action Center catalog includes `picos.update.apply` as a locked write action.
+- Next: release-note handoff and policy-gated dry-run execution for the npm dry-run command.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

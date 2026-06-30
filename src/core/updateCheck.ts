@@ -10,6 +10,20 @@ export type PackageUpdateCheckResult = {
 	error?: string;
 };
 
+export type UpdateApplyPreview = {
+	actionId: "picos.update.apply";
+	risk: "write";
+	privilege: "user";
+	enabled: false;
+	confirmationPhrase: "update picos";
+	command: "npm";
+	args: string[];
+	packageName: string;
+	currentVersion: string;
+	latestVersion: string;
+	blockedReason: "confirmation-required";
+};
+
 export type PackageUpdateFetch = (
 	input: string | URL | Request,
 	init?: RequestInit,
@@ -72,6 +86,46 @@ export function formatUpdateCheckRows(
 		...(result.installHint ? [`install=${result.installHint}`] : []),
 		...(result.error ? [`error=${result.error}`] : []),
 		`registry=${result.registryUrl}`,
+	];
+}
+
+export function createUpdateApplyPreview(
+	result: PackageUpdateCheckResult,
+): UpdateApplyPreview | undefined {
+	if (result.status !== "update-available" || !result.latestVersion) {
+		return undefined;
+	}
+
+	return {
+		actionId: "picos.update.apply",
+		risk: "write",
+		privilege: "user",
+		enabled: false,
+		confirmationPhrase: "update picos",
+		command: "npm",
+		args: [
+			"install",
+			"-g",
+			`${result.packageName}@${result.latestVersion}`,
+			"--dry-run",
+		],
+		packageName: result.packageName,
+		currentVersion: result.currentVersion,
+		latestVersion: result.latestVersion,
+		blockedReason: "confirmation-required",
+	};
+}
+
+export function formatUpdateApplyPreviewRows(
+	preview: UpdateApplyPreview,
+): string[] {
+	return [
+		"PICOS UPDATE APPLY PREVIEW",
+		`state=locked risk=${preview.risk} privilege=${preview.privilege}`,
+		`package=${preview.packageName} current=${preview.currentVersion} latest=${preview.latestVersion}`,
+		`confirm=${preview.confirmationPhrase}`,
+		`command=${[preview.command, ...preview.args].join(" ")}`,
+		`blocked=${preview.blockedReason}`,
 	];
 }
 
