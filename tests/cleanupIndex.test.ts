@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	appendCleanupHandoffHistory,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
@@ -7,11 +8,14 @@ import {
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
+	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
+	getSelectedCleanupHandoffHistory,
 	getSelectedCleanupShelf,
+	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
 } from "../src/tui/cleanupIndex";
 
@@ -309,5 +313,55 @@ describe("cleanup shelf index", () => {
 			"detail=filters=1 exact-confirm prompt opened",
 		]);
 		expect(formatCleanupHandoffHistoryRows(undefined)).toEqual([]);
+	});
+
+	test("keeps cleanup handoff history bounded and selectable", () => {
+		const index = createCleanupShelfIndex({
+			connectionFilterPresets: ["443"],
+			portFilterPresets: ["3000"],
+			routeFilterPresets: ["default"],
+		});
+		const route = index.shelves.find((shelf) => shelf.id === "routes");
+		const connection = index.shelves.find(
+			(shelf) => shelf.id === "connections",
+		);
+		const port = index.shelves.find((shelf) => shelf.id === "ports");
+
+		if (!route || !connection || !port) {
+			throw new Error("expected cleanup shelves");
+		}
+
+		const histories = [
+			createCleanupHandoffHistory(createCleanupJumpAudit(route), "dismissed"),
+			createCleanupHandoffHistory(
+				createCleanupJumpAudit(connection),
+				"prompt-opened",
+			),
+			createCleanupHandoffHistory(createCleanupJumpAudit(port), "dismissed"),
+		].reduce(
+			(current, history) => appendCleanupHandoffHistory(current, history, 2),
+			[] as ReturnType<typeof createCleanupHandoffHistory>[],
+		);
+
+		expect(histories.map((history) => history.label)).toEqual([
+			"Port filters",
+			"Connection filters",
+		]);
+		expect(getSelectedCleanupHandoffHistory(histories, 99)?.label).toBe(
+			"Connection filters",
+		);
+		expect(moveCleanupHandoffHistorySelection(histories, 1, "next")).toBe(0);
+		expect(moveCleanupHandoffHistorySelection(histories, 0, "previous")).toBe(
+			1,
+		);
+		expect(formatCleanupHandoffHistoryIndexRows(histories, 1, 4)).toEqual([
+			"CLEANUP HISTORY entries=2 selected=Connections",
+			"  dismissed     Ports       D  clear ports  filters=1",
+			"> prompt-opened Connections D  clear connections  filters=1",
+		]);
+		expect(formatCleanupHandoffHistoryIndexRows([], 0, 3)).toEqual([
+			"CLEANUP HISTORY entries=0",
+			"no cleanup handoff history yet",
+		]);
 	});
 });

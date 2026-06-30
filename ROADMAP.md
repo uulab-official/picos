@@ -1627,6 +1627,19 @@ Goal: keep cleanup handoff decisions auditable in Status after destination banne
 - Tests cover history model creation and row formatting for both outcomes.
 - Next: add selectable cleanup history entries once multiple handoff events are retained.
 
+## v0.4.59 - Selectable Cleanup Handoff History
+
+Status: draft PR #121.
+
+Goal: make cleanup handoff history behave like a small operator shelf rather than a single overwritten status line.
+
+- Cleanup handoff history now retains a bounded newest-first list instead of only the latest entry.
+- Status workspace renders a selectable cleanup history index with outcome, workspace, shortcut, exact phrase, and detail rows.
+- Pressing `[` in Status cycles the selected cleanup history entry without colliding with the file handoff index `]` shortcut.
+- The selected history detail keeps the target, shortcut, confirmation phrase, and outcome explanation visible.
+- Tests cover bounded insertion, newest-first retention, selected item clamping, wraparound movement, empty-state rows, and selected row formatting.
+- Next: add a direct re-open handoff action from selected cleanup history back to the owning workspace.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
