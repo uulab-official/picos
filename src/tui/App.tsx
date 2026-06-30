@@ -6,11 +6,13 @@ import { getConfigPath, readConfig } from "../config/store";
 import {
 	type ActionPreviewPlan,
 	createActionPreviewPlan,
+	formatActionConfirmationAuditMessage,
 	formatActionPreviewAuditMessage,
 	formatActionPreviewRows,
 	getActionCatalog,
 	getActionSummary,
 	type PicosAction,
+	submitActionPreviewConfirmation,
 } from "../core/actions";
 import {
 	createConsoleAuditExportPlan,
@@ -664,6 +666,24 @@ export function App(): React.ReactElement {
 		);
 	}, [commandLine.value, events, log, timelineFilter]);
 
+	const submitControlConfirmationCommand = useCallback(() => {
+		if (!actionPreviewPlan) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "control confirmation missing preview");
+			return;
+		}
+
+		const confirmation = submitActionPreviewConfirmation(
+			actionPreviewPlan,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		log(
+			confirmation.confirmed ? "warn" : "fail",
+			formatActionConfirmationAuditMessage(confirmation),
+		);
+	}, [actionPreviewPlan, commandLine.value, log]);
+
 	const submitClipboardCommand = useCallback(async () => {
 		try {
 			const outcome = await submitClipboardConfirmation(clipboardConfirmation, {
@@ -1149,9 +1169,11 @@ export function App(): React.ReactElement {
 									? "endpoint filter cancelled"
 									: commandLine.prompt === "timeline-search"
 										? "timeline search cancelled"
-										: commandLine.prompt.startsWith(toolPromptPrefix)
-											? "tool target command cancelled"
-											: "path command cancelled",
+										: commandLine.prompt === "control-confirm"
+											? "control confirmation cancelled"
+											: commandLine.prompt.startsWith(toolPromptPrefix)
+												? "tool target command cancelled"
+												: "path command cancelled",
 				);
 				return;
 			}
@@ -1167,6 +1189,8 @@ export function App(): React.ReactElement {
 					submitEndpointFilterCommand();
 				} else if (commandLine.prompt === "timeline-search") {
 					submitTimelineSearchCommand();
+				} else if (commandLine.prompt === "control-confirm") {
+					submitControlConfirmationCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -1305,6 +1329,27 @@ export function App(): React.ReactElement {
 				setScreen("actions");
 				runAction(ping);
 			}
+		}
+
+		if (
+			screen === "actions" &&
+			focusArea === "actions" &&
+			(input === "c" || input === "C")
+		) {
+			if (!actionPreviewPlan) {
+				log("warn", "control confirmation needs a locked action preview first");
+				return;
+			}
+			if (!actionPreviewPlan.confirmationPhrase) {
+				log("warn", `${actionPreviewPlan.actionId} has no confirmation phrase`);
+				return;
+			}
+			setCommandLine(openCommandLine("control-confirm"));
+			log(
+				"info",
+				`control confirmation opened for ${actionPreviewPlan.actionId}`,
+			);
+			return;
 		}
 
 		if (input === "\r") {
@@ -2660,6 +2705,7 @@ function renderWorkspace(
 				selectedIndex={selectedActionIndex}
 				focused={focusArea === "actions"}
 				previewPlan={actionPreviewPlan}
+				commandLine={commandLine}
 				visibleRows={Math.max(3, height - 7)}
 				t={t}
 			/>
@@ -3973,6 +4019,7 @@ function ActionWorkspace({
 	selectedIndex,
 	focused,
 	previewPlan,
+	commandLine,
 	visibleRows,
 	t,
 }: {
@@ -3980,11 +4027,19 @@ function ActionWorkspace({
 	selectedIndex: number;
 	focused: boolean;
 	previewPlan?: ActionPreviewPlan;
+	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const previewRows = previewPlan ? formatActionPreviewRows(previewPlan) : [];
-	const actionRows = Math.max(3, visibleRows - previewRows.length - 1);
+	const confirmationRows = formatActionConfirmationPromptRows(
+		commandLine,
+		previewPlan,
+	);
+	const actionRows = Math.max(
+		3,
+		visibleRows - previewRows.length - confirmationRows.length - 1,
+	);
 	const window = getVisibleWindow(actions.length, selectedIndex, actionRows);
 	const visibleActions = actions.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -3995,7 +4050,7 @@ function ActionWorkspace({
 			<Text bold>{t("actions.title")}</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "child focus · j/k select · enter run · esc/h back"
+					? "child focus · j/k select · enter preview/run · c confirm · esc/h back"
 					: "enter opens action list · j/k stays in workspaces"}
 			</Text>
 			{hiddenAbove > 0 ? (
@@ -4023,7 +4078,10 @@ function ActionWorkspace({
 			{previewRows.length ? (
 				<Box marginTop={1} flexDirection="column">
 					{previewRows
-						.slice(0, Math.max(1, visibleRows - actionRows))
+						.slice(
+							0,
+							Math.max(1, visibleRows - actionRows - confirmationRows.length),
+						)
 						.map((row) => (
 							<Text key={row} color={getActionPreviewRowColor(row)}>
 								{row}
@@ -4031,15 +4089,46 @@ function ActionWorkspace({
 						))}
 				</Box>
 			) : null}
+			{confirmationRows.length ? (
+				<Box marginTop={1} flexDirection="column">
+					{confirmationRows.map((row) => (
+						<Text key={row} color={getActionPreviewRowColor(row)}>
+							{row}
+						</Text>
+					))}
+				</Box>
+			) : null}
 		</Box>
 	);
 }
 
+function formatActionConfirmationPromptRows(
+	commandLine: CommandLineState,
+	previewPlan?: ActionPreviewPlan,
+): string[] {
+	if (
+		!previewPlan ||
+		!commandLine.active ||
+		commandLine.prompt !== "control-confirm"
+	) {
+		return [];
+	}
+	return [
+		`CONTROL CONFIRM ${previewPlan.actionId}`,
+		`:confirm ${commandLine.value || " "}  type="${previewPlan.confirmationPhrase ?? ""}" enter=audit esc=cancel`,
+		"executionEnabled=false",
+	];
+}
+
 function getActionPreviewRowColor(row: string): string {
-	if (row.startsWith("CONTROL PREVIEW")) {
+	if (row.startsWith("CONTROL PREVIEW") || row.startsWith("CONTROL CONFIRM")) {
 		return "cyan";
 	}
-	if (row.startsWith("blocked=") || row.includes("destructive")) {
+	if (
+		row.startsWith("blocked=") ||
+		row.startsWith(":confirm") ||
+		row.includes("destructive")
+	) {
 		return "yellow";
 	}
 	if (row.includes("admin")) {

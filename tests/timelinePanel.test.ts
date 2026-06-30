@@ -91,6 +91,27 @@ describe("timeline TUI panel formatting", () => {
 		]);
 	});
 
+	test("classifies control confirmation audit records", () => {
+		const confirmationEvents: ConsoleEvent[] = [
+			{
+				id: "12:00:07-warn-control-confirm",
+				level: "warn",
+				time: "12:00:07",
+				message:
+					'control confirmation dns.flush status=confirmed-disabled risk=write privilege=admin dryRun=true executionEnabled=false adapter=macos command="sudo dscacheutil -flushcache"',
+			},
+		];
+
+		expect(formatTimelineWorkspaceRows(confirmationEvents, 4, "audit")).toEqual(
+			[
+				"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
+				"TIMELINE",
+				'[12:00:07] WARN audit  control confirmation dns.flush status=confirmed-disabled risk=write privilege=admin dryRun=true executionEnabled=false adapter=macos command="sudo dscacheutil -flushcache"',
+				"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+			],
+		);
+	});
+
 	test("filters network state-change events separately from actions", () => {
 		expect(formatTimelineWorkspaceRows(events, 4, "network")).toEqual([
 			"SUMMARY events=1/7 network=1 audit=2 action=3 raw=1 filter=network",

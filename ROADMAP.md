@@ -881,6 +881,19 @@ Goal: make privileged control review traceable before any OS mutation path is en
 - No OS mutation command is executed by this framework step.
 - Next: typed confirmation state for control previews while execution remains disabled.
 
+## v0.4.3 - Control Confirmation State
+
+Status: draft PR #65.
+
+Goal: make the final confirmation step visible and auditable before real mutation is ever enabled.
+
+- Action Center now opens a typed confirmation prompt from a locked control preview with `c`.
+- Correct confirmation phrases record `confirmed-disabled` audit events instead of executing commands.
+- Incorrect phrases record `rejected` audit events with the same risk, privilege, adapter, and command metadata.
+- Timeline classifies control confirmation messages as audit events.
+- No OS mutation command is executed by this framework step.
+- Next: approval policy modeling and dry-run simulation records for future write/destructive controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

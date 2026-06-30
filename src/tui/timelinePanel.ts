@@ -139,6 +139,8 @@ function classifyTimelineEvent(
 	const message = event.message.toLowerCase();
 	if (
 		message.includes("clipboard") ||
+		message.includes("control confirmation") ||
+		message.includes("control preview") ||
 		message.includes("audit") ||
 		message.includes("locked") ||
 		message.includes("failed")
