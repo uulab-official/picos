@@ -8493,7 +8493,7 @@ function ConfigWorkspace({
 									? "cyan"
 									: row.startsWith("posture=")
 										? "yellow"
-										: row.startsWith("persist=")
+										: row.startsWith("persist=") || row.startsWith("actions=")
 											? "gray"
 											: "white"
 							}

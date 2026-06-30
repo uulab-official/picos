@@ -102,11 +102,12 @@ describe("config TUI panel", () => {
 			}),
 		).toEqual([
 			"CONFIG SECTION DETAIL",
-			"section=DISPLAY items=2",
+			"section=DISPLAY items=2 shortcut=1",
 			"config=/tmp/picos/config.json",
 			"selected=language value=ko",
 			"posture=admin dry-run previews",
 			"persist=+/- writes language or refreshInterval",
+			"actions=+/- adjust language/refresh, R exact reset",
 		]);
 
 		expect(
@@ -115,11 +116,26 @@ describe("config TUI panel", () => {
 			}),
 		).toEqual([
 			"CONFIG SECTION DETAIL",
-			"section=SAFETY items=2",
+			"section=SAFETY items=2 shortcut=2",
 			"config=/tmp/picos/config.json",
 			"selected=controlExecutionMode value=dry-run",
 			"posture=admin dry-run previews",
 			"persist=+/- writes policy, P cycles preset, R exact reset",
+			"actions=+/- adjust policy, P cycle preset, R exact reset",
+		]);
+
+		expect(
+			formatConfigWorkspaceDetailRows(items, 4, {
+				configPath: "/tmp/picos/config.json",
+			}),
+		).toEqual([
+			"CONFIG SECTION DETAIL",
+			"section=CONNECTIVITY items=1 shortcut=4",
+			"config=/tmp/picos/config.json",
+			"selected=defaultPingHost value=internal.example",
+			"posture=admin dry-run previews",
+			"persist=enter edits defaultPingHost",
+			"actions=enter edit defaultPingHost, R exact reset",
 		]);
 	});
 
