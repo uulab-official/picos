@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import {
 	normalizeRouteFilterPresets,
 	saveRouteFilterPresetValue,
@@ -19,6 +21,13 @@ import {
 } from "./clipboardPreview";
 
 export type RouteDetailView = "table" | "raw" | "diagnostics" | "path";
+
+export type RouteRawHandoffPlan = {
+	path: string;
+	content: string;
+	label: string;
+	view: RouteDetailView;
+};
 
 export function nextRouteDetailView(view: RouteDetailView): RouteDetailView {
 	if (view === "table") {
@@ -216,6 +225,56 @@ export function getRouteClipboardPreview(
 	});
 }
 
+export function createRouteRawHandoffPlan(
+	result: RouteTableResult,
+	options: {
+		baseDir: string;
+		filter?: string;
+		generatedAt?: Date;
+		path?: RoutePathResult;
+		sort?: RouteSort;
+		view?: RouteDetailView;
+	},
+): RouteRawHandoffPlan | undefined {
+	const view = options.view ?? "raw";
+	const handoff = getRouteHandoffContent(result, {
+		filter: options.filter,
+		path: options.path,
+		sort: options.sort,
+		view,
+	});
+	if (!handoff) {
+		return undefined;
+	}
+	const generatedAt = options.generatedAt ?? new Date();
+	const iso = generatedAt.toISOString();
+	return {
+		path: join(
+			options.baseDir,
+			"routes",
+			`picos-routes-${view}-${iso.replaceAll(/[:.]/g, "")}.md`,
+		),
+		content: formatRouteHandoffMarkdown(result, {
+			content: handoff.content,
+			filter: options.filter,
+			generatedAt: iso,
+			label: handoff.label,
+			sort: options.sort,
+			view,
+		}),
+		label: handoff.label,
+		view,
+	};
+}
+
+export async function writeRouteRawHandoffPlan(
+	plan: RouteRawHandoffPlan,
+): Promise<RouteRawHandoffPlan> {
+	await mkdir(dirname(plan.path), { recursive: true });
+	await writeFile(plan.path, plan.content, "utf8");
+	return plan;
+}
+
 function formatRouteDetailViewRows(
 	result: RouteTableResult,
 	visibleRows: number,
@@ -270,6 +329,81 @@ function formatRouteClipboardPreviewRows(
 ): string[] {
 	const preview = getRouteClipboardPreview(result, options);
 	return preview ? formatClipboardPreviewRows(preview) : [];
+}
+
+function getRouteHandoffContent(
+	result: RouteTableResult,
+	options: {
+		filter?: string;
+		path?: RoutePathResult;
+		sort?: RouteSort;
+		view: RouteDetailView;
+	},
+): { content: string; label: string } | undefined {
+	if (options.view === "raw") {
+		return {
+			content: result.rawOutput,
+			label: "route raw output",
+		};
+	}
+	if (options.view === "path") {
+		if (!options.path) {
+			return undefined;
+		}
+		return {
+			content: options.path.rawOutput,
+			label: `route path ${options.path.destination}`,
+		};
+	}
+	if (options.view === "diagnostics") {
+		return {
+			content:
+				result.diagnostics
+					.map(
+						(diagnostic) =>
+							`${diagnostic.status.toUpperCase()} ${diagnostic.label}${diagnostic.detail ? ` · ${diagnostic.detail}` : ""}`,
+					)
+					.join("\n") || "WARN No diagnostics available",
+			label: "route diagnostics",
+		};
+	}
+	return {
+		content: formatRouteTable(result, {
+			filter: options.filter,
+			sort: options.sort,
+		}),
+		label: "route table",
+	};
+}
+
+function formatRouteHandoffMarkdown(
+	result: RouteTableResult,
+	options: {
+		content: string;
+		filter?: string;
+		generatedAt: string;
+		label: string;
+		sort?: RouteSort;
+		view: RouteDetailView;
+	},
+): string {
+	const filter = options.filter?.trim() ?? "";
+	return [
+		"# picos route handoff",
+		`generatedAt=${options.generatedAt}`,
+		`view=${options.view}`,
+		`label=${options.label}`,
+		`command=${result.command} ${result.args.join(" ")}`.trim(),
+		...(filter ? [`filter=${filter}`] : []),
+		...(options.sort
+			? [`sort=${options.sort.key} ${options.sort.direction}`]
+			: []),
+		"",
+		"```txt",
+		options.content,
+		"```",
+		"",
+	].join("\n");
 }
 
 export function formatRouteRawRows(

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { RoutePathResult, RouteTableResult } from "../src/core/routes";
 import {
+	createRouteRawHandoffPlan,
 	formatRoutePathRows,
 	formatRouteRawRows,
 	formatRouteWorkspaceRows,
@@ -8,6 +12,7 @@ import {
 	nextRouteDetailView,
 	nextRouteFilterPreset,
 	saveRouteFilterPreset,
+	writeRouteRawHandoffPlan,
 } from "../src/tui/routePanel";
 
 const fixture: RouteTableResult = {
@@ -250,5 +255,72 @@ describe("route TUI panel formatting", () => {
 			"gateway: 192.168.0.1",
 			"interface: en0",
 		]);
+	});
+
+	test("creates route raw handoff plans for the active detail view", () => {
+		const plan = createRouteRawHandoffPlan(fixture, {
+			baseDir: "/tmp/picos",
+			filter: "utun",
+			generatedAt: new Date("2026-06-30T12:00:00.000Z"),
+			sort: { key: "interface", direction: "asc" },
+			view: "raw",
+		});
+
+		expect(plan).toEqual({
+			path: "/tmp/picos/routes/picos-routes-raw-2026-06-30T120000000Z.md",
+			label: "route raw output",
+			view: "raw",
+			content:
+				"# picos route handoff\n" +
+				"generatedAt=2026-06-30T12:00:00.000Z\n" +
+				"view=raw\n" +
+				"label=route raw output\n" +
+				"command=netstat -rn\n" +
+				"filter=utun\n" +
+				"sort=interface asc\n" +
+				"\n" +
+				"```txt\n" +
+				"$ netstat -rn\n" +
+				"Internet:\n" +
+				"default 192.168.0.1 UGSc en0\n" +
+				"```\n",
+		});
+
+		expect(
+			createRouteRawHandoffPlan(fixture, {
+				baseDir: "/tmp/picos",
+				view: "path",
+			}),
+		).toBeUndefined();
+		expect(
+			createRouteRawHandoffPlan(fixture, {
+				baseDir: "/tmp/picos",
+				path: pathFixture,
+				view: "path",
+			})?.content,
+		).toContain("$ route -n get 8.8.8.8");
+	});
+
+	test("writes route raw handoff files", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-route-handoff-"));
+		try {
+			const plan = createRouteRawHandoffPlan(fixture, {
+				baseDir: root,
+				generatedAt: new Date("2026-06-30T12:00:00.000Z"),
+				view: "table",
+			});
+			if (!plan) {
+				throw new Error("expected route handoff plan");
+			}
+
+			const written = await writeRouteRawHandoffPlan(plan);
+
+			expect(written.path).toBe(
+				join(root, "routes", "picos-routes-table-2026-06-30T120000000Z.md"),
+			);
+			expect(await readFile(written.path, "utf8")).toBe(plan.content);
+		} finally {
+			await rm(root, { force: true, recursive: true });
+		}
 	});
 });
