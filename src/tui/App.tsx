@@ -184,8 +184,12 @@ import {
 	nextInterfaceDetailView,
 } from "./interfacePanel";
 import {
+	formatLogProfileLabel,
 	formatLogWorkspaceRows,
+	type LogProfile,
+	nextLogProfile,
 	nextLogSearchPreset,
+	saveLogProfile,
 	saveLogSearchPreset,
 } from "./logPanel";
 import {
@@ -420,6 +424,7 @@ export function App(): React.ReactElement {
 	const [logSearchQuery, setLogSearchQuery] = useState("");
 	const [logSearchPresets, setLogSearchPresets] = useState<string[]>([]);
 	const [logLevelFilter, setLogLevelFilter] = useState<OsLogLevelFilter>("all");
+	const [logProfiles, setLogProfiles] = useState<LogProfile[]>([]);
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -2131,6 +2136,36 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "logs" && focusArea === "workspaces" && input === "S") {
+			const profile = { level: logLevelFilter, query: logSearchQuery };
+			setLogProfiles((current) => saveLogProfile(current, profile));
+			log("info", `logs profile saved ${formatLogProfileLabel(profile)}`);
+			return;
+		}
+
+		if (screen === "logs" && focusArea === "workspaces" && input === "}") {
+			const profile = nextLogProfile(logProfiles, {
+				level: logLevelFilter,
+				query: logSearchQuery,
+			});
+			if (!profile) {
+				log("warn", "no logs profiles");
+				return;
+			}
+			const filtered = filterOsLogEntries(
+				osLogs?.entries ?? [],
+				profile.query,
+				profile.level,
+			);
+			setLogLevelFilter(profile.level);
+			setLogSearchQuery(profile.query);
+			log(
+				filtered.length ? "info" : "warn",
+				`logs profile ${formatLogProfileLabel(profile)} matches ${filtered.length}`,
+			);
+			return;
+		}
+
 		if (screen === "logs" && focusArea === "workspaces" && input === "r") {
 			void (async () => {
 				try {
@@ -2577,6 +2612,7 @@ export function App(): React.ReactElement {
 					logSearchQuery={logSearchQuery}
 					logSearchPresets={logSearchPresets}
 					logLevelFilter={logLevelFilter}
+					logProfiles={logProfiles}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolTargetPresets={toolTargetPresets}
@@ -2753,6 +2789,7 @@ function MainWorkspace({
 	logSearchQuery,
 	logSearchPresets,
 	logLevelFilter,
+	logProfiles,
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolTargetPresets,
@@ -2831,6 +2868,7 @@ function MainWorkspace({
 	logSearchQuery: string;
 	logSearchPresets: string[];
 	logLevelFilter: OsLogLevelFilter;
+	logProfiles: LogProfile[];
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolTargetPresets: ToolTargetPreset[];
@@ -2918,6 +2956,7 @@ function MainWorkspace({
 					logSearchQuery,
 					logSearchPresets,
 					logLevelFilter,
+					logProfiles,
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolTargetPresets,
@@ -3000,6 +3039,7 @@ function renderWorkspace(
 	logSearchQuery: string,
 	logSearchPresets: string[],
 	logLevelFilter: OsLogLevelFilter,
+	logProfiles: LogProfile[],
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolTargetPresets: ToolTargetPreset[],
@@ -3237,6 +3277,7 @@ function renderWorkspace(
 				query={logSearchQuery}
 				presets={logSearchPresets}
 				level={logLevelFilter}
+				profiles={logProfiles}
 				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
 			/>
@@ -4981,6 +5022,7 @@ function LogWorkspace({
 	query,
 	presets,
 	level,
+	profiles,
 	commandLine,
 	visibleRows,
 }: {
@@ -4989,6 +5031,7 @@ function LogWorkspace({
 	query: string;
 	presets: string[];
 	level: OsLogLevelFilter;
+	profiles: LogProfile[];
 	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
@@ -5013,7 +5056,7 @@ function LogWorkspace({
 		...formatLogWorkspaceRows(
 			logs,
 			Math.max(1, visibleRows - promptRows.length - doctorRows.length),
-			{ level, query, presets },
+			{ level, query, presets, profiles },
 		),
 		...promptRows,
 		...doctorRows,
