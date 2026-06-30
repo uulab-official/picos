@@ -41,7 +41,7 @@ Keyboard controls:
 - `?` or `/`: open the command palette, then type to filter commands
 - Files workspace: `enter` opens file focus, `j/k` selects entries, `enter` opens, `..` appears as a parent entry, `f` filters by name/path/type, `enter` applies the filter, `esc` clears it, `c`/`m`/`x` open locked copy/move/delete previews, `b` returns to the previous file location, `1-9` jumps system locations, `:` opens path input with `.`/`..` support, `g` cycles system locations, `u` goes to the parent directory, and `h`/`esc` returns to workspace navigation
 - Routes workspace: `s` cycles route row sorting and `:` opens destination path lookup
-- Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `s` cycles endpoint sorting
+- Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `j/k` selects endpoints, `s` cycles endpoint sorting, and `c` opens a copy preview
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh
@@ -160,8 +160,8 @@ Reference-inspired modules now tracked in picos:
 - Interface type, CIDR prefix, MAC/netmask, MTU, RX/TX counters, gateway, and DNS inventory
 - Subnet/network grouping for LAN, loopback, VPN, container, link-local, and public addresses
 - Route Inspector with TUI diagnostics, destination path lookup, route rows, and raw command output
-- Connections view with parsed rows, CLI filtering/sorting, TUI sort cycling, and raw OS command output
-- Ports view with process metadata, CLI filtering/sorting, TUI sort cycling, and raw OS command output
+- Connections view with parsed rows, CLI filtering/sorting, TUI selection details, copy preview, and raw OS command output
+- Ports view with process metadata, CLI filtering/sorting, TUI selection details, copy preview, and raw OS command output
 - Tools Hub
 - Timeline
 - Raw output viewer

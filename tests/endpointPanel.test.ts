@@ -73,6 +73,51 @@ describe("endpoint TUI panel formatting", () => {
 		);
 	});
 
+	test("formats selected connection details and copy preview", () => {
+		const rows = formatConnectionsWorkspaceRows(
+			{
+				command: "netstat",
+				args: ["-an"],
+				connections: [
+					{
+						protocol: "tcp4",
+						localAddress: "127.0.0.1",
+						localPort: "3000",
+						remoteAddress: "127.0.0.1",
+						remotePort: "52000",
+						state: "ESTABLISHED",
+					},
+					{
+						protocol: "tcp4",
+						localAddress: "192.168.0.20",
+						localPort: "61000",
+						remoteAddress: "142.250.207.14",
+						remotePort: "443",
+						state: "SYN_SENT",
+						pid: "4242",
+					},
+				],
+				rawOutput: "$ netstat -an\nraw",
+			},
+			12,
+			{
+				copyPreview: true,
+				selectedIndex: 1,
+			},
+		);
+
+		expect(rows).toContain(
+			"> tcp4   192.168.0.20:61000       142.250.207.14:443       SYN_SENT",
+		);
+		expect(rows).toContain("DETAIL connection 2/2");
+		expect(rows).toContain("local 192.168.0.20:61000");
+		expect(rows).toContain("remote 142.250.207.14:443");
+		expect(rows).toContain("state SYN_SENT pid=4242");
+		expect(rows).toContain(
+			"COPY PREVIEW 192.168.0.20:61000 -> 142.250.207.14:443",
+		);
+	});
+
 	test("formats ports with clipped raw source output", () => {
 		expect(
 			formatPortsWorkspaceRows(
@@ -137,5 +182,46 @@ describe("endpoint TUI panel formatting", () => {
 		).toContain(
 			"SUMMARY ports=1/2 sort=process asc filter=node command=lsof -nP",
 		);
+	});
+
+	test("formats selected port details and copy preview", () => {
+		const rows = formatPortsWorkspaceRows(
+			{
+				command: "lsof",
+				args: ["-nP"],
+				ports: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "12345",
+						command: "node",
+						user: "alice",
+					},
+					{
+						protocol: "tcp",
+						localAddress: "127.0.0.1",
+						localPort: "5432",
+						pid: "222",
+						command: "postgres",
+						user: "alice",
+					},
+				],
+				rawOutput: "$ lsof\nraw",
+			},
+			12,
+			{
+				copyPreview: true,
+				selectedIndex: 0,
+			},
+		);
+
+		expect(rows).toContain(
+			"> tcp    *:3000                   node               12345   alice",
+		);
+		expect(rows).toContain("DETAIL port 1/2");
+		expect(rows).toContain("listen *:3000");
+		expect(rows).toContain("process node pid=12345 user=alice");
+		expect(rows).toContain("COPY PREVIEW *:3000 node pid=12345");
 	});
 });
