@@ -4,6 +4,7 @@ import type { NetworkSummary } from "../src/core/types";
 import {
 	appendToolHistory,
 	createToolRunPlan,
+	formatToolPromptRows,
 	formatToolsWorkspaceRows,
 } from "../src/tui/toolHistory";
 
@@ -59,6 +60,64 @@ describe("TUI tool history", () => {
 		).toBeUndefined();
 	});
 
+	test("plans tool runs from operator target prompts", () => {
+		expect(
+			createToolRunPlan("tools.dns", "example.com", summary, "cloudflare.com"),
+		).toEqual({
+			actionId: "tools.dns",
+			toolId: "dns",
+			args: ["cloudflare.com"],
+			label: "tools.dns cloudflare.com",
+		});
+		expect(
+			createToolRunPlan(
+				"network.connect",
+				"example.com",
+				summary,
+				"api.github.com 8443",
+			),
+		).toEqual({
+			actionId: "network.connect",
+			toolId: "port-check",
+			args: ["api.github.com", "8443"],
+			label: "network.connect api.github.com:8443",
+		});
+		expect(
+			createToolRunPlan(
+				"network.connect",
+				"example.com",
+				summary,
+				"api.github.com:9443",
+			),
+		).toEqual({
+			actionId: "network.connect",
+			toolId: "port-check",
+			args: ["api.github.com", "9443"],
+			label: "network.connect api.github.com:9443",
+		});
+		expect(
+			createToolRunPlan(
+				"tools.tls",
+				"example.com",
+				summary,
+				"api.github.com:8443",
+			),
+		).toEqual({
+			actionId: "tools.tls",
+			toolId: "tls",
+			args: ["api.github.com:8443"],
+			label: "tools.tls api.github.com:8443",
+		});
+		expect(
+			createToolRunPlan("tools.ipInfo", "example.com", summary, "8.8.8.8"),
+		).toEqual({
+			actionId: "tools.ipInfo",
+			toolId: "ip-info",
+			args: ["8.8.8.8"],
+			label: "tools.ipInfo 8.8.8.8",
+		});
+	});
+
 	test("keeps latest tool results with stable raw handoff metadata", () => {
 		const history = appendToolHistory(
 			[],
@@ -110,7 +169,17 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: action enter=run · raw.view shows latest raw output",
+			"shortcuts: action enter=target prompt · raw.view shows latest raw output",
 		]);
+	});
+
+	test("formats active tool target prompt rows", () => {
+		expect(
+			formatToolPromptRows("tool:network.connect", "api.github.com 443"),
+		).toEqual([
+			"TOOL TARGET network.connect",
+			":tool api.github.com 443  enter=run esc=cancel",
+		]);
+		expect(formatToolPromptRows("route", "8.8.8.8")).toEqual([]);
 	});
 });
