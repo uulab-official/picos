@@ -1803,6 +1803,20 @@ Goal: let operators choose which TCP detail section they want to copy before ope
 - Tests cover the section preview helper, selector cycling, and shortcut rendering.
 - Next: add per-row cursor selection inside TCP detail sections.
 
+## v0.4.72 - TCP Row Copy Selector
+
+Status: draft PR #134 on `codex/picos-v0.4.72-tcp-row-copy-selector`.
+
+Goal: make TCP diagnostics copyable at the exact row level without losing the existing whole-section copy path.
+
+- Tools workspace now uses `,` and `.` to move a row cursor inside the selected TCP Target or Status section.
+- `b` opens a locked clipboard preview for the selected TCP row.
+- `v` still opens the whole selected TCP section preview, keeping v0.4.71 workflows intact.
+- The Tools shortcut footer shows `row=current/total` only when the selected run has rows for the active TCP section.
+- Moving between Tools history runs or switching Target/Status resets the row cursor to avoid stale row selection.
+- Tests cover row cursor wrapping, row-level clipboard preview shape, unavailable rows, and footer rendering.
+- Next: render the selected TCP row with an inline marker inside the detail pane.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

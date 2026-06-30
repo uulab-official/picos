@@ -304,6 +304,7 @@ export function formatToolsWorkspaceRows(
 	targetPresets: ToolTargetPreset[] = [],
 	selectedTargetPresetIndex = 0,
 	sectionClipboardSelection: ToolSectionClipboardSelection = "target",
+	sectionClipboardRowIndex = 0,
 ): string[] {
 	const filtered = sortToolHistory(history, filterQuery, sort);
 	const latestIndex = getVisibleToolHistoryIndex(
@@ -333,11 +334,18 @@ export function formatToolsWorkspaceRows(
 		targetPresets[
 			Math.min(Math.max(selectedTargetPresetIndex, 0), targetPresets.length - 1)
 		];
+	const sectionRowCount = latest
+		? getToolSectionClipboardRowCountForItem(latest, sectionClipboardSelection)
+		: 0;
+	const sectionRowSummary =
+		sectionRowCount > 0
+			? ` · ,/. row=${Math.min(Math.max(sectionClipboardRowIndex, 0), sectionRowCount - 1) + 1}/${sectionRowCount} · b row`
+			: "";
 	return [
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		`shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=${sectionClipboardSelection} · v copy section · c raw`,
+		`shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=${sectionClipboardSelection}${sectionRowSummary} · v copy section · c raw`,
 	].slice(0, visibleRows);
 }
 
@@ -884,6 +892,45 @@ export function getSelectedToolSectionClipboardPreview(
 	});
 }
 
+export function moveToolSectionClipboardRow(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	selection: ToolSectionClipboardSelection,
+	currentIndex: number,
+	direction: "previous" | "next",
+): number {
+	const item = getSelectedToolHistoryItem(history, selectedIndex);
+	const count = item
+		? getToolSectionClipboardRowCountForItem(item, selection)
+		: 0;
+	if (count <= 0) {
+		return 0;
+	}
+	const normalized = Math.min(Math.max(currentIndex, 0), count - 1);
+	return direction === "next"
+		? (normalized + 1) % count
+		: (normalized - 1 + count) % count;
+}
+
+export function getSelectedToolSectionRowClipboardPreview(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	selection: ToolSectionClipboardSelection,
+	rowIndex: number,
+): ClipboardPreview | undefined {
+	const item = getSelectedToolHistoryItem(history, selectedIndex);
+	const sectionLines = item ? getToolSectionClipboardRows(item, selection) : [];
+	if (!item || sectionLines.length <= 0) {
+		return undefined;
+	}
+	const bounded = Math.min(Math.max(rowIndex, 0), sectionLines.length - 1);
+	return createClipboardPreview({
+		source: "tool-row",
+		label: `${item.label} ${selection} row ${bounded + 1}`,
+		copyText: sectionLines[bounded] ?? "",
+	});
+}
+
 export function formatToolHistoryExport(
 	history: ToolHistoryItem[],
 	options: {
@@ -1075,6 +1122,23 @@ function formatToolHistoryDetailRows(
 
 function formatToolHistoryCommand(item: ToolHistoryItem): string {
 	return `picos tools ${item.plan.toolId} ${item.plan.args.join(" ")}`.trim();
+}
+
+function getToolSectionClipboardRows(
+	item: ToolHistoryItem,
+	selection: ToolSectionClipboardSelection,
+): string[] {
+	return extractRawSection(
+		item.rawOutput,
+		selection === "target" ? "Target" : "Status",
+	);
+}
+
+function getToolSectionClipboardRowCountForItem(
+	item: ToolHistoryItem,
+	selection: ToolSectionClipboardSelection,
+): number {
+	return getToolSectionClipboardRows(item, selection).length;
 }
 
 function extractRawSection(rawOutput: string, sectionLabel: string): string[] {
