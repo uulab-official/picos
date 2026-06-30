@@ -38,6 +38,8 @@ export type ToolHistoryExportScope = "selected" | "all";
 
 export type ToolHistorySort = "time" | "tool" | "status";
 
+export type ToolHistoryGroup = "none" | "tool" | "status";
+
 export type ToolHistoryExportPlan = {
 	path: string;
 	content: string;
@@ -148,6 +150,7 @@ export function formatToolsWorkspaceRows(
 	selectedIndex = Math.max(0, history.length - 1),
 	filterQuery = "",
 	sort: ToolHistorySort = "time",
+	group: ToolHistoryGroup = "none",
 ): string[] {
 	const filtered = sortToolHistory(history, filterQuery, sort);
 	const latestIndex = getVisibleToolHistoryIndex(
@@ -157,9 +160,10 @@ export function formatToolsWorkspaceRows(
 		sort,
 	);
 	const latest = filtered.find((entry) => entry.index === latestIndex)?.item;
-	const historyRows = filtered.map(
-		(entry) =>
-			`${entry.index === latestIndex ? ">" : " "} [${entry.item.time}] ${entry.item.status} ${entry.item.label}`,
+	const historyRows = formatGroupedToolHistoryRows(
+		filtered,
+		latestIndex,
+		group,
 	);
 	const bodyRows = latest
 		? [
@@ -171,9 +175,9 @@ export function formatToolsWorkspaceRows(
 		: [history.length ? "no matching tool runs" : "no tool runs yet"];
 	const filter = filterQuery.trim();
 	return [
-		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""} selected=${latest?.title ?? "-"}`,
+		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: j/k select · f filter · F clear · s sort · r rerun · y summary · c raw",
+		"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -243,6 +247,18 @@ export function nextToolHistorySort(sort: ToolHistorySort): ToolHistorySort {
 		return "status";
 	}
 	return "time";
+}
+
+export function nextToolHistoryGroup(
+	group: ToolHistoryGroup,
+): ToolHistoryGroup {
+	if (group === "none") {
+		return "tool";
+	}
+	if (group === "tool") {
+		return "status";
+	}
+	return "none";
 }
 
 export function formatToolPromptRows(prompt: string, value: string): string[] {
@@ -449,6 +465,60 @@ function formatToolHistoryExportItem(item: ToolHistoryItem): string[] {
 
 function getToolHistoryStatusRank(status: ToolHistoryItem["status"]): number {
 	return status === "ok" ? 0 : 1;
+}
+
+function formatGroupedToolHistoryRows(
+	entries: FilteredToolHistoryItem[],
+	selectedIndex: number,
+	group: ToolHistoryGroup,
+): string[] {
+	if (group === "none") {
+		return entries.map((entry) => formatToolHistoryRow(entry, selectedIndex));
+	}
+	const counts = countToolHistoryGroups(entries, group);
+	const rows: string[] = [];
+	let currentGroup = "";
+	for (const entry of entries) {
+		const nextGroup = getToolHistoryGroupLabel(entry.item, group);
+		if (nextGroup !== currentGroup) {
+			currentGroup = nextGroup;
+			rows.push(`## ${currentGroup} (${counts.get(currentGroup) ?? 0})`);
+		}
+		rows.push(formatToolHistoryRow(entry, selectedIndex));
+	}
+	return rows;
+}
+
+function countToolHistoryGroups(
+	entries: FilteredToolHistoryItem[],
+	group: ToolHistoryGroup,
+): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const entry of entries) {
+		const label = getToolHistoryGroupLabel(entry.item, group);
+		counts.set(label, (counts.get(label) ?? 0) + 1);
+	}
+	return counts;
+}
+
+function formatToolHistoryRow(
+	entry: FilteredToolHistoryItem,
+	selectedIndex: number,
+): string {
+	return `${entry.index === selectedIndex ? ">" : " "} [${entry.item.time}] ${entry.item.status} ${entry.item.label}`;
+}
+
+function getToolHistoryGroupLabel(
+	item: ToolHistoryItem,
+	group: ToolHistoryGroup,
+): string {
+	if (group === "status") {
+		return item.status;
+	}
+	if (group === "tool") {
+		return item.plan.actionId;
+	}
+	return "all";
 }
 
 function formatToolHistorySearchText(item: ToolHistoryItem): string {

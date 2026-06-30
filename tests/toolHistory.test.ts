@@ -18,6 +18,7 @@ import {
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
+	nextToolHistoryGroup,
 	nextToolHistorySort,
 	rerunToolHistoryItem,
 	sortToolHistory,
@@ -191,7 +192,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · f filter · F clear · s sort · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -272,12 +273,12 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · f filter · F clear · s sort · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
 		]);
 		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
 			"TOOLS history=2 filter=missing matches=0 selected=-",
 			"no matching tool runs",
-			"shortcuts: j/k select · f filter · F clear · s sort · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
 		]);
 		expect(
 			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
@@ -336,7 +337,68 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · f filter · F clear · s sort · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
+		]);
+	});
+
+	test("groups tool history rows without changing source selection indexes", () => {
+		const history = appendToolHistory(
+			appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			),
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "port-check",
+					args: ["api.github.com", "443"],
+					label: "network.connect api.github.com:443",
+				},
+				result: {
+					...result,
+					title: "TCP Port Check",
+					rawOutput: "$ picos tools port-check api.github.com 443",
+				},
+				status: "fail",
+			},
+			"12:00:01",
+		);
+
+		expect(nextToolHistoryGroup("none")).toBe("tool");
+		expect(nextToolHistoryGroup("tool")).toBe("status");
+		expect(nextToolHistoryGroup("status")).toBe("none");
+		expect(
+			formatToolsWorkspaceRows(history, 10, 1, "", "tool", "tool"),
+		).toEqual([
+			"TOOLS history=2 sort=tool group=tool selected=TCP Port Check",
+			"## network.connect (1)",
+			"> [12:00:01] fail network.connect api.github.com:443",
+			"## tools.dns (1)",
+			"  [12:00:00] ok tools.dns example.com",
+			"Summary: Query: example.com | A: 2",
+			"RAW",
+			"$ picos tools port-check api.github.com 443",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
+		]);
+		expect(
+			formatToolsWorkspaceRows(history, 7, 0, "", "time", "status"),
+		).toEqual([
+			"TOOLS history=2 group=status selected=DNS Lookup",
+			"## ok (1)",
+			"> [12:00:00] ok tools.dns example.com",
+			"## fail (1)",
+			"  [12:00:01] fail network.connect api.github.com:443",
+			"Summary: Query: example.com | A: 2",
+			"RAW",
 		]);
 	});
 
