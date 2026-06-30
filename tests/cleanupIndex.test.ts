@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 import {
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
+	createCleanupHandoffHistory,
 	createCleanupJumpAudit,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
+	formatCleanupHandoffHistoryRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
@@ -271,5 +273,41 @@ describe("cleanup shelf index", () => {
 			"normal Ports enter behavior resumes",
 		]);
 		expect(formatCleanupHandoffDismissRows(undefined)).toEqual([]);
+	});
+
+	test("formats the latest cleanup handoff history for Status auditing", () => {
+		const index = createCleanupShelfIndex({
+			routeFilterPresets: ["default"],
+		});
+		const shelf = getSelectedCleanupShelf(index, 0);
+
+		if (!shelf) {
+			throw new Error("expected cleanup shelf");
+		}
+
+		const audit = createCleanupJumpAudit(shelf);
+		const dismissed = createCleanupHandoffHistory(audit, "dismissed");
+		const promptOpened = createCleanupHandoffHistory(audit, "prompt-opened");
+
+		expect(dismissed).toEqual({
+			label: "Route filters",
+			workspace: "Routes",
+			screen: "routes",
+			shortcut: "D",
+			confirmationPhrase: "clear routes",
+			detail: "filters=1",
+			outcome: "dismissed",
+		});
+		expect(formatCleanupHandoffHistoryRows(dismissed)).toEqual([
+			"CLEANUP HISTORY dismissed Route filters",
+			"target=Routes shortcut=D confirm=clear routes",
+			"detail=filters=1 normal controls restored",
+		]);
+		expect(formatCleanupHandoffHistoryRows(promptOpened)).toEqual([
+			"CLEANUP HISTORY prompt-opened Route filters",
+			"target=Routes shortcut=D confirm=clear routes",
+			"detail=filters=1 exact-confirm prompt opened",
+		]);
+		expect(formatCleanupHandoffHistoryRows(undefined)).toEqual([]);
 	});
 });

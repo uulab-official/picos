@@ -1614,6 +1614,19 @@ Goal: let operators review cleanup handoff context without permanently stealing 
 - Tests cover matching dismiss plans, non-matching fallback, and dismiss row formatting.
 - Next: add a tiny handoff history row in Status so recently dismissed cleanup jumps remain auditable without blocking workspace controls.
 
+## v0.4.58 - Cleanup Handoff History
+
+Status: draft PR #120.
+
+Goal: keep cleanup handoff decisions auditable in Status after destination banners are opened or dismissed.
+
+- Cleanup handoffs now create a latest-history model for `prompt-opened` and `dismissed` outcomes.
+- Status workspace renders the latest cleanup handoff history with target workspace, shortcut, exact phrase, shelf detail, and outcome text.
+- Opening a destination cleanup prompt records `prompt-opened`; dismissing the handoff banner records `dismissed`.
+- The history row does not keep intercepting destination workspace controls after the active handoff is cleared.
+- Tests cover history model creation and row formatting for both outcomes.
+- Next: add selectable cleanup history entries once multiple handoff events are retained.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

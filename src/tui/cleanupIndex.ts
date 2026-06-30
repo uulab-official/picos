@@ -54,6 +54,18 @@ export type CleanupHandoffDismissPlan = {
 	workspace: string;
 };
 
+export type CleanupHandoffHistoryOutcome = "prompt-opened" | "dismissed";
+
+export type CleanupHandoffHistory = {
+	label: string;
+	workspace: string;
+	screen: Screen;
+	shortcut: string;
+	confirmationPhrase: string;
+	detail: string;
+	outcome: CleanupHandoffHistoryOutcome;
+};
+
 export type CleanupShelfIndexInput = {
 	connectionFilterPresets?: string[];
 	customToolTargetPresets?: Array<{
@@ -292,6 +304,39 @@ export function formatCleanupHandoffDismissRows(
 	return [
 		"CLEANUP DISMISS esc clears handoff",
 		`normal ${plan.workspace} enter behavior resumes`,
+	];
+}
+
+export function createCleanupHandoffHistory(
+	audit: CleanupJumpAudit,
+	outcome: CleanupHandoffHistoryOutcome,
+): CleanupHandoffHistory {
+	return {
+		label: audit.label,
+		workspace: audit.workspace,
+		screen: audit.screen,
+		shortcut: audit.shortcut,
+		confirmationPhrase: audit.confirmationPhrase,
+		detail: audit.detail,
+		outcome,
+	};
+}
+
+export function formatCleanupHandoffHistoryRows(
+	history: CleanupHandoffHistory | undefined,
+): string[] {
+	if (!history) {
+		return [];
+	}
+
+	const outcomeText =
+		history.outcome === "prompt-opened"
+			? "exact-confirm prompt opened"
+			: "normal controls restored";
+	return [
+		`CLEANUP HISTORY ${history.outcome} ${history.label}`,
+		`target=${history.workspace} shortcut=${history.shortcut} confirm=${history.confirmationPhrase}`,
+		`detail=${history.detail} ${outcomeText}`,
 	];
 }
 
