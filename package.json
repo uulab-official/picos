@@ -26,6 +26,7 @@
 		"verify": "bun scripts/harness.ts verify",
 		"release:check": "bun run build && bun scripts/releaseCheck.ts && npm pack --dry-run",
 		"release:notes": "bun scripts/releaseNotes.ts",
+		"release:changelog": "bun scripts/finalizeChangelog.ts",
 		"version:plan": "bun scripts/version.ts plan",
 		"version:next": "bun scripts/version.ts next",
 		"version:set": "bun scripts/version.ts set",

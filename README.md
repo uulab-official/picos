@@ -171,6 +171,7 @@ Release helpers:
 bun run version:plan 0.3.0
 bun run version:set 0.3.0 --write
 bun run release:notes 0.3.0
+bun run release:changelog 0.3.0 2026-06-30 --write
 bun run release:check
 ```
 

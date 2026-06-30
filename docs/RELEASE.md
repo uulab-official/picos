@@ -45,6 +45,16 @@ Draft release notes from `CHANGELOG.md` before creating the GitHub Release:
 bun run release:notes 0.3.0
 ```
 
+Finalize the `[Unreleased]` changelog entries into a dated version section after
+the release-note draft is reviewed:
+
+```bash
+bun run release:changelog 0.3.0 2026-06-30
+bun run release:changelog 0.3.0 2026-06-30 --write
+```
+
+`release:changelog` is a dry-run unless `--write` is provided.
+
 ## 0.x Version Rules
 
 - `0.2.x`: current local preview baseline.
@@ -64,10 +74,10 @@ commands, and locked future actions while the package remains pre-1.0.
 2. Pick the published version and update both version files.
 3. Run `bun run version:plan <version>`.
 4. Run `bun run version:set <version> --write`.
-5. Move relevant `CHANGELOG.md` entries out of `[Unreleased]`.
-6. Run `bun run verify`.
-7. Run `bun run release:check`.
-8. Run `bun run release:notes <version>`.
+5. Run `bun run release:notes <version>` and review the draft.
+6. Run `bun run release:changelog <version> <date> --write`.
+7. Run `bun run verify`.
+8. Run `bun run release:check`.
 9. Create and push a `vX.Y.Z` tag.
 10. Create a GitHub Release from the tag.
 11. Run `npm publish --access public` when publishing `@uulab/picos` for the

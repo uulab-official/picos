@@ -326,6 +326,19 @@ Goal: make GitHub Release notes consistent without publishing anything automatic
 - Release docs and README include the release notes helper in the release flow.
 - Next: changelog finalize helper after the v0.3 stack is merged.
 
+## v0.3.22 - Changelog Finalize Helper
+
+Status: draft PR #23.
+
+Goal: make the last manual changelog step explicit and reversible before a public release.
+
+- Changelog core moves `[Unreleased]` entries into `## [version] - date`.
+- The helper leaves a fresh `[Unreleased]` section for the next development cycle.
+- `bun run release:changelog <version> <date>` previews the changelog move without writing.
+- `bun run release:changelog <version> <date> --write` updates `CHANGELOG.md`.
+- Release docs make the order explicit: draft release notes first, then finalize the changelog.
+- Next: tag and GitHub Release creation helper after the v0.3 stack is merged.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
