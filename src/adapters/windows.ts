@@ -1,3 +1,4 @@
+import type { ActionPreviewCommand } from "../core/actions";
 import type { NetworkInterfaceStatsMap, PingCommand } from "../core/types";
 
 export function clipboardWriteCommand(): {
@@ -36,6 +37,56 @@ export function interfaceStatsCommand(): { command: string; args: string[] } {
 			"$adapters = Get-NetAdapter | ForEach-Object { $s = Get-NetAdapterStatistics -Name $_.Name; [pscustomobject]@{ Name = $_.Name; Mtu = $_.MtuSize; ReceivedBytes = $s.ReceivedBytes; SentBytes = $s.SentBytes; ReceivedUnicastPackets = $s.ReceivedUnicastPackets; SentUnicastPackets = $s.SentUnicastPackets } }; $adapters | ConvertTo-Json",
 		],
 	};
+}
+
+export function controlPreviewCommand(
+	actionId: string,
+): ActionPreviewCommand | undefined {
+	if (actionId === "dns.flush") {
+		return {
+			adapter: "windows",
+			command: "powershell",
+			args: ["-NoProfile", "-Command", "Clear-DnsClientCache -WhatIf"],
+			note: "flush local DNS resolver cache with WhatIf preview",
+		};
+	}
+	if (actionId === "interface.disable") {
+		return {
+			adapter: "windows",
+			command: "powershell",
+			args: [
+				"-NoProfile",
+				"-Command",
+				"Disable-NetAdapter -Name '<interface>' -Confirm:$false -WhatIf",
+			],
+			note: "disable a network adapter with WhatIf preview",
+		};
+	}
+	if (actionId === "route.add") {
+		return {
+			adapter: "windows",
+			command: "powershell",
+			args: [
+				"-NoProfile",
+				"-Command",
+				"New-NetRoute -DestinationPrefix '<destination>' -NextHop '<gateway>' -WhatIf",
+			],
+			note: "add a route table entry with WhatIf preview",
+		};
+	}
+	if (actionId === "service.restart") {
+		return {
+			adapter: "windows",
+			command: "powershell",
+			args: [
+				"-NoProfile",
+				"-Command",
+				"Restart-Service -Name '<service>' -WhatIf",
+			],
+			note: "restart a Windows service with WhatIf preview",
+		};
+	}
+	return undefined;
 }
 
 export function parseInterfaceStats(stdout: string): NetworkInterfaceStatsMap {

@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { controlPreviewCommand as linuxControlPreviewCommand } from "../src/adapters/linux";
+import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adapters/macos";
+import { controlPreviewCommand as windowsControlPreviewCommand } from "../src/adapters/windows";
 import {
 	createActionPreviewPlan,
 	formatActionPreviewRows,
 	getActionCatalog,
 	getActionSummary,
 } from "../src/core/actions";
+import { getControlPreviewCommand } from "../src/core/controlPreview";
 
 describe("action catalog", () => {
 	test("keeps write and destructive actions locked by default", () => {
@@ -179,7 +183,8 @@ describe("action catalog", () => {
 	});
 
 	test("creates dry-run previews for locked OS-changing actions", () => {
-		const plan = createActionPreviewPlan("dns.flush", "macos");
+		const commandPreview = macosControlPreviewCommand("dns.flush");
+		const plan = createActionPreviewPlan("dns.flush", "macos", commandPreview);
 
 		expect(plan).toBeDefined();
 		if (!plan) {
@@ -194,11 +199,19 @@ describe("action catalog", () => {
 			dryRun: true,
 			confirmationPhrase: "flush dns",
 			blockedReason: "disabled-by-default",
+			commandPreview: {
+				adapter: "macos",
+				command: "sudo",
+				args: ["dscacheutil", "-flushcache"],
+				note: "flush local DNS resolver cache",
+			},
 			preview: [
 				"Risk: write",
 				"Privilege: admin",
 				"Platform: macos",
 				'Confirmation: type "flush dns"',
+				"Adapter: macos",
+				"Command: sudo dscacheutil -flushcache",
 				"Dry run: no OS command will be executed",
 			],
 		});
@@ -207,11 +220,53 @@ describe("action catalog", () => {
 			"state=locked risk=write privilege=admin dryRun=true",
 			"confirm=flush dns",
 			"blocked=disabled-by-default",
+			"adapter=macos",
+			"command=sudo dscacheutil -flushcache",
 			"Risk: write",
 			"Privilege: admin",
 			"Platform: macos",
 			'Confirmation: type "flush dns"',
+			"Adapter: macos",
+			"Command: sudo dscacheutil -flushcache",
 			"Dry run: no OS command will be executed",
 		]);
+	});
+
+	test("keeps OS-changing dry-run commands inside platform adapters", () => {
+		expect(macosControlPreviewCommand("dns.flush")).toEqual({
+			adapter: "macos",
+			command: "sudo",
+			args: ["dscacheutil", "-flushcache"],
+			note: "flush local DNS resolver cache",
+		});
+		expect(linuxControlPreviewCommand("interface.disable")).toEqual({
+			adapter: "linux",
+			command: "sudo",
+			args: ["ip", "link", "set", "<interface>", "down"],
+			note: "disable a network interface",
+		});
+		expect(windowsControlPreviewCommand("service.restart")).toEqual({
+			adapter: "windows",
+			command: "powershell",
+			args: [
+				"-NoProfile",
+				"-Command",
+				"Restart-Service -Name '<service>' -WhatIf",
+			],
+			note: "restart a Windows service with WhatIf preview",
+		});
+		expect(linuxControlPreviewCommand("network.inspect")).toBeUndefined();
+	});
+
+	test("selects control preview commands by supported platform", () => {
+		expect(getControlPreviewCommand("dns.flush", "darwin")).toEqual(
+			macosControlPreviewCommand("dns.flush"),
+		);
+		expect(getControlPreviewCommand("dns.flush", "win32")).toEqual(
+			windowsControlPreviewCommand("dns.flush"),
+		);
+		expect(getControlPreviewCommand("dns.flush", "linux")).toEqual(
+			linuxControlPreviewCommand("dns.flush"),
+		);
 	});
 });

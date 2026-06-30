@@ -36,7 +36,15 @@ export type ActionPreviewPlan = {
 	dryRun: boolean;
 	confirmationPhrase?: string;
 	blockedReason?: "disabled-by-default" | "confirmation-required";
+	commandPreview?: ActionPreviewCommand;
 	preview: string[];
+};
+
+export type ActionPreviewCommand = {
+	adapter: "macos" | "linux" | "windows";
+	command: string;
+	args: string[];
+	note: string;
 };
 
 const actionCatalog: PicosAction[] = [
@@ -401,6 +409,7 @@ export function getActionSummary(): {
 export function createActionPreviewPlan(
 	actionId: string,
 	platform: string,
+	commandPreview?: ActionPreviewCommand,
 ): ActionPreviewPlan | undefined {
 	const action = actionCatalog.find((candidate) => candidate.id === actionId);
 	if (!action) {
@@ -419,6 +428,10 @@ export function createActionPreviewPlan(
 	if (action.confirmationPhrase) {
 		preview.push(`Confirmation: type "${action.confirmationPhrase}"`);
 	}
+	if (commandPreview) {
+		preview.push(`Adapter: ${commandPreview.adapter}`);
+		preview.push(`Command: ${formatPreviewCommand(commandPreview)}`);
+	}
 	preview.push("Dry run: no OS command will be executed");
 
 	return {
@@ -430,6 +443,7 @@ export function createActionPreviewPlan(
 		dryRun: true,
 		confirmationPhrase: action.confirmationPhrase,
 		blockedReason,
+		commandPreview,
 		preview,
 	};
 }
@@ -441,6 +455,14 @@ export function formatActionPreviewRows(plan: ActionPreviewPlan): string[] {
 		`state=${state} risk=${plan.risk} privilege=${plan.privilege} dryRun=${plan.dryRun}`,
 		...(plan.confirmationPhrase ? [`confirm=${plan.confirmationPhrase}`] : []),
 		...(plan.blockedReason ? [`blocked=${plan.blockedReason}`] : []),
+		...(plan.commandPreview ? [`adapter=${plan.commandPreview.adapter}`] : []),
+		...(plan.commandPreview
+			? [`command=${formatPreviewCommand(plan.commandPreview)}`]
+			: []),
 		...plan.preview,
 	];
+}
+
+function formatPreviewCommand(command: ActionPreviewCommand): string {
+	return [command.command, ...command.args].join(" ").trim();
 }

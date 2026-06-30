@@ -855,6 +855,19 @@ Goal: prepare real OS mutation without making it casual or dangerous.
 - No OS mutation command is executed by this framework step.
 - Next: adapter-owned dry-run command previews and audit records for write/destructive attempts.
 
+## v0.4.1 - Adapter Control Command Previews
+
+Status: draft PR #63.
+
+Goal: keep OS mutation command knowledge inside adapters before any control action becomes executable.
+
+- macOS, Linux, and Windows adapters now expose dry-run command previews for selected OS-changing actions.
+- `dns.flush`, `interface.disable`, `route.add`, and `service.restart` have adapter-owned command candidates.
+- Action preview plans include adapter, command, and args when a platform command candidate exists.
+- Action Center and Inspector display command preview rows while keeping `dryRun=true`.
+- No OS mutation command is executed by this framework step.
+- Next: audit records for write/destructive preview attempts and typed confirmation state.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

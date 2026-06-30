@@ -24,6 +24,7 @@ import {
 	nextConnectionSort,
 	sortConnections,
 } from "../core/connections";
+import { getControlPreviewCommand } from "../core/controlPreview";
 import { runDoctorChecks } from "../core/doctor";
 import {
 	createLocalFileProvider,
@@ -933,7 +934,12 @@ export function App(): React.ReactElement {
 	const runAction = useCallback(
 		async (action: PicosAction) => {
 			if (!action.enabled) {
-				const preview = createActionPreviewPlan(action.id, currentPlatform());
+				const platform = currentPlatform();
+				const preview = createActionPreviewPlan(
+					action.id,
+					platform,
+					getControlPreviewCommand(action.id, platform),
+				);
 				setActionPreviewPlan(preview);
 				setScreen("actions");
 				log("warn", `${action.id} preview only`);
