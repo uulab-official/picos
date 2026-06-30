@@ -81,6 +81,7 @@ picos ports
 picos ports --filter node --sort process
 picos ports --sort=-pid
 picos process 12345
+picos process 12345 --files
 picos locations
 picos remotes
 picos remote dev
@@ -124,6 +125,7 @@ Commands:
 - `picos ports --sort <key>`: sort listening ports by `protocol`, `address`, `port`, `process`, `pid`, or `user`; prefix with `-` for descending.
 - `picos ports --raw`: print raw listening-port command output.
 - `picos process <pid>`: inspect one local process with parent PID, user, state, CPU, memory, elapsed time, path, and command where the OS exposes them.
+- `picos process <pid> --files`: include current working directory and open file snapshot where available.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
 - `picos remotes`: list configured remote file profiles without opening a network session.
 - `picos remote <id>`: inspect the remote provider boundary for a configured profile without opening a network session.

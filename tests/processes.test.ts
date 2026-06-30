@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
 	buildProcessDetailCommand,
+	buildProcessFilesCommand,
 	formatProcessDetail,
+	formatProcessFileSnapshot,
+	parseLsofProcessFiles,
 	parsePosixProcessDetail,
 	parsePsOutput,
 	parseWindowsProcessDetail,
@@ -111,5 +114,52 @@ describe("process inventory", () => {
 				command: "bun src/bin/picos.ts --dev",
 			}),
 		).toContain("Command:  bun src/bin/picos.ts --dev");
+	});
+
+	test("builds POSIX process file snapshot commands", () => {
+		expect(buildProcessFilesCommand(12345, "darwin")).toEqual({
+			command: "lsof",
+			args: ["-a", "-p", "12345", "-Fn", "-w"],
+		});
+		expect(buildProcessFilesCommand(12345, "linux")).toEqual({
+			command: "lsof",
+			args: ["-a", "-p", "12345", "-Fn", "-w"],
+		});
+		expect(buildProcessFilesCommand(12345, "win32")).toBeUndefined();
+	});
+
+	test("parses lsof process files with cwd first", () => {
+		const output = [
+			"p12345",
+			"fcwd",
+			"n/Users/bonjin/Documents/workspace/uulab/picos",
+			"ftxt",
+			"n/usr/local/bin/bun",
+			"f1",
+			"n/Users/bonjin/Documents/workspace/uulab/picos/README.md",
+			"f2",
+			"n/Users/bonjin/Documents/workspace/uulab/picos/README.md",
+		].join("\n");
+
+		expect(parseLsofProcessFiles(output, 3)).toEqual({
+			pid: 12345,
+			cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
+			openFiles: [
+				"/usr/local/bin/bun",
+				"/Users/bonjin/Documents/workspace/uulab/picos/README.md",
+			],
+			rawOutput: output,
+		});
+	});
+
+	test("formats process file snapshots", () => {
+		expect(
+			formatProcessFileSnapshot({
+				pid: 12345,
+				cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
+				openFiles: ["/usr/local/bin/bun"],
+				rawOutput: "raw",
+			}),
+		).toContain("CWD:      /Users/bonjin/Documents/workspace/uulab/picos");
 	});
 });

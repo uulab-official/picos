@@ -105,6 +105,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		.action(portsCommand);
 	cli
 		.command("process <pid>", "Inspect one local process by PID")
+		.option("--files", "Include cwd and open file snapshot where available")
 		.action(processCommand);
 	cli
 		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")
