@@ -1246,6 +1246,19 @@ Goal: make saved route triage filters survive TUI restarts like other OS console
 - Tests cover config defaults, preset normalization, config-store persistence, and existing Route workspace preset rendering.
 - Next: raw-output external handoff and route preset profiles.
 
+## v0.4.30 - Route Raw Handoff Export
+
+Status: draft PR #92.
+
+Goal: let operators hand route table evidence to an external editor or review workflow without losing raw OS context.
+
+- Routes now create timestamped Markdown handoff files under the picos config directory.
+- The active route detail view controls the export payload: table, raw output, diagnostics, or destination path.
+- Path exports stay locked until a route destination lookup exists.
+- The TUI Routes workspace exposes `e` as an export shortcut beside copy, filter, sort, detail, and path controls.
+- Tests cover handoff content, stable file naming, path-view locking, and actual file writes.
+- Next: external editor open preview for route handoff files and route preset profiles.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

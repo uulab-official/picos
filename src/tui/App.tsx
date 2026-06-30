@@ -232,6 +232,7 @@ import {
 	getSelectedProcessResourceRequest,
 } from "./processPanel";
 import {
+	createRouteRawHandoffPlan,
 	formatRoutePathRows,
 	formatRouteWorkspaceRows,
 	getRouteClipboardPreview,
@@ -239,6 +240,7 @@ import {
 	nextRouteFilterPreset,
 	type RouteDetailView,
 	saveRouteFilterPreset,
+	writeRouteRawHandoffPlan,
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
@@ -1070,6 +1072,32 @@ export function App(): React.ReactElement {
 			toolHistorySort,
 		],
 	);
+
+	const exportRouteHandoff = useCallback(async () => {
+		if (!routeTable) {
+			log("warn", "no route table loaded");
+			return;
+		}
+		const plan = createRouteRawHandoffPlan(routeTable, {
+			baseDir: dirname(getConfigPath()),
+			filter: routeFilter,
+			path: routePath,
+			sort: routeSort,
+			view: routeDetailView,
+		});
+		if (!plan) {
+			log("warn", "no route handoff target");
+			return;
+		}
+
+		try {
+			const written = await writeRouteRawHandoffPlan(plan);
+			setScreen("routes");
+			log("ok", `routes exported ${written.view} ${written.path}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [log, routeDetailView, routeFilter, routePath, routeSort, routeTable]);
 
 	const selectRemoteProfile = useCallback(async () => {
 		const profile = remoteProfiles[selectedRemoteIndex];
@@ -2213,6 +2241,11 @@ export function App(): React.ReactElement {
 			}
 			setRouteCopyPreview(true);
 			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (screen === "routes" && focusArea === "workspaces" && input === "e") {
+			void exportRouteHandoff();
 			return;
 		}
 
@@ -4602,7 +4635,7 @@ function RoutesWorkspace({
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
 				route table diagnostics · f filter · F clear · P save · ] preset · c
-				copy · tab detail · s sort · : path
+				copy · e export · tab detail · s sort · : path
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {
