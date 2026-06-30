@@ -74,7 +74,7 @@ describe("TUI tool history", () => {
 			createToolRunPlan("network.connect", "example.com", summary),
 		).toEqual({
 			actionId: "network.connect",
-			toolId: "port-check",
+			toolId: "telnet",
 			args: ["example.com", "443"],
 			label: "network.connect example.com:443",
 		});
@@ -113,7 +113,7 @@ describe("TUI tool history", () => {
 			),
 		).toEqual({
 			actionId: "network.connect",
-			toolId: "port-check",
+			toolId: "telnet",
 			args: ["api.github.com", "8443"],
 			label: "network.connect api.github.com:8443",
 		});
@@ -126,7 +126,7 @@ describe("TUI tool history", () => {
 			),
 		).toEqual({
 			actionId: "network.connect",
-			toolId: "port-check",
+			toolId: "telnet",
 			args: ["api.github.com", "9443"],
 			label: "network.connect api.github.com:9443",
 		});
@@ -281,7 +281,7 @@ describe("TUI tool history", () => {
 		]);
 		expect(createToolRunPlanFromPreset(presets[1])).toEqual({
 			actionId: "network.connect",
-			toolId: "port-check",
+			toolId: "telnet",
 			args: ["db.internal", "5432"],
 			label: "network.connect db.internal:5432",
 		});

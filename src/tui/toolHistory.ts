@@ -171,7 +171,7 @@ export function createToolRunPlan(
 		const { host, port } = parseHostPortTarget(target);
 		return {
 			actionId,
-			toolId: "port-check",
+			toolId: "telnet",
 			args: [host, port],
 			label: `${actionId} ${host}:${port}`,
 		};

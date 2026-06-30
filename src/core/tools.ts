@@ -14,6 +14,7 @@ export type ToolId =
 	| "whois"
 	| "ip-info"
 	| "port-check"
+	| "telnet"
 	| "tls"
 	| "ping"
 	| "traceroute";
@@ -89,6 +90,16 @@ const toolDefinitions: ToolDefinition[] = [
 		],
 	},
 	{
+		id: "telnet",
+		name: "Telnet TCP Check",
+		description:
+			"Run a familiar telnet-style TCP reachability check without opening a shell session.",
+		fields: [
+			{ key: "host", label: "Host", placeholder: "github.com" },
+			{ key: "port", label: "Port", placeholder: "443" },
+		],
+	},
+	{
 		id: "tls",
 		name: "TLS Inspector",
 		description: "Inspect TLS protocol, cipher, and certificate metadata.",
@@ -149,6 +160,17 @@ export async function runTool(
 			requiredArg(args, 0, "host"),
 			requiredArg(args, 1, "port"),
 			runtime,
+		);
+	}
+	if (toolId === "telnet") {
+		return runPortCheck(
+			requiredArg(args, 0, "host"),
+			requiredArg(args, 1, "port"),
+			runtime,
+			{
+				commandId: "telnet",
+				title: "Telnet TCP Check",
+			},
 		);
 	}
 	if (toolId === "tls") {
@@ -293,6 +315,7 @@ export async function runPortCheck(
 	host: string,
 	port: string,
 	runtime: ToolRuntime = {},
+	options: { commandId?: "port-check" | "telnet"; title?: string } = {},
 ): Promise<ToolResult> {
 	const result = await runTcpConnect(host, port, {
 		timeoutMs: runtime.timeoutMs,
@@ -311,9 +334,9 @@ export async function runPortCheck(
 	];
 
 	return {
-		title: "TCP Port Check",
+		title: options.title ?? "TCP Port Check",
 		sections,
-		rawOutput: `$ picos tools port-check ${result.host} ${result.port}\n${sections[0].lines.join("\n")}`,
+		rawOutput: `$ picos tools ${options.commandId ?? "port-check"} ${result.host} ${result.port}\n${sections[0].lines.join("\n")}`,
 	};
 }
 
@@ -390,6 +413,7 @@ function normalizeToolId(id: string): ToolId {
 		"ip-info": "ip-info",
 		"ip-information": "ip-info",
 		"port-check": "port-check",
+		telnet: "telnet",
 		tls: "tls",
 		"tls-inspector": "tls",
 		ping: "ping",

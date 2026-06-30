@@ -60,6 +60,13 @@ describe("TUI command palette", () => {
 		);
 	});
 
+	test("finds the TCP connect action with a telnet query", () => {
+		const state = appendCommandPaletteQuery(openCommandPalette(), "telnet");
+		const actions = getFilteredPaletteActions(getActionCatalog(), state);
+
+		expect(actions.map((action) => action.id)).toContain("network.connect");
+	});
+
 	test("edits query with backspace and ignores control input", () => {
 		let state = openCommandPalette();
 		state = appendCommandPaletteQuery(state, "dns");

@@ -242,8 +242,9 @@ const actionCatalog: PicosAction[] = [
 	},
 	{
 		id: "network.connect",
-		title: "TCP connect check",
-		description: "Check whether a host and port accept TCP connections.",
+		title: "Telnet-style TCP check",
+		description:
+			"Check whether a host and port accept TCP connections, like a safe non-interactive telnet probe.",
 		category: "tools",
 		risk: "read",
 		privilege: "none",
