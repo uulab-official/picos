@@ -13,6 +13,8 @@ describe("config schema", () => {
 			defaultPingHost: "google.com",
 			showPublicIp: true,
 			enableExperimentalControls: false,
+			controlExecutionMode: "disabled",
+			allowAdminDryRun: false,
 			language: "en",
 			remoteProfiles: [],
 		});
@@ -44,6 +46,8 @@ describe("config schema", () => {
 				theme: "light",
 				language: "ko",
 				refreshInterval: 5000,
+				controlExecutionMode: "dry-run",
+				allowAdminDryRun: true,
 				unknown: true,
 			}),
 		).toEqual({
@@ -51,6 +55,8 @@ describe("config schema", () => {
 			theme: "light",
 			language: "ko",
 			refreshInterval: 5000,
+			controlExecutionMode: "dry-run",
+			allowAdminDryRun: true,
 		});
 	});
 });

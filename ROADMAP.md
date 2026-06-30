@@ -923,6 +923,20 @@ Goal: define the first execution boundary without making mutation casually reach
 - No TUI path enables mutation by default in this framework step.
 - Next: UI-gated dry-run attempt command, operator policy config, and richer adapter dry-run coverage.
 
+## v0.4.6 - Control Policy Config
+
+Status: draft PR #68.
+
+Goal: let operators see and configure the dry-run execution policy while keeping default mutation locked.
+
+- Config now stores `controlExecutionMode`, defaulting to `disabled`.
+- Config now stores `allowAdminDryRun`, defaulting to `false`.
+- Control execution policy is derived from config before any Action Center dry-run attempt.
+- Action Center uses `x` for a policy-gated dry-run attempt from the active locked preview.
+- Action Center and Inspector render control execution rows after an attempt.
+- Default config still blocks the runner with `mutation-controls-disabled`.
+- Next: richer adapter dry-run coverage and explicit UI copy for policy state.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

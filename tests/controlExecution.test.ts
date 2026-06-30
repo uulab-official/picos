@@ -9,10 +9,28 @@ import {
 	createControlExecutionPlan,
 	defaultControlExecutionPolicy,
 	formatControlExecutionAuditMessage,
+	formatControlExecutionResultAuditMessage,
+	formatControlExecutionRows,
+	getControlExecutionPolicyFromConfig,
 	runControlExecutionPlan,
 } from "../src/core/controlExecution";
 
 describe("control execution harness", () => {
+	test("derives operator dry-run policy from config", () => {
+		expect(
+			getControlExecutionPolicyFromConfig({
+				controlExecutionMode: "dry-run",
+				allowAdminDryRun: true,
+			}),
+		).toEqual({
+			mode: "dry-run",
+			allowAdminDryRun: true,
+		});
+		expect(getControlExecutionPolicyFromConfig({})).toEqual(
+			defaultControlExecutionPolicy,
+		);
+	});
+
 	test("blocks locked OS controls unless explicit dry-run policy is enabled", async () => {
 		const commandPreview = windowsControlPreviewCommand("dns.flush");
 		const plan = createActionPreviewPlan("dns.flush", "win32", commandPreview);
@@ -65,6 +83,14 @@ describe("control execution harness", () => {
 		expect(formatControlExecutionAuditMessage(execution)).toBe(
 			'control execution dns.flush status=blocked policy=disabled confirmed=true dryRun=true willExecute=false blockers=mutation-controls-disabled adapter=windows command="powershell -NoProfile -Command Clear-DnsClientCache -WhatIf"',
 		);
+		expect(formatControlExecutionRows(execution)).toEqual([
+			"CONTROL EXECUTION dns.flush",
+			"status=blocked policy=disabled confirmed=true dryRun=true",
+			"willExecute=false reason=mutation-controls-disabled",
+			"blockers=mutation-controls-disabled",
+			"adapter=windows",
+			"command=powershell -NoProfile -Command Clear-DnsClientCache -WhatIf",
+		]);
 	});
 
 	test("runs only adapter-declared dry-run commands through an injected runner", async () => {
@@ -119,6 +145,9 @@ describe("control execution harness", () => {
 			},
 			stdout: "What if: Clear-DnsClientCache",
 		});
+		expect(formatControlExecutionResultAuditMessage(result.audit)).toBe(
+			'control execution dns.flush status=dry-run-executed policy=dry-run confirmed=true dryRun=true willExecute=true adapter=windows command="powershell -NoProfile -Command Clear-DnsClientCache -WhatIf"',
+		);
 	});
 
 	test("refuses preview-only adapter commands even with dry-run opt-in", async () => {

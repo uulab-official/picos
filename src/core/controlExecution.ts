@@ -54,6 +54,17 @@ export const defaultControlExecutionPolicy: ControlExecutionPolicy = {
 	allowAdminDryRun: false,
 };
 
+export function getControlExecutionPolicyFromConfig(config: {
+	controlExecutionMode?: "disabled" | "dry-run";
+	allowAdminDryRun?: boolean;
+}): ControlExecutionPolicy {
+	return {
+		mode: config.controlExecutionMode ?? defaultControlExecutionPolicy.mode,
+		allowAdminDryRun:
+			config.allowAdminDryRun ?? defaultControlExecutionPolicy.allowAdminDryRun,
+	};
+}
+
 export function createControlExecutionPlan(
 	plan: ActionPreviewPlan,
 	confirmation: ActionPreviewConfirmation | undefined,
@@ -108,6 +119,12 @@ export function formatControlExecutionAuditMessage(
 	plan: ControlExecutionPlan,
 ): string {
 	const audit = createControlExecutionAudit(plan, "blocked");
+	return formatControlExecutionResultAuditMessage(audit);
+}
+
+export function formatControlExecutionResultAuditMessage(
+	audit: ControlExecutionAudit,
+): string {
 	return [
 		`control execution ${audit.actionId}`,
 		`status=${audit.status}`,
@@ -121,6 +138,21 @@ export function formatControlExecutionAuditMessage(
 	]
 		.filter(Boolean)
 		.join(" ");
+}
+
+export function formatControlExecutionRows(
+	plan: ControlExecutionPlan,
+): string[] {
+	return [
+		`CONTROL EXECUTION ${plan.actionId}`,
+		`status=${plan.status} policy=${plan.policy} confirmed=${plan.confirmed} dryRun=${plan.dryRun}`,
+		`willExecute=${plan.willExecute} reason=${plan.reason}`,
+		...(plan.blockers.length ? [`blockers=${plan.blockers.join(",")}`] : []),
+		...(plan.commandPreview ? [`adapter=${plan.commandPreview.adapter}`] : []),
+		...(plan.commandPreview
+			? [`command=${formatControlExecutionCommand(plan.commandPreview)}`]
+			: []),
+	];
 }
 
 function getControlExecutionBlockers(

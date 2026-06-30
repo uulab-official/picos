@@ -10,6 +10,8 @@ export const defaultConfig: PicosConfig = {
 	defaultPingHost: "google.com",
 	showPublicIp: true,
 	enableExperimentalControls: false,
+	controlExecutionMode: "disabled",
+	allowAdminDryRun: false,
 	remoteProfiles: [],
 };
 
@@ -84,6 +86,17 @@ export function mergeConfig(
 		merged.enableExperimentalControls = input.enableExperimentalControls;
 	}
 
+	if (
+		input.controlExecutionMode === "disabled" ||
+		input.controlExecutionMode === "dry-run"
+	) {
+		merged.controlExecutionMode = input.controlExecutionMode;
+	}
+
+	if (typeof input.allowAdminDryRun === "boolean") {
+		merged.allowAdminDryRun = input.allowAdminDryRun;
+	}
+
 	merged.remoteProfiles = normalizeRemoteProfiles(input.remoteProfiles);
 
 	return merged;
@@ -115,7 +128,18 @@ export function coerceConfigValue(
 		return parsed;
 	}
 
-	if (key === "showPublicIp" || key === "enableExperimentalControls") {
+	if (key === "controlExecutionMode") {
+		if (value !== "disabled" && value !== "dry-run") {
+			throw new Error("controlExecutionMode must be disabled or dry-run");
+		}
+		return value;
+	}
+
+	if (
+		key === "showPublicIp" ||
+		key === "enableExperimentalControls" ||
+		key === "allowAdminDryRun"
+	) {
 		if (value !== "true" && value !== "false") {
 			throw new Error(`${key} must be true or false`);
 		}
