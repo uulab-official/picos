@@ -463,6 +463,24 @@ export function formatActionPreviewRows(plan: ActionPreviewPlan): string[] {
 	];
 }
 
+export function formatActionPreviewAuditMessage(
+	plan: ActionPreviewPlan,
+): string {
+	return [
+		`control preview ${plan.actionId}`,
+		`risk=${plan.risk}`,
+		`privilege=${plan.privilege}`,
+		`dryRun=${plan.dryRun}`,
+		plan.blockedReason ? `blocked=${plan.blockedReason}` : "",
+		plan.commandPreview ? `adapter=${plan.commandPreview.adapter}` : "",
+		plan.commandPreview
+			? `command="${formatPreviewCommand(plan.commandPreview)}"`
+			: "",
+	]
+		.filter(Boolean)
+		.join(" ");
+}
+
 function formatPreviewCommand(command: ActionPreviewCommand): string {
 	return [command.command, ...command.args].join(" ").trim();
 }

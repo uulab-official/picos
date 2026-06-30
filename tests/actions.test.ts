@@ -4,6 +4,7 @@ import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adap
 import { controlPreviewCommand as windowsControlPreviewCommand } from "../src/adapters/windows";
 import {
 	createActionPreviewPlan,
+	formatActionPreviewAuditMessage,
 	formatActionPreviewRows,
 	getActionCatalog,
 	getActionSummary,
@@ -230,6 +231,9 @@ describe("action catalog", () => {
 			"Command: sudo dscacheutil -flushcache",
 			"Dry run: no OS command will be executed",
 		]);
+		expect(formatActionPreviewAuditMessage(plan)).toBe(
+			'control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
+		);
 	});
 
 	test("keeps OS-changing dry-run commands inside platform adapters", () => {
