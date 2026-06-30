@@ -564,6 +564,19 @@ Goal: replace the placeholder Timeline screen with an operator-facing event hist
 - Summary rows show total, audit, action, raw, and active filter counts.
 - Next: persisted timeline loading and richer state-change events for network status/public IP.
 
+## v0.3.41 - Timeline Persistence Reload
+
+Status: draft PR #42.
+
+Goal: make Timeline survive across picos restarts by loading the latest exported audit log.
+
+- Exported `picos audit log` text can be parsed back into timeline events.
+- The latest `<picos-config-dir>/audit/picos-audit-*.log` file is selected and read on startup.
+- TUI startup merges persisted audit events with current boot events.
+- Default in-memory event history grows from 8 to 64 events so Timeline can be useful beyond EventDock height.
+- Missing or unreadable audit directories fall back to normal boot events.
+- Next: richer network status/public-IP state-change events.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -571,9 +584,9 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, and process resource classification landed; next persisted timeline loading and richer state-change events.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, and process resource classification landed; next richer network state-change events.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
-- Timeline: live EventDock history, action/audit/raw filters, and audit export landed; next address/status/public-IP changes and persisted local loading.
+- Timeline: live EventDock history, action/audit/raw filters, audit export, and latest audit reload landed; next address/status/public-IP change events.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.
 
 ## v0.4.0 - Privileged Controls Framework

@@ -10,6 +10,7 @@ import {
 } from "../core/actions";
 import {
 	createConsoleAuditExportPlan,
+	readLatestConsoleAuditExport,
 	writeConsoleAuditExport,
 } from "../core/auditLog";
 import { runPing } from "../core/command";
@@ -772,7 +773,7 @@ export function App(): React.ReactElement {
 	);
 
 	useEffect(() => {
-		readConfig().then((config) => {
+		readConfig().then(async (config) => {
 			setRefreshInterval(config.refreshInterval);
 			setLanguage(config.language);
 			setRemoteProfiles(config.remoteProfiles);
@@ -780,10 +781,14 @@ export function App(): React.ReactElement {
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
 			);
 			const nextT = createTranslator(config.language);
-			setEvents([
+			const bootEvents = [
 				createEvent("info", nextT("events.booted")),
 				createEvent("info", nextT("events.lockedPolicy")),
-			]);
+			];
+			const persisted = await readLatestConsoleAuditExport(
+				dirname(getConfigPath()),
+			).catch(() => undefined);
+			setEvents([...(persisted?.events ?? []), ...bootEvents].slice(-64));
 		});
 		refresh();
 	}, [refresh]);

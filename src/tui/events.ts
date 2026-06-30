@@ -26,7 +26,7 @@ export function createEvent(
 export function appendEvent(
 	events: ConsoleEvent[],
 	event: ConsoleEvent,
-	limit = 8,
+	limit = 64,
 ): ConsoleEvent[] {
 	return [...events, event].slice(-limit);
 }

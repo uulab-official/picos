@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	createConsoleAuditExportPlan,
 	formatConsoleAuditLog,
+	parseConsoleAuditLog,
+	readLatestConsoleAuditExport,
 	writeConsoleAuditExport,
 } from "../src/core/auditLog";
 
@@ -97,6 +99,87 @@ describe("console audit export", () => {
 			expect(await readFile(plan.path, "utf8")).toContain(
 				"clipboard locked selected port via pbcopy",
 			);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("parses exported audit log content back into timeline events", () => {
+		expect(
+			parseConsoleAuditLog(
+				[
+					"# picos audit log",
+					"generatedAt=2026-06-30T03:00:00.000Z",
+					"events=2",
+					"",
+					"[12:00:00] WARN clipboard locked selected port via pbcopy",
+					"[12:00:05] OK   clipboard copied selected port via pbcopy",
+					"",
+				].join("\n"),
+			),
+		).toEqual([
+			{
+				id: "persisted-12:00:00-warn-clipboard-locked-selected-port-via-pbcopy",
+				level: "warn",
+				time: "12:00:00",
+				message: "clipboard locked selected port via pbcopy",
+			},
+			{
+				id: "persisted-12:00:05-ok-clipboard-copied-selected-port-via-pbcopy",
+				level: "ok",
+				time: "12:00:05",
+				message: "clipboard copied selected port via pbcopy",
+			},
+		]);
+	});
+
+	test("reads the latest exported audit log from the config audit directory", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-audit-read-"));
+		try {
+			const auditDir = join(root, "audit");
+			await mkdir(auditDir, { recursive: true });
+			await writeFile(
+				join(auditDir, "picos-audit-2026-06-29T030000000Z.log"),
+				formatConsoleAuditLog(
+					[
+						{
+							id: "old",
+							level: "info",
+							time: "11:00:00",
+							message: "old event",
+						},
+					],
+					{ generatedAt: "2026-06-29T03:00:00.000Z" },
+				),
+				"utf8",
+			);
+			await writeConsoleAuditExport({
+				path: join(auditDir, "picos-audit-2026-06-30T030000000Z.log"),
+				content: formatConsoleAuditLog(
+					[
+						{
+							id: "new",
+							level: "warn",
+							time: "12:00:00",
+							message: "clipboard failed selected port via xclip",
+						},
+					],
+					{ generatedAt: "2026-06-30T03:00:00.000Z" },
+				),
+				eventCount: 1,
+			});
+
+			expect(await readLatestConsoleAuditExport(root)).toEqual({
+				path: join(auditDir, "picos-audit-2026-06-30T030000000Z.log"),
+				events: [
+					{
+						id: "persisted-12:00:00-warn-clipboard-failed-selected-port-via-xclip",
+						level: "warn",
+						time: "12:00:00",
+						message: "clipboard failed selected port via xclip",
+					},
+				],
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

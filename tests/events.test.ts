@@ -24,4 +24,18 @@ describe("TUI event log", () => {
 			"four",
 		]);
 	});
+
+	test("keeps a longer default history for the timeline workspace", () => {
+		const events = Array.from(
+			{ length: 70 },
+			(_, index) => `event ${index}`,
+		).reduce<ConsoleEvent[]>(
+			(current, message) => appendEvent(current, createEvent("info", message)),
+			[],
+		);
+
+		expect(events).toHaveLength(64);
+		expect(events.at(0)?.message).toBe("event 6");
+		expect(events.at(-1)?.message).toBe("event 69");
+	});
 });
