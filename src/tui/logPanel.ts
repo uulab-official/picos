@@ -26,13 +26,25 @@ export function formatLogWorkspaceRows(
 		presets?: string[];
 		profiles?: LogProfile[];
 		follow?: boolean;
+		followRefreshCount?: number;
+		followLastStatus?: "idle" | "ok" | "warn" | "fail";
 	} = {},
 ): string[] {
 	const level = options.level ?? "all";
 	const query = options.query?.trim() ?? "";
+	const followRefreshCount = Math.max(
+		0,
+		Math.floor(options.followRefreshCount ?? 0),
+	);
 	const header = [
 		`LOGS level=${level} search=${query || "-"}`,
 		`follow=${options.follow ? "on" : "off"}`,
+		options.follow && followRefreshCount > 0
+			? `ticks=${followRefreshCount}`
+			: "",
+		options.follow && options.followLastStatus
+			? `last=${options.followLastStatus}`
+			: "",
 		formatLogPresetSummary(options.presets),
 		formatLogProfileSummary(options.profiles),
 	]
@@ -42,14 +54,14 @@ export function formatLogWorkspaceRows(
 		return [
 			header,
 			"No OS log snapshot yet. Run logs.read or refresh.",
-			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · r refresh",
+			"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · C follow-clear · r refresh",
 		].slice(0, visibleRows);
 	}
 
 	return [
 		header,
 		...formatOsLogRows(logs, { filter: query, level }),
-		"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · r refresh",
+		"shortcuts: e level · f search · F clear · P save · ] preset · S profile · } cycle · L follow · C follow-clear · r refresh",
 	].slice(0, visibleRows);
 }
 

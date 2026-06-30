@@ -431,6 +431,10 @@ export function App(): React.ReactElement {
 	const [logLevelFilter, setLogLevelFilter] = useState<OsLogLevelFilter>("all");
 	const [logProfiles, setLogProfiles] = useState<LogProfile[]>([]);
 	const [logFollowEnabled, setLogFollowEnabled] = useState(false);
+	const [logFollowRefreshCount, setLogFollowRefreshCount] = useState(0);
+	const [logFollowLastStatus, setLogFollowLastStatus] = useState<
+		"idle" | "ok" | "warn" | "fail"
+	>("idle");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteFileContext, setRemoteFileContext] =
@@ -1496,9 +1500,13 @@ export function App(): React.ReactElement {
 				});
 				if (!disposed) {
 					setOsLogs(snapshot);
+					setLogFollowRefreshCount((count) => Math.min(count + 1, 9999));
+					setLogFollowLastStatus(snapshot.status);
 				}
 			} catch (caught) {
 				if (!disposed) {
+					setLogFollowRefreshCount((count) => Math.min(count + 1, 9999));
+					setLogFollowLastStatus("fail");
 					log(
 						"fail",
 						caught instanceof Error
@@ -2247,6 +2255,13 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "logs" && focusArea === "workspaces" && input === "C") {
+			setLogFollowRefreshCount(0);
+			setLogFollowLastStatus("idle");
+			log("info", "logs follow state cleared");
+			return;
+		}
+
 		if (screen === "logs" && focusArea === "workspaces" && input === "r") {
 			void (async () => {
 				try {
@@ -2695,6 +2710,8 @@ export function App(): React.ReactElement {
 					logLevelFilter={logLevelFilter}
 					logProfiles={logProfiles}
 					logFollowEnabled={logFollowEnabled}
+					logFollowRefreshCount={logFollowRefreshCount}
+					logFollowLastStatus={logFollowLastStatus}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolTargetPresets={toolTargetPresets}
@@ -2873,6 +2890,8 @@ function MainWorkspace({
 	logLevelFilter,
 	logProfiles,
 	logFollowEnabled,
+	logFollowRefreshCount,
+	logFollowLastStatus,
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolTargetPresets,
@@ -2953,6 +2972,8 @@ function MainWorkspace({
 	logLevelFilter: OsLogLevelFilter;
 	logProfiles: LogProfile[];
 	logFollowEnabled: boolean;
+	logFollowRefreshCount: number;
+	logFollowLastStatus: "idle" | "ok" | "warn" | "fail";
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolTargetPresets: ToolTargetPreset[];
@@ -3042,6 +3063,8 @@ function MainWorkspace({
 					logLevelFilter,
 					logProfiles,
 					logFollowEnabled,
+					logFollowRefreshCount,
+					logFollowLastStatus,
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolTargetPresets,
@@ -3126,6 +3149,8 @@ function renderWorkspace(
 	logLevelFilter: OsLogLevelFilter,
 	logProfiles: LogProfile[],
 	logFollowEnabled: boolean,
+	logFollowRefreshCount: number,
+	logFollowLastStatus: "idle" | "ok" | "warn" | "fail",
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolTargetPresets: ToolTargetPreset[],
@@ -3365,6 +3390,8 @@ function renderWorkspace(
 				level={logLevelFilter}
 				profiles={logProfiles}
 				follow={logFollowEnabled}
+				followRefreshCount={logFollowRefreshCount}
+				followLastStatus={logFollowLastStatus}
 				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
 			/>
@@ -5111,6 +5138,8 @@ function LogWorkspace({
 	level,
 	profiles,
 	follow,
+	followRefreshCount,
+	followLastStatus,
 	commandLine,
 	visibleRows,
 }: {
@@ -5121,6 +5150,8 @@ function LogWorkspace({
 	level: OsLogLevelFilter;
 	profiles: LogProfile[];
 	follow: boolean;
+	followRefreshCount: number;
+	followLastStatus: "idle" | "ok" | "warn" | "fail";
 	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
@@ -5145,7 +5176,15 @@ function LogWorkspace({
 		...formatLogWorkspaceRows(
 			logs,
 			Math.max(1, visibleRows - promptRows.length - doctorRows.length),
-			{ level, query, presets, profiles, follow },
+			{
+				level,
+				query,
+				presets,
+				profiles,
+				follow,
+				followRefreshCount,
+				followLastStatus,
+			},
 		),
 		...promptRows,
 		...doctorRows,

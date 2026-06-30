@@ -1161,6 +1161,20 @@ Goal: make Logs usable as a watchable OS console panel instead of only a manual 
 - Tests cover follow header/shortcut formatting in both snapshot and no-snapshot states.
 - Next: bounded live-follow history and pause/clear controls.
 
+## v0.4.24 - Logs Follow State Counters
+
+Status: draft PR #86.
+
+Goal: make live follow state inspectable and resettable without leaving the Logs workspace.
+
+- Logs header now shows bounded live follow refresh ticks when follow is active.
+- Logs header shows the last follow status as `ok`, `warn`, or `fail`.
+- Follow refresh ticks are capped to avoid unbounded UI counters during long sessions.
+- Pressing `C` in Logs clears the follow tick counter and last-status marker.
+- Shortcut help now includes `C follow-clear` alongside `L follow`.
+- Tests cover follow tick/status header rendering and clear shortcut discovery.
+- Next: live follow history rows and explicit pause/resume controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
