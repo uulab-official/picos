@@ -1,4 +1,9 @@
 import {
+	type ConfigCleanupPreview,
+	createConfigCleanupPreview,
+	submitConfigCleanupConfirmation,
+} from "../core/configCleanup";
+import {
 	formatLogProfileLabel,
 	nextLogProfile,
 	nextLogSearchPreset,
@@ -14,6 +19,21 @@ export type LogFollowHistoryItem = {
 	label: string;
 };
 
+export type LogCleanupPreview = {
+	count: number;
+	confirmationPhrase: string;
+	cleanup: ConfigCleanupPreview;
+	rows: string[];
+};
+
+export type LogCleanupConfirmation = {
+	confirmed: boolean;
+	message: string;
+	presets: string[];
+	profiles: LogProfile[];
+	removed: number;
+};
+
 export type { LogProfile };
 export {
 	formatLogProfileLabel,
@@ -22,6 +42,75 @@ export {
 	saveLogProfile,
 	saveLogSearchPreset,
 };
+
+export function createLogCleanupPreview(
+	presets: string[],
+	profiles: LogProfile[],
+): LogCleanupPreview | undefined {
+	const normalizedPresets = presets.filter((preset) => preset.trim());
+	const normalizedProfiles = profiles.map((profile) => ({
+		level: profile.level,
+		query: profile.query.trim(),
+	}));
+	const count = normalizedPresets.length + normalizedProfiles.length;
+	if (!count) {
+		return undefined;
+	}
+	const cleanup = createConfigCleanupPreview({
+		id: "logs.presets",
+		label: "Logs presets",
+		scope: "logs",
+		count,
+		verb: "clear",
+	});
+	return {
+		count,
+		confirmationPhrase: cleanup.confirmationPhrase,
+		cleanup,
+		rows: [
+			"LOGS CLEANUP",
+			`search-presets=${normalizedPresets.length} profiles=${normalizedProfiles.length}`,
+			`confirm ${cleanup.confirmationPhrase} locked`,
+		],
+	};
+}
+
+export function submitLogCleanupConfirmation(
+	presets: string[],
+	profiles: LogProfile[],
+	confirmation: string,
+): LogCleanupConfirmation {
+	const preview = createLogCleanupPreview(presets, profiles);
+	if (!preview) {
+		return {
+			confirmed: false,
+			message: "logs cleanup unavailable",
+			presets,
+			profiles,
+			removed: 0,
+		};
+	}
+	const cleanupConfirmation = submitConfigCleanupConfirmation(
+		preview.cleanup,
+		confirmation,
+	);
+	if (!cleanupConfirmation.confirmed) {
+		return {
+			confirmed: false,
+			message: "logs cleanup rejected",
+			presets,
+			profiles,
+			removed: 0,
+		};
+	}
+	return {
+		confirmed: true,
+		message: `logs cleanup removed ${preview.count} presets`,
+		presets: [],
+		profiles: [],
+		removed: preview.count,
+	};
+}
 
 export function formatLogWorkspaceRows(
 	logs: OsLogSnapshot | undefined,

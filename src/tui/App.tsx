@@ -212,6 +212,7 @@ import {
 	nextInterfaceDetailView,
 } from "./interfacePanel";
 import {
+	createLogCleanupPreview,
 	formatLogProfileLabel,
 	formatLogWorkspaceRows,
 	type LogFollowHistoryItem,
@@ -220,6 +221,7 @@ import {
 	nextLogSearchPreset,
 	saveLogProfile,
 	saveLogSearchPreset,
+	submitLogCleanupConfirmation,
 } from "./logPanel";
 import {
 	enterFocus,
@@ -1079,6 +1081,35 @@ export function App(): React.ReactElement {
 				: "logs search cleared",
 		);
 	}, [commandLine.value, log, logLevelFilter, osLogs]);
+
+	const submitLogsCleanupCommand = useCallback(() => {
+		const confirmation = submitLogCleanupConfirmation(
+			logSearchPresets,
+			logProfiles,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!confirmation.confirmed) {
+			log("warn", confirmation.message);
+			return;
+		}
+		setLogSearchPresets(confirmation.presets);
+		setLogProfiles(confirmation.profiles);
+		void (async () => {
+			try {
+				await setConfigLogSearchPresets(confirmation.presets);
+				await setConfigLogProfiles(confirmation.profiles);
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `logs cleanup save failed ${caught.message}`
+						: `logs cleanup save failed ${String(caught)}`,
+				);
+			}
+		})();
+		log("info", confirmation.message);
+	}, [commandLine.value, log, logProfiles, logSearchPresets]);
 
 	const submitControlConfirmationCommand = useCallback(() => {
 		if (!actionPreviewPlan) {
@@ -2167,20 +2198,23 @@ export function App(): React.ReactElement {
 														? "file open confirmation cancelled"
 														: commandLine.prompt === "log-search"
 															? "logs search cancelled"
-															: commandLine.prompt === "tool-target-label"
-																? "tool target label cancelled"
-																: commandLine.prompt === "tool-target-value"
-																	? "tool target value cancelled"
-																	: commandLine.prompt === "tool-target-action"
-																		? "tool target action cancelled"
+															: commandLine.prompt === "logs-cleanup"
+																? "logs cleanup cancelled"
+																: commandLine.prompt === "tool-target-label"
+																	? "tool target label cancelled"
+																	: commandLine.prompt === "tool-target-value"
+																		? "tool target value cancelled"
 																		: commandLine.prompt ===
-																				"tool-target-cleanup"
-																			? "tool target cleanup cancelled"
-																			: commandLine.prompt.startsWith(
-																						toolPromptPrefix,
-																					)
-																				? "tool target command cancelled"
-																				: "path command cancelled",
+																				"tool-target-action"
+																			? "tool target action cancelled"
+																			: commandLine.prompt ===
+																					"tool-target-cleanup"
+																				? "tool target cleanup cancelled"
+																				: commandLine.prompt.startsWith(
+																							toolPromptPrefix,
+																						)
+																					? "tool target command cancelled"
+																					: "path command cancelled",
 				);
 				return;
 			}
@@ -2208,6 +2242,8 @@ export function App(): React.ReactElement {
 					submitTimelineSearchCommand();
 				} else if (commandLine.prompt === "log-search") {
 					submitLogSearchCommand();
+				} else if (commandLine.prompt === "logs-cleanup") {
+					submitLogsCleanupCommand();
 				} else if (commandLine.prompt === "control-confirm") {
 					submitControlConfirmationCommand();
 				} else if (commandLine.prompt === "external-open") {
@@ -3056,6 +3092,17 @@ export function App(): React.ReactElement {
 				filtered.length ? "info" : "warn",
 				`logs profile ${formatLogProfileLabel(profile)} matches ${filtered.length}`,
 			);
+			return;
+		}
+
+		if (screen === "logs" && focusArea === "workspaces" && input === "D") {
+			const preview = createLogCleanupPreview(logSearchPresets, logProfiles);
+			if (!preview) {
+				log("warn", "no logs presets to clean");
+				return;
+			}
+			setCommandLine(openCommandLine("logs-cleanup"));
+			log("warn", `logs cleanup confirm ${preview.confirmationPhrase}`);
 			return;
 		}
 
@@ -6404,10 +6451,21 @@ function LogWorkspace({
 	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
+	const cleanupPreview =
+		commandLine.active && commandLine.prompt === "logs-cleanup"
+			? createLogCleanupPreview(presets, profiles)
+			: undefined;
 	const promptRows =
 		commandLine.active && commandLine.prompt === "log-search"
 			? ["SEARCH", `:logs ${commandLine.value || " "}  enter=apply esc=cancel`]
-			: [];
+			: commandLine.active &&
+					commandLine.prompt === "logs-cleanup" &&
+					cleanupPreview
+				? [
+						...cleanupPreview.rows,
+						`:logs-cleanup ${commandLine.value || " "}  type="${cleanupPreview.confirmationPhrase}" enter=clear esc=cancel`,
+					]
+				: [];
 	const doctorRows = checks.length
 		? [
 				"doctor buffer",
@@ -6454,6 +6512,9 @@ function LogWorkspace({
 function getOsLogRowColor(row: string): string {
 	if (row.startsWith("LOGS") || row === "SEARCH") {
 		return "cyan";
+	}
+	if (row.startsWith(":logs-cleanup") || row.startsWith("confirm ")) {
+		return "yellow";
 	}
 	if (row.startsWith("PICOS") || row.startsWith("source=")) {
 		return "cyan";

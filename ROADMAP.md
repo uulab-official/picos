@@ -1499,6 +1499,19 @@ Goal: give picos a shared, reusable confirmation primitive for config cleanup sh
 - Tests cover generic cleanup previews, accepted/rejected confirmation results, and Tools integration with the shared preview.
 - Next: apply the shared cleanup model to Logs search/profile preset cleanup.
 
+## v0.4.49 - Logs Preset Cleanup Confirmation
+
+Status: draft PR #111.
+
+Goal: let operators prune Logs search presets and severity/search profiles through the shared exact-confirm cleanup model.
+
+- Logs workspace now supports `D` to open a cleanup confirmation for saved search presets and profiles.
+- Cleanup preview shows search preset count, profile count, and exact `clear logs` phrase.
+- Exact confirmation clears both persisted log search presets and log profiles.
+- Rejected confirmations leave saved log config untouched and emit a warning event.
+- Tests cover preview rows, rejected confirmation, confirmed cleanup, and empty shelf no-op behavior.
+- Next: apply the same cleanup model to route/endpoint filter preset shelves.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
