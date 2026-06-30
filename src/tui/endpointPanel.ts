@@ -63,6 +63,19 @@ export type EndpointFilterCleanupConfirmation = {
 	removed: number;
 };
 
+export type PortProcessControlKind = "terminate";
+
+export type PortProcessControlPreview = {
+	actionId: "process.terminate";
+	kind: PortProcessControlKind;
+	port: ListeningPort;
+	confirmationPhrase: string;
+	risk: "destructive";
+	privilege: "user";
+	enabled: false;
+	rows: string[];
+};
+
 export function nextEndpointDetailView(
 	view: EndpointDetailView,
 ): EndpointDetailView {
@@ -184,6 +197,35 @@ export function getSelectedPortProcessRequest(
 	return createProcessRequest(port?.pid);
 }
 
+export function createSelectedPortProcessControlPreview(
+	ports: ListeningPort[],
+	selectedIndex: number,
+	kind: PortProcessControlKind = "terminate",
+): PortProcessControlPreview | undefined {
+	const port = ports[getSelectedIndex(ports.length, selectedIndex) ?? -1];
+	if (!port || !createProcessRequest(port.pid)) {
+		return undefined;
+	}
+	const confirmationPhrase = `kill pid ${port.pid}`;
+	const target = `port=${port.localAddress}:${port.localPort} pid=${port.pid} process=${port.command} user=${port.user}`;
+	return {
+		actionId: "process.terminate",
+		kind,
+		port,
+		confirmationPhrase,
+		risk: "destructive",
+		privilege: "user",
+		enabled: false,
+		rows: [
+			"PORT PROCESS CONTROL",
+			"action=process.terminate status=locked risk=destructive privilege=user",
+			`target ${target}`,
+			`confirm ${confirmationPhrase} locked`,
+			"dryRun no process signal will be sent",
+		],
+	};
+}
+
 export function getSelectedConnectionClipboardPreview(
 	connections: ActiveConnection[],
 	selectedIndex: number,
@@ -221,6 +263,7 @@ export function formatConnectionsWorkspaceRows(
 	options: {
 		copyPreview?: boolean;
 		filter?: string;
+		processControlPreview?: boolean;
 		processes?: ProcessSummary[];
 		presets?: string[];
 		selectedIndex?: number;
@@ -281,6 +324,7 @@ export function formatPortsWorkspaceRows(
 	options: {
 		copyPreview?: boolean;
 		filter?: string;
+		processControlPreview?: boolean;
 		processes?: ProcessSummary[];
 		presets?: string[];
 		selectedIndex?: number;
@@ -321,6 +365,7 @@ export function formatPortsWorkspaceRows(
 			selectedIndex,
 			sorted.length,
 			options.copyPreview ?? false,
+			options.processControlPreview ?? false,
 			options.processes ?? [],
 			view,
 			visibleRows,
@@ -559,6 +604,7 @@ function formatPortDetailRows(
 	selectedIndex: number | undefined,
 	total: number,
 	copyPreview: boolean,
+	processControlPreview: boolean,
 	processes: ProcessSummary[],
 ): string[] {
 	if (!port || selectedIndex === undefined) {
@@ -571,6 +617,9 @@ function formatPortDetailRows(
 		`listen ${port.localAddress}:${port.localPort}`,
 		`process ${port.command} pid=${port.pid} user=${port.user}`,
 		...formatProcessRows(process, "snapshot"),
+		...(processControlPreview
+			? (createSelectedPortProcessControlPreview([port], 0)?.rows ?? [])
+			: []),
 		...(copyPreview
 			? formatClipboardPreviewRows(
 					createClipboardPreview({
@@ -589,6 +638,7 @@ function formatPortDetailViewRows(
 	selectedIndex: number | undefined,
 	total: number,
 	copyPreview: boolean,
+	processControlPreview: boolean,
 	processes: ProcessSummary[],
 	view: EndpointDetailView,
 	visibleRows: number,
@@ -610,7 +660,14 @@ function formatPortDetailViewRows(
 		);
 	}
 	return [
-		...formatPortDetailRows(port, selectedIndex, total, copyPreview, processes),
+		...formatPortDetailRows(
+			port,
+			selectedIndex,
+			total,
+			copyPreview,
+			processControlPreview,
+			processes,
+		),
 		"RAW OUTPUT",
 		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
 	];

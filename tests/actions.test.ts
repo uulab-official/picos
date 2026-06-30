@@ -32,9 +32,9 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 35,
+			total: 36,
 			enabled: 24,
-			locked: 11,
+			locked: 12,
 			elevated: 4,
 		});
 	});
@@ -102,6 +102,20 @@ describe("action catalog", () => {
 				enabled: false,
 				confirmationRequired: true,
 				confirmationPhrase: "update picos",
+			}),
+		);
+	});
+
+	test("keeps process termination locked behind confirmation", () => {
+		expect(getActionCatalog()).toContainEqual(
+			expect.objectContaining({
+				id: "process.terminate",
+				category: "ports",
+				risk: "destructive",
+				privilege: "user",
+				enabled: false,
+				confirmationRequired: true,
+				confirmationPhrase: "kill process",
 			}),
 		);
 	});
@@ -279,6 +293,24 @@ describe("action catalog", () => {
 			],
 			note: "restart a Windows service with WhatIf preview",
 			dryRunExecutable: true,
+		});
+		expect(macosControlPreviewCommand("process.terminate")).toEqual({
+			adapter: "macos",
+			command: "kill",
+			args: ["-TERM", "<pid>"],
+			note: "terminate a selected user-owned process",
+		});
+		expect(linuxControlPreviewCommand("process.terminate")).toEqual({
+			adapter: "linux",
+			command: "kill",
+			args: ["-TERM", "<pid>"],
+			note: "terminate a selected user-owned process",
+		});
+		expect(windowsControlPreviewCommand("process.terminate")).toEqual({
+			adapter: "windows",
+			command: "taskkill",
+			args: ["/PID", "<pid>", "/T"],
+			note: "terminate a selected process tree",
 		});
 		expect(linuxControlPreviewCommand("network.inspect")).toBeUndefined();
 	});

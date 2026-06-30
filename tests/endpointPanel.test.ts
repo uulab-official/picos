@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
+	createSelectedPortProcessControlPreview,
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
@@ -617,6 +618,86 @@ describe("endpoint TUI panel formatting", () => {
 				0,
 			),
 		).toBeUndefined();
+	});
+
+	test("creates locked selected port process control previews", () => {
+		const ports = [
+			{
+				protocol: "tcp",
+				localAddress: "*",
+				localPort: "3000",
+				pid: "12345",
+				command: "node",
+				user: "alice",
+			},
+		];
+
+		expect(createSelectedPortProcessControlPreview(ports, 0)).toEqual({
+			actionId: "process.terminate",
+			kind: "terminate",
+			port: ports[0],
+			confirmationPhrase: "kill pid 12345",
+			risk: "destructive",
+			privilege: "user",
+			enabled: false,
+			rows: [
+				"PORT PROCESS CONTROL",
+				"action=process.terminate status=locked risk=destructive privilege=user",
+				"target port=*:3000 pid=12345 process=node user=alice",
+				"confirm kill pid 12345 locked",
+				"dryRun no process signal will be sent",
+			],
+		});
+		expect(
+			createSelectedPortProcessControlPreview(
+				[
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "-",
+						command: "node",
+						user: "alice",
+					},
+				],
+				0,
+			),
+		).toBeUndefined();
+	});
+
+	test("formats selected port process control previews in the detail pane", () => {
+		const rows = formatPortsWorkspaceRows(
+			{
+				command: "lsof",
+				args: ["-nP"],
+				ports: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "12345",
+						command: "node",
+						user: "alice",
+					},
+				],
+				rawOutput: "$ lsof\nraw",
+			},
+			14,
+			{
+				selectedIndex: 0,
+				processControlPreview: true,
+			},
+		);
+
+		expect(rows).toContain("PORT PROCESS CONTROL");
+		expect(rows).toContain(
+			"action=process.terminate status=locked risk=destructive privilege=user",
+		);
+		expect(rows).toContain(
+			"target port=*:3000 pid=12345 process=node user=alice",
+		);
+		expect(rows).toContain("confirm kill pid 12345 locked");
+		expect(rows).toContain("dryRun no process signal will be sent");
 	});
 
 	test("creates endpoint handoff plans for connection and port evidence", () => {
