@@ -15,6 +15,11 @@ import type {
 	ListeningPort,
 	ProcessSummary,
 } from "../core/types";
+import {
+	type ClipboardPreview,
+	createClipboardPreview,
+	formatClipboardPreviewRows,
+} from "./clipboardPreview";
 
 export type EndpointProcessRequest = {
 	pid: string;
@@ -36,6 +41,37 @@ export function getSelectedPortProcessRequest(
 ): EndpointProcessRequest | undefined {
 	const port = ports[getSelectedIndex(ports.length, selectedIndex) ?? -1];
 	return createProcessRequest(port?.pid);
+}
+
+export function getSelectedConnectionClipboardPreview(
+	connections: ActiveConnection[],
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const connection =
+		connections[getSelectedIndex(connections.length, selectedIndex) ?? -1];
+	if (!connection) {
+		return undefined;
+	}
+	return createClipboardPreview({
+		source: "connection",
+		label: "selected connection",
+		copyText: formatConnectionCopyText(connection),
+	});
+}
+
+export function getSelectedPortClipboardPreview(
+	ports: ListeningPort[],
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const port = ports[getSelectedIndex(ports.length, selectedIndex) ?? -1];
+	if (!port) {
+		return undefined;
+	}
+	return createClipboardPreview({
+		source: "port",
+		label: "selected port",
+		copyText: formatPortCopyText(port),
+	});
 }
 
 export function formatConnectionsWorkspaceRows(
@@ -180,7 +216,7 @@ function formatConnectionDetailRows(
 	if (!connection || selectedIndex === undefined) {
 		return [];
 	}
-	const endpoint = `${connection.localAddress}:${connection.localPort} -> ${connection.remoteAddress}:${connection.remotePort}`;
+	const endpoint = formatConnectionCopyText(connection);
 	const process = findProcessByPid(processes, connection.pid);
 	return [
 		`DETAIL connection ${selectedIndex + 1}/${total}`,
@@ -188,7 +224,15 @@ function formatConnectionDetailRows(
 		`remote ${connection.remoteAddress}:${connection.remotePort}`,
 		`state ${connection.state ?? "-"}${connection.pid ? ` pid=${connection.pid}` : ""}`,
 		...formatProcessRows(process, "process"),
-		...(copyPreview ? [`COPY PREVIEW ${endpoint}`] : []),
+		...(copyPreview
+			? formatClipboardPreviewRows(
+					createClipboardPreview({
+						source: "connection",
+						label: "selected connection",
+						copyText: endpoint,
+					}),
+				)
+			: []),
 	];
 }
 
@@ -202,17 +246,31 @@ function formatPortDetailRows(
 	if (!port || selectedIndex === undefined) {
 		return [];
 	}
-	const endpoint = `${port.localAddress}:${port.localPort}`;
+	const endpoint = formatPortCopyText(port);
 	const process = findProcessByPid(processes, port.pid);
 	return [
 		`DETAIL port ${selectedIndex + 1}/${total}`,
-		`listen ${endpoint}`,
+		`listen ${port.localAddress}:${port.localPort}`,
 		`process ${port.command} pid=${port.pid} user=${port.user}`,
 		...formatProcessRows(process, "snapshot"),
 		...(copyPreview
-			? [`COPY PREVIEW ${endpoint} ${port.command} pid=${port.pid}`]
+			? formatClipboardPreviewRows(
+					createClipboardPreview({
+						source: "port",
+						label: "selected port",
+						copyText: endpoint,
+					}),
+				)
 			: []),
 	];
+}
+
+function formatConnectionCopyText(connection: ActiveConnection): string {
+	return `${connection.localAddress}:${connection.localPort} -> ${connection.remoteAddress}:${connection.remotePort}`;
+}
+
+function formatPortCopyText(port: ListeningPort): string {
+	return `${port.localAddress}:${port.localPort} ${port.command} pid=${port.pid}`;
 }
 
 function findProcessByPid(

@@ -3,6 +3,7 @@ import type { ProcessFileSnapshot } from "../src/core/processes";
 import {
 	formatProcessWorkspaceRows,
 	getProcessFileSelectionCount,
+	getSelectedProcessClipboardPreview,
 	getSelectedProcessFileRequest,
 	getSelectedProcessResourceRequest,
 } from "../src/tui/processPanel";
@@ -104,6 +105,24 @@ describe("process TUI panel formatting", () => {
 			copyText: "localhost:3000",
 			summary: "socket 1 fd localhost:3000",
 		});
+		expect(getSelectedProcessClipboardPreview(files, 2)).toEqual({
+			source: "process-resource",
+			label: "socket 1 fd",
+			copyText: "localhost:3000",
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(
+			formatProcessWorkspaceRows(
+				[],
+				{ pid: 12345, command: "node" },
+				files,
+				14,
+				2,
+				true,
+			),
+		).toContain("CLIPBOARD PREVIEW process-resource");
 	});
 
 	test("clips process rows to visible height", () => {

@@ -29,6 +29,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Connections and Ports workspaces can hand off selected endpoint PIDs into the Processes workspace with `enter`.
 - Process file snapshots now preserve lsof descriptor labels and can hand local cwd/open-file paths into Files or Editor from the Processes workspace.
 - Process file snapshots now classify socket, pipe, unix, and socket-file resources so non-file process resources are visible without pretending they are openable files.
+- Clipboard previews now share a locked confirmation model across endpoint and process resource selections.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.

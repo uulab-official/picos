@@ -4,6 +4,11 @@ import type {
 	ProcessOpenFile,
 } from "../core/processes";
 import type { ProcessSummary } from "../core/types";
+import {
+	type ClipboardPreview,
+	createClipboardPreview,
+	formatClipboardPreviewRows,
+} from "./clipboardPreview";
 
 export type ProcessFileRequest = {
 	path: string;
@@ -24,12 +29,13 @@ export function formatProcessWorkspaceRows(
 	files?: ProcessFileSnapshot,
 	visibleRows = 12,
 	selectedFileIndex = 0,
+	copyPreview = false,
 ): string[] {
 	const rows = [
 		`SUMMARY processes=${processes.length} selected=${selected?.pid ?? "-"}`,
 		"SNAPSHOT",
 		...formatSnapshotRows(processes),
-		...formatDetailRows(selected, files, selectedFileIndex),
+		...formatDetailRows(selected, files, selectedFileIndex, copyPreview),
 	];
 	return fitRows(rows, visibleRows, "processes");
 }
@@ -73,6 +79,22 @@ export function getSelectedProcessResourceRequest(
 	};
 }
 
+export function getSelectedProcessClipboardPreview(
+	files: ProcessFileSnapshot | undefined,
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const entries = getSelectableProcessFiles(files);
+	const entry = entries[getSelectedIndex(entries.length, selectedIndex) ?? -1];
+	if (!entry) {
+		return undefined;
+	}
+	return createClipboardPreview({
+		source: "process-resource",
+		label: `${entry.resourceKind} ${entry.descriptor} ${entry.label}`,
+		copyText: entry.path,
+	});
+}
+
 function formatSnapshotRows(processes: ProcessSummary[]): string[] {
 	if (processes.length === 0) {
 		return ["loading..."];
@@ -91,16 +113,23 @@ function formatDetailRows(
 	selected: ProcessDetail | undefined,
 	files: ProcessFileSnapshot | undefined,
 	selectedFileIndex: number,
+	copyPreview: boolean,
 ): string[] {
 	if (!selected) {
 		return [];
 	}
+	const selectedClipboardPreview = copyPreview
+		? getSelectedProcessClipboardPreview(files, selectedFileIndex)
+		: undefined;
 	return [
 		`DETAIL pid=${selected.pid} ppid=${selected.ppid ?? "-"} user=${selected.user ?? "-"} state=${selected.state ?? "-"}`,
 		`usage cpu=${selected.cpu ?? "-"}% mem=${selected.memory ?? "-"}% elapsed=${selected.elapsed ?? "-"}`,
 		`command ${selected.command || "-"}`,
 		"FILES",
 		...formatProcessFileRows(files, selectedFileIndex),
+		...(selectedClipboardPreview
+			? formatClipboardPreviewRows(selectedClipboardPreview)
+			: []),
 	];
 }
 

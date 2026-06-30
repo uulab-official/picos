@@ -206,6 +206,7 @@ export function App(): React.ReactElement {
 	const [selectedProcessFiles, setSelectedProcessFiles] =
 		useState<ProcessFileSnapshot>();
 	const [selectedProcessFileIndex, setSelectedProcessFileIndex] = useState(0);
+	const [processClipboardPreview, setProcessClipboardPreview] = useState(false);
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
 	const [routePath, setRoutePath] = useState<RoutePathResult>();
 	const [routeSort, setRouteSort] = useState<RouteSort>({
@@ -482,6 +483,7 @@ export function App(): React.ReactElement {
 			setSelectedProcessDetail(detail);
 			setSelectedProcessFiles(files);
 			setSelectedProcessFileIndex(0);
+			setProcessClipboardPreview(false);
 			setScreen("processes");
 			log("ok", `process inspected ${request.command}`);
 		} catch (caught) {
@@ -1000,6 +1002,16 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "processes" && focusArea === "workspaces" && input === "c") {
+			if (getProcessFileSelectionCount(selectedProcessFiles) <= 0) {
+				log("warn", "no process resource selected");
+				return;
+			}
+			setProcessClipboardPreview(true);
+			log("info", "process resource copy preview opened");
+			return;
+		}
+
 		if (screen === "routes" && focusArea === "workspaces" && input === "s") {
 			setRouteSort((current) => {
 				const next = nextRouteSort(current);
@@ -1067,6 +1079,7 @@ export function App(): React.ReactElement {
 						"next",
 					),
 				);
+				setProcessClipboardPreview(false);
 			} else {
 				setScreen((current) => moveScreen(current, "next"));
 			}
@@ -1107,6 +1120,7 @@ export function App(): React.ReactElement {
 						"previous",
 					),
 				);
+				setProcessClipboardPreview(false);
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
 			}
@@ -1174,6 +1188,7 @@ export function App(): React.ReactElement {
 					selectedProcessDetail={selectedProcessDetail}
 					selectedProcessFiles={selectedProcessFiles}
 					selectedProcessFileIndex={selectedProcessFileIndex}
+					processClipboardPreview={processClipboardPreview}
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
@@ -1310,6 +1325,7 @@ function MainWorkspace({
 	selectedProcessDetail,
 	selectedProcessFiles,
 	selectedProcessFileIndex,
+	processClipboardPreview,
 	routeTable,
 	routePath,
 	routeSort,
@@ -1352,6 +1368,7 @@ function MainWorkspace({
 	selectedProcessDetail?: ProcessDetail;
 	selectedProcessFiles?: ProcessFileSnapshot;
 	selectedProcessFileIndex: number;
+	processClipboardPreview: boolean;
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
@@ -1403,6 +1420,7 @@ function MainWorkspace({
 					selectedProcessDetail,
 					selectedProcessFiles,
 					selectedProcessFileIndex,
+					processClipboardPreview,
 					routeTable,
 					routePath,
 					routeSort,
@@ -1449,6 +1467,7 @@ function renderWorkspace(
 	selectedProcessDetail: ProcessDetail | undefined,
 	selectedProcessFiles: ProcessFileSnapshot | undefined,
 	selectedProcessFileIndex: number,
+	processClipboardPreview: boolean,
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
@@ -1528,6 +1547,7 @@ function renderWorkspace(
 				selectedProcess={selectedProcessDetail}
 				selectedFiles={selectedProcessFiles}
 				selectedFileIndex={selectedProcessFileIndex}
+				copyPreview={processClipboardPreview}
 				visibleRows={Math.max(6, height - 7)}
 			/>
 		);
@@ -2259,12 +2279,14 @@ function ProcessesWorkspace({
 	selectedProcess,
 	selectedFiles,
 	selectedFileIndex,
+	copyPreview,
 	visibleRows,
 }: {
 	inventory?: SystemInventory;
 	selectedProcess?: ProcessDetail;
 	selectedFiles?: ProcessFileSnapshot;
 	selectedFileIndex: number;
+	copyPreview: boolean;
 	visibleRows: number;
 }): React.ReactElement {
 	const rows = formatProcessWorkspaceRows(
@@ -2273,12 +2295,13 @@ function ProcessesWorkspace({
 		selectedFiles,
 		visibleRows,
 		selectedFileIndex,
+		copyPreview,
 	);
 	return (
 		<Box flexDirection="column">
 			<Text bold>Processes</Text>
 			<Text color="gray">
-				j/k select files · enter opens Files/Editor · endpoint enter opens PID
+				j/k select resources · enter opens local paths · c copy preview
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
