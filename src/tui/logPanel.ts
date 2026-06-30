@@ -1,19 +1,19 @@
 import {
-	formatOsLogRows,
-	type OsLogLevelFilter,
-	type OsLogSnapshot,
-} from "../core/osLogs";
+	formatLogProfileLabel,
+	nextLogProfile,
+	saveLogProfile,
+} from "../core/logProfiles";
+import { formatOsLogRows, type OsLogSnapshot } from "../core/osLogs";
+import type { LogProfile } from "../core/types";
 
-export type LogProfile = {
-	level: OsLogLevelFilter;
-	query: string;
-};
+export type { LogProfile };
+export { formatLogProfileLabel, nextLogProfile, saveLogProfile };
 
 export function formatLogWorkspaceRows(
 	logs: OsLogSnapshot | undefined,
 	visibleRows: number,
 	options: {
-		level?: OsLogLevelFilter;
+		level?: LogProfile["level"];
 		query?: string;
 		presets?: string[];
 		profiles?: LogProfile[];
@@ -68,39 +68,6 @@ export function nextLogSearchPreset(
 	return presets[(index + 1) % presets.length] ?? presets[0];
 }
 
-export function saveLogProfile(
-	profiles: LogProfile[],
-	profile: LogProfile,
-): LogProfile[] {
-	const normalized = normalizeLogProfile(profile);
-	return [
-		normalized,
-		...profiles.filter(
-			(candidate) =>
-				formatLogProfileLabel(candidate) !== formatLogProfileLabel(normalized),
-		),
-	].slice(0, 6);
-}
-
-export function nextLogProfile(
-	profiles: LogProfile[],
-	current: LogProfile,
-): LogProfile | undefined {
-	if (profiles.length === 0) {
-		return undefined;
-	}
-	const currentLabel = formatLogProfileLabel(current);
-	const index = profiles.findIndex(
-		(profile) => formatLogProfileLabel(profile) === currentLabel,
-	);
-	return profiles[(index + 1) % profiles.length] ?? profiles[0];
-}
-
-export function formatLogProfileLabel(profile: LogProfile): string {
-	const normalized = normalizeLogProfile(profile);
-	return `${normalized.level}:${normalized.query || "-"}`;
-}
-
 function formatLogPresetSummary(presets: string[] | undefined): string {
 	const visible = presets?.slice(0, 3).filter(Boolean) ?? [];
 	return visible.length ? `presets=${visible.join("|")}` : "";
@@ -111,11 +78,4 @@ function formatLogProfileSummary(profiles: LogProfile[] | undefined): string {
 	return visible.length
 		? `profiles=${visible.map(formatLogProfileLabel).join("|")}`
 		: "";
-}
-
-function normalizeLogProfile(profile: LogProfile): LogProfile {
-	return {
-		level: profile.level,
-		query: profile.query.trim(),
-	};
 }

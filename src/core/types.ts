@@ -193,6 +193,11 @@ export type SftpRemoteProfile = {
 	keyPath?: string;
 };
 
+export type LogProfile = {
+	level: "all" | "info" | "warn" | "fail";
+	query: string;
+};
+
 export type PicosConfig = {
 	theme: "dark" | "light";
 	language: Language;
@@ -203,6 +208,7 @@ export type PicosConfig = {
 	controlExecutionMode: "disabled" | "dry-run";
 	allowAdminDryRun: boolean;
 	remoteProfiles: SftpRemoteProfile[];
+	logProfiles: LogProfile[];
 };
 
 export type Language = "en" | "ko" | "ja" | "zh";

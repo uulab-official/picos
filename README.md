@@ -45,7 +45,7 @@ Keyboard controls:
 - Routes workspace: `Tab` cycles table/raw/diagnostics/path panes, `s` cycles route row sorting, and `:` opens destination path lookup
 - Connections and Ports workspaces: show parsed rows plus clipped raw OS command output; `j/k` selects endpoints, `f` filters, `F` clears, `P` saves the active filter, `]` cycles filter presets, `Tab` cycles detail/raw/process panes, `enter` opens the selected PID in Processes, `s` cycles endpoint sorting, PID matches show process snapshots, and `c` opens a locked clipboard preview
 - Processes workspace: endpoint handoffs show PID detail plus labeled cwd/open-file/resource rows; `j/k` selects an item, `enter` opens local filesystem paths in Files or Editor, socket/pipe/unix resources are logged for inspection, and `c` opens a locked clipboard preview
-- Logs workspace: `e` cycles severity, `f` searches, `F` clears, `P` saves search text, `]` cycles search presets, `S` saves the current severity/search profile, `}` cycles profiles, and `r` refreshes logs only
+- Logs workspace: `e` cycles severity, `f` searches, `F` clears, `P` saves search text, `]` cycles search presets, `S` saves the current severity/search profile to config, `}` cycles profiles, and `r` refreshes logs only
 - Tools workspace: `n` cycles OS-aware target presets, `R` runs the selected preset, `j/k` selects previous runs, `Tab` cycles raw/summary/command detail panes, `f` filters history, `P` saves the active filter as a session preset, `]` cycles saved presets, `s` cycles sorting, `G` groups by tool/action or status, `r` reruns, `y` copies summaries, `c` copies raw output, and `e`/`E` exports selected/all runs
 - Timeline workspace: `t` cycles event kinds, `f` searches, `F` clears search, `P` saves search, `]` cycles presets, and `timeline.export` writes the current filtered scope
 - Status workspace: after `picos.update`, `n` cycles release handoff links, `c` opens the locked clipboard confirmation for the selected link, and `o` opens a locked `:external-open` confirmation before launching the selected HTTPS handoff URL
@@ -251,7 +251,10 @@ Default config:
 	"defaultPingHost": "google.com",
 	"showPublicIp": true,
 	"enableExperimentalControls": false,
-	"remoteProfiles": []
+	"controlExecutionMode": "disabled",
+	"allowAdminDryRun": false,
+	"remoteProfiles": [],
+	"logProfiles": []
 }
 ```
 
@@ -286,6 +289,14 @@ Remote profile shape:
 ```
 
 Remote passwords are not part of the config schema.
+
+Log profiles are managed from the Logs workspace. Press `S` to persist the current severity/search pair:
+
+```json
+{
+	"logProfiles": [{ "level": "warn", "query": "kernel" }]
+}
+```
 
 ## Development
 
