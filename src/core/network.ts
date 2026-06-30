@@ -32,21 +32,35 @@ export function summarizeNetworkInterfaces(
 			summarizeInterface(name, addresses ?? [], options.interfaceStats?.[name]),
 		)
 		.filter((summary): summary is NetworkInterfaceSummary => Boolean(summary));
+	const sortedSummaries = sortNetworkInterfaces(summaries);
 	const primaryInterface =
-		summaries.find((summary) => summary.ipv4) ?? summaries[0];
-	const networkGroups = summarizeNetworkGroups(summaries);
+		sortedSummaries.find((summary) => summary.ipv4) ?? sortedSummaries[0];
+	const networkGroups = summarizeNetworkGroups(sortedSummaries);
 
 	return {
 		status: primaryInterface ? "online" : "offline",
 		host: options.host ?? hostname(),
 		platform: options.platform ?? platform(),
-		interfaces: summaries,
+		interfaces: sortedSummaries,
 		networkGroups,
 		primaryInterface,
 		gateway: options.gateway,
 		dnsServers,
 		publicIp: options.publicIp,
 	};
+}
+
+export function sortNetworkInterfaces(
+	interfaces: NetworkInterfaceSummary[],
+): NetworkInterfaceSummary[] {
+	return [...interfaces].sort(
+		(left, right) =>
+			interfaceKindRank(left.kind) - interfaceKindRank(right.kind) ||
+			left.name.localeCompare(right.name, undefined, {
+				numeric: true,
+				sensitivity: "base",
+			}),
+	);
 }
 
 export async function getNetworkSummary(): Promise<NetworkSummary> {
@@ -61,6 +75,19 @@ export async function getNetworkSummary(): Promise<NetworkSummary> {
 		publicIp,
 		interfaceStats,
 	});
+}
+
+function interfaceKindRank(kind: NetworkInterfaceKind): number {
+	const ranks: Record<NetworkInterfaceKind, number> = {
+		wifiOrEthernet: 0,
+		vpn: 1,
+		bridge: 2,
+		container: 3,
+		linkLocal: 4,
+		loopback: 5,
+		unknown: 6,
+	};
+	return ranks[kind];
 }
 
 export async function getInterfaceStats(

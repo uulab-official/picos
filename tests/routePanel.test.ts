@@ -59,6 +59,31 @@ describe("route TUI panel formatting", () => {
 		]);
 	});
 
+	test("formats sorted route rows with visible sort context", () => {
+		expect(
+			formatRouteWorkspaceRows(
+				{
+					...fixture,
+					routes: [...fixture.routes].reverse(),
+				},
+				12,
+				{ sort: { key: "interface", direction: "asc" } },
+			),
+		).toContain("SORT interface asc");
+		expect(
+			formatRouteWorkspaceRows(
+				{
+					...fixture,
+					routes: [...fixture.routes].reverse(),
+				},
+				12,
+				{ sort: { key: "interface", direction: "asc" } },
+			).join("\n"),
+		).toContain(
+			"default            192.168.0.1      en0        ipv4\n10.8.0.0/24        link             utun0      ipv4",
+		);
+	});
+
 	test("clips raw rows to available height", () => {
 		expect(formatRouteRawRows(fixture.rawOutput, 2)).toEqual([
 			"$ netstat -rn",

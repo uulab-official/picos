@@ -3,11 +3,15 @@ import {
 	buildRoutePathCommand,
 	buildRouteTableCommand,
 	diagnoseRoutes,
+	formatRouteTable,
+	nextRouteSort,
 	parseLinuxIpRoutes,
 	parseLinuxRoutePath,
 	parseMacosNetstatRoutes,
 	parseMacosRoutePath,
+	parseRouteSort,
 	parseWindowsRoutePrint,
+	sortRouteEntries,
 } from "../src/core/routes";
 
 describe("lazyifconfig-style route inspector", () => {
@@ -131,5 +135,104 @@ describe("lazyifconfig-style route inspector", () => {
 			gateway: "192.168.0.1",
 			interfaceName: "en0",
 		});
+	});
+
+	test("sorts route rows by default priority and selected fields", () => {
+		const routes = [
+			{
+				destination: "10.8.0.0/24",
+				gateway: "link",
+				interfaceName: "utun0",
+				family: "ipv4" as const,
+				metric: 30,
+			},
+			{
+				destination: "default",
+				gateway: "192.168.0.1",
+				interfaceName: "en0",
+				family: "ipv4" as const,
+				metric: 100,
+			},
+			{
+				destination: "172.16.0.0/16",
+				gateway: "link",
+				interfaceName: "bridge0",
+				family: "ipv4" as const,
+				metric: 20,
+			},
+		];
+
+		expect(sortRouteEntries(routes).map((route) => route.destination)).toEqual([
+			"default",
+			"10.8.0.0/24",
+			"172.16.0.0/16",
+		]);
+		expect(
+			sortRouteEntries(routes, { key: "interface", direction: "asc" }).map(
+				(route) => route.interfaceName,
+			),
+		).toEqual(["bridge0", "en0", "utun0"]);
+		expect(
+			sortRouteEntries(routes, { key: "metric", direction: "asc" }).map(
+				(route) => route.metric,
+			),
+		).toEqual([20, 30, 100]);
+	});
+
+	test("parses route sort options", () => {
+		expect(parseRouteSort("interface")).toEqual({
+			direction: "asc",
+			key: "interface",
+		});
+		expect(parseRouteSort("-metric")).toEqual({
+			direction: "desc",
+			key: "metric",
+		});
+		expect(() => parseRouteSort("unsafe")).toThrow("Invalid route sort");
+	});
+
+	test("cycles route sort state for keyboard use", () => {
+		expect(nextRouteSort({ key: "default", direction: "asc" })).toEqual({
+			direction: "asc",
+			key: "destination",
+		});
+		expect(nextRouteSort({ key: "metric", direction: "asc" })).toEqual({
+			direction: "desc",
+			key: "metric",
+		});
+		expect(nextRouteSort({ key: "metric", direction: "desc" })).toEqual({
+			direction: "asc",
+			key: "default",
+		});
+	});
+
+	test("formats route tables with selected sort order", () => {
+		expect(
+			formatRouteTable(
+				{
+					command: "netstat",
+					args: ["-rn"],
+					diagnostics: [],
+					rawOutput: "",
+					routes: [
+						{
+							destination: "10.8.0.0/24",
+							gateway: "link",
+							interfaceName: "utun0",
+							family: "ipv4",
+						},
+						{
+							destination: "default",
+							gateway: "192.168.0.1",
+							interfaceName: "en0",
+							family: "ipv4",
+						},
+					],
+				},
+				{ sort: { key: "interface", direction: "asc" } },
+			),
+		).toContain(
+			"Sort: interface asc\n\n[Routes]\ndefault            192.168.0.1        en0        ipv4\n10.8.0.0/24        link               utun0      ipv4",
+		);
 	});
 });
