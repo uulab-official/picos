@@ -1259,6 +1259,20 @@ Goal: let operators hand route table evidence to an external editor or review wo
 - Tests cover handoff content, stable file naming, path-view locking, and actual file writes.
 - Next: external editor open preview for route handoff files and route preset profiles.
 
+## v0.4.31 - Route Handoff External Open
+
+Status: draft PR #93.
+
+Goal: let route handoff files move from terminal evidence into the operator's external file viewer without bypassing safety controls.
+
+- A new `fileOpen` core module creates locked file-open plans for route handoff Markdown files.
+- File-open plans are limited to picos route handoff files under the config directory.
+- Platform adapters use `open`, `xdg-open`, or `rundll32` through `safeExec`; no shell command is assembled in the TUI.
+- Routes exposes `o` to write the current handoff file, move to Status, and request exact `open` confirmation before launching.
+- Status shows the file-open preview and confirmation prompt beside existing update handoff open previews.
+- Tests cover path scoping, preview rows, locked execution, and confirmed opener execution.
+- Next: route preset profiles, then the same handoff/open flow for ports and connections raw evidence.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

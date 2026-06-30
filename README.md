@@ -310,7 +310,7 @@ Route filter presets are managed from the Routes workspace. Press `P` to persist
 }
 ```
 
-Routes can also export the active table/raw/diagnostics/path detail view with `e`. Handoff files are written under your picos config directory in `routes/*.md` for external review or editor workflows.
+Routes can also export the active table/raw/diagnostics/path detail view with `e`. Press `o` to create the same handoff file and prepare a locked external file-open preview; type `open` to launch the OS file viewer. Handoff files are written under your picos config directory in `routes/*.md` for external review or editor workflows.
 
 ## Development
 
