@@ -6350,7 +6350,7 @@ function ProcessesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>Processes</Text>
 			<Text color="gray">
-				j/k select resources · enter opens local paths · c copy, type copy
+				j/k select resources · enter opens cwd/file · c copy selected resource
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
@@ -6644,7 +6644,8 @@ function PortsWorkspace({
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
 				listening ports · f filter · P save · ] preset · D cleanup · e export ·
-				o open · I inspector · K control · tab detail · j/k select
+				o open · enter process · I inspector · K control · tab detail · j/k
+				select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (

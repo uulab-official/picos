@@ -1987,6 +1987,19 @@ Goal: let operators inspect selected port process-control policy from the OS sid
 - Tests cover the selected-port Inspector row formatter and PID placeholder hydration.
 - Next: connect Inspector policy rows to process/file drill-down hints so the selected PID can move cleanly into Processes or Files before any destructive preview is opened.
 
+## v0.4.86 - Port Inspector Drilldown Hints
+
+Status: draft PR #148 on `codex/picos-v0.4.86-port-inspector-drilldown-hints`.
+
+Goal: make the selected-port Inspector policy rows point operators toward read-only investigation before any destructive process-control preview.
+
+- Port policy Inspector rows now include the existing `picos process <pid> --files` handoff command.
+- The same Inspector rows explain that Ports `enter` opens Processes and Processes `enter` opens cwd/open-file paths.
+- Ports workspace hints now mention `enter process` beside `I inspector` and locked `K control`.
+- Processes workspace hints now clarify cwd/open-file entry and selected-resource copy behavior.
+- Tests cover the Inspector drill-down rows on selected listening PIDs.
+- Next: surface selected process cwd/open-file counts in the Ports Inspector so operators can see whether there is useful file evidence before jumping.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
