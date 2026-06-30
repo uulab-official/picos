@@ -46,6 +46,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub history can now export selected or full diagnostic runs to scoped markdown files under the picos config directory.
 - Tools Hub history now supports TUI filtering with `f`, clearing with `F`, and filter-aware selection/copy/rerun/export.
 - Tools Hub history now supports TUI sort cycling with `s` across time, tool/action, and status while preserving visible selection targets.
+- Tools Hub history now supports TUI grouping with `G` by tool/action or status while preserving visible selection targets.
 - Files provider now supports absolute paths and `~` home shorthand.
 - `picos locations` / `picos drives` filesystem entry-point listing.
 - TUI Files workspace now starts from the system root and shows root/home/workspace/temp locations.

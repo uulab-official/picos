@@ -162,9 +162,11 @@ import {
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
+	nextToolHistoryGroup,
 	nextToolHistorySort,
 	rerunToolHistoryItem,
 	type ToolHistoryExportScope,
+	type ToolHistoryGroup,
 	type ToolHistoryItem,
 	type ToolHistorySort,
 	writeToolHistoryExport,
@@ -273,6 +275,8 @@ export function App(): React.ReactElement {
 	const [toolHistoryFilter, setToolHistoryFilter] = useState("");
 	const [toolHistorySort, setToolHistorySort] =
 		useState<ToolHistorySort>("time");
+	const [toolHistoryGroup, setToolHistoryGroup] =
+		useState<ToolHistoryGroup>("none");
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
@@ -1326,6 +1330,16 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "G") {
+			setToolHistoryGroup((current) => {
+				const next = nextToolHistoryGroup(current);
+				log("info", `tools group ${next}`);
+				return next;
+			});
+			setToolCopyPreview(false);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "r") {
 			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
 				toolHistory,
@@ -1613,6 +1627,7 @@ export function App(): React.ReactElement {
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolHistoryFilter={toolHistoryFilter}
 					toolHistorySort={toolHistorySort}
+					toolHistoryGroup={toolHistoryGroup}
 					toolCopyPreview={toolCopyPreview}
 					events={events}
 					t={t}
@@ -1756,6 +1771,7 @@ function MainWorkspace({
 	selectedToolHistoryIndex,
 	toolHistoryFilter,
 	toolHistorySort,
+	toolHistoryGroup,
 	toolCopyPreview,
 	events,
 	t,
@@ -1805,6 +1821,7 @@ function MainWorkspace({
 	selectedToolHistoryIndex: number;
 	toolHistoryFilter: string;
 	toolHistorySort: ToolHistorySort;
+	toolHistoryGroup: ToolHistoryGroup;
 	toolCopyPreview: ToolCopyPreviewMode;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
@@ -1863,6 +1880,7 @@ function MainWorkspace({
 					selectedToolHistoryIndex,
 					toolHistoryFilter,
 					toolHistorySort,
+					toolHistoryGroup,
 					toolCopyPreview,
 					events,
 					height,
@@ -1916,6 +1934,7 @@ function renderWorkspace(
 	selectedToolHistoryIndex: number,
 	toolHistoryFilter: string,
 	toolHistorySort: ToolHistorySort,
+	toolHistoryGroup: ToolHistoryGroup,
 	toolCopyPreview: ToolCopyPreviewMode,
 	events: ConsoleEvent[],
 	height: number,
@@ -2064,6 +2083,7 @@ function renderWorkspace(
 				selectedIndex={selectedToolHistoryIndex}
 				filterQuery={toolHistoryFilter}
 				sort={toolHistorySort}
+				group={toolHistoryGroup}
 				copyPreview={toolCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
@@ -3126,6 +3146,7 @@ function ToolsWorkspace({
 	selectedIndex,
 	filterQuery,
 	sort,
+	group,
 	copyPreview,
 	commandLine,
 	visibleRows,
@@ -3135,6 +3156,7 @@ function ToolsWorkspace({
 	selectedIndex: number;
 	filterQuery: string;
 	sort: ToolHistorySort;
+	group: ToolHistoryGroup;
 	copyPreview: ToolCopyPreviewMode;
 	commandLine: CommandLineState;
 	visibleRows: number;
@@ -3152,6 +3174,7 @@ function ToolsWorkspace({
 		selectedIndex,
 		filterQuery,
 		sort,
+		group,
 	);
 	const selectedPreview =
 		copyPreview === "summary"
@@ -3178,7 +3201,7 @@ function ToolsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub history · f filter · F clear · DNS/RDAP/IP/TCP/TLS
+				Tools Hub history · f filter · s sort · G group · DNS/RDAP/IP/TCP/TLS
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]
@@ -3194,7 +3217,7 @@ function ToolsWorkspace({
 }
 
 function getToolRowColor(row: string): string {
-	if (row.startsWith("TOOLS") || row === "RAW") {
+	if (row.startsWith("TOOLS") || row === "RAW" || row.startsWith("## ")) {
 		return "cyan";
 	}
 	if (row.startsWith("CLIPBOARD PREVIEW") || row.startsWith("confirm ")) {

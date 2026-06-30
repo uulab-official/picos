@@ -693,6 +693,19 @@ Goal: make repeated Tools diagnostics scan like a real operator console.
 - Sort context is shown in the Tools workspace header when not using the default time order.
 - Next: grouped Tools history sections and saved query presets.
 
+## v0.3.51 - Tools History Group Sections
+
+Status: draft PR #52.
+
+Goal: make Tools Hub history scan more like an operator console when many diagnostics pile up.
+
+- Tools history supports `none`, `tool`, and `status` group modes.
+- The TUI Tools workspace cycles group mode with `G`.
+- Group headers show run counts without becoming selectable rows.
+- Grouped rows preserve source indexes so rerun, copy, and export still target the visible selected run.
+- Group context is shown in the Tools workspace header when grouping is active.
+- Next: saved Tools query presets.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -701,7 +714,7 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
 - Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, clipboard adapter plans with audit metadata, safe stdin clipboard execution model, TUI clipboard confirmation prompt with EventDock audit results, durable audit export, clipboard fallback hints, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, process resource classification, and network state-change timeline events landed; next richer endpoint/platform detail tabs.
-- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, filterable/sortable/selectable result history, rerun, raw output handoff, locked summary/raw-output copy shortcuts, and scoped markdown export landed; next grouped history sections and saved query presets.
+- Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools with target prompts, filterable/sortable/groupable/selectable result history, rerun, raw output handoff, locked summary/raw-output copy shortcuts, and scoped markdown export landed; next saved query presets.
 - Timeline: live EventDock history, network/action/audit/raw filters, audit export, latest audit reload, and network status/address/public-IP change events landed; next richer event search and export scopes.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.
 
