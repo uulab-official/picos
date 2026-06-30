@@ -151,6 +151,7 @@ export function formatToolsWorkspaceRows(
 	filterQuery = "",
 	sort: ToolHistorySort = "time",
 	group: ToolHistoryGroup = "none",
+	presets: string[] = [],
 ): string[] {
 	const filtered = sortToolHistory(history, filterQuery, sort);
 	const latestIndex = getVisibleToolHistoryIndex(
@@ -174,10 +175,11 @@ export function formatToolsWorkspaceRows(
 			]
 		: [history.length ? "no matching tool runs" : "no tool runs yet"];
 	const filter = filterQuery.trim();
+	const presetSummary = formatToolHistoryPresetSummary(presets);
 	return [
-		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""} selected=${latest?.title ?? "-"}`,
+		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
+		"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -259,6 +261,36 @@ export function nextToolHistoryGroup(
 		return "status";
 	}
 	return "none";
+}
+
+export function saveToolHistoryPreset(
+	presets: string[],
+	query: string,
+	limit = 6,
+): string[] {
+	const normalized = query.trim();
+	if (!normalized) {
+		return presets;
+	}
+	return [
+		normalized,
+		...presets.filter((preset) => preset !== normalized),
+	].slice(0, limit);
+}
+
+export function nextToolHistoryPreset(
+	presets: string[],
+	currentQuery: string,
+): string {
+	if (!presets.length) {
+		return "";
+	}
+	const normalized = currentQuery.trim();
+	const index = presets.indexOf(normalized);
+	if (index < 0 || index >= presets.length - 1) {
+		return presets[0] ?? "";
+	}
+	return presets[index + 1] ?? "";
 }
 
 export function formatToolPromptRows(prompt: string, value: string): string[] {
@@ -499,6 +531,10 @@ function countToolHistoryGroups(
 		counts.set(label, (counts.get(label) ?? 0) + 1);
 	}
 	return counts;
+}
+
+function formatToolHistoryPresetSummary(presets: string[]): string {
+	return presets.slice(0, 3).join(",");
 }
 
 function formatToolHistoryRow(

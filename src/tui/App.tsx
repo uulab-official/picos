@@ -163,8 +163,10 @@ import {
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
 	nextToolHistoryGroup,
+	nextToolHistoryPreset,
 	nextToolHistorySort,
 	rerunToolHistoryItem,
+	saveToolHistoryPreset,
 	type ToolHistoryExportScope,
 	type ToolHistoryGroup,
 	type ToolHistoryItem,
@@ -273,6 +275,9 @@ export function App(): React.ReactElement {
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolHistoryFilter, setToolHistoryFilter] = useState("");
+	const [toolHistoryFilterPresets, setToolHistoryFilterPresets] = useState<
+		string[]
+	>([]);
 	const [toolHistorySort, setToolHistorySort] =
 		useState<ToolHistorySort>("time");
 	const [toolHistoryGroup, setToolHistoryGroup] =
@@ -514,6 +519,11 @@ export function App(): React.ReactElement {
 		const query = commandLine.value.trim();
 		const filtered = filterToolHistory(toolHistory, query);
 		setToolHistoryFilter(query);
+		if (query) {
+			setToolHistoryFilterPresets((current) =>
+				saveToolHistoryPreset(current, query),
+			);
+		}
 		setToolCopyPreview(false);
 		setSelectedToolHistoryIndex(filtered[0]?.index ?? 0);
 		setCommandLine((current) => closeCommandLine(current));
@@ -1320,6 +1330,38 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "P") {
+			if (!toolHistoryFilter.trim()) {
+				log("warn", "no tools filter to save");
+				return;
+			}
+			setToolHistoryFilterPresets((current) =>
+				saveToolHistoryPreset(current, toolHistoryFilter),
+			);
+			log("info", `tools preset saved ${toolHistoryFilter}`);
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "]") {
+			const preset = nextToolHistoryPreset(
+				toolHistoryFilterPresets,
+				toolHistoryFilter,
+			);
+			if (!preset) {
+				log("warn", "no tools filter presets");
+				return;
+			}
+			const filtered = filterToolHistory(toolHistory, preset);
+			setToolHistoryFilter(preset);
+			setToolCopyPreview(false);
+			setSelectedToolHistoryIndex(filtered[0]?.index ?? 0);
+			log(
+				filtered.length ? "info" : "warn",
+				`tools preset ${preset} matches ${filtered.length}`,
+			);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "s") {
 			setToolHistorySort((current) => {
 				const next = nextToolHistorySort(current);
@@ -1626,6 +1668,7 @@ export function App(): React.ReactElement {
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolHistoryFilter={toolHistoryFilter}
+					toolHistoryFilterPresets={toolHistoryFilterPresets}
 					toolHistorySort={toolHistorySort}
 					toolHistoryGroup={toolHistoryGroup}
 					toolCopyPreview={toolCopyPreview}
@@ -1770,6 +1813,7 @@ function MainWorkspace({
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolHistoryFilter,
+	toolHistoryFilterPresets,
 	toolHistorySort,
 	toolHistoryGroup,
 	toolCopyPreview,
@@ -1820,6 +1864,7 @@ function MainWorkspace({
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolHistoryFilter: string;
+	toolHistoryFilterPresets: string[];
 	toolHistorySort: ToolHistorySort;
 	toolHistoryGroup: ToolHistoryGroup;
 	toolCopyPreview: ToolCopyPreviewMode;
@@ -1879,6 +1924,7 @@ function MainWorkspace({
 					toolHistory,
 					selectedToolHistoryIndex,
 					toolHistoryFilter,
+					toolHistoryFilterPresets,
 					toolHistorySort,
 					toolHistoryGroup,
 					toolCopyPreview,
@@ -1933,6 +1979,7 @@ function renderWorkspace(
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolHistoryFilter: string,
+	toolHistoryFilterPresets: string[],
 	toolHistorySort: ToolHistorySort,
 	toolHistoryGroup: ToolHistoryGroup,
 	toolCopyPreview: ToolCopyPreviewMode,
@@ -2082,6 +2129,7 @@ function renderWorkspace(
 				history={toolHistory}
 				selectedIndex={selectedToolHistoryIndex}
 				filterQuery={toolHistoryFilter}
+				filterPresets={toolHistoryFilterPresets}
 				sort={toolHistorySort}
 				group={toolHistoryGroup}
 				copyPreview={toolCopyPreview}
@@ -3145,6 +3193,7 @@ function ToolsWorkspace({
 	history,
 	selectedIndex,
 	filterQuery,
+	filterPresets,
 	sort,
 	group,
 	copyPreview,
@@ -3155,6 +3204,7 @@ function ToolsWorkspace({
 	history: ToolHistoryItem[];
 	selectedIndex: number;
 	filterQuery: string;
+	filterPresets: string[];
 	sort: ToolHistorySort;
 	group: ToolHistoryGroup;
 	copyPreview: ToolCopyPreviewMode;
@@ -3175,6 +3225,7 @@ function ToolsWorkspace({
 		filterQuery,
 		sort,
 		group,
+		filterPresets,
 	);
 	const selectedPreview =
 		copyPreview === "summary"
@@ -3201,7 +3252,7 @@ function ToolsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub history · f filter · s sort · G group · DNS/RDAP/IP/TCP/TLS
+				Tools Hub history · f filter · P save · ] preset · s sort · G group
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]

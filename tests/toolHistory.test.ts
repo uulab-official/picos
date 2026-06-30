@@ -19,8 +19,10 @@ import {
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
 	nextToolHistoryGroup,
+	nextToolHistoryPreset,
 	nextToolHistorySort,
 	rerunToolHistoryItem,
+	saveToolHistoryPreset,
 	sortToolHistory,
 	writeToolHistoryExport,
 } from "../src/tui/toolHistory";
@@ -192,7 +194,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -273,12 +275,12 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
 			"TOOLS history=2 filter=missing matches=0 selected=-",
 			"no matching tool runs",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 		expect(
 			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
@@ -337,7 +339,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -387,7 +389,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · f filter · F clear · s sort · G group · r rerun · y summary · c raw",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(history, 7, 0, "", "time", "status"),
@@ -399,6 +401,34 @@ describe("TUI tool history", () => {
 			"  [12:00:01] fail network.connect api.github.com:443",
 			"Summary: Query: example.com | A: 2",
 			"RAW",
+		]);
+	});
+
+	test("saves and cycles tool history filter presets", () => {
+		const presets = saveToolHistoryPreset(["fail", "dns"], " connect ", 3);
+
+		expect(presets).toEqual(["connect", "fail", "dns"]);
+		expect(saveToolHistoryPreset(presets, "dns", 3)).toEqual([
+			"dns",
+			"connect",
+			"fail",
+		]);
+		expect(saveToolHistoryPreset(presets, "  ", 3)).toEqual(presets);
+		expect(saveToolHistoryPreset(presets, "tls", 3)).toEqual([
+			"tls",
+			"connect",
+			"fail",
+		]);
+		expect(nextToolHistoryPreset(presets, "")).toBe("connect");
+		expect(nextToolHistoryPreset(presets, "connect")).toBe("fail");
+		expect(nextToolHistoryPreset(presets, "dns")).toBe("connect");
+		expect(nextToolHistoryPreset([], "connect")).toBe("");
+		expect(
+			formatToolsWorkspaceRows([], 3, 0, "", "time", "none", presets),
+		).toEqual([
+			"TOOLS history=0 presets=connect,fail,dns selected=-",
+			"no tool runs yet",
+			"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 		]);
 	});
 
