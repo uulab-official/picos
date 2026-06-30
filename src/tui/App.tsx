@@ -295,6 +295,7 @@ import {
 	promoteToolTargetPreset,
 	reassignToolTargetPresetAction,
 	removeToolTargetPreset,
+	removeToolTargetPresetsByAction,
 	renameToolTargetPreset,
 	rerunToolHistoryItem,
 	retargetToolTargetPreset,
@@ -3318,6 +3319,47 @@ export function App(): React.ReactElement {
 				),
 			);
 			log("info", `tool target removed ${preset.label} ${preset.target}`);
+			setToolCopyPreview(false);
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "D") {
+			const preset =
+				toolTargetPresets[
+					Math.min(
+						Math.max(selectedToolTargetPresetIndex, 0),
+						toolTargetPresets.length - 1,
+					)
+				];
+			if (!preset) {
+				log("warn", "no tool target preset selected");
+				return;
+			}
+			const next = removeToolTargetPresetsByAction(
+				customToolTargetPresets,
+				preset,
+			);
+			const removed = customToolTargetPresets.length - next.length;
+			if (!removed) {
+				log("warn", `tool target ${preset.label} is not a saved preset`);
+				return;
+			}
+			setCustomToolTargetPresets(next);
+			setSelectedToolTargetPresetIndex((index) =>
+				Math.min(index, Math.max(0, next.length - 1)),
+			);
+			void setConfigToolTargetPresets(next).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target action cleanup failed ${caught.message}`
+						: `tool target action cleanup failed ${String(caught)}`,
+				),
+			);
+			log(
+				"info",
+				`tool target action removed ${preset.actionId} (${removed} presets)`,
+			);
 			setToolCopyPreview(false);
 			return;
 		}

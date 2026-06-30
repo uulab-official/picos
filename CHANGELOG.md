@@ -59,6 +59,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub saved target presets can now be pinned to the top with `U`, preserving frequently used diagnostics ahead of OS-aware generated presets.
 - Tools Hub target preset selection now supports `n`/`N` forward/back cycling for faster navigation through longer target lists.
 - Tools Hub saved target retention can now be configured with `toolTargetPresetLimit` from 1 to 24 entries.
+- Tools Hub saved target presets can now be cleaned up in bulk with `D`, removing every saved preset for the selected saved action.
 - Connections and Ports workspaces now support `Tab` detail panes for focused detail, raw output, and process views.
 - Connections and Ports workspaces now support TUI endpoint search with `f`, `F`, `P`, and `]` filter preset controls.
 - Connections and Ports sort preferences now persist in config and restore on TUI boot.
