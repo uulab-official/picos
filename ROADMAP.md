@@ -1015,6 +1015,19 @@ Goal: route picos self-update dry-run attempts through the same control executio
 - Tests cover the preview conversion and policy-gated npm dry-run runner path.
 - Next: optional open-in-browser handoff and faster policy-state shortcuts from the TUI.
 
+## v0.4.13 - Update Handoff External Open
+
+Status: draft PR #75.
+
+Goal: make update handoff links usable from the keyboard without silently launching external applications.
+
+- Status workspace update handoff links can be opened with `o`.
+- `:external-open` requires the exact `open` confirmation before launching anything.
+- External open plans only allow HTTPS URLs.
+- macOS, Linux, and Windows opener commands are modeled in core and run through `safeExec()`.
+- Tests cover platform command planning, HTTPS blocking, visible rows, and locked execution.
+- Next: release handoff status refresh shortcuts and richer update/release automation checks.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

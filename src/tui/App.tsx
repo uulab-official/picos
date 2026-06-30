@@ -47,6 +47,12 @@ import {
 import { getControlPreviewCommand } from "../core/controlPreview";
 import { runDoctorChecks } from "../core/doctor";
 import {
+	buildExternalOpenPlan,
+	type ExternalOpenPlan,
+	formatExternalOpenPlanRows,
+	runExternalOpenPlan,
+} from "../core/externalOpen";
+import {
 	createLocalFileProvider,
 	type FileEntry,
 	type FileLocation,
@@ -286,6 +292,7 @@ export function App(): React.ReactElement {
 		useState<PackageUpdateCheckResult>();
 	const [selectedUpdateHandoffIndex, setSelectedUpdateHandoffIndex] =
 		useState(0);
+	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
 	const [events, setEvents] = useState<ConsoleEvent[]>([
 		createEvent("info", "picos console booted"),
 		createEvent("info", "write actions locked by policy"),
@@ -862,6 +869,54 @@ export function App(): React.ReactElement {
 		updateCheckResult,
 	]);
 
+	const openSelectedUpdateHandoffExternal = useCallback(() => {
+		const handoff = updateCheckResult
+			? createUpdateReleaseHandoff(updateCheckResult)
+			: undefined;
+		if (!handoff) {
+			log("warn", "no update handoff link selected");
+			return;
+		}
+		const link = getSelectedUpdateReleaseHandoffLink(
+			handoff,
+			selectedUpdateHandoffIndex,
+		);
+		const plan = buildExternalOpenPlan({
+			source: "update-handoff",
+			label: link.label,
+			url: link.url,
+			platform: currentPlatform(),
+		});
+		setExternalOpenPlan(plan);
+		setCommandLine(openCommandLine("external-open"));
+		log("info", `external open confirmation opened for ${link.label}`);
+	}, [log, selectedUpdateHandoffIndex, updateCheckResult]);
+
+	const submitExternalOpenCommand = useCallback(async () => {
+		if (!externalOpenPlan) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "external open missing preview");
+			return;
+		}
+		const plan = buildExternalOpenPlan({
+			source: externalOpenPlan.source,
+			label: externalOpenPlan.label,
+			url: externalOpenPlan.url,
+			platform: currentPlatform(),
+			confirmation: commandLine.value,
+		});
+		setExternalOpenPlan(plan);
+		setCommandLine((current) => closeCommandLine(current));
+		const result = await runExternalOpenPlan(plan);
+		log(
+			result.success ? "ok" : "fail",
+			`external open ${plan.label} confirmed=${plan.confirmed} adapter=${plan.adapter.command}`,
+		);
+		if (result.error) {
+			log("warn", result.error);
+		}
+	}, [commandLine.value, externalOpenPlan, log]);
+
 	const exportToolHistory = useCallback(
 		async (scope: ToolHistoryExportScope) => {
 			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
@@ -1332,6 +1387,9 @@ export function App(): React.ReactElement {
 					setProcessClipboardPreview(false);
 					setToolCopyPreview(false);
 				}
+				if (commandLine.prompt === "external-open") {
+					setExternalOpenPlan(undefined);
+				}
 				log(
 					"info",
 					commandLine.prompt === "route"
@@ -1346,9 +1404,11 @@ export function App(): React.ReactElement {
 										? "timeline search cancelled"
 										: commandLine.prompt === "control-confirm"
 											? "control confirmation cancelled"
-											: commandLine.prompt.startsWith(toolPromptPrefix)
-												? "tool target command cancelled"
-												: "path command cancelled",
+											: commandLine.prompt === "external-open"
+												? "external open confirmation cancelled"
+												: commandLine.prompt.startsWith(toolPromptPrefix)
+													? "tool target command cancelled"
+													: "path command cancelled",
 				);
 				return;
 			}
@@ -1366,6 +1426,8 @@ export function App(): React.ReactElement {
 					submitTimelineSearchCommand();
 				} else if (commandLine.prompt === "control-confirm") {
 					submitControlConfirmationCommand();
+				} else if (commandLine.prompt === "external-open") {
+					void submitExternalOpenCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -1837,6 +1899,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "c") {
 			openSelectedUpdateHandoffClipboard();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "o") {
+			openSelectedUpdateHandoffExternal();
 			return;
 		}
 
@@ -2350,6 +2417,7 @@ export function App(): React.ReactElement {
 					toolHistoryDetailView={toolHistoryDetailView}
 					toolCopyPreview={toolCopyPreview}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
+					externalOpenPlan={externalOpenPlan}
 					events={events}
 					t={t}
 				/>
@@ -2519,6 +2587,7 @@ function MainWorkspace({
 	toolHistoryDetailView,
 	toolCopyPreview,
 	selectedUpdateHandoffIndex,
+	externalOpenPlan,
 	events,
 	t,
 }: {
@@ -2590,6 +2659,7 @@ function MainWorkspace({
 	toolHistoryDetailView: ToolHistoryDetailView;
 	toolCopyPreview: ToolCopyPreviewMode;
 	selectedUpdateHandoffIndex: number;
+	externalOpenPlan?: ExternalOpenPlan;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -2670,6 +2740,7 @@ function MainWorkspace({
 					toolHistoryDetailView,
 					toolCopyPreview,
 					selectedUpdateHandoffIndex,
+					externalOpenPlan,
 					events,
 					height,
 					t,
@@ -2745,6 +2816,7 @@ function renderWorkspace(
 	toolHistoryDetailView: ToolHistoryDetailView,
 	toolCopyPreview: ToolCopyPreviewMode,
 	selectedUpdateHandoffIndex: number,
+	externalOpenPlan: ExternalOpenPlan | undefined,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -2953,6 +3025,8 @@ function renderWorkspace(
 			<StatusWorkspace
 				updateCheckResult={updateCheckResult}
 				selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
+				externalOpenPlan={externalOpenPlan}
+				commandLine={commandLine}
 				t={t}
 			/>
 		);
@@ -4236,6 +4310,18 @@ function formatClipboardPromptRows(commandLine: CommandLineState): string[] {
 		: [];
 }
 
+function formatExternalOpenPromptRows(
+	commandLine: CommandLineState,
+	plan: ExternalOpenPlan,
+): string[] {
+	return commandLine.active && commandLine.prompt === "external-open"
+		? [
+				`EXTERNAL OPEN CONFIRM ${plan.label}`,
+				`:external-open ${commandLine.value || " "}  type="${plan.confirmationPhrase}" enter=open esc=cancel`,
+			]
+		: [];
+}
+
 function DnsWorkspace({
 	summary,
 	t,
@@ -4502,10 +4588,14 @@ function CommandPaletteWorkspace({
 function StatusWorkspace({
 	updateCheckResult,
 	selectedUpdateHandoffIndex,
+	externalOpenPlan,
+	commandLine,
 	t,
 }: {
 	updateCheckResult?: PackageUpdateCheckResult;
 	selectedUpdateHandoffIndex: number;
+	externalOpenPlan?: ExternalOpenPlan;
+	commandLine: CommandLineState;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const updateApplyPreview = updateCheckResult
@@ -4560,7 +4650,7 @@ function StatusWorkspace({
 			) : null}
 			{updateReleaseHandoff ? (
 				<Box marginTop={1} flexDirection="column">
-					<Text color="gray">RELEASE HANDOFF · n cycle · c copy</Text>
+					<Text color="gray">RELEASE HANDOFF · n cycle · c copy · o open</Text>
 					{formatUpdateReleaseHandoffRows(updateReleaseHandoff)
 						.slice(1)
 						.map((row) => (
@@ -4576,6 +4666,33 @@ function StatusWorkspace({
 							{index === selectedUpdateHandoffIndex ? ">" : " "} {link.label}
 						</Text>
 					))}
+				</Box>
+			) : null}
+			{externalOpenPlan ? (
+				<Box marginTop={1} flexDirection="column">
+					{formatExternalOpenPlanRows(externalOpenPlan)
+						.slice(0, 7)
+						.map((row) => (
+							<Text
+								key={row}
+								color={
+									row.startsWith("EXTERNAL OPEN")
+										? "cyan"
+										: row.startsWith("confirm")
+											? "yellow"
+											: "white"
+								}
+							>
+								{row}
+							</Text>
+						))}
+					{formatExternalOpenPromptRows(commandLine, externalOpenPlan).map(
+						(row) => (
+							<Text key={row} color="yellow">
+								{row}
+							</Text>
+						),
+					)}
 				</Box>
 			) : null}
 			<Text color="gray">{t("status.roadmap")}</Text>
