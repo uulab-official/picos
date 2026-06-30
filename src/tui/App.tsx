@@ -16,6 +16,7 @@ import {
 import {
 	type ConnectionSort,
 	type ConnectionsResult,
+	filterConnections,
 	getActiveConnections,
 	nextConnectionSort,
 	sortConnections,
@@ -31,6 +32,7 @@ import {
 } from "../core/files";
 import { getNetworkSummary } from "../core/network";
 import {
+	filterListeningPorts,
 	getListeningPorts,
 	nextPortSort,
 	type PortSort,
@@ -95,6 +97,8 @@ import {
 	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
 	nextEndpointDetailView,
+	nextEndpointFilterPreset,
+	saveEndpointFilterPreset,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
@@ -193,6 +197,7 @@ type CommandStatus = "idle" | "running";
 type ToolCopyPreviewMode = "raw" | "summary" | false;
 
 const toolPromptPrefix = "tool:";
+const endpointFilterPromptPrefix = "endpoint-filter:";
 
 type EditorPreview = {
 	path: string;
@@ -280,6 +285,12 @@ export function App(): React.ReactElement {
 		useState<EndpointDetailView>("detail");
 	const [connectionCopyPreview, setConnectionCopyPreview] = useState(false);
 	const [portCopyPreview, setPortCopyPreview] = useState(false);
+	const [connectionFilter, setConnectionFilter] = useState("");
+	const [portFilter, setPortFilter] = useState("");
+	const [connectionFilterPresets, setConnectionFilterPresets] = useState<
+		string[]
+	>([]);
+	const [portFilterPresets, setPortFilterPresets] = useState<string[]>([]);
 	const [selectedProcessDetail, setSelectedProcessDetail] =
 		useState<ProcessDetail>();
 	const [selectedProcessFiles, setSelectedProcessFiles] =
@@ -325,12 +336,16 @@ export function App(): React.ReactElement {
 	const connections = connectionsResult?.connections ?? [];
 	const ports = portsResult?.ports ?? [];
 	const sortedConnections = useMemo(
-		() => sortConnections(connections, connectionSort),
-		[connections, connectionSort],
+		() =>
+			sortConnections(
+				filterConnections(connections, connectionFilter),
+				connectionSort,
+			),
+		[connections, connectionFilter, connectionSort],
 	);
 	const sortedPorts = useMemo(
-		() => sortListeningPorts(ports, portSort),
-		[ports, portSort],
+		() => sortListeningPorts(filterListeningPorts(ports, portFilter), portSort),
+		[portFilter, ports, portSort],
 	);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
@@ -560,6 +575,45 @@ export function App(): React.ReactElement {
 				: "tools filter cleared",
 		);
 	}, [commandLine.value, log, toolHistory]);
+
+	const submitEndpointFilterCommand = useCallback(() => {
+		const kind = commandLine.prompt.slice(endpointFilterPromptPrefix.length);
+		const query = commandLine.value.trim();
+		if (kind === "connections") {
+			const filtered = filterConnections(connections, query);
+			setConnectionFilter(query);
+			if (query) {
+				setConnectionFilterPresets((current) =>
+					saveEndpointFilterPreset(current, query),
+				);
+			}
+			setConnectionCopyPreview(false);
+			setSelectedConnectionIndex(0);
+			log(
+				filtered.length ? "info" : "warn",
+				query
+					? `connections filter ${query} matches ${filtered.length}`
+					: "connections filter cleared",
+			);
+		} else if (kind === "ports") {
+			const filtered = filterListeningPorts(ports, query);
+			setPortFilter(query);
+			if (query) {
+				setPortFilterPresets((current) =>
+					saveEndpointFilterPreset(current, query),
+				);
+			}
+			setPortCopyPreview(false);
+			setSelectedPortIndex(0);
+			log(
+				filtered.length ? "info" : "warn",
+				query
+					? `ports filter ${query} matches ${filtered.length}`
+					: "ports filter cleared",
+			);
+		}
+		setCommandLine((current) => closeCommandLine(current));
+	}, [commandLine.prompt, commandLine.value, connections, log, ports]);
 
 	const submitClipboardCommand = useCallback(async () => {
 		try {
@@ -1013,9 +1067,11 @@ export function App(): React.ReactElement {
 							? "clipboard confirmation cancelled"
 							: commandLine.prompt === "tool-filter"
 								? "tool history filter cancelled"
-								: commandLine.prompt.startsWith(toolPromptPrefix)
-									? "tool target command cancelled"
-									: "path command cancelled",
+								: commandLine.prompt.startsWith(endpointFilterPromptPrefix)
+									? "endpoint filter cancelled"
+									: commandLine.prompt.startsWith(toolPromptPrefix)
+										? "tool target command cancelled"
+										: "path command cancelled",
 				);
 				return;
 			}
@@ -1027,6 +1083,8 @@ export function App(): React.ReactElement {
 					void submitRouteDestinationCommand();
 				} else if (commandLine.prompt === "tool-filter") {
 					submitToolHistoryFilterCommand();
+				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
+					submitEndpointFilterCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -1283,6 +1341,113 @@ export function App(): React.ReactElement {
 				return next;
 			});
 			setPortCopyPreview(false);
+			return;
+		}
+
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "f"
+		) {
+			setCommandLine(
+				openCommandLine(`${endpointFilterPromptPrefix}connections`),
+			);
+			log("info", "connections filter opened");
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "f") {
+			setCommandLine(openCommandLine(`${endpointFilterPromptPrefix}ports`));
+			log("info", "ports filter opened");
+			return;
+		}
+
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "F"
+		) {
+			setConnectionFilter("");
+			setConnectionCopyPreview(false);
+			setSelectedConnectionIndex(0);
+			log("info", "connections filter cleared");
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "F") {
+			setPortFilter("");
+			setPortCopyPreview(false);
+			setSelectedPortIndex(0);
+			log("info", "ports filter cleared");
+			return;
+		}
+
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "P"
+		) {
+			if (!connectionFilter.trim()) {
+				log("warn", "no connections filter to save");
+				return;
+			}
+			setConnectionFilterPresets((current) =>
+				saveEndpointFilterPreset(current, connectionFilter),
+			);
+			log("info", `connections preset saved ${connectionFilter}`);
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "P") {
+			if (!portFilter.trim()) {
+				log("warn", "no ports filter to save");
+				return;
+			}
+			setPortFilterPresets((current) =>
+				saveEndpointFilterPreset(current, portFilter),
+			);
+			log("info", `ports preset saved ${portFilter}`);
+			return;
+		}
+
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "]"
+		) {
+			const preset = nextEndpointFilterPreset(
+				connectionFilterPresets,
+				connectionFilter,
+			);
+			if (!preset) {
+				log("warn", "no connections filter presets");
+				return;
+			}
+			const filtered = filterConnections(connections, preset);
+			setConnectionFilter(preset);
+			setConnectionCopyPreview(false);
+			setSelectedConnectionIndex(0);
+			log(
+				filtered.length ? "info" : "warn",
+				`connections preset ${preset} matches ${filtered.length}`,
+			);
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "]") {
+			const preset = nextEndpointFilterPreset(portFilterPresets, portFilter);
+			if (!preset) {
+				log("warn", "no ports filter presets");
+				return;
+			}
+			const filtered = filterListeningPorts(ports, preset);
+			setPortFilter(preset);
+			setPortCopyPreview(false);
+			setSelectedPortIndex(0);
+			log(
+				filtered.length ? "info" : "warn",
+				`ports preset ${preset} matches ${filtered.length}`,
+			);
 			return;
 		}
 
@@ -1579,16 +1744,12 @@ export function App(): React.ReactElement {
 				);
 			} else if (screen === "connections") {
 				setSelectedConnectionIndex((index) =>
-					getNextIndex(
-						index,
-						connectionsResult?.connections.length ?? 0,
-						"next",
-					),
+					getNextIndex(index, sortedConnections.length, "next"),
 				);
 				setConnectionCopyPreview(false);
 			} else if (screen === "ports") {
 				setSelectedPortIndex((index) =>
-					getNextIndex(index, portsResult?.ports.length ?? 0, "next"),
+					getNextIndex(index, sortedPorts.length, "next"),
 				);
 				setPortCopyPreview(false);
 			} else if (screen === "interfaces") {
@@ -1637,16 +1798,12 @@ export function App(): React.ReactElement {
 				);
 			} else if (screen === "connections") {
 				setSelectedConnectionIndex((index) =>
-					getNextIndex(
-						index,
-						connectionsResult?.connections.length ?? 0,
-						"previous",
-					),
+					getNextIndex(index, sortedConnections.length, "previous"),
 				);
 				setConnectionCopyPreview(false);
 			} else if (screen === "ports") {
 				setSelectedPortIndex((index) =>
-					getNextIndex(index, portsResult?.ports.length ?? 0, "previous"),
+					getNextIndex(index, sortedPorts.length, "previous"),
 				);
 				setPortCopyPreview(false);
 			} else if (screen === "interfaces") {
@@ -1735,6 +1892,10 @@ export function App(): React.ReactElement {
 					portsResult={portsResult}
 					connectionSort={connectionSort}
 					portSort={portSort}
+					connectionFilter={connectionFilter}
+					portFilter={portFilter}
+					connectionFilterPresets={connectionFilterPresets}
+					portFilterPresets={portFilterPresets}
 					selectedInterfaceIndex={selectedInterfaceIndex}
 					interfaceDetailView={interfaceDetailView}
 					selectedConnectionIndex={selectedConnectionIndex}
@@ -1886,6 +2047,10 @@ function MainWorkspace({
 	portsResult,
 	connectionSort,
 	portSort,
+	connectionFilter,
+	portFilter,
+	connectionFilterPresets,
+	portFilterPresets,
 	selectedInterfaceIndex,
 	interfaceDetailView,
 	selectedConnectionIndex,
@@ -1943,6 +2108,10 @@ function MainWorkspace({
 	portsResult?: PortsResult;
 	connectionSort: ConnectionSort;
 	portSort: PortSort;
+	connectionFilter: string;
+	portFilter: string;
+	connectionFilterPresets: string[];
+	portFilterPresets: string[];
 	selectedInterfaceIndex: number;
 	interfaceDetailView: InterfaceDetailView;
 	selectedConnectionIndex: number;
@@ -2009,6 +2178,10 @@ function MainWorkspace({
 					portsResult,
 					connectionSort,
 					portSort,
+					connectionFilter,
+					portFilter,
+					connectionFilterPresets,
+					portFilterPresets,
 					selectedInterfaceIndex,
 					interfaceDetailView,
 					selectedConnectionIndex,
@@ -2070,6 +2243,10 @@ function renderWorkspace(
 	portsResult: PortsResult | undefined,
 	connectionSort: ConnectionSort,
 	portSort: PortSort,
+	connectionFilter: string,
+	portFilter: string,
+	connectionFilterPresets: string[],
+	portFilterPresets: string[],
 	selectedInterfaceIndex: number,
 	interfaceDetailView: InterfaceDetailView,
 	selectedConnectionIndex: number,
@@ -2215,6 +2392,8 @@ function renderWorkspace(
 			<ConnectionsWorkspace
 				result={connectionsResult}
 				sort={connectionSort}
+				filter={connectionFilter}
+				filterPresets={connectionFilterPresets}
 				processes={inventory?.processes ?? []}
 				selectedIndex={selectedConnectionIndex}
 				view={connectionDetailView}
@@ -2230,6 +2409,8 @@ function renderWorkspace(
 			<PortsWorkspace
 				result={portsResult}
 				sort={portSort}
+				filter={portFilter}
+				filterPresets={portFilterPresets}
 				processes={inventory?.processes ?? []}
 				selectedIndex={selectedPortIndex}
 				view={portDetailView}
@@ -2939,7 +3120,10 @@ function ProcessesWorkspace({
 	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
-	const promptRows = formatClipboardPromptRows(commandLine);
+	const promptRows = [
+		...formatClipboardPromptRows(commandLine),
+		...formatEndpointFilterPromptRows(commandLine, "connections"),
+	];
 	const rows = [
 		...formatProcessWorkspaceRows(
 			inventory?.processes.slice(0, 10) ?? [],
@@ -3093,6 +3277,8 @@ function InterfacesWorkspace({
 function ConnectionsWorkspace({
 	result,
 	sort,
+	filter,
+	filterPresets,
 	processes,
 	selectedIndex,
 	view,
@@ -3103,6 +3289,8 @@ function ConnectionsWorkspace({
 }: {
 	result?: ConnectionsResult;
 	sort: ConnectionSort;
+	filter: string;
+	filterPresets: string[];
 	processes: SystemInventory["processes"];
 	selectedIndex: number;
 	view: EndpointDetailView;
@@ -3111,7 +3299,10 @@ function ConnectionsWorkspace({
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const promptRows = formatClipboardPromptRows(commandLine);
+	const promptRows = [
+		...formatClipboardPromptRows(commandLine),
+		...formatEndpointFilterPromptRows(commandLine, "ports"),
+	];
 	const rows = result
 		? [
 				...formatConnectionsWorkspaceRows(
@@ -3119,7 +3310,9 @@ function ConnectionsWorkspace({
 					Math.max(1, visibleRows - promptRows.length),
 					{
 						copyPreview,
+						filter,
 						processes,
+						presets: filterPresets,
 						selectedIndex,
 						sort,
 						view,
@@ -3139,8 +3332,8 @@ function ConnectionsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
-				active endpoints from netstat · tab detail · j/k select · s sort · c
-				copy
+				active endpoints · f filter · P save · ] preset · tab detail · j/k
+				select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -3151,7 +3344,10 @@ function ConnectionsWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>picos connections · picos connections --raw</Text>
+				<Text>
+					picos connections --filter {filter || "<query>"} · picos connections
+					--raw
+				</Text>
 			</Box>
 		</Box>
 	);
@@ -3160,6 +3356,8 @@ function ConnectionsWorkspace({
 function PortsWorkspace({
 	result,
 	sort,
+	filter,
+	filterPresets,
 	processes,
 	selectedIndex,
 	view,
@@ -3170,6 +3368,8 @@ function PortsWorkspace({
 }: {
 	result?: PortsResult;
 	sort: PortSort;
+	filter: string;
+	filterPresets: string[];
 	processes: SystemInventory["processes"];
 	selectedIndex: number;
 	view: EndpointDetailView;
@@ -3186,7 +3386,9 @@ function PortsWorkspace({
 					Math.max(1, visibleRows - promptRows.length),
 					{
 						copyPreview,
+						filter,
 						processes,
+						presets: filterPresets,
 						selectedIndex,
 						sort,
 						view,
@@ -3206,8 +3408,7 @@ function PortsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
-				listening TCP ports from lsof/ss/netstat · tab detail · j/k select · s
-				sort · c copy
+				listening ports · f filter · P save · ] preset · tab detail · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -3218,7 +3419,9 @@ function PortsWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>picos ports · picos ports --raw</Text>
+				<Text>
+					picos ports --filter {filter || "<query>"} · picos ports --raw
+				</Text>
 			</Box>
 		</Box>
 	);
@@ -3297,7 +3500,12 @@ function RoutesWorkspace({
 }
 
 function getEndpointRowColor(row: string, tableHeader: string): string {
-	if (row === tableHeader || row === "RAW OUTPUT" || row.startsWith("DETAIL")) {
+	if (
+		row === tableHeader ||
+		row === "RAW OUTPUT" ||
+		row === "FILTER" ||
+		row.startsWith("DETAIL")
+	) {
 		return "cyan";
 	}
 	if (row.startsWith("CLIPBOARD PREVIEW")) {
@@ -3307,6 +3515,22 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 		return "green";
 	}
 	return "white";
+}
+
+function formatEndpointFilterPromptRows(
+	commandLine: CommandLineState,
+	kind: "connections" | "ports",
+): string[] {
+	if (
+		!commandLine.active ||
+		commandLine.prompt !== `${endpointFilterPromptPrefix}${kind}`
+	) {
+		return [];
+	}
+	return [
+		"FILTER",
+		`:filter ${commandLine.value || " "}  enter=apply esc=cancel`,
+	];
 }
 
 function ToolsWorkspace({

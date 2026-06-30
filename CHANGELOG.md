@@ -50,6 +50,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 - Tools Hub history now supports session filter presets with `P` to save and `]` to cycle repeated queries.
 - Tools Hub history now supports `Tab` detail panes for raw output, summary metadata, and rerunnable command views.
 - Connections and Ports workspaces now support `Tab` detail panes for focused detail, raw output, and process views.
+- Connections and Ports workspaces now support TUI endpoint search with `f`, `F`, `P`, and `]` filter preset controls.
 - Routes workspace now supports `Tab` detail panes for table, raw output, diagnostics, and destination path views.
 - Interfaces workspace now supports keyboard selection plus `Tab` panes for list, detail, traffic stats, and platform source views.
 - Network groups now include operator scope/hint labels, and route diagnostics now flag VPN routes plus likely split-tunnel setups.

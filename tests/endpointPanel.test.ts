@@ -7,6 +7,8 @@ import {
 	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
 	nextEndpointDetailView,
+	nextEndpointFilterPreset,
+	saveEndpointFilterPreset,
 } from "../src/tui/endpointPanel";
 
 describe("endpoint TUI panel formatting", () => {
@@ -76,6 +78,21 @@ describe("endpoint TUI panel formatting", () => {
 		).toContain(
 			"SUMMARY connections=1/2 established=0 sort=remotePort asc filter=443 command=netstat -an",
 		);
+	});
+
+	test("saves and cycles endpoint search presets", () => {
+		expect(saveEndpointFilterPreset([], " 443 ")).toEqual(["443"]);
+		expect(saveEndpointFilterPreset(["node", "443"], "node")).toEqual([
+			"node",
+			"443",
+		]);
+		expect(
+			saveEndpointFilterPreset(["ssh", "node", "443"], "postgres"),
+		).toEqual(["postgres", "ssh", "node", "443"]);
+		expect(nextEndpointFilterPreset(["443", "node"], "")).toBe("443");
+		expect(nextEndpointFilterPreset(["443", "node"], "443")).toBe("node");
+		expect(nextEndpointFilterPreset(["443", "node"], "node")).toBe("443");
+		expect(nextEndpointFilterPreset([], "443")).toBeUndefined();
 	});
 
 	test("formats selected connection details and copy preview", () => {
