@@ -1218,6 +1218,20 @@ Goal: make route inspection output portable without bypassing the explicit clipb
 - Tests cover table/raw/path clipboard previews and active-view preview row rendering.
 - Next: route filter presets and raw-output external handoff.
 
+## v0.4.28 - Route Filter Presets
+
+Status: draft PR #90.
+
+Goal: make repeated route-table triage one-keystroke recoverable inside the Route workspace.
+
+- Routes workspace can save the active filter with `P`.
+- Routes workspace can cycle saved filter presets with `]`.
+- Route filter presets are de-duplicated, trimmed, and bounded to six session entries.
+- Route summary rows show the first three saved presets for quick operator recall.
+- Cycling a preset reuses the existing filter/match-count path and clears stale copy previews.
+- Tests cover save/cycle helper behavior and visible preset summary rows.
+- Next: persistent route presets and raw-output external handoff.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

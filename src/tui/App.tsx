@@ -235,7 +235,9 @@ import {
 	formatRouteWorkspaceRows,
 	getRouteClipboardPreview,
 	nextRouteDetailView,
+	nextRouteFilterPreset,
 	type RouteDetailView,
+	saveRouteFilterPreset,
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
@@ -420,6 +422,7 @@ export function App(): React.ReactElement {
 		direction: "asc",
 	});
 	const [routeFilter, setRouteFilter] = useState("");
+	const [routeFilterPresets, setRouteFilterPresets] = useState<string[]>([]);
 	const [routeDetailView, setRouteDetailView] =
 		useState<RouteDetailView>("table");
 	const [routeCopyPreview, setRouteCopyPreview] = useState(false);
@@ -1896,6 +1899,35 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "routes" && focusArea === "workspaces" && input === "P") {
+			if (!routeFilter.trim()) {
+				log("warn", "no route filter to save");
+				return;
+			}
+			setRouteFilterPresets((current) =>
+				saveRouteFilterPreset(current, routeFilter),
+			);
+			setRouteCopyPreview(false);
+			log("info", `route preset saved ${routeFilter}`);
+			return;
+		}
+
+		if (screen === "routes" && focusArea === "workspaces" && input === "]") {
+			const preset = nextRouteFilterPreset(routeFilterPresets, routeFilter);
+			if (!preset) {
+				log("warn", "no route filter presets");
+				return;
+			}
+			const filtered = filterRouteEntries(routeTable?.routes ?? [], preset);
+			setRouteFilter(preset);
+			setRouteCopyPreview(false);
+			log(
+				filtered.length ? "info" : "warn",
+				`route preset ${preset} matches ${filtered.length}`,
+			);
+			return;
+		}
+
 		if (screen === "routes" && focusArea === "workspaces" && key.tab) {
 			setRouteDetailView((current) => {
 				const next = nextRouteDetailView(current);
@@ -2789,6 +2821,7 @@ export function App(): React.ReactElement {
 					routePath={routePath}
 					routeSort={routeSort}
 					routeFilter={routeFilter}
+					routeFilterPresets={routeFilterPresets}
 					routeDetailView={routeDetailView}
 					routeCopyPreview={routeCopyPreview}
 					timelineFilter={timelineFilter}
@@ -2972,6 +3005,7 @@ function MainWorkspace({
 	routePath,
 	routeSort,
 	routeFilter,
+	routeFilterPresets,
 	routeDetailView,
 	routeCopyPreview,
 	timelineFilter,
@@ -3057,6 +3091,7 @@ function MainWorkspace({
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
 	routeFilter: string;
+	routeFilterPresets: string[];
 	routeDetailView: RouteDetailView;
 	routeCopyPreview: boolean;
 	timelineFilter: TimelineFilter;
@@ -3151,6 +3186,7 @@ function MainWorkspace({
 					routePath,
 					routeSort,
 					routeFilter,
+					routeFilterPresets,
 					routeDetailView,
 					routeCopyPreview,
 					timelineFilter,
@@ -3240,6 +3276,7 @@ function renderWorkspace(
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
 	routeFilter: string,
+	routeFilterPresets: string[],
 	routeDetailView: RouteDetailView,
 	routeCopyPreview: boolean,
 	timelineFilter: TimelineFilter,
@@ -3376,6 +3413,7 @@ function renderWorkspace(
 				routePath={routePath}
 				routeSort={routeSort}
 				routeFilter={routeFilter}
+				routeFilterPresets={routeFilterPresets}
 				routeDetailView={routeDetailView}
 				copyPreview={routeCopyPreview}
 				commandLine={commandLine}
@@ -4496,6 +4534,7 @@ function RoutesWorkspace({
 	routePath,
 	routeSort,
 	routeFilter,
+	routeFilterPresets,
 	routeDetailView,
 	copyPreview,
 	commandLine,
@@ -4506,6 +4545,7 @@ function RoutesWorkspace({
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
 	routeFilter: string;
+	routeFilterPresets: string[];
 	routeDetailView: RouteDetailView;
 	copyPreview: boolean;
 	commandLine: CommandLineState;
@@ -4529,6 +4569,7 @@ function RoutesWorkspace({
 					copyPreview,
 					filter: routeFilter,
 					path: routePath,
+					presets: routeFilterPresets,
 					sort: routeSort,
 					view: routeDetailView,
 				},
@@ -4549,8 +4590,8 @@ function RoutesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
-				route table diagnostics · f filter · F clear · c copy · tab detail · s
-				sort · : path
+				route table diagnostics · f filter · F clear · P save · ] preset · c
+				copy · tab detail · s sort · : path
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {
