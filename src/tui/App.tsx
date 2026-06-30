@@ -230,6 +230,7 @@ import {
 	getSelectedPortProcessRequest,
 	nextEndpointDetailView,
 	nextEndpointFilterPreset,
+	type PortProcessControlFileEvidenceIssue,
 	saveEndpointFilterPreset,
 	submitEndpointFilterCleanupConfirmation,
 	submitPortProcessControlConfirmation,
@@ -545,6 +546,10 @@ export function App(): React.ReactElement {
 		useState<ProcessDetail>();
 	const [selectedProcessFiles, setSelectedProcessFiles] =
 		useState<ProcessFileSnapshot>();
+	const [
+		selectedProcessFileEvidenceIssue,
+		setSelectedProcessFileEvidenceIssue,
+	] = useState<PortProcessControlFileEvidenceIssue>();
 	const [selectedProcessFileIndex, setSelectedProcessFileIndex] = useState(0);
 	const [processClipboardPreview, setProcessClipboardPreview] = useState(false);
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
@@ -647,12 +652,14 @@ export function App(): React.ReactElement {
 			getControlPreviewCommand(preview.actionId, currentPlatform()),
 			controlExecutionPolicy,
 			selectedProcessFiles,
+			selectedProcessFileEvidenceIssue,
 		);
 	}, [
 		controlExecutionPolicy,
 		portProcessControlInspector,
 		screen,
 		selectedPortIndex,
+		selectedProcessFileEvidenceIssue,
 		selectedProcessFiles,
 		sortedPorts,
 	]);
@@ -3497,9 +3504,19 @@ export function App(): React.ReactElement {
 			if (next) {
 				void (async () => {
 					setCommandStatus("running");
+					setSelectedProcessFileEvidenceIssue(undefined);
 					try {
 						const files = await getProcessFileSnapshot(preview.port.pid);
 						setSelectedProcessFiles(files);
+						setSelectedProcessFileEvidenceIssue(
+							files
+								? undefined
+								: {
+										status: "unavailable",
+										pid: preview.port.pid,
+										reason: "no snapshot returned",
+									},
+						);
 						log(
 							files ? "info" : "warn",
 							files
@@ -3513,6 +3530,12 @@ export function App(): React.ReactElement {
 								? `ports file evidence failed ${caught.message}`
 								: `ports file evidence failed ${String(caught)}`,
 						);
+						setSelectedProcessFiles(undefined);
+						setSelectedProcessFileEvidenceIssue({
+							status: "error",
+							pid: preview.port.pid,
+							reason: caught instanceof Error ? caught.message : String(caught),
+						});
 					} finally {
 						setCommandStatus("idle");
 					}

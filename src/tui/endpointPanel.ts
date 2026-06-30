@@ -101,6 +101,12 @@ export type PortProcessControlConfirmation = {
 	port: ListeningPort;
 };
 
+export type PortProcessControlFileEvidenceIssue = {
+	status: "unavailable" | "error";
+	pid: string;
+	reason: string;
+};
+
 export function nextEndpointDetailView(
 	view: EndpointDetailView,
 ): EndpointDetailView {
@@ -329,6 +335,7 @@ export function formatPortProcessControlInspectorRows(
 	commandPreview?: ActionPreviewCommand,
 	policy: ControlExecutionPolicy = defaultControlExecutionPolicy,
 	files?: ProcessFileSnapshot,
+	fileEvidenceIssue?: PortProcessControlFileEvidenceIssue,
 ): string[] {
 	const executionRows = formatPortProcessControlExecutionRows(
 		preview,
@@ -339,7 +346,11 @@ export function formatPortProcessControlInspectorRows(
 	return [
 		"PORT CONTROL",
 		`target=${preview.port.localAddress}:${preview.port.localPort} pid=${preview.port.pid} process=${preview.port.command}`,
-		...formatPortProcessControlFileEvidenceRows(preview, files),
+		...formatPortProcessControlFileEvidenceRows(
+			preview,
+			files,
+			fileEvidenceIssue,
+		),
 		...executionRows.slice(1),
 		`drilldown enter=process picos process ${preview.port.pid} --files`,
 		"files from Processes: enter opens cwd/open file; c copies selected resource",
@@ -689,7 +700,13 @@ function createPortProcessControlActionConfirmation(
 function formatPortProcessControlFileEvidenceRows(
 	preview: PortProcessControlPreview,
 	files: ProcessFileSnapshot | undefined,
+	issue: PortProcessControlFileEvidenceIssue | undefined,
 ): string[] {
+	if (issue && issue.pid === preview.port.pid) {
+		return [
+			`fileEvidence status=${issue.status} pid=${issue.pid} reason=${formatPortFileEvidenceReason(issue.reason)}`,
+		];
+	}
 	if (!files) {
 		return [];
 	}
@@ -706,6 +723,10 @@ function formatPortProcessControlFileEvidenceRows(
 	return [
 		`fileEvidence status=loaded cwd=${files.cwd ? "yes" : "no"} openFiles=${files.openFiles.length} resources=${resourceCount}`,
 	];
+}
+
+function formatPortFileEvidenceReason(reason: string): string {
+	return reason.trim().replace(/\s+/g, " ") || "unknown";
 }
 
 function withSelectionMarker(

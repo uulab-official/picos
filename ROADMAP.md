@@ -2025,6 +2025,19 @@ Goal: keep Ports Inspector evidence trustworthy when selected ports change faste
 - Tests cover the mismatched PID stale row in selected-port Inspector formatting.
 - Next: add an unavailable/error row for file evidence lookup failures so permission or adapter gaps are visible in the Inspector.
 
+## v0.4.89 - Port Inspector Evidence Errors
+
+Status: draft PR #151 on `codex/picos-v0.4.89-port-inspector-evidence-errors`.
+
+Goal: make process file evidence lookup gaps visible in Ports instead of only writing them to the event log.
+
+- Port policy Inspector rows now show `fileEvidence status=unavailable` when the selected PID lookup returns no snapshot.
+- Failed file evidence lookups now show `fileEvidence status=error` with a compact reason in the same Inspector surface.
+- The TUI clears stale issue state before each new lookup and clears cached files when an error belongs to the selected PID.
+- Loaded and stale file evidence rows from v0.4.87/v0.4.88 remain unchanged.
+- Tests cover unavailable and error rows in selected-port Inspector formatting.
+- Next: carry file evidence issue rows into Timeline audit events so lookup failures remain searchable after leaving Ports.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
