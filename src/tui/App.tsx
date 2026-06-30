@@ -101,13 +101,16 @@ import type {
 	SystemInventory,
 } from "../core/types";
 import {
+	checkForGitHubReleaseUpdate,
 	checkForPackageUpdate,
 	createUpdateApplyActionPreviewPlan,
 	createUpdateApplyPreview,
 	createUpdateReleaseHandoff,
+	formatGitHubReleaseCheckRows,
 	formatUpdateApplyPreviewRows,
 	formatUpdateCheckRows,
 	formatUpdateReleaseHandoffRows,
+	type GitHubReleaseCheckResult,
 	getSelectedUpdateReleaseHandoffLink,
 	getUpdateReleaseHandoffLinks,
 	type PackageUpdateCheckResult,
@@ -290,6 +293,8 @@ export function App(): React.ReactElement {
 		useState<ControlExecutionPolicy>(defaultControlExecutionPolicy);
 	const [updateCheckResult, setUpdateCheckResult] =
 		useState<PackageUpdateCheckResult>();
+	const [githubReleaseCheckResult, setGitHubReleaseCheckResult] =
+		useState<GitHubReleaseCheckResult>();
 	const [selectedUpdateHandoffIndex, setSelectedUpdateHandoffIndex] =
 		useState(0);
 	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
@@ -1285,11 +1290,20 @@ export function App(): React.ReactElement {
 						packageName: "@uulab/picos",
 						currentVersion: VERSION,
 					});
+					const releaseResult = await checkForGitHubReleaseUpdate({
+						owner: "uulab-official",
+						repo: "picos",
+						currentVersion: VERSION,
+					});
 					setUpdateCheckResult(result);
+					setGitHubReleaseCheckResult(releaseResult);
 					setSelectedUpdateHandoffIndex(0);
 					setScreen("status");
 					for (const row of formatUpdateCheckRows(result)) {
 						log(result.status === "unknown" ? "warn" : "info", row);
+					}
+					for (const row of formatGitHubReleaseCheckRows(releaseResult)) {
+						log(releaseResult.status === "unknown" ? "warn" : "info", row);
 					}
 					const applyPreview = createUpdateApplyPreview(result);
 					if (applyPreview) {
@@ -2362,6 +2376,7 @@ export function App(): React.ReactElement {
 					actionExecutionPlan={actionExecutionPlan}
 					controlExecutionPolicy={controlExecutionPolicy}
 					updateCheckResult={updateCheckResult}
+					githubReleaseCheckResult={githubReleaseCheckResult}
 					palette={palette}
 					focusArea={focusArea}
 					doctorChecks={doctorChecks}
@@ -2532,6 +2547,7 @@ function MainWorkspace({
 	actionExecutionPlan,
 	controlExecutionPolicy,
 	updateCheckResult,
+	githubReleaseCheckResult,
 	palette,
 	focusArea,
 	doctorChecks,
@@ -2604,6 +2620,7 @@ function MainWorkspace({
 	actionExecutionPlan?: ControlExecutionPlan;
 	controlExecutionPolicy: ControlExecutionPolicy;
 	updateCheckResult?: PackageUpdateCheckResult;
+	githubReleaseCheckResult?: GitHubReleaseCheckResult;
 	palette: CommandPaletteState;
 	focusArea: FocusArea;
 	doctorChecks: DoctorCheck[];
@@ -2685,6 +2702,7 @@ function MainWorkspace({
 					actionExecutionPlan,
 					controlExecutionPolicy,
 					updateCheckResult,
+					githubReleaseCheckResult,
 					palette,
 					focusArea,
 					doctorChecks,
@@ -2761,6 +2779,7 @@ function renderWorkspace(
 	actionExecutionPlan: ControlExecutionPlan | undefined,
 	controlExecutionPolicy: ControlExecutionPolicy,
 	updateCheckResult: PackageUpdateCheckResult | undefined,
+	githubReleaseCheckResult: GitHubReleaseCheckResult | undefined,
 	palette: CommandPaletteState,
 	focusArea: FocusArea,
 	doctorChecks: DoctorCheck[],
@@ -3024,6 +3043,7 @@ function renderWorkspace(
 		return (
 			<StatusWorkspace
 				updateCheckResult={updateCheckResult}
+				githubReleaseCheckResult={githubReleaseCheckResult}
 				selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 				externalOpenPlan={externalOpenPlan}
 				commandLine={commandLine}
@@ -4587,12 +4607,14 @@ function CommandPaletteWorkspace({
 
 function StatusWorkspace({
 	updateCheckResult,
+	githubReleaseCheckResult,
 	selectedUpdateHandoffIndex,
 	externalOpenPlan,
 	commandLine,
 	t,
 }: {
 	updateCheckResult?: PackageUpdateCheckResult;
+	githubReleaseCheckResult?: GitHubReleaseCheckResult;
 	selectedUpdateHandoffIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	commandLine: CommandLineState;
@@ -4634,6 +4656,31 @@ function StatusWorkspace({
 						))
 				) : (
 					<Text color="gray">Run picos.update or `picos update`.</Text>
+				)}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">GITHUB RELEASE CHECK</Text>
+				{githubReleaseCheckResult ? (
+					formatGitHubReleaseCheckRows(githubReleaseCheckResult)
+						.slice(1)
+						.map((row) => (
+							<Text
+								key={row}
+								color={
+									row.includes("update-available")
+										? "yellow"
+										: row.startsWith("error=")
+											? "red"
+											: "white"
+								}
+							>
+								{row}
+							</Text>
+						))
+				) : (
+					<Text color="gray">
+						GitHub Release status appears after picos.update.
+					</Text>
 				)}
 			</Box>
 			{updateApplyPreview ? (

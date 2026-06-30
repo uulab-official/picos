@@ -1028,6 +1028,19 @@ Goal: make update handoff links usable from the keyboard without silently launch
 - Tests cover platform command planning, HTTPS blocking, visible rows, and locked execution.
 - Next: release handoff status refresh shortcuts and richer update/release automation checks.
 
+## v0.4.14 - GitHub Release Update Check
+
+Status: draft PR #76.
+
+Goal: match release-aware terminal tools by showing GitHub Release state next to npm registry state.
+
+- `picos update` now checks GitHub Releases without downloading assets.
+- The latest GitHub tag is normalized from `vX.Y.Z` to semver for comparison.
+- GitHub API failures are reported as read-only diagnostics.
+- Status workspace renders GitHub Release check rows after `picos.update`.
+- Tests cover update-available and API failure paths.
+- Next: release handoff status refresh shortcuts and release automation health checks.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
