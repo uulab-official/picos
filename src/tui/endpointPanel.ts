@@ -1,5 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import type {
+	ActionPreviewCommand,
+	ActionPreviewConfirmation,
+	ActionPreviewPlan,
+} from "../core/actions";
 import {
 	type ConfigCleanupPreview,
 	createConfigCleanupPreview,
@@ -12,6 +17,13 @@ import {
 	formatConnections,
 	sortConnections,
 } from "../core/connections";
+import {
+	type ControlExecutionPlan,
+	type ControlExecutionPolicy,
+	createControlExecutionPlan,
+	defaultControlExecutionPolicy,
+	formatControlExecutionRows,
+} from "../core/controlExecution";
 import {
 	filterListeningPorts,
 	formatPorts,
@@ -272,6 +284,43 @@ export function formatPortProcessControlConfirmationAuditMessage(
 		`process=${confirmation.port.command}`,
 		`user=${confirmation.port.user}`,
 	].join(" ");
+}
+
+export function createPortProcessControlExecutionPlan(
+	preview: PortProcessControlPreview,
+	confirmation: PortProcessControlConfirmation | undefined,
+	commandPreview?: ActionPreviewCommand,
+	policy: ControlExecutionPolicy = defaultControlExecutionPolicy,
+): ControlExecutionPlan {
+	const hydratedCommandPreview = commandPreview
+		? hydratePortProcessControlCommand(commandPreview, preview.port.pid)
+		: undefined;
+	return createControlExecutionPlan(
+		createPortProcessControlActionPreviewPlan(preview, hydratedCommandPreview),
+		confirmation
+			? createPortProcessControlActionConfirmation(
+					confirmation,
+					hydratedCommandPreview,
+				)
+			: undefined,
+		policy,
+	);
+}
+
+export function formatPortProcessControlExecutionRows(
+	preview: PortProcessControlPreview,
+	confirmation: PortProcessControlConfirmation | undefined,
+	commandPreview?: ActionPreviewCommand,
+	policy: ControlExecutionPolicy = defaultControlExecutionPolicy,
+): string[] {
+	return formatControlExecutionRows(
+		createPortProcessControlExecutionPlan(
+			preview,
+			confirmation,
+			commandPreview,
+			policy,
+		),
+	);
 }
 
 export function getSelectedConnectionClipboardPreview(
@@ -565,6 +614,53 @@ function createProcessRequest(
 		return undefined;
 	}
 	return { pid, command: `picos process ${pid} --files` };
+}
+
+function hydratePortProcessControlCommand(
+	commandPreview: ActionPreviewCommand,
+	pid: string,
+): ActionPreviewCommand {
+	return {
+		...commandPreview,
+		command: commandPreview.command.replaceAll("<pid>", pid),
+		args: commandPreview.args.map((arg) => arg.replaceAll("<pid>", pid)),
+	};
+}
+
+function createPortProcessControlActionPreviewPlan(
+	preview: PortProcessControlPreview,
+	commandPreview: ActionPreviewCommand | undefined,
+): ActionPreviewPlan {
+	return {
+		actionId: preview.actionId,
+		title: "Terminate port process",
+		risk: preview.risk,
+		privilege: preview.privilege,
+		enabled: preview.enabled,
+		dryRun: true,
+		confirmationPhrase: preview.confirmationPhrase,
+		blockedReason: "disabled-by-default",
+		commandPreview,
+		preview: preview.rows,
+	};
+}
+
+function createPortProcessControlActionConfirmation(
+	confirmation: PortProcessControlConfirmation,
+	commandPreview: ActionPreviewCommand | undefined,
+): ActionPreviewConfirmation {
+	return {
+		actionId: confirmation.actionId,
+		status: confirmation.status,
+		expectedPhrase: confirmation.expectedPhrase,
+		receivedPhrase: confirmation.receivedPhrase,
+		confirmed: confirmation.confirmed,
+		executionEnabled: confirmation.executionEnabled,
+		risk: confirmation.risk,
+		privilege: confirmation.privilege,
+		dryRun: true,
+		commandPreview,
+	};
 }
 
 function withSelectionMarker(

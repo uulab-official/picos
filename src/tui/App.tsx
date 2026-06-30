@@ -215,11 +215,13 @@ import {
 import {
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
+	createPortProcessControlExecutionPlan,
 	createSelectedPortProcessControlPreview,
 	type EndpointDetailView,
 	type EndpointHandoffKind,
 	formatConnectionsWorkspaceRows,
 	formatPortProcessControlConfirmationAuditMessage,
+	formatPortProcessControlExecutionRows,
 	formatPortsWorkspaceRows,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
@@ -1267,7 +1269,20 @@ export function App(): React.ReactElement {
 			confirmation.confirmed ? "warn" : "fail",
 			formatPortProcessControlConfirmationAuditMessage(confirmation),
 		);
-	}, [commandLine.value, log, selectedPortIndex, sortedPorts]);
+		const executionPlan = createPortProcessControlExecutionPlan(
+			preview,
+			confirmation,
+			getControlPreviewCommand(preview.actionId, currentPlatform()),
+			controlExecutionPolicy,
+		);
+		log("warn", formatControlExecutionAuditMessage(executionPlan));
+	}, [
+		commandLine.value,
+		controlExecutionPolicy,
+		log,
+		selectedPortIndex,
+		sortedPorts,
+	]);
 
 	const submitTimelineSearchCommand = useCallback(() => {
 		const query = commandLine.value.trim();
@@ -5480,6 +5495,7 @@ function renderWorkspace(
 				view={portDetailView}
 				copyPreview={portCopyPreview}
 				processControlPreview={portProcessControlPreview}
+				controlExecutionPolicy={controlExecutionPolicy}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
@@ -6515,6 +6531,7 @@ function PortsWorkspace({
 	view,
 	copyPreview,
 	processControlPreview,
+	controlExecutionPolicy,
 	commandLine,
 	visibleRows,
 	t,
@@ -6528,6 +6545,7 @@ function PortsWorkspace({
 	view: EndpointDetailView;
 	copyPreview: boolean;
 	processControlPreview: boolean;
+	controlExecutionPolicy: ControlExecutionPolicy;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -6539,6 +6557,7 @@ function PortsWorkspace({
 			filter,
 			selectedIndex,
 			sort,
+			controlExecutionPolicy,
 		},
 	);
 	const promptRows = [
@@ -6719,6 +6738,7 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 		row === "FILTER" ||
 		row === "ENDPOINT FILTER CLEANUP" ||
 		row === "PORT PROCESS CONTROL" ||
+		row.startsWith("CONTROL EXECUTION") ||
 		row.startsWith("DETAIL")
 	) {
 		return "cyan";
@@ -6726,6 +6746,9 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 	if (
 		row.startsWith("CLIPBOARD PREVIEW") ||
 		row.startsWith("action=process.terminate") ||
+		row.startsWith("status=blocked") ||
+		row.startsWith("willExecute=false") ||
+		row.startsWith("blockers=") ||
 		row.startsWith(":filter-cleanup") ||
 		row.startsWith(":port-control") ||
 		row.startsWith("confirm ")
@@ -6769,6 +6792,7 @@ function formatPortProcessControlPromptRows(
 	commandLine: CommandLineState,
 	result: PortsResult | undefined,
 	options: {
+		controlExecutionPolicy: ControlExecutionPolicy;
 		filter: string;
 		selectedIndex: number;
 		sort: PortSort;
@@ -6792,8 +6816,15 @@ function formatPortProcessControlPromptRows(
 	if (!preview) {
 		return [];
 	}
+	const executionRows = formatPortProcessControlExecutionRows(
+		preview,
+		undefined,
+		getControlPreviewCommand(preview.actionId, currentPlatform()),
+		options.controlExecutionPolicy,
+	);
 	return [
 		...preview.rows,
+		...executionRows,
 		`:port-control ${commandLine.value || " "}  type="${preview.confirmationPhrase}" enter=audit esc=cancel`,
 	];
 }

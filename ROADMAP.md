@@ -1961,6 +1961,19 @@ Goal: make locked Ports process-control previews auditable through exact typed c
 - Tests cover accepted and rejected confirmation metadata plus audit message formatting.
 - Next: wire the disabled confirmation into the shared control execution policy rows so port control shares the same blockers as Action Center previews.
 
+## v0.4.84 - Port Control Policy Rows
+
+Status: draft PR #146 on `codex/picos-v0.4.84-port-control-policy-rows`.
+
+Goal: make the Ports process-control prompt speak the same policy language as Action Center control previews.
+
+- Ports process-control previews can now be converted into shared `ControlExecutionPlan` rows.
+- Adapter-owned process termination command previews hydrate the selected PID before rendering.
+- The `:port-control` prompt now shows `CONTROL EXECUTION`, `willExecute=false`, and blocker rows under the selected target.
+- Submitting the prompt records the original port-control confirmation audit plus a matching `control execution` audit event.
+- Tests cover the port-to-control-execution bridge and PID placeholder hydration.
+- Next: add a keyboard action to inspect the selected port's execution policy in the side Inspector without opening the confirmation prompt.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
