@@ -1,4 +1,8 @@
-export type ClipboardPreviewSource = "connection" | "port" | "process-resource";
+export type ClipboardPreviewSource =
+	| "connection"
+	| "port"
+	| "process-resource"
+	| "tool-output";
 
 export type ClipboardPreview = {
 	source: ClipboardPreviewSource;

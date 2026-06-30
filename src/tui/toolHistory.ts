@@ -1,5 +1,9 @@
 import type { ToolId, ToolResult } from "../core/tools";
 import type { NetworkSummary } from "../core/types";
+import {
+	type ClipboardPreview,
+	createClipboardPreview,
+} from "./clipboardPreview";
 
 export type ToolRunActionId =
 	| "tools.dns"
@@ -142,7 +146,7 @@ export function formatToolsWorkspaceRows(
 	return [
 		`TOOLS history=${history.length} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: j/k select · r rerun · action enter=target prompt · raw.view latest",
+		"shortcuts: j/k select · r rerun · c copy raw · action enter=target prompt · raw.view latest",
 	].slice(0, visibleRows);
 }
 
@@ -184,6 +188,21 @@ export function rerunToolHistoryItem(
 	item: ToolHistoryItem | undefined,
 ): ToolRunPlan | undefined {
 	return item?.plan;
+}
+
+export function getSelectedToolOutputClipboardPreview(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const item = getSelectedToolHistoryItem(history, selectedIndex);
+	if (!item) {
+		return undefined;
+	}
+	return createClipboardPreview({
+		source: "tool-output",
+		label: `${item.label} raw output`,
+		copyText: item.rawOutput,
+	});
 }
 
 function summarizeToolResult(result: ToolResult): string {

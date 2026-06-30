@@ -79,6 +79,7 @@ import {
 	createClipboardConfirmationState,
 	submitClipboardConfirmation,
 } from "./clipboardDialog";
+import { formatClipboardPreviewRows } from "./clipboardPreview";
 import {
 	applyCommandLineInput,
 	type CommandLineState,
@@ -154,6 +155,7 @@ import {
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
 	getSelectedToolHistoryItem,
+	getSelectedToolOutputClipboardPreview,
 	moveToolHistorySelection,
 	rerunToolHistoryItem,
 	type ToolHistoryItem,
@@ -256,6 +258,7 @@ export function App(): React.ReactElement {
 	});
 	const [toolHistory, setToolHistory] = useState<ToolHistoryItem[]>([]);
 	const [selectedToolHistoryIndex, setSelectedToolHistoryIndex] = useState(0);
+	const [toolCopyPreview, setToolCopyPreview] = useState(false);
 	const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>("all");
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
@@ -501,6 +504,7 @@ export function App(): React.ReactElement {
 				setConnectionCopyPreview(false);
 				setPortCopyPreview(false);
 				setProcessClipboardPreview(false);
+				setToolCopyPreview(false);
 			}
 		} catch (caught) {
 			setCommandLine((current) => closeCommandLine(current));
@@ -877,6 +881,7 @@ export function App(): React.ReactElement {
 					setConnectionCopyPreview(false);
 					setPortCopyPreview(false);
 					setProcessClipboardPreview(false);
+					setToolCopyPreview(false);
 				}
 				log(
 					"info",
@@ -1238,6 +1243,20 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "c") {
+			const preview = getSelectedToolOutputClipboardPreview(
+				toolHistory,
+				selectedToolHistoryIndex,
+			);
+			if (!preview) {
+				log("warn", "no tool output selected");
+				return;
+			}
+			setToolCopyPreview(true);
+			openClipboardConfirmation(preview);
+			return;
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -1301,6 +1320,7 @@ export function App(): React.ReactElement {
 				setSelectedToolHistoryIndex((index) =>
 					moveToolHistorySelection(index, toolHistory.length, "next"),
 				);
+				setToolCopyPreview(false);
 			} else {
 				setScreen((current) => moveScreen(current, "next"));
 			}
@@ -1346,6 +1366,7 @@ export function App(): React.ReactElement {
 				setSelectedToolHistoryIndex((index) =>
 					moveToolHistorySelection(index, toolHistory.length, "previous"),
 				);
+				setToolCopyPreview(false);
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
 			}
@@ -1420,6 +1441,7 @@ export function App(): React.ReactElement {
 					timelineFilter={timelineFilter}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
+					toolCopyPreview={toolCopyPreview}
 					events={events}
 					t={t}
 				/>
@@ -1560,6 +1582,7 @@ function MainWorkspace({
 	timelineFilter,
 	toolHistory,
 	selectedToolHistoryIndex,
+	toolCopyPreview,
 	events,
 	t,
 }: {
@@ -1606,6 +1629,7 @@ function MainWorkspace({
 	timelineFilter: TimelineFilter;
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
+	toolCopyPreview: boolean;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -1661,6 +1685,7 @@ function MainWorkspace({
 					timelineFilter,
 					toolHistory,
 					selectedToolHistoryIndex,
+					toolCopyPreview,
 					events,
 					height,
 					t,
@@ -1711,6 +1736,7 @@ function renderWorkspace(
 	timelineFilter: TimelineFilter,
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
+	toolCopyPreview: boolean,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -1856,6 +1882,7 @@ function renderWorkspace(
 			<ToolsWorkspace
 				history={toolHistory}
 				selectedIndex={selectedToolHistoryIndex}
+				copyPreview={toolCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
 				t={t}
@@ -2903,7 +2930,7 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 	if (row === tableHeader || row === "RAW OUTPUT" || row.startsWith("DETAIL")) {
 		return "cyan";
 	}
-	if (row.startsWith("COPY PREVIEW")) {
+	if (row.startsWith("CLIPBOARD PREVIEW")) {
 		return "yellow";
 	}
 	if (row.startsWith(">")) {
@@ -2915,17 +2942,25 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 function ToolsWorkspace({
 	history,
 	selectedIndex,
+	copyPreview,
 	commandLine,
 	visibleRows,
 	t,
 }: {
 	history: ToolHistoryItem[];
 	selectedIndex: number;
+	copyPreview: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const rows = formatToolsWorkspaceRows(history, visibleRows, selectedIndex);
+	const selectedPreview = copyPreview
+		? getSelectedToolOutputClipboardPreview(history, selectedIndex)
+		: undefined;
+	const copyRows = selectedPreview
+		? formatClipboardPreviewRows(selectedPreview)
+		: [];
 	const promptRows =
 		commandLine.active && commandLine.prompt.startsWith(toolPromptPrefix)
 			? formatToolPromptRows(commandLine.prompt, commandLine.value)
@@ -2937,11 +2972,13 @@ function ToolsWorkspace({
 				Tools Hub history · DNS/RDAP/IP/TCP/TLS/ping/traceroute
 			</Text>
 			<Box marginTop={1} flexDirection="column">
-				{[...promptRows, ...rows].slice(0, visibleRows).map((row) => (
-					<Text key={row} color={getToolRowColor(row)}>
-						{row}
-					</Text>
-				))}
+				{[...promptRows, ...copyRows, ...rows]
+					.slice(0, visibleRows)
+					.map((row) => (
+						<Text key={row} color={getToolRowColor(row)}>
+							{row}
+						</Text>
+					))}
 			</Box>
 		</Box>
 	);
@@ -2950,6 +2987,9 @@ function ToolsWorkspace({
 function getToolRowColor(row: string): string {
 	if (row.startsWith("TOOLS") || row === "RAW") {
 		return "cyan";
+	}
+	if (row.startsWith("CLIPBOARD PREVIEW") || row.startsWith("confirm ")) {
+		return "yellow";
 	}
 	if (row.includes(" fail ")) {
 		return "red";
