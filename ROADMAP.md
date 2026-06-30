@@ -2115,6 +2115,20 @@ Goal: keep the Status audit export shelf tidy without deleting Timeline evidence
 - Tests cover locked archive plans, confirmation rows, blocked archive attempts, confirmed moves, active index cleanup, and archive index reads.
 - Next: add an archived audit export browser or retention policy preview so older Timeline evidence can be reviewed without cluttering the active shelf.
 
+## v0.4.96 - Timeline Archive Browser
+
+Status: draft PR #158 on `codex/picos-v0.4.96-timeline-archive-browser`.
+
+Goal: make archived Timeline evidence reviewable from Status instead of hiding it after shelf cleanup.
+
+- Audit archive rows now render with a distinct `AUDIT ARCHIVE` header.
+- File-open planning allows picos-owned `audit/archive/picos-audit-*.log` files through the same locked `open` confirmation boundary.
+- Status loads archived Timeline audit exports on boot.
+- Status now supports `U` to refresh archived audit exports, `(` to cycle the selected archived row, and `J` to open the selected archived log through locked file-open preview.
+- Successful `Z` archive moves refresh both the active audit shelf and archived audit browser.
+- Tests cover archive row formatting and locked open plans for archived Timeline audit logs.
+- Next: add retention policy previews for old archived Timeline exports, still locked behind exact confirmation.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
