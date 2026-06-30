@@ -5,6 +5,7 @@ import {
 	applyConfigPolicyPreset,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigManagedShelfFocusRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
 	formatConfigManagedShelfRows,
@@ -17,6 +18,7 @@ import {
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
 	submitConfigWorkspaceResetConfirmation,
+	withConfigManagedShelfFocusRows,
 } from "../src/tui/configPanel";
 
 describe("config TUI panel", () => {
@@ -245,6 +247,33 @@ describe("config TUI panel", () => {
 			cursor: "remoteProfiles",
 			index: 0,
 		});
+	});
+
+	test("formats workspace-local focus rows for managed shelf destinations", () => {
+		expect(formatConfigManagedShelfFocusRows("tools")).toEqual([
+			"CONFIG SHELF FOCUS",
+			"target=tools workspace=Tools",
+			"focus=toolTargetPresets cursor=0 detail=summary",
+			"hint=config deep link active  esc clears landing",
+		]);
+
+		expect(
+			withConfigManagedShelfFocusRows(["TOOLS", "target presets"], "tools", 5),
+		).toEqual([
+			"CONFIG SHELF FOCUS",
+			"target=tools workspace=Tools",
+			"focus=toolTargetPresets cursor=0 detail=summary",
+			"hint=config deep link active  esc clears landing",
+			"TOOLS",
+		]);
+
+		expect(
+			withConfigManagedShelfFocusRows(
+				["TOOLS", "target presets"],
+				undefined,
+				2,
+			),
+		).toEqual(["TOOLS", "target presets"]);
 	});
 
 	test("moves selection and clamps adjusted retention values", () => {

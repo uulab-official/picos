@@ -255,6 +255,7 @@ import {
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
 	submitConfigWorkspaceResetConfirmation,
+	withConfigManagedShelfFocusRows,
 } from "./configPanel";
 import {
 	createEndpointFilterCleanupPreview,
@@ -6367,6 +6368,7 @@ function MainWorkspace({
 						configResetPreview,
 						configManagedShelfRows,
 						configManagedShelfHandoffRows,
+						configShelfLandingTarget,
 						cleanupShelfIndex,
 						selectedCleanupShelfIndex,
 						cleanupHandoffHistory,
@@ -6487,6 +6489,7 @@ function renderWorkspace(
 	configResetPreview: ConfigWorkspaceResetPreview | undefined,
 	configManagedShelfRows: string[],
 	configManagedShelfHandoffRows: string[],
+	configShelfLandingTarget: ConfigManagedShelfTarget | undefined,
 	cleanupShelfIndex: CleanupShelfIndex,
 	selectedCleanupShelfIndex: number,
 	cleanupHandoffHistory: CleanupHandoffHistory[],
@@ -6512,6 +6515,12 @@ function renderWorkspace(
 	height: number,
 	t: (key: string) => string,
 ): React.ReactElement {
+	const configShelfFocusTarget =
+		configShelfLandingTarget &&
+		getConfigManagedShelfHandoff(configShelfLandingTarget).workspace === screen
+			? configShelfLandingTarget
+			: undefined;
+
 	if (palette.active) {
 		const filteredActions = getFilteredPaletteActions(actions, palette);
 		return (
@@ -6564,6 +6573,7 @@ function renderWorkspace(
 				selectedContext={remoteFileContext}
 				focused={focusArea === "remotes"}
 				visibleRows={Math.max(5, height - 8)}
+				configShelfFocusTarget={configShelfFocusTarget}
 				t={t}
 			/>
 		);
@@ -6597,6 +6607,7 @@ function renderWorkspace(
 			<NetworkWorkspace
 				summary={summary}
 				visibleRows={Math.max(6, height - 8)}
+				configShelfFocusTarget={configShelfFocusTarget}
 				t={t}
 			/>
 		);
@@ -6624,6 +6635,7 @@ function renderWorkspace(
 				copyPreview={routeCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
+				configShelfFocusTarget={configShelfFocusTarget}
 				t={t}
 			/>
 		);
@@ -6641,6 +6653,7 @@ function renderWorkspace(
 				copyPreview={connectionCopyPreview}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
+				configShelfFocusTarget={configShelfFocusTarget}
 				t={t}
 			/>
 		);
@@ -6660,6 +6673,7 @@ function renderWorkspace(
 				controlExecutionPolicy={controlExecutionPolicy}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
+				configShelfFocusTarget={configShelfFocusTarget}
 				t={t}
 			/>
 		);
@@ -6683,6 +6697,7 @@ function renderWorkspace(
 				sectionClipboardRowIndex={toolSectionClipboardRowIndex}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
+				configShelfFocusTarget={configShelfFocusTarget}
 				t={t}
 			/>
 		);
@@ -6782,6 +6797,7 @@ function renderWorkspace(
 				followHistory={logFollowHistory}
 				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
+				configShelfFocusTarget={configShelfFocusTarget}
 			/>
 		);
 	}
@@ -7286,12 +7302,23 @@ function EditorWorkspace({
 	);
 }
 
+function getConfigShelfFocusRowColor(row: string): string {
+	if (row.startsWith("CONFIG SHELF")) {
+		return "cyan";
+	}
+	if (row.startsWith("hint=")) {
+		return "gray";
+	}
+	return "yellow";
+}
+
 function RemotesWorkspace({
 	profiles,
 	selectedIndex,
 	selectedContext,
 	focused,
 	visibleRows,
+	configShelfFocusTarget,
 	t,
 }: {
 	profiles: SftpRemoteProfile[];
@@ -7299,9 +7326,15 @@ function RemotesWorkspace({
 	selectedContext?: RemoteFileContext;
 	focused: boolean;
 	visibleRows: number;
+	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const profileRows = Math.max(1, visibleRows - 7);
+	const focusRows = withConfigManagedShelfFocusRows(
+		[],
+		configShelfFocusTarget,
+		visibleRows,
+	);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 7);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -7317,6 +7350,15 @@ function RemotesWorkspace({
 					? "remote focus · j/k select · enter stage · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
+			{focusRows.length > 0 ? (
+				<Box marginTop={1} flexDirection="column">
+					{focusRows.map((row) => (
+						<Text key={row} color={getConfigShelfFocusRowColor(row)}>
+							{row}
+						</Text>
+					))}
+				</Box>
+			) : null}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">PROFILES</Text>
 				{hiddenAbove > 0 ? (
@@ -7509,14 +7551,24 @@ function ProcessesWorkspace({
 function NetworkWorkspace({
 	summary,
 	visibleRows,
+	configShelfFocusTarget,
 	t,
 }: {
 	summary?: NetworkSummary;
 	visibleRows: number;
+	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const focusRows = withConfigManagedShelfFocusRows(
+		[],
+		configShelfFocusTarget,
+		visibleRows,
+	);
 	const groupRows = Math.min(summary?.networkGroups.length ?? 0, 4);
-	const interfaceRows = Math.max(1, visibleRows - groupRows - 6);
+	const interfaceRows = Math.max(
+		1,
+		visibleRows - focusRows.length - groupRows - 6,
+	);
 	const visibleInterfaces = summary?.interfaces.slice(0, interfaceRows) ?? [];
 	const hiddenInterfaces = Math.max(
 		0,
@@ -7529,6 +7581,15 @@ function NetworkWorkspace({
 			<Text color="gray">
 				lazyifconfig-style groups · LAN/VPN/container/link-local/public
 			</Text>
+			{focusRows.length > 0 ? (
+				<Box marginTop={1} flexDirection="column">
+					{focusRows.map((row) => (
+						<Text key={row} color={getConfigShelfFocusRowColor(row)}>
+							{row}
+						</Text>
+					))}
+				</Box>
+			) : null}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">NETWORK GROUPS</Text>
 				{summary ? (
@@ -7632,6 +7693,7 @@ function ConnectionsWorkspace({
 	copyPreview,
 	commandLine,
 	visibleRows,
+	configShelfFocusTarget,
 	t,
 }: {
 	result?: ConnectionsResult;
@@ -7644,6 +7706,7 @@ function ConnectionsWorkspace({
 	copyPreview: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
+	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const promptRows = [
@@ -7654,7 +7717,7 @@ function ConnectionsWorkspace({
 			filterPresets,
 		),
 	];
-	const rows = result
+	const baseRows = result
 		? [
 				...formatConnectionsWorkspaceRows(
 					result,
@@ -7672,6 +7735,11 @@ function ConnectionsWorkspace({
 				...promptRows,
 			]
 		: ["loading connections..."];
+	const rows = withConfigManagedShelfFocusRows(
+		baseRows,
+		configShelfFocusTarget,
+		visibleRows,
+	);
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
 		const count = rowCounts.get(row) ?? 0;
@@ -7717,6 +7785,7 @@ function PortsWorkspace({
 	controlExecutionPolicy,
 	commandLine,
 	visibleRows,
+	configShelfFocusTarget,
 	t,
 }: {
 	result?: PortsResult;
@@ -7731,6 +7800,7 @@ function PortsWorkspace({
 	controlExecutionPolicy: ControlExecutionPolicy;
 	commandLine: CommandLineState;
 	visibleRows: number;
+	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const processControlPromptRows = formatPortProcessControlPromptRows(
@@ -7748,7 +7818,7 @@ function PortsWorkspace({
 		...formatEndpointFilterPromptRows(commandLine, "ports", filterPresets),
 		...processControlPromptRows,
 	];
-	const rows = result
+	const baseRows = result
 		? [
 				...formatPortsWorkspaceRows(
 					result,
@@ -7768,6 +7838,11 @@ function PortsWorkspace({
 				...promptRows,
 			]
 		: ["loading listening ports..."];
+	const rows = withConfigManagedShelfFocusRows(
+		baseRows,
+		configShelfFocusTarget,
+		visibleRows,
+	);
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
 		const count = rowCounts.get(row) ?? 0;
@@ -7810,6 +7885,7 @@ function RoutesWorkspace({
 	copyPreview,
 	commandLine,
 	visibleRows,
+	configShelfFocusTarget,
 	t,
 }: {
 	routeTable?: RouteTableResult;
@@ -7821,6 +7897,7 @@ function RoutesWorkspace({
 	copyPreview: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
+	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const cleanupPreview =
@@ -7857,10 +7934,15 @@ function RoutesWorkspace({
 				},
 			)
 		: ["loading route table..."];
-	const rows =
+	const baseRows =
 		routeDetailView === "table"
 			? [...tableRows, ...pathRows, ...promptRows].slice(0, visibleRows)
 			: [...tableRows, ...promptRows].slice(0, visibleRows);
+	const rows = withConfigManagedShelfFocusRows(
+		baseRows,
+		configShelfFocusTarget,
+		visibleRows,
+	);
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
 		const count = rowCounts.get(row) ?? 0;
@@ -7889,13 +7971,20 @@ function RoutesWorkspace({
 						<Text
 							key={key}
 							color={
-								row.startsWith(":routes-cleanup") || row.startsWith("confirm ")
-									? "yellow"
-									: isSection
-										? "cyan"
-										: row.startsWith("WARN")
-											? "yellow"
-											: "white"
+								row.startsWith("CONFIG SHELF")
+									? "cyan"
+									: row.startsWith("target=") ||
+											row.startsWith("focus=") ||
+											row.startsWith(":routes-cleanup") ||
+											row.startsWith("confirm ")
+										? "yellow"
+										: row.startsWith("hint=")
+											? "gray"
+											: isSection
+												? "cyan"
+												: row.startsWith("WARN")
+													? "yellow"
+													: "white"
 							}
 						>
 							{row}
@@ -7917,6 +8006,7 @@ function RoutesWorkspace({
 
 function getEndpointRowColor(row: string, tableHeader: string): string {
 	if (
+		row.startsWith("CONFIG SHELF") ||
 		row === tableHeader ||
 		row === "RAW OUTPUT" ||
 		row === "FILTER" ||
@@ -7929,6 +8019,8 @@ function getEndpointRowColor(row: string, tableHeader: string): string {
 	}
 	if (
 		row.startsWith("CLIPBOARD PREVIEW") ||
+		row.startsWith("target=") ||
+		row.startsWith("focus=") ||
 		row.startsWith("action=process.terminate") ||
 		row.startsWith("status=blocked") ||
 		row.startsWith("willExecute=false") ||
@@ -8030,6 +8122,7 @@ function ToolsWorkspace({
 	sectionClipboardRowIndex,
 	commandLine,
 	visibleRows,
+	configShelfFocusTarget,
 	t,
 }: {
 	width: number;
@@ -8048,6 +8141,7 @@ function ToolsWorkspace({
 	sectionClipboardRowIndex: number;
 	commandLine: CommandLineState;
 	visibleRows: number;
+	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
@@ -8056,7 +8150,7 @@ function ToolsWorkspace({
 		filterQuery,
 		sort,
 	);
-	const rows = formatToolsWorkspaceRows(
+	const workspaceRows = formatToolsWorkspaceRows(
 		history,
 		visibleRows,
 		selectedIndex,
@@ -8070,6 +8164,11 @@ function ToolsWorkspace({
 		sectionClipboardSelection,
 		sectionClipboardRowIndex,
 		copyPreview,
+	);
+	const rows = withConfigManagedShelfFocusRows(
+		workspaceRows,
+		configShelfFocusTarget,
+		visibleRows,
 	);
 	const selectedPreview =
 		copyPreview === "summary"
@@ -8175,6 +8274,7 @@ function ToolsWorkspace({
 
 function getToolRowColor(row: string): string {
 	if (
+		row.startsWith("CONFIG SHELF") ||
 		row.startsWith("TOOLS") ||
 		row === "RAW" ||
 		row.startsWith("## ") ||
@@ -8190,6 +8290,8 @@ function getToolRowColor(row: string): string {
 	}
 	if (
 		row.startsWith("CLIPBOARD PREVIEW") ||
+		row.startsWith("target=") ||
+		row.startsWith("focus=") ||
 		row.startsWith("copy help:") ||
 		row.startsWith("copy hint:") ||
 		row.startsWith("copy mode:") ||
@@ -9294,6 +9396,7 @@ function LogWorkspace({
 	followHistory,
 	commandLine,
 	visibleRows,
+	configShelfFocusTarget,
 }: {
 	logs?: OsLogSnapshot;
 	checks: DoctorCheck[];
@@ -9307,6 +9410,7 @@ function LogWorkspace({
 	followHistory: LogFollowHistoryItem[];
 	commandLine: CommandLineState;
 	visibleRows: number;
+	configShelfFocusTarget?: ConfigManagedShelfTarget;
 }): React.ReactElement {
 	const cleanupPreview =
 		commandLine.active && commandLine.prompt === "logs-cleanup"
@@ -9336,7 +9440,7 @@ function LogWorkspace({
 					),
 			]
 		: [];
-	const rows = [
+	const baseRows = [
 		...formatLogWorkspaceRows(
 			logs,
 			Math.max(1, visibleRows - promptRows.length - doctorRows.length),
@@ -9354,6 +9458,11 @@ function LogWorkspace({
 		...promptRows,
 		...doctorRows,
 	];
+	const rows = withConfigManagedShelfFocusRows(
+		baseRows,
+		configShelfFocusTarget,
+		visibleRows,
+	);
 	return (
 		<Box flexDirection="column">
 			<Text bold>OS Logs</Text>
@@ -9367,10 +9476,19 @@ function LogWorkspace({
 }
 
 function getOsLogRowColor(row: string): string {
-	if (row.startsWith("LOGS") || row === "SEARCH") {
+	if (
+		row.startsWith("CONFIG SHELF") ||
+		row.startsWith("LOGS") ||
+		row === "SEARCH"
+	) {
 		return "cyan";
 	}
-	if (row.startsWith(":logs-cleanup") || row.startsWith("confirm ")) {
+	if (
+		row.startsWith(":logs-cleanup") ||
+		row.startsWith("confirm ") ||
+		row.startsWith("target=") ||
+		row.startsWith("focus=")
+	) {
 		return "yellow";
 	}
 	if (row.startsWith("PICOS") || row.startsWith("source=")) {

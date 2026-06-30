@@ -501,6 +501,29 @@ export function formatConfigManagedShelfLandingRows(
 	];
 }
 
+export function formatConfigManagedShelfFocusRows(
+	target: ConfigManagedShelfTarget,
+): string[] {
+	return [
+		...getConfigManagedShelfFocusPreset(target).rows,
+		"hint=config deep link active  esc clears landing",
+	];
+}
+
+export function withConfigManagedShelfFocusRows(
+	rows: string[],
+	target: ConfigManagedShelfTarget | undefined,
+	visibleRows: number,
+): string[] {
+	if (!target) {
+		return rows.slice(0, Math.max(0, visibleRows));
+	}
+	return [...formatConfigManagedShelfFocusRows(target), ...rows].slice(
+		0,
+		Math.max(0, visibleRows),
+	);
+}
+
 export function getConfigManagedShelfFocusPreset(
 	target: ConfigManagedShelfTarget,
 ): ConfigManagedShelfFocusPreset {
