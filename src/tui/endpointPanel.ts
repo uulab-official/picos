@@ -1,11 +1,15 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import {
 	type ConnectionSort,
 	type ConnectionsResult,
 	filterConnections,
+	formatConnections,
 	sortConnections,
 } from "../core/connections";
 import {
 	filterListeningPorts,
+	formatPorts,
 	type PortSort,
 	type PortsResult,
 	sortListeningPorts,
@@ -27,6 +31,16 @@ export type EndpointProcessRequest = {
 };
 
 export type EndpointDetailView = "detail" | "raw" | "process";
+
+export type EndpointHandoffKind = "connections" | "ports";
+
+export type EndpointHandoffPlan = {
+	path: string;
+	content: string;
+	label: string;
+	kind: EndpointHandoffKind;
+	view: EndpointDetailView;
+};
 
 export function nextEndpointDetailView(
 	view: EndpointDetailView,
@@ -226,6 +240,132 @@ export function formatPortsWorkspaceRows(
 		),
 	];
 	return fitRows(rows, visibleRows, "ports");
+}
+
+export function createEndpointHandoffPlan(
+	kind: "connections",
+	options: {
+		baseDir: string;
+		filter?: string;
+		generatedAt?: Date;
+		result: ConnectionsResult;
+		sort?: ConnectionSort;
+		view?: EndpointDetailView;
+	},
+): EndpointHandoffPlan;
+export function createEndpointHandoffPlan(
+	kind: "ports",
+	options: {
+		baseDir: string;
+		filter?: string;
+		generatedAt?: Date;
+		result: PortsResult;
+		sort?: PortSort;
+		view?: EndpointDetailView;
+	},
+): EndpointHandoffPlan;
+export function createEndpointHandoffPlan(
+	kind: EndpointHandoffKind,
+	options: {
+		baseDir: string;
+		filter?: string;
+		generatedAt?: Date;
+		result: ConnectionsResult | PortsResult;
+		sort?: ConnectionSort | PortSort;
+		view?: EndpointDetailView;
+	},
+): EndpointHandoffPlan {
+	const view = options.view ?? "raw";
+	const generatedAt = options.generatedAt ?? new Date();
+	const iso = generatedAt.toISOString();
+	const label = `${kind} ${view === "raw" ? "raw output" : "summary"}`;
+	const content = getEndpointHandoffContent(kind, options.result, {
+		filter: options.filter,
+		sort: options.sort,
+		view,
+	});
+	return {
+		path: join(
+			options.baseDir,
+			"endpoints",
+			`picos-${kind}-${view}-${iso.replaceAll(/[:.]/g, "")}.md`,
+		),
+		content: formatEndpointHandoffMarkdown(kind, options.result, {
+			content,
+			filter: options.filter,
+			generatedAt: iso,
+			label,
+			sort: options.sort,
+			view,
+		}),
+		label,
+		kind,
+		view,
+	};
+}
+
+export async function writeEndpointHandoffPlan(
+	plan: EndpointHandoffPlan,
+): Promise<EndpointHandoffPlan> {
+	await mkdir(dirname(plan.path), { recursive: true });
+	await writeFile(plan.path, plan.content, "utf8");
+	return plan;
+}
+
+function getEndpointHandoffContent(
+	kind: EndpointHandoffKind,
+	result: ConnectionsResult | PortsResult,
+	options: {
+		filter?: string;
+		sort?: ConnectionSort | PortSort;
+		view: EndpointDetailView;
+	},
+): string {
+	if (options.view === "raw") {
+		return result.rawOutput;
+	}
+	if (kind === "connections") {
+		return formatConnections(result as ConnectionsResult, {
+			filter: options.filter,
+			sort: options.sort as ConnectionSort | undefined,
+		});
+	}
+	return formatPorts(result as PortsResult, {
+		filter: options.filter,
+		sort: options.sort as PortSort | undefined,
+	});
+}
+
+function formatEndpointHandoffMarkdown(
+	kind: EndpointHandoffKind,
+	result: ConnectionsResult | PortsResult,
+	options: {
+		content: string;
+		filter?: string;
+		generatedAt: string;
+		label: string;
+		sort?: ConnectionSort | PortSort;
+		view: EndpointDetailView;
+	},
+): string {
+	const filter = options.filter?.trim() ?? "";
+	return [
+		"# picos endpoint handoff",
+		`generatedAt=${options.generatedAt}`,
+		`kind=${kind}`,
+		`view=${options.view}`,
+		`label=${options.label}`,
+		`command=${result.command} ${result.args.join(" ")}`.trim(),
+		...(filter ? [`filter=${filter}`] : []),
+		...(options.sort
+			? [`sort=${options.sort.key} ${options.sort.direction}`]
+			: []),
+		"",
+		"```txt",
+		options.content,
+		"```",
+		"",
+	].join("\n");
 }
 
 function getSelectedIndex(

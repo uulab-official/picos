@@ -8,6 +8,8 @@ import {
 const baseDir = "/Users/me/.config/picos";
 const handoffPath =
 	"/Users/me/.config/picos/routes/picos-routes-raw-2026-06-30T120000000Z.md";
+const endpointHandoffPath =
+	"/Users/me/.config/picos/endpoints/picos-ports-raw-2026-06-30T120000000Z.md";
 
 describe("external file open planning", () => {
 	test("builds locked opener plans only for files under the allowed base directory", () => {
@@ -40,16 +42,30 @@ describe("external file open planning", () => {
 		expect(
 			buildFileOpenPlan({
 				baseDir,
+				label: "ports raw output",
+				path: endpointHandoffPath,
+				platform: "linux",
+				source: "endpoint-handoff",
+				confirmation: "open",
+			}),
+		).toMatchObject({
+			enabled: true,
+			reason: "confirmed",
+			adapter: { command: "xdg-open" },
+		});
+
+		expect(
+			buildFileOpenPlan({
+				baseDir,
 				label: "outside",
 				path: "/Users/me/Downloads/picos-routes.md",
 				platform: "linux",
-				source: "route-handoff",
+				source: "endpoint-handoff",
 				confirmation: "open",
 			}),
 		).toMatchObject({
 			enabled: false,
 			reason: "external file open is limited to picos handoff files",
-			adapter: { command: "xdg-open" },
 		});
 	});
 
