@@ -2168,7 +2168,20 @@ Goal: make picos configuration feel like part of the terminal OS instead of a CL
 - `enter` on Config runs the existing `config.show` action so operators can audit the config path and active retention values.
 - Sidebar and Inspector labels include `screen.config` translations for English, Korean, Japanese, and Chinese.
 - Tests cover screen order, config row formatting, selection movement, value clamping, and i18n labels.
-- Next: expand Config workspace to language, refresh cadence, default ping host, and execution policy controls.
+- Next: add Config policy presets and exact-confirm reset controls.
+
+## v0.4.100 - Config Workspace Core Controls
+
+Status: draft PR #162 on `codex/picos-v0.4.100-config-core-controls`.
+
+Goal: make common picos settings controllable from the OS-like TUI instead of requiring CLI config commands.
+
+- Config workspace now lists language, refresh interval, default ping host, control execution mode, and admin dry-run allowance beside retention controls.
+- `+/-` cycles languages, dry-run policy values, booleans, and bounded numeric controls while persisting through the config store.
+- `enter` on `defaultPingHost` opens a text prompt and saves the trimmed host after validation.
+- Control execution policy changes update the active TUI session after config writes, while mutation execution remains behind existing dry-run and confirmation gates.
+- Tests cover expanded row formatting, selection wraparound, value clamping/cycling, and text-row edit prompts.
+- Next: add Config policy presets, reset-to-default confirmations, and richer per-row safety descriptions.
 
 ## v0.5.0 - Developer Environment Plugins
 
