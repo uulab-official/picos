@@ -106,6 +106,8 @@ export type ToolHistoryGroup = "none" | "tool" | "status";
 
 export type ToolHistoryDetailView = "raw" | "summary" | "command";
 
+export type ToolSectionClipboardSelection = "target" | "status";
+
 export type ToolHistoryExportPlan = {
 	path: string;
 	content: string;
@@ -301,6 +303,7 @@ export function formatToolsWorkspaceRows(
 	detailView: ToolHistoryDetailView = "raw",
 	targetPresets: ToolTargetPreset[] = [],
 	selectedTargetPresetIndex = 0,
+	sectionClipboardSelection: ToolSectionClipboardSelection = "target",
 ): string[] {
 	const filtered = sortToolHistory(history, filterQuery, sort);
 	const latestIndex = getVisibleToolHistoryIndex(
@@ -334,7 +337,7 @@ export function formatToolsWorkspaceRows(
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · v target · c raw",
+		`shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=${sectionClipboardSelection} · v copy section · c raw`,
 	].slice(0, visibleRows);
 }
 
@@ -428,6 +431,12 @@ export function nextToolHistoryDetailView(
 		return "command";
 	}
 	return "raw";
+}
+
+export function nextToolSectionClipboardSelection(
+	selection: ToolSectionClipboardSelection,
+): ToolSectionClipboardSelection {
+	return selection === "target" ? "status" : "target";
 }
 
 export function saveToolHistoryPreset(
@@ -848,15 +857,30 @@ export function getSelectedToolTargetClipboardPreview(
 	history: ToolHistoryItem[],
 	selectedIndex: number,
 ): ClipboardPreview | undefined {
+	return getSelectedToolSectionClipboardPreview(
+		history,
+		selectedIndex,
+		"target",
+	);
+}
+
+export function getSelectedToolSectionClipboardPreview(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	selection: ToolSectionClipboardSelection,
+): ClipboardPreview | undefined {
 	const item = getSelectedToolHistoryItem(history, selectedIndex);
-	const targetLines = item ? extractRawSection(item.rawOutput, "Target") : [];
-	if (!item || targetLines.length <= 0) {
+	const sectionLabel = selection === "target" ? "Target" : "Status";
+	const sectionLines = item
+		? extractRawSection(item.rawOutput, sectionLabel)
+		: [];
+	if (!item || sectionLines.length <= 0) {
 		return undefined;
 	}
 	return createClipboardPreview({
-		source: "tool-target",
-		label: `${item.label} target fields`,
-		copyText: targetLines.join("\n"),
+		source: selection === "target" ? "tool-target" : "tool-status",
+		label: `${item.label} ${selection} fields`,
+		copyText: sectionLines.join("\n"),
 	});
 }
 
