@@ -108,6 +108,8 @@ export type ToolHistoryDetailView = "raw" | "summary" | "command";
 
 export type ToolSectionClipboardSelection = "target" | "status";
 
+const toolCopyPreviewValueLimit = 64;
+
 export type ToolHistoryExportPlan = {
 	path: string;
 	content: string;
@@ -1177,7 +1179,7 @@ function formatToolSectionCopyTargetPreview(
 		return undefined;
 	}
 	const boundedRowIndex = Math.min(Math.max(rowIndex, 0), rows.length - 1);
-	return `copy target: section=${selection} rows=${rows.length} row=${boundedRowIndex + 1} text=${rows[boundedRowIndex]}`;
+	return `copy target: section=${selection} rows=${rows.length} row=${boundedRowIndex + 1} text=${truncateToolCopyPreviewValue(rows[boundedRowIndex] ?? "")}`;
 }
 
 function formatToolSectionCopyPreview(
@@ -1188,7 +1190,20 @@ function formatToolSectionCopyPreview(
 	if (rows.length <= 0) {
 		return undefined;
 	}
-	return `copy section: section=${selection} rows=${rows.length} first=${rows[0]}`;
+	return `copy section: section=${selection} rows=${rows.length} first=${truncateToolCopyPreviewValue(rows[0] ?? "")}`;
+}
+
+function truncateToolCopyPreviewValue(
+	value: string,
+	maxLength = toolCopyPreviewValueLimit,
+): string {
+	if (value.length <= maxLength) {
+		return value;
+	}
+	if (maxLength <= 3) {
+		return ".".repeat(Math.max(0, maxLength));
+	}
+	return `${value.slice(0, maxLength - 3)}...`;
 }
 
 function formatRawToolOutputRows(

@@ -1856,6 +1856,18 @@ Goal: make whole-section TCP copy as inspectable as row copy before clipboard co
 - Tests cover section preview ordering beside the row preview.
 - Next: add truncation for long copy preview values so footer controls remain readable in narrow terminals.
 
+## v0.4.76 - TCP Copy Preview Truncation
+
+Status: draft PR #138 on `codex/picos-v0.4.76-tcp-copy-preview-truncation`.
+
+Goal: keep TCP copy preview rows readable when command, host, or error text is long.
+
+- `copy section:` and `copy target:` rows now truncate long preview values while preserving the actual clipboard payload.
+- Truncation applies only to TUI preview text; `b`, `v`, `c`, export, and handoff output keep full data.
+- Long TCP command/error values no longer push shortcut/footer controls out of view in narrow terminals.
+- Tests cover row preview truncation and bounded preview row length.
+- Next: add a compact copy-preview mode indicator so operators can see whether `b`, `v`, or `c` was last armed.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Tools TCP copy preview rows now truncate long values so shortcut/footer controls stay readable in narrow terminals.
 - Tools workspace now shows a compact `copy section` row for the active TCP section before whole-section clipboard copy.
 - Tools workspace now shows a compact `copy target` row for the active TCP section/row before opening clipboard confirmation.
 - Tools raw detail rows now mark the selected TCP Target/Status row inline with `>` while using the row copy cursor.
