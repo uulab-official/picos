@@ -291,6 +291,7 @@ import {
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
 	nextToolHistorySort,
+	reassignToolTargetPresetAction,
 	removeToolTargetPreset,
 	renameToolTargetPreset,
 	rerunToolHistoryItem,
@@ -881,6 +882,62 @@ export function App(): React.ReactElement {
 			),
 		);
 		log("info", `tool target updated ${preset.label}`);
+		setToolCopyPreview(false);
+	}, [
+		commandLine.value,
+		customToolTargetPresets,
+		log,
+		selectedToolTargetPresetIndex,
+		toolTargetPresets,
+	]);
+
+	const submitToolTargetActionCommand = useCallback(() => {
+		const preset =
+			toolTargetPresets[
+				Math.min(
+					Math.max(selectedToolTargetPresetIndex, 0),
+					toolTargetPresets.length - 1,
+				)
+			];
+		if (!preset) {
+			log("warn", "no tool target preset selected");
+			setCommandLine((current) => closeCommandLine(current));
+			return;
+		}
+		const saved = customToolTargetPresets.some(
+			(current) =>
+				`${current.actionId}:${current.target}` ===
+				`${preset.actionId}:${preset.target}`,
+		);
+		if (!saved) {
+			log("warn", `tool target ${preset.label} is not a saved preset`);
+			setCommandLine((current) => closeCommandLine(current));
+			return;
+		}
+		const next = reassignToolTargetPresetAction(
+			customToolTargetPresets,
+			preset,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		const changed = next.some(
+			(current, index) =>
+				current.actionId !== customToolTargetPresets[index]?.actionId,
+		);
+		if (!changed) {
+			log("info", "tool target action unchanged");
+			return;
+		}
+		setCustomToolTargetPresets(next);
+		void setConfigToolTargetPresets(next).catch((caught) =>
+			log(
+				"fail",
+				caught instanceof Error
+					? `tool target action save failed ${caught.message}`
+					: `tool target action save failed ${String(caught)}`,
+			),
+		);
+		log("info", `tool target action updated ${preset.label}`);
 		setToolCopyPreview(false);
 	}, [
 		commandLine.value,
@@ -2068,11 +2125,13 @@ export function App(): React.ReactElement {
 																? "tool target label cancelled"
 																: commandLine.prompt === "tool-target-value"
 																	? "tool target value cancelled"
-																	: commandLine.prompt.startsWith(
-																				toolPromptPrefix,
-																			)
-																		? "tool target command cancelled"
-																		: "path command cancelled",
+																	: commandLine.prompt === "tool-target-action"
+																		? "tool target action cancelled"
+																		: commandLine.prompt.startsWith(
+																					toolPromptPrefix,
+																				)
+																			? "tool target command cancelled"
+																			: "path command cancelled",
 				);
 				return;
 			}
@@ -2090,6 +2149,8 @@ export function App(): React.ReactElement {
 					submitToolTargetLabelCommand();
 				} else if (commandLine.prompt === "tool-target-value") {
 					submitToolTargetValueCommand();
+				} else if (commandLine.prompt === "tool-target-action") {
+					submitToolTargetActionCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (commandLine.prompt === "timeline-search") {
@@ -3256,6 +3317,33 @@ export function App(): React.ReactElement {
 			setCommandLine(openCommandLine("tool-target-value"));
 			setToolCopyPreview(false);
 			log("info", `tool target value opened ${preset.label}`);
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "A") {
+			const preset =
+				toolTargetPresets[
+					Math.min(
+						Math.max(selectedToolTargetPresetIndex, 0),
+						toolTargetPresets.length - 1,
+					)
+				];
+			if (!preset) {
+				log("warn", "no tool target preset selected");
+				return;
+			}
+			const saved = customToolTargetPresets.some(
+				(current) =>
+					`${current.actionId}:${current.target}` ===
+					`${preset.actionId}:${preset.target}`,
+			);
+			if (!saved) {
+				log("warn", `tool target ${preset.label} is not a saved preset`);
+				return;
+			}
+			setCommandLine(openCommandLine("tool-target-action"));
+			setToolCopyPreview(false);
+			log("info", `tool target action opened ${preset.label}`);
 			return;
 		}
 
@@ -5489,13 +5577,18 @@ function ToolsWorkspace({
 								"TOOL TARGET VALUE",
 								`:target ${commandLine.value || " "}  enter=save esc=cancel`,
 							]
-						: [];
+						: commandLine.active && commandLine.prompt === "tool-target-action"
+							? [
+									"TOOL TARGET ACTION",
+									`:action ${commandLine.value || " "}  dns ping trace whois ip tls tcp`,
+								]
+							: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
-				Tools Hub · n target · T save · L label · M target · X delete · R run ·
-				tab detail · f filter · P save filter
+				Tools Hub · n target · T save · L label · M target · A action · X delete
+				· R run · tab detail · f filter · P save filter
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]

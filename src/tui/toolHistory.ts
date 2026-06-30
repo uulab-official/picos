@@ -37,6 +37,22 @@ export type ToolTargetPreset = {
 
 export { normalizeToolTargetPresets };
 
+const toolRunActionAliases: Record<string, ToolRunActionId> = {
+	connect: "network.connect",
+	dns: "tools.dns",
+	ip: "tools.ipInfo",
+	"ip-info": "tools.ipInfo",
+	ipinfo: "tools.ipInfo",
+	ping: "ping.default",
+	port: "network.connect",
+	rdap: "tools.whois",
+	tcp: "network.connect",
+	tls: "tools.tls",
+	trace: "tools.traceroute",
+	traceroute: "tools.traceroute",
+	whois: "tools.whois",
+};
+
 export type ToolHistoryItem = {
 	id: string;
 	time: string;
@@ -284,7 +300,7 @@ export function formatToolsWorkspaceRows(
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · M edit target · X delete target · R run · r rerun · y summary · c raw",
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · M edit target · A action target · X delete target · R run · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -464,6 +480,27 @@ export function retargetToolTargetPreset(
 			`${current.actionId}:${current.target}` ===
 			`${targetPreset.actionId}:${targetPreset.target}`
 				? { ...current, target: nextTarget }
+				: current,
+		),
+	);
+}
+
+export function reassignToolTargetPresetAction(
+	presets: ToolTargetPreset[],
+	preset: ToolTargetPreset | undefined,
+	actionId: string,
+): ToolTargetPreset[] {
+	const nextActionId = normalizeToolRunActionId(actionId);
+	const [targetPreset] = normalizeToolTargetPresets(preset ? [preset] : []);
+	const normalized = normalizeToolTargetPresets(presets);
+	if (!targetPreset || !nextActionId) {
+		return normalized;
+	}
+	return normalizeToolTargetPresets(
+		normalized.map((current) =>
+			`${current.actionId}:${current.target}` ===
+			`${targetPreset.actionId}:${targetPreset.target}`
+				? { ...current, actionId: nextActionId }
 				: current,
 		),
 	);
@@ -740,7 +777,7 @@ function formatToolTargetPresetRows(
 		presets.length - 1,
 	);
 	return [
-		"TARGET PRESETS n cycle · T save · L label · M edit · X delete · R run",
+		"TARGET PRESETS n cycle · T save · L label · M edit · A action · X delete · R run",
 		...presets.map(
 			(preset, index) =>
 				`${index === normalizedIndex ? ">" : " "} ${preset.label} ${preset.target} ${preset.hint}`,
@@ -833,6 +870,25 @@ function parseHostPortTarget(target: string): { host: string; port: string } {
 		host: hostPart || "example.com",
 		port: portPart || "443",
 	};
+}
+
+function normalizeToolRunActionId(input: string): ToolRunActionId | undefined {
+	const value = input.trim();
+	if (!value) {
+		return undefined;
+	}
+	if (
+		value === "tools.dns" ||
+		value === "tools.traceroute" ||
+		value === "tools.whois" ||
+		value === "tools.ipInfo" ||
+		value === "tools.tls" ||
+		value === "network.connect" ||
+		value === "ping.default"
+	) {
+		return value;
+	}
+	return toolRunActionAliases[value.toLowerCase()];
 }
 
 function dedupeToolTargetPresets(
