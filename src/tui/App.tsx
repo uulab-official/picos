@@ -157,14 +157,17 @@ import { VERSION } from "../core/version";
 import { createTranslator } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
 import {
+	type CleanupHandoffHistory,
 	type CleanupJumpAudit,
 	type CleanupShelfIndex,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
+	createCleanupHandoffHistory,
 	createCleanupJumpAudit,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
+	formatCleanupHandoffHistoryRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
@@ -405,6 +408,8 @@ export function App(): React.ReactElement {
 		useState(0);
 	const [selectedCleanupShelfIndex, setSelectedCleanupShelfIndex] = useState(0);
 	const [cleanupJumpAudit, setCleanupJumpAudit] = useState<CleanupJumpAudit>();
+	const [cleanupHandoffHistory, setCleanupHandoffHistory] =
+		useState<CleanupHandoffHistory>();
 	const [handoffIndex, setHandoffIndex] = useState<HandoffIndex>({
 		baseDir: dirname(getConfigPath()),
 		items: [],
@@ -2324,7 +2329,7 @@ export function App(): React.ReactElement {
 
 	const openCleanupHandoffPrompt = useCallback(() => {
 		const plan = createCleanupHandoffActionPlan(cleanupJumpAudit, screen);
-		if (!plan) {
+		if (!plan || !cleanupJumpAudit) {
 			return false;
 		}
 
@@ -2342,6 +2347,9 @@ export function App(): React.ReactElement {
 								: "tool-target-cleanup";
 
 		setCommandLine(openCommandLine(prompt));
+		setCleanupHandoffHistory(
+			createCleanupHandoffHistory(cleanupJumpAudit, "prompt-opened"),
+		);
 		log(
 			"info",
 			`cleanup handoff prompt opened ${plan.label}; type ${plan.confirmationPhrase}`,
@@ -2351,10 +2359,13 @@ export function App(): React.ReactElement {
 
 	const dismissCleanupHandoff = useCallback(() => {
 		const plan = createCleanupHandoffDismissPlan(cleanupJumpAudit, screen);
-		if (!plan) {
+		if (!plan || !cleanupJumpAudit) {
 			return false;
 		}
 
+		setCleanupHandoffHistory(
+			createCleanupHandoffHistory(cleanupJumpAudit, "dismissed"),
+		);
 		setCleanupJumpAudit(undefined);
 		log(
 			"info",
@@ -4227,6 +4238,7 @@ export function App(): React.ReactElement {
 					cleanupShelfIndex={cleanupShelfIndex}
 					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 					cleanupJumpAudit={cleanupJumpAudit}
+					cleanupHandoffHistory={cleanupHandoffHistory}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
 					selectedHandoffIndex={selectedHandoffIndex}
@@ -4418,6 +4430,7 @@ function MainWorkspace({
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
 	cleanupJumpAudit,
+	cleanupHandoffHistory,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
 	selectedHandoffIndex,
@@ -4511,6 +4524,7 @@ function MainWorkspace({
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
 	cleanupJumpAudit?: CleanupJumpAudit;
+	cleanupHandoffHistory?: CleanupHandoffHistory;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
 	selectedHandoffIndex: number;
@@ -4656,6 +4670,7 @@ function MainWorkspace({
 						toolCopyPreview,
 						cleanupShelfIndex,
 						selectedCleanupShelfIndex,
+						cleanupHandoffHistory,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
 						selectedHandoffIndex,
@@ -4753,6 +4768,7 @@ function renderWorkspace(
 	toolCopyPreview: ToolCopyPreviewMode,
 	cleanupShelfIndex: CleanupShelfIndex,
 	selectedCleanupShelfIndex: number,
+	cleanupHandoffHistory: CleanupHandoffHistory | undefined,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
 	selectedHandoffIndex: number,
@@ -4979,6 +4995,7 @@ function renderWorkspace(
 				fileOpenPlan={fileOpenPlan}
 				cleanupShelfIndex={cleanupShelfIndex}
 				selectedCleanupShelfIndex={selectedCleanupShelfIndex}
+				cleanupHandoffHistory={cleanupHandoffHistory}
 				commandLine={commandLine}
 				t={t}
 			/>
@@ -6755,6 +6772,7 @@ function StatusWorkspace({
 	fileOpenPlan,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
+	cleanupHandoffHistory,
 	commandLine,
 	t,
 }: {
@@ -6767,6 +6785,7 @@ function StatusWorkspace({
 	fileOpenPlan?: FileOpenPlan;
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
+	cleanupHandoffHistory?: CleanupHandoffHistory;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -6962,6 +6981,26 @@ function StatusWorkspace({
 						</Text>
 					))}
 				</Box>
+				{cleanupHandoffHistory ? (
+					<Box marginTop={1} flexDirection="column">
+						{formatCleanupHandoffHistoryRows(cleanupHandoffHistory).map(
+							(row) => (
+								<Text
+									key={row}
+									color={
+										row.startsWith("CLEANUP HISTORY")
+											? "cyan"
+											: row.startsWith("detail=")
+												? "gray"
+												: "white"
+									}
+								>
+									{row}
+								</Text>
+							),
+						)}
+					</Box>
+				) : null}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
