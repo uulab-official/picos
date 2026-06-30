@@ -590,6 +590,16 @@ export function formatConfigManagedShelfPromptBreadcrumbRows(
 	];
 }
 
+export function formatConfigManagedShelfCleanupBreadcrumbRows(
+	target: ConfigManagedShelfTarget,
+): string[] {
+	const handoff = getConfigManagedShelfHandoff(target);
+	return [
+		`CONFIG ORIGIN Config > ${handoff.label}`,
+		`scope=${getConfigManagedShelfPromptScope(target)} prompt=cleanup exact-confirm esc=keep landing`,
+	];
+}
+
 function createConfigWorkspaceBodyRows(
 	items: ConfigWorkspaceItem[],
 	selectedIndex: number,

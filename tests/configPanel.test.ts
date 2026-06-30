@@ -6,6 +6,7 @@ import {
 	createConfigManagedShelfFocusActionPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigManagedShelfCleanupBreadcrumbRows,
 	formatConfigManagedShelfFocusRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
@@ -313,6 +314,18 @@ describe("config TUI panel", () => {
 		expect(formatConfigManagedShelfPromptBreadcrumbRows("logs")).toEqual([
 			"CONFIG ORIGIN Config > Logs",
 			"scope=logs.profiles prompt=search enter=apply esc=keep landing",
+		]);
+	});
+
+	test("formats cleanup breadcrumbs for config-origin locked confirmations", () => {
+		expect(formatConfigManagedShelfCleanupBreadcrumbRows("routes")).toEqual([
+			"CONFIG ORIGIN Config > Routes",
+			"scope=routes.filters prompt=cleanup exact-confirm esc=keep landing",
+		]);
+
+		expect(formatConfigManagedShelfCleanupBreadcrumbRows("ports")).toEqual([
+			"CONFIG ORIGIN Config > Ports",
+			"scope=ports.filters prompt=cleanup exact-confirm esc=keep landing",
 		]);
 	});
 

@@ -242,6 +242,7 @@ import {
 	createConfigManagedShelfFocusActionPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
+	formatConfigManagedShelfCleanupBreadcrumbRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
 	formatConfigManagedShelfPromptBreadcrumbRows,
@@ -7874,6 +7875,9 @@ function ConnectionsWorkspace({
 			commandLine,
 			"connections",
 			filterPresets,
+			configShelfFocusTarget === "connections"
+				? formatConfigManagedShelfCleanupBreadcrumbRows("connections")
+				: [],
 		),
 	];
 	const baseRows = result
@@ -7980,7 +7984,14 @@ function PortsWorkspace({
 		commandLine.prompt === `${endpointFilterPromptPrefix}ports`
 			? formatConfigManagedShelfPromptBreadcrumbRows("ports")
 			: []),
-		...formatEndpointFilterPromptRows(commandLine, "ports", filterPresets),
+		...formatEndpointFilterPromptRows(
+			commandLine,
+			"ports",
+			filterPresets,
+			configShelfFocusTarget === "ports"
+				? formatConfigManagedShelfCleanupBreadcrumbRows("ports")
+				: [],
+		),
 		...processControlPromptRows,
 	];
 	const baseRows = result
@@ -8084,6 +8095,9 @@ function RoutesWorkspace({
 						commandLine.prompt === "route-filter-cleanup" &&
 						cleanupPreview
 					? [
+							...(configShelfFocusTarget === "routes"
+								? formatConfigManagedShelfCleanupBreadcrumbRows("routes")
+								: []),
 							...cleanupPreview.rows,
 							`:routes-cleanup ${commandLine.value || " "}  type="${cleanupPreview.confirmationPhrase}" enter=clear esc=cancel`,
 						]
@@ -8223,6 +8237,7 @@ function formatEndpointFilterPromptRows(
 	commandLine: CommandLineState,
 	kind: "connections" | "ports",
 	presets: string[] = [],
+	cleanupBreadcrumbRows: string[] = [],
 ): string[] {
 	if (!commandLine.active) {
 		return [];
@@ -8239,6 +8254,7 @@ function formatEndpointFilterPromptRows(
 			return [];
 		}
 		return [
+			...cleanupBreadcrumbRows,
 			...preview.rows,
 			`:filter-cleanup ${commandLine.value || " "}  type="${preview.confirmationPhrase}" enter=clear esc=cancel`,
 		];
@@ -9612,6 +9628,9 @@ function LogWorkspace({
 					commandLine.prompt === "logs-cleanup" &&
 					cleanupPreview
 				? [
+						...(configShelfFocusTarget === "logs"
+							? formatConfigManagedShelfCleanupBreadcrumbRows("logs")
+							: []),
 						...cleanupPreview.rows,
 						`:logs-cleanup ${commandLine.value || " "}  type="${cleanupPreview.confirmationPhrase}" enter=clear esc=cancel`,
 					]

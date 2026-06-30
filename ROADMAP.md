@@ -2341,6 +2341,20 @@ Goal: keep Config shelf origin visible while operators edit destination filters 
 - Tests cover Config prompt breadcrumb formatting.
 - Next: extend the same breadcrumb model to cleanup confirmations and external handoff dialogs so destructive/locked flows keep their origin path visible.
 
+## v0.4.113 - Config Cleanup Breadcrumbs
+
+Status: draft PR #175 on `codex/picos-v0.4.113-config-cleanup-breadcrumbs`.
+
+Goal: keep Config shelf origin visible inside exact-confirm cleanup flows.
+
+- Config now formats reusable cleanup breadcrumb rows for managed shelf destinations.
+- Routes cleanup confirmation prompts show the Config origin path and `scope=routes.filters prompt=cleanup exact-confirm`.
+- Connections and Ports cleanup confirmation prompts show matching endpoint shelf origin and scope rows.
+- Logs cleanup confirmation prompts show Config origin and `scope=logs.profiles` before the locked cleanup preview.
+- The cleanup breadcrumb rows reuse the same visual classification as prompt breadcrumbs, keeping origin rows cyan and scope/action rows yellow.
+- Tests cover Config cleanup breadcrumb formatting.
+- Next: extend origin breadcrumbs to external handoff and locked file-open dialogs so exported evidence and destructive-adjacent flows keep their source path.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
