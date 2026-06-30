@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { ConsoleEvent } from "../src/tui/events";
 import {
+	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
 	nextTimelineFilter,
 	nextTimelineSearchPreset,
 	saveTimelineSearchPreset,
+	submitTimelineSearchCleanupConfirmation,
 	type TimelineFilter,
 } from "../src/tui/timelinePanel";
 
@@ -77,7 +79,7 @@ describe("timeline TUI panel formatting", () => {
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
 			"[12:00:05] INFO raw    raw.view queued for adapter implementation",
 			'[12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
-			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -87,7 +89,7 @@ describe("timeline TUI panel formatting", () => {
 			"TIMELINE",
 			"[12:00:03] WARN audit  clipboard locked selected port via xclip",
 			'[12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
-			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -107,7 +109,7 @@ describe("timeline TUI panel formatting", () => {
 				"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
 				"TIMELINE",
 				'[12:00:07] WARN audit  control confirmation dns.flush status=confirmed-disabled risk=write privilege=admin dryRun=true executionEnabled=false adapter=macos command="sudo dscacheutil -flushcache"',
-				"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+				"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 			],
 		);
 	});
@@ -127,7 +129,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
 			"TIMELINE",
 			'[12:00:08] WARN audit  control simulation dns.flush status=blocked-by-policy policy=mutation-disabled approval=required confirmed=true executionEnabled=false blockers=disabled-by-default,mutation-approval-required,admin-approval-required,execution-disabled adapter=macos command="sudo dscacheutil -flushcache"',
-			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -146,7 +148,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
 			"TIMELINE",
 			'[12:00:09] WARN audit  control execution dns.flush status=dry-run-executed policy=dry-run confirmed=true dryRun=true willExecute=true adapter=windows command="powershell -NoProfile -Command Clear-DnsClientCache -WhatIf"',
-			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -155,7 +157,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/7 network=1 audit=2 action=3 raw=1 filter=network",
 			"TIMELINE",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
-			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -173,7 +175,7 @@ describe("timeline TUI panel formatting", () => {
 			"TIMELINE",
 			"[12:00:01] RUN  action network.inspect started",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
-			"FILTERS t cycle · f search · P save · ] preset · timeline.export writes audit file",
+			"FILTERS t cycle · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 		expect(saveTimelineSearchPreset([], " network ")).toEqual(["network"]);
 		expect(saveTimelineSearchPreset(["audit", "network"], "audit")).toEqual([
@@ -185,5 +187,51 @@ describe("timeline TUI panel formatting", () => {
 			"audit",
 		);
 		expect(nextTimelineSearchPreset([], "network")).toBeUndefined();
+	});
+
+	test("requires exact confirmation before clearing timeline search presets", () => {
+		const presets = ["network", "clipboard"];
+		const preview = createTimelineSearchCleanupPreview(presets);
+
+		expect(preview).toEqual({
+			count: 2,
+			confirmationPhrase: "clear timeline",
+			cleanup: {
+				id: "timeline.searches",
+				label: "Timeline search presets",
+				scope: "timeline",
+				count: 2,
+				verb: "clear",
+				confirmationPhrase: "clear timeline",
+				rows: [
+					"CONFIG CLEANUP",
+					"target=Timeline search presets",
+					"scope=timeline count=2",
+					"confirm clear timeline locked",
+				],
+			},
+			rows: [
+				"TIMELINE SEARCH CLEANUP",
+				"presets=2",
+				"confirm clear timeline locked",
+			],
+		});
+		expect(
+			submitTimelineSearchCleanupConfirmation(presets, "clear timelines"),
+		).toEqual({
+			confirmed: false,
+			message: "timeline search cleanup rejected",
+			presets,
+			removed: 0,
+		});
+		expect(
+			submitTimelineSearchCleanupConfirmation(presets, " clear timeline "),
+		).toEqual({
+			confirmed: true,
+			message: "timeline search cleanup removed 2 presets",
+			presets: [],
+			removed: 2,
+		});
+		expect(createTimelineSearchCleanupPreview([])).toBeUndefined();
 	});
 });

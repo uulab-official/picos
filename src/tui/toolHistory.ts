@@ -55,6 +55,20 @@ export type ToolTargetCleanupConfirmation = {
 	message: string;
 };
 
+export type ToolHistoryCleanupPreview = {
+	count: number;
+	confirmationPhrase: string;
+	rows: string[];
+	cleanup: ConfigCleanupPreview;
+};
+
+export type ToolHistoryCleanupConfirmation = {
+	confirmed: boolean;
+	removed: number;
+	presets: string[];
+	message: string;
+};
+
 export { normalizeToolTargetPresets };
 
 const toolRunActionAliases: Record<string, ToolRunActionId> = {
@@ -320,7 +334,7 @@ export function formatToolsWorkspaceRows(
 		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${targetPresets.length ? ` targets=${targetPresets.length} active=${activeTargetPreset?.label}:${activeTargetPreset?.target}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...targetRows,
 		...visibleBodyRows,
-		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · c raw",
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -429,6 +443,65 @@ export function saveToolHistoryPreset(
 		normalized,
 		...presets.filter((preset) => preset !== normalized),
 	].slice(0, limit);
+}
+
+export function createToolHistoryCleanupPreview(
+	presets: string[],
+): ToolHistoryCleanupPreview | undefined {
+	const normalized = presets.map((preset) => preset.trim()).filter(Boolean);
+	if (!normalized.length) {
+		return undefined;
+	}
+	const cleanup = createConfigCleanupPreview({
+		id: "tools.history.filters",
+		label: "Tools history filter presets",
+		scope: "tools history",
+		count: normalized.length,
+		verb: "clear",
+	});
+	return {
+		count: normalized.length,
+		confirmationPhrase: cleanup.confirmationPhrase,
+		rows: [
+			"TOOLS HISTORY CLEANUP",
+			`filter-presets=${normalized.length}`,
+			`confirm ${cleanup.confirmationPhrase} locked`,
+		],
+		cleanup,
+	};
+}
+
+export function submitToolHistoryCleanupConfirmation(
+	presets: string[],
+	confirmation: string,
+): ToolHistoryCleanupConfirmation {
+	const preview = createToolHistoryCleanupPreview(presets);
+	if (!preview) {
+		return {
+			confirmed: false,
+			removed: 0,
+			presets,
+			message: "tool history filter cleanup unavailable",
+		};
+	}
+	const cleanupConfirmation = submitConfigCleanupConfirmation(
+		preview.cleanup,
+		confirmation,
+	);
+	if (!cleanupConfirmation.confirmed) {
+		return {
+			confirmed: false,
+			removed: 0,
+			presets,
+			message: "tool history filter cleanup rejected",
+		};
+	}
+	return {
+		confirmed: true,
+		removed: preview.count,
+		presets: [],
+		message: `tool history filter cleanup removed ${preview.count} presets`,
+	};
 }
 
 export function saveToolTargetPreset(
