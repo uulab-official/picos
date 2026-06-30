@@ -2,7 +2,10 @@ import { extname, join, relative, resolve } from "node:path";
 import { safeExec } from "../utils/safeExec";
 import type { SafeExecResult, SupportedPlatform } from "./types";
 
-export type FileOpenSource = "route-handoff" | "endpoint-handoff";
+export type FileOpenSource =
+	| "route-handoff"
+	| "endpoint-handoff"
+	| "cleanup-export";
 
 export type FileOpenAdapter = {
 	platform: SupportedPlatform;
@@ -158,7 +161,8 @@ function isAllowedHandoffPath(baseDir: string, path: string): boolean {
 	const target = resolve(path);
 	return (
 		isAllowedHandoffPathIn(resolve(join(baseDir, "routes")), target) ||
-		isAllowedHandoffPathIn(resolve(join(baseDir, "endpoints")), target)
+		isAllowedHandoffPathIn(resolve(join(baseDir, "endpoints")), target) ||
+		isAllowedHandoffPathIn(resolve(join(baseDir, "cleanup")), target)
 	);
 }
 
