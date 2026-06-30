@@ -1458,6 +1458,19 @@ Goal: let operators decide how many saved Tools Hub targets belong in their loca
 - Tests cover default config, config set coercion, invalid lower bounds, oversized clamping, and persisted target trimming.
 - Next: bulk target preset cleanup controls.
 
+## v0.4.46 - Tools Target Preset Bulk Cleanup
+
+Status: draft PR #108.
+
+Goal: make saved Tools Hub target shelves easy to prune when an operator has accumulated many entries for one diagnostic action.
+
+- Tools workspace now supports `D` to remove every saved target preset using the selected saved action.
+- Bulk cleanup refuses OS-aware generated presets unless the selected action/target pair is actually saved.
+- The helper normalizes saved presets before matching and returns stable remaining preset order.
+- The target preset header, shortcut footer, README, and changelog now expose the bulk cleanup control.
+- Tests cover action-level removal, generated-preset refusal, and empty selection no-op behavior.
+- Next: explicit confirmation dialogs for larger config cleanups.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
