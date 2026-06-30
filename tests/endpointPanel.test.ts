@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
 	formatConnectionsWorkspaceRows,
 	formatPortsWorkspaceRows,
+	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
+	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
 } from "../src/tui/endpointPanel";
 
@@ -101,7 +103,7 @@ describe("endpoint TUI panel formatting", () => {
 				],
 				rawOutput: "$ netstat -an\nraw",
 			},
-			12,
+			14,
 			{
 				copyPreview: true,
 				selectedIndex: 1,
@@ -115,11 +117,63 @@ describe("endpoint TUI panel formatting", () => {
 		expect(rows).toContain("local 192.168.0.20:61000");
 		expect(rows).toContain("remote 142.250.207.14:443");
 		expect(rows).toContain("state SYN_SENT pid=4242");
-		expect(rows).toContain(
-			"COPY PREVIEW 192.168.0.20:61000 -> 142.250.207.14:443",
-		);
+		expect(rows).toContain("CLIPBOARD PREVIEW connection");
+		expect(rows).toContain("copy 192.168.0.20:61000 -> 142.250.207.14:443");
+		expect(rows).toContain("confirm copy locked");
 	});
 
+	test("creates selected connection clipboard previews", () => {
+		expect(
+			getSelectedConnectionClipboardPreview(
+				[
+					{
+						protocol: "tcp4",
+						localAddress: "192.168.0.20",
+						localPort: "61000",
+						remoteAddress: "142.250.207.14",
+						remotePort: "443",
+						state: "SYN_SENT",
+						pid: "4242",
+					},
+				],
+				0,
+			),
+		).toEqual({
+			source: "connection",
+			label: "selected connection",
+			copyText: "192.168.0.20:61000 -> 142.250.207.14:443",
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(getSelectedConnectionClipboardPreview([], 0)).toBeUndefined();
+	});
+
+	test("creates selected port clipboard previews", () => {
+		expect(
+			getSelectedPortClipboardPreview(
+				[
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "12345",
+						command: "node",
+						user: "alice",
+					},
+				],
+				0,
+			),
+		).toEqual({
+			source: "port",
+			label: "selected port",
+			copyText: "*:3000 node pid=12345",
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(getSelectedPortClipboardPreview([], 0)).toBeUndefined();
+	});
 	test("enriches selected connection details with matching process snapshot", () => {
 		const rows = formatConnectionsWorkspaceRows(
 			{
@@ -138,7 +192,7 @@ describe("endpoint TUI panel formatting", () => {
 				],
 				rawOutput: "$ netstat -anv\nraw",
 			},
-			12,
+			14,
 			{
 				processes: [
 					{
@@ -281,7 +335,7 @@ describe("endpoint TUI panel formatting", () => {
 				],
 				rawOutput: "$ lsof\nraw",
 			},
-			12,
+			14,
 			{
 				copyPreview: true,
 				selectedIndex: 0,
@@ -294,7 +348,9 @@ describe("endpoint TUI panel formatting", () => {
 		expect(rows).toContain("DETAIL port 1/2");
 		expect(rows).toContain("listen *:3000");
 		expect(rows).toContain("process node pid=12345 user=alice");
-		expect(rows).toContain("COPY PREVIEW *:3000 node pid=12345");
+		expect(rows).toContain("CLIPBOARD PREVIEW port");
+		expect(rows).toContain("copy *:3000 node pid=12345");
+		expect(rows).toContain("confirm copy locked");
 	});
 
 	test("enriches selected port details with matching process snapshot", () => {

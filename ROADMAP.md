@@ -477,6 +477,18 @@ Goal: make process resource inspection distinguish files from sockets, pipes, an
 - Selecting a non-file process resource with `enter` logs an inspectable summary instead of a vague path error.
 - Next: confirmed copy-to-clipboard for selected endpoint/process resource summaries.
 
+## v0.3.34 - Clipboard Preview Model
+
+Status: draft PR #35.
+
+Goal: make selected endpoint and process resource summaries copy-ready without silently mutating the clipboard.
+
+- Shared clipboard preview model records source, label, copy text, confirmation phrase, and locked state.
+- Connections and Ports copy preview rows now use the shared confirmation model.
+- Processes workspace supports `c` for selected cwd/file/socket/pipe/unix resource clipboard previews.
+- Clipboard writes remain locked until explicit confirmation plumbing is implemented.
+- Next: platform clipboard adapters behind confirm and audit logging.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -484,7 +496,7 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
-- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, copy previews, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, and process resource classification landed; next confirmed clipboard integration for selected summaries.
+- Connections and Ports: parsed rows, raw output, CLI filtering/sorting, TUI sort cycling, selection details, shared locked clipboard previews, PID process enrichment, `picos process <pid>` drill-down, `--files` cwd/open-file snapshots, TUI process handoff, labeled process files, process-to-files handoff, and process resource classification landed; next confirmed clipboard adapters with audit logging.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: address/status/public-IP changes and local export.
 - Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.
