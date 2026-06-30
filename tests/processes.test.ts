@@ -148,11 +148,13 @@ describe("process inventory", () => {
 				{
 					descriptor: "txt",
 					label: "executable",
+					resourceKind: "file",
 					path: "/usr/local/bin/bun",
 				},
 				{
 					descriptor: "1",
 					label: "fd",
+					resourceKind: "file",
 					path: "/Users/bonjin/Documents/workspace/uulab/picos/README.md",
 				},
 			],
@@ -181,17 +183,61 @@ describe("process inventory", () => {
 			{
 				descriptor: "txt",
 				label: "executable",
+				resourceKind: "file",
 				path: "/usr/local/bin/bun",
 			},
 			{
 				descriptor: "mem",
 				label: "mapped",
+				resourceKind: "file",
 				path: "/usr/lib/libSystem.B.dylib",
 			},
 			{
 				descriptor: "1",
 				label: "fd",
+				resourceKind: "file",
 				path: "/Users/bonjin/Documents/workspace/uulab/picos/picos.log",
+			},
+		]);
+	});
+
+	test("classifies lsof sockets pipes and unix resources separately from files", () => {
+		const output = [
+			"p12345",
+			"f3",
+			"nTCP 127.0.0.1:3000->127.0.0.1:52000 (ESTABLISHED)",
+			"f4",
+			"npipe",
+			"f5",
+			"n/var/run/docker.sock",
+			"f6",
+			"nunix 0x123456789",
+		].join("\n");
+
+		expect(parseLsofProcessFiles(output, 10)?.fileEntries).toEqual([
+			{
+				descriptor: "3",
+				label: "socket",
+				resourceKind: "socket",
+				path: "TCP 127.0.0.1:3000->127.0.0.1:52000 (ESTABLISHED)",
+			},
+			{
+				descriptor: "4",
+				label: "pipe",
+				resourceKind: "pipe",
+				path: "pipe",
+			},
+			{
+				descriptor: "5",
+				label: "socket-file",
+				resourceKind: "file",
+				path: "/var/run/docker.sock",
+			},
+			{
+				descriptor: "6",
+				label: "unix",
+				resourceKind: "unix",
+				path: "unix 0x123456789",
 			},
 		]);
 	});
@@ -204,6 +250,7 @@ describe("process inventory", () => {
 				{
 					descriptor: "txt",
 					label: "executable",
+					resourceKind: "file",
 					path: "/usr/local/bin/bun",
 				},
 			],

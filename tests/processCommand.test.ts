@@ -66,6 +66,7 @@ describe("process CLI command", () => {
 						{
 							descriptor: "txt",
 							label: "executable",
+							resourceKind: "file",
 							path: "/usr/local/bin/bun",
 						},
 					],

@@ -121,6 +121,7 @@ import {
 	formatProcessWorkspaceRows,
 	getProcessFileSelectionCount,
 	getSelectedProcessFileRequest,
+	getSelectedProcessResourceRequest,
 } from "./processPanel";
 import { formatRoutePathRows, formatRouteWorkspaceRows } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
@@ -503,7 +504,15 @@ export function App(): React.ReactElement {
 			selectedProcessFileIndex,
 		);
 		if (!request) {
-			log("warn", "selected process file is not a local filesystem path");
+			const resource = getSelectedProcessResourceRequest(
+				selectedProcessFiles,
+				selectedProcessFileIndex,
+			);
+			if (resource) {
+				log("info", `process resource ${resource.summary}`);
+				return;
+			}
+			log("warn", "selected process file is not openable");
 			return;
 		}
 
