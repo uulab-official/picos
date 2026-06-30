@@ -470,6 +470,18 @@ export function formatConfigManagedShelfHandoffRows(
 	];
 }
 
+export function formatConfigManagedShelfLandingRows(
+	target: ConfigManagedShelfTarget,
+): string[] {
+	const handoff = getConfigManagedShelfHandoff(target);
+	return [
+		"CONFIG SHELF LANDING",
+		`source=config target=${handoff.target} workspace=${handoff.label}`,
+		`scope=${getConfigManagedShelfScopeHint(handoff.target)}`,
+		"next=review shelf controls  esc=clear landing",
+	];
+}
+
 function createConfigWorkspaceBodyRows(
 	items: ConfigWorkspaceItem[],
 	selectedIndex: number,
@@ -545,6 +557,30 @@ function getConfigSectionActionHint(
 		return "+/- adjust retention limits, R exact reset";
 	}
 	return "enter edit defaultPingHost, R exact reset";
+}
+
+function getConfigManagedShelfScopeHint(
+	target: ConfigManagedShelfTarget,
+): string {
+	if (target === "network") {
+		return "default host, public IP display, interface status";
+	}
+	if (target === "routes") {
+		return "route filters, raw route evidence, path lookup";
+	}
+	if (target === "connections") {
+		return "connection filters, sorting, PID handoffs";
+	}
+	if (target === "ports") {
+		return "port filters, sorting, process-control posture";
+	}
+	if (target === "tools") {
+		return "saved targets, history filters, grouping, detail view";
+	}
+	if (target === "logs") {
+		return "log profiles, search presets, live follow";
+	}
+	return "SFTP profiles, provider boundary, locked file context";
 }
 
 function formatConfigSafetyPosture(items: ConfigWorkspaceItem[]): string {

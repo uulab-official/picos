@@ -6,6 +6,7 @@ import {
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfHandoffRows,
+	formatConfigManagedShelfLandingRows,
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
@@ -209,6 +210,13 @@ describe("config TUI panel", () => {
 			"CONFIG SHELF HANDOFF",
 			"target=tools workspace=Tools",
 			"enter jump=tools  g/G cycle shelf",
+		]);
+
+		expect(formatConfigManagedShelfLandingRows("tools")).toEqual([
+			"CONFIG SHELF LANDING",
+			"source=config target=tools workspace=Tools",
+			"scope=saved targets, history filters, grouping, detail view",
+			"next=review shelf controls  esc=clear landing",
 		]);
 	});
 
