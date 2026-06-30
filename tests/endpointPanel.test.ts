@@ -867,6 +867,78 @@ describe("endpoint TUI panel formatting", () => {
 		).toContain("fileEvidence status=stale selectedPid=777 cachedPid=778");
 	});
 
+	test("marks unavailable port inspector file evidence lookup results", () => {
+		const preview = createSelectedPortProcessControlPreview(
+			[
+				{
+					protocol: "tcp",
+					localAddress: "127.0.0.1",
+					localPort: "5173",
+					pid: "777",
+					command: "vite",
+					user: "alice",
+				},
+			],
+			0,
+		);
+		if (!preview) {
+			throw new Error("expected port process control preview");
+		}
+
+		expect(
+			formatPortProcessControlInspectorRows(
+				preview,
+				{
+					adapter: "linux",
+					command: "kill",
+					args: ["-TERM", "<pid>"],
+					note: "terminate a selected user-owned process",
+				},
+				undefined,
+				undefined,
+				{ status: "unavailable", pid: "777", reason: "no snapshot returned" },
+			),
+		).toContain(
+			"fileEvidence status=unavailable pid=777 reason=no snapshot returned",
+		);
+	});
+
+	test("marks failed port inspector file evidence lookups", () => {
+		const preview = createSelectedPortProcessControlPreview(
+			[
+				{
+					protocol: "tcp",
+					localAddress: "127.0.0.1",
+					localPort: "5173",
+					pid: "777",
+					command: "vite",
+					user: "alice",
+				},
+			],
+			0,
+		);
+		if (!preview) {
+			throw new Error("expected port process control preview");
+		}
+
+		expect(
+			formatPortProcessControlInspectorRows(
+				preview,
+				{
+					adapter: "linux",
+					command: "kill",
+					args: ["-TERM", "<pid>"],
+					note: "terminate a selected user-owned process",
+				},
+				undefined,
+				undefined,
+				{ status: "error", pid: "777", reason: "lsof permission denied" },
+			),
+		).toContain(
+			"fileEvidence status=error pid=777 reason=lsof permission denied",
+		);
+	});
+
 	test("formats selected port process control previews in the detail pane", () => {
 		const rows = formatPortsWorkspaceRows(
 			{
