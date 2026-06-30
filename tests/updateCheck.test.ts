@@ -5,10 +5,12 @@ import {
 	runControlExecutionPlan,
 } from "../src/core/controlExecution";
 import {
+	checkForGitHubReleaseUpdate,
 	checkForPackageUpdate,
 	createUpdateApplyActionPreviewPlan,
 	createUpdateApplyPreview,
 	createUpdateReleaseHandoff,
+	formatGitHubReleaseCheckRows,
 	formatUpdateApplyPreviewRows,
 	formatUpdateCheckRows,
 	formatUpdateReleaseHandoffRows,
@@ -17,6 +19,63 @@ import {
 } from "../src/core/updateCheck";
 
 describe("update check", () => {
+	test("reports the latest GitHub Release without downloading assets", async () => {
+		const result = await checkForGitHubReleaseUpdate({
+			owner: "uulab-official",
+			repo: "picos",
+			currentVersion: "0.2.0",
+			fetch: async () =>
+				new Response(
+					JSON.stringify({
+						tag_name: "v0.3.0",
+						name: "picos v0.3.0",
+						html_url:
+							"https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+					}),
+					{
+						status: 200,
+						headers: { "content-type": "application/json" },
+					},
+				),
+		});
+
+		expect(result).toEqual({
+			owner: "uulab-official",
+			repo: "picos",
+			currentVersion: "0.2.0",
+			latestVersion: "0.3.0",
+			tagName: "v0.3.0",
+			releaseName: "picos v0.3.0",
+			status: "update-available",
+			apiUrl:
+				"https://api.github.com/repos/uulab-official/picos/releases/latest",
+			releaseUrl: "https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+		});
+		expect(formatGitHubReleaseCheckRows(result)).toEqual([
+			"PICOS GITHUB RELEASE CHECK",
+			"repo=uulab-official/picos current=0.2.0 latest=0.3.0 tag=v0.3.0",
+			"name=picos v0.3.0",
+			"status=update-available",
+			"release=https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+			"api=https://api.github.com/repos/uulab-official/picos/releases/latest",
+		]);
+	});
+
+	test("keeps GitHub Release errors visible as read-only diagnostics", async () => {
+		const result = await checkForGitHubReleaseUpdate({
+			owner: "uulab-official",
+			repo: "picos",
+			currentVersion: "0.2.0",
+			fetch: async () => new Response("not found", { status: 404 }),
+		});
+
+		expect(result.status).toBe("unknown");
+		expect(result.error).toBe("GitHub API responded 404");
+		expect(formatGitHubReleaseCheckRows(result)).toContain(
+			"error=GitHub API responded 404",
+		);
+	});
+
 	test("reports an npm update without executing an installer", async () => {
 		const result = await checkForPackageUpdate({
 			packageName: "@uulab/picos",

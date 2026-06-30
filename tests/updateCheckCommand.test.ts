@@ -13,6 +13,15 @@ describe("update CLI command", () => {
 				packageName: "@uulab/picos",
 				currentVersion: "0.2.0",
 				fetch: async () => new Response(JSON.stringify({ version: "0.3.0" })),
+				releaseFetch: async () =>
+					new Response(
+						JSON.stringify({
+							tag_name: "v0.3.0",
+							name: "picos v0.3.0",
+							html_url:
+								"https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+						}),
+					),
 			});
 		} finally {
 			console.log = originalLog;
@@ -27,5 +36,10 @@ describe("update CLI command", () => {
 		expect(writes.join("\n")).toContain(
 			"github=https://github.com/uulab-official/picos/releases/tag/v0.3.0",
 		);
+		expect(writes.join("\n")).toContain("PICOS GITHUB RELEASE CHECK");
+		expect(writes.join("\n")).toContain(
+			"repo=uulab-official/picos current=0.2.0 latest=0.3.0 tag=v0.3.0",
+		);
+		expect(writes.join("\n")).toContain("name=picos v0.3.0");
 	});
 });

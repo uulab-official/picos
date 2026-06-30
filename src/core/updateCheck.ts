@@ -17,6 +17,19 @@ export type PackageUpdateCheckResult = {
 	error?: string;
 };
 
+export type GitHubReleaseCheckResult = {
+	owner: string;
+	repo: string;
+	currentVersion: string;
+	latestVersion?: string;
+	tagName?: string;
+	releaseName?: string;
+	status: UpdateCheckStatus;
+	apiUrl: string;
+	releaseUrl?: string;
+	error?: string;
+};
+
 export type UpdateApplyPreview = {
 	actionId: "picos.update.apply";
 	risk: "write";
@@ -57,6 +70,65 @@ export type PackageUpdateCheckOptions = {
 	fetch?: PackageUpdateFetch;
 };
 
+export type GitHubReleaseCheckOptions = {
+	owner: string;
+	repo: string;
+	currentVersion: string;
+	fetch?: PackageUpdateFetch;
+};
+
+export async function checkForGitHubReleaseUpdate({
+	owner,
+	repo,
+	currentVersion,
+	fetch: fetchImpl = fetch,
+}: GitHubReleaseCheckOptions): Promise<GitHubReleaseCheckResult> {
+	const apiUrl = createGitHubLatestReleaseUrl(owner, repo);
+
+	try {
+		const response = await fetchImpl(apiUrl, {
+			headers: { accept: "application/vnd.github+json" },
+		});
+		if (!response.ok) {
+			throw new Error(`GitHub API responded ${response.status}`);
+		}
+
+		const payload = (await response.json()) as {
+			tag_name?: unknown;
+			name?: unknown;
+			html_url?: unknown;
+		};
+		if (typeof payload.tag_name !== "string") {
+			throw new Error("GitHub release response did not include a tag");
+		}
+
+		const latestVersion = normalizeReleaseTag(payload.tag_name);
+		const updateAvailable = compareSemver(latestVersion, currentVersion) > 0;
+		return {
+			owner,
+			repo,
+			currentVersion,
+			latestVersion,
+			tagName: payload.tag_name,
+			releaseName:
+				typeof payload.name === "string" ? payload.name : payload.tag_name,
+			status: updateAvailable ? "update-available" : "up-to-date",
+			apiUrl,
+			releaseUrl:
+				typeof payload.html_url === "string" ? payload.html_url : undefined,
+		};
+	} catch (caught) {
+		return {
+			owner,
+			repo,
+			currentVersion,
+			status: "unknown",
+			apiUrl,
+			error: caught instanceof Error ? caught.message : String(caught),
+		};
+	}
+}
+
 export async function checkForPackageUpdate({
 	packageName,
 	currentVersion,
@@ -96,6 +168,20 @@ export async function checkForPackageUpdate({
 			error: caught instanceof Error ? caught.message : String(caught),
 		};
 	}
+}
+
+export function formatGitHubReleaseCheckRows(
+	result: GitHubReleaseCheckResult,
+): string[] {
+	return [
+		"PICOS GITHUB RELEASE CHECK",
+		`repo=${result.owner}/${result.repo} current=${result.currentVersion} latest=${result.latestVersion ?? "-"} tag=${result.tagName ?? "-"}`,
+		...(result.releaseName ? [`name=${result.releaseName}`] : []),
+		`status=${result.status}`,
+		...(result.releaseUrl ? [`release=${result.releaseUrl}`] : []),
+		...(result.error ? [`error=${result.error}`] : []),
+		`api=${result.apiUrl}`,
+	];
 }
 
 export function formatUpdateCheckRows(
@@ -218,6 +304,14 @@ export function getSelectedUpdateReleaseHandoffLink(
 function createNpmLatestUrl(packageName: string): string {
 	const encodedName = encodeURIComponent(packageName).replace("%40", "@");
 	return `https://registry.npmjs.org/${encodedName}/latest`;
+}
+
+function createGitHubLatestReleaseUrl(owner: string, repo: string): string {
+	return `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
+}
+
+function normalizeReleaseTag(tagName: string): string {
+	return tagName.replace(/^v/i, "");
 }
 
 function createUpdateApplyCommandPreview(
