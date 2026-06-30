@@ -144,7 +144,12 @@ import {
 	getSelectedProcessFileRequest,
 	getSelectedProcessResourceRequest,
 } from "./processPanel";
-import { formatRoutePathRows, formatRouteWorkspaceRows } from "./routePanel";
+import {
+	formatRoutePathRows,
+	formatRouteWorkspaceRows,
+	nextRouteDetailView,
+	type RouteDetailView,
+} from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	formatTimelineWorkspaceRows,
@@ -278,6 +283,8 @@ export function App(): React.ReactElement {
 		key: "default",
 		direction: "asc",
 	});
+	const [routeDetailView, setRouteDetailView] =
+		useState<RouteDetailView>("table");
 	const [toolHistory, setToolHistory] = useState<ToolHistoryItem[]>([]);
 	const [selectedToolHistoryIndex, setSelectedToolHistoryIndex] = useState(0);
 	const [toolCopyPreview, setToolCopyPreview] =
@@ -1232,6 +1239,15 @@ export function App(): React.ReactElement {
 			log("info", "route destination prompt opened");
 		}
 
+		if (screen === "routes" && focusArea === "workspaces" && key.tab) {
+			setRouteDetailView((current) => {
+				const next = nextRouteDetailView(current);
+				log("info", `route detail ${next}`);
+				return next;
+			});
+			return;
+		}
+
 		if (screen === "connections" && focusArea === "workspaces" && key.tab) {
 			setConnectionDetailView((current) => {
 				const next = nextEndpointDetailView(current);
@@ -1706,6 +1722,7 @@ export function App(): React.ReactElement {
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
+					routeDetailView={routeDetailView}
 					timelineFilter={timelineFilter}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
@@ -1854,6 +1871,7 @@ function MainWorkspace({
 	routeTable,
 	routePath,
 	routeSort,
+	routeDetailView,
 	timelineFilter,
 	toolHistory,
 	selectedToolHistoryIndex,
@@ -1908,6 +1926,7 @@ function MainWorkspace({
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
+	routeDetailView: RouteDetailView;
 	timelineFilter: TimelineFilter;
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
@@ -1971,6 +1990,7 @@ function MainWorkspace({
 					routeTable,
 					routePath,
 					routeSort,
+					routeDetailView,
 					timelineFilter,
 					toolHistory,
 					selectedToolHistoryIndex,
@@ -2029,6 +2049,7 @@ function renderWorkspace(
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
+	routeDetailView: RouteDetailView,
 	timelineFilter: TimelineFilter,
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
@@ -2144,6 +2165,7 @@ function renderWorkspace(
 				routeTable={routeTable}
 				routePath={routePath}
 				routeSort={routeSort}
+				routeDetailView={routeDetailView}
 				commandLine={commandLine}
 				visibleRows={Math.max(7, height - 7)}
 				t={t}
@@ -3178,6 +3200,7 @@ function RoutesWorkspace({
 	routeTable,
 	routePath,
 	routeSort,
+	routeDetailView,
 	commandLine,
 	visibleRows,
 	t,
@@ -3185,6 +3208,7 @@ function RoutesWorkspace({
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
+	routeDetailView: RouteDetailView;
 	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
@@ -3200,10 +3224,13 @@ function RoutesWorkspace({
 		? formatRouteWorkspaceRows(
 				routeTable,
 				Math.max(4, visibleRows - pathRows.length - promptRows.length),
-				{ sort: routeSort },
+				{ path: routePath, sort: routeSort, view: routeDetailView },
 			)
 		: ["loading route table..."];
-	const rows = [...tableRows, ...pathRows, ...promptRows].slice(0, visibleRows);
+	const rows =
+		routeDetailView === "table"
+			? [...tableRows, ...pathRows, ...promptRows].slice(0, visibleRows)
+			: [...tableRows, ...promptRows].slice(0, visibleRows);
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
 		const count = rowCounts.get(row) ?? 0;
@@ -3215,7 +3242,7 @@ function RoutesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
-				route table diagnostics · s sort · : path lookup · raw output
+				route table diagnostics · tab detail · s sort · : path lookup
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {
