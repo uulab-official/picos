@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Cleanup handoff history can now be exported from Status with `E`, writing a durable markdown audit file under the picos config `cleanup` directory.
 - Selected cleanup handoff history entries can now be reopened from Status with `R`, restoring the destination cleanup handoff without bypassing exact confirmation.
 - Cleanup handoff history now keeps a bounded selectable list in Status, with `[` cycling the selected entry.
 - Status workspace now shows the latest cleanup handoff history after a destination prompt is opened or dismissed.

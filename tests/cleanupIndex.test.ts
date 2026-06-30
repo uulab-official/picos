@@ -1,15 +1,20 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	appendCleanupHandoffHistory,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
+	createCleanupHandoffHistoryExportPlan,
 	createCleanupHandoffReopenPlan,
 	createCleanupJumpAudit,
 	createCleanupJumpAuditFromHistory,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
+	formatCleanupHandoffHistoryExport,
 	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
 	formatCleanupHandoffReopenRows,
@@ -20,6 +25,7 @@ import {
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
+	writeCleanupHandoffHistoryExport,
 } from "../src/tui/cleanupIndex";
 
 describe("cleanup shelf index", () => {
@@ -413,5 +419,107 @@ describe("cleanup shelf index", () => {
 		]);
 		expect(createCleanupHandoffReopenPlan(undefined)).toBeUndefined();
 		expect(formatCleanupHandoffReopenRows(undefined)).toEqual([]);
+	});
+
+	test("creates durable cleanup handoff history export plans", () => {
+		const index = createCleanupShelfIndex({
+			connectionFilterPresets: ["443"],
+			routeFilterPresets: ["default"],
+		});
+		const route = index.shelves.find((shelf) => shelf.id === "routes");
+		const connection = index.shelves.find(
+			(shelf) => shelf.id === "connections",
+		);
+
+		if (!route || !connection) {
+			throw new Error("expected cleanup shelves");
+		}
+
+		const histories = [
+			createCleanupHandoffHistory(createCleanupJumpAudit(route), "dismissed"),
+			createCleanupHandoffHistory(
+				createCleanupJumpAudit(connection),
+				"prompt-opened",
+			),
+		].reduce(
+			(current, history) => appendCleanupHandoffHistory(current, history),
+			[] as ReturnType<typeof createCleanupHandoffHistory>[],
+		);
+
+		expect(
+			createCleanupHandoffHistoryExportPlan(histories, 1, {
+				baseDir: "/Users/bonjin/.config/picos",
+				scope: "selected",
+				generatedAt: new Date("2026-07-01T01:00:00.000Z"),
+			}),
+		).toEqual({
+			path: "/Users/bonjin/.config/picos/cleanup/picos-cleanup-selected-2026-07-01T010000000Z.md",
+			content: [
+				"# picos cleanup handoff history",
+				"generatedAt=2026-07-01T01:00:00.000Z",
+				"scope=selected",
+				"entries=1",
+				"",
+				"## Route filters",
+				"outcome=dismissed",
+				"workspace=Routes screen=routes shortcut=D",
+				"confirm=clear routes count=1 detail=filters=1",
+				"",
+			].join("\n"),
+			itemCount: 1,
+			scope: "selected",
+		});
+		expect(
+			formatCleanupHandoffHistoryExport(histories, {
+				scope: "all",
+				generatedAt: "2026-07-01T01:00:00.000Z",
+			}),
+		).toContain("entries=2");
+		expect(
+			createCleanupHandoffHistoryExportPlan([], 0, {
+				baseDir: "/Users/bonjin/.config/picos",
+				scope: "all",
+			}),
+		).toBeUndefined();
+	});
+
+	test("writes cleanup handoff history export files", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-cleanup-export-"));
+		try {
+			const index = createCleanupShelfIndex({
+				portFilterPresets: ["3000"],
+			});
+			const shelf = getSelectedCleanupShelf(index, 0);
+
+			if (!shelf) {
+				throw new Error("expected cleanup shelf");
+			}
+
+			const plan = createCleanupHandoffHistoryExportPlan(
+				[
+					createCleanupHandoffHistory(
+						createCleanupJumpAudit(shelf),
+						"dismissed",
+					),
+				],
+				0,
+				{
+					baseDir: root,
+					scope: "all",
+					generatedAt: new Date("2026-07-01T01:00:00.000Z"),
+				},
+			);
+
+			if (!plan) {
+				throw new Error("expected cleanup history export plan");
+			}
+
+			const written = await writeCleanupHandoffHistoryExport(plan);
+
+			expect(written).toEqual(plan);
+			expect(await readFile(written.path, "utf8")).toContain("Port filters");
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
 	});
 });
