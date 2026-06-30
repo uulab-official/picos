@@ -24,6 +24,7 @@ import {
 	defaultControlExecutionPolicy,
 	formatControlExecutionRows,
 } from "../core/controlExecution";
+import type { FileOpenOrigin } from "../core/fileOpen";
 import {
 	filterListeningPorts,
 	formatPorts,
@@ -57,6 +58,7 @@ export type EndpointHandoffPlan = {
 	content: string;
 	label: string;
 	kind: EndpointHandoffKind;
+	origin?: FileOpenOrigin;
 	view: EndpointDetailView;
 };
 
@@ -527,6 +529,7 @@ export function createEndpointHandoffPlan(
 		baseDir: string;
 		filter?: string;
 		generatedAt?: Date;
+		origin?: FileOpenOrigin;
 		result: ConnectionsResult;
 		sort?: ConnectionSort;
 		view?: EndpointDetailView;
@@ -538,6 +541,7 @@ export function createEndpointHandoffPlan(
 		baseDir: string;
 		filter?: string;
 		generatedAt?: Date;
+		origin?: FileOpenOrigin;
 		result: PortsResult;
 		sort?: PortSort;
 		view?: EndpointDetailView;
@@ -549,6 +553,7 @@ export function createEndpointHandoffPlan(
 		baseDir: string;
 		filter?: string;
 		generatedAt?: Date;
+		origin?: FileOpenOrigin;
 		result: ConnectionsResult | PortsResult;
 		sort?: ConnectionSort | PortSort;
 		view?: EndpointDetailView;
@@ -574,11 +579,13 @@ export function createEndpointHandoffPlan(
 			filter: options.filter,
 			generatedAt: iso,
 			label,
+			origin: options.origin,
 			sort: options.sort,
 			view,
 		}),
 		label,
 		kind,
+		...(options.origin ? { origin: options.origin } : {}),
 		view,
 	};
 }
@@ -623,6 +630,7 @@ function formatEndpointHandoffMarkdown(
 		filter?: string;
 		generatedAt: string;
 		label: string;
+		origin?: FileOpenOrigin;
 		sort?: ConnectionSort | PortSort;
 		view: EndpointDetailView;
 	},
@@ -635,6 +643,7 @@ function formatEndpointHandoffMarkdown(
 		`view=${options.view}`,
 		`label=${options.label}`,
 		`command=${result.command} ${result.args.join(" ")}`.trim(),
+		...formatHandoffOriginMetadata(options.origin),
 		...(filter ? [`filter=${filter}`] : []),
 		...(options.sort
 			? [`sort=${options.sort.key} ${options.sort.direction}`]
@@ -645,6 +654,24 @@ function formatEndpointHandoffMarkdown(
 		"```",
 		"",
 	].join("\n");
+}
+
+function formatHandoffOriginMetadata(
+	origin: FileOpenOrigin | undefined,
+): string[] {
+	if (!origin) {
+		return [];
+	}
+	return [
+		`originKind=${sanitizeHandoffMetadata(origin.kind)}`,
+		`originTarget=${sanitizeHandoffMetadata(origin.target)}`,
+		`originLabel=${sanitizeHandoffMetadata(origin.label)}`,
+		`originScope=${sanitizeHandoffMetadata(origin.scope)}`,
+	];
+}
+
+function sanitizeHandoffMetadata(value: string): string {
+	return value.replaceAll(/\r?\n/g, " ").trim();
 }
 
 function getSelectedIndex(

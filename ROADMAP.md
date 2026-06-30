@@ -2381,6 +2381,20 @@ Goal: make locked evidence-opening dialogs carry their Config shelf origin as pa
 - Tests cover plan-owned origin rows, preview metadata, audit preservation, and Config shelf origin creation.
 - Next: write Config-origin metadata into exported evidence files and handoff indexes so reopened evidence can recover its settings source after restart.
 
+## v0.4.116 - Evidence Origin Indexes
+
+Status: draft PR #178 on `codex/picos-v0.4.116-evidence-origin-indexes`.
+
+Goal: persist Config shelf origin metadata into exported evidence files and recover it from the Status handoff index.
+
+- Route and endpoint handoff plans now accept Config-origin metadata and write it into exported markdown evidence.
+- Handoff index parsing restores Config-origin metadata from route and endpoint evidence files.
+- Status handoff rows show recovered Config origin and scope for indexed evidence.
+- Opening indexed handoff evidence now prefers the recovered origin metadata when building the locked file-open plan.
+- Direct route/endpoint exports still snapshot the active Config shelf origin before moving into Status.
+- Tests cover route export metadata, endpoint export metadata, handoff index restoration, and Status row origin hints.
+- Next: extend the same durable origin metadata to Timeline and cleanup export indexes.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

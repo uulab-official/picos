@@ -1,6 +1,6 @@
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import type { FileOpenSource } from "./fileOpen";
+import type { FileOpenOrigin, FileOpenSource } from "./fileOpen";
 
 export type HandoffIndexKind = "routes" | "connections" | "ports";
 
@@ -11,6 +11,7 @@ export type HandoffIndexItem = {
 	label: string;
 	command: string;
 	generatedAt: string;
+	origin?: FileOpenOrigin;
 	path: string;
 };
 
@@ -76,7 +77,10 @@ export function formatHandoffIndexRows(
 					item.view,
 					item.generatedAt,
 					item.label,
-				].join(" "),
+					formatHandoffIndexOrigin(item.origin),
+				]
+					.filter(Boolean)
+					.join(" "),
 			),
 		...selectedTargets,
 	].slice(0, visibleRows);
@@ -186,6 +190,7 @@ async function parseHandoffFile(
 		return undefined;
 	}
 	const kind = parseKind(source, metadata.kind);
+	const origin = parseOrigin(metadata);
 	return {
 		source,
 		kind,
@@ -193,6 +198,7 @@ async function parseHandoffFile(
 		label: metadata.label ?? basename(path),
 		command: metadata.command ?? "-",
 		generatedAt,
+		...(origin ? { origin } : {}),
 		path,
 	};
 }
@@ -216,6 +222,28 @@ function parseKind(
 		return "routes";
 	}
 	return value === "ports" ? "ports" : "connections";
+}
+
+function parseOrigin(
+	metadata: Record<string, string>,
+): FileOpenOrigin | undefined {
+	if (metadata.originKind !== "config-shelf") {
+		return undefined;
+	}
+	const { originTarget, originLabel, originScope } = metadata;
+	if (!originTarget || !originLabel || !originScope) {
+		return undefined;
+	}
+	return {
+		kind: "config-shelf",
+		target: originTarget,
+		label: originLabel,
+		scope: originScope,
+	};
+}
+
+function formatHandoffIndexOrigin(origin: FileOpenOrigin | undefined): string {
+	return origin ? `origin=Config>${origin.label} scope=${origin.scope}` : "";
 }
 
 function generatedAtFromFilename(path: string): string | undefined {
