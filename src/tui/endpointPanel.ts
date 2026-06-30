@@ -14,16 +14,27 @@ import {
 export function formatConnectionsWorkspaceRows(
 	result: ConnectionsResult,
 	visibleRows: number,
-	options: { filter?: string; sort?: ConnectionSort } = {},
+	options: {
+		copyPreview?: boolean;
+		filter?: string;
+		selectedIndex?: number;
+		sort?: ConnectionSort;
+	} = {},
 ): string[] {
 	const filtered = filterConnections(result.connections, options.filter);
 	const sorted = sortConnections(filtered, options.sort);
+	const selectedIndex = getSelectedIndex(sorted.length, options.selectedIndex);
+	const selectedConnection =
+		selectedIndex === undefined ? undefined : sorted[selectedIndex];
 	const established = filtered.filter(
 		(connection) => connection.state === "ESTABLISHED",
 	).length;
-	const endpointRows = sorted.map(
-		(connection) =>
+	const endpointRows = sorted.map((connection, index) =>
+		withSelectionMarker(
 			`${connection.protocol.padEnd(6)} ${clip(`${connection.localAddress}:${connection.localPort}`, 24).padEnd(24)} ${clip(`${connection.remoteAddress}:${connection.remotePort}`, 24).padEnd(24)} ${connection.state ?? "-"}`,
+			index,
+			selectedIndex,
+		),
 	);
 	const rows = [
 		[
@@ -40,6 +51,12 @@ export function formatConnectionsWorkspaceRows(
 		...(endpointRows.length
 			? endpointRows
 			: ["no active connections detected"]),
+		...formatConnectionDetailRows(
+			selectedConnection,
+			selectedIndex,
+			sorted.length,
+			options.copyPreview ?? false,
+		),
 		"RAW OUTPUT",
 		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
 	];
@@ -49,13 +66,24 @@ export function formatConnectionsWorkspaceRows(
 export function formatPortsWorkspaceRows(
 	result: PortsResult,
 	visibleRows: number,
-	options: { filter?: string; sort?: PortSort } = {},
+	options: {
+		copyPreview?: boolean;
+		filter?: string;
+		selectedIndex?: number;
+		sort?: PortSort;
+	} = {},
 ): string[] {
 	const filtered = filterListeningPorts(result.ports, options.filter);
 	const sorted = sortListeningPorts(filtered, options.sort);
-	const portRows = sorted.map(
-		(port) =>
+	const selectedIndex = getSelectedIndex(sorted.length, options.selectedIndex);
+	const selectedPort =
+		selectedIndex === undefined ? undefined : sorted[selectedIndex];
+	const portRows = sorted.map((port, index) =>
+		withSelectionMarker(
 			`${port.protocol.padEnd(6)} ${clip(`${port.localAddress}:${port.localPort}`, 24).padEnd(24)} ${clip(port.command, 18).padEnd(18)} ${port.pid.padEnd(7)} ${clip(port.user, 12)}`,
+			index,
+			selectedIndex,
+		),
 	);
 	const rows = [
 		[
@@ -69,10 +97,76 @@ export function formatPortsWorkspaceRows(
 			.trim(),
 		"LISTENING",
 		...(portRows.length ? portRows : ["no listening ports detected"]),
+		...formatPortDetailRows(
+			selectedPort,
+			selectedIndex,
+			sorted.length,
+			options.copyPreview ?? false,
+		),
 		"RAW OUTPUT",
 		...formatRawOutputRows(result.rawOutput, Math.max(0, visibleRows - 4)),
 	];
 	return fitRows(rows, visibleRows, "ports");
+}
+
+function getSelectedIndex(
+	total: number,
+	selectedIndex: number | undefined,
+): number | undefined {
+	if (selectedIndex === undefined || total <= 0) {
+		return undefined;
+	}
+	return Math.min(Math.max(selectedIndex, 0), total - 1);
+}
+
+function withSelectionMarker(
+	row: string,
+	index: number,
+	selectedIndex: number | undefined,
+): string {
+	if (selectedIndex === undefined) {
+		return row;
+	}
+	return `${index === selectedIndex ? ">" : " "} ${row}`;
+}
+
+function formatConnectionDetailRows(
+	connection: ConnectionsResult["connections"][number] | undefined,
+	selectedIndex: number | undefined,
+	total: number,
+	copyPreview: boolean,
+): string[] {
+	if (!connection || selectedIndex === undefined) {
+		return [];
+	}
+	const endpoint = `${connection.localAddress}:${connection.localPort} -> ${connection.remoteAddress}:${connection.remotePort}`;
+	return [
+		`DETAIL connection ${selectedIndex + 1}/${total}`,
+		`local ${connection.localAddress}:${connection.localPort}`,
+		`remote ${connection.remoteAddress}:${connection.remotePort}`,
+		`state ${connection.state ?? "-"}${connection.pid ? ` pid=${connection.pid}` : ""}`,
+		...(copyPreview ? [`COPY PREVIEW ${endpoint}`] : []),
+	];
+}
+
+function formatPortDetailRows(
+	port: PortsResult["ports"][number] | undefined,
+	selectedIndex: number | undefined,
+	total: number,
+	copyPreview: boolean,
+): string[] {
+	if (!port || selectedIndex === undefined) {
+		return [];
+	}
+	const endpoint = `${port.localAddress}:${port.localPort}`;
+	return [
+		`DETAIL port ${selectedIndex + 1}/${total}`,
+		`listen ${endpoint}`,
+		`process ${port.command} pid=${port.pid} user=${port.user}`,
+		...(copyPreview
+			? [`COPY PREVIEW ${endpoint} ${port.command} pid=${port.pid}`]
+			: []),
+	];
 }
 
 function countLabel(visible: number, total: number): string {

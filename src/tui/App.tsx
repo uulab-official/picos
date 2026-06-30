@@ -181,6 +181,10 @@ export function App(): React.ReactElement {
 		key: "port",
 		direction: "asc",
 	});
+	const [selectedConnectionIndex, setSelectedConnectionIndex] = useState(0);
+	const [selectedPortIndex, setSelectedPortIndex] = useState(0);
+	const [connectionCopyPreview, setConnectionCopyPreview] = useState(false);
+	const [portCopyPreview, setPortCopyPreview] = useState(false);
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
 	const [routePath, setRoutePath] = useState<RoutePathResult>();
 	const [routeSort, setRouteSort] = useState<RouteSort>({
@@ -828,6 +832,7 @@ export function App(): React.ReactElement {
 				log("info", `connections sort ${next.key} ${next.direction}`);
 				return next;
 			});
+			setConnectionCopyPreview(false);
 			return;
 		}
 
@@ -837,6 +842,31 @@ export function App(): React.ReactElement {
 				log("info", `ports sort ${next.key} ${next.direction}`);
 				return next;
 			});
+			setPortCopyPreview(false);
+			return;
+		}
+
+		if (
+			screen === "connections" &&
+			focusArea === "workspaces" &&
+			input === "c"
+		) {
+			if ((connectionsResult?.connections.length ?? 0) <= 0) {
+				log("warn", "no connection selected");
+				return;
+			}
+			setConnectionCopyPreview(true);
+			log("info", "connection copy preview opened");
+			return;
+		}
+
+		if (screen === "ports" && focusArea === "workspaces" && input === "c") {
+			if ((portsResult?.ports.length ?? 0) <= 0) {
+				log("warn", "no port selected");
+				return;
+			}
+			setPortCopyPreview(true);
+			log("info", "port copy preview opened");
 			return;
 		}
 
@@ -885,6 +915,20 @@ export function App(): React.ReactElement {
 				setSelectedRemoteIndex((index) =>
 					getNextIndex(index, remoteProfiles.length, "next"),
 				);
+			} else if (screen === "connections") {
+				setSelectedConnectionIndex((index) =>
+					getNextIndex(
+						index,
+						connectionsResult?.connections.length ?? 0,
+						"next",
+					),
+				);
+				setConnectionCopyPreview(false);
+			} else if (screen === "ports") {
+				setSelectedPortIndex((index) =>
+					getNextIndex(index, portsResult?.ports.length ?? 0, "next"),
+				);
+				setPortCopyPreview(false);
 			} else {
 				setScreen((current) => moveScreen(current, "next"));
 			}
@@ -903,6 +947,20 @@ export function App(): React.ReactElement {
 				setSelectedRemoteIndex((index) =>
 					getNextIndex(index, remoteProfiles.length, "previous"),
 				);
+			} else if (screen === "connections") {
+				setSelectedConnectionIndex((index) =>
+					getNextIndex(
+						index,
+						connectionsResult?.connections.length ?? 0,
+						"previous",
+					),
+				);
+				setConnectionCopyPreview(false);
+			} else if (screen === "ports") {
+				setSelectedPortIndex((index) =>
+					getNextIndex(index, portsResult?.ports.length ?? 0, "previous"),
+				);
+				setPortCopyPreview(false);
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
 			}
@@ -963,6 +1021,10 @@ export function App(): React.ReactElement {
 					portsResult={portsResult}
 					connectionSort={connectionSort}
 					portSort={portSort}
+					selectedConnectionIndex={selectedConnectionIndex}
+					selectedPortIndex={selectedPortIndex}
+					connectionCopyPreview={connectionCopyPreview}
+					portCopyPreview={portCopyPreview}
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
@@ -1092,6 +1154,10 @@ function MainWorkspace({
 	portsResult,
 	connectionSort,
 	portSort,
+	selectedConnectionIndex,
+	selectedPortIndex,
+	connectionCopyPreview,
+	portCopyPreview,
 	routeTable,
 	routePath,
 	routeSort,
@@ -1127,6 +1193,10 @@ function MainWorkspace({
 	portsResult?: PortsResult;
 	connectionSort: ConnectionSort;
 	portSort: PortSort;
+	selectedConnectionIndex: number;
+	selectedPortIndex: number;
+	connectionCopyPreview: boolean;
+	portCopyPreview: boolean;
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
@@ -1171,6 +1241,10 @@ function MainWorkspace({
 					portsResult,
 					connectionSort,
 					portSort,
+					selectedConnectionIndex,
+					selectedPortIndex,
+					connectionCopyPreview,
+					portCopyPreview,
 					routeTable,
 					routePath,
 					routeSort,
@@ -1210,6 +1284,10 @@ function renderWorkspace(
 	portsResult: PortsResult | undefined,
 	connectionSort: ConnectionSort,
 	portSort: PortSort,
+	selectedConnectionIndex: number,
+	selectedPortIndex: number,
+	connectionCopyPreview: boolean,
+	portCopyPreview: boolean,
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
@@ -1320,6 +1398,8 @@ function renderWorkspace(
 			<ConnectionsWorkspace
 				result={connectionsResult}
 				sort={connectionSort}
+				selectedIndex={selectedConnectionIndex}
+				copyPreview={connectionCopyPreview}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -1330,6 +1410,8 @@ function renderWorkspace(
 			<PortsWorkspace
 				result={portsResult}
 				sort={portSort}
+				selectedIndex={selectedPortIndex}
+				copyPreview={portCopyPreview}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -2154,16 +2236,24 @@ function InterfacesWorkspace({
 function ConnectionsWorkspace({
 	result,
 	sort,
+	selectedIndex,
+	copyPreview,
 	visibleRows,
 	t,
 }: {
 	result?: ConnectionsResult;
 	sort: ConnectionSort;
+	selectedIndex: number;
+	copyPreview: boolean;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const rows = result
-		? formatConnectionsWorkspaceRows(result, visibleRows, { sort })
+		? formatConnectionsWorkspaceRows(result, visibleRows, {
+				copyPreview,
+				selectedIndex,
+				sort,
+			})
 		: ["loading connections..."];
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
@@ -2176,14 +2266,11 @@ function ConnectionsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
-				active endpoints from netstat · s sort · raw source output
+				active endpoints from netstat · j/k select · s sort · c copy preview
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
-					<Text
-						key={key}
-						color={row === "ACTIVE" || row === "RAW OUTPUT" ? "cyan" : "white"}
-					>
+					<Text key={key} color={getEndpointRowColor(row, "ACTIVE")}>
 						{row}
 					</Text>
 				))}
@@ -2199,16 +2286,24 @@ function ConnectionsWorkspace({
 function PortsWorkspace({
 	result,
 	sort,
+	selectedIndex,
+	copyPreview,
 	visibleRows,
 	t,
 }: {
 	result?: PortsResult;
 	sort: PortSort;
+	selectedIndex: number;
+	copyPreview: boolean;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const rows = result
-		? formatPortsWorkspaceRows(result, visibleRows, { sort })
+		? formatPortsWorkspaceRows(result, visibleRows, {
+				copyPreview,
+				selectedIndex,
+				sort,
+			})
 		: ["loading listening ports..."];
 	const rowCounts = new Map<string, number>();
 	const keyedRows = rows.map((row) => {
@@ -2221,16 +2316,12 @@ function PortsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
-				listening TCP ports from lsof/ss/netstat · s sort · raw source output
+				listening TCP ports from lsof/ss/netstat · j/k select · s sort · c copy
+				preview
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
-					<Text
-						key={key}
-						color={
-							row === "LISTENING" || row === "RAW OUTPUT" ? "cyan" : "white"
-						}
-					>
+					<Text key={key} color={getEndpointRowColor(row, "LISTENING")}>
 						{row}
 					</Text>
 				))}
@@ -2328,6 +2419,19 @@ function ReferenceWorkspace({
 			</Box>
 		</Box>
 	);
+}
+
+function getEndpointRowColor(row: string, tableHeader: string): string {
+	if (row === tableHeader || row === "RAW OUTPUT" || row.startsWith("DETAIL")) {
+		return "cyan";
+	}
+	if (row.startsWith("COPY PREVIEW")) {
+		return "yellow";
+	}
+	if (row.startsWith(">")) {
+		return "green";
+	}
+	return "white";
 }
 
 function ToolsWorkspace({
