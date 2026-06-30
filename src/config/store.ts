@@ -32,6 +32,7 @@ import {
 	getConfigPathForPlatform,
 	isConfigKey,
 	mergeConfig,
+	normalizeToolTargetPresetLimit,
 } from "./schema";
 
 export function getConfigPath(): string {
@@ -203,9 +204,11 @@ export async function setConfigToolTargetPresets(
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
 	const config = await readConfig(path);
+	const limit = normalizeToolTargetPresetLimit(config.toolTargetPresetLimit);
 	const next = {
 		...config,
-		toolTargetPresets: normalizeToolTargetPresets(presets),
+		toolTargetPresetLimit: limit,
+		toolTargetPresets: normalizeToolTargetPresets(presets).slice(0, limit),
 	};
 	await writeConfig(next, path);
 	return next;

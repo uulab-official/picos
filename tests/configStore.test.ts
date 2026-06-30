@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
 	readConfig,
 	setConfigEndpointFilterPresets,
@@ -225,5 +225,43 @@ describe("config store", () => {
 
 		const raw = await readFile(path, "utf8");
 		expect(JSON.parse(raw).toolTargetPresets).toEqual(config.toolTargetPresets);
+	});
+
+	test("applies configured tool target preset retention limits", async () => {
+		const path = await tempConfigPath();
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(
+			path,
+			JSON.stringify({ theme: "light", toolTargetPresetLimit: 1 }),
+		);
+
+		await setConfigToolTargetPresets(
+			[
+				{
+					id: "api",
+					actionId: "tools.dns",
+					target: "api.example.com",
+				},
+				{
+					id: "db",
+					actionId: "network.connect",
+					target: "db.internal:5432",
+				},
+			],
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.toolTargetPresetLimit).toBe(1);
+		expect(config.toolTargetPresets).toEqual([
+			{
+				id: "api",
+				label: "tools.dns api.example.com",
+				actionId: "tools.dns",
+				target: "api.example.com",
+				hint: "custom target",
+			},
+		]);
+		expect(config.theme).toBe("light");
 	});
 });

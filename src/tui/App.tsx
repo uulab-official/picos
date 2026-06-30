@@ -470,6 +470,7 @@ export function App(): React.ReactElement {
 	const [customToolTargetPresets, setCustomToolTargetPresets] = useState<
 		ToolTargetPreset[]
 	>([]);
+	const [toolTargetPresetLimit, setToolTargetPresetLimit] = useState(8);
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolHistoryFilter, setToolHistoryFilter] = useState("");
@@ -2010,6 +2011,7 @@ export function App(): React.ReactElement {
 			setToolHistoryDetailView(
 				config.toolHistoryDetailView as ToolHistoryDetailView,
 			);
+			setToolTargetPresetLimit(config.toolTargetPresetLimit);
 			setCustomToolTargetPresets(
 				config.toolTargetPresets as ToolTargetPreset[],
 			);
@@ -3226,7 +3228,11 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setCustomToolTargetPresets((current) => {
-				const next = saveToolTargetPreset(current, preset);
+				const next = saveToolTargetPreset(
+					current,
+					preset,
+					toolTargetPresetLimit,
+				);
 				void setConfigToolTargetPresets(next).catch((caught) =>
 					log(
 						"fail",

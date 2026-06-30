@@ -226,6 +226,7 @@ export type PicosConfig = {
 		target: string;
 		hint: string;
 	}>;
+	toolTargetPresetLimit: number;
 };
 
 export type Language = "en" | "ko" | "ja" | "zh";
