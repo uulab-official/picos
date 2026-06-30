@@ -40,6 +40,8 @@ export type ToolHistorySort = "time" | "tool" | "status";
 
 export type ToolHistoryGroup = "none" | "tool" | "status";
 
+export type ToolHistoryDetailView = "raw" | "summary" | "command";
+
 export type ToolHistoryExportPlan = {
 	path: string;
 	content: string;
@@ -152,6 +154,7 @@ export function formatToolsWorkspaceRows(
 	sort: ToolHistorySort = "time",
 	group: ToolHistoryGroup = "none",
 	presets: string[] = [],
+	detailView: ToolHistoryDetailView = "raw",
 ): string[] {
 	const filtered = sortToolHistory(history, filterQuery, sort);
 	const latestIndex = getVisibleToolHistoryIndex(
@@ -167,19 +170,15 @@ export function formatToolsWorkspaceRows(
 		group,
 	);
 	const bodyRows = latest
-		? [
-				...historyRows,
-				latest.summary,
-				"RAW",
-				...latest.rawOutput.split(/\r?\n/),
-			]
+		? [...historyRows, ...formatToolHistoryDetailRows(latest, detailView)]
 		: [history.length ? "no matching tool runs" : "no tool runs yet"];
 	const filter = filterQuery.trim();
 	const presetSummary = formatToolHistoryPresetSummary(presets);
+	const detailSummary = detailView === "raw" ? "" : ` detail=${detailView}`;
 	return [
-		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""} selected=${latest?.title ?? "-"}`,
+		`TOOLS history=${history.length}${filter ? ` filter=${filter} matches=${filtered.length}` : ""}${sort !== "time" ? ` sort=${sort}` : ""}${group !== "none" ? ` group=${group}` : ""}${presetSummary ? ` presets=${presetSummary}` : ""}${detailSummary} selected=${latest?.title ?? "-"}`,
 		...bodyRows,
-		"shortcuts: j/k select · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
+		"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save · ] preset · r rerun · y summary · c raw",
 	].slice(0, visibleRows);
 }
 
@@ -261,6 +260,18 @@ export function nextToolHistoryGroup(
 		return "status";
 	}
 	return "none";
+}
+
+export function nextToolHistoryDetailView(
+	view: ToolHistoryDetailView,
+): ToolHistoryDetailView {
+	if (view === "raw") {
+		return "summary";
+	}
+	if (view === "summary") {
+		return "command";
+	}
+	return "raw";
 }
 
 export function saveToolHistoryPreset(
@@ -535,6 +546,35 @@ function countToolHistoryGroups(
 
 function formatToolHistoryPresetSummary(presets: string[]): string {
 	return presets.slice(0, 3).join(",");
+}
+
+function formatToolHistoryDetailRows(
+	item: ToolHistoryItem,
+	view: ToolHistoryDetailView,
+): string[] {
+	if (view === "summary") {
+		return [
+			"DETAIL summary",
+			`title=${item.title}`,
+			`status=${item.status}`,
+			`summary=${item.summary}`,
+			`command=${formatToolHistoryCommand(item)}`,
+		];
+	}
+	if (view === "command") {
+		return [
+			"DETAIL command",
+			`action=${item.plan.actionId}`,
+			`tool=${item.plan.toolId}`,
+			`args=${item.plan.args.join(" ") || "-"}`,
+			`rerun=${formatToolHistoryCommand(item)}`,
+		];
+	}
+	return [item.summary, "RAW", ...item.rawOutput.split(/\r?\n/)];
+}
+
+function formatToolHistoryCommand(item: ToolHistoryItem): string {
+	return `picos tools ${item.plan.toolId} ${item.plan.args.join(" ")}`.trim();
 }
 
 function formatToolHistoryRow(
