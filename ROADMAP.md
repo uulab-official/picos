@@ -365,6 +365,18 @@ Goal: make dense route and interface tables easier to scan like a daily terminal
 - Interface summaries use a stable console-friendly order: physical, VPN, bridge, container, link-local, loopback, then unknown.
 - Next: raw-output viewer tabs for ports, connections, tools, and platform route details.
 
+## v0.3.25 - Endpoint Raw Output Viewer
+
+Status: draft PR #26.
+
+Goal: make Connections and Ports feel like inspectable OS panels instead of parsed-only summaries.
+
+- TUI Connections keeps the full `netstat` command result alongside parsed endpoint rows.
+- TUI Ports keeps the full `lsof` / `ss` / `netstat` command result alongside parsed listening-port rows.
+- Shared endpoint panel formatters render summary, parsed rows, and clipped raw source output.
+- Refresh and action execution preserve raw output state for the visible workspaces.
+- Next: sorting/filtering/detail panes for Connections and Ports, then safe copy actions.
+
 ## lazyifconfig Parity Backlog
 
 Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices.
@@ -372,10 +384,10 @@ Goal: close the functional gap with `choihunchul/lazyifconfig` in focused slices
 - Interface details: MAC/prefix/gateway, MTU/RX/TX counters, and stable row sorting landed; next raw platform detail.
 - Network grouping: subnet/LAN/loopback/VPN/container/link-local/public classification landed; next richer subnet labels.
 - Route Inspector depth: route diagnostics, raw output view, destination path lookup UI, and sortable rows landed; next VPN route hints.
-- Connections and Ports: sorting, filtering, details panes, process metadata, safe copy actions.
+- Connections and Ports: parsed rows and raw output landed; next sorting, filtering, details panes, and safe copy actions.
 - Tools Hub: DNS, WHOIS/RDAP, IP info, TCP check, TLS, ping, traceroute as first-class TUI tools.
 - Timeline: address/status/public-IP changes and local export.
-- Raw output viewer for every OS command-backed panel.
+- Raw output viewer for routes, connections, and ports landed; next tools and platform detail tabs.
 
 ## v0.4.0 - Privileged Controls Framework
 

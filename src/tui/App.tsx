@@ -9,7 +9,10 @@ import {
 	type PicosAction,
 } from "../core/actions";
 import { runPing } from "../core/command";
-import { getActiveConnections } from "../core/connections";
+import {
+	type ConnectionsResult,
+	getActiveConnections,
+} from "../core/connections";
 import { runDoctorChecks } from "../core/doctor";
 import {
 	createLocalFileProvider,
@@ -20,7 +23,7 @@ import {
 	withParentDirectoryEntry,
 } from "../core/files";
 import { getNetworkSummary } from "../core/network";
-import { getListeningPorts } from "../core/ports";
+import { getListeningPorts, type PortsResult } from "../core/ports";
 import {
 	createRemoteFileContext,
 	type RemoteFileContext,
@@ -53,6 +56,10 @@ import {
 	closeCommandLine,
 	openCommandLine,
 } from "./commandLine";
+import {
+	formatConnectionsWorkspaceRows,
+	formatPortsWorkspaceRows,
+} from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
 	appendFileFilterQuery,
@@ -156,8 +163,9 @@ export function App(): React.ReactElement {
 		query: "",
 	});
 	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
-	const [connections, setConnections] = useState<ActiveConnection[]>([]);
-	const [ports, setPorts] = useState<ListeningPort[]>([]);
+	const [connectionsResult, setConnectionsResult] =
+		useState<ConnectionsResult>();
+	const [portsResult, setPortsResult] = useState<PortsResult>();
 	const [routeTable, setRouteTable] = useState<RouteTableResult>();
 	const [routePath, setRoutePath] = useState<RoutePathResult>();
 	const [routeSort, setRouteSort] = useState<RouteSort>({
@@ -177,6 +185,8 @@ export function App(): React.ReactElement {
 		() => filterFileEntries(parentFileEntries, fileFilter),
 		[parentFileEntries, fileFilter],
 	);
+	const connections = connectionsResult?.connections ?? [];
+	const ports = portsResult?.ports ?? [];
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
@@ -430,10 +440,10 @@ export function App(): React.ReactElement {
 			setSummary(nextSummary);
 			setInventory(await createSystemInventory({ network: nextSummary }));
 			if (nextConnections) {
-				setConnections(nextConnections.connections);
+				setConnectionsResult(nextConnections);
 			}
 			if (nextPorts) {
-				setPorts(nextPorts.ports);
+				setPortsResult(nextPorts);
 			}
 			if (nextRouteTable) {
 				setRouteTable(nextRouteTable);
@@ -532,13 +542,13 @@ export function App(): React.ReactElement {
 
 				if (action.id === "connections.list") {
 					const result = await getActiveConnections();
-					setConnections(result.connections);
+					setConnectionsResult(result);
 					log("ok", `connections listed ${result.connections.length}`);
 				}
 
 				if (action.id === "ports.list") {
 					const result = await getListeningPorts();
-					setPorts(result.ports);
+					setPortsResult(result);
 					log("ok", `ports listed ${result.ports.length}`);
 				}
 			} catch (caught) {
@@ -912,6 +922,8 @@ export function App(): React.ReactElement {
 					remoteFileContext={remoteFileContext}
 					connections={connections}
 					ports={ports}
+					connectionsResult={connectionsResult}
+					portsResult={portsResult}
 					routeTable={routeTable}
 					routePath={routePath}
 					routeSort={routeSort}
@@ -1037,6 +1049,8 @@ function MainWorkspace({
 	remoteFileContext,
 	connections,
 	ports,
+	connectionsResult,
+	portsResult,
 	routeTable,
 	routePath,
 	routeSort,
@@ -1068,6 +1082,8 @@ function MainWorkspace({
 	remoteFileContext?: RemoteFileContext;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
+	connectionsResult?: ConnectionsResult;
+	portsResult?: PortsResult;
 	routeTable?: RouteTableResult;
 	routePath?: RoutePathResult;
 	routeSort: RouteSort;
@@ -1108,6 +1124,8 @@ function MainWorkspace({
 					remoteFileContext,
 					connections,
 					ports,
+					connectionsResult,
+					portsResult,
 					routeTable,
 					routePath,
 					routeSort,
@@ -1143,6 +1161,8 @@ function renderWorkspace(
 	remoteFileContext: RemoteFileContext | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
+	connectionsResult: ConnectionsResult | undefined,
+	portsResult: PortsResult | undefined,
 	routeTable: RouteTableResult | undefined,
 	routePath: RoutePathResult | undefined,
 	routeSort: RouteSort,
@@ -1251,7 +1271,7 @@ function renderWorkspace(
 	if (screen === "connections") {
 		return (
 			<ConnectionsWorkspace
-				connections={connections}
+				result={connectionsResult}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -1260,7 +1280,7 @@ function renderWorkspace(
 	if (screen === "ports") {
 		return (
 			<PortsWorkspace
-				ports={ports}
+				result={portsResult}
 				visibleRows={Math.max(5, height - 7)}
 				t={t}
 			/>
@@ -2083,48 +2103,39 @@ function InterfacesWorkspace({
 }
 
 function ConnectionsWorkspace({
-	connections,
+	result,
 	visibleRows,
 	t,
 }: {
-	connections: ActiveConnection[];
+	result?: ConnectionsResult;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const visibleConnections = connections.slice(0, visibleRows);
-	const established = connections.filter(
-		(connection) => connection.state === "ESTABLISHED",
-	).length;
+	const rows = result
+		? formatConnectionsWorkspaceRows(result, visibleRows)
+		: ["loading connections..."];
+	const rowCounts = new Map<string, number>();
+	const keyedRows = rows.map((row) => {
+		const count = rowCounts.get(row) ?? 0;
+		rowCounts.set(row, count + 1);
+		return { key: `${row}:${count}`, row };
+	});
 
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
-				active endpoints from netstat · established {established} / total{" "}
-				{connections.length}
+				active endpoints from netstat · raw source output · read-only
 			</Text>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="cyan">PROTO LOCAL REMOTE STATE</Text>
-				{visibleConnections.length ? (
-					visibleConnections.map((connection) => (
-						<Text
-							key={`${connection.protocol}:${connection.localAddress}:${connection.localPort}:${connection.remoteAddress}:${connection.remotePort}:${connection.state ?? ""}:${connection.pid ?? ""}`}
-						>
-							{connection.protocol.padEnd(6)}{" "}
-							{clip(
-								`${connection.localAddress}:${connection.localPort}`,
-								24,
-							).padEnd(24)}{" "}
-							{clip(
-								`${connection.remoteAddress}:${connection.remotePort}`,
-								24,
-							).padEnd(24)}{" "}
-							{connection.state ?? "-"}
-						</Text>
-					))
-				) : (
-					<Text color="gray">loading connections...</Text>
-				)}
+				{keyedRows.map(({ key, row }) => (
+					<Text
+						key={key}
+						color={row === "ACTIVE" || row === "RAW OUTPUT" ? "cyan" : "white"}
+					>
+						{row}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
@@ -2135,38 +2146,41 @@ function ConnectionsWorkspace({
 }
 
 function PortsWorkspace({
-	ports,
+	result,
 	visibleRows,
 	t,
 }: {
-	ports: ListeningPort[];
+	result?: PortsResult;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const visiblePorts = ports.slice(0, visibleRows);
+	const rows = result
+		? formatPortsWorkspaceRows(result, visibleRows)
+		: ["loading listening ports..."];
+	const rowCounts = new Map<string, number>();
+	const keyedRows = rows.map((row) => {
+		const count = rowCounts.get(row) ?? 0;
+		rowCounts.set(row, count + 1);
+		return { key: `${row}:${count}`, row };
+	});
 
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
-				listening TCP ports from lsof/ss/netstat · total {ports.length}
+				listening TCP ports from lsof/ss/netstat · raw source output
 			</Text>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="cyan">PROTO LOCAL PROCESS PID USER</Text>
-				{visiblePorts.length ? (
-					visiblePorts.map((port) => (
-						<Text
-							key={`${port.protocol}:${port.localAddress}:${port.localPort}:${port.pid}:${port.command}`}
-						>
-							{port.protocol.padEnd(6)}{" "}
-							{clip(`${port.localAddress}:${port.localPort}`, 24).padEnd(24)}{" "}
-							{clip(port.command, 18).padEnd(18)} {port.pid.padEnd(7)}{" "}
-							{clip(port.user, 12)}
-						</Text>
-					))
-				) : (
-					<Text color="gray">loading listening ports...</Text>
-				)}
+				{keyedRows.map(({ key, row }) => (
+					<Text
+						key={key}
+						color={
+							row === "LISTENING" || row === "RAW OUTPUT" ? "cyan" : "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
