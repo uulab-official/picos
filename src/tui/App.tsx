@@ -164,12 +164,15 @@ import {
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
+	createCleanupHandoffReopenPlan,
 	createCleanupJumpAudit,
+	createCleanupJumpAuditFromHistory,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
 	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
+	formatCleanupHandoffReopenRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
@@ -2391,6 +2394,26 @@ export function App(): React.ReactElement {
 		return true;
 	}, [cleanupJumpAudit, log, screen]);
 
+	const reopenCleanupHandoffHistory = useCallback(() => {
+		const history = getSelectedCleanupHandoffHistory(
+			cleanupHandoffHistory,
+			selectedCleanupHandoffHistoryIndex,
+		);
+		const plan = createCleanupHandoffReopenPlan(history);
+		if (!history || !plan) {
+			log("warn", "no cleanup handoff history selected");
+			return false;
+		}
+
+		setCleanupJumpAudit(createCleanupJumpAuditFromHistory(history));
+		setScreen(plan.screen);
+		log(
+			"info",
+			`cleanup history reopened ${plan.label}: press enter to open prompt or esc to clear`,
+		);
+		return true;
+	}, [cleanupHandoffHistory, log, selectedCleanupHandoffHistoryIndex]);
+
 	useInput((input, key) => {
 		if (commandLine.active) {
 			if (key.escape) {
@@ -3217,6 +3240,11 @@ export function App(): React.ReactElement {
 				log("info", `cleanup history selected ${history?.label ?? next + 1}`);
 				return next;
 			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "R") {
+			reopenCleanupHandoffHistory();
 			return;
 		}
 
@@ -6846,6 +6874,13 @@ function StatusWorkspace({
 	const updateReleaseLinks = updateReleaseHandoff
 		? getUpdateReleaseHandoffLinks(updateReleaseHandoff)
 		: [];
+	const selectedCleanupHandoffHistory = getSelectedCleanupHandoffHistory(
+		cleanupHandoffHistory,
+		selectedCleanupHandoffHistoryIndex,
+	);
+	const cleanupHandoffReopenPlan = createCleanupHandoffReopenPlan(
+		selectedCleanupHandoffHistory,
+	);
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -7030,7 +7065,7 @@ function StatusWorkspace({
 					))}
 				</Box>
 				<Box marginTop={1} flexDirection="column">
-					<Text color="gray">CLEANUP HISTORY · [ cycle</Text>
+					<Text color="gray">CLEANUP HISTORY · [ cycle · R reopen</Text>
 					{formatCleanupHandoffHistoryIndexRows(
 						cleanupHandoffHistory,
 						selectedCleanupHandoffHistoryIndex,
@@ -7051,18 +7086,20 @@ function StatusWorkspace({
 							{row}
 						</Text>
 					))}
-					{formatCleanupHandoffHistoryRows(
-						getSelectedCleanupHandoffHistory(
-							cleanupHandoffHistory,
-							selectedCleanupHandoffHistoryIndex,
-						),
-					)
+					{formatCleanupHandoffHistoryRows(selectedCleanupHandoffHistory)
 						.slice(1)
 						.map((row) => (
 							<Text
 								key={row}
 								color={row.startsWith("detail=") ? "gray" : "white"}
 							>
+								{row}
+							</Text>
+						))}
+					{formatCleanupHandoffReopenRows(cleanupHandoffReopenPlan)
+						.slice(1)
+						.map((row) => (
+							<Text key={row} color={row.startsWith("R ") ? "yellow" : "gray"}>
 								{row}
 							</Text>
 						))}

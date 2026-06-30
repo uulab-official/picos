@@ -54,14 +54,27 @@ export type CleanupHandoffDismissPlan = {
 	workspace: string;
 };
 
-export type CleanupHandoffHistoryOutcome = "prompt-opened" | "dismissed";
-
-export type CleanupHandoffHistory = {
+export type CleanupHandoffReopenPlan = {
+	id: CleanupShelfId;
 	label: string;
 	workspace: string;
 	screen: Screen;
 	shortcut: string;
 	confirmationPhrase: string;
+	count: number;
+	detail: string;
+};
+
+export type CleanupHandoffHistoryOutcome = "prompt-opened" | "dismissed";
+
+export type CleanupHandoffHistory = {
+	id: CleanupShelfId;
+	label: string;
+	workspace: string;
+	screen: Screen;
+	shortcut: string;
+	confirmationPhrase: string;
+	count: number;
 	detail: string;
 	outcome: CleanupHandoffHistoryOutcome;
 };
@@ -312,14 +325,64 @@ export function createCleanupHandoffHistory(
 	outcome: CleanupHandoffHistoryOutcome,
 ): CleanupHandoffHistory {
 	return {
+		id: audit.id,
 		label: audit.label,
 		workspace: audit.workspace,
 		screen: audit.screen,
 		shortcut: audit.shortcut,
 		confirmationPhrase: audit.confirmationPhrase,
+		count: audit.count,
 		detail: audit.detail,
 		outcome,
 	};
+}
+
+export function createCleanupHandoffReopenPlan(
+	history: CleanupHandoffHistory | undefined,
+): CleanupHandoffReopenPlan | undefined {
+	if (!history) {
+		return undefined;
+	}
+
+	return {
+		id: history.id,
+		label: history.label,
+		workspace: history.workspace,
+		screen: history.screen,
+		shortcut: history.shortcut,
+		confirmationPhrase: history.confirmationPhrase,
+		count: history.count,
+		detail: history.detail,
+	};
+}
+
+export function createCleanupJumpAuditFromHistory(
+	history: CleanupHandoffHistory,
+): CleanupJumpAudit {
+	return {
+		id: history.id,
+		label: history.label,
+		workspace: history.workspace,
+		screen: history.screen,
+		shortcut: history.shortcut,
+		confirmationPhrase: history.confirmationPhrase,
+		count: history.count,
+		detail: history.detail,
+	};
+}
+
+export function formatCleanupHandoffReopenRows(
+	plan: CleanupHandoffReopenPlan | undefined,
+): string[] {
+	if (!plan) {
+		return [];
+	}
+
+	return [
+		`CLEANUP REOPEN ${plan.label}`,
+		`R jumps to ${plan.workspace} and restores handoff`,
+		`shortcut=${plan.shortcut} confirm=${plan.confirmationPhrase} detail=${plan.detail} count=${plan.count}`,
+	];
 }
 
 export function formatCleanupHandoffHistoryRows(

@@ -1640,6 +1640,19 @@ Goal: make cleanup handoff history behave like a small operator shelf rather tha
 - Tests cover bounded insertion, newest-first retention, selected item clamping, wraparound movement, empty-state rows, and selected row formatting.
 - Next: add a direct re-open handoff action from selected cleanup history back to the owning workspace.
 
+## v0.4.60 - Reopen Cleanup Handoff History
+
+Status: draft PR #122.
+
+Goal: let operators resume a previously opened or dismissed cleanup handoff directly from Status history.
+
+- Cleanup handoff history entries now retain shelf id and affected item count so they can be restored into full cleanup jump audits.
+- Status workspace shows a selected history reopen preview with target workspace, shortcut, exact phrase, detail, and item count.
+- Pressing `R` in Status reopens the selected cleanup history entry, jumps to the owning workspace, and restores the destination `CLEANUP HANDOFF` row.
+- Reopened handoffs still require the normal destination `enter` plus exact confirmation prompt before persisted config changes.
+- Tests cover reopen plan creation, restored jump audit shape, empty reopen formatting, and selected history metadata.
+- Next: promote cleanup history into a durable audit timeline/export or add explicit history clear/archive controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
