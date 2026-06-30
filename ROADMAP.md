@@ -1380,6 +1380,19 @@ Goal: make saved Tools Hub targets maintainable from the keyboard after repeated
 - Tests cover saved target removal, non-saved target no-op behavior, and existing Tools Hub row rendering.
 - Next: richer custom target editing and retention policies.
 
+## v0.4.40 - Tools Target Preset Labels
+
+Status: draft PR #102.
+
+Goal: make saved Tools Hub targets readable as reusable operator shortcuts instead of raw host strings.
+
+- Tools workspace now supports `L` to open a target label prompt for selected saved target presets.
+- Label edits persist through `toolTargetPresets` config and keep the preset action, target, id, and hint intact.
+- Rename matching uses action and target, so labels can be edited even if a selected preset came from normalized config.
+- OS-aware presets remain generated from the machine state and cannot be renamed into config.
+- Tests cover label trimming, blank label no-op behavior, non-saved target no-op behavior, and existing Tools Hub rendering.
+- Next: full custom target editing and retention policies.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

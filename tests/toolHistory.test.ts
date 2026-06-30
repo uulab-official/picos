@@ -26,6 +26,7 @@ import {
 	nextToolHistorySort,
 	normalizeToolTargetPresets,
 	removeToolTargetPreset,
+	renameToolTargetPreset,
 	rerunToolHistoryItem,
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
@@ -210,11 +211,11 @@ describe("TUI tool history", () => {
 			),
 		).toEqual([
 			"TOOLS history=0 targets=7 active=Default ping:google.com selected=-",
-			"TARGET PRESETS n cycle · T save · X delete · R run",
+			"TARGET PRESETS n cycle · T save · L label · X delete · R run",
 			"> Default ping google.com default reachability target",
 			"  Gateway ping 192.168.0.1 primary gateway",
 			"  DNS server 1 1.1.1.1 resolver check",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · X delete target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -334,7 +335,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · X delete target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -415,12 +416,12 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · X delete target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
 		]);
 		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
 			"TOOLS history=2 filter=missing matches=0 selected=-",
 			"no matching tool runs",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · X delete target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
@@ -479,7 +480,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · X delete target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -529,7 +530,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · X delete target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(history, 7, 0, "", "time", "status"),
@@ -568,7 +569,7 @@ describe("TUI tool history", () => {
 		).toEqual([
 			"TOOLS history=0 presets=connect,fail,dns selected=-",
 			"no tool runs yet",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · X delete target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
 		]);
 	});
 
@@ -666,6 +667,62 @@ describe("TUI tool history", () => {
 		expect(removeToolTargetPreset(presets, undefined)).toEqual(presets);
 	});
 
+	test("renames saved tool target presets by action and target only", () => {
+		const presets = [
+			{
+				id: "api-dns",
+				label: "API DNS",
+				actionId: "tools.dns" as const,
+				target: "api.example.com",
+				hint: "production api",
+			},
+			{
+				id: "db-port",
+				label: "DB port",
+				actionId: "network.connect" as const,
+				target: "db.internal:5432",
+				hint: "internal db",
+			},
+		];
+
+		expect(
+			renameToolTargetPreset(
+				presets,
+				{
+					id: "renamed",
+					label: "Renamed API",
+					actionId: "tools.dns",
+					target: " api.example.com ",
+					hint: "same target",
+				},
+				" Production API DNS ",
+			),
+		).toEqual([
+			{
+				id: "api-dns",
+				label: "Production API DNS",
+				actionId: "tools.dns",
+				target: "api.example.com",
+				hint: "production api",
+			},
+			presets[1],
+		]);
+		expect(renameToolTargetPreset(presets, presets[0], "  ")).toEqual(presets);
+		expect(
+			renameToolTargetPreset(
+				presets,
+				{
+					id: "gateway-ping",
+					label: "Gateway ping",
+					actionId: "ping.default",
+					target: "192.168.0.1",
+					hint: "OS-aware target",
+				},
+				"Router",
+			),
+		).toEqual(presets);
+	});
+
 	test("formats selected tool history detail tabs", () => {
 		const history = appendToolHistory(
 			[],
@@ -703,7 +760,7 @@ describe("TUI tool history", () => {
 			"status=ok",
 			"summary=Summary: Query: example.com | A: 2",
 			"command=picos tools dns example.com",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · X delete target · R run · r rerun · y summary · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · n target · T save target · L label target · X delete target · R run · r rerun · y summary · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(
