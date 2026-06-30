@@ -1314,6 +1314,20 @@ Goal: make repeated endpoint triage views survive TUI restarts, including the ac
 - Tests cover config defaults, invalid sort fallback, config-store persistence, and existing endpoint panel sorting behavior.
 - Next: route/endpoint handoff index browsing and persisted Tools Hub history preferences.
 
+## v0.4.35 - Route and Endpoint Handoff Index
+
+Status: draft PR #97.
+
+Goal: make exported route/endpoint evidence discoverable after it leaves the active panel.
+
+- A shared handoff index reads picos-owned Markdown files from `routes/*.md` and `endpoints/*.md`.
+- Handoff index entries capture source, kind, view, label, command, timestamp, and path metadata.
+- `picos handoffs` prints the recent handoff index for terminal workflows.
+- Status workspace now shows the handoff index on boot and after route/endpoint exports.
+- Status supports `H` refresh, `]` select, and `O` open, routing selected files through the existing locked file-open confirmation.
+- Tests cover index parsing, newest-first ordering, row formatting, selected item clamping, and CLI output.
+- Next: persisted Tools Hub history preferences and handoff file cleanup/archive controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

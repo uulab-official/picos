@@ -17,6 +17,7 @@ import {
 	pwdCommand,
 	typeCommand,
 } from "./commands/files";
+import { handoffsCommand } from "./commands/handoffs";
 import { infoCommand } from "./commands/info";
 import { logsCommand } from "./commands/logs";
 import { monitorCommand } from "./commands/monitor";
@@ -132,6 +133,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	cli
 		.command("update", "Check npm for a newer picos version")
 		.action(updateCommand);
+	cli
+		.command("handoffs", "List route and endpoint handoff files")
+		.action(handoffsCommand);
 	cli
 		.command("release-health", "Check release automation health")
 		.action(releaseHealthCommand);

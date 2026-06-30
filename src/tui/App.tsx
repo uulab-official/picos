@@ -75,6 +75,12 @@ import {
 	getSystemFileRoot,
 	withParentDirectoryEntry,
 } from "../core/files";
+import {
+	formatHandoffIndexRows,
+	getSelectedHandoffIndexItem,
+	type HandoffIndex,
+	readHandoffIndex,
+} from "../core/handoffIndex";
 import { getNetworkSummary } from "../core/network";
 import {
 	createOsLogSnapshot,
@@ -358,6 +364,11 @@ export function App(): React.ReactElement {
 		useState<GitHubReleaseCheckResult>();
 	const [selectedUpdateHandoffIndex, setSelectedUpdateHandoffIndex] =
 		useState(0);
+	const [handoffIndex, setHandoffIndex] = useState<HandoffIndex>({
+		baseDir: dirname(getConfigPath()),
+		items: [],
+	});
+	const [selectedHandoffIndex, setSelectedHandoffIndex] = useState(0);
 	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
 	const [fileOpenPlan, setFileOpenPlan] = useState<FileOpenPlan>();
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -1071,6 +1082,48 @@ export function App(): React.ReactElement {
 		}
 	}, [commandLine.value, fileOpenPlan, log]);
 
+	const refreshHandoffIndex = useCallback(
+		async (announce = true) => {
+			const baseDir = dirname(getConfigPath());
+			try {
+				const index = await readHandoffIndex(baseDir);
+				setHandoffIndex(index);
+				setSelectedHandoffIndex((current) =>
+					Math.min(current, Math.max(0, index.items.length - 1)),
+				);
+				if (announce) {
+					log("info", `handoffs indexed ${index.items.length}`);
+				}
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[log],
+	);
+
+	const openSelectedHandoffFile = useCallback(() => {
+		const item = getSelectedHandoffIndexItem(
+			handoffIndex,
+			selectedHandoffIndex,
+		);
+		if (!item) {
+			log("warn", "no handoff file selected");
+			return;
+		}
+		const plan = buildFileOpenPlan({
+			baseDir: handoffIndex.baseDir,
+			source: item.source,
+			label: item.label,
+			path: item.path,
+			platform: currentPlatform(),
+		});
+		setFileOpenPlan(plan);
+		setExternalOpenPlan(undefined);
+		setCommandLine(openCommandLine("file-open"));
+		setScreen("status");
+		log("info", `file open confirmation opened for ${item.label}`);
+	}, [handoffIndex, log, selectedHandoffIndex]);
+
 	const exportToolHistory = useCallback(
 		async (scope: ToolHistoryExportScope) => {
 			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
@@ -1131,12 +1184,21 @@ export function App(): React.ReactElement {
 
 		try {
 			const written = await writeRouteRawHandoffPlan(plan);
+			await refreshHandoffIndex(false);
 			setScreen("routes");
 			log("ok", `routes exported ${written.view} ${written.path}`);
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
-	}, [log, routeDetailView, routeFilter, routePath, routeSort, routeTable]);
+	}, [
+		log,
+		refreshHandoffIndex,
+		routeDetailView,
+		routeFilter,
+		routePath,
+		routeSort,
+		routeTable,
+	]);
 
 	const openRouteHandoff = useCallback(async () => {
 		if (!routeTable) {
@@ -1158,6 +1220,7 @@ export function App(): React.ReactElement {
 
 		try {
 			const written = await writeRouteRawHandoffPlan(handoff);
+			await refreshHandoffIndex(false);
 			const plan = buildFileOpenPlan({
 				baseDir,
 				source: "route-handoff",
@@ -1173,7 +1236,15 @@ export function App(): React.ReactElement {
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
-	}, [log, routeDetailView, routeFilter, routePath, routeSort, routeTable]);
+	}, [
+		log,
+		refreshHandoffIndex,
+		routeDetailView,
+		routeFilter,
+		routePath,
+		routeSort,
+		routeTable,
+	]);
 
 	const exportEndpointHandoff = useCallback(
 		async (kind: "connections" | "ports") => {
@@ -1204,6 +1275,7 @@ export function App(): React.ReactElement {
 
 			try {
 				const written = await writeEndpointHandoffPlan(plan);
+				await refreshHandoffIndex(false);
 				setScreen(kind);
 				log("ok", `${kind} exported ${written.view} ${written.path}`);
 			} catch (caught) {
@@ -1220,6 +1292,7 @@ export function App(): React.ReactElement {
 			portFilter,
 			portSort,
 			portsResult,
+			refreshHandoffIndex,
 		],
 	);
 
@@ -1253,6 +1326,7 @@ export function App(): React.ReactElement {
 
 			try {
 				const written = await writeEndpointHandoffPlan(handoff);
+				await refreshHandoffIndex(false);
 				const plan = buildFileOpenPlan({
 					baseDir,
 					source: "endpoint-handoff",
@@ -1279,6 +1353,7 @@ export function App(): React.ReactElement {
 			portFilter,
 			portSort,
 			portsResult,
+			refreshHandoffIndex,
 		],
 	);
 
@@ -1708,6 +1783,16 @@ export function App(): React.ReactElement {
 	);
 
 	useEffect(() => {
+		readHandoffIndex(dirname(getConfigPath()))
+			.then((index) => {
+				setHandoffIndex(index);
+				setSelectedHandoffIndex((current) =>
+					Math.min(current, Math.max(0, index.items.length - 1)),
+				);
+			})
+			.catch((caught) =>
+				log("fail", caught instanceof Error ? caught.message : String(caught)),
+			);
 		readConfig().then(async (config) => {
 			setRefreshInterval(config.refreshInterval);
 			setLanguage(config.language);
@@ -1735,7 +1820,7 @@ export function App(): React.ReactElement {
 			setEvents([...(persisted?.events ?? []), ...bootEvents].slice(-64));
 		});
 		refresh();
-	}, [refresh]);
+	}, [log, refresh]);
 
 	useEffect(() => {
 		const timer = setInterval(refresh, refreshInterval);
@@ -2442,6 +2527,30 @@ export function App(): React.ReactElement {
 				log("info", `update handoff selected ${links[next].label}`);
 				return next;
 			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "H") {
+			void refreshHandoffIndex();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "]") {
+			if (handoffIndex.items.length === 0) {
+				log("warn", "no handoff files indexed");
+				return;
+			}
+			setSelectedHandoffIndex((index) => {
+				const next = (index + 1) % handoffIndex.items.length;
+				const item = handoffIndex.items[next];
+				log("info", `handoff selected ${item?.label ?? next + 1}`);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "O") {
+			openSelectedHandoffFile();
 			return;
 		}
 
@@ -3154,6 +3263,8 @@ export function App(): React.ReactElement {
 					toolHistoryDetailView={toolHistoryDetailView}
 					toolCopyPreview={toolCopyPreview}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
+					handoffIndex={handoffIndex}
+					selectedHandoffIndex={selectedHandoffIndex}
 					externalOpenPlan={externalOpenPlan}
 					fileOpenPlan={fileOpenPlan}
 					events={events}
@@ -3339,6 +3450,8 @@ function MainWorkspace({
 	toolHistoryDetailView,
 	toolCopyPreview,
 	selectedUpdateHandoffIndex,
+	handoffIndex,
+	selectedHandoffIndex,
 	externalOpenPlan,
 	fileOpenPlan,
 	events,
@@ -3426,6 +3539,8 @@ function MainWorkspace({
 	toolHistoryDetailView: ToolHistoryDetailView;
 	toolCopyPreview: ToolCopyPreviewMode;
 	selectedUpdateHandoffIndex: number;
+	handoffIndex: HandoffIndex;
+	selectedHandoffIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
 	events: ConsoleEvent[];
@@ -3522,6 +3637,8 @@ function MainWorkspace({
 					toolHistoryDetailView,
 					toolCopyPreview,
 					selectedUpdateHandoffIndex,
+					handoffIndex,
+					selectedHandoffIndex,
 					externalOpenPlan,
 					fileOpenPlan,
 					events,
@@ -3613,6 +3730,8 @@ function renderWorkspace(
 	toolHistoryDetailView: ToolHistoryDetailView,
 	toolCopyPreview: ToolCopyPreviewMode,
 	selectedUpdateHandoffIndex: number,
+	handoffIndex: HandoffIndex,
+	selectedHandoffIndex: number,
 	externalOpenPlan: ExternalOpenPlan | undefined,
 	fileOpenPlan: FileOpenPlan | undefined,
 	events: ConsoleEvent[],
@@ -3829,6 +3948,8 @@ function renderWorkspace(
 				updateCheckResult={updateCheckResult}
 				githubReleaseCheckResult={githubReleaseCheckResult}
 				selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
+				handoffIndex={handoffIndex}
+				selectedHandoffIndex={selectedHandoffIndex}
 				externalOpenPlan={externalOpenPlan}
 				fileOpenPlan={fileOpenPlan}
 				commandLine={commandLine}
@@ -5480,6 +5601,8 @@ function StatusWorkspace({
 	updateCheckResult,
 	githubReleaseCheckResult,
 	selectedUpdateHandoffIndex,
+	handoffIndex,
+	selectedHandoffIndex,
 	externalOpenPlan,
 	fileOpenPlan,
 	commandLine,
@@ -5488,6 +5611,8 @@ function StatusWorkspace({
 	updateCheckResult?: PackageUpdateCheckResult;
 	githubReleaseCheckResult?: GitHubReleaseCheckResult;
 	selectedUpdateHandoffIndex: number;
+	handoffIndex: HandoffIndex;
+	selectedHandoffIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
 	commandLine: CommandLineState;
@@ -5640,6 +5765,27 @@ function StatusWorkspace({
 					))}
 				</Box>
 			) : null}
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">HANDOFF INDEX · H refresh · ] select · O open</Text>
+				{formatHandoffIndexRows(handoffIndex, selectedHandoffIndex, 6).map(
+					(row) => (
+						<Text
+							key={row}
+							color={
+								row.startsWith(">")
+									? "yellow"
+									: row.startsWith("HANDOFFS")
+										? "cyan"
+										: row.startsWith("open target")
+											? "gray"
+											: "white"
+							}
+						>
+							{row}
+						</Text>
+					),
+				)}
+			</Box>
 			<Text color="gray">{t("status.roadmap")}</Text>
 			<Box marginTop={1} flexDirection="column">
 				{getRoadmapItems().map((item) => (
