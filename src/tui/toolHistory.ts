@@ -320,7 +320,13 @@ export function formatToolsWorkspaceRows(
 		group,
 	);
 	const bodyRows = latest
-		? [...historyRows, ...formatToolHistoryDetailRows(latest, detailView)]
+		? [
+				...historyRows,
+				...formatToolHistoryDetailRows(latest, detailView, {
+					section: sectionClipboardSelection,
+					rowIndex: sectionClipboardRowIndex,
+				}),
+			]
 		: [history.length ? "no matching tool runs" : "no tool runs yet"];
 	const targetRows = formatToolTargetPresetRows(
 		targetPresets,
@@ -1098,6 +1104,10 @@ function formatToolTargetPresetRows(
 function formatToolHistoryDetailRows(
 	item: ToolHistoryItem,
 	view: ToolHistoryDetailView,
+	marker?: {
+		section: ToolSectionClipboardSelection;
+		rowIndex: number;
+	},
 ): string[] {
 	if (view === "summary") {
 		return [
@@ -1117,7 +1127,11 @@ function formatToolHistoryDetailRows(
 			`rerun=${formatToolHistoryCommand(item)}`,
 		];
 	}
-	return [item.summary, "RAW", ...item.rawOutput.split(/\r?\n/)];
+	return [
+		item.summary,
+		"RAW",
+		...formatRawToolOutputRows(item.rawOutput, marker),
+	];
 }
 
 function formatToolHistoryCommand(item: ToolHistoryItem): string {
@@ -1139,6 +1153,36 @@ function getToolSectionClipboardRowCountForItem(
 	selection: ToolSectionClipboardSelection,
 ): number {
 	return getToolSectionClipboardRows(item, selection).length;
+}
+
+function formatRawToolOutputRows(
+	rawOutput: string,
+	marker?: {
+		section: ToolSectionClipboardSelection;
+		rowIndex: number;
+	},
+): string[] {
+	if (!marker) {
+		return rawOutput.split(/\r?\n/);
+	}
+	const markerLabel = marker.section === "target" ? "Target" : "Status";
+	let currentSection = "";
+	let currentSectionRow = 0;
+	return rawOutput.split(/\r?\n/).map((line) => {
+		const sectionMatch = /^\[([^\]]+)\]$/.exec(line);
+		if (sectionMatch) {
+			currentSection = sectionMatch[1] ?? "";
+			currentSectionRow = 0;
+			return line;
+		}
+		if (line.length <= 0 || currentSection !== markerLabel) {
+			return line;
+		}
+		const prefix =
+			currentSectionRow === Math.max(0, marker.rowIndex) ? "> " : "  ";
+		currentSectionRow += 1;
+		return `${prefix}${line}`;
+	});
 }
 
 function extractRawSection(rawOutput: string, sectionLabel: string): string[] {
