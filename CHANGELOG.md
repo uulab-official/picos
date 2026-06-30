@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status cleanup index rows can now be selected with `j/k` and handed off to the owning workspace with `enter`.
 - Status workspace now shows a cleanup index for saved preset shelves and their exact-confirm shortcuts.
 - Timeline search presets and Tools history filter presets now have exact-confirm cleanup prompts.
 - Routes, Connections, and Ports saved filter presets can now be cleared with `D` after exact cleanup confirmation.
