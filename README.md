@@ -170,7 +170,7 @@ Reference-inspired modules now tracked in picos:
 - Connections view with parsed rows, CLI filtering/sorting, TUI selection details, PID process enrichment, copy preview, and raw OS command output
 - Ports view with process metadata, CLI filtering/sorting, TUI selection details, PID process enrichment, copy preview, and raw OS command output
 - Tools Hub
-- Timeline
+- Timeline with action/audit/raw event filters and audit export handoff
 - Raw output viewer
 
 See [docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md](docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md).
