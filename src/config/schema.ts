@@ -43,6 +43,7 @@ export const defaultConfig: PicosConfig = {
 	toolHistoryDetailView: "raw",
 	toolTargetPresets: [],
 	toolTargetPresetLimit: 8,
+	auditArchiveRetentionLimit: 10,
 };
 
 export type ConfigInput = Record<string, unknown>;
@@ -158,6 +159,9 @@ export function mergeConfig(
 	merged.toolTargetPresetLimit = normalizeToolTargetPresetLimit(
 		input.toolTargetPresetLimit,
 	);
+	merged.auditArchiveRetentionLimit = normalizeAuditArchiveRetentionLimit(
+		input.auditArchiveRetentionLimit,
+	);
 	merged.toolTargetPresets = normalizeToolTargetPresets(
 		input.toolTargetPresets,
 	).slice(0, merged.toolTargetPresetLimit);
@@ -267,6 +271,10 @@ export function coerceConfigValue(
 		return parseToolTargetPresetLimit(value);
 	}
 
+	if (key === "auditArchiveRetentionLimit") {
+		return parseAuditArchiveRetentionLimit(value);
+	}
+
 	return value;
 }
 
@@ -289,6 +297,27 @@ function parseToolTargetPresetLimit(value: string): number {
 	const parsed = Number(value);
 	if (!Number.isInteger(parsed) || parsed < 1 || parsed > 24) {
 		throw new Error("toolTargetPresetLimit must be a number between 1 and 24");
+	}
+	return parsed;
+}
+
+export function normalizeAuditArchiveRetentionLimit(input: unknown): number {
+	if (typeof input !== "number" || !Number.isFinite(input)) {
+		return defaultConfig.auditArchiveRetentionLimit;
+	}
+	const normalized = Math.floor(input);
+	if (normalized < 1) {
+		return defaultConfig.auditArchiveRetentionLimit;
+	}
+	return Math.min(60, normalized);
+}
+
+function parseAuditArchiveRetentionLimit(value: string): number {
+	const parsed = Number(value);
+	if (!Number.isInteger(parsed) || parsed < 1 || parsed > 60) {
+		throw new Error(
+			"auditArchiveRetentionLimit must be a number between 1 and 60",
+		);
 	}
 	return parsed;
 }

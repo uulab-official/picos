@@ -227,6 +227,7 @@ export type PicosConfig = {
 		hint: string;
 	}>;
 	toolTargetPresetLimit: number;
+	auditArchiveRetentionLimit: number;
 };
 
 export type Language = "en" | "ko" | "ja" | "zh";

@@ -605,6 +605,8 @@ export function App(): React.ReactElement {
 		ToolTargetPreset[]
 	>([]);
 	const [toolTargetPresetLimit, setToolTargetPresetLimit] = useState(8);
+	const [auditArchiveRetentionLimit, setAuditArchiveRetentionLimit] =
+		useState(10);
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolSectionClipboardSelection, setToolSectionClipboardSelection] =
@@ -1835,7 +1837,7 @@ export function App(): React.ReactElement {
 	const openAuditArchiveRetentionPreview = useCallback(() => {
 		const plan = createConsoleAuditArchiveRetentionPlan(
 			auditExportArchiveIndex,
-			{ maxItems: 10 },
+			{ maxItems: auditArchiveRetentionLimit },
 		);
 		setAuditArchiveRetentionPlan(plan);
 		setExternalOpenPlan(undefined);
@@ -1848,7 +1850,7 @@ export function App(): React.ReactElement {
 			plan.candidateItems.length > 0 ? "warn" : "info",
 			`audit archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
 		);
-	}, [auditExportArchiveIndex, log]);
+	}, [auditArchiveRetentionLimit, auditExportArchiveIndex, log]);
 
 	const openSelectedAuditExportArchive = useCallback(() => {
 		const item = getSelectedConsoleAuditExport(
@@ -2449,6 +2451,10 @@ export function App(): React.ReactElement {
 						"info",
 						`theme=${config.theme} refresh=${config.refreshInterval}`,
 					);
+					log(
+						"info",
+						`retention auditArchive=${config.auditArchiveRetentionLimit} toolTargets=${config.toolTargetPresetLimit}`,
+					);
 				}
 
 				if (action.id === "remote.profiles") {
@@ -2631,6 +2637,7 @@ export function App(): React.ReactElement {
 				config.toolHistoryDetailView as ToolHistoryDetailView,
 			);
 			setToolTargetPresetLimit(config.toolTargetPresetLimit);
+			setAuditArchiveRetentionLimit(config.auditArchiveRetentionLimit);
 			setCustomToolTargetPresets(
 				config.toolTargetPresets as ToolTargetPreset[],
 			);
