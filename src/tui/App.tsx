@@ -2164,7 +2164,8 @@ export function App(): React.ReactElement {
 			baseDir: auditExportIndex.baseDir,
 			source: "timeline-export",
 			label: `audit export ${item.scope} ${item.generatedAt}`,
-			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+			origin:
+				item.origin ?? createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: item.path,
 			platform: currentPlatform(),
 		});
@@ -2196,7 +2197,8 @@ export function App(): React.ReactElement {
 			baseDir: auditExportArchiveIndex.baseDir,
 			source: "timeline-export",
 			label: `archived audit export ${item.scope} ${item.generatedAt}`,
-			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+			origin:
+				item.origin ?? createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: item.path,
 			platform: currentPlatform(),
 		});
@@ -2275,7 +2277,8 @@ export function App(): React.ReactElement {
 			baseDir: cleanupExportIndex.baseDir,
 			source: "cleanup-export",
 			label: `cleanup export ${item.scope} ${item.generatedAt}`,
-			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+			origin:
+				item.origin ?? createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: item.path,
 			platform: currentPlatform(),
 		});
@@ -2895,6 +2898,7 @@ export function App(): React.ReactElement {
 						timelineFilter !== "all" || Boolean(timelineSearchQuery.trim());
 					const plan = createConsoleAuditExportPlan(scopedEvents, {
 						baseDir: dirname(getConfigPath()),
+						origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 						query: timelineSearchQuery.trim() || undefined,
 						scope: scoped ? "filtered" : undefined,
 					});
@@ -2995,6 +2999,7 @@ export function App(): React.ReactElement {
 			}
 		},
 		[
+			configShelfLandingTarget,
 			events,
 			exportToolHistory,
 			fileRoot,
@@ -3567,6 +3572,7 @@ export function App(): React.ReactElement {
 			selectedCleanupHandoffHistoryIndex,
 			{
 				baseDir: dirname(getConfigPath()),
+				origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 				scope: "all",
 			},
 		);
@@ -3594,6 +3600,7 @@ export function App(): React.ReactElement {
 		}
 	}, [
 		cleanupHandoffHistory,
+		configShelfLandingTarget,
 		log,
 		refreshCleanupExportIndex,
 		selectedCleanupHandoffHistoryIndex,
@@ -5002,6 +5009,7 @@ export function App(): React.ReactElement {
 			const plan = getSelectedTimelineAuditExportPlan(events, {
 				baseDir: dirname(getConfigPath()),
 				filter: timelineFilter,
+				origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 				query: timelineSearchQuery,
 				selectedIndex: selectedTimelineIndex,
 			});

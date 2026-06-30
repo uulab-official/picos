@@ -7,6 +7,7 @@ import {
 	createConfigCleanupPreview,
 	submitConfigCleanupConfirmation,
 } from "../core/configCleanup";
+import type { FileOpenOrigin } from "../core/fileOpen";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -157,6 +158,7 @@ export function getSelectedTimelineAuditExportPlan(
 		baseDir: string;
 		filter?: TimelineFilter;
 		generatedAt?: Date;
+		origin?: FileOpenOrigin;
 		query?: string;
 		selectedIndex?: number;
 	},
@@ -177,6 +179,7 @@ export function getSelectedTimelineAuditExportPlan(
 	return createConsoleAuditExportPlan([event], {
 		baseDir: options.baseDir,
 		generatedAt: options.generatedAt,
+		origin: options.origin,
 		query: options.query?.trim() || undefined,
 		scope: "selected",
 	});

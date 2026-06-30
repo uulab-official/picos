@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { FileOpenOrigin } from "../src/core/fileOpen";
 import {
 	appendCleanupHandoffHistory,
 	archiveCleanupHandoffHistoryExport,
@@ -38,6 +39,13 @@ import {
 	readLatestCleanupHandoffHistoryExport,
 	writeCleanupHandoffHistoryExport,
 } from "../src/tui/cleanupIndex";
+
+const cleanupOrigin: FileOpenOrigin = {
+	kind: "config-shelf",
+	target: "routes",
+	label: "Routes",
+	scope: "routes.filters",
+};
 
 describe("cleanup shelf index", () => {
 	test("summarizes cleanable preset shelves for status rows", () => {
@@ -462,6 +470,7 @@ describe("cleanup shelf index", () => {
 				baseDir: "/Users/bonjin/.config/picos",
 				scope: "selected",
 				generatedAt: new Date("2026-07-01T01:00:00.000Z"),
+				origin: cleanupOrigin,
 			}),
 		).toEqual({
 			path: "/Users/bonjin/.config/picos/cleanup/picos-cleanup-selected-2026-07-01T010000000Z.md",
@@ -469,6 +478,10 @@ describe("cleanup shelf index", () => {
 				"# picos cleanup handoff history",
 				"generatedAt=2026-07-01T01:00:00.000Z",
 				"scope=selected",
+				"originKind=config-shelf",
+				"originTarget=routes",
+				"originLabel=Routes",
+				"originScope=routes.filters",
 				"entries=1",
 				"",
 				"## Route filters",
@@ -478,6 +491,7 @@ describe("cleanup shelf index", () => {
 				"",
 			].join("\n"),
 			itemCount: 1,
+			origin: cleanupOrigin,
 			scope: "selected",
 		});
 		expect(
@@ -641,6 +655,10 @@ describe("cleanup shelf index", () => {
 					"# picos cleanup handoff history",
 					"generatedAt=2026-07-01T01:00:00.000Z",
 					"scope=selected",
+					"originKind=config-shelf",
+					"originTarget=routes",
+					"originLabel=Routes",
+					"originScope=routes.filters",
 					"entries=1",
 					"",
 				].join("\n"),
@@ -657,13 +675,14 @@ describe("cleanup shelf index", () => {
 				scope: "selected",
 				entryCount: 1,
 				generatedAt: "2026-07-01T01:00:00.000Z",
+				origin: cleanupOrigin,
 			});
 			expect(getSelectedCleanupHandoffHistoryExport(index, 99)?.scope).toBe(
 				"all",
 			);
 			expect(formatCleanupHandoffHistoryExportIndexRows(index, 0, 4)).toEqual([
 				`CLEANUP EXPORTS 2 base=${root}`,
-				"> selected entries=1 2026-07-01T01:00:00.000Z",
+				"> selected entries=1 2026-07-01T01:00:00.000Z origin=Config>Routes scope=routes.filters",
 				"  all      entries=2 2026-06-30T03:00:00.000Z",
 				`path=${join(
 					cleanupDir,

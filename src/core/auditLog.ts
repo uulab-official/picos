@@ -7,6 +7,7 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
+import type { FileOpenOrigin } from "./fileOpen";
 
 export type AuditLogEventLevel = "run" | "ok" | "warn" | "fail" | "info";
 
@@ -21,6 +22,7 @@ export type ConsoleAuditExportPlan = {
 	path: string;
 	content: string;
 	eventCount: number;
+	origin?: FileOpenOrigin;
 	query?: string;
 	scope?: "all" | "filtered" | "selected";
 };
@@ -37,6 +39,7 @@ export type ConsoleAuditExportIndexItem = {
 	scope: "all" | "filtered" | "selected";
 	query?: string;
 	entryCount: number;
+	origin?: FileOpenOrigin;
 };
 
 export type ConsoleAuditExportIndex = {
@@ -89,6 +92,7 @@ export function formatConsoleAuditLog(
 	events: AuditLogEvent[],
 	options: {
 		generatedAt?: string;
+		origin?: FileOpenOrigin;
 		query?: string;
 		scope?: "all" | "filtered" | "selected";
 	} = {},
@@ -99,6 +103,7 @@ export function formatConsoleAuditLog(
 		`generatedAt=${generatedAt}`,
 		...(options.scope ? [`scope=${options.scope}`] : []),
 		...(options.query ? [`query=${options.query}`] : []),
+		...formatAuditOriginMetadata(options.origin),
 		`events=${events.length}`,
 		"",
 		...events.map(
@@ -114,6 +119,7 @@ export function createConsoleAuditExportPlan(
 	options: {
 		baseDir: string;
 		generatedAt?: Date;
+		origin?: FileOpenOrigin;
 		query?: string;
 		scope?: "all" | "filtered" | "selected";
 	},
@@ -131,10 +137,12 @@ export function createConsoleAuditExportPlan(
 		),
 		content: formatConsoleAuditLog(events, {
 			generatedAt: iso,
+			origin: options.origin,
 			query: options.query,
 			scope: options.scope,
 		}),
 		eventCount: events.length,
+		...(options.origin ? { origin: options.origin } : {}),
 		...(options.query ? { query: options.query } : {}),
 		...(options.scope ? { scope: options.scope } : {}),
 	};
@@ -299,6 +307,7 @@ function formatConsoleAuditExportRows(
 							`events=${item.entryCount}`,
 							item.generatedAt,
 							item.query ? `query=${item.query}` : "",
+							formatAuditOriginHint(item.origin),
 						]
 							.filter(Boolean)
 							.join(" "),
@@ -517,6 +526,7 @@ function createConsoleAuditExportIndexItem(
 	content: string,
 ): ConsoleAuditExportIndexItem {
 	const metadata = parseAuditMetadata(content);
+	const origin = parseAuditOriginMetadata(metadata);
 	return {
 		fileName,
 		path,
@@ -525,7 +535,48 @@ function createConsoleAuditExportIndexItem(
 		scope: normalizeAuditExportScope(metadata.scope),
 		...(metadata.query ? { query: metadata.query } : {}),
 		entryCount: Number.parseInt(metadata.events ?? "0", 10) || 0,
+		...(origin ? { origin } : {}),
 	};
+}
+
+function formatAuditOriginMetadata(
+	origin: FileOpenOrigin | undefined,
+): string[] {
+	if (!origin) {
+		return [];
+	}
+	return [
+		`originKind=${sanitizeAuditMetadata(origin.kind)}`,
+		`originTarget=${sanitizeAuditMetadata(origin.target)}`,
+		`originLabel=${sanitizeAuditMetadata(origin.label)}`,
+		`originScope=${sanitizeAuditMetadata(origin.scope)}`,
+	];
+}
+
+function parseAuditOriginMetadata(
+	metadata: Record<string, string>,
+): FileOpenOrigin | undefined {
+	if (metadata.originKind !== "config-shelf") {
+		return undefined;
+	}
+	const { originTarget, originLabel, originScope } = metadata;
+	if (!originTarget || !originLabel || !originScope) {
+		return undefined;
+	}
+	return {
+		kind: "config-shelf",
+		target: originTarget,
+		label: originLabel,
+		scope: originScope,
+	};
+}
+
+function formatAuditOriginHint(origin: FileOpenOrigin | undefined): string {
+	return origin ? `origin=Config>${origin.label} scope=${origin.scope}` : "";
+}
+
+function sanitizeAuditMetadata(value: string): string {
+	return value.replaceAll(/\r?\n/g, " ").trim();
 }
 
 function parseAuditMetadata(content: string): Record<string, string> {
