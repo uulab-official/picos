@@ -48,7 +48,7 @@ Keyboard controls:
 - Logs workspace: `e` cycles severity, `f` searches, `F` clears, `P` saves search text to config, `]` cycles search presets, `S` saves the current severity/search profile to config, `}` cycles profiles, `L` toggles live follow refresh while viewing Logs, `C` clears follow counters/history, and `r` refreshes logs only
 - Tools workspace: `n` cycles OS-aware target presets, `R` runs the selected preset, `j/k` selects previous runs, `Tab` cycles raw/summary/command detail panes, `f` filters history, `P` saves the active filter as a session preset, `]` cycles saved presets, `s` cycles sorting, `G` groups by tool/action or status, `r` reruns, `y` copies summaries, `c` copies raw output, and `e`/`E` exports selected/all runs
 - Timeline workspace: `t` cycles event kinds, `f` searches, `F` clears search, `P` saves search, `]` cycles presets, and `timeline.export` writes the current filtered scope
-- Status workspace: after `picos.update`, `n` cycles release handoff links, `c` opens the locked clipboard confirmation for the selected link, and `o` opens a locked `:external-open` confirmation before launching the selected HTTPS handoff URL
+- Status workspace: after `picos.update`, `n` cycles release handoff links, `c` opens the locked clipboard confirmation for the selected link, and `o` opens a locked `:external-open` confirmation before launching the selected HTTPS handoff URL; route/endpoint evidence files appear in the handoff index, where `H` refreshes, `]` selects, and `O` opens a locked file-open confirmation
 - `d`: run doctor
 - `p`: ping the default host
 - `r`: refresh
@@ -143,6 +143,7 @@ Commands:
 - `picos monitor`: print a read-only system monitor snapshot with load average, memory usage, CPU, and top process rows.
 - `picos logs --limit <n> --level <all|warn|fail|info> --filter <query>`: read recent local OS log entries through the platform adapter; macOS uses unified logs, Linux uses `journalctl`, Windows uses the System event log, and filters can match severity, row number, or text.
 - `picos update`: check npm registry metadata and GitHub Releases for the latest `@uulab/picos` version, then print install, npm package, GitHub Release, and CHANGELOG handoff links without running an installer; the TUI `picos.update` action also stages a locked apply preview when an update exists, and `picos.update.apply` can route that preview through the Action Center confirmation plus control execution policy for npm `--dry-run`.
+- `picos handoffs`: list recent route and endpoint evidence handoff files from the picos config directory.
 - `picos release-health`: print package metadata, dist artifact, CI, and manual release workflow health rows before publishing.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
 - `picos remotes`: list configured remote file profiles without opening a network session.
@@ -330,6 +331,8 @@ Connections and Ports also persist the active `s` sort cycle as `connectionSort`
 Routes can also export the active table/raw/diagnostics/path detail view with `e`. Press `o` to create the same handoff file and prepare a locked external file-open preview; type `open` to launch the OS file viewer. Handoff files are written under your picos config directory in `routes/*.md` for external review or editor workflows.
 
 Connections and Ports use the same `e`/`o` handoff flow for active endpoint evidence. Their files are written under `endpoints/*.md`.
+
+Use `picos handoffs` or the Status workspace handoff index to browse recent route/endpoint evidence files after they are exported.
 
 ## Development
 
