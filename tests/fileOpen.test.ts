@@ -10,6 +10,8 @@ const handoffPath =
 	"/Users/me/.config/picos/routes/picos-routes-raw-2026-06-30T120000000Z.md";
 const endpointHandoffPath =
 	"/Users/me/.config/picos/endpoints/picos-ports-raw-2026-06-30T120000000Z.md";
+const cleanupExportPath =
+	"/Users/me/.config/picos/cleanup/picos-cleanup-all-2026-07-01T010000000Z.md";
 
 describe("external file open planning", () => {
 	test("builds locked opener plans only for files under the allowed base directory", () => {
@@ -67,6 +69,31 @@ describe("external file open planning", () => {
 			enabled: false,
 			reason: "external file open is limited to picos handoff files",
 		});
+	});
+
+	test("builds locked opener plans for cleanup export files", () => {
+		const plan = buildFileOpenPlan({
+			baseDir,
+			label: "cleanup export all",
+			path: cleanupExportPath,
+			platform: "darwin",
+			source: "cleanup-export",
+		});
+
+		expect(plan).toMatchObject({
+			source: "cleanup-export",
+			label: "cleanup export all",
+			path: cleanupExportPath,
+			confirmed: false,
+			enabled: false,
+			reason: "type open to launch external file viewer",
+			adapter: {
+				platform: "darwin",
+				command: "open",
+				args: [cleanupExportPath],
+			},
+		});
+		expect(formatFileOpenPlanRows(plan)[0]).toBe("FILE OPEN cleanup-export");
 	});
 
 	test("formats operator-visible file open previews", () => {

@@ -1693,6 +1693,19 @@ Goal: make durable cleanup export files visible from the Status console without 
 - Tests cover export index discovery, newest-first ordering, selected row clamping, empty rows, and path detail rows.
 - Next: add file-open/archive controls for selected cleanup exports or a dedicated Cleanup Export viewer.
 
+## v0.4.64 - Open Cleanup Export Files
+
+Status: draft PR #126.
+
+Goal: make cleanup export evidence inspectable from the Status console while preserving picos' locked external-open posture.
+
+- File-open safety planning now treats picos-owned `cleanup/*.md` exports as allowed markdown evidence files.
+- Status workspace exposes `V` to open the selected cleanup export through the locked file-open confirmation.
+- The cleanup export index hint now shows `Y refresh`, `}` select, and `V open`.
+- File-open rows label cleanup export previews as `FILE OPEN cleanup-export` before requiring the exact `open` confirmation.
+- Tests cover cleanup export file-open planning under the config `cleanup` directory.
+- Next: add archive/delete controls for stale cleanup exports with exact confirmation.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

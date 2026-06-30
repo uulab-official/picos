@@ -180,6 +180,7 @@ import {
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
 	getSelectedCleanupHandoffHistory,
+	getSelectedCleanupHandoffHistoryExport,
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
@@ -1573,6 +1574,29 @@ export function App(): React.ReactElement {
 		setScreen("status");
 		log("info", `file open confirmation opened for ${item.label}`);
 	}, [handoffIndex, log, selectedHandoffIndex]);
+
+	const openSelectedCleanupExportFile = useCallback(() => {
+		const item = getSelectedCleanupHandoffHistoryExport(
+			cleanupExportIndex,
+			selectedCleanupExportIndex,
+		);
+		if (!item) {
+			log("warn", "no cleanup export selected");
+			return;
+		}
+		const plan = buildFileOpenPlan({
+			baseDir: cleanupExportIndex.baseDir,
+			source: "cleanup-export",
+			label: `cleanup export ${item.scope} ${item.generatedAt}`,
+			path: item.path,
+			platform: currentPlatform(),
+		});
+		setFileOpenPlan(plan);
+		setExternalOpenPlan(undefined);
+		setCommandLine(openCommandLine("file-open"));
+		setScreen("status");
+		log("info", `cleanup export open confirmation opened for ${item.fileName}`);
+	}, [cleanupExportIndex, log, selectedCleanupExportIndex]);
 
 	const archiveSelectedHandoffFile = useCallback(async () => {
 		const item = getSelectedHandoffIndexItem(
@@ -3386,6 +3410,11 @@ export function App(): React.ReactElement {
 				log("info", `cleanup export selected ${item?.fileName ?? next + 1}`);
 				return next;
 			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "V") {
+			openSelectedCleanupExportFile();
 			return;
 		}
 
@@ -7267,7 +7296,9 @@ function StatusWorkspace({
 				)}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">CLEANUP EXPORTS · Y refresh · {"}"} select</Text>
+				<Text color="gray">
+					CLEANUP EXPORTS · Y refresh · {"}"} select · V open
+				</Text>
 				{formatCleanupHandoffHistoryExportIndexRows(
 					cleanupExportIndex,
 					selectedCleanupExportIndex,
