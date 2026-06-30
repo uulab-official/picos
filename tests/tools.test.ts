@@ -16,6 +16,7 @@ describe("lazyifconfig-style tools hub", () => {
 			"whois",
 			"ip-info",
 			"port-check",
+			"telnet",
 			"tls",
 			"ping",
 			"traceroute",
@@ -66,6 +67,27 @@ describe("lazyifconfig-style tools hub", () => {
 		expect(result.title).toBe("TCP Port Check");
 		expect(result.sections[0]?.label).toBe("Status");
 		expect(result.sections[0]?.lines).toContain("OPEN");
+	});
+
+	test("runs telnet as a familiar TCP reachability alias", async () => {
+		const result = await runTool("telnet", ["example.com", "443"], {
+			timeoutMs: 500,
+			connect: async () => undefined,
+			now: (() => {
+				let current = 200;
+				return () => {
+					current += 15;
+					return current;
+				};
+			})(),
+		});
+
+		expect(result.title).toBe("Telnet TCP Check");
+		expect(result.sections[0]?.label).toBe("Status");
+		expect(result.sections[0]?.lines).toContain("OPEN");
+		expect(result.rawOutput).toStartWith(
+			"$ picos tools telnet example.com 443",
+		);
 	});
 
 	test("uses injectable fetch for RDAP", async () => {

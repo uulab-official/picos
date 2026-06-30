@@ -1746,7 +1746,21 @@ Goal: make picos friendlier for operators who expect telnet-style reachability c
 - Telnet output identifies the invoked command as `picos telnet host:port`.
 - README documents both `connect` and `telnet` usage.
 - Tests cover the CLI command registry for the telnet alias.
-- Next: add TUI command-palette shortcuts or Tools Hub labels for telnet-style checks.
+- Next: expose the telnet-style check inside Tools Hub and command-palette search.
+
+## v0.4.68 - Telnet Tools Surface
+
+Status: draft PR #130 on `codex/picos-v0.4.68-telnet-tools-surface`.
+
+Goal: make telnet-style reachability visible from the OS-like TUI and Tools Hub, not just the standalone CLI alias.
+
+- `picos tools telnet <host> <port>` now runs the same safe TCP reachability core as `picos tools port-check`.
+- Tools Hub lists `telnet` with host and port fields so operators can discover it beside DNS, ping, traceroute, TLS, and port checks.
+- The TUI Tools workspace now records `network.connect` runs through the `telnet` tool id, keeping the command detail closer to what operators expect.
+- Command-palette search for `telnet` finds the read-only TCP connect action.
+- Existing `port-check` history remains readable while new runs use the telnet-style surface.
+- Tests cover the Tools Hub alias, palette search, and Tools workspace run-plan mapping.
+- Next: add richer TCP detail rows in Tools history, including resolved host, port, elapsed time, and timeout policy.
 
 ## v0.5.0 - Developer Environment Plugins
 
