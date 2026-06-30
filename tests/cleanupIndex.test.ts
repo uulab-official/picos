@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
+	createCleanupHandoffActionPlan,
 	createCleanupJumpAudit,
 	createCleanupShelfIndex,
+	formatCleanupHandoffActionRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
@@ -205,5 +207,38 @@ describe("cleanup shelf index", () => {
 			"confirm=clear connections detail=filters=2",
 		]);
 		expect(formatCleanupJumpAuditRows(undefined)).toEqual([]);
+	});
+
+	test("creates actionable cleanup prompt plans only on destination screens", () => {
+		const index = createCleanupShelfIndex({
+			connectionFilterPresets: ["443"],
+		});
+		const shelf = getSelectedCleanupShelf(index, 0);
+
+		if (!shelf) {
+			throw new Error("expected cleanup shelf");
+		}
+
+		const audit = createCleanupJumpAudit(shelf);
+		const plan = createCleanupHandoffActionPlan(audit, "connections");
+
+		expect(plan).toEqual({
+			id: "connections",
+			label: "Connection filters",
+			screen: "connections",
+			workspace: "Connections",
+			shortcut: "D",
+			confirmationPhrase: "clear connections",
+		});
+		expect(createCleanupHandoffActionPlan(audit, "ports")).toBeUndefined();
+		expect(
+			createCleanupHandoffActionPlan(undefined, "connections"),
+		).toBeUndefined();
+		expect(formatCleanupHandoffActionRows(plan)).toEqual([
+			"CLEANUP ACTION open prompt",
+			"enter opens Connections cleanup shortcut=D",
+			"confirm=clear connections",
+		]);
+		expect(formatCleanupHandoffActionRows(undefined)).toEqual([]);
 	});
 });

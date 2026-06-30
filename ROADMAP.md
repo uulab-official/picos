@@ -1590,6 +1590,18 @@ Goal: preserve cleanup context after the operator leaves Status for the owning w
 - Tests cover audit model rows and empty audit formatting.
 - Next: make the destination handoff row actionable by opening the matching cleanup prompt directly.
 
+## v0.4.56 - Actionable Cleanup Handoff
+
+Status: draft PR #118.
+
+Goal: make Status cleanup handoff operate like a real console workflow instead of a passive reminder.
+
+- Destination cleanup handoff rows now expose an action plan only when the current screen matches the selected cleanup shelf.
+- Pressing `enter` on a matching destination handoff opens the existing exact-confirm cleanup prompt for Logs, Routes, Connections, Ports, Timeline, Tools history, or Tools targets.
+- Non-matching screens do not expose a prompt action, preserving the normal `enter` behavior for endpoints, files, processes, and remotes.
+- Tests cover action plan matching, non-matching screen fallback, and action row formatting.
+- Next: add a dismiss/clear handoff action so normal destination `enter` behavior can resume after the cleanup prompt is reviewed.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
