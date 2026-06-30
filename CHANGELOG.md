@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Route and endpoint evidence exports now write Config-origin metadata into handoff files, and the Status handoff index restores that source for reopened locked file-open confirmations.
 - File-open plans now preserve Config-origin metadata so locked evidence-open confirmations keep their settings shelf source after workspace changes.
 - Config-origin locked file-open confirmations now show breadcrumbs so exported evidence opened from settings shelf flows keeps its source path visible.
 - Config-origin cleanup confirmations now show breadcrumbs in Routes, Connections, Ports, and Logs so exact-confirm shelf cleanup keeps its settings path visible.

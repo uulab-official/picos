@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { FileOpenOrigin } from "../src/core/fileOpen";
 import type { RoutePathResult, RouteTableResult } from "../src/core/routes";
 import {
 	createRouteFilterCleanupPreview,
@@ -43,6 +44,13 @@ const fixture: RouteTableResult = {
 		},
 	],
 	rawOutput: "$ netstat -rn\nInternet:\ndefault 192.168.0.1 UGSc en0",
+};
+
+const configRouteOrigin: FileOpenOrigin = {
+	kind: "config-shelf",
+	target: "routes",
+	label: "Routes",
+	scope: "routes.filters",
 };
 
 const pathFixture: RoutePathResult = {
@@ -361,6 +369,21 @@ describe("route TUI panel formatting", () => {
 				view: "path",
 			})?.content,
 		).toContain("$ route -n get 8.8.8.8");
+	});
+
+	test("writes config-origin metadata into route handoff files", () => {
+		const plan = createRouteRawHandoffPlan(fixture, {
+			baseDir: "/tmp/picos",
+			generatedAt: new Date("2026-06-30T12:00:00.000Z"),
+			origin: configRouteOrigin,
+			view: "raw",
+		});
+
+		expect(plan?.origin).toEqual(configRouteOrigin);
+		expect(plan?.content).toContain("originKind=config-shelf\n");
+		expect(plan?.content).toContain("originTarget=routes\n");
+		expect(plan?.content).toContain("originLabel=Routes\n");
+		expect(plan?.content).toContain("originScope=routes.filters\n");
 	});
 
 	test("writes route raw handoff files", async () => {

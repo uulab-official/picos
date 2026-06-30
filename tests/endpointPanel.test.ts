@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { FileOpenOrigin } from "../src/core/fileOpen";
 import {
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
@@ -22,6 +23,13 @@ import {
 	submitPortProcessControlConfirmation,
 	writeEndpointHandoffPlan,
 } from "../src/tui/endpointPanel";
+
+const configPortOrigin: FileOpenOrigin = {
+	kind: "config-shelf",
+	target: "ports",
+	label: "Ports",
+	scope: "ports.filters",
+};
 
 describe("endpoint TUI panel formatting", () => {
 	test("formats connections with raw source output", () => {
@@ -1072,6 +1080,36 @@ describe("endpoint TUI panel formatting", () => {
 				view: "detail",
 			})?.content,
 		).toContain("picos ports");
+	});
+
+	test("writes config-origin metadata into endpoint handoff files", () => {
+		const plan = createEndpointHandoffPlan("ports", {
+			baseDir: "/tmp/picos",
+			generatedAt: new Date("2026-06-30T12:00:00.000Z"),
+			origin: configPortOrigin,
+			result: {
+				command: "lsof",
+				args: ["-nP"],
+				ports: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "12345",
+						command: "node",
+						user: "alice",
+					},
+				],
+				rawOutput: "$ lsof\nnode raw line",
+			},
+			view: "raw",
+		});
+
+		expect(plan.origin).toEqual(configPortOrigin);
+		expect(plan.content).toContain("originKind=config-shelf\n");
+		expect(plan.content).toContain("originTarget=ports\n");
+		expect(plan.content).toContain("originLabel=Ports\n");
+		expect(plan.content).toContain("originScope=ports.filters\n");
 	});
 
 	test("writes endpoint handoff files", async () => {

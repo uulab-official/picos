@@ -5,6 +5,7 @@ import {
 	createConfigCleanupPreview,
 	submitConfigCleanupConfirmation,
 } from "../core/configCleanup";
+import type { FileOpenOrigin } from "../core/fileOpen";
 import {
 	normalizeRouteFilterPresets,
 	saveRouteFilterPresetValue,
@@ -31,6 +32,7 @@ export type RouteRawHandoffPlan = {
 	path: string;
 	content: string;
 	label: string;
+	origin?: FileOpenOrigin;
 	view: RouteDetailView;
 };
 
@@ -332,6 +334,7 @@ export function createRouteRawHandoffPlan(
 		baseDir: string;
 		filter?: string;
 		generatedAt?: Date;
+		origin?: FileOpenOrigin;
 		path?: RoutePathResult;
 		sort?: RouteSort;
 		view?: RouteDetailView;
@@ -360,10 +363,12 @@ export function createRouteRawHandoffPlan(
 			filter: options.filter,
 			generatedAt: iso,
 			label: handoff.label,
+			origin: options.origin,
 			sort: options.sort,
 			view,
 		}),
 		label: handoff.label,
+		...(options.origin ? { origin: options.origin } : {}),
 		view,
 	};
 }
@@ -484,6 +489,7 @@ function formatRouteHandoffMarkdown(
 		filter?: string;
 		generatedAt: string;
 		label: string;
+		origin?: FileOpenOrigin;
 		sort?: RouteSort;
 		view: RouteDetailView;
 	},
@@ -495,6 +501,7 @@ function formatRouteHandoffMarkdown(
 		`view=${options.view}`,
 		`label=${options.label}`,
 		`command=${result.command} ${result.args.join(" ")}`.trim(),
+		...formatHandoffOriginMetadata(options.origin),
 		...(filter ? [`filter=${filter}`] : []),
 		...(options.sort
 			? [`sort=${options.sort.key} ${options.sort.direction}`]
@@ -505,6 +512,24 @@ function formatRouteHandoffMarkdown(
 		"```",
 		"",
 	].join("\n");
+}
+
+function formatHandoffOriginMetadata(
+	origin: FileOpenOrigin | undefined,
+): string[] {
+	if (!origin) {
+		return [];
+	}
+	return [
+		`originKind=${sanitizeHandoffMetadata(origin.kind)}`,
+		`originTarget=${sanitizeHandoffMetadata(origin.target)}`,
+		`originLabel=${sanitizeHandoffMetadata(origin.label)}`,
+		`originScope=${sanitizeHandoffMetadata(origin.scope)}`,
+	];
+}
+
+function sanitizeHandoffMetadata(value: string): string {
+	return value.replaceAll(/\r?\n/g, " ").trim();
 }
 
 export function formatRouteRawRows(

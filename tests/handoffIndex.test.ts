@@ -89,6 +89,10 @@ describe("handoff index", () => {
 					"view=raw",
 					"label=route raw output",
 					"command=netstat -rn",
+					"originKind=config-shelf",
+					"originTarget=routes",
+					"originLabel=Routes",
+					"originScope=routes.filters",
 					"",
 				].join("\n"),
 			);
@@ -127,6 +131,12 @@ describe("handoff index", () => {
 				kind: "routes",
 				view: "raw",
 				command: "netstat -rn",
+				origin: {
+					kind: "config-shelf",
+					target: "routes",
+					label: "Routes",
+					scope: "routes.filters",
+				},
 			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -146,6 +156,12 @@ describe("handoff index", () => {
 						command: "lsof -nP",
 						generatedAt: "2026-06-30T13:00:00.000Z",
 						path: "/tmp/picos/endpoints/picos-ports-raw.md",
+						origin: {
+							kind: "config-shelf",
+							target: "ports",
+							label: "Ports",
+							scope: "ports.filters",
+						},
 					},
 					{
 						source: "route-handoff",
@@ -164,7 +180,7 @@ describe("handoff index", () => {
 
 		expect(rows).toEqual([
 			"HANDOFFS 2 base=/tmp/picos",
-			"  endpoint ports raw 2026-06-30T13:00:00.000Z ports raw output",
+			"  endpoint ports raw 2026-06-30T13:00:00.000Z ports raw output origin=Config>Ports scope=ports.filters",
 			"> route routes diagnostics 2026-06-30T12:00:00.000Z route diagnostics",
 			"open target=/tmp/picos/routes/picos-routes-diagnostics.md",
 			"archive target=/tmp/picos/routes/picos-routes-diagnostics.md",

@@ -2137,7 +2137,8 @@ export function App(): React.ReactElement {
 			baseDir: handoffIndex.baseDir,
 			source: item.source,
 			label: item.label,
-			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+			origin:
+				item.origin ?? createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: item.path,
 			platform: currentPlatform(),
 		});
@@ -2419,6 +2420,7 @@ export function App(): React.ReactElement {
 		const handoff = createRouteRawHandoffPlan(routeTable, {
 			baseDir,
 			filter: routeFilter,
+			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 			path: routePath,
 			sort: routeSort,
 			view: routeDetailView,
@@ -2435,7 +2437,9 @@ export function App(): React.ReactElement {
 				baseDir,
 				source: "route-handoff",
 				label: written.label,
-				origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+				origin:
+					written.origin ??
+					createActiveFileOpenOrigin(configShelfLandingTarget),
 				path: written.path,
 				platform: currentPlatform(),
 			});
@@ -2517,6 +2521,7 @@ export function App(): React.ReactElement {
 						? createEndpointHandoffPlan("connections", {
 								baseDir,
 								filter: connectionFilter,
+								origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 								result: connectionsResult,
 								sort: connectionSort,
 								view: connectionDetailView,
@@ -2526,6 +2531,7 @@ export function App(): React.ReactElement {
 						? createEndpointHandoffPlan("ports", {
 								baseDir,
 								filter: portFilter,
+								origin: createActiveFileOpenOrigin(configShelfLandingTarget),
 								result: portsResult,
 								sort: portSort,
 								view: portDetailView,
@@ -2543,7 +2549,9 @@ export function App(): React.ReactElement {
 					baseDir,
 					source: "endpoint-handoff",
 					label: written.label,
-					origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+					origin:
+						written.origin ??
+						createActiveFileOpenOrigin(configShelfLandingTarget),
 					path: written.path,
 					platform: currentPlatform(),
 				});
