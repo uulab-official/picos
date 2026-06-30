@@ -1,3 +1,4 @@
+import type { ActionPreviewCommand } from "../core/actions";
 import type { NetworkInterfaceStatsMap, PingCommand } from "../core/types";
 
 export function clipboardWriteCommand(): {
@@ -23,6 +24,44 @@ export function pingCommand(host: string, count: number): PingCommand {
 
 export function interfaceStatsCommand(): { command: string; args: string[] } {
 	return { command: "ip", args: ["-s", "link"] };
+}
+
+export function controlPreviewCommand(
+	actionId: string,
+): ActionPreviewCommand | undefined {
+	if (actionId === "dns.flush") {
+		return {
+			adapter: "linux",
+			command: "sudo",
+			args: ["resolvectl", "flush-caches"],
+			note: "flush local systemd-resolved DNS cache",
+		};
+	}
+	if (actionId === "interface.disable") {
+		return {
+			adapter: "linux",
+			command: "sudo",
+			args: ["ip", "link", "set", "<interface>", "down"],
+			note: "disable a network interface",
+		};
+	}
+	if (actionId === "route.add") {
+		return {
+			adapter: "linux",
+			command: "sudo",
+			args: ["ip", "route", "add", "<destination>", "via", "<gateway>"],
+			note: "add a route table entry",
+		};
+	}
+	if (actionId === "service.restart") {
+		return {
+			adapter: "linux",
+			command: "sudo",
+			args: ["systemctl", "restart", "<service>"],
+			note: "restart a systemd service",
+		};
+	}
+	return undefined;
 }
 
 export function parseInterfaceStats(stdout: string): NetworkInterfaceStatsMap {
