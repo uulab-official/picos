@@ -2181,7 +2181,21 @@ Goal: make common picos settings controllable from the OS-like TUI instead of re
 - `enter` on `defaultPingHost` opens a text prompt and saves the trimmed host after validation.
 - Control execution policy changes update the active TUI session after config writes, while mutation execution remains behind existing dry-run and confirmation gates.
 - Tests cover expanded row formatting, selection wraparound, value clamping/cycling, and text-row edit prompts.
-- Next: add Config policy presets, reset-to-default confirmations, and richer per-row safety descriptions.
+- Next: add Config sections for display, safety, retention, and connectivity groups so the settings panel scales without becoming a flat list.
+
+## v0.4.101 - Config Policy Presets And Reset
+
+Status: draft PR #163 on `codex/picos-v0.4.101-config-policy-reset`.
+
+Goal: make picos configuration feel more like an OS settings panel, with explicit safety modes and reversible core-control defaults.
+
+- Config workspace now exposes `P` to cycle policy presets across safe read-only, user dry-run, and admin dry-run modes.
+- Policy presets update `controlExecutionMode`, `allowAdminDryRun`, and `enableExperimentalControls` together so operator intent stays coherent.
+- Config workspace now exposes `R` to preview restoring core controls to defaults.
+- Reset previews list changed values and require the exact phrase `reset config` before writing config.
+- Confirmed resets restore language, refresh cadence, default ping host, retention limits, dry-run policy, and experimental controls while preserving unrelated saved shelves.
+- Tests cover policy preset cycling, preset row formatting, reset preview rows, and rejected/confirmed exact confirmations.
+- Next: add Config sections for display, safety, retention, and connectivity groups so the settings panel scales without becoming a flat list.
 
 ## v0.5.0 - Developer Environment Plugins
 

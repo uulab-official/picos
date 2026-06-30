@@ -13,6 +13,7 @@ import {
 	setConfigToolHistoryPreferences,
 	setConfigToolTargetPresets,
 	setConfigValue,
+	writeConfig,
 } from "../config/store";
 import {
 	type ActionControlSimulation,
@@ -150,6 +151,7 @@ import type {
 	Language,
 	ListeningPort,
 	NetworkSummary,
+	PicosConfig,
 	SftpRemoteProfile,
 	SystemInventory,
 } from "../core/types";
@@ -229,12 +231,17 @@ import {
 } from "./commandLine";
 import {
 	adjustConfigWorkspaceItem,
+	applyConfigPolicyPreset,
 	type ConfigWorkspaceItem,
+	type ConfigWorkspaceResetPreview,
 	createConfigWorkspaceItems,
+	createConfigWorkspaceResetPreview,
 	formatConfigWorkspaceRows,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
+	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
+	submitConfigWorkspaceResetConfirmation,
 } from "./configPanel";
 import {
 	createEndpointFilterCleanupPreview,
@@ -618,6 +625,10 @@ export function App(): React.ReactElement {
 	const [auditArchiveRetentionLimit, setAuditArchiveRetentionLimit] =
 		useState(10);
 	const [selectedConfigIndex, setSelectedConfigIndex] = useState(0);
+	const [enableExperimentalControls, setEnableExperimentalControls] =
+		useState(false);
+	const [configResetPreview, setConfigResetPreview] =
+		useState<ConfigWorkspaceResetPreview>();
 	const [toolCopyPreview, setToolCopyPreview] =
 		useState<ToolCopyPreviewMode>(false);
 	const [toolSectionClipboardSelection, setToolSectionClipboardSelection] =
@@ -789,6 +800,17 @@ export function App(): React.ReactElement {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
 	}, []);
 
+	const syncConfigSessionState = useCallback((config: PicosConfig) => {
+		setAuditArchiveRetentionLimit(config.auditArchiveRetentionLimit);
+		setToolTargetPresetLimit(config.toolTargetPresetLimit);
+		setLanguage(config.language);
+		setRefreshInterval(config.refreshInterval);
+		setDefaultPingHost(config.defaultPingHost);
+		setEnableExperimentalControls(config.enableExperimentalControls);
+		setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
+		setCustomToolTargetPresets(config.toolTargetPresets as ToolTargetPreset[]);
+	}, []);
+
 	const saveConfigWorkspaceAdjustment = useCallback(
 		(direction: "increase" | "decrease") => {
 			const item = getConfigWorkspaceItem(
@@ -839,19 +861,10 @@ export function App(): React.ReactElement {
 						const trimmed = await setConfigToolTargetPresets(
 							config.toolTargetPresets,
 						);
-						setToolTargetPresetLimit(trimmed.toolTargetPresetLimit);
-						setCustomToolTargetPresets(
-							trimmed.toolTargetPresets as ToolTargetPreset[],
-						);
+						syncConfigSessionState(trimmed);
 					} else {
-						setAuditArchiveRetentionLimit(config.auditArchiveRetentionLimit);
+						syncConfigSessionState(config);
 					}
-					setLanguage(config.language);
-					setRefreshInterval(config.refreshInterval);
-					setDefaultPingHost(config.defaultPingHost);
-					setControlExecutionPolicy(
-						getControlExecutionPolicyFromConfig(config),
-					);
 					log("ok", `config ${item.key}=${nextValue}`);
 				} catch (caught) {
 					log(
@@ -863,7 +876,7 @@ export function App(): React.ReactElement {
 				}
 			})();
 		},
-		[configWorkspaceItems, log, selectedConfigIndex],
+		[configWorkspaceItems, log, selectedConfigIndex, syncConfigSessionState],
 	);
 
 	const submitConfigTextCommand = useCallback(async () => {
@@ -884,7 +897,7 @@ export function App(): React.ReactElement {
 		}
 		try {
 			const config = await setConfigValue(item.key, nextValue);
-			setDefaultPingHost(config.defaultPingHost);
+			syncConfigSessionState(config);
 			log("ok", `config ${item.key}=${config.defaultPingHost}`);
 		} catch (caught) {
 			log(
@@ -894,7 +907,130 @@ export function App(): React.ReactElement {
 					: `config save failed ${String(caught)}`,
 			);
 		}
-	}, [commandLine.value, configWorkspaceItems, log, selectedConfigIndex]);
+	}, [
+		commandLine.value,
+		configWorkspaceItems,
+		log,
+		selectedConfigIndex,
+		syncConfigSessionState,
+	]);
+
+	const applyNextConfigPolicyPreset = useCallback(async () => {
+		try {
+			const config = await readConfig();
+			const presetId = getNextConfigPolicyPreset({
+				controlExecutionMode: config.controlExecutionMode,
+				allowAdminDryRun: config.allowAdminDryRun,
+				enableExperimentalControls: config.enableExperimentalControls,
+			});
+			const preset = applyConfigPolicyPreset(presetId);
+			const nextConfig: PicosConfig = {
+				...config,
+				...preset.values,
+			};
+			await writeConfig(nextConfig);
+			syncConfigSessionState(nextConfig);
+			for (const row of preset.rows) {
+				log(row.startsWith("CONFIG") ? "info" : "ok", row);
+			}
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `config policy failed ${caught.message}`
+					: `config policy failed ${String(caught)}`,
+			);
+		}
+	}, [log, syncConfigSessionState]);
+
+	const openConfigResetConfirmation = useCallback(() => {
+		const preview = createConfigWorkspaceResetPreview({
+			auditArchiveRetentionLimit,
+			toolTargetPresetLimit,
+			language,
+			refreshInterval,
+			defaultPingHost,
+			controlExecutionMode: controlExecutionPolicy.mode,
+			allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
+			enableExperimentalControls,
+		});
+		setConfigResetPreview(preview);
+		setCommandLine(openCommandLine("config-reset"));
+		log(
+			"warn",
+			`config reset preview opened ${preview.changedKeys.length} values`,
+		);
+	}, [
+		auditArchiveRetentionLimit,
+		controlExecutionPolicy.allowAdminDryRun,
+		controlExecutionPolicy.mode,
+		defaultPingHost,
+		enableExperimentalControls,
+		language,
+		log,
+		refreshInterval,
+		toolTargetPresetLimit,
+	]);
+
+	const submitConfigResetCommand = useCallback(async () => {
+		const preview =
+			configResetPreview ??
+			createConfigWorkspaceResetPreview({
+				auditArchiveRetentionLimit,
+				toolTargetPresetLimit,
+				language,
+				refreshInterval,
+				defaultPingHost,
+				controlExecutionMode: controlExecutionPolicy.mode,
+				allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
+				enableExperimentalControls,
+			});
+		const confirmation = submitConfigWorkspaceResetConfirmation(
+			preview,
+			commandLine.value,
+		);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!confirmation.confirmed) {
+			setConfigResetPreview(undefined);
+			log("warn", confirmation.message);
+			return;
+		}
+		try {
+			const config = await readConfig();
+			const nextConfig: PicosConfig = {
+				...config,
+				...preview.values,
+				toolTargetPresets: config.toolTargetPresets.slice(
+					0,
+					preview.values.toolTargetPresetLimit,
+				),
+			};
+			await writeConfig(nextConfig);
+			syncConfigSessionState(nextConfig);
+			setConfigResetPreview(undefined);
+			log("ok", confirmation.message);
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `config reset failed ${caught.message}`
+					: `config reset failed ${String(caught)}`,
+			);
+		}
+	}, [
+		auditArchiveRetentionLimit,
+		commandLine.value,
+		configResetPreview,
+		controlExecutionPolicy.allowAdminDryRun,
+		controlExecutionPolicy.mode,
+		defaultPingHost,
+		enableExperimentalControls,
+		language,
+		log,
+		refreshInterval,
+		syncConfigSessionState,
+		toolTargetPresetLimit,
+	]);
 
 	const previewFile = useCallback(
 		async (entry: FileEntry) => {
@@ -2766,9 +2902,7 @@ export function App(): React.ReactElement {
 				log("fail", caught instanceof Error ? caught.message : String(caught)),
 			);
 		readConfig().then(async (config) => {
-			setRefreshInterval(config.refreshInterval);
-			setLanguage(config.language);
-			setDefaultPingHost(config.defaultPingHost);
+			syncConfigSessionState(config);
 			setRemoteProfiles(config.remoteProfiles);
 			setLogProfiles(config.logProfiles);
 			setLogSearchPresets(config.logSearchPresets);
@@ -2783,12 +2917,6 @@ export function App(): React.ReactElement {
 			setToolHistoryDetailView(
 				config.toolHistoryDetailView as ToolHistoryDetailView,
 			);
-			setToolTargetPresetLimit(config.toolTargetPresetLimit);
-			setAuditArchiveRetentionLimit(config.auditArchiveRetentionLimit);
-			setCustomToolTargetPresets(
-				config.toolTargetPresets as ToolTargetPreset[],
-			);
-			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 			setSelectedRemoteIndex((index) =>
 				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
 			);
@@ -2853,7 +2981,7 @@ export function App(): React.ReactElement {
 			);
 		});
 		refresh();
-	}, [log, refresh]);
+	}, [log, refresh, syncConfigSessionState]);
 
 	useEffect(() => {
 		const timer = setInterval(refresh, refreshInterval);
@@ -3193,6 +3321,9 @@ export function App(): React.ReactElement {
 				if (commandLine.prompt === "audit-archive-retention") {
 					setAuditArchiveRetentionPlan(undefined);
 				}
+				if (commandLine.prompt === "config-reset") {
+					setConfigResetPreview(undefined);
+				}
 				log(
 					"info",
 					commandLine.prompt === "route"
@@ -3234,36 +3365,39 @@ export function App(): React.ReactElement {
 																				: commandLine.prompt ===
 																						"audit-archive-retention"
 																					? "audit archive retention cancelled"
-																					: commandLine.prompt.startsWith(
-																								"config-",
-																							)
-																						? "config edit cancelled"
-																						: commandLine.prompt ===
-																								"log-search"
-																							? "logs search cancelled"
+																					: commandLine.prompt ===
+																							"config-reset"
+																						? "config reset cancelled"
+																						: commandLine.prompt.startsWith(
+																									"config-",
+																								)
+																							? "config edit cancelled"
 																							: commandLine.prompt ===
-																									"logs-cleanup"
-																								? "logs cleanup cancelled"
+																									"log-search"
+																								? "logs search cancelled"
 																								: commandLine.prompt ===
-																										"tool-target-label"
-																									? "tool target label cancelled"
+																										"logs-cleanup"
+																									? "logs cleanup cancelled"
 																									: commandLine.prompt ===
-																											"tool-target-value"
-																										? "tool target value cancelled"
+																											"tool-target-label"
+																										? "tool target label cancelled"
 																										: commandLine.prompt ===
-																												"tool-target-action"
-																											? "tool target action cancelled"
+																												"tool-target-value"
+																											? "tool target value cancelled"
 																											: commandLine.prompt ===
-																													"tool-target-cleanup"
-																												? "tool target cleanup cancelled"
+																													"tool-target-action"
+																												? "tool target action cancelled"
 																												: commandLine.prompt ===
-																														portProcessControlPrompt
-																													? "port process control cancelled"
-																													: commandLine.prompt.startsWith(
-																																toolPromptPrefix,
-																															)
-																														? "tool target command cancelled"
-																														: "path command cancelled",
+																														"tool-target-cleanup"
+																													? "tool target cleanup cancelled"
+																													: commandLine.prompt ===
+																															portProcessControlPrompt
+																														? "port process control cancelled"
+																														: commandLine.prompt.startsWith(
+																																	toolPromptPrefix,
+																																)
+																															? "tool target command cancelled"
+																															: "path command cancelled",
 				);
 				return;
 			}
@@ -3317,6 +3451,8 @@ export function App(): React.ReactElement {
 					void submitAuditExportArchiveCommand();
 				} else if (commandLine.prompt === "audit-archive-retention") {
 					void submitAuditArchiveRetentionCommand();
+				} else if (commandLine.prompt === "config-reset") {
+					void submitConfigResetCommand();
 				} else if (commandLine.prompt.startsWith("config-")) {
 					void submitConfigTextCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
@@ -4342,6 +4478,16 @@ export function App(): React.ReactElement {
 			(input === "-" || input === "_")
 		) {
 			saveConfigWorkspaceAdjustment("decrease");
+			return;
+		}
+
+		if (screen === "config" && focusArea === "workspaces" && input === "P") {
+			void applyNextConfigPolicyPreset();
+			return;
+		}
+
+		if (screen === "config" && focusArea === "workspaces" && input === "R") {
+			openConfigResetConfirmation();
 			return;
 		}
 
@@ -5516,6 +5662,7 @@ export function App(): React.ReactElement {
 					toolSectionClipboardRowIndex={toolSectionClipboardRowIndex}
 					configWorkspaceItems={configWorkspaceItems}
 					selectedConfigIndex={selectedConfigIndex}
+					configResetPreview={configResetPreview}
 					cleanupShelfIndex={cleanupShelfIndex}
 					selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 					cleanupJumpAudit={cleanupJumpAudit}
@@ -5729,6 +5876,7 @@ function MainWorkspace({
 	toolSectionClipboardRowIndex,
 	configWorkspaceItems,
 	selectedConfigIndex,
+	configResetPreview,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
 	cleanupJumpAudit,
@@ -5841,6 +5989,7 @@ function MainWorkspace({
 	toolSectionClipboardRowIndex: number;
 	configWorkspaceItems: ConfigWorkspaceItem[];
 	selectedConfigIndex: number;
+	configResetPreview?: ConfigWorkspaceResetPreview;
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
 	cleanupJumpAudit?: CleanupJumpAudit;
@@ -6006,6 +6155,7 @@ function MainWorkspace({
 						toolSectionClipboardRowIndex,
 						configWorkspaceItems,
 						selectedConfigIndex,
+						configResetPreview,
 						cleanupShelfIndex,
 						selectedCleanupShelfIndex,
 						cleanupHandoffHistory,
@@ -6123,6 +6273,7 @@ function renderWorkspace(
 	toolSectionClipboardRowIndex: number,
 	configWorkspaceItems: ConfigWorkspaceItem[],
 	selectedConfigIndex: number,
+	configResetPreview: ConfigWorkspaceResetPreview | undefined,
 	cleanupShelfIndex: CleanupShelfIndex,
 	selectedCleanupShelfIndex: number,
 	cleanupHandoffHistory: CleanupHandoffHistory[],
@@ -6394,6 +6545,8 @@ function renderWorkspace(
 			<ConfigWorkspace
 				items={configWorkspaceItems}
 				selectedIndex={selectedConfigIndex}
+				resetPreview={configResetPreview}
+				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
 			/>
 		);
@@ -8261,10 +8414,14 @@ function CommandPaletteWorkspace({
 function ConfigWorkspace({
 	items,
 	selectedIndex,
+	resetPreview,
+	commandLine,
 	visibleRows,
 }: {
 	items: ConfigWorkspaceItem[];
 	selectedIndex: number;
+	resetPreview?: ConfigWorkspaceResetPreview;
+	commandLine: CommandLineState;
 	visibleRows: number;
 }): React.ReactElement {
 	const rows = formatConfigWorkspaceRows(items, selectedIndex, visibleRows);
@@ -8288,6 +8445,32 @@ function ConfigWorkspace({
 					{row}
 				</Text>
 			))}
+			{resetPreview ? (
+				<Box marginTop={1} flexDirection="column">
+					{resetPreview.rows
+						.slice(0, Math.max(0, visibleRows - 2))
+						.map((row) => (
+							<Text
+								key={row}
+								color={
+									row.startsWith("CONFIG RESET")
+										? "cyan"
+										: row.startsWith("confirm")
+											? "yellow"
+											: "white"
+								}
+							>
+								{row}
+							</Text>
+						))}
+					{commandLine.active && commandLine.prompt === "config-reset" ? (
+						<Text color="yellow">
+							:config-reset {commandLine.value || " "} type="
+							{resetPreview.confirmationPhrase}" enter=reset esc=cancel
+						</Text>
+					) : null}
+				</Box>
+			) : null}
 		</Box>
 	);
 }
