@@ -3,6 +3,7 @@ import { defaultConfig } from "../src/config/schema";
 import {
 	adjustConfigWorkspaceItem,
 	applyConfigPolicyPreset,
+	createConfigManagedShelfFocusActionPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfFocusRows,
@@ -254,7 +255,7 @@ describe("config TUI panel", () => {
 			"CONFIG SHELF FOCUS",
 			"target=tools workspace=Tools",
 			"focus=toolTargetPresets cursor=0 detail=summary",
-			"hint=config deep link active  esc clears landing",
+			"enter=cycle tool target presets  esc=clear landing",
 		]);
 
 		expect(
@@ -263,7 +264,7 @@ describe("config TUI panel", () => {
 			"CONFIG SHELF FOCUS",
 			"target=tools workspace=Tools",
 			"focus=toolTargetPresets cursor=0 detail=summary",
-			"hint=config deep link active  esc clears landing",
+			"enter=cycle tool target presets  esc=clear landing",
 			"TOOLS",
 		]);
 
@@ -274,6 +275,32 @@ describe("config TUI panel", () => {
 				2,
 			),
 		).toEqual(["TOOLS", "target presets"]);
+	});
+
+	test("creates enter action plans for managed shelf focus rows", () => {
+		expect(createConfigManagedShelfFocusActionPlan("routes")).toEqual({
+			target: "routes",
+			workspace: "routes",
+			label: "Routes",
+			action: "cycleRouteFilterPresets",
+			rows: [
+				"CONFIG SHELF ACTION",
+				"target=routes workspace=Routes",
+				"enter=cycle route filter presets  fallback=open filter prompt",
+			],
+		});
+
+		expect(createConfigManagedShelfFocusActionPlan("logs")).toEqual({
+			target: "logs",
+			workspace: "logs",
+			label: "Logs",
+			action: "cycleLogProfiles",
+			rows: [
+				"CONFIG SHELF ACTION",
+				"target=logs workspace=Logs",
+				"enter=cycle log profiles  fallback=open search prompt",
+			],
+		});
 	});
 
 	test("moves selection and clamps adjusted retention values", () => {
