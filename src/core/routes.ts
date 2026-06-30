@@ -338,6 +338,29 @@ export function sortRouteEntries(
 		.map((item) => item.route);
 }
 
+export function filterRouteEntries(
+	routes: RouteEntry[],
+	query: string | undefined,
+): RouteEntry[] {
+	const normalized = query?.trim().toLowerCase() ?? "";
+	if (!normalized) {
+		return routes;
+	}
+	return routes.filter((route) =>
+		[
+			route.destination,
+			route.gateway,
+			route.interfaceName,
+			route.family,
+			route.flags,
+			route.protocol,
+			route.metric === undefined ? undefined : String(route.metric),
+		]
+			.filter((value): value is string => Boolean(value))
+			.some((value) => value.toLowerCase().includes(normalized)),
+	);
+}
+
 export function nextRouteSort(current: RouteSort): RouteSort {
 	const index = routeSortCycle.findIndex(
 		(item) => item.key === current.key && item.direction === current.direction,
@@ -382,11 +405,22 @@ export function parseMacosRoutePath(
 
 export function formatRouteTable(
 	result: RouteTableResult,
-	options: { sort?: RouteSort } = {},
+	options: { filter?: string; sort?: RouteSort } = {},
 ): string {
+	const filteredRoutes = filterRouteEntries(result.routes, options.filter);
+	const filter = options.filter?.trim() ?? "";
 	const lines = ["picos routes", ""];
 	lines.push("[Summary]");
-	lines.push(`Routes: ${result.routes.length}`);
+	lines.push(
+		filter
+			? `Routes: ${filteredRoutes.length}/${result.routes.length}`
+			: `Routes: ${result.routes.length}`,
+	);
+	if (filter) {
+		lines.push(
+			`Filter: ${filter} matches ${filteredRoutes.length}/${result.routes.length}`,
+		);
+	}
 	if (options.sort) {
 		lines.push(`Sort: ${options.sort.key} ${options.sort.direction}`);
 	}
@@ -395,7 +429,7 @@ export function formatRouteTable(
 	}
 	lines.push("");
 	lines.push("[Routes]");
-	for (const route of sortRouteEntries(result.routes, options.sort).slice(
+	for (const route of sortRouteEntries(filteredRoutes, options.sort).slice(
 		0,
 		80,
 	)) {

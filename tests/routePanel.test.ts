@@ -85,6 +85,21 @@ describe("route TUI panel formatting", () => {
 		);
 	});
 
+	test("formats filtered route rows with visible filter context", () => {
+		expect(formatRouteWorkspaceRows(fixture, 10, { filter: "utun" })).toEqual([
+			"SUMMARY routes=1/2 command=netstat -rn",
+			"FILTER utun matches=1/2",
+			"DIAGNOSTICS",
+			"PASS Default route present · 1 default route(s)",
+			"ROUTES",
+			"10.8.0.0/24        link             utun0      ipv4",
+			"RAW OUTPUT",
+			"$ netstat -rn",
+			"Internet:",
+			"default 192.168.0.1 UGSc en0",
+		]);
+	});
+
 	test("formats route detail tabs for raw diagnostics and path focus", () => {
 		expect(nextRouteDetailView("table")).toBe("raw");
 		expect(nextRouteDetailView("raw")).toBe("diagnostics");
