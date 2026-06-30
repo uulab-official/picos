@@ -16,6 +16,13 @@ export type ReleaseChecklistItem = {
 	detail?: string;
 };
 
+export type ReleaseHealthReport = {
+	status: "pass" | "fail";
+	passCount: number;
+	failCount: number;
+	items: ReleaseChecklistItem[];
+};
+
 export function getVersionSyncStatus(
 	packageVersion: string,
 	runtimeVersion: string,
@@ -76,6 +83,70 @@ export function createReleaseChecklist(input: {
 			"CHANGELOG included in package",
 			input.files.includes("CHANGELOG.md"),
 			"files must include CHANGELOG.md",
+		),
+	];
+}
+
+export function createReleaseHealthReport(input: {
+	packageName: string;
+	packageVersion: string;
+	runtimeVersion: string;
+	publishAccess?: string;
+	files: string[];
+	distExists: boolean;
+	ciWorkflow: string;
+	releaseWorkflow: string;
+}): ReleaseHealthReport {
+	const items = [
+		...createReleaseChecklist(input),
+		check("dist/bin/picos.js exists", input.distExists, "run bun run build"),
+		check(
+			"CI runs verify",
+			input.ciWorkflow.includes("bun run verify"),
+			"ci.yml must run bun run verify",
+		),
+		check(
+			"CI runs release check",
+			input.ciWorkflow.includes("bun run release:check"),
+			"ci.yml must run bun run release:check",
+		),
+		check(
+			"release workflow is manual",
+			input.releaseWorkflow.includes("workflow_dispatch"),
+			"release.yml must use workflow_dispatch",
+		),
+		check(
+			"release workflow defaults to dry-run",
+			input.releaseWorkflow.includes("dry_run") &&
+				input.releaseWorkflow.includes("default: true"),
+			"dry_run input must default to true",
+		),
+		check(
+			"npm publish requires NPM_TOKEN",
+			input.releaseWorkflow.includes("NPM_TOKEN") &&
+				input.releaseWorkflow.includes("npm publish --access public") &&
+				input.releaseWorkflow.includes("dry_run != 'true'"),
+			"npm publish must require NPM_TOKEN and dry_run != 'true'",
+		),
+	];
+	const passCount = items.filter((item) => item.status === "pass").length;
+	const failCount = items.length - passCount;
+	return {
+		status: failCount ? "fail" : "pass",
+		passCount,
+		failCount,
+		items,
+	};
+}
+
+export function formatReleaseHealthRows(report: ReleaseHealthReport): string[] {
+	return [
+		"PICOS RELEASE HEALTH",
+		`status=${report.status} pass=${report.passCount} fail=${report.failCount}`,
+		...report.items.map((item) =>
+			item.status === "pass"
+				? `PASS ${item.label}`
+				: `FAIL ${item.label} :: ${item.detail ?? "check failed"}`,
 		),
 	];
 }

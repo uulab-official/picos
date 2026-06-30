@@ -1041,6 +1041,19 @@ Goal: match release-aware terminal tools by showing GitHub Release state next to
 - Tests cover update-available and API failure paths.
 - Next: release handoff status refresh shortcuts and release automation health checks.
 
+## v0.4.15 - Release Health Command
+
+Status: draft PR #77.
+
+Goal: expose release readiness as a picos command, not only as npm scripts.
+
+- `picos release-health` prints package metadata, dist artifact, CI, and release workflow health rows.
+- The report summarizes pass/fail counts before listing each check.
+- Failed checks include operator-facing details.
+- The command exits non-zero when release health fails.
+- Tests cover passing and blocked health reports plus CLI output.
+- Next: Status workspace release-health panel and refresh shortcuts.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
