@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
 	readConfig,
 	setConfigEndpointFilterPresets,
+	setConfigEndpointSort,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
@@ -127,5 +128,28 @@ describe("config store", () => {
 			config.connectionFilterPresets,
 		);
 		expect(JSON.parse(raw).portFilterPresets).toEqual(config.portFilterPresets);
+	});
+
+	test("persists endpoint sort preferences without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await setConfigEndpointSort(
+			"connections",
+			{ key: "remotePort", direction: "asc" },
+			path,
+		);
+		await setConfigEndpointSort(
+			"ports",
+			{ key: "pid", direction: "desc" },
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.connectionSort).toBe("remotePort");
+		expect(config.portSort).toBe("-pid");
+		expect(config.theme).toBe("dark");
+
+		const raw = await readFile(path, "utf8");
+		expect(JSON.parse(raw).connectionSort).toBe("remotePort");
+		expect(JSON.parse(raw).portSort).toBe("-pid");
 	});
 });

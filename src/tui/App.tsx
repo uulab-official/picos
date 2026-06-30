@@ -6,6 +6,7 @@ import {
 	getConfigPath,
 	readConfig,
 	setConfigEndpointFilterPresets,
+	setConfigEndpointSort,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
@@ -37,6 +38,7 @@ import {
 	filterConnections,
 	getActiveConnections,
 	nextConnectionSort,
+	parseConnectionSort,
 	sortConnections,
 } from "../core/connections";
 import {
@@ -87,6 +89,7 @@ import {
 	nextPortSort,
 	type PortSort,
 	type PortsResult,
+	parsePortSort,
 	sortListeningPorts,
 } from "../core/ports";
 import {
@@ -1713,6 +1716,8 @@ export function App(): React.ReactElement {
 			setLogProfiles(config.logProfiles);
 			setLogSearchPresets(config.logSearchPresets);
 			setRouteFilterPresets(config.routeFilterPresets);
+			setConnectionSort(parseConnectionSort(config.connectionSort));
+			setPortSort(parsePortSort(config.portSort));
 			setConnectionFilterPresets(config.connectionFilterPresets);
 			setPortFilterPresets(config.portFilterPresets);
 			setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
@@ -2330,6 +2335,14 @@ export function App(): React.ReactElement {
 		) {
 			setConnectionSort((current) => {
 				const next = nextConnectionSort(current);
+				void setConfigEndpointSort("connections", next).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `connections sort save failed ${caught.message}`
+							: `connections sort save failed ${String(caught)}`,
+					),
+				);
 				log("info", `connections sort ${next.key} ${next.direction}`);
 				return next;
 			});
@@ -2340,6 +2353,14 @@ export function App(): React.ReactElement {
 		if (screen === "ports" && focusArea === "workspaces" && input === "s") {
 			setPortSort((current) => {
 				const next = nextPortSort(current);
+				void setConfigEndpointSort("ports", next).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `ports sort save failed ${caught.message}`
+							: `ports sort save failed ${String(caught)}`,
+					),
+				);
 				log("info", `ports sort ${next.key} ${next.direction}`);
 				return next;
 			});

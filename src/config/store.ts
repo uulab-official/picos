@@ -1,11 +1,19 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname } from "node:path";
+import type { ConnectionSort } from "../core/connections";
 import { normalizeEndpointFilterPresets } from "../core/endpointPresets";
+import {
+	formatConnectionSortPreference,
+	formatPortSortPreference,
+	normalizeConnectionSortPreference,
+	normalizePortSortPreference,
+} from "../core/endpointSort";
 import {
 	normalizeLogProfiles,
 	normalizeLogSearchPresets,
 } from "../core/logProfiles";
+import type { PortSort } from "../core/ports";
 import { normalizeRouteFilterPresets } from "../core/routePresets";
 import type { LogProfile, PicosConfig } from "../core/types";
 import {
@@ -109,6 +117,30 @@ export async function setConfigEndpointFilterPresets(
 		...config,
 		[key]: normalizeEndpointFilterPresets(presets),
 	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigEndpointSort(
+	kind: "connections" | "ports",
+	sort: ConnectionSort | PortSort,
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next =
+		kind === "connections"
+			? {
+					...config,
+					connectionSort: normalizeConnectionSortPreference(
+						formatConnectionSortPreference(sort as ConnectionSort),
+					),
+				}
+			: {
+					...config,
+					portSort: normalizePortSortPreference(
+						formatPortSortPreference(sort as PortSort),
+					),
+				};
 	await writeConfig(next, path);
 	return next;
 }

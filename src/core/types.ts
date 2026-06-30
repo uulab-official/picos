@@ -211,6 +211,8 @@ export type PicosConfig = {
 	logProfiles: LogProfile[];
 	logSearchPresets: string[];
 	routeFilterPresets: string[];
+	connectionSort: string;
+	portSort: string;
 	connectionFilterPresets: string[];
 	portFilterPresets: string[];
 };

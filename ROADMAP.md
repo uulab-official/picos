@@ -1301,6 +1301,19 @@ Goal: make repeated endpoint triage filters survive TUI restarts like route and 
 - Tests cover config defaults, endpoint preset normalization, config-store persistence, and existing endpoint preset rendering.
 - Next: route/endpoint handoff index browsing and persistent endpoint sort preferences.
 
+## v0.4.34 - Persistent Endpoint Sort Preferences
+
+Status: draft PR #96.
+
+Goal: make repeated endpoint triage views survive TUI restarts, including the active sort order.
+
+- Config schema now includes `connectionSort` and `portSort` as normalized sort preference strings.
+- Invalid endpoint sort config falls back to the safe defaults: `state` for Connections and `port` for Ports.
+- TUI boot restores Connections and Ports sort preferences before rendering endpoint workspaces.
+- Pressing `s` in Connections or Ports persists the next sort state to config while keeping the live panel responsive.
+- Tests cover config defaults, invalid sort fallback, config-store persistence, and existing endpoint panel sorting behavior.
+- Next: route/endpoint handoff index browsing and persisted Tools Hub history preferences.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

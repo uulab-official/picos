@@ -1,6 +1,10 @@
 import { join } from "node:path";
 import { normalizeEndpointFilterPresets } from "../core/endpointPresets";
 import {
+	normalizeConnectionSortPreference,
+	normalizePortSortPreference,
+} from "../core/endpointSort";
+import {
 	normalizeLogProfiles,
 	normalizeLogSearchPresets,
 } from "../core/logProfiles";
@@ -22,6 +26,8 @@ export const defaultConfig: PicosConfig = {
 	logProfiles: [],
 	logSearchPresets: [],
 	routeFilterPresets: [],
+	connectionSort: "state",
+	portSort: "port",
 	connectionFilterPresets: [],
 	portFilterPresets: [],
 };
@@ -114,6 +120,10 @@ export function mergeConfig(
 	merged.routeFilterPresets = normalizeRouteFilterPresets(
 		input.routeFilterPresets,
 	);
+	merged.connectionSort = normalizeConnectionSortPreference(
+		input.connectionSort,
+	);
+	merged.portSort = normalizePortSortPreference(input.portSort);
 	merged.connectionFilterPresets = normalizeEndpointFilterPresets(
 		input.connectionFilterPresets,
 	);
@@ -182,6 +192,14 @@ export function coerceConfigValue(
 
 	if (key === "routeFilterPresets") {
 		throw new Error("routeFilterPresets are managed from the Routes workspace");
+	}
+
+	if (key === "connectionSort") {
+		return normalizeConnectionSortPreference(value);
+	}
+
+	if (key === "portSort") {
+		return normalizePortSortPreference(value);
 	}
 
 	if (key === "connectionFilterPresets" || key === "portFilterPresets") {

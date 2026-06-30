@@ -20,6 +20,8 @@ describe("config schema", () => {
 			logProfiles: [],
 			logSearchPresets: [],
 			routeFilterPresets: [],
+			connectionSort: "state",
+			portSort: "port",
 			connectionFilterPresets: [],
 			portFilterPresets: [],
 		});
@@ -162,6 +164,28 @@ describe("config schema", () => {
 				"udp",
 			],
 			portFilterPresets: ["node", "3000", "postgres", "tcp", "5432", "listen"],
+		});
+	});
+
+	test("normalizes persisted endpoint sort preferences", () => {
+		expect(
+			mergeConfig({
+				connectionSort: "-pid",
+				portSort: "process",
+			}),
+		).toMatchObject({
+			connectionSort: "-pid",
+			portSort: "process",
+		});
+
+		expect(
+			mergeConfig({
+				connectionSort: "unsafe",
+				portSort: "-unsafe",
+			}),
+		).toMatchObject({
+			connectionSort: "state",
+			portSort: "port",
 		});
 	});
 });
