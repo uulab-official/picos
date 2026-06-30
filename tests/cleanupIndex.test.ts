@@ -4,9 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	appendCleanupHandoffHistory,
+	archiveCleanupHandoffHistoryExport,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
+	createCleanupHandoffHistoryExportArchivePlan,
 	createCleanupHandoffHistoryExportPlan,
 	createCleanupHandoffReopenPlan,
 	createCleanupJumpAudit,
@@ -15,6 +17,7 @@ import {
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
 	formatCleanupHandoffHistoryExport,
+	formatCleanupHandoffHistoryExportArchiveRows,
 	formatCleanupHandoffHistoryExportIndexRows,
 	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
@@ -671,6 +674,120 @@ describe("cleanup shelf index", () => {
 					3,
 				),
 			).toEqual([`CLEANUP EXPORTS 0 base=${root}`, "no cleanup exports yet"]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("creates exact-confirm archive plans for cleanup handoff exports", () => {
+		const root = "/Users/me/.config/picos";
+		const path = join(
+			root,
+			"cleanup",
+			"picos-cleanup-all-2026-07-01T010000000Z.md",
+		);
+		const locked = createCleanupHandoffHistoryExportArchivePlan(root, path);
+
+		expect(locked).toEqual({
+			sourcePath: path,
+			archivedPath: join(
+				root,
+				"cleanup",
+				"archive",
+				"picos-cleanup-all-2026-07-01T010000000Z.md",
+			),
+			fileName: "picos-cleanup-all-2026-07-01T010000000Z.md",
+			risk: "write",
+			privilege: "user",
+			confirmationRequired: true,
+			confirmationPhrase: "archive cleanup export",
+			confirmed: false,
+			enabled: false,
+			reason: "type archive cleanup export to move selected cleanup export",
+		});
+		expect(
+			createCleanupHandoffHistoryExportArchivePlan(root, path, {
+				confirmation: "archive cleanup export",
+			}),
+		).toMatchObject({
+			confirmed: true,
+			enabled: true,
+			reason: "confirmed",
+		});
+		expect(
+			createCleanupHandoffHistoryExportArchivePlan(
+				root,
+				join(root, "cleanup", "notes.md"),
+				{ confirmation: "archive cleanup export" },
+			),
+		).toMatchObject({
+			enabled: false,
+			reason: "cleanup export archive is limited to picos-owned export files",
+		});
+		expect(formatCleanupHandoffHistoryExportArchiveRows(locked)).toEqual([
+			"CLEANUP EXPORT ARCHIVE picos-cleanup-all-2026-07-01T010000000Z.md",
+			"risk=write privilege=user confirmed=false",
+			"confirm archive cleanup export locked",
+			`from=${path}`,
+			`to=${join(
+				root,
+				"cleanup",
+				"archive",
+				"picos-cleanup-all-2026-07-01T010000000Z.md",
+			)}`,
+			"reason=type archive cleanup export to move selected cleanup export",
+		]);
+	});
+
+	test("archives cleanup handoff export files only after exact confirmation", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-cleanup-archive-"));
+		try {
+			const cleanupDir = join(root, "cleanup");
+			const fileName = "picos-cleanup-all-2026-07-01T010000000Z.md";
+			const path = join(cleanupDir, fileName);
+			await mkdir(cleanupDir, { recursive: true });
+			await writeFile(
+				path,
+				[
+					"# picos cleanup handoff history",
+					"generatedAt=2026-07-01T01:00:00.000Z",
+					"scope=all",
+					"entries=1",
+					"",
+				].join("\n"),
+				"utf8",
+			);
+
+			const blocked = await archiveCleanupHandoffHistoryExport(
+				createCleanupHandoffHistoryExportArchivePlan(root, path),
+			);
+
+			expect(blocked).toMatchObject({
+				status: "blocked",
+				sourcePath: path,
+				message:
+					"cleanup export archive is locked: type archive cleanup export to move selected cleanup export",
+			});
+			expect(await readFile(path, "utf8")).toContain("entries=1");
+
+			const archived = await archiveCleanupHandoffHistoryExport(
+				createCleanupHandoffHistoryExportArchivePlan(root, path, {
+					confirmation: "archive cleanup export",
+				}),
+			);
+
+			expect(archived).toEqual({
+				status: "archived",
+				sourcePath: path,
+				archivedPath: join(cleanupDir, "archive", fileName),
+				message: `archived ${fileName}`,
+			});
+			expect(await readFile(archived.archivedPath, "utf8")).toContain(
+				"entries=1",
+			);
+			expect((await readCleanupHandoffHistoryExportIndex(root)).items).toEqual(
+				[],
+			);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

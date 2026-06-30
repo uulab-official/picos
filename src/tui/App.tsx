@@ -158,13 +158,16 @@ import { createTranslator } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
 import {
 	appendCleanupHandoffHistory,
+	archiveCleanupHandoffHistoryExport,
 	type CleanupHandoffHistory,
+	type CleanupHandoffHistoryExportArchivePlan,
 	type CleanupHandoffHistoryExportIndex,
 	type CleanupJumpAudit,
 	type CleanupShelfIndex,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
+	createCleanupHandoffHistoryExportArchivePlan,
 	createCleanupHandoffHistoryExportPlan,
 	createCleanupHandoffReopenPlan,
 	createCleanupJumpAudit,
@@ -172,6 +175,7 @@ import {
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
+	formatCleanupHandoffHistoryExportArchiveRows,
 	formatCleanupHandoffHistoryExportIndexRows,
 	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
@@ -436,6 +440,8 @@ export function App(): React.ReactElement {
 		});
 	const [selectedCleanupExportIndex, setSelectedCleanupExportIndex] =
 		useState(0);
+	const [cleanupExportArchivePlan, setCleanupExportArchivePlan] =
+		useState<CleanupHandoffHistoryExportArchivePlan>();
 	const [handoffIndex, setHandoffIndex] = useState<HandoffIndex>({
 		baseDir: dirname(getConfigPath()),
 		items: [],
@@ -1593,9 +1599,34 @@ export function App(): React.ReactElement {
 		});
 		setFileOpenPlan(plan);
 		setExternalOpenPlan(undefined);
+		setCleanupExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
 		log("info", `cleanup export open confirmation opened for ${item.fileName}`);
+	}, [cleanupExportIndex, log, selectedCleanupExportIndex]);
+
+	const openSelectedCleanupExportArchive = useCallback(() => {
+		const item = getSelectedCleanupHandoffHistoryExport(
+			cleanupExportIndex,
+			selectedCleanupExportIndex,
+		);
+		if (!item) {
+			log("warn", "no cleanup export selected");
+			return;
+		}
+		const plan = createCleanupHandoffHistoryExportArchivePlan(
+			cleanupExportIndex.baseDir,
+			item.path,
+		);
+		setCleanupExportArchivePlan(plan);
+		setExternalOpenPlan(undefined);
+		setFileOpenPlan(undefined);
+		setCommandLine(openCommandLine("cleanup-export-archive"));
+		setScreen("status");
+		log(
+			"info",
+			`cleanup export archive confirmation opened for ${item.fileName}`,
+		);
 	}, [cleanupExportIndex, log, selectedCleanupExportIndex]);
 
 	const archiveSelectedHandoffFile = useCallback(async () => {
@@ -2494,6 +2525,35 @@ export function App(): React.ReactElement {
 		[log],
 	);
 
+	const submitCleanupExportArchiveCommand = useCallback(async () => {
+		if (!cleanupExportArchivePlan) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "cleanup export archive missing preview");
+			return;
+		}
+		const plan = createCleanupHandoffHistoryExportArchivePlan(
+			cleanupExportIndex.baseDir,
+			cleanupExportArchivePlan.sourcePath,
+			{ confirmation: commandLine.value },
+		);
+		setCleanupExportArchivePlan(plan);
+		setCommandLine((current) => closeCommandLine(current));
+		const result = await archiveCleanupHandoffHistoryExport(plan);
+		log(
+			result.status === "archived" ? "ok" : "warn",
+			`cleanup export archive ${result.message}`,
+		);
+		if (result.status === "archived") {
+			await refreshCleanupExportIndex(false);
+		}
+	}, [
+		cleanupExportArchivePlan,
+		cleanupExportIndex.baseDir,
+		commandLine.value,
+		log,
+		refreshCleanupExportIndex,
+	]);
+
 	const exportCleanupHandoffHistory = useCallback(async () => {
 		const plan = createCleanupHandoffHistoryExportPlan(
 			cleanupHandoffHistory,
@@ -2550,6 +2610,9 @@ export function App(): React.ReactElement {
 				if (commandLine.prompt === "file-open") {
 					setFileOpenPlan(undefined);
 				}
+				if (commandLine.prompt === "cleanup-export-archive") {
+					setCleanupExportArchivePlan(undefined);
+				}
 				log(
 					"info",
 					commandLine.prompt === "route"
@@ -2582,27 +2645,30 @@ export function App(): React.ReactElement {
 																	? "external open confirmation cancelled"
 																	: commandLine.prompt === "file-open"
 																		? "file open confirmation cancelled"
-																		: commandLine.prompt === "log-search"
-																			? "logs search cancelled"
-																			: commandLine.prompt === "logs-cleanup"
-																				? "logs cleanup cancelled"
-																				: commandLine.prompt ===
-																						"tool-target-label"
-																					? "tool target label cancelled"
+																		: commandLine.prompt ===
+																				"cleanup-export-archive"
+																			? "cleanup export archive cancelled"
+																			: commandLine.prompt === "log-search"
+																				? "logs search cancelled"
+																				: commandLine.prompt === "logs-cleanup"
+																					? "logs cleanup cancelled"
 																					: commandLine.prompt ===
-																							"tool-target-value"
-																						? "tool target value cancelled"
+																							"tool-target-label"
+																						? "tool target label cancelled"
 																						: commandLine.prompt ===
-																								"tool-target-action"
-																							? "tool target action cancelled"
+																								"tool-target-value"
+																							? "tool target value cancelled"
 																							: commandLine.prompt ===
-																									"tool-target-cleanup"
-																								? "tool target cleanup cancelled"
-																								: commandLine.prompt.startsWith(
-																											toolPromptPrefix,
-																										)
-																									? "tool target command cancelled"
-																									: "path command cancelled",
+																									"tool-target-action"
+																								? "tool target action cancelled"
+																								: commandLine.prompt ===
+																										"tool-target-cleanup"
+																									? "tool target cleanup cancelled"
+																									: commandLine.prompt.startsWith(
+																												toolPromptPrefix,
+																											)
+																										? "tool target command cancelled"
+																										: "path command cancelled",
 				);
 				return;
 			}
@@ -2648,6 +2714,8 @@ export function App(): React.ReactElement {
 					void submitExternalOpenCommand();
 				} else if (commandLine.prompt === "file-open") {
 					void submitFileOpenCommand();
+				} else if (commandLine.prompt === "cleanup-export-archive") {
+					void submitCleanupExportArchiveCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
 					void submitToolCommand();
 				} else {
@@ -3415,6 +3483,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "V") {
 			openSelectedCleanupExportFile();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "X") {
+			openSelectedCleanupExportArchive();
 			return;
 		}
 
@@ -4462,6 +4535,7 @@ export function App(): React.ReactElement {
 					selectedHandoffIndex={selectedHandoffIndex}
 					externalOpenPlan={externalOpenPlan}
 					fileOpenPlan={fileOpenPlan}
+					cleanupExportArchivePlan={cleanupExportArchivePlan}
 					events={events}
 					t={t}
 				/>
@@ -4657,6 +4731,7 @@ function MainWorkspace({
 	selectedHandoffIndex,
 	externalOpenPlan,
 	fileOpenPlan,
+	cleanupExportArchivePlan,
 	events,
 	t,
 }: {
@@ -4754,6 +4829,7 @@ function MainWorkspace({
 	selectedHandoffIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
+	cleanupExportArchivePlan?: CleanupHandoffHistoryExportArchivePlan;
 	events: ConsoleEvent[];
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -4903,6 +4979,7 @@ function MainWorkspace({
 						selectedHandoffIndex,
 						externalOpenPlan,
 						fileOpenPlan,
+						cleanupExportArchivePlan,
 						events,
 						workspaceHeight,
 						t,
@@ -5004,6 +5081,7 @@ function renderWorkspace(
 	selectedHandoffIndex: number,
 	externalOpenPlan: ExternalOpenPlan | undefined,
 	fileOpenPlan: FileOpenPlan | undefined,
+	cleanupExportArchivePlan: CleanupHandoffHistoryExportArchivePlan | undefined,
 	events: ConsoleEvent[],
 	height: number,
 	t: (key: string) => string,
@@ -5223,6 +5301,7 @@ function renderWorkspace(
 				selectedHandoffIndex={selectedHandoffIndex}
 				externalOpenPlan={externalOpenPlan}
 				fileOpenPlan={fileOpenPlan}
+				cleanupExportArchivePlan={cleanupExportArchivePlan}
 				cleanupShelfIndex={cleanupShelfIndex}
 				selectedCleanupShelfIndex={selectedCleanupShelfIndex}
 				cleanupHandoffHistory={cleanupHandoffHistory}
@@ -7003,6 +7082,7 @@ function StatusWorkspace({
 	selectedHandoffIndex,
 	externalOpenPlan,
 	fileOpenPlan,
+	cleanupExportArchivePlan,
 	cleanupShelfIndex,
 	selectedCleanupShelfIndex,
 	cleanupHandoffHistory,
@@ -7019,6 +7099,7 @@ function StatusWorkspace({
 	selectedHandoffIndex: number;
 	externalOpenPlan?: ExternalOpenPlan;
 	fileOpenPlan?: FileOpenPlan;
+	cleanupExportArchivePlan?: CleanupHandoffHistoryExportArchivePlan;
 	cleanupShelfIndex: CleanupShelfIndex;
 	selectedCleanupShelfIndex: number;
 	cleanupHandoffHistory: CleanupHandoffHistory[];
@@ -7182,6 +7263,34 @@ function StatusWorkspace({
 					))}
 				</Box>
 			) : null}
+			{cleanupExportArchivePlan ? (
+				<Box marginTop={1} flexDirection="column">
+					{formatCleanupHandoffHistoryExportArchiveRows(
+						cleanupExportArchivePlan,
+					).map((row) => (
+						<Text
+							key={row}
+							color={
+								row.startsWith("CLEANUP EXPORT ARCHIVE")
+									? "cyan"
+									: row.startsWith("confirm") || row.startsWith("reason=")
+										? "yellow"
+										: "white"
+							}
+						>
+							{row}
+						</Text>
+					))}
+					{commandLine.active &&
+					commandLine.prompt === "cleanup-export-archive" ? (
+						<Text color="yellow">
+							:cleanup-export-archive {commandLine.value || " "} type="
+							{cleanupExportArchivePlan.confirmationPhrase}" enter=archive
+							esc=cancel
+						</Text>
+					) : null}
+				</Box>
+			) : null}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					CLEANUP INDEX · j/k select · enter jump · type shown phrase
@@ -7297,7 +7406,7 @@ function StatusWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
-					CLEANUP EXPORTS · Y refresh · {"}"} select · V open
+					CLEANUP EXPORTS · Y refresh · {"}"} select · V open · X archive
 				</Text>
 				{formatCleanupHandoffHistoryExportIndexRows(
 					cleanupExportIndex,

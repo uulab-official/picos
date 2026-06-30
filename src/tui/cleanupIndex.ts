@@ -1,5 +1,5 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import type { AuditLogEvent } from "../core/auditLog";
 import type { LogProfile } from "./logPanel";
 import type { Screen } from "./navigation";
@@ -107,6 +107,26 @@ export type CleanupHandoffHistoryExportIndexItem = {
 export type CleanupHandoffHistoryExportIndex = {
 	baseDir: string;
 	items: CleanupHandoffHistoryExportIndexItem[];
+};
+
+export type CleanupHandoffHistoryExportArchivePlan = {
+	sourcePath: string;
+	archivedPath: string;
+	fileName: string;
+	risk: "write";
+	privilege: "user";
+	confirmationRequired: true;
+	confirmationPhrase: "archive cleanup export";
+	confirmed: boolean;
+	enabled: boolean;
+	reason: string;
+};
+
+export type CleanupHandoffHistoryExportArchiveResult = {
+	status: "archived" | "blocked";
+	sourcePath: string;
+	archivedPath: string;
+	message: string;
 };
 
 export type CleanupShelfIndexInput = {
@@ -543,7 +563,7 @@ export async function readLatestCleanupHandoffHistoryExport(
 	}
 
 	const latest = files
-		.filter((file) => /^picos-cleanup-.+\.md$/.test(file))
+		.filter(isPicosCleanupHandoffHistoryExportFilename)
 		.sort()
 		.at(-1);
 	if (!latest) {
@@ -572,7 +592,7 @@ export async function readCleanupHandoffHistoryExportIndex(
 	const items = (
 		await Promise.all(
 			files
-				.filter((file) => /^picos-cleanup-.+\.md$/.test(file))
+				.filter(isPicosCleanupHandoffHistoryExportFilename)
 				.map(async (fileName) => {
 					const path = join(cleanupDir, fileName);
 					return createCleanupHandoffHistoryExportIndexItem(
@@ -587,6 +607,79 @@ export async function readCleanupHandoffHistoryExportIndex(
 		.slice(0, limit);
 
 	return { baseDir, items };
+}
+
+export function createCleanupHandoffHistoryExportArchivePlan(
+	baseDir: string,
+	path: string,
+	options: { confirmation?: string } = {},
+): CleanupHandoffHistoryExportArchivePlan {
+	const target = resolve(path);
+	const cleanupDir = resolve(baseDir, "cleanup");
+	const fileName = basename(target);
+	const allowed =
+		dirname(target) === cleanupDir &&
+		isPicosCleanupHandoffHistoryExportFilename(fileName);
+	const confirmed = options.confirmation === "archive cleanup export";
+	const enabled = allowed && confirmed;
+	const archivedPath = allowed ? join(cleanupDir, "archive", fileName) : "";
+	const reason = !allowed
+		? "cleanup export archive is limited to picos-owned export files"
+		: enabled
+			? "confirmed"
+			: "type archive cleanup export to move selected cleanup export";
+
+	return {
+		sourcePath: target,
+		archivedPath,
+		fileName,
+		risk: "write",
+		privilege: "user",
+		confirmationRequired: true,
+		confirmationPhrase: "archive cleanup export",
+		confirmed,
+		enabled,
+		reason,
+	};
+}
+
+export function formatCleanupHandoffHistoryExportArchiveRows(
+	plan: CleanupHandoffHistoryExportArchivePlan | undefined,
+): string[] {
+	if (!plan) {
+		return [];
+	}
+
+	return [
+		`CLEANUP EXPORT ARCHIVE ${plan.fileName}`,
+		`risk=${plan.risk} privilege=${plan.privilege} confirmed=${plan.confirmed}`,
+		`confirm ${plan.confirmationPhrase} ${plan.enabled ? "ready" : "locked"}`,
+		`from=${plan.sourcePath}`,
+		`to=${plan.archivedPath}`,
+		`reason=${plan.reason}`,
+	];
+}
+
+export async function archiveCleanupHandoffHistoryExport(
+	plan: CleanupHandoffHistoryExportArchivePlan,
+): Promise<CleanupHandoffHistoryExportArchiveResult> {
+	if (!plan.enabled) {
+		return {
+			status: "blocked",
+			sourcePath: plan.sourcePath,
+			archivedPath: plan.archivedPath,
+			message: `cleanup export archive is locked: ${plan.reason}`,
+		};
+	}
+
+	await mkdir(dirname(plan.archivedPath), { recursive: true });
+	await rename(plan.sourcePath, plan.archivedPath);
+	return {
+		status: "archived",
+		sourcePath: plan.sourcePath,
+		archivedPath: plan.archivedPath,
+		message: `archived ${plan.fileName}`,
+	};
 }
 
 export function getSelectedCleanupHandoffHistoryExport(
@@ -747,6 +840,12 @@ function createCleanupHandoffHistoryExportIndexItem(
 				.find((line) => line.startsWith("generatedAt="))
 				?.replace("generatedAt=", "") ?? "",
 	};
+}
+
+function isPicosCleanupHandoffHistoryExportFilename(fileName: string): boolean {
+	return /^picos-cleanup-(all|selected)-\d{4}-\d{2}-\d{2}T\d{9}Z\.md$/.test(
+		fileName,
+	);
 }
 
 function toCleanupHandoffHistoryExportScope(
