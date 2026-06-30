@@ -1894,6 +1894,19 @@ Goal: make Tools copy shortcuts discoverable without making the footer even dens
 - Tests cover TCP and non-TCP availability plus placement before the active `copy mode:` row.
 - Next: add a compact Tools copy error hint when `b` or `v` is unavailable for the selected run.
 
+## v0.4.79 - Tools Copy Unavailable Hint
+
+Status: draft PR #141 on `codex/picos-v0.4.79-tools-copy-unavailable-hint`.
+
+Goal: explain why TCP-only copy actions are unavailable without making operators infer it from missing previews.
+
+- Tools workspace now shows a compact `copy hint:` row on taller terminals when the selected run has no active TCP Target/Status rows.
+- The hint points operators toward `c raw` and `y summary` instead of silently leaving `b`/`v` unavailable.
+- TCP runs with copyable Target/Status rows keep the hint hidden.
+- The hint uses the same clipboard-preview styling as `copy help:` and `copy mode:`.
+- Tests cover non-TCP hints, TCP omission, and placement after the copy availability strip.
+- Next: add Tools copy availability to the locked clipboard confirmation prompt so the modal echoes the selected copy path.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
