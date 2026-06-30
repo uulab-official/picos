@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Tools clipboard confirmations now echo copy-path details such as raw, summary, TCP section, or TCP row before the final `copy` confirmation.
 - Tools workspace now shows a compact `copy hint:` row when TCP-only `b`/`v` copy flows are unavailable for the selected run.
 - Tools workspace now shows a compact `copy help:` strip on taller terminals, grouping `b`, `v`, `c`, and `y` copy availability for the selected run.
 - Tools workspace now shows a compact `copy mode:` row for the last armed Tools copy preview, covering raw output, TCP section, and TCP row copy flows.
