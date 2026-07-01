@@ -11,6 +11,7 @@ import {
 	createUpdateApplyPreview,
 	createUpdateReleaseHandoff,
 	formatGitHubReleaseCheckRows,
+	formatStatusReleaseConsoleRows,
 	formatUpdateApplyPreviewRows,
 	formatUpdateCheckRows,
 	formatUpdateReleaseHandoffRows,
@@ -343,5 +344,82 @@ describe("update check", () => {
 				error: "npm registry responded 404",
 			}),
 		).toBeUndefined();
+	});
+
+	test("formats update release state as a compact Status console", () => {
+		const update = {
+			packageName: "@uulab/picos",
+			currentVersion: "0.2.0",
+			latestVersion: "0.3.0",
+			status: "update-available" as const,
+			registryUrl: "https://registry.npmjs.org/@uulab%2Fpicos/latest",
+			installHint: "npm install -g @uulab/picos@0.3.0",
+		};
+		const github = {
+			owner: "uulab-official",
+			repo: "picos",
+			currentVersion: "0.2.0",
+			latestVersion: "0.3.0",
+			tagName: "v0.3.0",
+			releaseName: "picos v0.3.0",
+			status: "update-available" as const,
+			apiUrl:
+				"https://api.github.com/repos/uulab-official/picos/releases/latest",
+			releaseUrl: "https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+		};
+		const applyPreview = createUpdateApplyPreview(update);
+		const handoff = createUpdateReleaseHandoff(update);
+
+		if (!applyPreview || !handoff) {
+			throw new Error("expected release console inputs");
+		}
+
+		expect(
+			formatStatusReleaseConsoleRows({
+				update,
+				github,
+				applyPreview,
+				handoff,
+				selectedLinkIndex: 1,
+			}),
+		).toEqual([
+			"STATUS RELEASE CONSOLE npm=update-available github=update-available current=0.2.0 latest=0.3.0",
+			"package=@uulab/picos repo=uulab-official/picos",
+			"> link github GitHub Release https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+			"apply=locked risk=write privilege=user confirm=update picos",
+			"controls=n link c copy o open apply=:action",
+		]);
+	});
+
+	test("keeps the Status release console useful before update checks run", () => {
+		expect(formatStatusReleaseConsoleRows({})).toEqual([
+			"STATUS RELEASE CONSOLE npm=not-run github=not-run current=- latest=-",
+			"run=picos.update or picos update",
+			"apply=unavailable",
+			"controls=n link c copy o open apply=:action",
+		]);
+	});
+
+	test("keeps Status release console errors visible", () => {
+		expect(
+			formatStatusReleaseConsoleRows({
+				update: {
+					packageName: "@uulab/picos",
+					currentVersion: "0.2.0",
+					status: "unknown",
+					registryUrl: "https://registry.npmjs.org/@uulab%2Fpicos/latest",
+					error: "npm registry responded 503",
+				},
+				github: {
+					owner: "uulab-official",
+					repo: "picos",
+					currentVersion: "0.2.0",
+					status: "unknown",
+					apiUrl:
+						"https://api.github.com/repos/uulab-official/picos/releases/latest",
+					error: "GitHub API responded 404",
+				},
+			}),
+		).toContain("errors=npm registry responded 503 | GitHub API responded 404");
 	});
 });

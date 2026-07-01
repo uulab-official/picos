@@ -164,6 +164,7 @@ import {
 	createUpdateApplyPreview,
 	createUpdateReleaseHandoff,
 	formatGitHubReleaseCheckRows,
+	formatStatusReleaseConsoleRows,
 	formatUpdateApplyPreviewRows,
 	formatUpdateCheckRows,
 	formatUpdateReleaseHandoffRows,
@@ -9434,9 +9435,6 @@ function StatusWorkspace({
 	const updateReleaseHandoff = updateCheckResult
 		? createUpdateReleaseHandoff(updateCheckResult)
 		: undefined;
-	const updateReleaseLinks = updateReleaseHandoff
-		? getUpdateReleaseHandoffLinks(updateReleaseHandoff)
-		: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -9444,85 +9442,36 @@ function StatusWorkspace({
 				{t("status.version")}: {VERSION}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">UPDATE CHECK</Text>
-				{updateCheckResult ? (
-					formatUpdateCheckRows(updateCheckResult)
-						.slice(1)
-						.map((row) => (
-							<Text
-								key={row}
-								color={
-									row.includes("update-available")
+				<Text color="gray">STATUS RELEASE · n link · c copy · o open</Text>
+				{formatStatusReleaseConsoleRows({
+					update: updateCheckResult,
+					github: githubReleaseCheckResult,
+					applyPreview: updateApplyPreview,
+					handoff: updateReleaseHandoff,
+					selectedLinkIndex: selectedUpdateHandoffIndex,
+				}).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("STATUS RELEASE CONSOLE")
+								? row.includes("update-available")
+									? "yellow"
+									: "cyan"
+								: row.startsWith("> link")
+									? "yellow"
+									: row.startsWith("apply=locked") ||
+											row.startsWith("controls=")
 										? "yellow"
-										: row.startsWith("error=")
-											? "red"
+										: row.startsWith("run=") ||
+												row.startsWith("apply=unavailable")
+											? "gray"
 											: "white"
-								}
-							>
-								{row}
-							</Text>
-						))
-				) : (
-					<Text color="gray">Run picos.update or `picos update`.</Text>
-				)}
-			</Box>
-			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">GITHUB RELEASE CHECK</Text>
-				{githubReleaseCheckResult ? (
-					formatGitHubReleaseCheckRows(githubReleaseCheckResult)
-						.slice(1)
-						.map((row) => (
-							<Text
-								key={row}
-								color={
-									row.includes("update-available")
-										? "yellow"
-										: row.startsWith("error=")
-											? "red"
-											: "white"
-								}
-							>
-								{row}
-							</Text>
-						))
-				) : (
-					<Text color="gray">
-						GitHub Release status appears after picos.update.
+						}
+					>
+						{row}
 					</Text>
-				)}
+				))}
 			</Box>
-			{updateApplyPreview ? (
-				<Box marginTop={1} flexDirection="column">
-					<Text color="gray">UPDATE APPLY PREVIEW</Text>
-					{formatUpdateApplyPreviewRows(updateApplyPreview)
-						.slice(1)
-						.map((row) => (
-							<Text key={row} color={getActionPreviewRowColor(row)}>
-								{row}
-							</Text>
-						))}
-				</Box>
-			) : null}
-			{updateReleaseHandoff ? (
-				<Box marginTop={1} flexDirection="column">
-					<Text color="gray">RELEASE HANDOFF · n cycle · c copy · o open</Text>
-					{formatUpdateReleaseHandoffRows(updateReleaseHandoff)
-						.slice(1)
-						.map((row) => (
-							<Text key={row} color="cyan">
-								{row}
-							</Text>
-						))}
-					{updateReleaseLinks.map((link, index) => (
-						<Text
-							key={link.key}
-							color={index === selectedUpdateHandoffIndex ? "yellow" : "gray"}
-						>
-							{index === selectedUpdateHandoffIndex ? ">" : " "} {link.label}
-						</Text>
-					))}
-				</Box>
-			) : null}
 			{externalOpenPlan ? (
 				<Box marginTop={1} flexDirection="column">
 					{formatExternalOpenPlanRows(externalOpenPlan)

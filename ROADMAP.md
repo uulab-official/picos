@@ -2565,6 +2565,19 @@ Goal: make cleanup shelf decisions and cleanup handoff history fit into one comp
 - Tests cover populated and empty cleanup ops console rows.
 - Next: combine update handoff, release check, and locked update-apply preview into a compact Status release console so the top of Status also behaves like an OS control strip.
 
+## v0.4.130 - Status Release Console
+
+Status: draft PR #192 on `codex/picos-v0.4.130-status-release-console`.
+
+Goal: make Status release/update state behave like a compact OS control strip instead of several stacked diagnostic blocks.
+
+- Status release checks now format through a single `STATUS RELEASE CONSOLE`.
+- The console shows npm update status, GitHub release status, current/latest versions, selected handoff link, and locked update-apply confirmation in one compact block.
+- npm and GitHub update errors remain visible inside the compact console.
+- Status replaces the separate update check, GitHub release check, update-apply preview, and release handoff blocks with the release console.
+- Tests cover populated, empty/not-run, and error release console states.
+- Next: compact the external-open/file-open/action confirmation preview blocks into a shared Status dialog preview strip so transient confirmations stop pushing the OS dashboard down.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
