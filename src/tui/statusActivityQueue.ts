@@ -476,6 +476,8 @@ export function formatStatusActivityCopyIntentRows(
 		auditJumpActionHint === "replay"
 			? getStatusActivityResultAuditJumpReplayValidity(selectedAuditJumpIntent)
 			: undefined;
+	const replayRecoveryHint =
+		replayValidity === "stale" ? " fix=P audit jump/new result" : "";
 	const auditJumpTotal = auditJumpIntents.length || auditJumpIntentCount;
 	const selectedAuditJump =
 		auditJumpIntents.length > 1
@@ -487,7 +489,7 @@ export function formatStatusActivityCopyIntentRows(
 	const auditJumpRows =
 		selectedAuditJumpIntent && auditJumpTotal > 0
 			? [
-					`audit jumps count=${auditJumpTotal}${selectedAuditJump !== undefined ? ` selected=${selectedAuditJump + 1}/${auditJumpIntents.length}` : ""}${formatStatusActivityResultAuditJumpTargetToken(selectedAuditJumpIntent)} latest=${selectedAuditJumpIntent.preview} lines=${selectedAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}${replaySource ? ` replay=${replaySource}` : ""}${replayValidity ? ` ${replayValidity}` : ""}`,
+					`audit jumps count=${auditJumpTotal}${selectedAuditJump !== undefined ? ` selected=${selectedAuditJump + 1}/${auditJumpIntents.length}` : ""}${formatStatusActivityResultAuditJumpTargetToken(selectedAuditJumpIntent)} latest=${selectedAuditJumpIntent.preview} lines=${selectedAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}${replaySource ? ` replay=${replaySource}` : ""}${replayValidity ? ` ${replayValidity}` : ""}${replayRecoveryHint}`,
 				]
 			: [];
 	const filteredTimelineTrailExports = filterTimelineEvidenceTrailAuditExports(
