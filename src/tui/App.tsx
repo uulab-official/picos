@@ -366,6 +366,7 @@ import {
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
 	createStatusActivityCopyIntentEvidenceFocusResult,
+	createStatusActivityCopyIntentEvidenceFocusTimelineSearch,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
@@ -385,6 +386,7 @@ import {
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
+	type StatusActivityCopyIntentEvidenceFocusPlan,
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
 	type StatusActivitySource,
@@ -617,6 +619,10 @@ export function App(): React.ReactElement {
 		lastStatusActivityCopyIntentAuditExport,
 		setLastStatusActivityCopyIntentAuditExport,
 	] = useState<ConsoleAuditExportPlan>();
+	const [
+		lastStatusActivityEvidenceFocusPlan,
+		setLastStatusActivityEvidenceFocusPlan,
+	] = useState<StatusActivityCopyIntentEvidenceFocusPlan>();
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -4782,6 +4788,26 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "status" && focusArea === "workspaces" && input === "G") {
+			const jump = createStatusActivityCopyIntentEvidenceFocusTimelineSearch(
+				lastStatusActivityEvidenceFocusPlan,
+			);
+			if (!jump) {
+				log("warn", "no status activity evidence focus for timeline");
+				return;
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}`,
+			);
+			return;
+		}
+
 		if (screen === "status" && focusArea === "workspaces" && input === "v") {
 			const preview = getSelectedStatusActivityCopyIntentClipboardPreview(
 				statusActivityCopyIntentHistory,
@@ -4877,6 +4903,7 @@ export function App(): React.ReactElement {
 			}
 			setSelectedAuditExportIndex(focusPlan.selectedIndex);
 			setSelectedStatusEvidenceKind(focusPlan.kind);
+			setLastStatusActivityEvidenceFocusPlan(focusPlan);
 			setScreen("status");
 			recordStatusActivityResult(
 				createStatusActivityCopyIntentEvidenceFocusResult(focusPlan),

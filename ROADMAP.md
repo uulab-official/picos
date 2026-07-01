@@ -2863,6 +2863,19 @@ Goal: make `w` Activity-to-Evidence focus jumps searchable in Timeline audit eve
 - Tests cover the audit message formatter and Timeline audit search behavior for focus-only jumps.
 - Next: add a direct Timeline search handoff for the latest `w` focus event so operators can jump from Status to the matching focus audit row immediately.
 
+## v0.4.153 - Status Activity Evidence Focus Timeline Jump
+
+Status: draft PR [#215](https://github.com/uulab-official/picos/pull/215) on `codex/picos-v0.4.153-status-focus-timeline-jump`.
+
+Goal: let operators jump from Status to the Timeline audit row for the latest `w` Evidence focus event.
+
+- Status remembers the latest `w` Evidence focus plan after selecting the matching audit export row.
+- `G` from Status opens Timeline with the audit filter and a `status activity evidence focus` search query.
+- The Timeline cursor lands on the newest matching focus audit row so repeated focus jumps are easy to review.
+- The `STATUS ACTIVITY COPY INTENTS` controls now advertise `G focus search` beside `w Evidence focus` and `g Timeline audit search`.
+- Tests cover focus search handoff creation, empty focus behavior, and updated controls.
+- Next: add an evidence trail handoff from the Timeline focus row back to the matching Status audit export open/archive controls.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

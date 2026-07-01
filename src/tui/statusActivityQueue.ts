@@ -417,7 +417,7 @@ export function formatStatusActivityCopyIntentRows(
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			...exportRows,
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · w Evidence focus · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -431,7 +431,7 @@ export function formatStatusActivityCopyIntentRows(
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
 		}),
-		"controls=y records intent · </> select · v replay · e export · w Evidence focus · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+		"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 	];
 }
 
@@ -629,6 +629,19 @@ export function formatStatusActivityCopyIntentEvidenceFocusAuditMessage(
 		`label="${plan.label}"`,
 		`path="${plan.path}"`,
 	].join(" ");
+}
+
+export function createStatusActivityCopyIntentEvidenceFocusTimelineSearch(
+	plan: StatusActivityCopyIntentEvidenceFocusPlan | undefined,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	if (!plan) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: "status activity evidence focus",
+		message: `status activity evidence focus timeline search ${plan.label}`,
+	};
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
