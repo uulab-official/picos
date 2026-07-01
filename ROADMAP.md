@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.180 - Status Audit Jump Cursor
+
+Status: draft PR [#242](https://github.com/uulab-official/picos/pull/242) on `codex/picos-v0.4.180-audit-jump-cursor`.
+
+Goal: let operators review multiple reusable result audit jumps without moving through every Status copy intent row.
+
+- Status Activity now has a selected result-audit-jump cursor derived only from `status activity result audit jump ...` copy intents.
+- `P audit jump` advances that cursor in Status without changing the broader copy-intent selection.
+- The audit-jump summary row now shows `selected=<n>/<total>` when more than one reusable result audit jump exists.
+- The selected audit jump controls the summary target/latest preview, so operators can inspect destinations before replaying or searching.
+- Tests cover filtered selection, wraparound movement, empty history behavior, and summary rendering for a selected audit jump.
+- Next: make `I` replay the selected audit-jump cursor item rather than always replaying the newest reusable jump.
+
 ## v0.4.179 - Status Audit Jump Target Token
 
 Status: draft PR [#241](https://github.com/uulab-official/picos/pull/241) on `codex/picos-v0.4.179-audit-jump-target-token`.

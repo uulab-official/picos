@@ -399,6 +399,7 @@ import {
 	getTimelineEvidenceTrailAuditExports,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
+	moveStatusActivityResultAuditJumpSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
 	moveTimelineEvidenceTrailSelection,
@@ -634,6 +635,10 @@ export function App(): React.ReactElement {
 	const [
 		selectedStatusActivityCopyIntentIndex,
 		setSelectedStatusActivityCopyIntentIndex,
+	] = useState(0);
+	const [
+		selectedStatusActivityResultAuditJumpIndex,
+		setSelectedStatusActivityResultAuditJumpIndex,
 	] = useState(0);
 	const [
 		lastStatusActivityCopyIntentAuditExport,
@@ -1002,6 +1007,10 @@ export function App(): React.ReactElement {
 	);
 	const latestStatusActivityResultAuditJumpIntent =
 		getLatestStatusActivityResultAuditJumpIntent(
+			statusActivityCopyIntentHistory,
+		);
+	const statusActivityResultAuditJumpIntentCount =
+		getStatusActivityResultAuditJumpIntentCount(
 			statusActivityCopyIntentHistory,
 		);
 	useEffect(() => {
@@ -5126,6 +5135,26 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "status" && focusArea === "workspaces" && input === "P") {
+			if (statusActivityResultAuditJumpIntentCount === 0) {
+				log("warn", "no status activity result audit jumps");
+				return;
+			}
+			setSelectedStatusActivityResultAuditJumpIndex((current) => {
+				const next = moveStatusActivityResultAuditJumpSelection(
+					statusActivityCopyIntentHistory,
+					current,
+					"next",
+				);
+				log(
+					"info",
+					`status activity result audit jump ${next + 1}/${statusActivityResultAuditJumpIntentCount}`,
+				);
+				return next;
+			});
+			return;
+		}
+
 		if (screen === "status" && focusArea === "workspaces" && input === "g") {
 			const jump = createStatusActivityCopyIntentTimelineSearch(
 				statusActivityCopyIntentHistory,
@@ -7228,6 +7257,9 @@ export function App(): React.ReactElement {
 					selectedStatusActivityCopyIntentIndex={
 						selectedStatusActivityCopyIntentIndex
 					}
+					selectedStatusActivityResultAuditJumpIndex={
+						selectedStatusActivityResultAuditJumpIndex
+					}
 					lastStatusActivityCopyIntentAuditExport={
 						lastStatusActivityCopyIntentAuditExport
 					}
@@ -7462,6 +7494,7 @@ function MainWorkspace({
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
 	selectedStatusActivityCopyIntentIndex,
+	selectedStatusActivityResultAuditJumpIndex,
 	lastStatusActivityCopyIntentAuditExport,
 	lastTimelineEvidenceTrailAuditExport,
 	timelineEvidenceTrailAuditExports,
@@ -7591,6 +7624,7 @@ function MainWorkspace({
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusActivityCopyIntentIndex: number;
+	selectedStatusActivityResultAuditJumpIndex: number;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
@@ -7798,6 +7832,7 @@ function MainWorkspace({
 						statusActivityCopyPreviewExpanded,
 						statusActivityCopyIntentHistory,
 						selectedStatusActivityCopyIntentIndex,
+						selectedStatusActivityResultAuditJumpIndex,
 						lastStatusActivityCopyIntentAuditExport,
 						lastTimelineEvidenceTrailAuditExport,
 						timelineEvidenceTrailAuditExports,
@@ -7932,6 +7967,7 @@ function renderWorkspace(
 	statusActivityCopyPreviewExpanded: boolean,
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[],
 	selectedStatusActivityCopyIntentIndex: number,
+	selectedStatusActivityResultAuditJumpIndex: number,
 	lastStatusActivityCopyIntentAuditExport: ConsoleAuditExportPlan | undefined,
 	lastTimelineEvidenceTrailAuditExport: ConsoleAuditExportPlan | undefined,
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[],
@@ -8213,6 +8249,9 @@ function renderWorkspace(
 				statusActivityCopyIntentHistory={statusActivityCopyIntentHistory}
 				selectedStatusActivityCopyIntentIndex={
 					selectedStatusActivityCopyIntentIndex
+				}
+				selectedStatusActivityResultAuditJumpIndex={
+					selectedStatusActivityResultAuditJumpIndex
 				}
 				lastStatusActivityCopyIntentAuditExport={
 					lastStatusActivityCopyIntentAuditExport
@@ -10408,6 +10447,7 @@ function StatusWorkspace({
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
 	selectedStatusActivityCopyIntentIndex,
+	selectedStatusActivityResultAuditJumpIndex,
 	lastStatusActivityCopyIntentAuditExport,
 	lastTimelineEvidenceTrailAuditExport,
 	timelineEvidenceTrailAuditExports,
@@ -10446,6 +10486,7 @@ function StatusWorkspace({
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusActivityCopyIntentIndex: number;
+	selectedStatusActivityResultAuditJumpIndex: number;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
@@ -10755,6 +10796,7 @@ function StatusWorkspace({
 					latestStatusActivityResultAuditJumpIntent,
 					statusActivityResultAuditJumpIntentCount,
 					statusActivityResultAuditJumpActionHint,
+					selectedStatusActivityResultAuditJumpIndex,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
