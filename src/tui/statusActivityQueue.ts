@@ -609,6 +609,21 @@ export function createStatusActivityResultTimelineSearch(
 	};
 }
 
+export function createStatusActivityResultTimelineSearchIntent(
+	jump?: StatusActivityCopyIntentTimelineSearch,
+): StatusActivityCopyIntentRecord | undefined {
+	if (!jump) {
+		return undefined;
+	}
+	return createStatusActivityCopyIntentRecord(
+		createClipboardPreview({
+			source: "status-activity",
+			label: `status activity result audit jump ${jump.query}`,
+			copyText: [jump.query, jump.message, `filter=${jump.filter}`].join("\n"),
+		}),
+	);
+}
+
 export function createTimelineEvidenceTrailTimelineSearch(
 	plan?: ConsoleAuditExportPlan,
 ): StatusActivityCopyIntentTimelineSearch | undefined {

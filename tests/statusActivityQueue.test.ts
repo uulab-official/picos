@@ -20,6 +20,7 @@ import {
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
 	createStatusActivityResultTimelineSearch,
+	createStatusActivityResultTimelineSearchIntent,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -1458,5 +1459,39 @@ describe("Status activity queue", () => {
 			createStatusActivityResultTimelineSearch(history, 1),
 		).toBeUndefined();
 		expect(createStatusActivityResultTimelineSearch([], 0)).toBeUndefined();
+	});
+
+	test("creates copy intents for status result audit jumps", () => {
+		const jump = {
+			filter: "audit" as const,
+			query: "action=source source=evidence visible=1/3",
+			message:
+				"status activity result timeline search palette source evidence visible=1/3",
+		};
+		const intent = createStatusActivityResultTimelineSearchIntent(jump);
+
+		expect(intent).toEqual({
+			label:
+				"status activity result audit jump action=source source=evidence visible=1/3",
+			copyText:
+				"action=source source=evidence visible=1/3\nstatus activity result timeline search palette source evidence visible=1/3\nfilter=audit",
+			selectedRow: 1,
+			expanded: false,
+			lines: 3,
+			preview: "action=source source=evidence visible=1/3",
+			auditMessage:
+				'clipboard intent status-activity label="status activity result audit jump action=source source=evidence visible=1/3" selectedRow=1 expanded=false lines=3 preview="action=source source=evidence visible=1/3"',
+		});
+		if (!intent) {
+			throw new Error("expected status activity result audit jump intent");
+		}
+		expect(createStatusActivityCopyIntentTimelineSearch([intent], 0)).toEqual({
+			filter: "audit",
+			query:
+				"status activity result audit jump action=source source=evidence visible=1/3",
+			message:
+				"status activity copy intent timeline search status activity result audit jump action=source source=evidence visible=1/3",
+		});
+		expect(createStatusActivityResultTimelineSearchIntent()).toBeUndefined();
 	});
 });

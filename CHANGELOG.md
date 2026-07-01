@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity `I` audit jumps now append reusable copy-intent rows before moving into Timeline.
 - Status Activity result history rows for palette `trail source` cycles can now jump directly into matching Timeline audit search.
 - Command palette recovered Timeline Evidence trail source-filter cycles now emit searchable Timeline audit events.
 - Command palette recovered Timeline Evidence trail source-filter cycles now record Status Activity result history rows with visible/total trail counts.

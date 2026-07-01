@@ -371,6 +371,7 @@ import {
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
 	createStatusActivityResultTimelineSearch,
+	createStatusActivityResultTimelineSearchIntent,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -5042,6 +5043,14 @@ export function App(): React.ReactElement {
 			if (!jump) {
 				log("warn", "no status activity result audit jump");
 				return;
+			}
+			const intent = createStatusActivityResultTimelineSearchIntent(jump);
+			setStatusActivityCopyIntentHistory((current) =>
+				appendStatusActivityCopyIntentHistory(current, intent),
+			);
+			setSelectedStatusActivityCopyIntentIndex(0);
+			if (intent) {
+				log("info", intent.auditMessage);
 			}
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
