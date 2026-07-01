@@ -17,6 +17,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	getLatestStatusActivityCopyIntentAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	moveStatusActivityCopyIntentSelection,
@@ -642,6 +643,53 @@ describe("Status activity queue", () => {
 				],
 			},
 		});
+	});
+
+	test("finds the latest persisted status activity copy intent audit export", () => {
+		expect(
+			getLatestStatusActivityCopyIntentAuditExport({
+				baseDir: "/Users/bonjin/.config/picos",
+				items: [
+					{
+						fileName: "picos-audit-selected-2026-07-01T040000000Z.log",
+						path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+						generatedAt: "2026-07-01T04:00:00.000Z",
+						scope: "selected",
+						query: "tools ping google.com",
+						entryCount: 1,
+					},
+					{
+						fileName: "picos-audit-selected-2026-07-01T030000000Z.log",
+						path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+						generatedAt: "2026-07-01T03:00:00.000Z",
+						scope: "selected",
+						query: "status activity cleanup jump-cleanup",
+						entryCount: 1,
+					},
+					{
+						fileName: "picos-audit-filtered-2026-07-01T020000000Z.log",
+						path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T020000000Z.log",
+						generatedAt: "2026-07-01T02:00:00.000Z",
+						scope: "filtered",
+						query: "status activity older",
+						entryCount: 3,
+					},
+				],
+			}),
+		).toEqual({
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			content: "",
+			eventCount: 1,
+			query: "status activity cleanup jump-cleanup",
+			scope: "selected",
+		});
+
+		expect(
+			getLatestStatusActivityCopyIntentAuditExport({
+				baseDir: "/Users/bonjin/.config/picos",
+				items: [],
+			}),
+		).toBeUndefined();
 	});
 
 	test("selects status activity copy intents and creates timeline search jumps", () => {

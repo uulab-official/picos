@@ -374,6 +374,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	getLatestStatusActivityCopyIntentAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	moveStatusActivityCopyIntentSelection,
@@ -2158,6 +2159,9 @@ export function App(): React.ReactElement {
 			try {
 				const index = await readConsoleAuditExportIndex(baseDir);
 				setAuditExportIndex(index);
+				setLastStatusActivityCopyIntentAuditExport(
+					getLatestStatusActivityCopyIntentAuditExport(index),
+				);
 				setSelectedAuditExportIndex((current) =>
 					Math.min(current, Math.max(0, index.items.length - 1)),
 				);
@@ -3160,6 +3164,9 @@ export function App(): React.ReactElement {
 				Math.min(current, Math.max(0, cleanupExports.items.length - 1)),
 			);
 			setAuditExportIndex(auditExports);
+			setLastStatusActivityCopyIntentAuditExport(
+				getLatestStatusActivityCopyIntentAuditExport(auditExports),
+			);
 			setSelectedAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, auditExports.items.length - 1)),
 			);
