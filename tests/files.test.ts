@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatPwd, formatType } from "../src/cli/commands/files";
@@ -71,6 +71,23 @@ describe("local file provider", () => {
 
 		expect(formatPwd(await provider.pwd())).toBe(root);
 		expect(formatType(await provider.read("README.md"))).toBe("# picos\n");
+	});
+
+	test("keeps local writes locked unless the provider is explicitly created for writes", async () => {
+		const lockedProvider = createLocalFileProvider(root);
+		await expect(
+			lockedProvider.write("README.md", "# locked\n"),
+		).rejects.toThrow("File writes require editor confirmation");
+		expect(await readFile(join(root, "README.md"), "utf8")).toBe("# picos\n");
+
+		const writableProvider = createLocalFileProvider(root, {
+			allowWrites: true,
+		});
+		await writableProvider.write("README.md", "# picos\nsaved\n");
+
+		expect(await readFile(join(root, "README.md"), "utf8")).toBe(
+			"# picos\nsaved\n",
+		);
 	});
 
 	test("formats system file locations", () => {

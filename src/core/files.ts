@@ -1,4 +1,4 @@
-import { lstat, readdir, readFile, stat } from "node:fs/promises";
+import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import type { SftpRemoteProfile } from "./types";
@@ -42,6 +42,7 @@ export type FileProvider = {
 
 export type LocalFileProviderOptions = {
 	homeDir?: string;
+	allowWrites?: boolean;
 };
 
 export type FileProviderFactoryInput =
@@ -137,8 +138,11 @@ export function createLocalFileProvider(
 				truncated,
 			};
 		},
-		async write() {
-			throw new Error("File writes require editor confirmation");
+		async write(path: string, content: string) {
+			if (!options.allowWrites) {
+				throw new Error("File writes require editor confirmation");
+			}
+			await writeFile(resolvePath(path), content, "utf8");
 		},
 		async stat(path: string) {
 			const fullPath = resolvePath(path);

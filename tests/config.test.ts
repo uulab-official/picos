@@ -16,6 +16,7 @@ describe("config schema", () => {
 			enableExperimentalControls: false,
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
+			editorSaveMode: "disabled",
 			language: "en",
 			remoteProfiles: [],
 			logProfiles: [],
@@ -63,6 +64,7 @@ describe("config schema", () => {
 				refreshInterval: 5000,
 				controlExecutionMode: "dry-run",
 				allowAdminDryRun: true,
+				editorSaveMode: "local-write",
 				unknown: true,
 			}),
 		).toEqual({
@@ -72,6 +74,7 @@ describe("config schema", () => {
 			refreshInterval: 5000,
 			controlExecutionMode: "dry-run",
 			allowAdminDryRun: true,
+			editorSaveMode: "local-write",
 		});
 	});
 
@@ -312,6 +315,21 @@ describe("config schema", () => {
 		expect(coerceConfigValue("auditArchiveRetentionLimit", "12")).toBe(12);
 		expect(() => coerceConfigValue("auditArchiveRetentionLimit", "0")).toThrow(
 			"auditArchiveRetentionLimit must be a number between 1 and 60",
+		);
+	});
+
+	test("normalizes editor save execution mode", () => {
+		expect(mergeConfig({ editorSaveMode: "local-write" }).editorSaveMode).toBe(
+			"local-write",
+		);
+		expect(mergeConfig({ editorSaveMode: "unsafe" }).editorSaveMode).toBe(
+			"disabled",
+		);
+		expect(coerceConfigValue("editorSaveMode", "local-write")).toBe(
+			"local-write",
+		);
+		expect(() => coerceConfigValue("editorSaveMode", "unsafe")).toThrow(
+			"editorSaveMode must be disabled or local-write",
 		);
 	});
 });

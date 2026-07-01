@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.209 - Editor Save Execution Gate
+
+Status: draft PR [#271](https://github.com/uulab-official/picos/pull/271) on `codex/picos-v0.4.209-editor-save-execution`.
+
+Goal: move Editor saves from preview-only toward controlled OS mutation by adding an explicit local-write policy gate, provider execution result, and audit trail.
+
+- Local file providers remain write-locked by default and only write when created with explicit write permission.
+- `editorSaveMode` is now part of config, defaults to `disabled`, and supports `local-write` for exact-confirmed local editor saves.
+- Editor save execution plans block by default, block unchanged buffers, and keep remote/SFTP provider writes locked.
+- Confirmed local saves run through the provider only when `editorSaveMode=local-write`.
+- Save execution emits audit text for blocked, saved, and failed outcomes.
+- The Config workspace safety section now exposes `editorSaveMode`, policy presets, safety posture, and reset behavior.
+- Tests cover default locking, opt-in local writes, remote blocking, config normalization, and Config panel visibility.
+- Next: add an in-TUI save result panel plus persisted Timeline evidence for editor save audits.
+
 ## v0.4.208 - Editor Insert And Undo
 
 Status: draft PR [#270](https://github.com/uulab-official/picos/pull/270) on `codex/picos-v0.4.208-editor-insert-undo`.
@@ -13,7 +28,7 @@ Goal: make the Editor buffer feel closer to a DOS/terminal editor by supporting 
 - The Editor status row shows undo depth beside dirty, line, and truncation state.
 - Save previews continue to reflect the current in-memory buffer while filesystem writes remain locked.
 - Tests cover cursor-relative insertion and multi-step undo back to the original file content.
-- Next: add policy-gated provider write execution and audit records for confirmed editor saves.
+- Next: policy-gated provider write execution and audit records moved into v0.4.209.
 
 ## v0.4.207 - Editor Line Editing
 

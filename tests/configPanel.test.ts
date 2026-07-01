@@ -36,6 +36,7 @@ describe("config TUI panel", () => {
 			defaultPingHost: "google.com",
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
+			editorSaveMode: "disabled",
 		});
 
 		expect(formatConfigWorkspaceRows(items, 1, 10)).toEqual([
@@ -59,6 +60,7 @@ describe("config TUI panel", () => {
 			defaultPingHost: "google.com",
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
+			editorSaveMode: "disabled",
 			auditArchiveRetentionLimit: 10,
 			toolTargetPresetLimit: 8,
 		});
@@ -71,6 +73,7 @@ describe("config TUI panel", () => {
 			"connectivity:defaultPingHost",
 			"safety:controlExecutionMode",
 			"safety:allowAdminDryRun",
+			"safety:editorSaveMode",
 		]);
 		expect(getConfigWorkspaceSectionJumpIndex(items, "display")).toBe(2);
 		expect(getConfigWorkspaceSectionJumpIndex(items, "safety")).toBe(5);
@@ -94,6 +97,7 @@ describe("config TUI panel", () => {
 			"[2] SAFETY",
 			"  controlExecutionMode        disabled OS mutation execution mode",
 			"> allowAdminDryRun            false    allow admin-class dry-run previews",
+			"  editorSaveMode              disabled Editor file write execution mode",
 			"selected=allowAdminDryRun values=true|false section=safety",
 		]);
 	});
@@ -105,6 +109,7 @@ describe("config TUI panel", () => {
 			defaultPingHost: "internal.example",
 			controlExecutionMode: "dry-run",
 			allowAdminDryRun: true,
+			editorSaveMode: "local-write",
 			auditArchiveRetentionLimit: 12,
 			toolTargetPresetLimit: 6,
 		});
@@ -118,7 +123,7 @@ describe("config TUI panel", () => {
 			"section=DISPLAY items=2 shortcut=1",
 			"config=/tmp/picos/config.json",
 			"selected=language value=ko",
-			"posture=admin dry-run previews",
+			"posture=local editor writes enabled",
 			"persist=+/- writes language or refreshInterval",
 			"actions=+/- adjust language/refresh, R exact reset",
 		]);
@@ -129,10 +134,10 @@ describe("config TUI panel", () => {
 			}),
 		).toEqual([
 			"CONFIG SECTION DETAIL",
-			"section=SAFETY items=2 shortcut=2",
+			"section=SAFETY items=3 shortcut=2",
 			"config=/tmp/picos/config.json",
 			"selected=controlExecutionMode value=dry-run",
-			"posture=admin dry-run previews",
+			"posture=local editor writes enabled",
 			"persist=+/- writes policy, P cycles preset, R exact reset",
 			"actions=+/- adjust policy, P cycle preset, R exact reset",
 		]);
@@ -146,7 +151,7 @@ describe("config TUI panel", () => {
 			"section=CONNECTIVITY items=1 shortcut=4",
 			"config=/tmp/picos/config.json",
 			"selected=defaultPingHost value=internal.example",
-			"posture=admin dry-run previews",
+			"posture=local editor writes enabled",
 			"persist=enter edits defaultPingHost",
 			"actions=enter edit defaultPingHost, R exact reset",
 		]);
@@ -363,10 +368,11 @@ describe("config TUI panel", () => {
 			defaultPingHost: "google.com",
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
+			editorSaveMode: "disabled",
 		});
 
 		expect(moveConfigWorkspaceSelection(0, items.length, "next")).toBe(1);
-		expect(moveConfigWorkspaceSelection(0, items.length, "previous")).toBe(6);
+		expect(moveConfigWorkspaceSelection(0, items.length, "previous")).toBe(7);
 		expect(adjustConfigWorkspaceItem(items[0], "increase")).toBe(60);
 		expect(adjustConfigWorkspaceItem(items[0], "decrease")).toBe(59);
 		expect(adjustConfigWorkspaceItem(items[1], "decrease")).toBe(1);
@@ -379,6 +385,8 @@ describe("config TUI panel", () => {
 		expect(adjustConfigWorkspaceItem(items[5], "decrease")).toBe("dry-run");
 		expect(adjustConfigWorkspaceItem(items[6], "increase")).toBe(true);
 		expect(adjustConfigWorkspaceItem(items[6], "decrease")).toBe(true);
+		expect(adjustConfigWorkspaceItem(items[7], "increase")).toBe("local-write");
+		expect(adjustConfigWorkspaceItem(items[7], "decrease")).toBe("local-write");
 	});
 
 	test("marks text config rows as editable with enter", () => {
@@ -390,6 +398,7 @@ describe("config TUI panel", () => {
 			defaultPingHost: "google.com",
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
+			editorSaveMode: "disabled",
 		});
 
 		expect(getConfigWorkspaceEditPrompt(items[4])).toBe(
@@ -404,6 +413,7 @@ describe("config TUI panel", () => {
 				controlExecutionMode: "disabled",
 				allowAdminDryRun: false,
 				enableExperimentalControls: false,
+				editorSaveMode: "disabled",
 			}),
 		).toBe("user-dry-run");
 
@@ -415,6 +425,7 @@ describe("config TUI panel", () => {
 				controlExecutionMode: "dry-run",
 				allowAdminDryRun: false,
 				enableExperimentalControls: true,
+				editorSaveMode: "disabled",
 			},
 			rows: [
 				"CONFIG POLICY PRESET",
@@ -422,6 +433,7 @@ describe("config TUI panel", () => {
 				"controlExecutionMode=dry-run",
 				"allowAdminDryRun=false",
 				"enableExperimentalControls=true",
+				"editorSaveMode=disabled",
 			],
 		});
 
@@ -430,6 +442,7 @@ describe("config TUI panel", () => {
 				controlExecutionMode: "dry-run",
 				allowAdminDryRun: false,
 				enableExperimentalControls: true,
+				editorSaveMode: "disabled",
 			}),
 		).toBe("admin-dry-run");
 		expect(
@@ -437,12 +450,14 @@ describe("config TUI panel", () => {
 				controlExecutionMode: "dry-run",
 				allowAdminDryRun: true,
 				enableExperimentalControls: true,
+				editorSaveMode: "local-write",
 			}),
 		).toBe("safe-readonly");
 		expect(applyConfigPolicyPreset("safe-readonly").values).toEqual({
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
 			enableExperimentalControls: false,
+			editorSaveMode: "disabled",
 		});
 	});
 
@@ -456,6 +471,7 @@ describe("config TUI panel", () => {
 			controlExecutionMode: "dry-run",
 			allowAdminDryRun: true,
 			enableExperimentalControls: true,
+			editorSaveMode: "local-write",
 		});
 
 		expect(preview.confirmationPhrase).toBe("reset config");
@@ -468,10 +484,11 @@ describe("config TUI panel", () => {
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
 			enableExperimentalControls: false,
+			editorSaveMode: "disabled",
 		});
 		expect(preview.rows).toEqual([
 			"CONFIG RESET",
-			"scope=core controls changed=8",
+			"scope=core controls changed=9",
 			"confirm reset config locked",
 			"auditArchiveRetentionLimit 7 -> 10",
 			"toolTargetPresetLimit 4 -> 8",
@@ -481,6 +498,7 @@ describe("config TUI panel", () => {
 			"controlExecutionMode dry-run -> disabled",
 			"allowAdminDryRun true -> false",
 			"enableExperimentalControls true -> false",
+			"editorSaveMode local-write -> disabled",
 		]);
 		expect(submitConfigWorkspaceResetConfirmation(preview, "reset")).toEqual({
 			confirmed: false,
@@ -491,7 +509,7 @@ describe("config TUI panel", () => {
 			submitConfigWorkspaceResetConfirmation(preview, " reset config "),
 		).toEqual({
 			confirmed: true,
-			message: "config reset confirmed core controls (8 values)",
+			message: "config reset confirmed core controls (9 values)",
 			preview,
 		});
 	});

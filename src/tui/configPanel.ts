@@ -11,7 +11,8 @@ export type ConfigWorkspaceItemKey =
 	| "refreshInterval"
 	| "defaultPingHost"
 	| "controlExecutionMode"
-	| "allowAdminDryRun";
+	| "allowAdminDryRun"
+	| "editorSaveMode";
 
 type ConfigWorkspaceItemKind = "number" | "choice" | "text" | "boolean";
 
@@ -30,7 +31,10 @@ export type ConfigPolicyPresetId =
 
 type ConfigPolicyValues = Pick<
 	PicosConfig,
-	"controlExecutionMode" | "allowAdminDryRun" | "enableExperimentalControls"
+	| "controlExecutionMode"
+	| "allowAdminDryRun"
+	| "enableExperimentalControls"
+	| "editorSaveMode"
 >;
 
 export type ConfigPolicyPresetPreview = {
@@ -62,7 +66,8 @@ type ConfigWorkspaceResetKey =
 	| "defaultPingHost"
 	| "controlExecutionMode"
 	| "allowAdminDryRun"
-	| "enableExperimentalControls";
+	| "enableExperimentalControls"
+	| "editorSaveMode";
 
 type ConfigWorkspaceResetValues = Pick<PicosConfig, ConfigWorkspaceResetKey>;
 
@@ -120,6 +125,7 @@ const configPolicyPresets: ConfigPolicyPresetPreview[] = [
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
 			enableExperimentalControls: false,
+			editorSaveMode: "disabled",
 		},
 		rows: [],
 	},
@@ -130,6 +136,7 @@ const configPolicyPresets: ConfigPolicyPresetPreview[] = [
 			controlExecutionMode: "dry-run",
 			allowAdminDryRun: false,
 			enableExperimentalControls: true,
+			editorSaveMode: "disabled",
 		},
 		rows: [],
 	},
@@ -140,6 +147,7 @@ const configPolicyPresets: ConfigPolicyPresetPreview[] = [
 			controlExecutionMode: "dry-run",
 			allowAdminDryRun: true,
 			enableExperimentalControls: true,
+			editorSaveMode: "local-write",
 		},
 		rows: [],
 	},
@@ -154,6 +162,7 @@ const resetKeys: ConfigWorkspaceResetKey[] = [
 	"controlExecutionMode",
 	"allowAdminDryRun",
 	"enableExperimentalControls",
+	"editorSaveMode",
 ];
 
 const configManagedShelfHandoffs: ConfigManagedShelfHandoff[] = [
@@ -200,6 +209,7 @@ export function createConfigWorkspaceItems(
 		| "defaultPingHost"
 		| "controlExecutionMode"
 		| "allowAdminDryRun"
+		| "editorSaveMode"
 	>,
 ): ConfigWorkspaceItem[] {
 	return [
@@ -270,6 +280,15 @@ export function createConfigWorkspaceItems(
 			section: "safety",
 			hint: "allow admin-class dry-run previews",
 		},
+		{
+			key: "editorSaveMode",
+			label: "Editor save mode",
+			value: config.editorSaveMode,
+			kind: "choice",
+			section: "safety",
+			options: ["disabled", "local-write"],
+			hint: "Editor file write execution mode",
+		},
 	];
 }
 
@@ -307,6 +326,7 @@ export function applyConfigPolicyPreset(
 			`controlExecutionMode=${values.controlExecutionMode}`,
 			`allowAdminDryRun=${values.allowAdminDryRun}`,
 			`enableExperimentalControls=${values.enableExperimentalControls}`,
+			`editorSaveMode=${values.editorSaveMode}`,
 		],
 	};
 }
@@ -865,6 +885,12 @@ function formatConfigSafetyPosture(items: ConfigWorkspaceItem[]): string {
 	);
 	const allowAdminDryRun =
 		items.find((item) => item.key === "allowAdminDryRun")?.value === true;
+	const editorSaveMode = String(
+		items.find((item) => item.key === "editorSaveMode")?.value ?? "disabled",
+	);
+	if (editorSaveMode === "local-write") {
+		return "local editor writes enabled";
+	}
 	if (mode !== "dry-run") {
 		return "safe read-only";
 	}
@@ -879,7 +905,8 @@ function matchesConfigPolicyPreset(
 		config.controlExecutionMode === preset.values.controlExecutionMode &&
 		config.allowAdminDryRun === preset.values.allowAdminDryRun &&
 		config.enableExperimentalControls ===
-			preset.values.enableExperimentalControls
+			preset.values.enableExperimentalControls &&
+		config.editorSaveMode === preset.values.editorSaveMode
 	);
 }
 
@@ -893,5 +920,6 @@ function createDefaultResetValues(): ConfigWorkspaceResetValues {
 		controlExecutionMode: defaultConfig.controlExecutionMode,
 		allowAdminDryRun: defaultConfig.allowAdminDryRun,
 		enableExperimentalControls: defaultConfig.enableExperimentalControls,
+		editorSaveMode: defaultConfig.editorSaveMode,
 	};
 }
