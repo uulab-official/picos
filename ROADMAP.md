@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.210 - Editor Save Evidence Panel
+
+Status: draft PR [#272](https://github.com/uulab-official/picos/pull/272) on `codex/picos-v0.4.210-editor-save-evidence`.
+
+Goal: make policy-gated Editor saves visible inside the terminal OS surface and recoverable from Timeline audit search.
+
+- Editor now keeps the latest save execution result in the current editor session.
+- The Editor workspace renders an `EDITOR SAVE RESULT` block with path, saved/blocked/failed status, policy, provider, confirmation state, blockers, errors, and the matching Timeline search hint.
+- Opening another file or editing the buffer clears stale save-result evidence so the panel reflects the current editor session.
+- Successful `editor save ... status=saved` records now classify as Timeline audit events, not generic action rows.
+- Timeline search now supports both exact substring matches and token-based matches, so `editor save status=saved` finds rows even when a path sits between the words.
+- Tests cover result-row formatting and successful editor-save audit search recovery.
+- Next: add a compact Editor command/result history shelf plus save-result export into picos-owned evidence files.
+
 ## v0.4.209 - Editor Save Execution Gate
 
 Status: draft PR [#271](https://github.com/uulab-official/picos/pull/271) on `codex/picos-v0.4.209-editor-save-execution`.
@@ -13,7 +27,7 @@ Goal: move Editor saves from preview-only toward controlled OS mutation by addin
 - Save execution emits audit text for blocked, saved, and failed outcomes.
 - The Config workspace safety section now exposes `editorSaveMode`, policy presets, safety posture, and reset behavior.
 - Tests cover default locking, opt-in local writes, remote blocking, config normalization, and Config panel visibility.
-- Next: add an in-TUI save result panel plus persisted Timeline evidence for editor save audits.
+- Next: in-TUI save result evidence moved into v0.4.210.
 
 ## v0.4.208 - Editor Insert And Undo
 

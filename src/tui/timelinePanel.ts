@@ -74,7 +74,7 @@ export function formatTimelineWorkspaceRows(
 	);
 	const visible = query
 		? filtered.filter(({ event, kind }) =>
-				timelineSearchText(event, kind).includes(query.toLowerCase()),
+				matchesTimelineSearch(timelineSearchText(event, kind), query),
 			)
 		: filtered;
 	const eventRows = visible.map(({ event, kind }) =>
@@ -124,7 +124,8 @@ export function filterTimelineEvents(
 		const kind = classifyTimelineEvent(event);
 		return (
 			(filter === "all" || kind === filter) &&
-			(!normalized || timelineSearchText(event, kind).includes(normalized))
+			(!normalized ||
+				matchesTimelineSearch(timelineSearchText(event, kind), normalized))
 		);
 	});
 }
@@ -446,6 +447,7 @@ function classifyTimelineEvent(
 		message.includes("control preview") ||
 		message.includes("control simulation") ||
 		message.includes("control execution") ||
+		message.includes("editor save") ||
 		message.includes("ports file evidence unavailable") ||
 		message.includes("ports file evidence error") ||
 		message.includes("ports file evidence failed") ||
@@ -481,6 +483,15 @@ function timelineSearchText(
 	kind: Exclude<TimelineFilter, "all">,
 ): string {
 	return `${event.level} ${event.time} ${kind} ${event.message}`.toLowerCase();
+}
+
+function matchesTimelineSearch(searchText: string, query: string): boolean {
+	const normalized = query.trim().toLowerCase();
+	return (
+		!normalized ||
+		searchText.includes(normalized) ||
+		normalized.split(/\s+/).every((part) => searchText.includes(part))
+	);
 }
 
 function formatTimelinePresetSummary(presets: string[] | undefined): string {

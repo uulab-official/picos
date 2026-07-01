@@ -74,7 +74,9 @@ import { getControlPreviewCommand } from "../core/controlPreview";
 import { runDoctorChecks } from "../core/doctor";
 import {
 	createEditorSaveExecutionPlan,
+	type EditorSaveExecutionResult,
 	formatEditorSaveExecutionAuditMessage,
+	formatEditorSaveExecutionResultRows,
 	runEditorSaveExecutionPlan,
 } from "../core/editorSaveExecution";
 import {
@@ -758,6 +760,8 @@ export function App(): React.ReactElement {
 		query: "",
 	});
 	const [editorPreview, setEditorPreview] = useState<EditorBuffer>();
+	const [editorSaveResult, setEditorSaveResult] =
+		useState<EditorSaveExecutionResult>();
 	const [selectedEditorLineIndex, setSelectedEditorLineIndex] = useState(0);
 	const [connectionsResult, setConnectionsResult] =
 		useState<ConnectionsResult>();
@@ -1335,6 +1339,7 @@ export function App(): React.ReactElement {
 					truncated: read.truncated,
 				}),
 			);
+			setEditorSaveResult(undefined);
 			setSelectedEditorLineIndex(0);
 		},
 		[fileProvider],
@@ -1559,6 +1564,7 @@ export function App(): React.ReactElement {
 				return current;
 			}
 			const next = appendEditorBufferLine(current, line);
+			setEditorSaveResult(undefined);
 			const state = getEditorBufferState(next);
 			setSelectedEditorLineIndex(Math.max(0, state.lineCount - 1));
 			log("ok", `editor appended line ${state.lineCount} dirty=${state.dirty}`);
@@ -1581,6 +1587,7 @@ export function App(): React.ReactElement {
 					line,
 					position,
 				);
+				setEditorSaveResult(undefined);
 				const state = getEditorBufferState(next);
 				const insertedIndex =
 					position === "before"
@@ -1612,6 +1619,7 @@ export function App(): React.ReactElement {
 				selectedEditorLineIndex,
 				line,
 			);
+			setEditorSaveResult(undefined);
 			const state = getEditorBufferState(next);
 			setSelectedEditorLineIndex((index) =>
 				Math.min(index, Math.max(0, state.lineCount - 1)),
@@ -1635,6 +1643,7 @@ export function App(): React.ReactElement {
 				return current;
 			}
 			const next = undoEditorBufferEdit(current);
+			setEditorSaveResult(undefined);
 			const state = getEditorBufferState(next);
 			setSelectedEditorLineIndex((index) =>
 				Math.min(index, Math.max(0, state.lineCount - 1)),
@@ -1651,6 +1660,7 @@ export function App(): React.ReactElement {
 				return current;
 			}
 			const next = deleteEditorBufferLine(current, selectedEditorLineIndex);
+			setEditorSaveResult(undefined);
 			const state = getEditorBufferState(next);
 			setSelectedEditorLineIndex((index) =>
 				Math.min(index, Math.max(0, state.lineCount - 1)),
@@ -1693,6 +1703,7 @@ export function App(): React.ReactElement {
 				nextContent: editorPreview.content,
 			});
 			const result = await runEditorSaveExecutionPlan(plan, executionProvider);
+			setEditorSaveResult(result);
 			log(
 				result.success
 					? "ok"
@@ -7760,6 +7771,7 @@ export function App(): React.ReactElement {
 					fileFilter={fileFilter}
 					fileOperationDialog={fileOperationDialog}
 					editorPreview={editorPreview}
+					editorSaveResult={editorSaveResult}
 					fileProviderKind={fileProvider.kind}
 					selectedEditorLineIndex={selectedEditorLineIndex}
 					remoteProfiles={remoteProfiles}
@@ -8006,6 +8018,7 @@ function MainWorkspace({
 	fileFilter,
 	fileOperationDialog,
 	editorPreview,
+	editorSaveResult,
 	fileProviderKind,
 	selectedEditorLineIndex,
 	remoteProfiles,
@@ -8139,6 +8152,7 @@ function MainWorkspace({
 	fileFilter: FileFilterState;
 	fileOperationDialog: FileOperationDialogState;
 	editorPreview?: EditorBuffer;
+	editorSaveResult?: EditorSaveExecutionResult;
 	fileProviderKind: FileProviderKind;
 	selectedEditorLineIndex: number;
 	remoteProfiles: SftpRemoteProfile[];
@@ -8351,6 +8365,7 @@ function MainWorkspace({
 						fileFilter,
 						fileOperationDialog,
 						editorPreview,
+						editorSaveResult,
 						fileProviderKind,
 						selectedEditorLineIndex,
 						remoteProfiles,
@@ -8489,6 +8504,7 @@ function renderWorkspace(
 	fileFilter: FileFilterState,
 	fileOperationDialog: FileOperationDialogState,
 	editorPreview: EditorBuffer | undefined,
+	editorSaveResult: EditorSaveExecutionResult | undefined,
 	fileProviderKind: FileProviderKind,
 	selectedEditorLineIndex: number,
 	remoteProfiles: SftpRemoteProfile[],
@@ -8639,6 +8655,7 @@ function renderWorkspace(
 		return (
 			<EditorWorkspace
 				preview={editorPreview}
+				saveResult={editorSaveResult}
 				entries={fileEntries}
 				providerKind={fileProviderKind}
 				commandLine={commandLine}
@@ -9363,6 +9380,7 @@ function FilesWorkspace({
 
 function EditorWorkspace({
 	preview,
+	saveResult,
 	entries,
 	providerKind,
 	commandLine,
@@ -9371,6 +9389,7 @@ function EditorWorkspace({
 	t,
 }: {
 	preview?: EditorBuffer;
+	saveResult?: EditorSaveExecutionResult;
 	entries: FileEntry[];
 	providerKind: FileProviderKind;
 	commandLine: CommandLineState;
@@ -9399,6 +9418,13 @@ function EditorWorkspace({
 		: [
 				"EDITOR SAVE PREVIEW",
 				"open a text file to stage a locked save preview",
+			];
+	const saveResultRows = saveResult
+		? formatEditorSaveExecutionResultRows(saveResult)
+		: [
+				"EDITOR SAVE RESULT",
+				"no save attempt in this editor session",
+				"timeline search appears after save confirmation",
 			];
 
 	return (
@@ -9468,6 +9494,27 @@ function EditorWorkspace({
 								: row.startsWith("locked") || row.startsWith("reason")
 									? "yellow"
 									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">SAVE RESULT</Text>
+				{saveResultRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row === "EDITOR SAVE RESULT"
+								? "cyan"
+								: row.includes("status=saved") || row.includes("success=true")
+									? "green"
+									: row.includes("status=blocked") ||
+											row.includes("save-failed") ||
+											row.startsWith("blockers=")
+										? "yellow"
+										: "gray"
 						}
 					>
 						{clip(row, 92)}

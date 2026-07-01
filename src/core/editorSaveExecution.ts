@@ -144,6 +144,21 @@ export function formatEditorSaveExecutionRows(
 	];
 }
 
+export function formatEditorSaveExecutionResultRows(
+	result: EditorSaveExecutionResult,
+): string[] {
+	const audit = result.audit;
+	return [
+		"EDITOR SAVE RESULT",
+		`path ${audit.path}`,
+		`status=${audit.status} success=${result.success} policy=${audit.policy} provider=${audit.providerKind}`,
+		`confirmed=${audit.confirmed} willExecute=${audit.willExecute} changed=${audit.changed}`,
+		`blockers=${audit.blockers.length ? audit.blockers.join(",") : "-"}`,
+		...(audit.error ? [`error=${audit.error}`] : []),
+		`timeline search: editor save ${audit.path} status=${audit.status}`,
+	];
+}
+
 function getEditorSaveExecutionBlockers(
 	preview: EditorWritePreview,
 	confirmed: boolean,
