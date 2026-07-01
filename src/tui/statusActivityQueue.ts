@@ -11,6 +11,19 @@ export type StatusActivitySource =
 	| "cleanup"
 	| "evidence";
 
+export type StatusActivityEnterAction =
+	| "cycle-release-link"
+	| "show-dialog"
+	| "jump-cleanup"
+	| "enter-evidence"
+	| "none";
+
+export type StatusActivityEnterPlan = {
+	source: StatusActivitySource;
+	action: StatusActivityEnterAction;
+	message: string;
+};
+
 type StatusActivityQueueSource = {
 	key: StatusActivitySource;
 	prefix: string;
@@ -39,7 +52,7 @@ const STATUS_ACTIVITY_QUEUE_SOURCES: StatusActivityQueueSource[] = [
 const STATUS_ACTIVITY_QUEUE_CONTROLS =
 	"controls=Status queue scans release/dialog/cleanup/evidence; open panels for detail";
 const STATUS_ACTIVITY_DETAIL_CONTROLS =
-	"controls=,/. activity source · detail mirrors the selected Status console";
+	"controls=enter action · ,/. activity source · detail mirrors selected Status console";
 
 export function formatStatusActivityQueueRows(
 	input: StatusActivityQueueInput,
@@ -104,6 +117,46 @@ export function moveStatusActivitySource(
 		(startIndex + delta + entries.length * Math.abs(delta || 1)) %
 		entries.length;
 	return entries[nextIndex]?.key ?? selectedSource;
+}
+
+export function createStatusActivityEnterPlan(
+	input: StatusActivityQueueInput,
+	selectedSource: StatusActivitySource,
+): StatusActivityEnterPlan {
+	const source = getActiveStatusActivitySource(input, selectedSource);
+	if (!source) {
+		return {
+			source: selectedSource,
+			action: "none",
+			message: "no Status activity available",
+		};
+	}
+	switch (source) {
+		case "release":
+			return {
+				source,
+				action: "cycle-release-link",
+				message: "release activity selected; cycling release handoff link",
+			};
+		case "dialog":
+			return {
+				source,
+				action: "show-dialog",
+				message: "dialog activity selected; type the exact confirmation phrase",
+			};
+		case "cleanup":
+			return {
+				source,
+				action: "jump-cleanup",
+				message: "cleanup activity selected; jumping to selected cleanup shelf",
+			};
+		case "evidence":
+			return {
+				source,
+				action: "enter-evidence",
+				message: "evidence activity selected; running active evidence enter",
+			};
+	}
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
