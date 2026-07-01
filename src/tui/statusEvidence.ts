@@ -45,9 +45,25 @@ export type StatusEvidenceEnterAction =
 	| "open-cleanup"
 	| "select-cleanup-archive";
 
+export type StatusEvidenceSecondaryIntent = "archive" | "retention";
+
+export type StatusEvidenceSecondaryAction =
+	| "archive-handoff"
+	| "archive-audit"
+	| "archive-cleanup"
+	| "preview-audit-retention";
+
 export type StatusEvidenceEnterPlan = {
 	kind: StatusEvidenceKind;
 	action: StatusEvidenceEnterAction;
+	shortcut: string;
+	label: string;
+	path: string;
+};
+
+export type StatusEvidenceActionPlan = {
+	kind: StatusEvidenceKind;
+	action: StatusEvidenceSecondaryAction;
 	shortcut: string;
 	label: string;
 	path: string;
@@ -137,6 +153,32 @@ export function createStatusEvidenceEnterPlan(
 	};
 }
 
+export function createStatusEvidenceActionPlan(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+	intent: StatusEvidenceSecondaryIntent,
+): StatusEvidenceActionPlan | undefined {
+	const activeEntry = getActiveStatusEvidenceEntry(
+		collectStatusEvidenceEntries(indexes, selection),
+		activeKind,
+	);
+	if (!activeEntry) {
+		return undefined;
+	}
+	const action = getStatusEvidenceSecondaryAction(activeEntry.kind, intent);
+	if (!action) {
+		return undefined;
+	}
+	return {
+		kind: activeEntry.kind,
+		action: action.action,
+		shortcut: action.shortcut,
+		label: activeEntry.label,
+		path: activeEntry.path,
+	};
+}
+
 function collectStatusEvidenceEntries(
 	indexes: StatusEvidenceIndexes,
 	selection: StatusEvidenceSelection,
@@ -154,7 +196,7 @@ function collectStatusEvidenceEntries(
 				selection.selectedAuditExportIndex,
 			),
 			"audit",
-			"enter=open open W archive Z retention=-",
+			"enter=open open W archive Z/a retention=-",
 		),
 		formatAuditEvidence(
 			getSelectedConsoleAuditExport(
@@ -162,7 +204,7 @@ function collectStatusEvidenceEntries(
 				selection.selectedAuditExportArchiveIndex,
 			),
 			"audit-archive",
-			"enter=open open J archive=archived retention=M",
+			"enter=open open J archive=archived retention=M/m",
 		),
 		formatCleanupEvidence(
 			getSelectedCleanupHandoffHistoryExport(
@@ -170,7 +212,7 @@ function collectStatusEvidenceEntries(
 				selection.selectedCleanupExportIndex,
 			),
 			"cleanup",
-			"enter=open open V archive X retention=-",
+			"enter=open open V archive X/x retention=-",
 		),
 		formatCleanupEvidence(
 			getSelectedCleanupHandoffHistoryExportArchive(
@@ -195,7 +237,7 @@ function formatHandoffEvidence(
 		label: `handoff ${handoffKind} ${item.kind}/${item.view}`,
 		path: item.path,
 		origin: item.origin,
-		controls: "enter=open open O archive A retention=-",
+		controls: "enter=open open O archive A/a retention=-",
 	};
 }
 
@@ -261,5 +303,32 @@ function getStatusEvidenceEnterAction(kind: StatusEvidenceKind): {
 			return { action: "open-cleanup", shortcut: "V" };
 		case "cleanup-archive":
 			return { action: "select-cleanup-archive", shortcut: "{" };
+	}
+}
+
+function getStatusEvidenceSecondaryAction(
+	kind: StatusEvidenceKind,
+	intent: StatusEvidenceSecondaryIntent,
+):
+	| {
+			action: StatusEvidenceSecondaryAction;
+			shortcut: string;
+	  }
+	| undefined {
+	if (intent === "retention") {
+		return kind === "audit-archive"
+			? { action: "preview-audit-retention", shortcut: "M" }
+			: undefined;
+	}
+	switch (kind) {
+		case "handoff":
+			return { action: "archive-handoff", shortcut: "A" };
+		case "audit":
+			return { action: "archive-audit", shortcut: "Z" };
+		case "cleanup":
+			return { action: "archive-cleanup", shortcut: "X" };
+		case "audit-archive":
+		case "cleanup-archive":
+			return undefined;
 	}
 }

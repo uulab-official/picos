@@ -367,6 +367,7 @@ import {
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
+	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
 	formatStatusEvidenceDetailRows,
 	moveStatusEvidenceFocus,
@@ -4682,6 +4683,90 @@ export function App(): React.ReactElement {
 			log(
 				"info",
 				`cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
+			);
+			return;
+		}
+
+		if (
+			screen === "status" &&
+			focusArea === "workspaces" &&
+			(input === "a" || input === "x")
+		) {
+			const evidenceActionPlan = createStatusEvidenceActionPlan(
+				{
+					handoffIndex,
+					auditExportIndex,
+					auditExportArchiveIndex,
+					cleanupExportIndex,
+					cleanupExportArchiveIndex,
+				},
+				{
+					selectedHandoffIndex,
+					selectedAuditExportIndex,
+					selectedAuditExportArchiveIndex,
+					selectedCleanupExportIndex,
+					selectedCleanupExportArchiveIndex,
+				},
+				selectedStatusEvidenceKind,
+				"archive",
+			);
+			if (!evidenceActionPlan) {
+				log(
+					"warn",
+					`status evidence archive unavailable for ${selectedStatusEvidenceKind}`,
+				);
+				return;
+			}
+			switch (evidenceActionPlan.action) {
+				case "archive-handoff":
+					void archiveSelectedHandoffFile();
+					break;
+				case "archive-audit":
+					openSelectedAuditExportArchive();
+					break;
+				case "archive-cleanup":
+					openSelectedCleanupExportArchive();
+					break;
+				case "preview-audit-retention":
+					break;
+			}
+			log(
+				"info",
+				`status evidence action ${evidenceActionPlan.action} ${evidenceActionPlan.shortcut} ${evidenceActionPlan.label}`,
+			);
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "m") {
+			const evidenceActionPlan = createStatusEvidenceActionPlan(
+				{
+					handoffIndex,
+					auditExportIndex,
+					auditExportArchiveIndex,
+					cleanupExportIndex,
+					cleanupExportArchiveIndex,
+				},
+				{
+					selectedHandoffIndex,
+					selectedAuditExportIndex,
+					selectedAuditExportArchiveIndex,
+					selectedCleanupExportIndex,
+					selectedCleanupExportArchiveIndex,
+				},
+				selectedStatusEvidenceKind,
+				"retention",
+			);
+			if (!evidenceActionPlan) {
+				log(
+					"warn",
+					`status evidence retention unavailable for ${selectedStatusEvidenceKind}`,
+				);
+				return;
+			}
+			openAuditArchiveRetentionPreview();
+			log(
+				"info",
+				`status evidence action ${evidenceActionPlan.action} ${evidenceActionPlan.shortcut} ${evidenceActionPlan.label}`,
 			);
 			return;
 		}

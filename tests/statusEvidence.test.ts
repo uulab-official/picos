@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
 	formatStatusEvidenceDetailRows,
 	moveStatusEvidenceFocus,
@@ -80,13 +81,13 @@ describe("Status evidence detail rows", () => {
 				"STATUS EVIDENCE selected=3",
 				"> handoff route routes/table source=Config>Logs scope=logs.profiles",
 				"  path=/tmp/picos/handoffs/routes/route.md",
-				"  controls=enter=open open O archive A retention=-",
+				"  controls=enter=open open O archive A/a retention=-",
 				"  audit selected events=1 query=control source=Config>Logs scope=logs.profiles",
 				"  path=/tmp/picos/audit/picos-audit-selected.log",
-				"  controls=enter=open open W archive Z retention=-",
+				"  controls=enter=open open W archive Z/a retention=-",
 				"  cleanup selected entries=2 source=Config>Logs scope=logs.profiles",
 				"  path=/tmp/picos/cleanup/picos-cleanup-selected.md",
-				"  controls=enter=open open V archive X retention=-",
+				"  controls=enter=open open V archive X/x retention=-",
 			],
 		);
 	});
@@ -248,6 +249,128 @@ describe("Status evidence detail rows", () => {
 				},
 				selection,
 				"handoff",
+			),
+		).toBeUndefined();
+	});
+
+	test("creates secondary action plans for the active evidence family", () => {
+		expect(
+			createStatusEvidenceActionPlan(
+				populatedIndexes,
+				selection,
+				"handoff",
+				"archive",
+			),
+		).toEqual({
+			kind: "handoff",
+			action: "archive-handoff",
+			shortcut: "A",
+			label: "handoff route routes/table",
+			path: "/tmp/picos/handoffs/routes/route.md",
+		});
+		expect(
+			createStatusEvidenceActionPlan(
+				populatedIndexes,
+				selection,
+				"audit",
+				"archive",
+			),
+		).toEqual({
+			kind: "audit",
+			action: "archive-audit",
+			shortcut: "Z",
+			label: "audit selected events=1 query=control",
+			path: "/tmp/picos/audit/picos-audit-selected.log",
+		});
+		expect(
+			createStatusEvidenceActionPlan(
+				populatedIndexes,
+				selection,
+				"cleanup",
+				"archive",
+			),
+		).toEqual({
+			kind: "cleanup",
+			action: "archive-cleanup",
+			shortcut: "X",
+			label: "cleanup selected entries=2",
+			path: "/tmp/picos/cleanup/picos-cleanup-selected.md",
+		});
+	});
+
+	test("creates retention plans only for archived audit evidence", () => {
+		const archivedIndexes = {
+			...populatedIndexes,
+			auditExportArchiveIndex: {
+				baseDir: "/tmp/picos/audit/archive",
+				items: [
+					{
+						fileName: "picos-audit-all.log",
+						path: "/tmp/picos/audit/archive/picos-audit-all.log",
+						generatedAt: "2026-07-01T04:00:00.000Z",
+						scope: "all" as const,
+						entryCount: 7,
+						origin,
+					},
+				],
+			},
+		};
+
+		expect(
+			createStatusEvidenceActionPlan(
+				archivedIndexes,
+				selection,
+				"audit-archive",
+				"retention",
+			),
+		).toMatchObject({
+			kind: "audit-archive",
+			action: "preview-audit-retention",
+			shortcut: "M",
+			path: "/tmp/picos/audit/archive/picos-audit-all.log",
+		});
+		expect(
+			createStatusEvidenceActionPlan(
+				populatedIndexes,
+				selection,
+				"cleanup",
+				"retention",
+			),
+		).toBeUndefined();
+	});
+
+	test("does not create unsafe secondary plans for archived cleanup evidence", () => {
+		const archivedCleanupIndexes = {
+			...populatedIndexes,
+			cleanupExportArchiveIndex: {
+				baseDir: "/tmp/picos/cleanup/archive",
+				items: [
+					{
+						fileName: "picos-cleanup-all.md",
+						path: "/tmp/picos/cleanup/archive/picos-cleanup-all.md",
+						scope: "all" as const,
+						entryCount: 4,
+						generatedAt: "2026-07-01T05:00:00.000Z",
+						origin,
+					},
+				],
+			},
+		};
+
+		expect(
+			createStatusEvidenceActionPlan(
+				archivedCleanupIndexes,
+				selection,
+				"cleanup-archive",
+				"archive",
+			),
+		).toBeUndefined();
+		expect(
+			createStatusEvidenceActionPlan(
+				archivedCleanupIndexes,
+				selection,
+				"cleanup-archive",
+				"retention",
 			),
 		).toBeUndefined();
 	});

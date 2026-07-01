@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Evidence now supports secondary active-target actions: `a`/`x` archive the focused handoff, Timeline, or cleanup evidence target, while `m` previews archived Timeline retention from the same pane.
 - Status Evidence `enter` now follows the active evidence family and opens the matching locked file-open confirmation or selection action before falling back to cleanup shelf handoff.
 - Status Evidence can now cycle its active evidence family with `Tab`, moving the visible cursor across available handoff, Timeline, cleanup, and archived evidence groups.
 - Status now shows a compact evidence detail pane that summarizes selected handoff, Timeline, and cleanup export files with Config source, path, open/archive, and retention controls together.
