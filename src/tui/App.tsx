@@ -358,6 +358,7 @@ import {
 	writeRouteRawHandoffPlan,
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
+import { formatStatusActivityQueueRows } from "./statusActivityQueue";
 import {
 	formatStatusDialogPreviewRows,
 	type StatusDialogPreviewGroup,
@@ -9521,6 +9522,54 @@ function StatusWorkspace({
 				]
 			: []),
 	];
+	const statusReleaseRows = formatStatusReleaseConsoleRows({
+		update: updateCheckResult,
+		github: githubReleaseCheckResult,
+		applyPreview: updateApplyPreview,
+		handoff: updateReleaseHandoff,
+		selectedLinkIndex: selectedUpdateHandoffIndex,
+	});
+	const statusDialogRows =
+		statusDialogPreviewGroups.length > 0
+			? formatStatusDialogPreviewRows(statusDialogPreviewGroups)
+			: [];
+	const statusCleanupRows = formatCleanupOpsConsoleRows(
+		cleanupShelfIndex,
+		selectedCleanupShelfIndex,
+		cleanupHandoffHistory,
+		selectedCleanupHandoffHistoryIndex,
+	);
+	const statusEvidenceSummaryRows = formatStatusEvidenceSummaryRows(
+		{
+			handoffIndex,
+			auditExportIndex,
+			auditExportArchiveIndex,
+			cleanupExportIndex,
+			cleanupExportArchiveIndex,
+		},
+		{
+			selectedHandoffIndex,
+			selectedAuditExportIndex,
+			selectedAuditExportArchiveIndex,
+			selectedCleanupExportIndex,
+			selectedCleanupExportArchiveIndex,
+		},
+		selectedStatusEvidenceKind,
+	);
+	const statusActivityReleaseRows =
+		updateCheckResult || githubReleaseCheckResult ? statusReleaseRows : [];
+	const statusActivityCleanupRows =
+		cleanupShelfIndex.activeShelves > 0 || cleanupHandoffHistory.length > 0
+			? statusCleanupRows
+			: [];
+	const statusActivityEvidenceRows =
+		handoffIndex.items.length > 0 ||
+		auditExportIndex.items.length > 0 ||
+		auditExportArchiveIndex.items.length > 0 ||
+		cleanupExportIndex.items.length > 0 ||
+		cleanupExportArchiveIndex.items.length > 0
+			? statusEvidenceSummaryRows
+			: [];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -9528,14 +9577,36 @@ function StatusWorkspace({
 				{t("status.version")}: {VERSION}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">STATUS RELEASE · n link · c copy · o open</Text>
-				{formatStatusReleaseConsoleRows({
-					update: updateCheckResult,
-					github: githubReleaseCheckResult,
-					applyPreview: updateApplyPreview,
-					handoff: updateReleaseHandoff,
-					selectedLinkIndex: selectedUpdateHandoffIndex,
+				<Text color="gray">
+					STATUS ACTIVITY · release/dialog/cleanup/evidence
+				</Text>
+				{formatStatusActivityQueueRows({
+					releaseRows: statusActivityReleaseRows,
+					dialogRows: statusDialogRows,
+					cleanupRows: statusActivityCleanupRows,
+					evidenceRows: statusActivityEvidenceRows,
 				}).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("STATUS ACTIVITY QUEUE")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("controls=")
+										? "yellow"
+										: row.startsWith("no ")
+											? "gray"
+											: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">STATUS RELEASE · n link · c copy · o open</Text>
+				{statusReleaseRows.map((row) => (
 					<Text
 						key={row}
 						color={
@@ -9561,43 +9632,36 @@ function StatusWorkspace({
 			{statusDialogPreviewGroups.length > 0 ? (
 				<Box marginTop={1} flexDirection="column">
 					<Text color="gray">STATUS DIALOG · compact confirmations</Text>
-					{formatStatusDialogPreviewRows(statusDialogPreviewGroups).map(
-						(row) => (
-							<Text
-								key={row}
-								color={
-									row.startsWith("STATUS DIALOG PREVIEW")
-										? "cyan"
-										: row.startsWith(">")
+					{statusDialogRows.map((row) => (
+						<Text
+							key={row}
+							color={
+								row.startsWith("STATUS DIALOG PREVIEW")
+									? "cyan"
+									: row.startsWith(">")
+										? "yellow"
+										: row.startsWith("controls=") ||
+												row.trimStart().startsWith("confirm") ||
+												row.trimStart().startsWith(":") ||
+												row.trimStart().startsWith("reason=")
 											? "yellow"
-											: row.startsWith("controls=") ||
-													row.trimStart().startsWith("confirm") ||
-													row.trimStart().startsWith(":") ||
-													row.trimStart().startsWith("reason=")
-												? "yellow"
-												: row.includes("CONFIG ORIGIN") ||
-														row.trimStart().startsWith("path=") ||
-														row.trimStart().startsWith("url=") ||
-														row.trimStart().startsWith("from=") ||
-														row.trimStart().startsWith("to=")
-													? "gray"
-													: "white"
-								}
-							>
-								{row}
-							</Text>
-						),
-					)}
+											: row.includes("CONFIG ORIGIN") ||
+													row.trimStart().startsWith("path=") ||
+													row.trimStart().startsWith("url=") ||
+													row.trimStart().startsWith("from=") ||
+													row.trimStart().startsWith("to=")
+												? "gray"
+												: "white"
+							}
+						>
+							{row}
+						</Text>
+					))}
 				</Box>
 			) : null}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">CLEANUP OPS · compact shelf/history console</Text>
-				{formatCleanupOpsConsoleRows(
-					cleanupShelfIndex,
-					selectedCleanupShelfIndex,
-					cleanupHandoffHistory,
-					selectedCleanupHandoffHistoryIndex,
-				).map((row) => (
+				{statusCleanupRows.map((row) => (
 					<Text
 						key={row}
 						color={
@@ -9622,23 +9686,7 @@ function StatusWorkspace({
 				<Text color="gray">
 					STATUS EVIDENCE · tab/1..9 family · [/] item · enter/a/m action
 				</Text>
-				{formatStatusEvidenceSummaryRows(
-					{
-						handoffIndex,
-						auditExportIndex,
-						auditExportArchiveIndex,
-						cleanupExportIndex,
-						cleanupExportArchiveIndex,
-					},
-					{
-						selectedHandoffIndex,
-						selectedAuditExportIndex,
-						selectedAuditExportArchiveIndex,
-						selectedCleanupExportIndex,
-						selectedCleanupExportArchiveIndex,
-					},
-					selectedStatusEvidenceKind,
-				).map((row) => (
+				{statusEvidenceSummaryRows.map((row) => (
 					<Text
 						key={row}
 						color={
