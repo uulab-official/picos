@@ -140,6 +140,56 @@ export function formatStatusEvidenceIndexRows(
 	];
 }
 
+export function formatStatusEvidenceTableRows(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+): string[] {
+	const entries = collectStatusEvidenceEntries(indexes, selection).slice(0, 9);
+	if (entries.length === 0) {
+		return [
+			"STATUS EVIDENCE TABLE 0 active=none",
+			"no indexed evidence families",
+		];
+	}
+	const activeEntry = getActiveStatusEvidenceEntry(entries, activeKind);
+	return [
+		`STATUS EVIDENCE TABLE 1..${entries.length} active=${activeEntry?.kind ?? "none"}`,
+		...entries.map((entry, index) => {
+			const family = collectStatusEvidenceFamilyEntries(
+				indexes,
+				selection,
+				entry.kind,
+			);
+			const selectedIndex = clampEvidenceSelectionIndex(
+				family.selectedIndex,
+				family.entries.length,
+			);
+			const enterAction = getStatusEvidenceEnterAction(entry.kind);
+			const archiveAction = getStatusEvidenceSecondaryAction(
+				entry.kind,
+				"archive",
+			);
+			const retentionAction = getStatusEvidenceSecondaryAction(
+				entry.kind,
+				"retention",
+			);
+			const itemMovement = family.entries.length > 1 ? "[/]" : "-";
+			const cursor = entry.kind === activeEntry?.kind ? ">" : " ";
+			const shortcut = String(index + 1);
+			return `${cursor}${shortcut} ${entry.kind.padEnd(
+				15,
+			)}item=${selectedIndex + 1}/${family.entries.length} open=enter/${
+				enterAction.shortcut
+			} archive=${
+				archiveAction ? `a/${archiveAction.shortcut}` : "-"
+			} retention=${
+				retentionAction ? `m/${retentionAction.shortcut}` : "-"
+			} itemMove=${itemMovement} ${entry.label}`;
+		}),
+	];
+}
+
 export function formatStatusEvidenceCommandStripRows(
 	indexes: StatusEvidenceIndexes,
 	selection: StatusEvidenceSelection,
@@ -483,6 +533,13 @@ function formatEvidenceOrigin(origin: FileOpenOrigin | undefined): string {
 
 function formatCommandStripAction(primary: string, shortcut: string): string {
 	return primary === shortcut ? primary : `${primary}/${shortcut}`;
+}
+
+function clampEvidenceSelectionIndex(index: number, length: number): number {
+	if (length <= 0) {
+		return 0;
+	}
+	return Math.min(Math.max(index, 0), length - 1);
 }
 
 function getActiveStatusEvidenceEntry(

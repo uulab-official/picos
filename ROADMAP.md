@@ -2502,6 +2502,18 @@ Goal: make Status Evidence item selection operate from the active-target model i
 - Tests cover item movement wraparound, single-item unavailable behavior, and command strip item availability.
 - Next: collapse the older per-index evidence selector rows into a denser Status Evidence table so the active-target model owns browsing, opening, archiving, and retention from one place.
 
+## v0.4.125 - Status Evidence Table
+
+Status: draft PR #187 on `codex/picos-v0.4.125-status-evidence-table`.
+
+Goal: make Status Evidence read like a compact OS console table instead of separate selector and detail fragments.
+
+- Status Evidence now formats a dense table that combines number shortcuts, evidence family, selected item count, open/archive/retention actions, item movement availability, and target labels.
+- Status renders the dense table below the active-target command strip, replacing the separate numbered index block while keeping the detail rows available for path/source inspection.
+- The table marks the active evidence family with the same cursor used by `Tab`, `1..9`, `[`/`]`, `enter`, `a`, and `m`.
+- Tests cover table row formatting with multi-item evidence and active-family command availability.
+- Next: reduce the remaining per-family Status sections so evidence browsing, handoff cleanup, archive browsing, and retention feel like one table-driven control surface.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

@@ -7,6 +7,7 @@ import {
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
 	formatStatusEvidenceIndexRows,
+	formatStatusEvidenceTableRows,
 	moveStatusEvidenceFocus,
 } from "../src/tui/statusEvidence";
 
@@ -460,6 +461,35 @@ describe("Status evidence detail rows", () => {
 			"1 handoff route routes/table",
 			">2 audit selected events=1 query=control",
 			"3 cleanup selected entries=2",
+		]);
+	});
+
+	test("formats a dense evidence table with counts and active controls", () => {
+		const multiIndexes = {
+			...populatedIndexes,
+			auditExportIndex: {
+				...populatedIndexes.auditExportIndex,
+				items: [
+					...populatedIndexes.auditExportIndex.items,
+					{
+						fileName: "picos-audit-all.log",
+						path: "/tmp/picos/audit/picos-audit-all.log",
+						generatedAt: "2026-07-01T06:00:00.000Z",
+						scope: "all" as const,
+						entryCount: 5,
+						origin,
+					},
+				],
+			},
+		};
+
+		expect(
+			formatStatusEvidenceTableRows(multiIndexes, selection, "audit"),
+		).toEqual([
+			"STATUS EVIDENCE TABLE 1..3 active=audit",
+			" 1 handoff        item=1/1 open=enter/O archive=a/A retention=- itemMove=- handoff route routes/table",
+			">2 audit          item=1/2 open=enter/W archive=a/Z retention=- itemMove=[/] audit selected events=1 query=control",
+			" 3 cleanup        item=1/1 open=enter/V archive=a/X retention=- itemMove=- cleanup selected entries=2",
 		]);
 	});
 

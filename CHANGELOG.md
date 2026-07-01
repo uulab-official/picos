@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Evidence now renders a dense table that combines family number jumps, selected item counts, open/archive/retention actions, item movement availability, and target labels in one scannable console surface.
 - Status Evidence now uses `[` and `]` as active-family item movement controls, moving within the focused evidence family with wraparound when multiple indexed items are available.
 - Status Evidence now exposes a numbered evidence family index, and Status `1..9` jumps focus directly to available evidence families before global workspace shortcuts are applied.
 - Status Evidence now shows an active-target command strip above the detail list so `enter`, archive, and retention availability remains visible on tighter terminal layouts.
