@@ -2851,6 +2851,18 @@ Goal: keep `w` Activity-to-Evidence focus jumps visible in the same recent activ
 - Tests cover result formatting and history formatting for copy-intent Evidence focus jumps.
 - Next: add a compact copy-intent focus audit event so `w` focus jumps are searchable in Timeline without requiring a clipboard action.
 
+## v0.4.152 - Status Activity Evidence Focus Timeline Event
+
+Status: draft PR [#214](https://github.com/uulab-official/picos/pull/214) on `codex/picos-v0.4.152-status-focus-timeline-event`.
+
+Goal: make `w` Activity-to-Evidence focus jumps searchable in Timeline audit even when no clipboard confirmation is opened.
+
+- `w` focus now logs a compact `status activity evidence focus` audit event with evidence kind, shortcut, one-based selected row, target label, and target path.
+- Timeline audit filtering/search can find `evidence focus` jumps directly from the live event log.
+- The Status result history still records the richer `focus-evidence` result, while Timeline keeps the compact audit trail.
+- Tests cover the audit message formatter and Timeline audit search behavior for focus-only jumps.
+- Next: add a direct Timeline search handoff for the latest `w` focus event so operators can jump from Status to the matching focus audit row immediately.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

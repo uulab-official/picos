@@ -120,6 +120,30 @@ describe("timeline TUI panel formatting", () => {
 		]);
 	});
 
+	test("surfaces status activity evidence focus in audit search", () => {
+		const focusEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:08-info-status-evidence-focus",
+				level: "info",
+				time: "12:00:08",
+				message:
+					'status activity evidence focus kind=audit shortcut=w selected=2/2 label="picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log"',
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(focusEvents, 5, "audit", {
+				query: "evidence focus",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=evidence focus",
+			"TIMELINE",
+			'[12:00:08] INFO audit  status activity evidence focus kind=audit shortcut=w selected=2/2 label="picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log"',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
 	test("marks selected timeline rows with a stable cursor", () => {
 		expect(
 			formatTimelineWorkspaceRows(events, 5, "audit", {
