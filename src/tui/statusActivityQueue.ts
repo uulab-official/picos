@@ -1,3 +1,8 @@
+import {
+	type ClipboardPreview,
+	createClipboardPreview,
+} from "./clipboardPreview";
+
 export type StatusActivityQueueInput = {
 	releaseRows?: string[];
 	dialogRows?: string[];
@@ -189,6 +194,7 @@ export function appendStatusActivityResultHistory(
 
 export function formatStatusActivityResultHistoryRows(
 	history: StatusActivityResult[],
+	selectedIndex = 0,
 ): string[] {
 	if (history.length === 0) {
 		return [
@@ -196,10 +202,14 @@ export function formatStatusActivityResultHistoryRows(
 			"no Status activity result history yet",
 		];
 	}
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
 	return [
-		`STATUS ACTIVITY RESULT HISTORY count=${history.length}`,
+		`STATUS ACTIVITY RESULT HISTORY count=${history.length} selected=${selected + 1}/${history.length}`,
 		...history.flatMap((result, index) => {
-			const marker = index === 0 ? "> " : "  ";
+			const marker = index === selected ? "> " : "  ";
 			const rows = [
 				`${marker}${result.source} ${result.action} ${result.message}`,
 			];
@@ -209,6 +219,48 @@ export function formatStatusActivityResultHistoryRows(
 			return rows;
 		}),
 	];
+}
+
+export function moveStatusActivityResultHistorySelection(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (history.length === 0) {
+		return 0;
+	}
+	const current = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + history.length) % history.length;
+}
+
+export function getSelectedStatusActivityResultHistoryClipboardPreview(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const index = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const result = history[index];
+	if (!result) {
+		return undefined;
+	}
+	return createClipboardPreview({
+		source: "status-activity",
+		label: `status activity ${result.source} ${result.action}`,
+		copyText: [
+			`${result.source} ${result.action}`,
+			result.message,
+			result.detail,
+		]
+			.filter(Boolean)
+			.join("\n"),
+		details: [`selected=${index + 1}/${history.length}`],
+	});
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
@@ -257,4 +309,14 @@ function getSourceRows(
 
 function normalizeActivityDetailRow(row: string): string {
 	return row.replace(/^>\s*/, "");
+}
+
+function getSelectedStatusActivityResultHistoryIndex(
+	length: number,
+	selectedIndex: number,
+): number {
+	if (length <= 0) {
+		return 0;
+	}
+	return Math.min(Math.max(selectedIndex, 0), length - 1);
 }

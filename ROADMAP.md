@@ -2657,6 +2657,19 @@ Goal: make rapid Status activity actions auditable in-place by keeping the last 
 - Tests cover bounded newest-first history, detail rows, and empty history formatting.
 - Next: add keyboard selection/copy for Status activity result history rows so operators can reuse recent action details without opening Timeline.
 
+## v0.4.137 - Status Activity History Copy
+
+Status: draft PR [#199](https://github.com/uulab-official/picos/pull/199) on `codex/picos-v0.4.137-status-activity-history-copy`.
+
+Goal: make recent Status activity outcomes reusable from the OS console surface without opening Timeline or Logs.
+
+- Status Activity result history now has a selected row cursor with newest-first wraparound movement.
+- `u` and `i` move the selected activity result history row while keeping the selected count visible in `STATUS ACTIVITY RESULT HISTORY`.
+- `y` opens the existing locked clipboard confirmation for the selected activity result, preserving the safe `:clipboard` flow.
+- Clipboard previews use a dedicated `status-activity` source and include the selected source, action, message, optional detail, and selected row count.
+- Tests cover cursor movement, selected history row formatting, clipboard preview payloads, and empty history behavior.
+- Next: add a compact copy preview strip for Status activity history so long details can be inspected before confirming copy.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

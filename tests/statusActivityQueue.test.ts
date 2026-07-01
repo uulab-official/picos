@@ -6,6 +6,8 @@ import {
 	formatStatusActivityQueueRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	getSelectedStatusActivityResultHistoryClipboardPreview,
+	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
 } from "../src/tui/statusActivityQueue";
 
@@ -220,7 +222,7 @@ describe("Status activity queue", () => {
 
 		expect(history).toEqual([third, second]);
 		expect(formatStatusActivityResultHistoryRows(history)).toEqual([
-			"STATUS ACTIVITY RESULT HISTORY count=2",
+			"STATUS ACTIVITY RESULT HISTORY count=2 selected=1/2",
 			"> dialog show-dialog dialog activity selected; type the exact confirmation phrase",
 			"  cleanup jump-cleanup cleanup activity selected; jumping to selected cleanup shelf",
 			"    cleanup handoff Logs: press l then type delete logs",
@@ -232,5 +234,67 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY RESULT HISTORY count=0",
 			"no Status activity result history yet",
 		]);
+	});
+
+	test("moves the activity result history cursor with wraparound", () => {
+		const history = [
+			{
+				source: "dialog" as const,
+				action: "show-dialog" as const,
+				message: "dialog activity selected; type the exact confirmation phrase",
+			},
+			{
+				source: "cleanup" as const,
+				action: "jump-cleanup" as const,
+				message: "cleanup activity selected; jumping to selected cleanup shelf",
+				detail: "cleanup handoff Logs: press l then type delete logs",
+			},
+		];
+
+		expect(moveStatusActivityResultHistorySelection(history, 0, "next")).toBe(
+			1,
+		);
+		expect(moveStatusActivityResultHistorySelection(history, 1, "next")).toBe(
+			0,
+		);
+		expect(
+			moveStatusActivityResultHistorySelection(history, 0, "previous"),
+		).toBe(1);
+		expect(moveStatusActivityResultHistorySelection([], 1, "next")).toBe(0);
+		expect(formatStatusActivityResultHistoryRows(history, 1)).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=2 selected=2/2",
+			"  dialog show-dialog dialog activity selected; type the exact confirmation phrase",
+			"> cleanup jump-cleanup cleanup activity selected; jumping to selected cleanup shelf",
+			"    cleanup handoff Logs: press l then type delete logs",
+		]);
+	});
+
+	test("builds clipboard preview for the selected activity result history row", () => {
+		const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
+			[
+				{
+					source: "cleanup",
+					action: "jump-cleanup",
+					message:
+						"cleanup activity selected; jumping to selected cleanup shelf",
+					detail: "cleanup handoff Logs: press l then type delete logs",
+				},
+			],
+			0,
+		);
+
+		expect(preview).toEqual({
+			source: "status-activity",
+			label: "status activity cleanup jump-cleanup",
+			copyText:
+				"cleanup jump-cleanup\ncleanup activity selected; jumping to selected cleanup shelf\ncleanup handoff Logs: press l then type delete logs",
+			details: ["selected=1/1"],
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(
+			getSelectedStatusActivityResultHistoryClipboardPreview([], 0),
+		).toBeUndefined();
 	});
 });

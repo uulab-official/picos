@@ -365,6 +365,8 @@ import {
 	formatStatusActivityQueueRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	getSelectedStatusActivityResultHistoryClipboardPreview,
+	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
 	type StatusActivityResult,
 	type StatusActivitySource,
@@ -574,6 +576,10 @@ export function App(): React.ReactElement {
 	const [statusActivityResults, setStatusActivityResults] = useState<
 		StatusActivityResult[]
 	>([]);
+	const [
+		selectedStatusActivityResultIndex,
+		setSelectedStatusActivityResultIndex,
+	] = useState(0);
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -916,6 +922,7 @@ export function App(): React.ReactElement {
 			setStatusActivityResults((history) =>
 				appendStatusActivityResultHistory(history, result),
 			);
+			setSelectedStatusActivityResultIndex(0);
 		},
 		[],
 	);
@@ -4593,6 +4600,44 @@ export function App(): React.ReactElement {
 		if (
 			screen === "status" &&
 			focusArea === "workspaces" &&
+			(input === "u" || input === "i")
+		) {
+			if (statusActivityResults.length === 0) {
+				log("warn", "no status activity result history");
+				return;
+			}
+			setSelectedStatusActivityResultIndex((current) => {
+				const next = moveStatusActivityResultHistorySelection(
+					statusActivityResults,
+					current,
+					input === "i" ? "next" : "previous",
+				);
+				const result = statusActivityResults[next];
+				log(
+					"info",
+					`status activity history ${next + 1}/${statusActivityResults.length} ${result?.source ?? "none"} ${result?.action ?? "none"}`,
+				);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "y") {
+			const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+			);
+			if (!preview) {
+				log("warn", "no status activity result history to copy");
+				return;
+			}
+			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (
+			screen === "status" &&
+			focusArea === "workspaces" &&
 			/^[1-9]$/.test(input)
 		) {
 			const evidenceJumpPlan = createStatusEvidenceNumberJumpPlan(
@@ -6473,6 +6518,7 @@ export function App(): React.ReactElement {
 					selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 					selectedStatusActivitySource={selectedStatusActivitySource}
 					statusActivityResults={statusActivityResults}
+					selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -6691,6 +6737,7 @@ function MainWorkspace({
 	selectedCleanupExportArchiveIndex: _selectedCleanupExportArchiveIndex,
 	selectedStatusActivitySource,
 	statusActivityResults,
+	selectedStatusActivityResultIndex,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -6810,6 +6857,7 @@ function MainWorkspace({
 	selectedCleanupExportArchiveIndex: number;
 	selectedStatusActivitySource: StatusActivitySource;
 	statusActivityResults: StatusActivityResult[];
+	selectedStatusActivityResultIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -7007,6 +7055,7 @@ function MainWorkspace({
 						_selectedCleanupExportArchiveIndex,
 						selectedStatusActivitySource,
 						statusActivityResults,
+						selectedStatusActivityResultIndex,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7131,6 +7180,7 @@ function renderWorkspace(
 	selectedCleanupExportArchiveIndex: number,
 	selectedStatusActivitySource: StatusActivitySource,
 	statusActivityResults: StatusActivityResult[],
+	selectedStatusActivityResultIndex: number,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7399,6 +7449,7 @@ function renderWorkspace(
 				selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 				selectedStatusActivitySource={selectedStatusActivitySource}
 				statusActivityResults={statusActivityResults}
+				selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
@@ -9577,6 +9628,7 @@ function StatusWorkspace({
 	selectedCleanupExportArchiveIndex,
 	selectedStatusActivitySource,
 	statusActivityResults,
+	selectedStatusActivityResultIndex,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -9605,6 +9657,7 @@ function StatusWorkspace({
 	selectedCleanupExportArchiveIndex: number;
 	selectedStatusActivitySource: StatusActivitySource;
 	statusActivityResults: StatusActivityResult[];
+	selectedStatusActivityResultIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -9753,7 +9806,7 @@ function StatusWorkspace({
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
-					STATUS ACTIVITY · release/dialog/cleanup/evidence
+					STATUS ACTIVITY · ,/. source · u/i history · y copy history
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,
@@ -9820,26 +9873,27 @@ function StatusWorkspace({
 						{row}
 					</Text>
 				))}
-				{formatStatusActivityResultHistoryRows(statusActivityResults).map(
-					(row) => (
-						<Text
-							key={`history-${row}`}
-							color={
-								row.startsWith("STATUS ACTIVITY RESULT HISTORY")
-									? "cyan"
-									: row.startsWith(">")
-										? "yellow"
-										: row.startsWith("no ")
+				{formatStatusActivityResultHistoryRows(
+					statusActivityResults,
+					selectedStatusActivityResultIndex,
+				).map((row) => (
+					<Text
+						key={`history-${row}`}
+						color={
+							row.startsWith("STATUS ACTIVITY RESULT HISTORY")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("no ")
+										? "gray"
+										: row.startsWith("    ")
 											? "gray"
-											: row.startsWith("    ")
-												? "gray"
-												: "white"
-							}
-						>
-							{row}
-						</Text>
-					),
-				)}
+											: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">STATUS RELEASE · n link · c copy · o open</Text>
