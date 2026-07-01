@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Command palette `trail source` searches now expose the recovered Timeline Evidence trail source filter action.
 - Recovered Timeline Evidence trail shelves now support a `Q` source filter for `all`, `evidence`, and `palette` exports.
 - Recovered Timeline Evidence trail detail rows now show `source=evidence` or `source=palette` so restored trail exports reveal where they came from.
 - Timeline selected audit exports created from `palette timeline trail` searches now recover as Timeline Evidence trail exports after audit index refresh or restart.

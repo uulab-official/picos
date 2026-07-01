@@ -76,6 +76,7 @@ describe("TUI command palette", () => {
 				"status.timelineTrail.select",
 				"status.timelineTrail.open",
 				"status.timelineTrail.search",
+				"status.timelineTrail.source",
 			]),
 		);
 		expect(
@@ -88,6 +89,12 @@ describe("TUI command palette", () => {
 				confirmationRequired: false,
 			}),
 		);
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "trail source"),
+			).map((action) => action.id),
+		).toContain("status.timelineTrail.source");
 	});
 
 	test("edits query with backspace and ignores control input", () => {
