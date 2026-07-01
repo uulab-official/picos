@@ -14,6 +14,7 @@ import {
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
 	formatStatusActivityCopyIntentAuditMessage,
+	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
@@ -845,6 +846,23 @@ describe("Status activity queue", () => {
 			"> evidence focus-evidence status activity copy intent evidence focus audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
 			"    evidence audit selected=2/2 path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
 		]);
+	});
+
+	test("formats status activity evidence focus as timeline audit text", () => {
+		expect(
+			formatStatusActivityCopyIntentEvidenceFocusAuditMessage({
+				kind: "audit",
+				selectedIndex: 1,
+				itemCount: 2,
+				shortcut: "w",
+				label: "picos-audit-selected-2026-07-01T030000000Z.log",
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				message:
+					"status activity copy intent evidence focus audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+			}),
+		).toBe(
+			'status activity evidence focus kind=audit shortcut=w selected=2/2 label="picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log"',
+		);
 	});
 
 	test("selects status activity copy intents and creates timeline search jumps", () => {

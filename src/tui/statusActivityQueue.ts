@@ -618,6 +618,19 @@ export function createStatusActivityCopyIntentEvidenceFocusResult(
 	};
 }
 
+export function formatStatusActivityCopyIntentEvidenceFocusAuditMessage(
+	plan: StatusActivityCopyIntentEvidenceFocusPlan,
+): string {
+	return [
+		"status activity evidence focus",
+		`kind=${plan.kind}`,
+		`shortcut=${plan.shortcut}`,
+		`selected=${plan.selectedIndex + 1}/${plan.itemCount}`,
+		`label="${plan.label}"`,
+		`path="${plan.path}"`,
+	].join(" ");
+}
+
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
 	return STATUS_ACTIVITY_QUEUE_SOURCES.map((source) => ({
 		key: source.key,

@@ -370,6 +370,7 @@ import {
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
 	formatStatusActivityCopyIntentAuditMessage,
+	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
@@ -4880,7 +4881,10 @@ export function App(): React.ReactElement {
 			recordStatusActivityResult(
 				createStatusActivityCopyIntentEvidenceFocusResult(focusPlan),
 			);
-			log("info", focusPlan.message);
+			log(
+				"info",
+				formatStatusActivityCopyIntentEvidenceFocusAuditMessage(focusPlan),
+			);
 			return;
 		}
 

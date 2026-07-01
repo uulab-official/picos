@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity `w` Evidence focus jumps now log a compact Timeline audit event, making focus-only jumps searchable without a clipboard action.
 - Status Activity `w` Evidence focus jumps now record a `focus-evidence` result row in the recent activity history.
 - Status Activity copy-intent shelves now support `w` to focus the matching Status Evidence audit row without opening a file prompt.
 - Status Activity copy-intent shelves now show a `z evidence=` row hint when the latest export matches a Status Evidence audit row.
