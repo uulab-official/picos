@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.202 - Status Result History Filter
+
+Status: draft PR [#264](https://github.com/uulab-official/picos/pull/264) on `codex/picos-v0.4.202-status-result-history-filter`.
+
+Goal: let operators narrow Status Activity result history to palette-triggered Status result jumps without scanning unrelated activity.
+
+- Status now exposes `f result filter=...` in the Activity header.
+- The filter cycles between `all` and `palette-result-jumps`.
+- Filtered result history rows show visible count, original row number, selected filtered cursor, and the same detail rows.
+- `u`/`i` navigation follows only filtered result rows when the palette result-jump filter is active.
+- Empty filtered states stay explicit when no palette result jump rows exist.
+- Tests cover filter cycling, filtered indexes, filtered cursor movement, visible rows, and empty states.
+- Next: add command-palette access for the result-history filter so keyboard and palette control paths stay symmetrical.
+
 ## v0.4.201 - Status Result Palette Result History
 
 Status: draft PR [#263](https://github.com/uulab-official/picos/pull/263) on `codex/picos-v0.4.201-status-result-palette-result`.
@@ -11,7 +25,7 @@ Goal: mirror palette-triggered Status result jump evidence in Status Activity re
 - Unavailable palette result jumps stay visible as timeline/unavailable result rows.
 - Status history now mirrors Timeline audit evidence for palette result jump operations.
 - Tests cover current result rows, history rows, and unavailable states.
-- Next: add direct Status result-history filtering for palette result jump rows so operators can narrow the list without scanning all activity.
+- Next: direct Status result-history filtering moved into v0.4.202.
 
 ## v0.4.200 - Status Result Palette Audit
 

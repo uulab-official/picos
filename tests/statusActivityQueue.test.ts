@@ -32,6 +32,7 @@ import {
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
 	createTimelineSelectedStatusActivityResult,
+	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -58,10 +59,12 @@ import {
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultAuditJumpSelection,
+	moveStatusActivityResultHistoryFilteredSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivityResultTimelineJumpSelection,
 	moveStatusActivitySource,
 	moveTimelineEvidenceTrailSelection,
+	nextStatusActivityResultHistoryFilter,
 	nextTimelineEvidenceTrailSourceFilter,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
@@ -351,6 +354,93 @@ describe("Status activity queue", () => {
 			"> cleanup jump-cleanup cleanup activity selected; jumping to selected cleanup shelf",
 			"    cleanup handoff Logs: press l then type delete logs",
 			"    audit jump intent=action=source source=evidence visible=1/3 lines=3 count=2",
+		]);
+	});
+
+	test("filters activity result history to palette result jump rows", () => {
+		const history = [
+			{
+				source: "timeline" as const,
+				action: "timeline-selected-copy" as const,
+				message: "palette status result jump open 2/2 row=4",
+				detail: "filter=audit search=control preview matches=5",
+			},
+			{
+				source: "dialog" as const,
+				action: "show-dialog" as const,
+				message: "dialog activity selected; type the exact confirmation phrase",
+			},
+			{
+				source: "timeline" as const,
+				action: "timeline-selected-copy" as const,
+				message: "palette status result jump select 1/2 row=1",
+				detail: "filter=audit search=control preview",
+			},
+		];
+
+		expect(nextStatusActivityResultHistoryFilter("all")).toBe(
+			"palette-result-jumps",
+		);
+		expect(nextStatusActivityResultHistoryFilter("palette-result-jumps")).toBe(
+			"all",
+		);
+		expect(
+			filterStatusActivityResultHistoryIndexes(history, "palette-result-jumps"),
+		).toEqual([0, 2]);
+		expect(
+			moveStatusActivityResultHistoryFilteredSelection(
+				history,
+				0,
+				"next",
+				"palette-result-jumps",
+			),
+		).toBe(2);
+		expect(
+			moveStatusActivityResultHistoryFilteredSelection(
+				history,
+				2,
+				"next",
+				"palette-result-jumps",
+			),
+		).toBe(0);
+		expect(
+			formatStatusActivityResultHistoryRows(
+				history,
+				2,
+				undefined,
+				0,
+				"palette-result-jumps",
+			),
+		).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=3 visible=2 filter=palette-result-jumps selected=2/2",
+			"  #1 timeline timeline-selected-copy palette status result jump open 2/2 row=4",
+			"    filter=audit search=control preview matches=5",
+			"> #3 timeline timeline-selected-copy palette status result jump select 1/2 row=1",
+			"    filter=audit search=control preview",
+			"controls=f result filter · u/i filtered history",
+		]);
+	});
+
+	test("keeps filtered activity result history useful when nothing matches", () => {
+		expect(
+			formatStatusActivityResultHistoryRows(
+				[
+					{
+						source: "dialog" as const,
+						action: "show-dialog" as const,
+						message:
+							"dialog activity selected; type the exact confirmation phrase",
+					},
+				],
+				0,
+				undefined,
+				0,
+				"palette-result-jumps",
+			),
+		).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 visible=0 filter=palette-result-jumps",
+			"no Status activity result history for filter=palette-result-jumps",
+			"controls=f result filter · u/i filtered history",
 		]);
 	});
 

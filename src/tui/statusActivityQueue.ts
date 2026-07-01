@@ -52,6 +52,8 @@ export type StatusActivityResult = StatusActivityEnterPlan & {
 	detail?: string;
 };
 
+export type StatusActivityResultHistoryFilter = "all" | "palette-result-jumps";
+
 export type StatusActivityCopyIntentRecord = {
 	label: string;
 	copyText: string;
@@ -268,11 +270,51 @@ export function formatStatusActivityResultHistoryRows(
 	selectedIndex = 0,
 	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
 	auditJumpIntentCount = 0,
+	filter: StatusActivityResultHistoryFilter = "all",
 ): string[] {
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY RESULT HISTORY count=0",
 			"no Status activity result history yet",
+		];
+	}
+	if (filter !== "all") {
+		const indexes = filterStatusActivityResultHistoryIndexes(history, filter);
+		if (indexes.length === 0) {
+			return [
+				`STATUS ACTIVITY RESULT HISTORY count=${history.length} visible=0 filter=${filter}`,
+				`no Status activity result history for filter=${filter}`,
+				"controls=f result filter · u/i filtered history",
+			];
+		}
+		const selected = getSelectedStatusActivityResultHistoryIndex(
+			history.length,
+			selectedIndex,
+		);
+		const selectedFilteredIndex = Math.max(0, indexes.indexOf(selected));
+		return [
+			`STATUS ACTIVITY RESULT HISTORY count=${history.length} visible=${indexes.length} filter=${filter} selected=${selectedFilteredIndex + 1}/${indexes.length}`,
+			...indexes.flatMap((historyIndex, index) => {
+				const result = history[historyIndex] as StatusActivityResult;
+				const marker = index === selectedFilteredIndex ? "> " : "  ";
+				const rows = [
+					`${marker}#${historyIndex + 1} ${result.source} ${result.action} ${result.message}`,
+				];
+				if (result.detail) {
+					rows.push(`    ${result.detail}`);
+				}
+				if (index === selectedFilteredIndex) {
+					rows.push(
+						...formatStatusActivityResultAuditJumpIntentRows(
+							latestAuditJumpIntent,
+							"    ",
+							auditJumpIntentCount,
+						),
+					);
+				}
+				return rows;
+			}),
+			"controls=f result filter · u/i filtered history",
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -301,6 +343,96 @@ export function formatStatusActivityResultHistoryRows(
 			return rows;
 		}),
 	];
+}
+
+export function nextStatusActivityResultHistoryFilter(
+	filter: StatusActivityResultHistoryFilter,
+): StatusActivityResultHistoryFilter {
+	return filter === "all" ? "palette-result-jumps" : "all";
+}
+
+export function filterStatusActivityResultHistoryIndexes(
+	history: StatusActivityResult[],
+	filter: StatusActivityResultHistoryFilter,
+): number[] {
+	if (filter === "all") {
+		return history.map((_, index) => index);
+	}
+	return history.reduce<number[]>((indexes, result, index) => {
+		if (isPaletteStatusActivityResultJump(result)) {
+			indexes.push(index);
+		}
+		return indexes;
+	}, []);
+}
+
+export function moveStatusActivityResultHistoryFilteredSelection(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+	filter: StatusActivityResultHistoryFilter,
+): number {
+	if (filter === "all") {
+		return moveStatusActivityResultHistorySelection(
+			history,
+			selectedIndex,
+			direction,
+		);
+	}
+	const indexes = filterStatusActivityResultHistoryIndexes(history, filter);
+	if (indexes.length === 0) {
+		return getSelectedStatusActivityResultHistoryIndex(
+			history.length,
+			selectedIndex,
+		);
+	}
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const current = indexes.indexOf(selected);
+	if (current < 0) {
+		return direction === "next"
+			? (indexes[0] as number)
+			: (indexes[indexes.length - 1] as number);
+	}
+	const delta = direction === "next" ? 1 : -1;
+	return indexes[(current + delta + indexes.length) % indexes.length] as number;
+}
+
+export function getStatusActivityResultHistoryFilteredSelection(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+	filter: StatusActivityResultHistoryFilter,
+): number {
+	if (filter === "all") {
+		return getSelectedStatusActivityResultHistoryIndex(
+			history.length,
+			selectedIndex,
+		);
+	}
+	const indexes = filterStatusActivityResultHistoryIndexes(history, filter);
+	if (indexes.length === 0) {
+		return getSelectedStatusActivityResultHistoryIndex(
+			history.length,
+			selectedIndex,
+		);
+	}
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	return indexes.includes(selected) ? selected : (indexes[0] as number);
+}
+
+function isPaletteStatusActivityResultJump(
+	result: StatusActivityResult,
+): boolean {
+	return (
+		result.source === "timeline" &&
+		result.action === "timeline-selected-copy" &&
+		result.message.startsWith("palette status result jump ")
+	);
 }
 
 function formatStatusActivityResultAuditJumpIntentRows(
