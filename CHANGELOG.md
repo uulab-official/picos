@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity recovered Timeline Evidence trail shelves now include a compact detail row with the restored export path and `L`/`N` actions.
 - Recovered Timeline Evidence trail exports can now jump back into Timeline audit search from Status Activity with `N`.
 - Recovered Timeline Evidence trail exports can now be opened from Status Activity with `L`, using the locked `:file-open` confirmation.
 - Status Activity copy-intent shelves now show the recovered latest Timeline Evidence trail export as a `trail target=` row after audit index refresh or restart.

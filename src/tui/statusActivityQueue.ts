@@ -418,6 +418,7 @@ export function formatStatusActivityCopyIntentRows(
 	const timelineTrailRows = latestTimelineTrailExport
 		? [
 				`trail target=${basename(latestTimelineTrailExport.path)}${latestTimelineTrailExport.query ? ` query=${latestTimelineTrailExport.query}` : ""} events=${latestTimelineTrailExport.eventCount}`,
+				`trail detail path=${latestTimelineTrailExport.path} actions=L open N search`,
 			]
 		: [];
 	const rowsBeforeHistory = [...exportRows, ...timelineTrailRows];
