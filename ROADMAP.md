@@ -2825,6 +2825,19 @@ Goal: make the Status Activity `z` open target explain its matching Status Evide
 - Tests cover the rendered `evidence=` hint for restored copy-intent export targets.
 - Next: let Status Activity expose a direct Evidence focus jump for the matching export without opening the file prompt.
 
+## v0.4.150 - Status Activity Copy Intent Evidence Focus
+
+Status: draft PR [#212](https://github.com/uulab-official/picos/pull/212) on `codex/picos-v0.4.150-status-activity-copy-intent-evidence-focus`.
+
+Goal: let operators move from the Status Activity copy-intent export target to its matching Evidence audit row without opening the file prompt.
+
+- `STATUS ACTIVITY COPY INTENTS` controls now advertise `w Evidence focus` beside replay, export, `z` open, and Timeline search.
+- Pressing `w` resolves the latest copy-intent export to the matching Status Evidence audit row and selects it directly.
+- `w` moves the Status Evidence active family to `audit` and keeps the operator in Status without creating a locked `:file-open` prompt.
+- Missing or stale export targets produce a warning and leave the current Evidence selection untouched.
+- Tests cover the pure focus plan, stale target behavior, and the visible `w Evidence focus` control row.
+- Next: add an Activity-to-Evidence status result row so `w` focus jumps are recorded in the recent Status Activity result history.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

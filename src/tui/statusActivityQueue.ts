@@ -59,6 +59,16 @@ export type StatusActivityCopyIntentTimelineSearch = {
 	message: string;
 };
 
+export type StatusActivityCopyIntentEvidenceFocusPlan = {
+	kind: "audit";
+	selectedIndex: number;
+	itemCount: number;
+	shortcut: "w";
+	label: string;
+	path: string;
+	message: string;
+};
+
 type StatusActivityQueueSource = {
 	key: StatusActivitySource;
 	prefix: string;
@@ -406,7 +416,7 @@ export function formatStatusActivityCopyIntentRows(
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			...exportRows,
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · z open export · g Timeline audit search",
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -420,7 +430,7 @@ export function formatStatusActivityCopyIntentRows(
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
 		}),
-		"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+		"controls=y records intent · </> select · v replay · e export · w Evidence focus · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 	];
 }
 
@@ -568,6 +578,32 @@ export function getStatusActivityCopyIntentAuditExportIndex(
 	}
 	const found = index.items.findIndex((item) => item.path === plan.path);
 	return found >= 0 ? found : undefined;
+}
+
+export function createStatusActivityCopyIntentEvidenceFocusPlan(
+	index: ConsoleAuditExportIndex,
+	plan: ConsoleAuditExportPlan | undefined,
+): StatusActivityCopyIntentEvidenceFocusPlan | undefined {
+	const selectedIndex = getStatusActivityCopyIntentAuditExportIndex(
+		index,
+		plan,
+	);
+	if (selectedIndex === undefined) {
+		return undefined;
+	}
+	const item = index.items[selectedIndex];
+	if (!item) {
+		return undefined;
+	}
+	return {
+		kind: "audit",
+		selectedIndex,
+		itemCount: index.items.length,
+		shortcut: "w",
+		label: item.fileName,
+		path: item.path,
+		message: `status activity copy intent evidence focus audit ${selectedIndex + 1}/${index.items.length} ${item.fileName}`,
+	};
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
