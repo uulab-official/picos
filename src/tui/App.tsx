@@ -385,6 +385,7 @@ import {
 	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
+	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
@@ -5066,14 +5067,15 @@ export function App(): React.ReactElement {
 				selectedAuditJumpIntent,
 			);
 			if (!jump) {
+				const warning = createStatusActivityResultTimelineSearchReplayWarning(
+					statusActivityResults,
+					selectedStatusActivityResultIndex,
+					latestStatusActivityResultAuditJumpIntent,
+					selectedAuditJumpIntent,
+				);
 				log(
 					"warn",
-					createStatusActivityResultTimelineSearchReplayWarning(
-						statusActivityResults,
-						selectedStatusActivityResultIndex,
-						latestStatusActivityResultAuditJumpIntent,
-						selectedAuditJumpIntent,
-					),
+					formatStatusActivityResultAuditJumpReplayWarningAuditMessage(warning),
 				);
 				return;
 			}

@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity stale audit-jump replay refusals now log a structured Timeline audit warning that can be searched by the recovery hint.
 - Status Activity stale audit-jump replay warnings now include the same recovery hint shown in the shelf.
 - Status Activity stale audit-jump shelf summaries now include a compact recovery hint for `P audit jump` or a new result jump.
 - Status Activity audit-jump shelf summaries now mark replay payloads as `valid` or `stale` before `I` opens Timeline.

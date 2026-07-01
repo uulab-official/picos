@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { ConsoleEvent } from "../src/tui/events";
-import { formatTimelineEvidenceTrailPaletteAuditMessage } from "../src/tui/statusActivityQueue";
+import {
+	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
+	formatTimelineEvidenceTrailPaletteAuditMessage,
+} from "../src/tui/statusActivityQueue";
 import {
 	createTimelineFocusEvidenceTrailPlan,
 	createTimelineSearchCleanupPreview,
@@ -142,6 +145,31 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=evidence focus",
 			"TIMELINE",
 			'[12:00:08] INFO audit  status activity evidence focus kind=audit shortcut=w selected=2/2 label="picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log"',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
+	test("surfaces stale status activity audit jump warnings in audit search", () => {
+		const warningEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-warn-status-audit-jump",
+				level: "warn",
+				time: "12:00:09",
+				message: formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
+					"no status activity result audit jump fix=P audit jump/new result",
+				),
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(warningEvents, 5, "audit", {
+				query: "fix=P audit jump/new result",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=fix=P audit jump/new result",
+			"TIMELINE",
+			"[12:00:09] WARN audit  status activity result audit jump warning no status activity result audit jump fix=P audit jump/new result",
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
