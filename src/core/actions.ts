@@ -415,6 +415,28 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.toolsEvidence.archive",
+		title: "Archive Tools evidence",
+		description:
+			"Open the locked Tools evidence archive prompt for the selected Tools export.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.toolsEvidence.retention",
+		title: "Prune Tools archive retention",
+		description:
+			"Open the locked Tools archive retention prompt for archived Tools evidence.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "remote.sftp.connect",
 		title: "Connect SFTP provider",
 		description:

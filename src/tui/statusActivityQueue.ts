@@ -41,6 +41,8 @@ export type StatusActivityEnterAction =
 	| "timeline-selected-copy"
 	| "timeline-selected-export"
 	| "filter-result-history"
+	| "tools-evidence-archive"
+	| "tools-evidence-retention"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -1541,6 +1543,51 @@ export function createStatusActivityResultTimelineJumpPaletteResult(
 	};
 }
 
+export function createStatusActivityToolsEvidencePaletteResult(
+	action: "archive" | "retention",
+	options: {
+		candidateCount?: number;
+		fileName?: string;
+		maxItems?: number;
+		path?: string;
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	if (action === "archive") {
+		if (!options.fileName) {
+			return {
+				source: "evidence",
+				action: "tools-evidence-archive",
+				message: "palette tools evidence archive unavailable",
+				detail: "no Tools evidence export selected",
+			};
+		}
+		const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0)) + 1;
+		const total = Math.max(1, Math.floor(options.total ?? 1));
+		return {
+			source: "evidence",
+			action: "tools-evidence-archive",
+			message: `palette tools evidence archive ${selected}/${total} ${options.fileName}`,
+			detail: [
+				options.path ? `path=${options.path}` : "",
+				"confirm=archive tools export",
+			]
+				.filter(Boolean)
+				.join(" "),
+		};
+	}
+
+	const candidates = Math.max(0, Math.floor(options.candidateCount ?? 0));
+	const maxItems = Math.max(1, Math.floor(options.maxItems ?? 1));
+	return {
+		source: "evidence",
+		action: "tools-evidence-retention",
+		message: `palette tools evidence retention candidates=${candidates} max=${maxItems}`,
+		detail: "confirm=prune tools archive",
+	};
+}
+
 export function formatTimelineEvidenceTrailPaletteAuditMessage(
 	action: "select" | "open" | "search" | "source",
 	plan?: ConsoleAuditExportPlan,
@@ -1616,6 +1663,52 @@ export function formatStatusActivityResultTimelineJumpPaletteAuditMessage(
 			? [`matches=${Math.max(0, Math.floor(options.matches))}`]
 			: []),
 	].join(" ");
+}
+
+export function formatStatusActivityToolsEvidencePaletteAuditMessage(
+	action: "archive" | "retention",
+	options: {
+		candidateCount?: number;
+		fileName?: string;
+		maxItems?: number;
+		path?: string;
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	if (action === "retention") {
+		const candidates = Math.max(0, Math.floor(options.candidateCount ?? 0));
+		const maxItems = Math.max(1, Math.floor(options.maxItems ?? 1));
+		return [
+			"palette tools evidence audit",
+			"action=retention",
+			`candidates=${candidates}`,
+			`max=${maxItems}`,
+		].join(" ");
+	}
+
+	if (!options.fileName) {
+		return [
+			"palette tools evidence audit",
+			"action=archive",
+			"status=unavailable",
+			`reason="${formatTimelineEvidenceTrailAuditValue("no Tools evidence export selected")}"`,
+		].join(" ");
+	}
+
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0)) + 1;
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	return [
+		"palette tools evidence audit",
+		"action=archive",
+		`selected=${selected}/${total}`,
+		`label="${formatTimelineEvidenceTrailAuditValue(options.fileName)}"`,
+		options.path
+			? `path="${formatTimelineEvidenceTrailAuditValue(options.path)}"`
+			: "",
+	]
+		.filter(Boolean)
+		.join(" ");
 }
 
 export function createTimelineEvidenceTrailAuditExportPlan(

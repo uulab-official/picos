@@ -161,6 +161,37 @@ describe("TUI command palette", () => {
 		).toContain("status.resultHistory.filter");
 	});
 
+	test("finds Tools evidence management actions from the command palette", () => {
+		const actions = getFilteredPaletteActions(
+			getActionCatalog(),
+			appendCommandPaletteQuery(openCommandPalette(), "tools evidence"),
+		);
+
+		expect(actions.map((action) => action.id)).toEqual(
+			expect.arrayContaining([
+				"status.toolsEvidence.archive",
+				"status.toolsEvidence.retention",
+			]),
+		);
+		expect(
+			actions.find((action) => action.id === "status.toolsEvidence.archive"),
+		).toEqual(
+			expect.objectContaining({
+				category: "status",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
+				confirmationRequired: false,
+			}),
+		);
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools archive"),
+			).map((action) => action.id),
+		).toContain("status.toolsEvidence.retention");
+	});
+
 	test("edits query with backspace and ignores control input", () => {
 		let state = openCommandPalette();
 		state = appendCommandPaletteQuery(state, "dns");
