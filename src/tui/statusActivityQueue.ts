@@ -326,7 +326,7 @@ export function formatStatusActivityResultCopyPreviewRows(
 	return [
 		`STATUS ACTIVITY COPY PREVIEW source=${preview.source} selected=${selected + 1}/${details.length} expanded=${Boolean(options.expanded)}`,
 		...details.map((row, index) => `${index === selected ? "> " : "  "}${row}`),
-		"controls=; row · = expand · y copy selected history · :clipboard confirm=copy locked",
+		"controls=; row · = expand · y copy selected history · I audit jump · :clipboard confirm=copy locked",
 	];
 }
 
@@ -577,6 +577,35 @@ export function createStatusActivityCopyIntentTimelineSearch(
 		filter: "audit",
 		query: record.label,
 		message: `status activity copy intent timeline search ${record.label}`,
+	};
+}
+
+export function createStatusActivityResultTimelineSearch(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const result = history[selected];
+	if (
+		result?.source !== "evidence" ||
+		result.action !== "timeline-evidence-trail"
+	) {
+		return undefined;
+	}
+	const match = result.message.match(
+		/^palette timeline trail source (all|evidence|palette) visible=(\d+\/\d+)$/,
+	);
+	if (!match) {
+		return undefined;
+	}
+	const [, sourceFilter, visible] = match;
+	return {
+		filter: "audit",
+		query: `action=source source=${sourceFilter} visible=${visible}`,
+		message: `status activity result timeline search palette source ${sourceFilter} visible=${visible}`,
 	};
 }
 

@@ -370,6 +370,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createStatusActivityResultTimelineSearch,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -5030,6 +5031,27 @@ export function App(): React.ReactElement {
 				log("info", `status activity copy preview expanded=${next}`);
 				return next;
 			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "I") {
+			const jump = createStatusActivityResultTimelineSearch(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+			);
+			if (!jump) {
+				log("warn", "no status activity result audit jump");
+				return;
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}`,
+			);
 			return;
 		}
 
