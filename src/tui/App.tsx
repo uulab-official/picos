@@ -363,6 +363,7 @@ import {
 	createStatusActivityEnterPlan,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
+	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
@@ -9798,6 +9799,11 @@ function StatusWorkspace({
 		cleanupExportArchiveIndex.items.length > 0
 			? statusEvidenceSummaryRows
 			: [];
+	const statusActivityCopyPreview =
+		getSelectedStatusActivityResultHistoryClipboardPreview(
+			statusActivityResults,
+			selectedStatusActivityResultIndex,
+		);
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -9888,6 +9894,26 @@ function StatusWorkspace({
 										? "gray"
 										: row.startsWith("    ")
 											? "gray"
+											: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+				{formatStatusActivityResultCopyPreviewRows(
+					statusActivityCopyPreview,
+				).map((row) => (
+					<Text
+						key={`activity-copy-${row}`}
+						color={
+							row.startsWith("STATUS ACTIVITY COPY PREVIEW")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("no ")
+										? "gray"
+										: row.startsWith("controls=")
+											? "yellow"
 											: "white"
 						}
 					>

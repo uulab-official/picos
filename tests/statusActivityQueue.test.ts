@@ -4,6 +4,7 @@ import {
 	createStatusActivityEnterPlan,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
+	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
@@ -296,5 +297,35 @@ describe("Status activity queue", () => {
 		expect(
 			getSelectedStatusActivityResultHistoryClipboardPreview([], 0),
 		).toBeUndefined();
+	});
+
+	test("formats a compact copy preview strip for selected activity history", () => {
+		const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
+			[
+				{
+					source: "cleanup",
+					action: "jump-cleanup",
+					message:
+						"cleanup activity selected; jumping to selected cleanup shelf",
+					detail: "cleanup handoff Logs: press l then type delete logs",
+				},
+			],
+			0,
+		);
+
+		expect(formatStatusActivityResultCopyPreviewRows(preview)).toEqual([
+			"STATUS ACTIVITY COPY PREVIEW source=status-activity",
+			"> label status activity cleanup jump-cleanup",
+			"  detail selected=1/1",
+			"  copy cleanup jump-cleanup",
+			"  copy cleanup activity selected; jumping to selected cleanup shelf",
+			"  copy ... 1 more line",
+			"controls=y copy selected history · :clipboard confirm=copy locked",
+		]);
+		expect(formatStatusActivityResultCopyPreviewRows()).toEqual([
+			"STATUS ACTIVITY COPY PREVIEW source=none",
+			"no Status activity copy preview",
+			"controls=y copy selected history",
+		]);
 	});
 });

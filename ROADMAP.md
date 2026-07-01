@@ -2670,6 +2670,19 @@ Goal: make recent Status activity outcomes reusable from the OS console surface 
 - Tests cover cursor movement, selected history row formatting, clipboard preview payloads, and empty history behavior.
 - Next: add a compact copy preview strip for Status activity history so long details can be inspected before confirming copy.
 
+## v0.4.138 - Status Activity Copy Preview
+
+Status: draft PR [#200](https://github.com/uulab-official/picos/pull/200) on `codex/picos-v0.4.138-status-activity-copy-preview`.
+
+Goal: show the selected Status activity history copy payload before opening the locked clipboard confirmation.
+
+- Status now renders `STATUS ACTIVITY COPY PREVIEW` directly below the selected activity result history.
+- The strip reuses the existing clipboard preview formatter with compact limits, then replaces the generic header with a Status-specific summary.
+- Preview rows show the selected history label, selection detail, first copy lines, overflow count, and locked `:clipboard` confirmation hint.
+- Empty Status activity history keeps an explicit no-copy-preview state so keyboard discovery remains visible.
+- Tests cover populated and empty copy preview rows.
+- Next: add detail selection/expansion for long Status activity copy previews without leaving Status.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

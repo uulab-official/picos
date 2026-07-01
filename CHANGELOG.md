@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity now renders a compact `STATUS ACTIVITY COPY PREVIEW` strip for the selected result history row before opening the locked clipboard confirmation.
 - Status Activity result history now has keyboard selection and a locked clipboard handoff so recent action details can be reused without opening Timeline.
 - Status Activity now keeps a bounded `STATUS ACTIVITY RESULT HISTORY` so rapid `enter` actions remain visible after the latest result changes.
 - Status Activity now shows a `STATUS ACTIVITY RESULT` row after source `enter` actions so release, dialog, cleanup, and evidence outcomes remain visible in Status.
