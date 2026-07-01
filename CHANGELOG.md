@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Command palette recovered Timeline Evidence trail select/open/search actions now emit searchable Timeline audit events.
 - Command palette recovered Timeline Evidence trail select/open/search actions now record Status Activity result history rows.
 - Command palette `trail` searches now expose recovered Timeline Evidence trail select, open, and search actions.
 - Status Activity recovered Timeline Evidence trail shelves now support a selected trail cursor, with `S` cycling recovered trail exports and `L`/`N` acting on the selected row.

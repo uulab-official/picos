@@ -30,6 +30,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
@@ -1087,6 +1088,17 @@ describe("Status activity queue", () => {
 			message: "palette timeline trail select unavailable",
 			detail: "no recovered Timeline Evidence trail export selected",
 		});
+		expect(
+			formatTimelineEvidenceTrailPaletteAuditMessage("search", trail, {
+				selectedIndex: 1,
+				total: 3,
+			}),
+		).toBe(
+			'palette timeline trail audit action=search selected=2/3 label="picos-audit-selected-2026-07-01T040000000Z.log" query="timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log"',
+		);
+		expect(formatTimelineEvidenceTrailPaletteAuditMessage("open")).toBe(
+			'palette timeline trail audit action=open status=unavailable reason="no recovered Timeline Evidence trail export selected"',
+		);
 	});
 
 	test("creates selected audit exports for timeline evidence trail handoffs", () => {

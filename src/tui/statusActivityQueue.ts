@@ -742,6 +742,36 @@ export function createTimelineEvidenceTrailPaletteStatusActivityResult(
 	};
 }
 
+export function formatTimelineEvidenceTrailPaletteAuditMessage(
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	if (!plan) {
+		return [
+			"palette timeline trail audit",
+			`action=${action}`,
+			"status=unavailable",
+			`reason="${formatTimelineEvidenceTrailAuditValue("no recovered Timeline Evidence trail export selected")}"`,
+		].join(" ");
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	return [
+		"palette timeline trail audit",
+		`action=${action}`,
+		`selected=${selected + 1}/${total}`,
+		`label="${formatTimelineEvidenceTrailAuditValue(basename(plan.path))}"`,
+		...(plan.query
+			? [`query="${formatTimelineEvidenceTrailAuditValue(plan.query)}"`]
+			: []),
+		`path="${formatTimelineEvidenceTrailAuditValue(plan.path)}"`,
+	].join(" ");
+}
+
 export function createTimelineEvidenceTrailAuditExportPlan(
 	plan: TimelineFocusEvidenceTrailPlan,
 	options: {
