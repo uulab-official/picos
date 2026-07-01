@@ -3168,6 +3168,93 @@ export function App(): React.ReactElement {
 		],
 	);
 
+	const selectNextStatusActivityResultTimelineJump = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			if (options.origin === "palette") {
+				setScreen("status");
+				setFocusArea("workspaces");
+			}
+			setSelectedStatusActivityResultIndex((current) => {
+				const next = moveStatusActivityResultTimelineJumpSelection(
+					statusActivityResults,
+					current,
+					"next",
+				);
+				if (next === current && statusActivityResults.length === 0) {
+					log("warn", "no status activity result history");
+					return current;
+				}
+				if (
+					!createStatusActivityResultTimelineSearch(statusActivityResults, next)
+				) {
+					log("warn", "no status activity timeline result jumps");
+					return current;
+				}
+				log(
+					"info",
+					`status activity timeline result jump ${next + 1}${options.origin === "palette" ? " origin=palette" : ""}`,
+				);
+				return next;
+			});
+		},
+		[log, statusActivityResults],
+	);
+
+	const openSelectedStatusActivityResultTimelineJump = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const selectedAuditJumpIntent =
+				getSelectedStatusActivityResultAuditJumpIntent(
+					statusActivityCopyIntentHistory,
+					selectedStatusActivityResultAuditJumpIndex,
+				);
+			const jump = createStatusActivityResultTimelineSearchReplay(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+				latestStatusActivityResultAuditJumpIntent,
+				selectedAuditJumpIntent,
+			);
+			if (!jump) {
+				const warning = createStatusActivityResultTimelineSearchReplayWarning(
+					statusActivityResults,
+					selectedStatusActivityResultIndex,
+					latestStatusActivityResultAuditJumpIntent,
+					selectedAuditJumpIntent,
+				);
+				log(
+					"warn",
+					formatStatusActivityResultAuditJumpReplayWarningAuditMessage(warning),
+				);
+				return;
+			}
+			const intent = createStatusActivityResultTimelineSearchIntent(jump);
+			setStatusActivityCopyIntentHistory((current) =>
+				appendStatusActivityCopyIntentHistory(current, intent),
+			);
+			setSelectedStatusActivityCopyIntentIndex(0);
+			if (intent) {
+				log("info", intent.auditMessage);
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}${options.origin === "palette" ? " origin=palette" : ""}`,
+			);
+		},
+		[
+			events,
+			latestStatusActivityResultAuditJumpIntent,
+			log,
+			selectedStatusActivityResultAuditJumpIndex,
+			selectedStatusActivityResultIndex,
+			statusActivityCopyIntentHistory,
+			statusActivityResults,
+		],
+	);
+
 	const runAction = useCallback(
 		async (action: PicosAction) => {
 			if (!action.enabled) {
@@ -3394,6 +3481,14 @@ export function App(): React.ReactElement {
 					cycleTimelineEvidenceTrailSourceFilter({ origin: "palette" });
 				}
 
+				if (action.id === "status.resultJump.select") {
+					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
+				}
+
+				if (action.id === "status.resultJump.open") {
+					openSelectedStatusActivityResultTimelineJump({ origin: "palette" });
+				}
+
 				if (
 					action.id === "process.inspect" ||
 					action.id === "remote.sftp.connect"
@@ -3431,9 +3526,11 @@ export function App(): React.ReactElement {
 			fileRoot,
 			jumpSelectedTimelineEvidenceTrailSearch,
 			log,
+			openSelectedStatusActivityResultTimelineJump,
 			openSelectedTimelineEvidenceTrailExport,
 			refresh,
 			refreshFiles,
+			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
 			timelineFilter,
 			timelineSearchQuery,
@@ -5062,47 +5159,7 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "I") {
-			const selectedAuditJumpIntent =
-				getSelectedStatusActivityResultAuditJumpIntent(
-					statusActivityCopyIntentHistory,
-					selectedStatusActivityResultAuditJumpIndex,
-				);
-			const jump = createStatusActivityResultTimelineSearchReplay(
-				statusActivityResults,
-				selectedStatusActivityResultIndex,
-				latestStatusActivityResultAuditJumpIntent,
-				selectedAuditJumpIntent,
-			);
-			if (!jump) {
-				const warning = createStatusActivityResultTimelineSearchReplayWarning(
-					statusActivityResults,
-					selectedStatusActivityResultIndex,
-					latestStatusActivityResultAuditJumpIntent,
-					selectedAuditJumpIntent,
-				);
-				log(
-					"warn",
-					formatStatusActivityResultAuditJumpReplayWarningAuditMessage(warning),
-				);
-				return;
-			}
-			const intent = createStatusActivityResultTimelineSearchIntent(jump);
-			setStatusActivityCopyIntentHistory((current) =>
-				appendStatusActivityCopyIntentHistory(current, intent),
-			);
-			setSelectedStatusActivityCopyIntentIndex(0);
-			if (intent) {
-				log("info", intent.auditMessage);
-			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
-			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			openSelectedStatusActivityResultTimelineJump();
 			return;
 		}
 
@@ -5181,25 +5238,7 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "J") {
-			setSelectedStatusActivityResultIndex((current) => {
-				const next = moveStatusActivityResultTimelineJumpSelection(
-					statusActivityResults,
-					current,
-					"next",
-				);
-				if (next === current && statusActivityResults.length === 0) {
-					log("warn", "no status activity result history");
-					return current;
-				}
-				if (
-					!createStatusActivityResultTimelineSearch(statusActivityResults, next)
-				) {
-					log("warn", "no status activity timeline result jumps");
-					return current;
-				}
-				log("info", `status activity timeline result jump ${next + 1}`);
-				return next;
-			});
+			selectNextStatusActivityResultTimelineJump();
 			return;
 		}
 

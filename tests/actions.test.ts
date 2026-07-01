@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 40,
-			enabled: 28,
+			total: 42,
+			enabled: 30,
 			locked: 12,
 			elevated: 4,
 		});
@@ -73,6 +73,8 @@ describe("action catalog", () => {
 			"status.timelineTrail.open",
 			"status.timelineTrail.search",
 			"status.timelineTrail.source",
+			"status.resultJump.select",
+			"status.resultJump.open",
 		]);
 	});
 
@@ -251,6 +253,26 @@ describe("action catalog", () => {
 			expect.objectContaining({
 				id: "status.timelineTrail.source",
 				title: "Filter recovered Timeline trail source",
+				category: "status",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
+			}),
+		);
+		expect(getActionCatalog()).toContainEqual(
+			expect.objectContaining({
+				id: "status.resultJump.select",
+				title: "Select Status result Timeline jump",
+				category: "status",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
+			}),
+		);
+		expect(getActionCatalog()).toContainEqual(
+			expect.objectContaining({
+				id: "status.resultJump.open",
+				title: "Open Timeline result jump",
 				category: "status",
 				risk: "read",
 				privilege: "none",

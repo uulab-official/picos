@@ -382,6 +382,28 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.resultJump.select",
+		title: "Select Status result Timeline jump",
+		description:
+			"Result select shortcut for cycling Timeline-jumpable Status Activity rows in the Status result jump browser.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.resultJump.open",
+		title: "Open Timeline result jump",
+		description:
+			"Timeline result open shortcut for the selected Status Activity result jump with the matching filter and search.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "remote.sftp.connect",
 		title: "Connect SFTP provider",
 		description:

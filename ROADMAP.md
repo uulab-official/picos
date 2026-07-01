@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.198 - Status Result Palette Jumps
+
+Status: draft PR [#260](https://github.com/uulab-official/picos/pull/260) on `codex/picos-v0.4.198-status-result-palette-jumps`.
+
+Goal: make Status result Timeline jump controls discoverable from the command palette, not only from footer shortcuts.
+
+- Command palette now exposes `status.resultJump.select` and `status.resultJump.open` as read-only Status actions.
+- Operators can search `result jump`, `timeline result open`, or `result select` to find the same `J`/`I` flow.
+- Palette select returns focus to the Status workspace so the `STATUS RESULT TIMELINE JUMPS` cursor is visible.
+- Palette open reuses the same Timeline filter/search restoration path as keyboard `I`.
+- Tests cover palette discoverability, action metadata, and action summary counts.
+- Next: add a small command-palette hint row beside `STATUS RESULT TIMELINE JUMPS` so the browser advertises searchable phrases inline.
+
 ## v0.4.197 - Status Result Jump Browser
 
 Status: draft PR [#259](https://github.com/uulab-official/picos/pull/259) on `codex/picos-v0.4.197-status-result-jump-browser`.
@@ -11,7 +24,7 @@ Goal: make Timeline selected copy/export result jumps scan-able from a compact S
 - The active row mirrors the selected Status Activity result so `J` selection and `I` opening stay visually aligned.
 - Empty states remain explicit when no Timeline result jumps exist.
 - Tests cover jump-only browser rows, active marker, controls, and empty state.
-- Next: add command-palette entries for the Status result jump browser so operators can discover `J` and `I` without reading the footer.
+- Next: command-palette entries for Status result jumps moved into v0.4.198.
 
 ## v0.4.196 - Timeline Result Jump Select
 
