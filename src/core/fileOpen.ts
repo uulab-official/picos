@@ -6,7 +6,8 @@ export type FileOpenSource =
 	| "route-handoff"
 	| "endpoint-handoff"
 	| "cleanup-export"
-	| "timeline-export";
+	| "timeline-export"
+	| "tools-export";
 
 export type FileOpenOrigin = {
 	kind: "config-shelf";
@@ -192,6 +193,7 @@ function isAllowedHandoffPath(baseDir: string, path: string): boolean {
 		isAllowedHandoffPathIn(resolve(join(baseDir, "routes")), target) ||
 		isAllowedHandoffPathIn(resolve(join(baseDir, "endpoints")), target) ||
 		isAllowedHandoffPathIn(resolve(join(baseDir, "cleanup")), target) ||
+		isAllowedToolsExportPath(resolve(join(baseDir, "tools")), target) ||
 		isAllowedTimelineAuditExportPath(resolve(join(baseDir, "audit")), target) ||
 		isAllowedTimelineAuditExportPath(
 			resolve(join(baseDir, "audit", "archive")),
@@ -207,6 +209,18 @@ function isAllowedHandoffPathIn(handoffDir: string, target: string): boolean {
 		!fromHandoffDir.startsWith("..") &&
 		!fromHandoffDir.startsWith("/") &&
 		extname(target) === ".md"
+	);
+}
+
+function isAllowedToolsExportPath(toolsDir: string, target: string): boolean {
+	const fromToolsDir = relative(toolsDir, target);
+	return (
+		fromToolsDir !== "" &&
+		!fromToolsDir.startsWith("..") &&
+		!fromToolsDir.startsWith("/") &&
+		/^picos-tools-(selected|all)-\d{4}-\d{2}-\d{2}T\d{9}Z\.md$/.test(
+			fromToolsDir,
+		)
 	);
 }
 

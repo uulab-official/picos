@@ -14,6 +14,11 @@ import {
 	getSelectedCleanupHandoffHistoryExport,
 	getSelectedCleanupHandoffHistoryExportArchive,
 } from "./cleanupIndex";
+import type {
+	ToolHistoryExportIndex,
+	ToolHistoryExportIndexItem,
+} from "./toolHistory";
+import { getSelectedToolHistoryExport } from "./toolHistory";
 
 export type StatusEvidenceIndexes = {
 	handoffIndex: HandoffIndex;
@@ -21,6 +26,7 @@ export type StatusEvidenceIndexes = {
 	auditExportArchiveIndex: ConsoleAuditExportIndex;
 	cleanupExportIndex: CleanupHandoffHistoryExportIndex;
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
+	toolExportIndex?: ToolHistoryExportIndex;
 };
 
 export type StatusEvidenceSelection = {
@@ -29,6 +35,7 @@ export type StatusEvidenceSelection = {
 	selectedAuditExportArchiveIndex: number;
 	selectedCleanupExportIndex: number;
 	selectedCleanupExportArchiveIndex: number;
+	selectedToolExportIndex?: number;
 };
 
 export type StatusEvidenceKind =
@@ -36,14 +43,16 @@ export type StatusEvidenceKind =
 	| "audit"
 	| "audit-archive"
 	| "cleanup"
-	| "cleanup-archive";
+	| "cleanup-archive"
+	| "tools";
 
 export type StatusEvidenceEnterAction =
 	| "open-handoff"
 	| "open-audit"
 	| "open-audit-archive"
 	| "open-cleanup"
-	| "select-cleanup-archive";
+	| "select-cleanup-archive"
+	| "open-tools";
 
 export type StatusEvidenceSecondaryIntent = "archive" | "retention";
 
@@ -509,6 +518,12 @@ function collectStatusEvidenceEntries(
 			"cleanup-archive",
 			"enter=select open=- archive=archived retention=-",
 		),
+		formatToolsEvidence(
+			getSelectedToolHistoryExport(
+				getToolExportIndex(indexes),
+				getSelectedToolExportIndex(selection),
+			),
+		),
 	].filter((entry): entry is EvidenceEntry => Boolean(entry));
 }
 
@@ -577,6 +592,13 @@ function collectStatusEvidenceFamilyEntries(
 					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
 				selectedIndex: selection.selectedCleanupExportArchiveIndex,
 			};
+		case "tools":
+			return {
+				entries: getToolExportIndex(indexes)
+					.items.map(formatToolsEvidence)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex: getSelectedToolExportIndex(selection),
+			};
 	}
 }
 
@@ -586,6 +608,7 @@ const STATUS_EVIDENCE_KIND_ORDER: StatusEvidenceKind[] = [
 	"audit-archive",
 	"cleanup",
 	"cleanup-archive",
+	"tools",
 ];
 
 function createStatusEvidenceSummaryRow(
@@ -687,6 +710,14 @@ function getStatusEvidenceLegacyShortcuts(kind: StatusEvidenceKind): {
 				archive: "-",
 				retention: "-",
 			};
+		case "tools":
+			return {
+				refresh: "-",
+				select: "]",
+				open: "K",
+				archive: "-",
+				retention: "-",
+			};
 	}
 }
 
@@ -740,6 +771,20 @@ function formatCleanupEvidence(
 	};
 }
 
+function formatToolsEvidence(
+	item: ToolHistoryExportIndexItem | undefined,
+): EvidenceEntry | undefined {
+	if (!item) {
+		return undefined;
+	}
+	return {
+		kind: "tools",
+		label: `tools ${item.scope} runs=${item.runCount}`,
+		path: item.path,
+		controls: "enter=open open K archive=- retention=-",
+	};
+}
+
 function formatEvidenceOrigin(origin: FileOpenOrigin | undefined): string {
 	return origin
 		? `source=Config>${origin.label} scope=${origin.scope}`
@@ -755,6 +800,18 @@ function clampEvidenceSelectionIndex(index: number, length: number): number {
 		return 0;
 	}
 	return Math.min(Math.max(index, 0), length - 1);
+}
+
+function getToolExportIndex(
+	indexes: StatusEvidenceIndexes,
+): ToolHistoryExportIndex {
+	return indexes.toolExportIndex ?? { baseDir: "", items: [] };
+}
+
+function getSelectedToolExportIndex(
+	selection: StatusEvidenceSelection,
+): number {
+	return selection.selectedToolExportIndex ?? 0;
 }
 
 function getActiveStatusEvidenceEntry(
@@ -779,6 +836,8 @@ function getStatusEvidenceEnterAction(kind: StatusEvidenceKind): {
 			return { action: "open-cleanup", shortcut: "V" };
 		case "cleanup-archive":
 			return { action: "select-cleanup-archive", shortcut: "{" };
+		case "tools":
+			return { action: "open-tools", shortcut: "K" };
 	}
 }
 
@@ -805,6 +864,7 @@ function getStatusEvidenceSecondaryAction(
 			return { action: "archive-cleanup", shortcut: "X" };
 		case "audit-archive":
 		case "cleanup-archive":
+		case "tools":
 			return undefined;
 	}
 }

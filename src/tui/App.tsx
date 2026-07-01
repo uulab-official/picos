@@ -1,4 +1,4 @@
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -494,6 +494,7 @@ import {
 	filterToolHistory,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getSelectedToolHistoryExport,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSectionClipboardPreview,
@@ -511,6 +512,7 @@ import {
 	nextToolHistorySort,
 	nextToolSectionClipboardSelection,
 	promoteToolTargetPreset,
+	readToolHistoryExportIndex,
 	reassignToolTargetPresetAction,
 	removeToolTargetPreset,
 	renameToolTargetPreset,
@@ -522,6 +524,7 @@ import {
 	submitToolTargetCleanupConfirmation,
 	type ToolCopyPreviewMode,
 	type ToolHistoryDetailView,
+	type ToolHistoryExportIndex,
 	type ToolHistoryExportScope,
 	type ToolHistoryGroup,
 	type ToolHistoryItem,
@@ -648,6 +651,12 @@ export function App(): React.ReactElement {
 		useState<ConsoleAuditExportArchivePlan>();
 	const [auditArchiveRetentionPlan, setAuditArchiveRetentionPlan] =
 		useState<ConsoleAuditArchiveRetentionPlan>();
+	const [toolExportIndex, setToolExportIndex] =
+		useState<ToolHistoryExportIndex>({
+			baseDir: join(dirname(getConfigPath()), "tools"),
+			items: [],
+		});
+	const [selectedToolExportIndex, setSelectedToolExportIndex] = useState(0);
 	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
 	const [fileOpenPlan, setFileOpenPlan] = useState<FileOpenPlan>();
 	const [selectedStatusActivitySource, setSelectedStatusActivitySource] =
@@ -2712,6 +2721,31 @@ export function App(): React.ReactElement {
 		selectedCleanupExportIndex,
 	]);
 
+	const openSelectedToolExportFile = useCallback(() => {
+		const item = getSelectedToolHistoryExport(
+			toolExportIndex,
+			selectedToolExportIndex,
+		);
+		if (!item) {
+			log("warn", "no tools evidence export selected");
+			return;
+		}
+		const plan = buildFileOpenPlan({
+			baseDir: dirname(getConfigPath()),
+			source: "tools-export",
+			label: `tools export ${item.scope} ${item.generatedAt}`,
+			path: item.path,
+			platform: currentPlatform(),
+		});
+		setFileOpenPlan(plan);
+		setExternalOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
+		setCleanupExportArchivePlan(undefined);
+		setCommandLine(openCommandLine("file-open"));
+		setScreen("status");
+		log("info", `tools evidence open confirmation opened for ${item.fileName}`);
+	}, [log, selectedToolExportIndex, toolExportIndex]);
+
 	const openSelectedCleanupExportArchive = useCallback(() => {
 		const item = getSelectedCleanupHandoffHistoryExport(
 			cleanupExportIndex,
@@ -2777,6 +2811,14 @@ export function App(): React.ReactElement {
 
 			try {
 				const written = await writeToolHistoryExport(plan);
+				const index = await readToolHistoryExportIndex(
+					dirname(getConfigPath()),
+				);
+				setToolExportIndex(index);
+				setSelectedToolExportIndex((current) =>
+					Math.min(current, Math.max(0, index.items.length - 1)),
+				);
+				setSelectedStatusEvidenceKind("tools");
 				setScreen("tools");
 				log(
 					"ok",
@@ -3966,6 +4008,12 @@ export function App(): React.ReactElement {
 				baseDir: dirname(getConfigPath()),
 				items: [],
 			}));
+			const toolExports = await readToolHistoryExportIndex(
+				dirname(getConfigPath()),
+			).catch(() => ({
+				baseDir: join(dirname(getConfigPath()), "tools"),
+				items: [],
+			}));
 			const auditExports = await readConsoleAuditExportIndex(
 				dirname(getConfigPath()),
 			).catch(() => ({
@@ -3988,6 +4036,10 @@ export function App(): React.ReactElement {
 			setCleanupExportIndex(cleanupExports);
 			setSelectedCleanupExportIndex((current) =>
 				Math.min(current, Math.max(0, cleanupExports.items.length - 1)),
+			);
+			setToolExportIndex(toolExports);
+			setSelectedToolExportIndex((current) =>
+				Math.min(current, Math.max(0, toolExports.items.length - 1)),
 			);
 			setAuditExportIndex(auditExports);
 			setLastStatusActivityCopyIntentAuditExport(
@@ -5751,6 +5803,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "K") {
+			if (selectedStatusEvidenceKind === "tools") {
+				openSelectedToolExportFile();
+				return;
+			}
 			const jump =
 				createStatusActivityResultAuditJumpReplayWarningTimelineSearch(events);
 			if (!jump) {
@@ -5908,6 +5964,7 @@ export function App(): React.ReactElement {
 					auditExportArchiveIndex,
 					cleanupExportIndex,
 					cleanupExportArchiveIndex,
+					toolExportIndex,
 				},
 				{
 					selectedHandoffIndex,
@@ -5915,6 +5972,7 @@ export function App(): React.ReactElement {
 					selectedAuditExportArchiveIndex,
 					selectedCleanupExportIndex,
 					selectedCleanupExportArchiveIndex,
+					selectedToolExportIndex,
 				},
 				input,
 			);
@@ -5942,6 +6000,7 @@ export function App(): React.ReactElement {
 					auditExportArchiveIndex,
 					cleanupExportIndex,
 					cleanupExportArchiveIndex,
+					toolExportIndex,
 				},
 				{
 					selectedHandoffIndex,
@@ -5949,6 +6008,7 @@ export function App(): React.ReactElement {
 					selectedAuditExportArchiveIndex,
 					selectedCleanupExportIndex,
 					selectedCleanupExportArchiveIndex,
+					selectedToolExportIndex,
 				},
 				selectedStatusEvidenceKind,
 				input === "]" ? "next" : "previous",
@@ -5976,6 +6036,9 @@ export function App(): React.ReactElement {
 				case "cleanup-archive":
 					setSelectedCleanupExportArchiveIndex(evidenceMovePlan.selectedIndex);
 					break;
+				case "tools":
+					setSelectedToolExportIndex(evidenceMovePlan.selectedIndex);
+					break;
 			}
 			log(
 				"info",
@@ -5990,7 +6053,8 @@ export function App(): React.ReactElement {
 				auditExportIndex.items.length +
 				auditExportArchiveIndex.items.length +
 				cleanupExportIndex.items.length +
-				cleanupExportArchiveIndex.items.length;
+				cleanupExportArchiveIndex.items.length +
+				toolExportIndex.items.length;
 			if (evidenceCount === 0) {
 				log("warn", "no status evidence indexed");
 				return;
@@ -6003,6 +6067,7 @@ export function App(): React.ReactElement {
 						auditExportArchiveIndex,
 						cleanupExportIndex,
 						cleanupExportArchiveIndex,
+						toolExportIndex,
 					},
 					current,
 					"next",
@@ -6181,6 +6246,7 @@ export function App(): React.ReactElement {
 					auditExportArchiveIndex,
 					cleanupExportIndex,
 					cleanupExportArchiveIndex,
+					toolExportIndex,
 				},
 				{
 					selectedHandoffIndex,
@@ -6188,6 +6254,7 @@ export function App(): React.ReactElement {
 					selectedAuditExportArchiveIndex,
 					selectedCleanupExportIndex,
 					selectedCleanupExportArchiveIndex,
+					selectedToolExportIndex,
 				},
 				selectedStatusEvidenceKind,
 			);
@@ -6204,6 +6271,9 @@ export function App(): React.ReactElement {
 						break;
 					case "open-cleanup":
 						openSelectedCleanupExportFile();
+						break;
+					case "open-tools":
+						openSelectedToolExportFile();
 						break;
 					case "select-cleanup-archive":
 						log(
@@ -6255,6 +6325,7 @@ export function App(): React.ReactElement {
 					auditExportArchiveIndex,
 					cleanupExportIndex,
 					cleanupExportArchiveIndex,
+					toolExportIndex,
 				},
 				{
 					selectedHandoffIndex,
@@ -6262,6 +6333,7 @@ export function App(): React.ReactElement {
 					selectedAuditExportArchiveIndex,
 					selectedCleanupExportIndex,
 					selectedCleanupExportArchiveIndex,
+					selectedToolExportIndex,
 				},
 				selectedStatusEvidenceKind,
 				"archive",
@@ -6301,6 +6373,7 @@ export function App(): React.ReactElement {
 					auditExportArchiveIndex,
 					cleanupExportIndex,
 					cleanupExportArchiveIndex,
+					toolExportIndex,
 				},
 				{
 					selectedHandoffIndex,
@@ -6308,6 +6381,7 @@ export function App(): React.ReactElement {
 					selectedAuditExportArchiveIndex,
 					selectedCleanupExportIndex,
 					selectedCleanupExportArchiveIndex,
+					selectedToolExportIndex,
 				},
 				selectedStatusEvidenceKind,
 				"retention",
@@ -7849,6 +7923,8 @@ export function App(): React.ReactElement {
 					selectedCleanupExportIndex={selectedCleanupExportIndex}
 					cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 					selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
+					toolExportIndex={toolExportIndex}
+					selectedToolExportIndex={selectedToolExportIndex}
 					selectedStatusActivitySource={selectedStatusActivitySource}
 					statusActivityResults={statusActivityResults}
 					selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
@@ -8094,6 +8170,8 @@ function MainWorkspace({
 	selectedCleanupExportIndex: _selectedCleanupExportIndex,
 	cleanupExportArchiveIndex: _cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex: _selectedCleanupExportArchiveIndex,
+	toolExportIndex,
+	selectedToolExportIndex,
 	selectedStatusActivitySource,
 	statusActivityResults,
 	selectedStatusActivityResultIndex,
@@ -8228,6 +8306,8 @@ function MainWorkspace({
 	selectedCleanupExportIndex: number;
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
+	toolExportIndex: ToolHistoryExportIndex;
+	selectedToolExportIndex: number;
 	selectedStatusActivitySource: StatusActivitySource;
 	statusActivityResults: StatusActivityResult[];
 	selectedStatusActivityResultIndex: number;
@@ -8440,6 +8520,8 @@ function MainWorkspace({
 						_selectedCleanupExportIndex,
 						_cleanupExportArchiveIndex,
 						_selectedCleanupExportArchiveIndex,
+						toolExportIndex,
+						selectedToolExportIndex,
 						selectedStatusActivitySource,
 						statusActivityResults,
 						selectedStatusActivityResultIndex,
@@ -8579,6 +8661,8 @@ function renderWorkspace(
 	selectedCleanupExportIndex: number,
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex,
 	selectedCleanupExportArchiveIndex: number,
+	toolExportIndex: ToolHistoryExportIndex,
+	selectedToolExportIndex: number,
 	selectedStatusActivitySource: StatusActivitySource,
 	statusActivityResults: StatusActivityResult[],
 	selectedStatusActivityResultIndex: number,
@@ -8864,6 +8948,8 @@ function renderWorkspace(
 				selectedCleanupExportIndex={selectedCleanupExportIndex}
 				cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 				selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
+				toolExportIndex={toolExportIndex}
+				selectedToolExportIndex={selectedToolExportIndex}
 				selectedStatusActivitySource={selectedStatusActivitySource}
 				statusActivityResults={statusActivityResults}
 				selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
@@ -11172,6 +11258,8 @@ function StatusWorkspace({
 	selectedCleanupExportIndex,
 	cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex,
+	toolExportIndex,
+	selectedToolExportIndex,
 	selectedStatusActivitySource,
 	statusActivityResults,
 	selectedStatusActivityResultIndex,
@@ -11213,6 +11301,8 @@ function StatusWorkspace({
 	selectedCleanupExportIndex: number;
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
+	toolExportIndex: ToolHistoryExportIndex;
+	selectedToolExportIndex: number;
 	selectedStatusActivitySource: StatusActivitySource;
 	statusActivityResults: StatusActivityResult[];
 	selectedStatusActivityResultIndex: number;
@@ -11368,6 +11458,7 @@ function StatusWorkspace({
 			auditExportArchiveIndex,
 			cleanupExportIndex,
 			cleanupExportArchiveIndex,
+			toolExportIndex,
 		},
 		{
 			selectedHandoffIndex,
@@ -11375,6 +11466,7 @@ function StatusWorkspace({
 			selectedAuditExportArchiveIndex,
 			selectedCleanupExportIndex,
 			selectedCleanupExportArchiveIndex,
+			selectedToolExportIndex,
 		},
 		selectedStatusEvidenceKind,
 	);
@@ -11389,7 +11481,8 @@ function StatusWorkspace({
 		auditExportIndex.items.length > 0 ||
 		auditExportArchiveIndex.items.length > 0 ||
 		cleanupExportIndex.items.length > 0 ||
-		cleanupExportArchiveIndex.items.length > 0
+		cleanupExportArchiveIndex.items.length > 0 ||
+		toolExportIndex.items.length > 0
 			? statusEvidenceSummaryRows
 			: [];
 	const statusActivityCopyPreview =
@@ -11695,6 +11788,7 @@ function StatusWorkspace({
 						auditExportArchiveIndex,
 						cleanupExportIndex,
 						cleanupExportArchiveIndex,
+						toolExportIndex,
 					},
 					{
 						selectedHandoffIndex,
@@ -11702,6 +11796,7 @@ function StatusWorkspace({
 						selectedAuditExportArchiveIndex,
 						selectedCleanupExportIndex,
 						selectedCleanupExportArchiveIndex,
+						selectedToolExportIndex,
 					},
 					selectedStatusEvidenceKind,
 				).map((row) => (
@@ -11725,6 +11820,7 @@ function StatusWorkspace({
 						auditExportArchiveIndex,
 						cleanupExportIndex,
 						cleanupExportArchiveIndex,
+						toolExportIndex,
 					},
 					{
 						selectedHandoffIndex,
@@ -11732,6 +11828,7 @@ function StatusWorkspace({
 						selectedAuditExportArchiveIndex,
 						selectedCleanupExportIndex,
 						selectedCleanupExportArchiveIndex,
+						selectedToolExportIndex,
 					},
 					selectedStatusEvidenceKind,
 				).map((row) => (
@@ -11757,6 +11854,7 @@ function StatusWorkspace({
 						auditExportArchiveIndex,
 						cleanupExportIndex,
 						cleanupExportArchiveIndex,
+						toolExportIndex,
 					},
 					{
 						selectedHandoffIndex,
@@ -11764,6 +11862,7 @@ function StatusWorkspace({
 						selectedAuditExportArchiveIndex,
 						selectedCleanupExportIndex,
 						selectedCleanupExportArchiveIndex,
+						selectedToolExportIndex,
 					},
 					selectedStatusEvidenceKind,
 				).map((row) => (
@@ -11794,6 +11893,7 @@ function StatusWorkspace({
 						auditExportArchiveIndex,
 						cleanupExportIndex,
 						cleanupExportArchiveIndex,
+						toolExportIndex,
 					},
 					{
 						selectedHandoffIndex,
@@ -11801,6 +11901,7 @@ function StatusWorkspace({
 						selectedAuditExportArchiveIndex,
 						selectedCleanupExportIndex,
 						selectedCleanupExportArchiveIndex,
+						selectedToolExportIndex,
 					},
 					selectedStatusEvidenceKind,
 				).map((row) => (
