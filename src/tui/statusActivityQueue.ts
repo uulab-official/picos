@@ -72,6 +72,8 @@ export type StatusActivityCopyIntentEvidenceFocusPlan = {
 	message: string;
 };
 
+export type TimelineEvidenceTrailSourceFilter = "all" | "evidence" | "palette";
+
 type StatusActivityQueueSource = {
 	key: StatusActivitySource;
 	prefix: string;
@@ -413,35 +415,64 @@ export function formatStatusActivityCopyIntentRows(
 		? [latestTimelineTrailExport]
 		: [],
 	selectedTimelineTrailIndex = 0,
+	timelineTrailSourceFilter: TimelineEvidenceTrailSourceFilter = "all",
 ): string[] {
 	const exportRows = latestExport
 		? [
 				`z target=${basename(latestExport.path)}${latestExportEvidenceIndex !== undefined ? ` evidence=${latestExportEvidenceIndex + 1}` : ""}${latestExport.query ? ` query=${latestExport.query}` : ""} events=${latestExport.eventCount}`,
 			]
 		: [];
+	const filteredTimelineTrailExports = filterTimelineEvidenceTrailAuditExports(
+		timelineTrailExports,
+		timelineTrailSourceFilter,
+	);
 	const selectedTimelineTrailExport =
 		getSelectedTimelineEvidenceTrailAuditExport(
-			timelineTrailExports,
+			filteredTimelineTrailExports,
 			selectedTimelineTrailIndex,
-			latestTimelineTrailExport,
+			timelineTrailSourceFilter === "all"
+				? latestTimelineTrailExport
+				: undefined,
 		);
 	const normalizedTimelineTrailIndex = getNormalizedSelectionIndex(
-		timelineTrailExports.length,
+		filteredTimelineTrailExports.length,
 		selectedTimelineTrailIndex,
 	);
+	const timelineTrailSourceRows =
+		timelineTrailExports.length > 1 || timelineTrailSourceFilter !== "all"
+			? [
+					`trail source=${timelineTrailSourceFilter} visible=${filteredTimelineTrailExports.length}/${timelineTrailExports.length}`,
+				]
+			: [];
 	const timelineTrailRows = selectedTimelineTrailExport
 		? [
-				...(timelineTrailExports.length > 1
+				...timelineTrailSourceRows,
+				...(filteredTimelineTrailExports.length > 1
 					? [
-							`trail selected=${normalizedTimelineTrailIndex + 1}/${timelineTrailExports.length}`,
+							`trail selected=${normalizedTimelineTrailIndex + 1}/${filteredTimelineTrailExports.length}`,
 						]
 					: []),
 				`trail target=${basename(selectedTimelineTrailExport.path)}${selectedTimelineTrailExport.query ? ` query=${selectedTimelineTrailExport.query}` : ""} events=${selectedTimelineTrailExport.eventCount}`,
 				`trail detail source=${getTimelineEvidenceTrailExportSource(selectedTimelineTrailExport)} path=${selectedTimelineTrailExport.path} actions=L open N search`,
 			]
-		: [];
+		: timelineTrailSourceRows.length > 0
+			? [
+					...timelineTrailSourceRows,
+					`no recovered Timeline Evidence trail exports for source=${timelineTrailSourceFilter}`,
+				]
+			: [];
 	const rowsBeforeHistory = [...exportRows, ...timelineTrailRows];
-	const controls = `controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export${selectedTimelineTrailExport ? ` · L open trail · N trail search${timelineTrailExports.length > 1 ? " · S trail select" : ""} · trail recovered` : ""} · g Timeline audit search`;
+	const canFilterTimelineTrails =
+		timelineTrailExports.length > 1 || timelineTrailSourceFilter !== "all";
+	const trailControlParts = [
+		...(selectedTimelineTrailExport ? ["L open trail", "N trail search"] : []),
+		...(filteredTimelineTrailExports.length > 1 ? ["S trail select"] : []),
+		...(canFilterTimelineTrails ? ["Q trail source"] : []),
+		...(selectedTimelineTrailExport ? ["trail recovered"] : []),
+	];
+	const trailControls =
+		trailControlParts.length > 0 ? ` · ${trailControlParts.join(" · ")}` : "";
+	const controls = `controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export${trailControls} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
@@ -503,6 +534,31 @@ export function moveTimelineEvidenceTrailSelection(
 	const current = getNormalizedSelectionIndex(exports.length, selectedIndex);
 	const delta = direction === "next" ? 1 : -1;
 	return (current + delta + exports.length) % exports.length;
+}
+
+export function filterTimelineEvidenceTrailAuditExports(
+	exports: ConsoleAuditExportPlan[],
+	filter: TimelineEvidenceTrailSourceFilter,
+): ConsoleAuditExportPlan[] {
+	if (filter === "all") {
+		return exports;
+	}
+	return exports.filter(
+		(item) => getTimelineEvidenceTrailExportSource(item) === filter,
+	);
+}
+
+export function nextTimelineEvidenceTrailSourceFilter(
+	filter: TimelineEvidenceTrailSourceFilter,
+): TimelineEvidenceTrailSourceFilter {
+	switch (filter) {
+		case "all":
+			return "evidence";
+		case "evidence":
+			return "palette";
+		case "palette":
+			return "all";
+	}
 }
 
 export function createStatusActivityCopyIntentTimelineSearch(

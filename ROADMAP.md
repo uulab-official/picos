@@ -3053,6 +3053,18 @@ Goal: make recovered trail rows reveal whether they came from a direct Evidence 
 - Tests cover both direct recovered trail rows and palette recovered trail rows.
 - Next: add a compact source filter for recovered trail lists once the shelf has enough mixed-source rows.
 
+## v0.4.168 - Timeline Evidence Trail Source Filter
+
+Status: draft PR [#230](https://github.com/uulab-official/picos/pull/230) on `codex/picos-v0.4.168-timeline-trail-source-filter`.
+
+Goal: make mixed-source recovered trail shelves easy to scan by source.
+
+- Status Activity recovered trail shelves now show `trail source=<filter> visible=<shown>/<total>` when more than one trail exists or a source filter is active.
+- `Q` cycles recovered trail source filters across `all`, `evidence`, and `palette`.
+- `S`, `L`, and `N` now operate on the filtered recovered trail list, while empty filters show an explicit unavailable row.
+- Tests cover source filtering helpers, empty filtered shelves, and filtered selection rows.
+- Next: expose recovered trail source filtering in the command palette so keyboard discovery does not depend on reading the Status controls row.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
