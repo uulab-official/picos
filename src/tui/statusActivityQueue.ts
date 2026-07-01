@@ -476,6 +476,7 @@ export function formatStatusActivityCopyIntentRows(
 	auditJumpActionHint?: "fresh" | "replay",
 	selectedAuditJumpIndex = 0,
 	staleReplayWarningSummary?: StatusActivityResultAuditJumpReplayWarningSummary,
+	freshResultJump?: StatusActivityCopyIntentTimelineSearch,
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -557,6 +558,11 @@ export function formatStatusActivityCopyIntentRows(
 			: [];
 	const rowsBeforeHistory = [
 		...exportRows,
+		...(freshResultJump && auditJumpActionHint === "fresh"
+			? [
+					`result jump target=filter:${freshResultJump.filter} query=${freshResultJump.query} I=fresh`,
+				]
+			: []),
 		...auditJumpRows,
 		...formatStatusActivityResultAuditJumpReplayWarningSummaryRows(
 			staleReplayWarningSummary,
