@@ -451,16 +451,31 @@ export function formatStatusActivityCopyIntentRows(
 	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
 	auditJumpIntentCount = 0,
 	auditJumpActionHint?: "fresh" | "replay",
+	selectedAuditJumpIndex = 0,
 ): string[] {
 	const exportRows = latestExport
 		? [
 				`z target=${basename(latestExport.path)}${latestExportEvidenceIndex !== undefined ? ` evidence=${latestExportEvidenceIndex + 1}` : ""}${latestExport.query ? ` query=${latestExport.query}` : ""} events=${latestExport.eventCount}`,
 			]
 		: [];
+	const auditJumpIntents = getStatusActivityResultAuditJumpIntents(history);
+	const selectedAuditJumpIntent =
+		getSelectedStatusActivityResultAuditJumpIntent(
+			history,
+			selectedAuditJumpIndex,
+		) ?? latestAuditJumpIntent;
+	const auditJumpTotal = auditJumpIntents.length || auditJumpIntentCount;
+	const selectedAuditJump =
+		auditJumpIntents.length > 1
+			? getNormalizedSelectionIndex(
+					auditJumpIntents.length,
+					selectedAuditJumpIndex,
+				)
+			: undefined;
 	const auditJumpRows =
-		latestAuditJumpIntent && auditJumpIntentCount > 0
+		selectedAuditJumpIntent && auditJumpTotal > 0
 			? [
-					`audit jumps count=${auditJumpIntentCount}${formatStatusActivityResultAuditJumpTargetToken(latestAuditJumpIntent)} latest=${latestAuditJumpIntent.preview} lines=${latestAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}`,
+					`audit jumps count=${auditJumpTotal}${selectedAuditJump !== undefined ? ` selected=${selectedAuditJump + 1}/${auditJumpIntents.length}` : ""}${formatStatusActivityResultAuditJumpTargetToken(selectedAuditJumpIntent)} latest=${selectedAuditJumpIntent.preview} lines=${selectedAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}`,
 				]
 			: [];
 	const filteredTimelineTrailExports = filterTimelineEvidenceTrailAuditExports(
@@ -517,7 +532,7 @@ export function formatStatusActivityCopyIntentRows(
 	];
 	const trailControls =
 		trailControlParts.length > 0 ? ` · ${trailControlParts.join(" · ")}` : "";
-	const controls = `controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export${trailControls} · g Timeline audit search`;
+	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export${trailControls} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
@@ -552,6 +567,40 @@ function formatStatusActivityResultAuditJumpTargetToken(
 	}
 	const [, source, visible] = match;
 	return ` target=source:${source} visible:${visible}`;
+}
+
+export function getStatusActivityResultAuditJumpIntents(
+	history: StatusActivityCopyIntentRecord[],
+): StatusActivityCopyIntentRecord[] {
+	return history.filter((record) =>
+		record.label.startsWith("status activity result audit jump "),
+	);
+}
+
+export function getSelectedStatusActivityResultAuditJumpIntent(
+	history: StatusActivityCopyIntentRecord[],
+	selectedIndex: number,
+): StatusActivityCopyIntentRecord | undefined {
+	const auditJumps = getStatusActivityResultAuditJumpIntents(history);
+	const selected = getNormalizedSelectionIndex(
+		auditJumps.length,
+		selectedIndex,
+	);
+	return auditJumps[selected];
+}
+
+export function moveStatusActivityResultAuditJumpSelection(
+	history: StatusActivityCopyIntentRecord[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	const auditJumps = getStatusActivityResultAuditJumpIntents(history);
+	if (auditJumps.length === 0) {
+		return 0;
+	}
+	const current = getNormalizedSelectionIndex(auditJumps.length, selectedIndex);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + auditJumps.length) % auditJumps.length;
 }
 
 export function moveStatusActivityCopyIntentSelection(
