@@ -29,6 +29,7 @@ export const defaultConfig: PicosConfig = {
 	enableExperimentalControls: false,
 	controlExecutionMode: "disabled",
 	allowAdminDryRun: false,
+	editorSaveMode: "disabled",
 	remoteProfiles: [],
 	logProfiles: [],
 	logSearchPresets: [],
@@ -128,6 +129,13 @@ export function mergeConfig(
 		merged.allowAdminDryRun = input.allowAdminDryRun;
 	}
 
+	if (
+		input.editorSaveMode === "disabled" ||
+		input.editorSaveMode === "local-write"
+	) {
+		merged.editorSaveMode = input.editorSaveMode;
+	}
+
 	merged.remoteProfiles = normalizeRemoteProfiles(input.remoteProfiles);
 	merged.logProfiles = normalizeLogProfiles(input.logProfiles);
 	merged.logSearchPresets = normalizeLogSearchPresets(input.logSearchPresets);
@@ -198,6 +206,13 @@ export function coerceConfigValue(
 	if (key === "controlExecutionMode") {
 		if (value !== "disabled" && value !== "dry-run") {
 			throw new Error("controlExecutionMode must be disabled or dry-run");
+		}
+		return value;
+	}
+
+	if (key === "editorSaveMode") {
+		if (value !== "disabled" && value !== "local-write") {
+			throw new Error("editorSaveMode must be disabled or local-write");
 		}
 		return value;
 	}

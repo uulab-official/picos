@@ -207,6 +207,7 @@ export type PicosConfig = {
 	enableExperimentalControls: boolean;
 	controlExecutionMode: "disabled" | "dry-run";
 	allowAdminDryRun: boolean;
+	editorSaveMode: "disabled" | "local-write";
 	remoteProfiles: SftpRemoteProfile[];
 	logProfiles: LogProfile[];
 	logSearchPresets: string[];

@@ -73,6 +73,11 @@ import {
 import { getControlPreviewCommand } from "../core/controlPreview";
 import { runDoctorChecks } from "../core/doctor";
 import {
+	createEditorSaveExecutionPlan,
+	formatEditorSaveExecutionAuditMessage,
+	runEditorSaveExecutionPlan,
+} from "../core/editorSaveExecution";
+import {
 	formatConnectionSortPreference,
 	formatPortSortPreference,
 } from "../core/endpointSort";
@@ -557,9 +562,14 @@ export function App(): React.ReactElement {
 	const actions = useMemo(() => getActionCatalog(), []);
 	const systemFileRoot = useMemo(() => getSystemFileRoot(), []);
 	const fileLocations = useMemo(() => getSystemFileLocations(), []);
+	const [editorSaveMode, setEditorSaveMode] =
+		useState<PicosConfig["editorSaveMode"]>("disabled");
 	const fileProvider = useMemo(
-		() => createLocalFileProvider(systemFileRoot),
-		[systemFileRoot],
+		() =>
+			createLocalFileProvider(systemFileRoot, {
+				allowWrites: editorSaveMode === "local-write",
+			}),
+		[editorSaveMode, systemFileRoot],
 	);
 	const [screen, setScreen] = useState<Screen>("dashboard");
 	const [focusArea, setFocusArea] = useState<FocusArea>("workspaces");
@@ -895,6 +905,7 @@ export function App(): React.ReactElement {
 				allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
 				controlExecutionMode: controlExecutionPolicy.mode,
 				defaultPingHost,
+				editorSaveMode,
 				language,
 				refreshInterval,
 				toolTargetPresetLimit,
@@ -904,6 +915,7 @@ export function App(): React.ReactElement {
 			controlExecutionPolicy.allowAdminDryRun,
 			controlExecutionPolicy.mode,
 			defaultPingHost,
+			editorSaveMode,
 			language,
 			refreshInterval,
 			toolTargetPresetLimit,
@@ -918,6 +930,7 @@ export function App(): React.ReactElement {
 				connectionSort: formatConnectionSortPreference(connectionSort),
 				controlExecutionMode: controlExecutionPolicy.mode,
 				defaultPingHost,
+				editorSaveMode,
 				enableExperimentalControls,
 				language,
 				logProfiles,
@@ -944,6 +957,7 @@ export function App(): React.ReactElement {
 			controlExecutionPolicy.mode,
 			customToolTargetPresets,
 			defaultPingHost,
+			editorSaveMode,
 			enableExperimentalControls,
 			language,
 			logProfiles,
@@ -1074,6 +1088,7 @@ export function App(): React.ReactElement {
 		setRefreshInterval(config.refreshInterval);
 		setDefaultPingHost(config.defaultPingHost);
 		setEnableExperimentalControls(config.enableExperimentalControls);
+		setEditorSaveMode(config.editorSaveMode);
 		setShowPublicIp(config.showPublicIp);
 		setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
 		setCustomToolTargetPresets(config.toolTargetPresets as ToolTargetPreset[]);
@@ -1121,6 +1136,11 @@ export function App(): React.ReactElement {
 					...current,
 					allowAdminDryRun: Boolean(nextValue),
 				}));
+			}
+			if (item.key === "editorSaveMode") {
+				setEditorSaveMode(
+					String(nextValue) === "local-write" ? "local-write" : "disabled",
+				);
 			}
 			void (async () => {
 				try {
@@ -1190,6 +1210,7 @@ export function App(): React.ReactElement {
 				controlExecutionMode: config.controlExecutionMode,
 				allowAdminDryRun: config.allowAdminDryRun,
 				enableExperimentalControls: config.enableExperimentalControls,
+				editorSaveMode: config.editorSaveMode,
 			});
 			const preset = applyConfigPolicyPreset(presetId);
 			const nextConfig: PicosConfig = {
@@ -1221,6 +1242,7 @@ export function App(): React.ReactElement {
 			controlExecutionMode: controlExecutionPolicy.mode,
 			allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
 			enableExperimentalControls,
+			editorSaveMode,
 		});
 		setConfigResetPreview(preview);
 		setCommandLine(openCommandLine("config-reset"));
@@ -1234,6 +1256,7 @@ export function App(): React.ReactElement {
 		controlExecutionPolicy.mode,
 		defaultPingHost,
 		enableExperimentalControls,
+		editorSaveMode,
 		language,
 		log,
 		refreshInterval,
@@ -1252,6 +1275,7 @@ export function App(): React.ReactElement {
 				controlExecutionMode: controlExecutionPolicy.mode,
 				allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
 				enableExperimentalControls,
+				editorSaveMode,
 			});
 		const confirmation = submitConfigWorkspaceResetConfirmation(
 			preview,
@@ -1293,6 +1317,7 @@ export function App(): React.ReactElement {
 		controlExecutionPolicy.mode,
 		defaultPingHost,
 		enableExperimentalControls,
+		editorSaveMode,
 		language,
 		log,
 		refreshInterval,
@@ -1638,25 +1663,70 @@ export function App(): React.ReactElement {
 		});
 	}, [log, selectedEditorLineIndex]);
 
-	const submitEditorSaveConfirmationCommand = useCallback(() => {
+	const submitEditorSaveConfirmationCommand = useCallback(async () => {
 		const value = commandLine.value.trim();
 		setCommandLine((current) => closeCommandLine(current));
 		if (!editorPreview) {
 			log("warn", "open a text file before saving");
 			return;
 		}
-		const state = getEditorBufferState(editorPreview);
 		if (value !== "save file") {
 			log("warn", "editor save confirmation rejected");
 			return;
 		}
-		log(
-			state.dirty ? "warn" : "info",
-			state.dirty
-				? "editor save confirmed but write execution remains locked"
-				: "editor save confirmed with no changes",
-		);
-	}, [commandLine.value, editorPreview, log]);
+		try {
+			const config = await readConfig();
+			syncConfigSessionState(config);
+			const executionProvider = createLocalFileProvider(systemFileRoot, {
+				allowWrites: config.editorSaveMode === "local-write",
+			});
+			const preview = createEditorWritePreview({
+				path: editorPreview.path,
+				originalContent: editorPreview.originalContent,
+				nextContent: editorPreview.content,
+				providerKind: executionProvider.kind,
+			});
+			const plan = createEditorSaveExecutionPlan({
+				preview,
+				confirmed: true,
+				policy: { mode: config.editorSaveMode },
+				nextContent: editorPreview.content,
+			});
+			const result = await runEditorSaveExecutionPlan(plan, executionProvider);
+			log(
+				result.success
+					? "ok"
+					: plan.reason === "no-content-changes"
+						? "info"
+						: "warn",
+				formatEditorSaveExecutionAuditMessage(result.audit),
+			);
+			if (result.success) {
+				setEditorPreview((current) =>
+					current && current.path === editorPreview.path
+						? {
+								...current,
+								originalContent: current.content,
+								editHistory: [],
+							}
+						: current,
+				);
+			}
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `editor save failed ${caught.message}`
+					: `editor save failed ${String(caught)}`,
+			);
+		}
+	}, [
+		commandLine.value,
+		editorPreview,
+		log,
+		syncConfigSessionState,
+		systemFileRoot,
+	]);
 
 	const submitToolHistoryFilterCommand = useCallback(() => {
 		const query = commandLine.value.trim();
@@ -4629,7 +4699,7 @@ export function App(): React.ReactElement {
 				} else if (commandLine.prompt === "editor-replace") {
 					submitEditorReplaceLineCommand();
 				} else if (commandLine.prompt === "editor-save") {
-					submitEditorSaveConfirmationCommand();
+					void submitEditorSaveConfirmationCommand();
 				} else if (commandLine.prompt.startsWith("config-")) {
 					void submitConfigTextCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
