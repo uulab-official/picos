@@ -140,6 +140,43 @@ export function formatStatusEvidenceIndexRows(
 	];
 }
 
+export function formatStatusEvidenceSummaryRows(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+): string[] {
+	const activeEntry = getActiveStatusEvidenceEntry(
+		collectStatusEvidenceEntries(indexes, selection),
+		activeKind,
+	);
+	const effectiveActiveKind = activeEntry?.kind ?? activeKind;
+	const rows = STATUS_EVIDENCE_KIND_ORDER.map((kind) =>
+		createStatusEvidenceSummaryRow(
+			indexes,
+			selection,
+			effectiveActiveKind,
+			kind,
+		),
+	).filter((row): row is string => Boolean(row));
+	const fileCount = STATUS_EVIDENCE_KIND_ORDER.reduce(
+		(count, kind) =>
+			count +
+			collectStatusEvidenceFamilyEntries(indexes, selection, kind).entries
+				.length,
+		0,
+	);
+	if (rows.length === 0) {
+		return [
+			"STATUS EVIDENCE SUMMARY active=none families=0 files=0",
+			"no indexed evidence families",
+		];
+	}
+	return [
+		`STATUS EVIDENCE SUMMARY active=${activeEntry?.kind ?? "none"} families=${rows.length} files=${fileCount}`,
+		...rows,
+	];
+}
+
 export function formatStatusEvidenceTableRows(
 	indexes: StatusEvidenceIndexes,
 	selection: StatusEvidenceSelection,
@@ -504,6 +541,42 @@ function collectStatusEvidenceFamilyEntries(
 				selectedIndex: selection.selectedCleanupExportArchiveIndex,
 			};
 	}
+}
+
+const STATUS_EVIDENCE_KIND_ORDER: StatusEvidenceKind[] = [
+	"handoff",
+	"audit",
+	"audit-archive",
+	"cleanup",
+	"cleanup-archive",
+];
+
+function createStatusEvidenceSummaryRow(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+	kind: StatusEvidenceKind,
+): string | undefined {
+	const family = collectStatusEvidenceFamilyEntries(indexes, selection, kind);
+	if (family.entries.length === 0) {
+		return undefined;
+	}
+	const selectedIndex = clampEvidenceSelectionIndex(
+		family.selectedIndex,
+		family.entries.length,
+	);
+	const enterAction = getStatusEvidenceEnterAction(kind);
+	const archiveAction = getStatusEvidenceSecondaryAction(kind, "archive");
+	const retentionAction = getStatusEvidenceSecondaryAction(kind, "retention");
+	const cursor = kind === activeKind ? ">" : " ";
+	const movement = family.entries.length > 1 ? "[/]" : "-";
+	return `${cursor} ${kind.padEnd(15)} selected=${selectedIndex + 1}/${
+		family.entries.length
+	} open=enter/${enterAction.shortcut} archive=${
+		archiveAction ? `a/${archiveAction.shortcut}` : "-"
+	} retention=${
+		retentionAction ? `m/${retentionAction.shortcut}` : "-"
+	} move=${movement}`;
 }
 
 function formatHandoffEvidence(

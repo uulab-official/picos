@@ -7,6 +7,7 @@ import {
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
 	formatStatusEvidenceIndexRows,
+	formatStatusEvidenceSummaryRows,
 	formatStatusEvidenceTableDetailRows,
 	formatStatusEvidenceTableRows,
 	moveStatusEvidenceFocus,
@@ -503,6 +504,64 @@ describe("Status evidence detail rows", () => {
 			"source=Config>Logs scope=logs.profiles",
 			"path=/tmp/picos/audit/picos-audit-selected.log",
 			"controls=enter=open open W archive Z/a retention=-",
+		]);
+	});
+
+	test("formats compact evidence summary rows for remaining status browsers", () => {
+		const archivedIndexes = {
+			...populatedIndexes,
+			auditExportArchiveIndex: {
+				baseDir: "/tmp/picos/audit/archive",
+				items: [
+					{
+						fileName: "picos-audit-archive.log",
+						path: "/tmp/picos/audit/archive/picos-audit-archive.log",
+						generatedAt: "2026-07-01T07:00:00.000Z",
+						scope: "all" as const,
+						entryCount: 8,
+						origin,
+					},
+				],
+			},
+			cleanupExportArchiveIndex: {
+				baseDir: "/tmp/picos/cleanup/archive",
+				items: [
+					{
+						fileName: "picos-cleanup-archive.md",
+						path: "/tmp/picos/cleanup/archive/picos-cleanup-archive.md",
+						scope: "all" as const,
+						entryCount: 4,
+						generatedAt: "2026-07-01T08:00:00.000Z",
+						origin,
+					},
+				],
+			},
+		};
+
+		expect(
+			formatStatusEvidenceSummaryRows(archivedIndexes, selection, "audit"),
+		).toEqual([
+			"STATUS EVIDENCE SUMMARY active=audit families=5 files=5",
+			"  handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
+			"> audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
+			"  audit-archive   selected=1/1 open=enter/J archive=- retention=m/M move=-",
+			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- move=-",
+			"  cleanup-archive selected=1/1 open=enter/{ archive=- retention=- move=-",
+		]);
+	});
+
+	test("marks the fallback summary row when the requested evidence family is unavailable", () => {
+		expect(
+			formatStatusEvidenceSummaryRows(
+				populatedIndexes,
+				selection,
+				"audit-archive",
+			),
+		).toEqual([
+			"STATUS EVIDENCE SUMMARY active=handoff families=3 files=3",
+			"> handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
+			"  audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
+			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- move=-",
 		]);
 	});
 

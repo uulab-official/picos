@@ -2526,6 +2526,19 @@ Goal: keep Status Evidence source/path inspection inside the table-driven contro
 - Tests cover active detail rows and empty detail rows.
 - Next: fold the remaining handoff/audit/cleanup archive browsers into smaller Status table summaries while keeping their existing explicit shortcuts available.
 
+## v0.4.127 - Status Evidence Summary
+
+Status: draft PR #189 on `codex/picos-v0.4.127-status-evidence-summary`.
+
+Goal: make the remaining Status evidence browsers scannable as a compact summary band before operators drill into the table.
+
+- Status Evidence now formats a compact summary band for handoff, Timeline audit export, archived Timeline audit export, cleanup export, and archived cleanup export families.
+- The summary shows selected item count, open/archive/retention availability, item movement availability, active cursor, available family count, and total indexed file count.
+- Status renders the summary above the command strip so operators can see which underlying browsers have data before using the focused table controls.
+- Summary cursor fallback now matches the effective active evidence family when the requested family is unavailable.
+- Tests cover summary formatting across archived families and fallback cursor behavior.
+- Next: start hiding or clipping the older explicit handoff/audit/cleanup browser blocks behind the summary/table so the Status panel becomes one evidence console instead of several stacked browsers.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
