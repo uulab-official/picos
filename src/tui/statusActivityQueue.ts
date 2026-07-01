@@ -1,4 +1,5 @@
 import {
+	type ConsoleAuditExportIndex,
 	type ConsoleAuditExportPlan,
 	createConsoleAuditExportPlan,
 	writeConsoleAuditExport,
@@ -526,6 +527,26 @@ export function createStatusActivityCopyIntentAuditExportOpenPlan(
 		platform: options.platform,
 		source: "timeline-export",
 	});
+}
+
+export function getLatestStatusActivityCopyIntentAuditExport(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan | undefined {
+	const item = index.items.find(
+		(candidate) =>
+			candidate.scope === "selected" &&
+			candidate.query?.startsWith("status activity "),
+	);
+	if (!item) {
+		return undefined;
+	}
+	return {
+		path: item.path,
+		content: "",
+		eventCount: item.entryCount,
+		...(item.query ? { query: item.query } : {}),
+		scope: item.scope,
+	};
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {

@@ -2773,6 +2773,19 @@ Goal: let operators inspect the latest Status copy-intent audit export immediate
 - Tests cover the export-to-file-open plan shape, including platform adapter, locked confirmation phrase, and picos-owned audit path.
 - Next: add persisted boot discovery for the newest Status copy-intent export so `z` can work after restarting the TUI.
 
+## v0.4.146 - Status Activity Copy Intent Export Restore
+
+Status: draft PR [#208](https://github.com/uulab-official/picos/pull/208) on `codex/picos-v0.4.146-status-activity-copy-intent-export-restore`.
+
+Goal: make the latest Status copy-intent audit export discoverable after restart so the `z` open flow survives beyond live React state.
+
+- Status Activity now derives the latest persisted copy-intent export from the existing audit export index.
+- Boot-time audit export loading restores that latest `status activity ...` selected export as the `z` open target.
+- Manual audit export refresh also refreshes the remembered `z` target, so Evidence changes and copy-intent export opening stay in sync.
+- The restore helper ignores unrelated selected/filtered audit exports and only accepts selected exports whose query starts with `status activity `.
+- Tests cover latest persisted export discovery, empty index behavior, scope filtering, and conversion back into a locked file-open-ready export plan.
+- Next: surface the restored export path in the Status Activity copy-intent shelf so operators can see what `z` will open before pressing it.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
