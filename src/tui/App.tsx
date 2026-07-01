@@ -410,6 +410,7 @@ import {
 	type StatusEvidenceKind,
 } from "./statusEvidence";
 import {
+	createTimelineFocusEvidenceTrailPlan,
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
@@ -5776,6 +5777,24 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "timeline" && focusArea === "workspaces" && input === "E") {
+			const plan = createTimelineFocusEvidenceTrailPlan(events, {
+				auditExportIndex,
+				filter: timelineFilter,
+				query: timelineSearchQuery,
+				selectedIndex: selectedTimelineIndex,
+			});
+			if (!plan) {
+				log("warn", "no timeline focus evidence trail");
+				return;
+			}
+			setSelectedAuditExportIndex(plan.selectedIndex);
+			setSelectedStatusEvidenceKind(plan.kind);
+			setScreen("status");
+			log("info", plan.message);
+			return;
+		}
+
 		if (screen === "timeline" && focusArea === "workspaces" && input === "P") {
 			if (!timelineSearchQuery.trim()) {
 				log("warn", "no timeline search to save");
@@ -9425,7 +9444,7 @@ function TimelineWorkspace({
 			<Text bold>{t("screen.timeline")}</Text>
 			<Text color="gray">
 				t filter · j/k select · f search · c copy selected · e export selected ·
-				P save · ] preset · D cleanup · timeline.export scoped log
+				E evidence · P save · ] preset · D cleanup · timeline.export scoped log
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (

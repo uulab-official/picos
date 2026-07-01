@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ConsoleEvent } from "../src/tui/events";
 import {
+	createTimelineFocusEvidenceTrailPlan,
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatTimelineWorkspaceRows,
@@ -82,7 +83,7 @@ describe("timeline TUI panel formatting", () => {
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
 			"[12:00:05] INFO raw    raw.view queued for adapter implementation",
 			'[12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -92,7 +93,7 @@ describe("timeline TUI panel formatting", () => {
 			"TIMELINE",
 			"[12:00:03] WARN audit  clipboard locked selected port via xclip",
 			'[12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -116,7 +117,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=status-activity",
 			"TIMELINE",
 			'[12:00:07] INFO audit  clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -140,8 +141,65 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=evidence focus",
 			"TIMELINE",
 			'[12:00:08] INFO audit  status activity evidence focus kind=audit shortcut=w selected=2/2 label="picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log"',
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
+	});
+
+	test("creates evidence trail plans from selected status focus audit rows", () => {
+		const focusEvents: ConsoleEvent[] = [
+			{
+				id: "12:00:08-info-status-evidence-focus",
+				level: "info",
+				time: "12:00:08",
+				message:
+					'status activity evidence focus kind=audit shortcut=w selected=2/2 label="picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log"',
+			},
+		];
+		const auditExportIndex = {
+			baseDir: "/Users/bonjin/.config/picos/audit",
+			items: [
+				{
+					fileName: "picos-audit-other.log",
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-other.log",
+					generatedAt: "2026-07-01T02:00:00.000Z",
+					scope: "selected" as const,
+					entryCount: 1,
+				},
+				{
+					fileName: "picos-audit-selected-2026-07-01T030000000Z.log",
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+					generatedAt: "2026-07-01T03:00:00.000Z",
+					scope: "selected" as const,
+					query: "status activity cleanup jump-cleanup",
+					entryCount: 1,
+				},
+			],
+		};
+
+		expect(
+			createTimelineFocusEvidenceTrailPlan(focusEvents, {
+				auditExportIndex,
+				filter: "audit",
+				query: "evidence focus",
+				selectedIndex: 0,
+			}),
+		).toEqual({
+			kind: "audit",
+			selectedIndex: 1,
+			itemCount: 2,
+			label: "picos-audit-selected-2026-07-01T030000000Z.log",
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			message:
+				"timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+		});
+		expect(
+			createTimelineFocusEvidenceTrailPlan(focusEvents, {
+				auditExportIndex,
+				filter: "audit",
+				query: "missing",
+				selectedIndex: 0,
+			}),
+		).toBeUndefined();
 	});
 
 	test("marks selected timeline rows with a stable cursor", () => {
@@ -154,7 +212,7 @@ describe("timeline TUI panel formatting", () => {
 			"TIMELINE",
 			"> [12:00:03] WARN audit  clipboard locked selected port via xclip",
 			'  [12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -181,7 +239,7 @@ describe("timeline TUI panel formatting", () => {
 				"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
 				"TIMELINE",
 				'[12:00:07] WARN audit  control confirmation dns.flush status=confirmed-disabled risk=write privilege=admin dryRun=true executionEnabled=false adapter=macos command="sudo dscacheutil -flushcache"',
-				"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+				"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 			],
 		);
 	});
@@ -201,7 +259,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
 			"TIMELINE",
 			'[12:00:08] WARN audit  control simulation dns.flush status=blocked-by-policy policy=mutation-disabled approval=required confirmed=true executionEnabled=false blockers=disabled-by-default,mutation-approval-required,admin-approval-required,execution-disabled adapter=macos command="sudo dscacheutil -flushcache"',
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -220,7 +278,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
 			"TIMELINE",
 			'[12:00:09] WARN audit  control execution dns.flush status=dry-run-executed policy=dry-run confirmed=true dryRun=true willExecute=true adapter=windows command="powershell -NoProfile -Command Clear-DnsClientCache -WhatIf"',
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -239,7 +297,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit",
 			"TIMELINE",
 			"[12:00:11] WARN audit  ports file evidence unavailable pid=777 reason=no snapshot returned",
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -293,7 +351,7 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/7 network=1 audit=2 action=3 raw=1 filter=network",
 			"TIMELINE",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
 
@@ -311,7 +369,7 @@ describe("timeline TUI panel formatting", () => {
 			"TIMELINE",
 			"[12:00:01] RUN  action network.inspect started",
 			"[12:00:04] INFO network network public ip 203.0.113.10 -> 203.0.113.11",
-			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 		expect(saveTimelineSearchPreset([], " network ")).toEqual(["network"]);
 		expect(saveTimelineSearchPreset(["audit", "network"], "audit")).toEqual([

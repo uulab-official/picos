@@ -2876,6 +2876,19 @@ Goal: let operators jump from Status to the Timeline audit row for the latest `w
 - Tests cover focus search handoff creation, empty focus behavior, and updated controls.
 - Next: add an evidence trail handoff from the Timeline focus row back to the matching Status audit export open/archive controls.
 
+## v0.4.154 - Timeline Focus Evidence Trail
+
+Status: draft PR [#216](https://github.com/uulab-official/picos/pull/216) on `codex/picos-v0.4.154-timeline-focus-evidence-trail`.
+
+Goal: let selected Timeline focus audit rows return to the matching Status Evidence audit export controls.
+
+- Timeline focus audit rows now expose an `E evidence` handoff.
+- The handoff parses the selected `status activity evidence focus` row, extracts the quoted audit export path, and matches it against the Status audit export index.
+- When a match exists, `E` switches back to Status, selects the audit Evidence family, and selects the matching audit export row.
+- Missing non-focus rows, missing paths, or stale paths leave the current Status Evidence selection untouched and log a warning.
+- Tests cover focus-row path extraction, index matching, empty search behavior, and the updated Timeline footer.
+- Next: expose a compact Timeline evidence trail result row that previews the matching Status `W` open and `Z` archive controls before switching screens.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
