@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.194 - Timeline Result Jump Restore
+
+Status: draft PR [#256](https://github.com/uulab-official/picos/pull/256) on `codex/picos-v0.4.194-timeline-result-jump`.
+
+Goal: let Status Activity Timeline selected copy/export results jump back into the matching Timeline search/filter.
+
+- Status Activity `I` now recognizes `timeline-selected-copy` and `timeline-selected-export` result rows.
+- Timeline selected result jumps restore the stored Timeline filter from the result detail.
+- Jumps reuse the original Timeline search query when present, and fall back to the selected Timeline label when the row was exported without an active search.
+- Tests cover copy/search restoration and export fallback search text.
+- Next: expose the Timeline selected result jump target in the Status Activity shelf before pressing `I`.
+
 ## v0.4.193 - Timeline Selected Status Results
 
 Status: draft PR [#255](https://github.com/uulab-official/picos/pull/255) on `codex/picos-v0.4.193-timeline-selected-status-results`.
@@ -10,7 +22,7 @@ Goal: make selected Timeline raw/source copy and export handoffs revisit-able fr
 - Timeline `e` selected export records a `timeline-selected-export` Status Activity result row after the audit file is written.
 - Result details include filter, search query when present, raw/source controls, and export path when available.
 - Tests cover the selected Timeline copy/export result shape and Status Activity rendering.
-- Next: add a Status Activity Timeline-result jump that restores the matching Timeline search/filter from those result rows.
+- Next: Status Activity Timeline-result search/filter restore moved into v0.4.194.
 
 ## v0.4.192 - Timeline Raw Source Preview Hint
 
