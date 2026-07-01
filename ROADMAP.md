@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.208 - Editor Insert And Undo
+
+Status: draft PR [#270](https://github.com/uulab-official/picos/pull/270) on `codex/picos-v0.4.208-editor-insert-undo`.
+
+Goal: make the Editor buffer feel closer to a DOS/terminal editor by supporting cursor-relative insertion and safe undo before enabling provider writes.
+
+- Editor buffers now keep an in-memory edit history for append, insert, replace, and delete edits.
+- Pressing `i` in the Editor opens an insert-before prompt for the selected line.
+- Pressing `o` opens an insert-after prompt for the selected line.
+- Pressing `u` restores the previous buffer content without mutating the original file snapshot.
+- The Editor status row shows undo depth beside dirty, line, and truncation state.
+- Save previews continue to reflect the current in-memory buffer while filesystem writes remain locked.
+- Tests cover cursor-relative insertion and multi-step undo back to the original file content.
+- Next: add policy-gated provider write execution and audit records for confirmed editor saves.
+
 ## v0.4.207 - Editor Line Editing
 
 Status: draft PR [#269](https://github.com/uulab-official/picos/pull/269) on `codex/picos-v0.4.207-editor-line-edit`.
@@ -13,7 +28,7 @@ Goal: make the Editor buffer usable as a line-oriented terminal editor before en
 - The Editor panel marks the selected line with `>` and highlights it for scanning.
 - Dirty buffer diffs now reflect append, replace, and delete edits before save confirmation.
 - Tests cover selection wraparound, selected-line replacement, and deletion.
-- Next: add cursor-aware insert-before/insert-after and undo history before enabling provider writes.
+- Next: cursor-aware insert-before/insert-after and undo history moved into v0.4.208.
 
 ## v0.4.206 - Editor Dirty Buffer Controls
 

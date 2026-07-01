@@ -8,6 +8,7 @@ export type EditorBuffer = {
 	originalContent: string;
 	content: string;
 	truncated: boolean;
+	editHistory: string[];
 };
 
 export type EditorBufferState = {
@@ -27,6 +28,7 @@ export function createEditorBuffer(input: {
 		originalContent: input.content,
 		content: input.content,
 		truncated: input.truncated,
+		editHistory: [],
 	};
 }
 
@@ -36,10 +38,30 @@ export function appendEditorBufferLine(
 ): EditorBuffer {
 	const separator =
 		buffer.content.endsWith("\n") || buffer.content === "" ? "" : "\n";
-	return {
-		...buffer,
-		content: `${buffer.content}${separator}${line}\n`,
-	};
+	return withEditorBufferContent(
+		buffer,
+		`${buffer.content}${separator}${line}\n`,
+	);
+}
+
+export function insertEditorBufferLine(
+	buffer: EditorBuffer,
+	selectedIndex: number,
+	line: string,
+	position: "before" | "after",
+): EditorBuffer {
+	const lines = splitEditorLines(buffer.content);
+	const index = normalizeEditorLineIndex(selectedIndex, lines.length);
+	const insertIndex = position === "before" ? index : index + 1;
+	const nextLines = [
+		...lines.slice(0, insertIndex),
+		line,
+		...lines.slice(insertIndex),
+	];
+	return withEditorBufferContent(
+		buffer,
+		joinEditorLines(nextLines, buffer.content.endsWith("\n")),
+	);
 }
 
 export function moveEditorBufferLineSelection(
@@ -69,10 +91,10 @@ export function replaceEditorBufferLine(
 	const index = normalizeEditorLineIndex(selectedIndex, lines.length);
 	const nextLines = [...lines];
 	nextLines[index] = line;
-	return {
-		...buffer,
-		content: joinEditorLines(nextLines, buffer.content.endsWith("\n")),
-	};
+	return withEditorBufferContent(
+		buffer,
+		joinEditorLines(nextLines, buffer.content.endsWith("\n")),
+	);
 }
 
 export function deleteEditorBufferLine(
@@ -85,9 +107,21 @@ export function deleteEditorBufferLine(
 	}
 	const index = normalizeEditorLineIndex(selectedIndex, lines.length);
 	const nextLines = lines.filter((_, lineIndex) => lineIndex !== index);
+	return withEditorBufferContent(
+		buffer,
+		joinEditorLines(nextLines, buffer.content.endsWith("\n")),
+	);
+}
+
+export function undoEditorBufferEdit(buffer: EditorBuffer): EditorBuffer {
+	const previousContent = buffer.editHistory.at(-1);
+	if (previousContent === undefined) {
+		return buffer;
+	}
 	return {
 		...buffer,
-		content: joinEditorLines(nextLines, buffer.content.endsWith("\n")),
+		content: previousContent,
+		editHistory: buffer.editHistory.slice(0, -1),
 	};
 }
 
@@ -129,4 +163,18 @@ function joinEditorLines(lines: string[], trailingNewline: boolean): string {
 		return "";
 	}
 	return `${lines.join("\n")}${trailingNewline ? "\n" : ""}`;
+}
+
+function withEditorBufferContent(
+	buffer: EditorBuffer,
+	content: string,
+): EditorBuffer {
+	if (content === buffer.content) {
+		return buffer;
+	}
+	return {
+		...buffer,
+		content,
+		editHistory: [...buffer.editHistory, buffer.content],
+	};
 }
