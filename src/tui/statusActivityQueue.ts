@@ -31,6 +31,7 @@ export type StatusActivityEnterAction =
 	| "show-dialog"
 	| "jump-cleanup"
 	| "enter-evidence"
+	| "focus-evidence"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -603,6 +604,17 @@ export function createStatusActivityCopyIntentEvidenceFocusPlan(
 		label: item.fileName,
 		path: item.path,
 		message: `status activity copy intent evidence focus audit ${selectedIndex + 1}/${index.items.length} ${item.fileName}`,
+	};
+}
+
+export function createStatusActivityCopyIntentEvidenceFocusResult(
+	plan: StatusActivityCopyIntentEvidenceFocusPlan,
+): StatusActivityResult {
+	return {
+		source: "evidence",
+		action: "focus-evidence",
+		message: plan.message,
+		detail: `evidence ${plan.kind} selected=${plan.selectedIndex + 1}/${plan.itemCount} path=${plan.path}`,
 	};
 }
 
