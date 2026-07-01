@@ -10201,6 +10201,10 @@ function StatusWorkspace({
 					statusActivityCopyIntentHistory,
 					selectedStatusActivityCopyIntentIndex,
 					lastStatusActivityCopyIntentAuditExport,
+					getStatusActivityCopyIntentAuditExportIndex(
+						auditExportIndex,
+						lastStatusActivityCopyIntentAuditExport,
+					),
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}

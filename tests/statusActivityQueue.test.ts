@@ -476,16 +476,21 @@ describe("Status activity queue", () => {
 
 	test("shows the restored status activity copy intent export path for z open", () => {
 		expect(
-			formatStatusActivityCopyIntentRows([], 0, {
-				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
-				content: "",
-				eventCount: 1,
-				query: "status activity cleanup jump-cleanup",
-				scope: "selected",
-			}),
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				{
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+					content: "",
+					eventCount: 1,
+					query: "status activity cleanup jump-cleanup",
+					scope: "selected",
+				},
+				1,
+			),
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
-			"z target=picos-audit-selected-2026-07-01T030000000Z.log query=status activity cleanup jump-cleanup events=1",
+			"z target=picos-audit-selected-2026-07-01T030000000Z.log evidence=2 query=status activity cleanup jump-cleanup events=1",
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search",
 		]);

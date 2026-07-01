@@ -394,10 +394,11 @@ export function formatStatusActivityCopyIntentRows(
 	history: StatusActivityCopyIntentRecord[],
 	selectedIndex = 0,
 	latestExport?: ConsoleAuditExportPlan,
+	latestExportEvidenceIndex?: number,
 ): string[] {
 	const exportRows = latestExport
 		? [
-				`z target=${basename(latestExport.path)}${latestExport.query ? ` query=${latestExport.query}` : ""} events=${latestExport.eventCount}`,
+				`z target=${basename(latestExport.path)}${latestExportEvidenceIndex !== undefined ? ` evidence=${latestExportEvidenceIndex + 1}` : ""}${latestExport.query ? ` query=${latestExport.query}` : ""} events=${latestExport.eventCount}`,
 			]
 		: [];
 	if (history.length === 0) {
