@@ -370,6 +370,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailStatusActivityResult,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -392,6 +393,7 @@ import {
 	type StatusActivityResult,
 	type StatusActivitySource,
 	writeStatusActivityCopyIntentAuditExport,
+	writeTimelineEvidenceTrailAuditExport,
 } from "./statusActivityQueue";
 import {
 	formatStatusDialogPreviewRows,
@@ -5794,6 +5796,27 @@ export function App(): React.ReactElement {
 			recordStatusActivityResult(
 				createTimelineEvidenceTrailStatusActivityResult(plan),
 			);
+			const exportPlan = createTimelineEvidenceTrailAuditExportPlan(plan, {
+				baseDir: dirname(getConfigPath()),
+			});
+			void writeTimelineEvidenceTrailAuditExport(exportPlan)
+				.then((written) => {
+					log(
+						"ok",
+						`timeline evidence trail exported ${written.path} events=${written.eventCount}`,
+					);
+					void refreshAuditExportIndex(false).then(() => {
+						setSelectedAuditExportIndex(plan.selectedIndex + 1);
+					});
+				})
+				.catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `timeline evidence trail export failed ${caught.message}`
+							: `timeline evidence trail export failed ${String(caught)}`,
+					),
+				);
 			setScreen("status");
 			log("info", `${plan.message}; ${plan.rows.at(-1) ?? ""}`);
 			return;

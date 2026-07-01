@@ -2913,6 +2913,19 @@ Goal: make Timeline-to-Status Evidence trail handoffs reusable through Status Ac
 - Tests cover the result conversion and formatted rows.
 - Next: persist Timeline evidence trail handoff records as selected audit exports so a restarted TUI can recover the last trail.
 
+## v0.4.157 - Timeline Evidence Trail Audit Export
+
+Status: draft PR [#219](https://github.com/uulab-official/picos/pull/219) on `codex/picos-v0.4.157-timeline-trail-audit-export`.
+
+Goal: make Timeline Evidence trail handoffs durable through the existing selected audit export shelf.
+
+- Timeline `E` handoffs now create a selected audit export with a `timeline evidence trail ...` query.
+- The persisted audit event preserves trail kind, selected position, target label, target path, and Status Evidence `W`/`Z`/`enter` controls.
+- The TUI writes the trail audit export when the handoff is used, then refreshes the Status audit export index while preserving the original Evidence target selection.
+- A latest-trail recovery helper finds the newest persisted trail record from the Status audit export index after refresh or restart.
+- Tests cover selected export formatting, disk write, and latest persisted trail recovery.
+- Next: surface the recovered latest Timeline trail record directly in the Status Activity copy-intent shelf so restart recovery is visible without opening the audit index first.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

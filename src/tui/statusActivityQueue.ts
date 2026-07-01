@@ -634,6 +634,66 @@ export function createTimelineEvidenceTrailStatusActivityResult(
 	};
 }
 
+export function createTimelineEvidenceTrailAuditExportPlan(
+	plan: TimelineFocusEvidenceTrailPlan,
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+	},
+): ConsoleAuditExportPlan {
+	const generatedAt = options.generatedAt ?? new Date();
+	const controls = getTimelineEvidenceTrailControls(plan);
+	return createConsoleAuditExportPlan(
+		[
+			{
+				id: `timeline-evidence-trail-${plan.selectedIndex + 1}`,
+				level: "info",
+				time: formatAuditEventTime(generatedAt),
+				message: [
+					"timeline evidence trail",
+					`kind=${plan.kind}`,
+					`selected=${plan.selectedIndex + 1}/${plan.itemCount}`,
+					`label="${formatTimelineEvidenceTrailAuditValue(plan.label)}"`,
+					`path="${formatTimelineEvidenceTrailAuditValue(plan.path)}"`,
+					`controls="${formatTimelineEvidenceTrailAuditValue(controls)}"`,
+				].join(" "),
+			},
+		],
+		{
+			baseDir: options.baseDir,
+			generatedAt,
+			query: `timeline evidence trail ${plan.label}`,
+			scope: "selected",
+		},
+	);
+}
+
+export async function writeTimelineEvidenceTrailAuditExport(
+	plan: ConsoleAuditExportPlan,
+): Promise<ConsoleAuditExportPlan> {
+	return writeConsoleAuditExport(plan);
+}
+
+export function getLatestTimelineEvidenceTrailAuditExport(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan | undefined {
+	const item = index.items.find(
+		(candidate) =>
+			candidate.scope === "selected" &&
+			candidate.query?.startsWith("timeline evidence trail "),
+	);
+	if (!item) {
+		return undefined;
+	}
+	return {
+		path: item.path,
+		content: "",
+		eventCount: item.entryCount,
+		...(item.query ? { query: item.query } : {}),
+		scope: item.scope,
+	};
+}
+
 export function formatStatusActivityCopyIntentEvidenceFocusAuditMessage(
 	plan: StatusActivityCopyIntentEvidenceFocusPlan,
 ): string {
@@ -737,6 +797,20 @@ function getSelectedStatusActivityCopyPreviewIndex(
 		return 0;
 	}
 	return Math.min(Math.max(selectedIndex, 0), length - 1);
+}
+
+function getTimelineEvidenceTrailControls(
+	plan: TimelineFocusEvidenceTrailPlan,
+): string {
+	return (
+		plan.rows
+			.find((row) => row.startsWith("controls="))
+			?.replace(/^controls=/, "") ?? "Status Evidence controls unavailable"
+	);
+}
+
+function formatTimelineEvidenceTrailAuditValue(value: string): string {
+	return value.replaceAll(/["\r\n]/g, " ").trim();
 }
 
 function formatAuditEventTime(date: Date): string {
