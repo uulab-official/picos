@@ -450,6 +450,7 @@ export function formatStatusActivityCopyIntentRows(
 	timelineTrailSourceFilter: TimelineEvidenceTrailSourceFilter = "all",
 	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
 	auditJumpIntentCount = 0,
+	auditJumpActionHint?: "fresh" | "replay",
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -459,7 +460,7 @@ export function formatStatusActivityCopyIntentRows(
 	const auditJumpRows =
 		latestAuditJumpIntent && auditJumpIntentCount > 0
 			? [
-					`audit jumps count=${auditJumpIntentCount} latest=${latestAuditJumpIntent.preview} lines=${latestAuditJumpIntent.lines}`,
+					`audit jumps count=${auditJumpIntentCount} latest=${latestAuditJumpIntent.preview} lines=${latestAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}`,
 				]
 			: [];
 	const filteredTimelineTrailExports = filterTimelineEvidenceTrailAuditExports(

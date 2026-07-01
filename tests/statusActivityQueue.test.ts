@@ -581,6 +581,26 @@ describe("Status activity queue", () => {
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
 		]);
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				latestAuditJumpIntent,
+				3,
+				"replay",
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"audit jumps count=3 latest=action=source source=palette visible=2/5 lines=3 I=replay",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+		]);
 	});
 
 	test("shows recovered timeline evidence trail exports in the copy intent shelf", () => {

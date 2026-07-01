@@ -370,6 +370,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
@@ -10550,6 +10551,15 @@ function StatusWorkspace({
 		getStatusActivityResultAuditJumpIntentCount(
 			statusActivityCopyIntentHistory,
 		);
+	const statusActivityResultAuditJumpActionHint =
+		createStatusActivityResultTimelineSearch(
+			statusActivityResults,
+			selectedStatusActivityResultIndex,
+		)
+			? "fresh"
+			: latestStatusActivityResultAuditJumpIntent
+				? "replay"
+				: undefined;
 	const statusReleaseRows = formatStatusReleaseConsoleRows({
 		update: updateCheckResult,
 		github: githubReleaseCheckResult,
@@ -10744,6 +10754,7 @@ function StatusWorkspace({
 					timelineEvidenceTrailSourceFilter,
 					latestStatusActivityResultAuditJumpIntent,
 					statusActivityResultAuditJumpIntentCount,
+					statusActivityResultAuditJumpActionHint,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
