@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ConsoleAuditExportIndex } from "../src/core/auditLog";
+import {
+	type ConsoleAuditExportIndex,
+	readConsoleAuditExportIndex,
+} from "../src/core/auditLog";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
@@ -14,6 +17,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailStatusActivityResult,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -24,6 +28,7 @@ import {
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	getLatestStatusActivityCopyIntentAuditExport,
+	getLatestTimelineEvidenceTrailAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	getStatusActivityCopyIntentAuditExportIndex,
@@ -32,6 +37,7 @@ import {
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
 	writeStatusActivityCopyIntentAuditExport,
+	writeTimelineEvidenceTrailAuditExport,
 } from "../src/tui/statusActivityQueue";
 
 describe("Status activity queue", () => {
@@ -910,6 +916,114 @@ describe("Status activity queue", () => {
 			"> timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
 			"  Status Evidence W=open Z=archive enter=open path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
 		]);
+	});
+
+	test("creates selected audit exports for timeline evidence trail handoffs", () => {
+		const plan = createTimelineEvidenceTrailAuditExportPlan(
+			{
+				kind: "audit",
+				selectedIndex: 1,
+				itemCount: 2,
+				label: "picos-audit-selected-2026-07-01T030000000Z.log",
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				message:
+					"timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+				rows: [
+					"TIMELINE EVIDENCE TRAIL audit selected=2/2",
+					"> picos-audit-selected-2026-07-01T030000000Z.log",
+					"path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+					"controls=Status Evidence W=open Z=archive enter=open",
+				],
+			},
+			{
+				baseDir: "/Users/bonjin/.config/picos",
+				generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+			},
+		);
+
+		expect(plan).toEqual({
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			content: [
+				"# picos audit log",
+				"generatedAt=2026-07-01T03:00:00.000Z",
+				"scope=selected",
+				"query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+				"events=1",
+				"",
+				'[03:00:00] INFO timeline evidence trail kind=audit selected=2/2 label="picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log" controls="Status Evidence W=open Z=archive enter=open"',
+				"",
+			].join("\n"),
+			eventCount: 1,
+			query:
+				"timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+			scope: "selected",
+		});
+	});
+
+	test("recovers the latest persisted timeline evidence trail audit export", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-timeline-trail-"));
+		try {
+			const older = createTimelineEvidenceTrailAuditExportPlan(
+				{
+					kind: "audit",
+					selectedIndex: 0,
+					itemCount: 2,
+					label: "older.log",
+					path: join(root, "audit", "older.log"),
+					message: "timeline evidence trail audit 1/2 older.log",
+					rows: [
+						"TIMELINE EVIDENCE TRAIL audit selected=1/2",
+						"> older.log",
+						`path=${join(root, "audit", "older.log")}`,
+						"controls=Status Evidence W=open Z=archive enter=open",
+					],
+				},
+				{
+					baseDir: root,
+					generatedAt: new Date("2026-07-01T02:00:00.000Z"),
+				},
+			);
+			const newer = createTimelineEvidenceTrailAuditExportPlan(
+				{
+					kind: "audit",
+					selectedIndex: 1,
+					itemCount: 2,
+					label: "newer.log",
+					path: join(root, "audit", "newer.log"),
+					message: "timeline evidence trail audit 2/2 newer.log",
+					rows: [
+						"TIMELINE EVIDENCE TRAIL audit selected=2/2",
+						"> newer.log",
+						`path=${join(root, "audit", "newer.log")}`,
+						"controls=Status Evidence W=open Z=archive enter=open",
+					],
+				},
+				{
+					baseDir: root,
+					generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+				},
+			);
+
+			await writeTimelineEvidenceTrailAuditExport(older);
+			await writeTimelineEvidenceTrailAuditExport(newer);
+
+			const latest = getLatestTimelineEvidenceTrailAuditExport(
+				await readConsoleAuditExportIndex(root),
+			);
+
+			expect(latest).toEqual({
+				path: newer.path,
+				content: "",
+				eventCount: 1,
+				query: "timeline evidence trail newer.log",
+				scope: "selected",
+			});
+			expect(await readFile(newer.path, "utf8")).toContain(
+				'timeline evidence trail kind=audit selected=2/2 label="newer.log"',
+			);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
 	});
 
 	test("selects status activity copy intents and creates timeline search jumps", () => {
