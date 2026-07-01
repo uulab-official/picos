@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.183 - Status Audit Jump Shelf Replay Source
+
+Status: draft PR [#245](https://github.com/uulab-official/picos/pull/245) on `codex/picos-v0.4.183-audit-jump-shelf-replay-source`.
+
+Goal: preview the replay source in Status before operators jump into Timeline.
+
+- Status Activity copy-intent audit-jump summaries now append `replay=selected` when `I=replay` will use the selected `P audit jump` cursor.
+- The same summary appends `replay=latest` when `I=replay` will fall back to the newest reusable audit jump.
+- Fresh result-row jumps keep the existing `I=fresh` summary without a replay-source token.
+- Tests cover both shelf source markers alongside the existing selected audit-jump cursor behavior.
+- Next: add a compact stale/valid replay marker so malformed stored audit-jump payloads are visible before `I` refuses them.
+
 ## v0.4.182 - Status Audit Jump Replay Source
 
 Status: draft PR [#244](https://github.com/uulab-official/picos/pull/244) on `codex/picos-v0.4.182-audit-jump-replay-source`.
