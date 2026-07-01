@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Editor workspace now supports line insertion and undo: `i` inserts before the selected line, `o` inserts after it, `u` restores the previous in-memory buffer content, and the buffer status shows available undo depth before provider writes are enabled.
 - Editor workspace now supports selected-line editing: `j/k` move the buffer cursor, `r` opens a replace-line prompt, and `x` deletes the selected in-memory line while the save preview updates before any provider write is enabled.
 - Editor workspace now supports a keyboard dirty-buffer loop: `a` appends a typed line to the in-memory buffer, the buffer state shows dirty/line counts, and `s` opens an exact `save file` confirmation that still keeps provider writes locked.
 - Editor now builds a locked diff-based save preview for the current buffer, including provider, path, risk, confirmation phrase, changed-line counts, and preview rows before any file write can execute.

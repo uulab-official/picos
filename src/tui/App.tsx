@@ -267,8 +267,10 @@ import {
 	type EditorBuffer,
 	formatEditorBufferLines,
 	getEditorBufferState,
+	insertEditorBufferLine,
 	moveEditorBufferLineSelection,
 	replaceEditorBufferLine,
+	undoEditorBufferEdit,
 } from "./editorBuffer";
 import {
 	createEndpointFilterCleanupPreview,
@@ -1539,6 +1541,39 @@ export function App(): React.ReactElement {
 		});
 	}, [commandLine.value, log]);
 
+	const submitEditorInsertLineCommand = useCallback(
+		(position: "before" | "after") => {
+			const line = commandLine.value;
+			setCommandLine((current) => closeCommandLine(current));
+			setEditorPreview((current) => {
+				if (!current) {
+					log("warn", "open a text file before inserting lines");
+					return current;
+				}
+				const next = insertEditorBufferLine(
+					current,
+					selectedEditorLineIndex,
+					line,
+					position,
+				);
+				const state = getEditorBufferState(next);
+				const insertedIndex =
+					position === "before"
+						? selectedEditorLineIndex
+						: selectedEditorLineIndex + 1;
+				setSelectedEditorLineIndex(
+					Math.min(insertedIndex, Math.max(0, state.lineCount - 1)),
+				);
+				log(
+					"ok",
+					`editor inserted ${position} line ${selectedEditorLineIndex + 1} dirty=${state.dirty}`,
+				);
+				return next;
+			});
+		},
+		[commandLine.value, log, selectedEditorLineIndex],
+	);
+
 	const submitEditorReplaceLineCommand = useCallback(() => {
 		const line = commandLine.value;
 		setCommandLine((current) => closeCommandLine(current));
@@ -1563,6 +1598,26 @@ export function App(): React.ReactElement {
 			return next;
 		});
 	}, [commandLine.value, log, selectedEditorLineIndex]);
+
+	const undoEditorEdit = useCallback(() => {
+		setEditorPreview((current) => {
+			if (!current) {
+				log("warn", "open a text file before undo");
+				return current;
+			}
+			if (current.editHistory.length <= 0) {
+				log("info", "editor undo history empty");
+				return current;
+			}
+			const next = undoEditorBufferEdit(current);
+			const state = getEditorBufferState(next);
+			setSelectedEditorLineIndex((index) =>
+				Math.min(index, Math.max(0, state.lineCount - 1)),
+			);
+			log("info", `editor undo dirty=${state.dirty}`);
+			return next;
+		});
+	}, [log]);
 
 	const deleteSelectedEditorLine = useCallback(() => {
 		setEditorPreview((current) => {
@@ -4469,41 +4524,47 @@ export function App(): React.ReactElement {
 																								"editor-append"
 																							? "editor append cancelled"
 																							: commandLine.prompt ===
-																									"editor-replace"
-																								? "editor replace cancelled"
+																									"editor-insert-before"
+																								? "editor insert before cancelled"
 																								: commandLine.prompt ===
-																										"editor-save"
-																									? "editor save confirmation cancelled"
-																									: commandLine.prompt.startsWith(
-																												"config-",
-																											)
-																										? "config edit cancelled"
+																										"editor-insert-after"
+																									? "editor insert after cancelled"
+																									: commandLine.prompt ===
+																											"editor-replace"
+																										? "editor replace cancelled"
 																										: commandLine.prompt ===
-																												"log-search"
-																											? "logs search cancelled"
-																											: commandLine.prompt ===
-																													"logs-cleanup"
-																												? "logs cleanup cancelled"
+																												"editor-save"
+																											? "editor save confirmation cancelled"
+																											: commandLine.prompt.startsWith(
+																														"config-",
+																													)
+																												? "config edit cancelled"
 																												: commandLine.prompt ===
-																														"tool-target-label"
-																													? "tool target label cancelled"
+																														"log-search"
+																													? "logs search cancelled"
 																													: commandLine.prompt ===
-																															"tool-target-value"
-																														? "tool target value cancelled"
+																															"logs-cleanup"
+																														? "logs cleanup cancelled"
 																														: commandLine.prompt ===
-																																"tool-target-action"
-																															? "tool target action cancelled"
+																																"tool-target-label"
+																															? "tool target label cancelled"
 																															: commandLine.prompt ===
-																																	"tool-target-cleanup"
-																																? "tool target cleanup cancelled"
+																																	"tool-target-value"
+																																? "tool target value cancelled"
 																																: commandLine.prompt ===
-																																		portProcessControlPrompt
-																																	? "port process control cancelled"
-																																	: commandLine.prompt.startsWith(
-																																				toolPromptPrefix,
-																																			)
-																																		? "tool target command cancelled"
-																																		: "path command cancelled",
+																																		"tool-target-action"
+																																	? "tool target action cancelled"
+																																	: commandLine.prompt ===
+																																			"tool-target-cleanup"
+																																		? "tool target cleanup cancelled"
+																																		: commandLine.prompt ===
+																																				portProcessControlPrompt
+																																			? "port process control cancelled"
+																																			: commandLine.prompt.startsWith(
+																																						toolPromptPrefix,
+																																					)
+																																				? "tool target command cancelled"
+																																				: "path command cancelled",
 				);
 				return;
 			}
@@ -4561,6 +4622,10 @@ export function App(): React.ReactElement {
 					void submitConfigResetCommand();
 				} else if (commandLine.prompt === "editor-append") {
 					submitEditorAppendLineCommand();
+				} else if (commandLine.prompt === "editor-insert-before") {
+					submitEditorInsertLineCommand("before");
+				} else if (commandLine.prompt === "editor-insert-after") {
+					submitEditorInsertLineCommand("after");
 				} else if (commandLine.prompt === "editor-replace") {
 					submitEditorReplaceLineCommand();
 				} else if (commandLine.prompt === "editor-save") {
@@ -4835,6 +4900,26 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "editor" && focusArea === "workspaces" && input === "i") {
+			if (!editorPreview) {
+				log("warn", "open a text file before inserting lines");
+				return;
+			}
+			setCommandLine(openCommandLine("editor-insert-before"));
+			log("info", `editor insert before line ${selectedEditorLineIndex + 1}`);
+			return;
+		}
+
+		if (screen === "editor" && focusArea === "workspaces" && input === "o") {
+			if (!editorPreview) {
+				log("warn", "open a text file before inserting lines");
+				return;
+			}
+			setCommandLine(openCommandLine("editor-insert-after"));
+			log("info", `editor insert after line ${selectedEditorLineIndex + 1}`);
+			return;
+		}
+
 		if (screen === "editor" && focusArea === "workspaces" && input === "r") {
 			if (!editorPreview) {
 				log("warn", "open a text file before replacing lines");
@@ -4847,6 +4932,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "editor" && focusArea === "workspaces" && input === "x") {
 			deleteSelectedEditorLine();
+			return;
+		}
+
+		if (screen === "editor" && focusArea === "workspaces" && input === "u") {
+			undoEditorEdit();
 			return;
 		}
 
@@ -9247,20 +9337,26 @@ function EditorWorkspace({
 				{t("screen.editor")} · preview buffer
 			</Text>
 			<Text color="gray">
-				j/k line · a append · r replace · x delete · s save confirm · writes
-				locked
+				j/k line · i before · o after · r replace · x delete · u undo · s save
+				confirm · writes locked
 			</Text>
 			{commandLine.active &&
 			(commandLine.prompt === "editor-append" ||
+				commandLine.prompt === "editor-insert-before" ||
+				commandLine.prompt === "editor-insert-after" ||
 				commandLine.prompt === "editor-replace" ||
 				commandLine.prompt === "editor-save") ? (
 				<Text color="yellow">
 					:{commandLine.prompt} {commandLine.value || " "}{" "}
 					{commandLine.prompt === "editor-save"
 						? 'type="save file" enter=confirm esc=cancel'
-						: commandLine.prompt === "editor-replace"
-							? "enter=replace esc=cancel"
-							: "enter=append esc=cancel"}
+						: commandLine.prompt === "editor-insert-before"
+							? "enter=insert-before esc=cancel"
+							: commandLine.prompt === "editor-insert-after"
+								? "enter=insert-after esc=cancel"
+								: commandLine.prompt === "editor-replace"
+									? "enter=replace esc=cancel"
+									: "enter=append esc=cancel"}
 				</Text>
 			) : null}
 			<Box marginTop={1} flexDirection="column">
@@ -9270,7 +9366,8 @@ function EditorWorkspace({
 					<Text color={bufferState.dirty ? "yellow" : "gray"}>
 						state dirty={String(bufferState.dirty)} lines=
 						{bufferState.lineCount}/{bufferState.originalLineCount} truncated=
-						{String(bufferState.truncated)}
+						{String(bufferState.truncated)} undo=
+						{preview?.editHistory.length ?? 0}
 					</Text>
 				) : null}
 				{lines.length ? (

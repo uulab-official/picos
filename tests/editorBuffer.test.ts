@@ -5,8 +5,10 @@ import {
 	deleteEditorBufferLine,
 	formatEditorBufferLines,
 	getEditorBufferState,
+	insertEditorBufferLine,
 	moveEditorBufferLineSelection,
 	replaceEditorBufferLine,
+	undoEditorBufferEdit,
 } from "../src/tui/editorBuffer";
 
 describe("editor buffer", () => {
@@ -84,5 +86,50 @@ describe("editor buffer", () => {
 			{ number: 1, content: "TWO" },
 			{ number: 2, content: "three" },
 		]);
+	});
+
+	test("inserts lines before and after the selected line", () => {
+		const buffer = createEditorBuffer({
+			path: "/workspace/picos/README.md",
+			content: "one\nthree\n",
+			truncated: false,
+		});
+
+		const before = insertEditorBufferLine(buffer, 1, "two", "before");
+		expect(before.content).toBe("one\ntwo\nthree\n");
+
+		const after = insertEditorBufferLine(before, 1, "two-and-half", "after");
+		expect(after.content).toBe("one\ntwo\ntwo-and-half\nthree\n");
+		expect(formatEditorBufferLines(after, 5)).toEqual([
+			{ number: 1, content: "one" },
+			{ number: 2, content: "two" },
+			{ number: 3, content: "two-and-half" },
+			{ number: 4, content: "three" },
+		]);
+	});
+
+	test("undoes the latest editor buffer edit without losing the original file", () => {
+		const buffer = createEditorBuffer({
+			path: "/workspace/picos/README.md",
+			content: "one\ntwo\n",
+			truncated: false,
+		});
+
+		const inserted = insertEditorBufferLine(buffer, 1, "middle", "before");
+		const replaced = replaceEditorBufferLine(inserted, 1, "TWO");
+		const undone = undoEditorBufferEdit(replaced);
+
+		expect(undone.content).toBe("one\nmiddle\ntwo\n");
+		expect(undone.originalContent).toBe("one\ntwo\n");
+		expect(getEditorBufferState(undone)).toEqual({
+			dirty: true,
+			lineCount: 3,
+			originalLineCount: 2,
+			truncated: false,
+		});
+
+		const clean = undoEditorBufferEdit(undoEditorBufferEdit(undone));
+		expect(clean.content).toBe("one\ntwo\n");
+		expect(getEditorBufferState(clean).dirty).toBe(false);
 	});
 });
