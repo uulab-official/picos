@@ -1144,6 +1144,38 @@ describe("Status activity queue", () => {
 			detail: "no recovered Timeline Evidence trail export selected",
 		});
 		expect(
+			createTimelineEvidenceTrailPaletteStatusActivityResult(
+				"source",
+				undefined,
+				{
+					sourceFilter: "evidence",
+					visible: 1,
+					total: 3,
+				},
+			),
+		).toEqual({
+			source: "evidence",
+			action: "timeline-evidence-trail",
+			message: "palette timeline trail source evidence visible=1/3",
+			detail: "source filter changed to evidence",
+		});
+		expect(
+			createTimelineEvidenceTrailPaletteStatusActivityResult(
+				"source",
+				undefined,
+				{
+					sourceFilter: "palette",
+					visible: 0,
+					total: 3,
+				},
+			),
+		).toEqual({
+			source: "evidence",
+			action: "timeline-evidence-trail",
+			message: "palette timeline trail source palette visible=0/3",
+			detail: "source filter changed to palette",
+		});
+		expect(
 			formatTimelineEvidenceTrailPaletteAuditMessage("search", trail, {
 				selectedIndex: 1,
 				total: 3,

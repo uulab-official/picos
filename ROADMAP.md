@@ -3077,6 +3077,19 @@ Goal: make recovered trail source filtering discoverable from the command palett
 - Tests cover action catalog metadata and command palette discovery for the source filter action.
 - Next: record palette-triggered source-filter cycles in Status Activity result history so filter changes remain visible after rapid trail review.
 
+## v0.4.170 - Timeline Evidence Trail Source Palette Results
+
+Status: draft PR [#232](https://github.com/uulab-official/picos/pull/232) on `codex/picos-v0.4.170-timeline-trail-source-results`.
+
+Goal: keep command-palette source-filter changes visible in Status Activity result history.
+
+- Palette-triggered recovered trail source-filter cycles now append `timeline-evidence-trail` result rows.
+- Result rows include the selected source filter and visible/total recovered trail counts.
+- Empty source filters still record visible `0/<total>` result rows.
+- Keyboard `Q` keeps its existing lightweight log-only behavior while palette actions add the extra result row.
+- Tests cover source-filter result formatting for populated and empty source filters.
+- Next: emit Timeline audit events for palette-triggered source-filter cycles so filter changes are searchable outside Status.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
