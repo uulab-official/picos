@@ -3103,6 +3103,19 @@ Goal: make command-palette source-filter changes searchable in Timeline audit, n
 - Tests cover the source audit formatter and Timeline audit rendering/search path.
 - Next: add a direct Timeline jump from the Status result row for the latest palette source-filter event.
 
+## v0.4.172 - Timeline Evidence Trail Source Result Jump
+
+Status: draft PR [#234](https://github.com/uulab-official/picos/pull/234) on `codex/picos-v0.4.172-timeline-trail-source-result-jump`.
+
+Goal: let operators jump from a palette source-filter Status result row back into the matching Timeline audit event.
+
+- Status Activity result history now builds Timeline audit search plans for palette `trail source` result rows.
+- `STATUS ACTIVITY COPY PREVIEW` advertises `I audit jump` beside copy controls.
+- Pressing `I` in Status jumps the selected palette source-filter result into Timeline with an `action=source source=<filter> visible=<shown>/<total>` audit search.
+- Non-auditable Status result rows keep returning a clear unavailable path instead of changing screens.
+- Tests cover the result-row search planner and copy preview control hint.
+- Next: persist the latest result-row audit jump as a reusable Status copy intent so it can be exported like other handoffs.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

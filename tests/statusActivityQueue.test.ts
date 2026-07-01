@@ -19,6 +19,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createStatusActivityResultTimelineSearch,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -359,7 +360,7 @@ describe("Status activity queue", () => {
 			"  copy cleanup jump-cleanup",
 			"  copy cleanup activity selected; jumping to selected cleanup shelf",
 			"  copy ... 1 more line",
-			"controls=; row · = expand · y copy selected history · :clipboard confirm=copy locked",
+			"controls=; row · = expand · y copy selected history · I audit jump · :clipboard confirm=copy locked",
 		]);
 		expect(formatStatusActivityResultCopyPreviewRows()).toEqual([
 			"STATUS ACTIVITY COPY PREVIEW source=none",
@@ -402,7 +403,7 @@ describe("Status activity queue", () => {
 			"  copy cleanup jump-cleanup",
 			"> copy cleanup activity selected; jumping to selected cleanup shelf",
 			"  copy cleanup handoff Logs: press l then type delete logs",
-			"controls=; row · = expand · y copy selected history · :clipboard confirm=copy locked",
+			"controls=; row · = expand · y copy selected history · I audit jump · :clipboard confirm=copy locked",
 		]);
 	});
 
@@ -1427,5 +1428,35 @@ describe("Status activity queue", () => {
 				"status activity copy intent timeline search status activity cleanup jump-cleanup",
 		});
 		expect(createStatusActivityCopyIntentTimelineSearch([], 0)).toBeUndefined();
+	});
+
+	test("creates timeline searches for palette source result history rows", () => {
+		const history = [
+			createTimelineEvidenceTrailPaletteStatusActivityResult(
+				"source",
+				undefined,
+				{
+					sourceFilter: "evidence",
+					visible: 1,
+					total: 3,
+				},
+			),
+			{
+				source: "cleanup" as const,
+				action: "jump-cleanup" as const,
+				message: "cleanup activity selected; jumping to selected cleanup shelf",
+			},
+		];
+
+		expect(createStatusActivityResultTimelineSearch(history, 0)).toEqual({
+			filter: "audit",
+			query: "action=source source=evidence visible=1/3",
+			message:
+				"status activity result timeline search palette source evidence visible=1/3",
+		});
+		expect(
+			createStatusActivityResultTimelineSearch(history, 1),
+		).toBeUndefined();
+		expect(createStatusActivityResultTimelineSearch([], 0)).toBeUndefined();
 	});
 });
