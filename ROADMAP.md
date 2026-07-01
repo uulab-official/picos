@@ -2449,6 +2449,20 @@ Goal: make the active Status Evidence target perform a safe primary action from 
 - Tests cover unified enter plans, archived evidence routing, and no-evidence fallback planning.
 - Next: add a secondary Status Evidence action mode so `a`/`x` can archive the active target and `m` can preview retention for archived Timeline evidence from the same pane.
 
+## v0.4.121 - Status Evidence Secondary Actions
+
+Status: draft PR #183 on `codex/picos-v0.4.121-status-evidence-secondary`.
+
+Goal: let the Status Evidence cursor drive archive and retention actions without forcing operators to remember each per-index shortcut.
+
+- Status Evidence now creates pure secondary action plans for archive and retention intents.
+- `a` and `x` in Status follow the active evidence family and route to the existing safe archive controls for handoff, Timeline audit export, or cleanup export evidence.
+- `m` in Status previews archived Timeline retention only when the active evidence family is an archived Timeline audit export.
+- Archived cleanup evidence intentionally stays read-only/selectable from this secondary action path.
+- Evidence detail rows now expose lowercase action hints beside the existing explicit uppercase controls.
+- Tests cover active secondary action planning, archived Timeline retention planning, and blocked archived-cleanup secondary actions.
+- Next: add an active-target command strip near the Status Evidence pane so open/archive/retention availability is visible even on narrow terminals.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
