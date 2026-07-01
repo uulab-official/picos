@@ -377,6 +377,7 @@ import {
 	getLatestStatusActivityCopyIntentAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	getStatusActivityCopyIntentAuditExportIndex,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
@@ -4836,6 +4837,14 @@ export function App(): React.ReactElement {
 					platform: currentPlatform(),
 				},
 			);
+			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+				auditExportIndex,
+				lastStatusActivityCopyIntentAuditExport,
+			);
+			if (evidenceIndex !== undefined) {
+				setSelectedAuditExportIndex(evidenceIndex);
+				setSelectedStatusEvidenceKind("audit");
+			}
 			setFileOpenPlan(plan);
 			setExternalOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
@@ -4845,7 +4854,7 @@ export function App(): React.ReactElement {
 			setScreen("status");
 			log(
 				"info",
-				`status activity copy intent export open confirmation opened for ${lastStatusActivityCopyIntentAuditExport.path}`,
+				`status activity copy intent export open confirmation opened for ${lastStatusActivityCopyIntentAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
 			);
 			return;
 		}

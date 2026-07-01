@@ -2799,6 +2799,19 @@ Goal: make the restored `z` file-open target visible inside the Status Activity 
 - Tests cover the restored target row for empty shelves and keep the existing copy-intent shelf controls stable.
 - Next: let `z` also select the matching Status Evidence audit export row so the Evidence table and Activity shelf point at the same file.
 
+## v0.4.148 - Status Activity Copy Intent Evidence Sync
+
+Status: draft PR [#210](https://github.com/uulab-official/picos/pull/210) on `codex/picos-v0.4.148-status-activity-copy-intent-evidence-sync`.
+
+Goal: keep the Status Activity `z` file-open target and Status Evidence audit selection aligned.
+
+- Status Activity can now resolve the latest copy-intent export plan back to its audit export index row.
+- Pressing `z` selects the matching Status Evidence audit export row before opening the locked `:file-open` prompt.
+- `z` also moves Status Evidence focus to the audit family when a matching row exists, so the Evidence table and Activity shelf point at the same file.
+- Missing or stale export targets still open through the existing locked file-open flow without forcing an invalid Evidence selection.
+- Tests cover export path to Evidence index matching and missing target behavior.
+- Next: add a compact `z evidence=` hint beside the target row so the Activity shelf shows the matching Evidence row number before opening.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

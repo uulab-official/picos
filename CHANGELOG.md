@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy-intent export opens now sync the Status Evidence audit selection to the same export file before opening the locked file-open prompt.
 - Status Activity copy intent shelves now show the restored `z` export target file, query, and event count before opening the locked file-open prompt.
 - Status Activity now restores the latest persisted copy-intent audit export on boot or audit index refresh, so `z` can reopen it after restarting the TUI.
 - Status Activity copy intent exports can now be reopened with `z`, which opens the latest exported audit file through the locked `:file-open` confirmation.

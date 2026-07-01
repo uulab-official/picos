@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ConsoleAuditExportIndex } from "../src/core/auditLog";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
@@ -20,6 +21,7 @@ import {
 	getLatestStatusActivityCopyIntentAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	getStatusActivityCopyIntentAuditExportIndex,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
@@ -705,6 +707,49 @@ describe("Status activity queue", () => {
 			getLatestStatusActivityCopyIntentAuditExport({
 				baseDir: "/Users/bonjin/.config/picos",
 				items: [],
+			}),
+		).toBeUndefined();
+	});
+
+	test("finds matching status activity copy intent audit export indexes", () => {
+		const index: ConsoleAuditExportIndex = {
+			baseDir: "/Users/bonjin/.config/picos",
+			items: [
+				{
+					fileName: "picos-audit-selected-2026-07-01T040000000Z.log",
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+					generatedAt: "2026-07-01T04:00:00.000Z",
+					scope: "selected",
+					query: "tools ping google.com",
+					entryCount: 1,
+				},
+				{
+					fileName: "picos-audit-selected-2026-07-01T030000000Z.log",
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+					generatedAt: "2026-07-01T03:00:00.000Z",
+					scope: "selected",
+					query: "status activity cleanup jump-cleanup",
+					entryCount: 1,
+				},
+			],
+		};
+
+		expect(
+			getStatusActivityCopyIntentAuditExportIndex(index, {
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				content: "",
+				eventCount: 1,
+				query: "status activity cleanup jump-cleanup",
+				scope: "selected",
+			}),
+		).toBe(1);
+		expect(
+			getStatusActivityCopyIntentAuditExportIndex(index, {
+				path: "/Users/bonjin/.config/picos/audit/missing.log",
+				content: "",
+				eventCount: 0,
+				query: "status activity missing",
+				scope: "selected",
 			}),
 		).toBeUndefined();
 	});
