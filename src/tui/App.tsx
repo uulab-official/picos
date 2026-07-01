@@ -372,6 +372,7 @@ import {
 	createStatusActivityEnterPlan,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
+	createTimelineEvidenceTrailPaletteStatusActivityResult,
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
 	formatStatusActivityCopyIntentAuditMessage,
@@ -2886,79 +2887,156 @@ export function App(): React.ReactElement {
 		}
 	}, [log]);
 
-	const selectNextTimelineEvidenceTrailExport = useCallback(() => {
-		setScreen("status");
-		if (timelineEvidenceTrailAuditExports.length <= 1) {
-			log("warn", "no alternate timeline evidence trail exports");
-			return;
-		}
-		setSelectedTimelineEvidenceTrailAuditExportIndex((current) => {
-			const next = moveTimelineEvidenceTrailSelection(
-				timelineEvidenceTrailAuditExports,
-				current,
-				"next",
+	const getSelectedTimelineEvidenceTrailResultOptions = useCallback(
+		() => ({
+			selectedIndex: selectedTimelineEvidenceTrailAuditExportIndex,
+			total: timelineEvidenceTrailAuditExports.length || 1,
+		}),
+		[
+			selectedTimelineEvidenceTrailAuditExportIndex,
+			timelineEvidenceTrailAuditExports.length,
+		],
+	);
+
+	const selectNextTimelineEvidenceTrailExport = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			setScreen("status");
+			if (timelineEvidenceTrailAuditExports.length <= 1) {
+				log("warn", "no alternate timeline evidence trail exports");
+				if (options.origin === "palette") {
+					recordStatusActivityResult(
+						createTimelineEvidenceTrailPaletteStatusActivityResult("select"),
+					);
+				}
+				return;
+			}
+			setSelectedTimelineEvidenceTrailAuditExportIndex((current) => {
+				const next = moveTimelineEvidenceTrailSelection(
+					timelineEvidenceTrailAuditExports,
+					current,
+					"next",
+				);
+				const trail = timelineEvidenceTrailAuditExports[next];
+				log(
+					"info",
+					`timeline evidence trail selected ${next + 1}/${timelineEvidenceTrailAuditExports.length} ${trail ? basename(trail.path) : "none"}`,
+				);
+				if (options.origin === "palette") {
+					recordStatusActivityResult(
+						createTimelineEvidenceTrailPaletteStatusActivityResult(
+							"select",
+							trail,
+							{
+								selectedIndex: next,
+								total: timelineEvidenceTrailAuditExports.length,
+							},
+						),
+					);
+				}
+				return next;
+			});
+		},
+		[log, recordStatusActivityResult, timelineEvidenceTrailAuditExports],
+	);
+
+	const jumpSelectedTimelineEvidenceTrailSearch = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const jump = createTimelineEvidenceTrailTimelineSearch(
+				selectedTimelineEvidenceTrailAuditExport,
 			);
-			const trail = timelineEvidenceTrailAuditExports[next];
+			if (!jump) {
+				log("warn", "no timeline evidence trail export for timeline");
+				if (options.origin === "palette") {
+					recordStatusActivityResult(
+						createTimelineEvidenceTrailPaletteStatusActivityResult("search"),
+					);
+				}
+				return;
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}`,
+			);
+			if (options.origin === "palette") {
+				recordStatusActivityResult(
+					createTimelineEvidenceTrailPaletteStatusActivityResult(
+						"search",
+						selectedTimelineEvidenceTrailAuditExport,
+						getSelectedTimelineEvidenceTrailResultOptions(),
+					),
+				);
+			}
+		},
+		[
+			events,
+			getSelectedTimelineEvidenceTrailResultOptions,
+			log,
+			recordStatusActivityResult,
+			selectedTimelineEvidenceTrailAuditExport,
+		],
+	);
+
+	const openSelectedTimelineEvidenceTrailExport = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			if (!selectedTimelineEvidenceTrailAuditExport) {
+				log("warn", "no timeline evidence trail export to open");
+				setScreen("status");
+				if (options.origin === "palette") {
+					recordStatusActivityResult(
+						createTimelineEvidenceTrailPaletteStatusActivityResult("open"),
+					);
+				}
+				return;
+			}
+			const plan = createTimelineEvidenceTrailAuditExportOpenPlan(
+				selectedTimelineEvidenceTrailAuditExport,
+				{
+					baseDir: dirname(getConfigPath()),
+					platform: currentPlatform(),
+				},
+			);
+			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+				auditExportIndex,
+				selectedTimelineEvidenceTrailAuditExport,
+			);
+			if (evidenceIndex !== undefined) {
+				setSelectedAuditExportIndex(evidenceIndex);
+				setSelectedStatusEvidenceKind("audit");
+			}
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
 			log(
 				"info",
-				`timeline evidence trail selected ${next + 1}/${timelineEvidenceTrailAuditExports.length} ${trail ? basename(trail.path) : "none"}`,
+				`timeline evidence trail export open confirmation opened for ${selectedTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
 			);
-			return next;
-		});
-	}, [log, timelineEvidenceTrailAuditExports]);
-
-	const jumpSelectedTimelineEvidenceTrailSearch = useCallback(() => {
-		const jump = createTimelineEvidenceTrailTimelineSearch(
-			selectedTimelineEvidenceTrailAuditExport,
-		);
-		if (!jump) {
-			log("warn", "no timeline evidence trail export for timeline");
-			return;
-		}
-		const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-		setTimelineFilter(jump.filter);
-		setTimelineSearchQuery(jump.query);
-		setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
-		setScreen("timeline");
-		log(
-			filtered.length ? "info" : "warn",
-			`${jump.message} matches ${filtered.length}`,
-		);
-	}, [events, log, selectedTimelineEvidenceTrailAuditExport]);
-
-	const openSelectedTimelineEvidenceTrailExport = useCallback(() => {
-		if (!selectedTimelineEvidenceTrailAuditExport) {
-			log("warn", "no timeline evidence trail export to open");
-			setScreen("status");
-			return;
-		}
-		const plan = createTimelineEvidenceTrailAuditExportOpenPlan(
-			selectedTimelineEvidenceTrailAuditExport,
-			{
-				baseDir: dirname(getConfigPath()),
-				platform: currentPlatform(),
-			},
-		);
-		const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+			if (options.origin === "palette") {
+				recordStatusActivityResult(
+					createTimelineEvidenceTrailPaletteStatusActivityResult(
+						"open",
+						selectedTimelineEvidenceTrailAuditExport,
+						getSelectedTimelineEvidenceTrailResultOptions(),
+					),
+				);
+			}
+		},
+		[
 			auditExportIndex,
+			getSelectedTimelineEvidenceTrailResultOptions,
+			log,
+			recordStatusActivityResult,
 			selectedTimelineEvidenceTrailAuditExport,
-		);
-		if (evidenceIndex !== undefined) {
-			setSelectedAuditExportIndex(evidenceIndex);
-			setSelectedStatusEvidenceKind("audit");
-		}
-		setFileOpenPlan(plan);
-		setExternalOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("file-open"));
-		setScreen("status");
-		log(
-			"info",
-			`timeline evidence trail export open confirmation opened for ${selectedTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
-		);
-	}, [auditExportIndex, log, selectedTimelineEvidenceTrailAuditExport]);
+		],
+	);
 
 	const runAction = useCallback(
 		async (action: PicosAction) => {
@@ -3171,15 +3249,15 @@ export function App(): React.ReactElement {
 				}
 
 				if (action.id === "status.timelineTrail.select") {
-					selectNextTimelineEvidenceTrailExport();
+					selectNextTimelineEvidenceTrailExport({ origin: "palette" });
 				}
 
 				if (action.id === "status.timelineTrail.open") {
-					openSelectedTimelineEvidenceTrailExport();
+					openSelectedTimelineEvidenceTrailExport({ origin: "palette" });
 				}
 
 				if (action.id === "status.timelineTrail.search") {
-					jumpSelectedTimelineEvidenceTrailSearch();
+					jumpSelectedTimelineEvidenceTrailSearch({ origin: "palette" });
 				}
 
 				if (

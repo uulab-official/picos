@@ -19,6 +19,7 @@ import {
 	createStatusActivityEnterPlan,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
+	createTimelineEvidenceTrailPaletteStatusActivityResult,
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
 	formatStatusActivityCopyIntentAuditMessage,
@@ -1036,6 +1037,56 @@ describe("Status activity queue", () => {
 			"> timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
 			"  Status Evidence W=open Z=archive enter=open path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
 		]);
+	});
+
+	test("creates status activity results for palette-triggered timeline evidence trail actions", () => {
+		const trail = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+			scope: "selected" as const,
+		};
+
+		const result = createTimelineEvidenceTrailPaletteStatusActivityResult(
+			"search",
+			trail,
+			{
+				selectedIndex: 1,
+				total: 3,
+			},
+		);
+
+		expect(result).toEqual({
+			source: "evidence",
+			action: "timeline-evidence-trail",
+			message:
+				"palette timeline trail search 2/3 picos-audit-selected-2026-07-01T040000000Z.log",
+			detail:
+				"query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=evidence action=timeline-evidence-trail",
+			"> palette timeline trail search 2/3 picos-audit-selected-2026-07-01T040000000Z.log",
+			"  query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> evidence timeline-evidence-trail palette timeline trail search 2/3 picos-audit-selected-2026-07-01T040000000Z.log",
+			"    query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+		]);
+		expect(
+			createTimelineEvidenceTrailPaletteStatusActivityResult(
+				"select",
+				undefined,
+			),
+		).toEqual({
+			source: "evidence",
+			action: "timeline-evidence-trail",
+			message: "palette timeline trail select unavailable",
+			detail: "no recovered Timeline Evidence trail export selected",
+		});
 	});
 
 	test("creates selected audit exports for timeline evidence trail handoffs", () => {
