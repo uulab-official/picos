@@ -1,4 +1,5 @@
 import {
+	type ConsoleAuditExportIndex,
 	type ConsoleAuditExportPlan,
 	createConsoleAuditExportPlan,
 } from "../core/auditLog";
@@ -28,6 +29,15 @@ export type TimelineSearchCleanupConfirmation = {
 	message: string;
 	presets: string[];
 	removed: number;
+};
+
+export type TimelineFocusEvidenceTrailPlan = {
+	kind: "audit";
+	selectedIndex: number;
+	itemCount: number;
+	label: string;
+	path: string;
+	message: string;
 };
 
 const timelineFilters: TimelineFilter[] = [
@@ -96,7 +106,7 @@ export function formatTimelineWorkspaceRows(
 		),
 		"TIMELINE",
 		...(visibleEventRows.length ? visibleEventRows : ["no timeline events"]),
-		"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 	].slice(0, visibleRows);
 }
 
@@ -183,6 +193,46 @@ export function getSelectedTimelineAuditExportPlan(
 		query: options.query?.trim() || undefined,
 		scope: "selected",
 	});
+}
+
+export function createTimelineFocusEvidenceTrailPlan(
+	events: ConsoleEvent[],
+	options: {
+		auditExportIndex: ConsoleAuditExportIndex;
+		filter?: TimelineFilter;
+		query?: string;
+		selectedIndex?: number;
+	},
+): TimelineFocusEvidenceTrailPlan | undefined {
+	const filter = options.filter ?? "all";
+	const filtered = filterTimelineEvents(events, options.query, filter);
+	const index = getSelectedTimelineIndex(
+		filtered.length,
+		options.selectedIndex,
+	);
+	const event = index === undefined ? undefined : filtered[index];
+	if (!event) {
+		return undefined;
+	}
+	const path = getQuotedTimelineField(event.message, "path");
+	if (!path || !event.message.includes("status activity evidence focus")) {
+		return undefined;
+	}
+	const selectedIndex = options.auditExportIndex.items.findIndex(
+		(item) => item.path === path,
+	);
+	const item = options.auditExportIndex.items[selectedIndex];
+	if (selectedIndex < 0 || !item) {
+		return undefined;
+	}
+	return {
+		kind: "audit",
+		selectedIndex,
+		itemCount: options.auditExportIndex.items.length,
+		label: item.fileName,
+		path: item.path,
+		message: `timeline evidence trail audit ${selectedIndex + 1}/${options.auditExportIndex.items.length} ${item.fileName}`,
+	};
 }
 
 export function moveTimelineSelection(
@@ -398,4 +448,12 @@ function countLabel(
 	return filter === "all" && !hasQuery
 		? String(totalCount)
 		: `${visibleCount}/${totalCount}`;
+}
+
+function getQuotedTimelineField(
+	message: string,
+	field: string,
+): string | undefined {
+	const match = new RegExp(`${field}="([^"]+)"`).exec(message);
+	return match?.[1];
 }
