@@ -336,6 +336,19 @@ describe("timeline TUI panel formatting", () => {
 		expect(row).toEndWith("fix=P audit jump/new result");
 	});
 
+	test("adds a compact raw source hint to selected timeline previews", () => {
+		expect(
+			formatSelectedTimelinePreviewRow(events, {
+				filter: "audit",
+				query: "control preview",
+				selectedIndex: 0,
+				showRawSourceHint: true,
+			}),
+		).toBe(
+			'selected timeline 1/1 audit search=control preview source=t raw c copy e export [12:00:06] WARN control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
+		);
+	});
+
 	test("moves timeline selection with wraparound", () => {
 		expect(moveTimelineSelection(0, 1, 2)).toBe(1);
 		expect(moveTimelineSelection(1, 1, 2)).toBe(0);

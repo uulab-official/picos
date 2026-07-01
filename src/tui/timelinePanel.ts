@@ -136,6 +136,7 @@ export function formatSelectedTimelinePreviewRow(
 		maxWidth?: number;
 		query?: string;
 		selectedIndex?: number;
+		showRawSourceHint?: boolean;
 	} = {},
 ): string {
 	const filter = options.filter ?? "all";
@@ -172,6 +173,7 @@ export function formatSelectedTimelinePreviewRow(
 			`selected timeline ${index + 1}/${filtered.length}`,
 			kind,
 			query ? `search=${query}` : "",
+			options.showRawSourceHint ? formatTimelineRawSourceHint() : "",
 			`[${event.time}]`,
 			event.level.toUpperCase(),
 			event.message,
@@ -519,6 +521,10 @@ function clipSelectedTimelinePreviewRow(
 function getTimelineRecoveryHint(row: string): string | undefined {
 	const match = /\bfix=[^"]+$/.exec(row);
 	return match?.[0];
+}
+
+function formatTimelineRawSourceHint(): string {
+	return "source=t raw c copy e export";
 }
 
 function countLabel(
