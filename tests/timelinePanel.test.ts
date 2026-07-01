@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ConsoleEvent } from "../src/tui/events";
+import { formatTimelineEvidenceTrailPaletteAuditMessage } from "../src/tui/statusActivityQueue";
 import {
 	createTimelineFocusEvidenceTrailPlan,
 	createTimelineSearchCleanupPreview,
@@ -155,16 +156,30 @@ describe("timeline TUI panel formatting", () => {
 				message:
 					'palette timeline trail audit action=search selected=2/3 label="picos-audit-selected-2026-07-01T040000000Z.log" query="timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log"',
 			},
+			{
+				id: "12:00:10-info-palette-trail-source",
+				level: "info",
+				time: "12:00:10",
+				message: formatTimelineEvidenceTrailPaletteAuditMessage(
+					"source",
+					undefined,
+					{
+						sourceFilter: "palette",
+						visible: 0,
+						total: 3,
+					},
+				),
+			},
 		];
 
 		expect(
 			formatTimelineWorkspaceRows(paletteTrailEvents, 5, "audit", {
-				query: "palette timeline trail",
+				query: "action=source",
 			}),
 		).toEqual([
-			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette timeline trail",
+			"SUMMARY events=1/9 network=0 audit=1 action=0 raw=0 filter=audit search=action=source",
 			"TIMELINE",
-			'[12:00:09] INFO audit  palette timeline trail audit action=search selected=2/3 label="picos-audit-selected-2026-07-01T040000000Z.log" query="timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log"',
+			"[12:00:10] INFO audit  palette timeline trail audit action=source source=palette visible=0/3",
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});

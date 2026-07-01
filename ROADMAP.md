@@ -3090,6 +3090,19 @@ Goal: keep command-palette source-filter changes visible in Status Activity resu
 - Tests cover source-filter result formatting for populated and empty source filters.
 - Next: emit Timeline audit events for palette-triggered source-filter cycles so filter changes are searchable outside Status.
 
+## v0.4.171 - Timeline Evidence Trail Source Palette Audit
+
+Status: draft PR [#233](https://github.com/uulab-official/picos/pull/233) on `codex/picos-v0.4.171-timeline-trail-source-audit`.
+
+Goal: make command-palette source-filter changes searchable in Timeline audit, not only Status Activity result history.
+
+- Palette-triggered recovered trail source-filter cycles now emit `palette timeline trail audit action=source ...` events.
+- Source audit events include the selected `source=<all|evidence|palette>` filter and `visible=<shown>/<total>` counts.
+- Timeline audit search can find source-filter cycles by queries such as `action=source`.
+- Keyboard `Q` remains a lightweight Status-only source cycle, while command palette source cycles leave the fuller audit trail.
+- Tests cover the source audit formatter and Timeline audit rendering/search path.
+- Next: add a direct Timeline jump from the Status result row for the latest palette source-filter event.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

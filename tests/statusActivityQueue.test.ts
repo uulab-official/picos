@@ -1183,6 +1183,24 @@ describe("Status activity queue", () => {
 		).toBe(
 			'palette timeline trail audit action=search selected=2/3 label="picos-audit-selected-2026-07-01T040000000Z.log" query="timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log"',
 		);
+		expect(
+			formatTimelineEvidenceTrailPaletteAuditMessage("source", undefined, {
+				sourceFilter: "evidence",
+				visible: 1,
+				total: 3,
+			}),
+		).toBe(
+			"palette timeline trail audit action=source source=evidence visible=1/3",
+		);
+		expect(
+			formatTimelineEvidenceTrailPaletteAuditMessage("source", undefined, {
+				sourceFilter: "palette",
+				visible: 0,
+				total: 3,
+			}),
+		).toBe(
+			"palette timeline trail audit action=source source=palette visible=0/3",
+		);
 		expect(formatTimelineEvidenceTrailPaletteAuditMessage("open")).toBe(
 			'palette timeline trail audit action=open status=unavailable reason="no recovered Timeline Evidence trail export selected"',
 		);
