@@ -477,6 +477,8 @@ export function formatStatusActivityCopyIntentRows(
 	selectedAuditJumpIndex = 0,
 	staleReplayWarningSummary?: StatusActivityResultAuditJumpReplayWarningSummary,
 	freshResultJump?: StatusActivityCopyIntentTimelineSearch,
+	freshResultJumpSelectedIndex = 0,
+	freshResultJumpCount = freshResultJump ? 1 : 0,
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -560,7 +562,7 @@ export function formatStatusActivityCopyIntentRows(
 		...exportRows,
 		...(freshResultJump && auditJumpActionHint === "fresh"
 			? [
-					`result jump target=filter:${freshResultJump.filter} query=${freshResultJump.query} I=fresh`,
+					`result jump target=filter:${freshResultJump.filter} query=${freshResultJump.query}${freshResultJumpCount > 1 ? ` selected=${getNormalizedSelectionIndex(freshResultJumpCount, freshResultJumpSelectedIndex) + 1}/${freshResultJumpCount}` : ""} I=fresh`,
 				]
 			: []),
 		...auditJumpRows,
@@ -579,7 +581,9 @@ export function formatStatusActivityCopyIntentRows(
 	];
 	const trailControls =
 		trailControlParts.length > 0 ? ` · ${trailControlParts.join(" · ")}` : "";
-	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${trailControls} · g Timeline audit search`;
+	const resultJumpControls =
+		freshResultJumpCount > 1 ? " · J result select" : "";
+	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${trailControls}${resultJumpControls} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
@@ -661,6 +665,60 @@ export function moveStatusActivityResultAuditJumpSelection(
 	const current = getNormalizedSelectionIndex(auditJumps.length, selectedIndex);
 	const delta = direction === "next" ? 1 : -1;
 	return (current + delta + auditJumps.length) % auditJumps.length;
+}
+
+export function getStatusActivityResultTimelineJumpIndexes(
+	history: StatusActivityResult[],
+): number[] {
+	return history
+		.map((_, index) => index)
+		.filter((index) =>
+			Boolean(createStatusActivityResultTimelineSearch(history, index)),
+		);
+}
+
+export function getStatusActivityResultTimelineJumpSelection(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+): { selectedIndex: number; total: number } | undefined {
+	const indexes = getStatusActivityResultTimelineJumpIndexes(history);
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const selectedJumpIndex = indexes.indexOf(selected);
+	if (selectedJumpIndex < 0) {
+		return undefined;
+	}
+	return {
+		selectedIndex: selectedJumpIndex,
+		total: indexes.length,
+	};
+}
+
+export function moveStatusActivityResultTimelineJumpSelection(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	const indexes = getStatusActivityResultTimelineJumpIndexes(history);
+	if (indexes.length === 0) {
+		return getSelectedStatusActivityResultHistoryIndex(
+			history.length,
+			selectedIndex,
+		);
+	}
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const current = indexes.indexOf(selected);
+	const normalizedCurrent =
+		current >= 0 ? current : direction === "next" ? -1 : 0;
+	const delta = direction === "next" ? 1 : -1;
+	return indexes[
+		(normalizedCurrent + delta + indexes.length) % indexes.length
+	] as number;
 }
 
 export function moveStatusActivityCopyIntentSelection(

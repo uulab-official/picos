@@ -56,6 +56,7 @@ import {
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultAuditJumpSelection,
 	moveStatusActivityResultHistorySelection,
+	moveStatusActivityResultTimelineJumpSelection,
 	moveStatusActivitySource,
 	moveTimelineEvidenceTrailSelection,
 	nextTimelineEvidenceTrailSourceFilter,
@@ -641,13 +642,59 @@ describe("Status activity queue", () => {
 				0,
 				undefined,
 				timelineResultJump,
+				0,
+				2,
 			),
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
-			"result jump target=filter:audit query=control preview I=fresh",
+			"result jump target=filter:audit query=control preview selected=1/2 I=fresh",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · J result select · g Timeline audit search",
 		]);
+	});
+
+	test("moves between timeline result jump rows without stopping on non-jump results", () => {
+		const history = [
+			{
+				source: "cleanup" as const,
+				action: "jump-cleanup" as const,
+				message: "cleanup activity selected; jumping to selected cleanup shelf",
+			},
+			createTimelineSelectedStatusActivityResult("copy", {
+				filter: "audit",
+				label: "timeline audit 12:00:06",
+				query: "control preview",
+				selectedIndex: 0,
+				total: 2,
+			}),
+			{
+				source: "dialog" as const,
+				action: "show-dialog" as const,
+				message: "dialog activity selected; type the exact confirmation phrase",
+			},
+			createTimelineSelectedStatusActivityResult("export", {
+				filter: "raw",
+				label: "timeline raw 12:00:09",
+				selectedIndex: 1,
+				total: 2,
+			}),
+		];
+
+		expect(
+			moveStatusActivityResultTimelineJumpSelection(history, 0, "next"),
+		).toBe(1);
+		expect(
+			moveStatusActivityResultTimelineJumpSelection(history, 1, "next"),
+		).toBe(3);
+		expect(
+			moveStatusActivityResultTimelineJumpSelection(history, 3, "next"),
+		).toBe(1);
+		expect(
+			moveStatusActivityResultTimelineJumpSelection(history, 1, "previous"),
+		).toBe(3);
+		expect(
+			moveStatusActivityResultTimelineJumpSelection([history[0]], 0, "next"),
+		).toBe(0);
 	});
 
 	test("marks stale audit jump replay payloads in the copy intent shelf", () => {

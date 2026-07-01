@@ -402,11 +402,13 @@ import {
 	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
 	getStatusActivityResultAuditJumpIntentCount,
+	getStatusActivityResultTimelineJumpSelection,
 	getTimelineEvidenceTrailAuditExports,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultAuditJumpSelection,
 	moveStatusActivityResultHistorySelection,
+	moveStatusActivityResultTimelineJumpSelection,
 	moveStatusActivitySource,
 	moveTimelineEvidenceTrailSelection,
 	nextTimelineEvidenceTrailSourceFilter,
@@ -5172,6 +5174,29 @@ export function App(): React.ReactElement {
 					"info",
 					`status activity result audit jump ${next + 1}/${statusActivityResultAuditJumpIntentCount}`,
 				);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "J") {
+			setSelectedStatusActivityResultIndex((current) => {
+				const next = moveStatusActivityResultTimelineJumpSelection(
+					statusActivityResults,
+					current,
+					"next",
+				);
+				if (next === current && statusActivityResults.length === 0) {
+					log("warn", "no status activity result history");
+					return current;
+				}
+				if (
+					!createStatusActivityResultTimelineSearch(statusActivityResults, next)
+				) {
+					log("warn", "no status activity timeline result jumps");
+					return current;
+				}
+				log("info", `status activity timeline result jump ${next + 1}`);
 				return next;
 			});
 			return;
@@ -10672,6 +10697,11 @@ function StatusWorkspace({
 			statusActivityResults,
 			selectedStatusActivityResultIndex,
 		);
+	const selectedStatusActivityResultTimelineJumpSelection =
+		getStatusActivityResultTimelineJumpSelection(
+			statusActivityResults,
+			selectedStatusActivityResultIndex,
+		);
 	const statusActivityResultAuditJumpActionHint =
 		selectedStatusActivityResultTimelineSearch
 			? "fresh"
@@ -10876,6 +10906,8 @@ function StatusWorkspace({
 					selectedStatusActivityResultAuditJumpIndex,
 					createStatusActivityResultAuditJumpReplayWarningSummary(events),
 					selectedStatusActivityResultTimelineSearch,
+					selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,
+					selectedStatusActivityResultTimelineJumpSelection?.total,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
