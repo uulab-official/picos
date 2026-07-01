@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.187 - Status Audit Jump Stale Audit Event
+
+Status: draft PR [#249](https://github.com/uulab-official/picos/pull/249) on `codex/picos-v0.4.187-audit-jump-stale-audit-event`.
+
+Goal: preserve stale audit-jump replay refusals as structured Timeline audit records.
+
+- Status Activity `I` replay refusals now log `status activity result audit jump warning ...` records instead of only plain warning text.
+- Stale replay refusal audit messages keep the `fix=P audit jump/new result` recovery hint searchable in Timeline audit search.
+- The older warning helper still returns `no status activity result audit jump...`, keeping shelf/log wording reusable.
+- Tests cover the structured warning formatter and Timeline audit search visibility for the recovery hint.
+- Next: add a one-key Status shortcut to jump directly into Timeline search for the latest stale replay warning.
+
 ## v0.4.186 - Status Audit Jump Stale Warning Hint
 
 Status: draft PR [#248](https://github.com/uulab-official/picos/pull/248) on `codex/picos-v0.4.186-audit-jump-stale-warning`.

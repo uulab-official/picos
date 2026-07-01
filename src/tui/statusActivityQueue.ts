@@ -796,6 +796,12 @@ export function createStatusActivityResultTimelineSearchReplayWarning(
 	return `no status activity result audit jump${recoveryHint}`;
 }
 
+export function formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
+	warning = "no status activity result audit jump",
+): string {
+	return `status activity result audit jump warning ${warning}`;
+}
+
 export function createStatusActivityResultTimelineSearchIntent(
 	jump?: StatusActivityCopyIntentTimelineSearch,
 ): StatusActivityCopyIntentRecord | undefined {

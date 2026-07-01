@@ -34,6 +34,7 @@ import {
 	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
+	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
@@ -1730,6 +1731,19 @@ describe("Status activity queue", () => {
 		expect(
 			createStatusActivityResultTimelineSearchReplayWarning(history, 0),
 		).toBe("no status activity result audit jump");
+	});
+
+	test("formats replay warnings as searchable timeline audit messages", () => {
+		expect(
+			formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
+				"no status activity result audit jump fix=P audit jump/new result",
+			),
+		).toBe(
+			"status activity result audit jump warning no status activity result audit jump fix=P audit jump/new result",
+		);
+		expect(formatStatusActivityResultAuditJumpReplayWarningAuditMessage()).toBe(
+			"status activity result audit jump warning no status activity result audit jump",
+		);
 	});
 
 	test("creates copy intents for status result audit jumps", () => {
