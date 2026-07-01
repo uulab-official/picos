@@ -701,10 +701,13 @@ export function formatStatusActivityResultTimelineJumpRows(
 	selectedIndex: number,
 	visibleRows = 3,
 ): string[] {
+	const paletteHint =
+		"palette=? result jump · timeline result open · result select";
 	const indexes = getStatusActivityResultTimelineJumpIndexes(history);
 	if (indexes.length === 0) {
 		return [
 			"STATUS RESULT TIMELINE JUMPS count=0",
+			paletteHint,
 			"no Timeline result jumps yet",
 		];
 	}
@@ -730,6 +733,7 @@ export function formatStatusActivityResultTimelineJumpRows(
 	});
 	return [
 		`STATUS RESULT TIMELINE JUMPS count=${indexes.length} selected=${selectedJumpIndex + 1}/${indexes.length}`,
+		paletteHint,
 		...rows,
 		"controls=J select result jump · I open selected Timeline result",
 	];
