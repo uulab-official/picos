@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.179 - Status Audit Jump Target Token
+
+Status: draft PR [#241](https://github.com/uulab-official/picos/pull/241) on `codex/picos-v0.4.179-audit-jump-target-token`.
+
+Goal: make Status audit-jump shelf summaries easier to scan by exposing the destination separately from the full preview.
+
+- Status Activity copy-intent shelves now append `target=source:<source> visible:<n>/<total>` to result audit-jump summaries when the stored preview matches a palette trail source query.
+- The compact target sits before the longer `latest=` preview so operators can scan the destination first.
+- Non-matching audit-jump previews keep the existing compact row shape without a misleading target.
+- Tests cover the target token together with the existing no-action and `I=replay` row variants.
+- Next: add a selected-audit-jump cursor so multiple reusable result audit jumps can be reviewed without moving through all copy intents.
+
 ## v0.4.178 - Status Audit Jump Action Hint
 
 Status: draft PR [#240](https://github.com/uulab-official/picos/pull/240) on `codex/picos-v0.4.178-audit-jump-action-hint`.

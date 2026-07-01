@@ -577,7 +577,7 @@ describe("Status activity queue", () => {
 			),
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
-			"audit jumps count=3 latest=action=source source=palette visible=2/5 lines=3",
+			"audit jumps count=3 target=source:palette visible:2/5 latest=action=source source=palette visible=2/5 lines=3",
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
 		]);
@@ -597,7 +597,7 @@ describe("Status activity queue", () => {
 			),
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
-			"audit jumps count=3 latest=action=source source=palette visible=2/5 lines=3 I=replay",
+			"audit jumps count=3 target=source:palette visible:2/5 latest=action=source source=palette visible=2/5 lines=3 I=replay",
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
 		]);

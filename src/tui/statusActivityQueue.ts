@@ -460,7 +460,7 @@ export function formatStatusActivityCopyIntentRows(
 	const auditJumpRows =
 		latestAuditJumpIntent && auditJumpIntentCount > 0
 			? [
-					`audit jumps count=${auditJumpIntentCount} latest=${latestAuditJumpIntent.preview} lines=${latestAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}`,
+					`audit jumps count=${auditJumpIntentCount}${formatStatusActivityResultAuditJumpTargetToken(latestAuditJumpIntent)} latest=${latestAuditJumpIntent.preview} lines=${latestAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}`,
 				]
 			: [];
 	const filteredTimelineTrailExports = filterTimelineEvidenceTrailAuditExports(
@@ -539,6 +539,19 @@ export function formatStatusActivityCopyIntentRows(
 		}),
 		`${controls} · :clipboard confirm=copy locked`,
 	];
+}
+
+function formatStatusActivityResultAuditJumpTargetToken(
+	intent: StatusActivityCopyIntentRecord,
+): string {
+	const match = intent.preview.match(
+		/^action=source source=(\S+) visible=(\S+)$/,
+	);
+	if (!match) {
+		return "";
+	}
+	const [, source, visible] = match;
+	return ` target=source:${source} visible:${visible}`;
 }
 
 export function moveStatusActivityCopyIntentSelection(
