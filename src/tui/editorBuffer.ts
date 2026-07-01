@@ -42,6 +42,55 @@ export function appendEditorBufferLine(
 	};
 }
 
+export function moveEditorBufferLineSelection(
+	buffer: EditorBuffer,
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	const lineCount = splitEditorLines(buffer.content).length;
+	if (lineCount <= 0) {
+		return 0;
+	}
+	const normalized = normalizeEditorLineIndex(selectedIndex, lineCount);
+	return direction === "next"
+		? (normalized + 1) % lineCount
+		: (normalized - 1 + lineCount) % lineCount;
+}
+
+export function replaceEditorBufferLine(
+	buffer: EditorBuffer,
+	selectedIndex: number,
+	line: string,
+): EditorBuffer {
+	const lines = splitEditorLines(buffer.content);
+	if (lines.length <= 0) {
+		return appendEditorBufferLine(buffer, line);
+	}
+	const index = normalizeEditorLineIndex(selectedIndex, lines.length);
+	const nextLines = [...lines];
+	nextLines[index] = line;
+	return {
+		...buffer,
+		content: joinEditorLines(nextLines, buffer.content.endsWith("\n")),
+	};
+}
+
+export function deleteEditorBufferLine(
+	buffer: EditorBuffer,
+	selectedIndex: number,
+): EditorBuffer {
+	const lines = splitEditorLines(buffer.content);
+	if (lines.length <= 0) {
+		return buffer;
+	}
+	const index = normalizeEditorLineIndex(selectedIndex, lines.length);
+	const nextLines = lines.filter((_, lineIndex) => lineIndex !== index);
+	return {
+		...buffer,
+		content: joinEditorLines(nextLines, buffer.content.endsWith("\n")),
+	};
+}
+
 export function getEditorBufferState(buffer: EditorBuffer): EditorBufferState {
 	return {
 		dirty: buffer.content !== buffer.originalContent,
@@ -66,4 +115,18 @@ function splitEditorLines(content: string): string[] {
 		return lines.slice(0, -1);
 	}
 	return lines;
+}
+
+function normalizeEditorLineIndex(index: number, lineCount: number): number {
+	if (lineCount <= 0) {
+		return 0;
+	}
+	return Math.max(0, Math.min(index, lineCount - 1));
+}
+
+function joinEditorLines(lines: string[], trailingNewline: boolean): string {
+	if (!lines.length) {
+		return "";
+	}
+	return `${lines.join("\n")}${trailingNewline ? "\n" : ""}`;
 }
