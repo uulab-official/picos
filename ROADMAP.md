@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.178 - Status Audit Jump Action Hint
+
+Status: draft PR [#240](https://github.com/uulab-official/picos/pull/240) on `codex/picos-v0.4.178-audit-jump-action-hint`.
+
+Goal: make the `audit jumps` shelf summary tell operators what `I` will do before they press it.
+
+- Status Activity copy-intent shelves now append `I=fresh` when the selected result row can create a new audit jump.
+- The same shelf summary appends `I=replay` when `I` will replay the latest reusable result audit jump instead.
+- Existing summaries keep the compact form when no `I` action is available.
+- Tests cover the replay hint while preserving the existing no-hint summary shape.
+- Next: add a compact `target=` token to the same row so the destination query is easier to scan without reading the full preview.
+
 ## v0.4.177 - Status Result Audit Jump Replay
 
 Status: draft PR [#239](https://github.com/uulab-official/picos/pull/239) on `codex/picos-v0.4.177-result-audit-jump-replay`.

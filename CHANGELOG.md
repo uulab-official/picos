@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity audit-jump shelf summaries now show whether `I` will create a fresh jump or replay the latest reusable jump.
 - Status Activity `I` now replays the latest reusable result audit jump when the selected result row cannot create a new jump.
 - Status Activity copy-intent shelves now summarize reusable result audit jumps even when no Status result row is selected.
 - Status Activity audit jump intent previews now show a compact repeat count for repeated `I` jumps.
