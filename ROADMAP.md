@@ -2463,6 +2463,19 @@ Goal: let the Status Evidence cursor drive archive and retention actions without
 - Tests cover active secondary action planning, archived Timeline retention planning, and blocked archived-cleanup secondary actions.
 - Next: add an active-target command strip near the Status Evidence pane so open/archive/retention availability is visible even on narrow terminals.
 
+## v0.4.122 - Status Evidence Command Strip
+
+Status: draft PR #184 on `codex/picos-v0.4.122-status-evidence-command-strip`.
+
+Goal: make Status Evidence feel more like an OS control panel by keeping the active target and its available commands visible above the detail list.
+
+- Status Evidence now formats a compact active-target command strip for the focused evidence family.
+- The strip shows `enter`, archive, and retention availability with both the unified lowercase controls and the existing explicit uppercase controls.
+- Empty evidence state keeps an operator hint that `enter` can still fall back to cleanup shelf handoff while archive and retention remain unavailable.
+- Status renders the strip above the evidence detail rows, so narrow terminal layouts keep the active command state visible before lower rows are clipped.
+- Tests cover active audit command strip rows, archived Timeline retention rows, and empty evidence strip rows.
+- Next: make Status Evidence selection keys operate like a small indexed table, with direct number jumps for available evidence families.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
