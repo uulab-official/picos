@@ -10737,6 +10737,8 @@ function StatusWorkspace({
 					timelineEvidenceTrailAuditExports,
 					selectedTimelineEvidenceTrailAuditExportIndex,
 					timelineEvidenceTrailSourceFilter,
+					latestStatusActivityResultAuditJumpIntent,
+					statusActivityResultAuditJumpIntentCount,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
