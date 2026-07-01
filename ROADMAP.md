@@ -3065,6 +3065,18 @@ Goal: make mixed-source recovered trail shelves easy to scan by source.
 - Tests cover source filtering helpers, empty filtered shelves, and filtered selection rows.
 - Next: expose recovered trail source filtering in the command palette so keyboard discovery does not depend on reading the Status controls row.
 
+## v0.4.169 - Timeline Evidence Trail Source Palette Action
+
+Status: draft PR [#231](https://github.com/uulab-official/picos/pull/231) on `codex/picos-v0.4.169-timeline-trail-source-palette`.
+
+Goal: make recovered trail source filtering discoverable from the command palette.
+
+- The action catalog now includes `status.timelineTrail.source` as a read-only Status action.
+- Command palette searches for `trail source` expose the recovered trail source filter action.
+- Running the palette action reuses the same `Q` source-filter cycle across `all`, `evidence`, and `palette`.
+- Tests cover action catalog metadata and command palette discovery for the source filter action.
+- Next: record palette-triggered source-filter cycles in Status Activity result history so filter changes remain visible after rapid trail review.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

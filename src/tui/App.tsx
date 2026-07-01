@@ -2977,6 +2977,26 @@ export function App(): React.ReactElement {
 		],
 	);
 
+	const cycleTimelineEvidenceTrailSourceFilter = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			setScreen("status");
+			const nextFilter = nextTimelineEvidenceTrailSourceFilter(
+				timelineEvidenceTrailSourceFilter,
+			);
+			const visible = filterTimelineEvidenceTrailAuditExports(
+				timelineEvidenceTrailAuditExports,
+				nextFilter,
+			);
+			setTimelineEvidenceTrailSourceFilter(nextFilter);
+			setSelectedTimelineEvidenceTrailAuditExportIndex(0);
+			log(
+				visible.length ? "info" : "warn",
+				`timeline evidence trail source filter ${nextFilter} visible ${visible.length}/${timelineEvidenceTrailAuditExports.length}${options.origin === "palette" ? " origin=palette" : ""}`,
+			);
+		},
+		[log, timelineEvidenceTrailAuditExports, timelineEvidenceTrailSourceFilter],
+	);
+
 	const jumpSelectedTimelineEvidenceTrailSearch = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			const jump = createTimelineEvidenceTrailTimelineSearch(
@@ -3316,6 +3336,10 @@ export function App(): React.ReactElement {
 					jumpSelectedTimelineEvidenceTrailSearch({ origin: "palette" });
 				}
 
+				if (action.id === "status.timelineTrail.source") {
+					cycleTimelineEvidenceTrailSourceFilter({ origin: "palette" });
+				}
+
 				if (
 					action.id === "process.inspect" ||
 					action.id === "remote.sftp.connect"
@@ -3347,6 +3371,7 @@ export function App(): React.ReactElement {
 		},
 		[
 			configShelfLandingTarget,
+			cycleTimelineEvidenceTrailSourceFilter,
 			events,
 			exportToolHistory,
 			fileRoot,
@@ -5088,19 +5113,7 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "Q") {
-			const nextFilter = nextTimelineEvidenceTrailSourceFilter(
-				timelineEvidenceTrailSourceFilter,
-			);
-			const visible = filterTimelineEvidenceTrailAuditExports(
-				timelineEvidenceTrailAuditExports,
-				nextFilter,
-			);
-			setTimelineEvidenceTrailSourceFilter(nextFilter);
-			setSelectedTimelineEvidenceTrailAuditExportIndex(0);
-			log(
-				visible.length ? "info" : "warn",
-				`timeline evidence trail source filter ${nextFilter} visible ${visible.length}/${timelineEvidenceTrailAuditExports.length}`,
-			);
+			cycleTimelineEvidenceTrailSourceFilter();
 			return;
 		}
 

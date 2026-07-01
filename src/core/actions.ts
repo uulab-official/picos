@@ -371,6 +371,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.timelineTrail.source",
+		title: "Filter recovered Timeline trail source",
+		description:
+			"Cycle recovered Timeline Evidence trail source filters across all, evidence, and palette exports.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "remote.sftp.connect",
 		title: "Connect SFTP provider",
 		description:
