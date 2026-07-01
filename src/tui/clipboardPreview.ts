@@ -6,6 +6,7 @@ export type ClipboardPreviewSource =
 	| "route-path"
 	| "route-raw"
 	| "route-table"
+	| "status-activity"
 	| "timeline-audit"
 	| "timeline-event"
 	| "tool-summary"
