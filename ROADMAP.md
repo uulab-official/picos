@@ -2786,6 +2786,19 @@ Goal: make the latest Status copy-intent audit export discoverable after restart
 - Tests cover latest persisted export discovery, empty index behavior, scope filtering, and conversion back into a locked file-open-ready export plan.
 - Next: surface the restored export path in the Status Activity copy-intent shelf so operators can see what `z` will open before pressing it.
 
+## v0.4.147 - Status Activity Copy Intent Export Target Row
+
+Status: draft PR [#209](https://github.com/uulab-official/picos/pull/209) on `codex/picos-v0.4.147-status-activity-copy-intent-export-path`.
+
+Goal: make the restored `z` file-open target visible inside the Status Activity copy-intent shelf before the operator presses the shortcut.
+
+- `STATUS ACTIVITY COPY INTENTS` now shows a compact `z target=` row when a latest copy-intent audit export is available.
+- The target row includes the export file name, original Status Activity query, and event count.
+- Empty copy-intent shelves still show the restored export target, so a restarted TUI can explain what `z` will open even before new copy intents are recorded.
+- The row is backed by the same `ConsoleAuditExportPlan` used by the locked file-open flow, avoiding a separate display-only state.
+- Tests cover the restored target row for empty shelves and keep the existing copy-intent shelf controls stable.
+- Next: let `z` also select the matching Status Evidence audit export row so the Evidence table and Activity shelf point at the same file.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

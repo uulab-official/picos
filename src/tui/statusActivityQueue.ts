@@ -1,3 +1,4 @@
+import { basename } from "node:path";
 import {
 	type ConsoleAuditExportIndex,
 	type ConsoleAuditExportPlan,
@@ -392,10 +393,17 @@ export function appendStatusActivityCopyIntentHistory(
 export function formatStatusActivityCopyIntentRows(
 	history: StatusActivityCopyIntentRecord[],
 	selectedIndex = 0,
+	latestExport?: ConsoleAuditExportPlan,
 ): string[] {
+	const exportRows = latestExport
+		? [
+				`z target=${basename(latestExport.path)}${latestExport.query ? ` query=${latestExport.query}` : ""} events=${latestExport.eventCount}`,
+			]
+		: [];
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
+			...exportRows,
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search",
 		];
@@ -406,6 +414,7 @@ export function formatStatusActivityCopyIntentRows(
 	);
 	return [
 		`STATUS ACTIVITY COPY INTENTS count=${history.length} selected=${selected + 1}/${history.length}`,
+		...exportRows,
 		...history.map((record, index) => {
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
