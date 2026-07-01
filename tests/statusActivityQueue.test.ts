@@ -43,6 +43,7 @@ import {
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
+	getStatusActivityResultAuditJumpIntentCount,
 	getTimelineEvidenceTrailAuditExports,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
@@ -219,6 +220,7 @@ describe("Status activity queue", () => {
 			message:
 				"status activity result timeline search palette source evidence visible=1/3",
 		});
+		const auditJumpIntentCount = 2;
 
 		expect(
 			formatStatusActivityResultRows(
@@ -230,12 +232,13 @@ describe("Status activity queue", () => {
 					detail: "cleanup handoff Logs: press l then type delete logs",
 				},
 				auditJumpIntent,
+				auditJumpIntentCount,
 			),
 		).toEqual([
 			"STATUS ACTIVITY RESULT source=cleanup action=jump-cleanup",
 			"> cleanup activity selected; jumping to selected cleanup shelf",
 			"  cleanup handoff Logs: press l then type delete logs",
-			"  audit jump intent=action=source source=evidence visible=1/3 lines=3",
+			"  audit jump intent=action=source source=evidence visible=1/3 lines=3 count=2",
 		]);
 	});
 
@@ -329,13 +332,13 @@ describe("Status activity queue", () => {
 				"status activity result timeline search palette source evidence visible=1/3",
 		});
 		expect(
-			formatStatusActivityResultHistoryRows(history, 1, auditJumpIntent),
+			formatStatusActivityResultHistoryRows(history, 1, auditJumpIntent, 2),
 		).toEqual([
 			"STATUS ACTIVITY RESULT HISTORY count=2 selected=2/2",
 			"  dialog show-dialog dialog activity selected; type the exact confirmation phrase",
 			"> cleanup jump-cleanup cleanup activity selected; jumping to selected cleanup shelf",
 			"    cleanup handoff Logs: press l then type delete logs",
-			"    audit jump intent=action=source source=evidence visible=1/3 lines=3",
+			"    audit jump intent=action=source source=evidence visible=1/3 lines=3 count=2",
 		]);
 	});
 
@@ -1524,6 +1527,34 @@ describe("Status activity queue", () => {
 		expect(getLatestStatusActivityResultAuditJumpIntent([intent])).toEqual(
 			intent,
 		);
+		const secondIntent = createStatusActivityResultTimelineSearchIntent({
+			filter: "audit",
+			query: "action=source source=palette visible=0/3",
+			message:
+				"status activity result timeline search palette source palette visible=0/3",
+		});
+		if (!secondIntent) {
+			throw new Error(
+				"expected second status activity result audit jump intent",
+			);
+		}
+		expect(
+			getStatusActivityResultAuditJumpIntentCount([
+				intent,
+				secondIntent,
+				{
+					label: "status activity cleanup jump-cleanup",
+					copyText:
+						"cleanup jump-cleanup\ncleanup activity selected; jumping to selected cleanup shelf",
+					selectedRow: 1,
+					expanded: false,
+					lines: 2,
+					preview: "cleanup jump-cleanup",
+					auditMessage:
+						'clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=1 expanded=false lines=2 preview="cleanup jump-cleanup"',
+				},
+			]),
+		).toBe(2);
 		expect(
 			getLatestStatusActivityResultAuditJumpIntent([
 				{

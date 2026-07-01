@@ -394,6 +394,7 @@ import {
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
+	getStatusActivityResultAuditJumpIntentCount,
 	getTimelineEvidenceTrailAuditExports,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
@@ -10540,6 +10541,10 @@ function StatusWorkspace({
 		getLatestStatusActivityResultAuditJumpIntent(
 			statusActivityCopyIntentHistory,
 		);
+	const statusActivityResultAuditJumpIntentCount =
+		getStatusActivityResultAuditJumpIntentCount(
+			statusActivityCopyIntentHistory,
+		);
 	const statusReleaseRows = formatStatusReleaseConsoleRows({
 		update: updateCheckResult,
 		github: githubReleaseCheckResult,
@@ -10657,6 +10662,7 @@ function StatusWorkspace({
 				{formatStatusActivityResultRows(
 					statusActivityResults[0],
 					latestStatusActivityResultAuditJumpIntent,
+					statusActivityResultAuditJumpIntentCount,
 				).map((row) => (
 					<Text
 						key={`latest-${row}`}
@@ -10679,6 +10685,7 @@ function StatusWorkspace({
 					statusActivityResults,
 					selectedStatusActivityResultIndex,
 					latestStatusActivityResultAuditJumpIntent,
+					statusActivityResultAuditJumpIntentCount,
 				).map((row) => (
 					<Text
 						key={`history-${row}`}
