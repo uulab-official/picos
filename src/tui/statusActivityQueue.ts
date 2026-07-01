@@ -421,7 +421,7 @@ export function formatStatusActivityCopyIntentRows(
 			]
 		: [];
 	const rowsBeforeHistory = [...exportRows, ...timelineTrailRows];
-	const controls = `controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export${latestTimelineTrailExport ? " · trail recovered" : ""} · g Timeline audit search`;
+	const controls = `controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export${latestTimelineTrailExport ? " · L open trail · trail recovered" : ""} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
@@ -554,6 +554,22 @@ export function createStatusActivityCopyIntentAuditExportOpenPlan(
 	return buildFileOpenPlan({
 		baseDir: options.baseDir,
 		label: `status activity copy intent export ${plan.scope} ${plan.query}`,
+		path: plan.path,
+		platform: options.platform,
+		source: "timeline-export",
+	});
+}
+
+export function createTimelineEvidenceTrailAuditExportOpenPlan(
+	plan: ConsoleAuditExportPlan,
+	options: {
+		baseDir: string;
+		platform: SupportedPlatform;
+	},
+): FileOpenPlan {
+	return buildFileOpenPlan({
+		baseDir: options.baseDir,
+		label: `timeline evidence trail export ${plan.scope} ${plan.query}`,
 		path: plan.path,
 		platform: options.platform,
 		source: "timeline-export",

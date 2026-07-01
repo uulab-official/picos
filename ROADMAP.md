@@ -2939,6 +2939,19 @@ Goal: make recovered Timeline Evidence trail records visible in Status Activity 
 - Tests cover the empty-shelf recovery row and control hint.
 - Next: add a direct keyboard action that opens the recovered Timeline trail export through the locked file-open prompt.
 
+## v0.4.159 - Timeline Evidence Trail Open Action
+
+Status: draft PR [#221](https://github.com/uulab-official/picos/pull/221) on `codex/picos-v0.4.159-timeline-trail-open-action`.
+
+Goal: make recovered Timeline Evidence trail exports directly openable through the existing locked file-open confirmation.
+
+- Status Activity copy-intent shelf controls now expose `L open trail` when a recovered trail export is available.
+- `L` builds a locked `:file-open` plan for the recovered `timeline evidence trail ...` selected audit export.
+- The open action selects the matching Status Evidence audit row when the recovered trail export still exists in the audit index.
+- The action clears conflicting external-open/archive/retention previews before opening the confirmation prompt.
+- Tests cover the recovered trail file-open plan and shelf control hint.
+- Next: add a Timeline search shortcut from the recovered trail row so operators can jump back to the source audit trail without opening a file.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

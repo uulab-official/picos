@@ -17,6 +17,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailStatusActivityResult,
 	formatStatusActivityCopyIntentAuditMessage,
@@ -521,7 +522,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log events=1",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · trail recovered · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · trail recovered · g Timeline audit search",
 		]);
 	});
 
@@ -693,6 +694,44 @@ describe("Status activity queue", () => {
 				command: "open",
 				args: [
 					"/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				],
+			},
+		});
+	});
+
+	test("creates locked file-open plans for recovered timeline evidence trail exports", () => {
+		const plan = createTimelineEvidenceTrailAuditExportOpenPlan(
+			{
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+				content: "# picos audit log\n",
+				eventCount: 1,
+				query:
+					"timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+				scope: "selected",
+			},
+			{
+				baseDir: "/Users/bonjin/.config/picos",
+				platform: "darwin",
+			},
+		);
+
+		expect(plan).toEqual({
+			source: "timeline-export",
+			label:
+				"timeline evidence trail export selected timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+			risk: "write",
+			privilege: "user",
+			confirmationRequired: true,
+			confirmationPhrase: "open",
+			confirmed: false,
+			enabled: false,
+			reason: "type open to launch external file viewer",
+			adapter: {
+				platform: "darwin",
+				command: "open",
+				args: [
+					"/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
 				],
 			},
 		});
