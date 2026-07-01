@@ -2812,6 +2812,19 @@ Goal: keep the Status Activity `z` file-open target and Status Evidence audit se
 - Tests cover export path to Evidence index matching and missing target behavior.
 - Next: add a compact `z evidence=` hint beside the target row so the Activity shelf shows the matching Evidence row number before opening.
 
+## v0.4.149 - Status Activity Copy Intent Evidence Hint
+
+Status: draft PR [#211](https://github.com/uulab-official/picos/pull/211) on `codex/picos-v0.4.149-status-activity-copy-intent-evidence-hint`.
+
+Goal: make the Status Activity `z` open target explain its matching Status Evidence audit row before the operator presses it.
+
+- `STATUS ACTIVITY COPY INTENTS` now appends `evidence=<row>` to the restored `z target=` row when the latest export resolves to a Status Evidence audit index row.
+- The row number is one-based to match the operator-visible Evidence table instead of the internal array index.
+- Missing or stale export targets still omit the hint while preserving the existing `z target`, query, and event preview.
+- The TUI render path uses the same export-to-Evidence resolver as the `z` open handler, keeping preview and action behavior aligned.
+- Tests cover the rendered `evidence=` hint for restored copy-intent export targets.
+- Next: let Status Activity expose a direct Evidence focus jump for the matching export without opening the file prompt.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
