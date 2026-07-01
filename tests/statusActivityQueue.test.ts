@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
@@ -461,12 +462,12 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=2 selected=2/2",
 			"  status activity dialog show-dialog row=1 expanded=false lines=2 preview=dialog show-dialog",
 			"> status activity cleanup jump-cleanup row=4 expanded=true lines=3 preview=cleanup jump-cleanup",
-			"controls=y records intent · </> select · v replay · e export · g Timeline audit search · :clipboard confirm=copy locked",
+			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 		expect(formatStatusActivityCopyIntentRows([])).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search",
 		]);
 	});
 
@@ -604,6 +605,43 @@ describe("Status activity queue", () => {
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
+	});
+
+	test("creates locked file-open plans for status activity copy intent audit exports", () => {
+		const plan = createStatusActivityCopyIntentAuditExportOpenPlan(
+			{
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				content: "# picos audit log\n",
+				eventCount: 1,
+				query: "status activity cleanup jump-cleanup",
+				scope: "selected",
+			},
+			{
+				baseDir: "/Users/bonjin/.config/picos",
+				platform: "darwin",
+			},
+		);
+
+		expect(plan).toEqual({
+			source: "timeline-export",
+			label:
+				"status activity copy intent export selected status activity cleanup jump-cleanup",
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			risk: "write",
+			privilege: "user",
+			confirmationRequired: true,
+			confirmationPhrase: "open",
+			confirmed: false,
+			enabled: false,
+			reason: "type open to launch external file viewer",
+			adapter: {
+				platform: "darwin",
+				command: "open",
+				args: [
+					"/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				],
+			},
+		});
 	});
 
 	test("selects status activity copy intents and creates timeline search jumps", () => {

@@ -2760,6 +2760,19 @@ Goal: make selected Status copy-intent rows durable by exporting them as selecte
 - Tests cover selected export plan shape, empty export behavior, and writing the selected export file.
 - Next: add a Status copy-intent export-open shortcut so the newly exported audit file can be opened immediately after export.
 
+## v0.4.145 - Status Activity Copy Intent Export Open
+
+Status: draft PR [#207](https://github.com/uulab-official/picos/pull/207) on `codex/picos-v0.4.145-status-activity-copy-intent-export-open`.
+
+Goal: let operators inspect the latest Status copy-intent audit export immediately without leaving the locked file-open flow.
+
+- Status remembers the most recent copy-intent audit export written by `e`.
+- `z` from Status opens a locked `:file-open` confirmation for that latest export file instead of launching an OS opener directly.
+- The open plan reuses `buildFileOpenPlan()` with `source=timeline-export`, so the exported audit file remains limited to the picos config directory and still requires typing `open`.
+- `STATUS ACTIVITY COPY INTENTS` controls now show `z open export` beside replay, export, and Timeline search.
+- Tests cover the export-to-file-open plan shape, including platform adapter, locked confirmation phrase, and picos-owned audit path.
+- Next: add persisted boot discovery for the newest Status copy-intent export so `z` can work after restarting the TUI.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
