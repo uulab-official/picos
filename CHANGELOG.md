@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Evidence now shows a compact summary band for handoff, Timeline audit, archived audit, cleanup, and archived cleanup evidence families before the command strip.
 - Status Evidence now shows active table detail rows for the focused evidence family, keeping source, path, and explicit controls beside the dense table instead of expanding every family at once.
 - Status Evidence now renders a dense table that combines family number jumps, selected item counts, open/archive/retention actions, item movement availability, and target labels in one scannable console surface.
 - Status Evidence now uses `[` and `]` as active-family item movement controls, moving within the focused evidence family with wraparound when multiple indexed items are available.
