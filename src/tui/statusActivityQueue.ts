@@ -266,6 +266,10 @@ export function getSelectedStatusActivityResultHistoryClipboardPreview(
 
 export function formatStatusActivityResultCopyPreviewRows(
 	preview?: ClipboardPreview,
+	options: {
+		selectedRowIndex?: number;
+		expanded?: boolean;
+	} = {},
 ): string[] {
 	if (!preview) {
 		return [
@@ -274,16 +278,36 @@ export function formatStatusActivityResultCopyPreviewRows(
 			"controls=y copy selected history",
 		];
 	}
-	const rows = formatClipboardPreviewRows(preview, {
-		maxCopyLines: 2,
-		maxCopyLineLength: 72,
-	});
-	const details = rows.slice(1).filter((row) => !row.startsWith("confirm "));
+	const details = getStatusActivityCopyPreviewRows(preview, options.expanded);
+	const selected = getSelectedStatusActivityCopyPreviewIndex(
+		details.length,
+		options.selectedRowIndex ?? 0,
+	);
 	return [
-		`STATUS ACTIVITY COPY PREVIEW source=${preview.source}`,
-		...details.map((row, index) => `${index === 0 ? "> " : "  "}${row}`),
-		"controls=y copy selected history · :clipboard confirm=copy locked",
+		`STATUS ACTIVITY COPY PREVIEW source=${preview.source} selected=${selected + 1}/${details.length} expanded=${Boolean(options.expanded)}`,
+		...details.map((row, index) => `${index === selected ? "> " : "  "}${row}`),
+		"controls=; row · = expand · y copy selected history · :clipboard confirm=copy locked",
 	];
+}
+
+export function moveStatusActivityCopyPreviewSelection(
+	preview: ClipboardPreview | undefined,
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (!preview) {
+		return 0;
+	}
+	const rows = getStatusActivityCopyPreviewRows(preview, true);
+	if (rows.length === 0) {
+		return 0;
+	}
+	const current = getSelectedStatusActivityCopyPreviewIndex(
+		rows.length,
+		selectedIndex,
+	);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + rows.length) % rows.length;
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
@@ -335,6 +359,27 @@ function normalizeActivityDetailRow(row: string): string {
 }
 
 function getSelectedStatusActivityResultHistoryIndex(
+	length: number,
+	selectedIndex: number,
+): number {
+	if (length <= 0) {
+		return 0;
+	}
+	return Math.min(Math.max(selectedIndex, 0), length - 1);
+}
+
+function getStatusActivityCopyPreviewRows(
+	preview: ClipboardPreview,
+	expanded = false,
+): string[] {
+	const rows = formatClipboardPreviewRows(preview, {
+		maxCopyLines: expanded ? 6 : 2,
+		maxCopyLineLength: expanded ? 96 : 72,
+	});
+	return rows.slice(1).filter((row) => !row.startsWith("confirm "));
+}
+
+function getSelectedStatusActivityCopyPreviewIndex(
 	length: number,
 	selectedIndex: number,
 ): number {

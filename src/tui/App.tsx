@@ -367,6 +367,7 @@ import {
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
 	type StatusActivityResult,
@@ -581,6 +582,14 @@ export function App(): React.ReactElement {
 		selectedStatusActivityResultIndex,
 		setSelectedStatusActivityResultIndex,
 	] = useState(0);
+	const [
+		selectedStatusActivityCopyPreviewRowIndex,
+		setSelectedStatusActivityCopyPreviewRowIndex,
+	] = useState(0);
+	const [
+		statusActivityCopyPreviewExpanded,
+		setStatusActivityCopyPreviewExpanded,
+	] = useState(false);
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -924,6 +933,8 @@ export function App(): React.ReactElement {
 				appendStatusActivityResultHistory(history, result),
 			);
 			setSelectedStatusActivityResultIndex(0);
+			setSelectedStatusActivityCopyPreviewRowIndex(0);
+			setStatusActivityCopyPreviewExpanded(false);
 		},
 		[],
 	);
@@ -4618,6 +4629,46 @@ export function App(): React.ReactElement {
 					"info",
 					`status activity history ${next + 1}/${statusActivityResults.length} ${result?.source ?? "none"} ${result?.action ?? "none"}`,
 				);
+				setSelectedStatusActivityCopyPreviewRowIndex(0);
+				setStatusActivityCopyPreviewExpanded(false);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === ";") {
+			const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+			);
+			if (!preview) {
+				log("warn", "no status activity copy preview rows");
+				return;
+			}
+			setSelectedStatusActivityCopyPreviewRowIndex((current) => {
+				const next = moveStatusActivityCopyPreviewSelection(
+					preview,
+					current,
+					"next",
+				);
+				log("info", `status activity copy preview row ${next + 1}`);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "=") {
+			const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+			);
+			if (!preview) {
+				log("warn", "no status activity copy preview to expand");
+				return;
+			}
+			setStatusActivityCopyPreviewExpanded((current) => {
+				const next = !current;
+				log("info", `status activity copy preview expanded=${next}`);
 				return next;
 			});
 			return;
@@ -6520,6 +6571,10 @@ export function App(): React.ReactElement {
 					selectedStatusActivitySource={selectedStatusActivitySource}
 					statusActivityResults={statusActivityResults}
 					selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
+					selectedStatusActivityCopyPreviewRowIndex={
+						selectedStatusActivityCopyPreviewRowIndex
+					}
+					statusActivityCopyPreviewExpanded={statusActivityCopyPreviewExpanded}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -6739,6 +6794,8 @@ function MainWorkspace({
 	selectedStatusActivitySource,
 	statusActivityResults,
 	selectedStatusActivityResultIndex,
+	selectedStatusActivityCopyPreviewRowIndex,
+	statusActivityCopyPreviewExpanded,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -6859,6 +6916,8 @@ function MainWorkspace({
 	selectedStatusActivitySource: StatusActivitySource;
 	statusActivityResults: StatusActivityResult[];
 	selectedStatusActivityResultIndex: number;
+	selectedStatusActivityCopyPreviewRowIndex: number;
+	statusActivityCopyPreviewExpanded: boolean;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -7057,6 +7116,8 @@ function MainWorkspace({
 						selectedStatusActivitySource,
 						statusActivityResults,
 						selectedStatusActivityResultIndex,
+						selectedStatusActivityCopyPreviewRowIndex,
+						statusActivityCopyPreviewExpanded,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7182,6 +7243,8 @@ function renderWorkspace(
 	selectedStatusActivitySource: StatusActivitySource,
 	statusActivityResults: StatusActivityResult[],
 	selectedStatusActivityResultIndex: number,
+	selectedStatusActivityCopyPreviewRowIndex: number,
+	statusActivityCopyPreviewExpanded: boolean,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7451,6 +7514,10 @@ function renderWorkspace(
 				selectedStatusActivitySource={selectedStatusActivitySource}
 				statusActivityResults={statusActivityResults}
 				selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
+				selectedStatusActivityCopyPreviewRowIndex={
+					selectedStatusActivityCopyPreviewRowIndex
+				}
+				statusActivityCopyPreviewExpanded={statusActivityCopyPreviewExpanded}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
@@ -9630,6 +9697,8 @@ function StatusWorkspace({
 	selectedStatusActivitySource,
 	statusActivityResults,
 	selectedStatusActivityResultIndex,
+	selectedStatusActivityCopyPreviewRowIndex,
+	statusActivityCopyPreviewExpanded,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -9659,6 +9728,8 @@ function StatusWorkspace({
 	selectedStatusActivitySource: StatusActivitySource;
 	statusActivityResults: StatusActivityResult[];
 	selectedStatusActivityResultIndex: number;
+	selectedStatusActivityCopyPreviewRowIndex: number;
+	statusActivityCopyPreviewExpanded: boolean;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -9812,7 +9883,8 @@ function StatusWorkspace({
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
-					STATUS ACTIVITY · ,/. source · u/i history · y copy history
+					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
+					copy
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,
@@ -9900,9 +9972,10 @@ function StatusWorkspace({
 						{row}
 					</Text>
 				))}
-				{formatStatusActivityResultCopyPreviewRows(
-					statusActivityCopyPreview,
-				).map((row) => (
+				{formatStatusActivityResultCopyPreviewRows(statusActivityCopyPreview, {
+					selectedRowIndex: selectedStatusActivityCopyPreviewRowIndex,
+					expanded: statusActivityCopyPreviewExpanded,
+				}).map((row) => (
 					<Text
 						key={`activity-copy-${row}`}
 						color={

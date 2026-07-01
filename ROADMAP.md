@@ -2683,6 +2683,19 @@ Goal: show the selected Status activity history copy payload before opening the 
 - Tests cover populated and empty copy preview rows.
 - Next: add detail selection/expansion for long Status activity copy previews without leaving Status.
 
+## v0.4.139 - Status Activity Copy Preview Detail
+
+Status: draft PR [#201](https://github.com/uulab-official/picos/pull/201) on `codex/picos-v0.4.139-status-activity-copy-preview-detail`.
+
+Goal: let operators inspect longer Status activity copy previews in-place before opening the locked clipboard confirmation.
+
+- `STATUS ACTIVITY COPY PREVIEW` now includes selected row and expanded state metadata.
+- `;` cycles the selected copy preview row, keeping the active preview line marked with `>`.
+- `=` toggles expanded copy preview mode so longer selected history payloads can show additional copy lines before `:clipboard`.
+- Copy preview selection resets when a new Status activity result is recorded or when the selected activity history row changes.
+- Tests cover preview row movement, wraparound, expanded rows, and empty preview behavior.
+- Next: add a dedicated Status activity copy preview audit event so copy-intent inspection is searchable in Timeline before confirmation.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
