@@ -1,6 +1,7 @@
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
+	formatClipboardPreviewRows,
 } from "./clipboardPreview";
 
 export type StatusActivityQueueInput = {
@@ -261,6 +262,28 @@ export function getSelectedStatusActivityResultHistoryClipboardPreview(
 			.join("\n"),
 		details: [`selected=${index + 1}/${history.length}`],
 	});
+}
+
+export function formatStatusActivityResultCopyPreviewRows(
+	preview?: ClipboardPreview,
+): string[] {
+	if (!preview) {
+		return [
+			"STATUS ACTIVITY COPY PREVIEW source=none",
+			"no Status activity copy preview",
+			"controls=y copy selected history",
+		];
+	}
+	const rows = formatClipboardPreviewRows(preview, {
+		maxCopyLines: 2,
+		maxCopyLineLength: 72,
+	});
+	const details = rows.slice(1).filter((row) => !row.startsWith("confirm "));
+	return [
+		`STATUS ACTIVITY COPY PREVIEW source=${preview.source}`,
+		...details.map((row, index) => `${index === 0 ? "> " : "  "}${row}`),
+		"controls=y copy selected history · :clipboard confirm=copy locked",
+	];
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
