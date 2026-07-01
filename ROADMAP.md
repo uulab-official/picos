@@ -2591,6 +2591,19 @@ Goal: keep transient Status confirmations visible without letting several previe
 - Tests cover populated multi-preview and empty dialog preview states.
 - Next: add a compact Status activity queue so recent release, cleanup, evidence, and dialog actions can be scanned without opening Logs or Timeline.
 
+## v0.4.132 - Status Activity Queue
+
+Status: draft PR #194 on `codex/picos-v0.4.132-status-activity-queue`.
+
+Goal: make Status feel more like an OS console by showing the current release, dialog, cleanup, and evidence activity before detailed panels.
+
+- Status now formats a compact `STATUS ACTIVITY QUEUE` across release, dialog, cleanup, and evidence sources.
+- The queue pulls the high-signal header from each meaningful source and keeps release/dialog/cleanup/evidence in a stable scan order.
+- Status renders the queue above the detailed release, dialog, cleanup, and evidence consoles so operators can see what changed without opening Logs or Timeline first.
+- Empty queue state remains explicit when no meaningful Status activity is present.
+- Tests cover populated multi-source queue rows and empty queue rows.
+- Next: add a Status activity detail cursor so the queue can jump into the matching release, dialog, cleanup, or evidence console section.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
