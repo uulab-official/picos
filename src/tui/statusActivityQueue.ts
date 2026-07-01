@@ -211,6 +211,7 @@ export function createStatusActivityEnterPlan(
 
 export function formatStatusActivityResultRows(
 	result?: StatusActivityResult,
+	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
 ): string[] {
 	if (!result) {
 		return [
@@ -222,6 +223,10 @@ export function formatStatusActivityResultRows(
 		`STATUS ACTIVITY RESULT source=${result.source} action=${result.action}`,
 		`> ${result.message}`,
 		...(result.detail ? [`  ${result.detail}`] : []),
+		...formatStatusActivityResultAuditJumpIntentRows(
+			latestAuditJumpIntent,
+			"  ",
+		),
 	];
 }
 
@@ -236,6 +241,7 @@ export function appendStatusActivityResultHistory(
 export function formatStatusActivityResultHistoryRows(
 	history: StatusActivityResult[],
 	selectedIndex = 0,
+	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
 ): string[] {
 	if (history.length === 0) {
 		return [
@@ -257,9 +263,27 @@ export function formatStatusActivityResultHistoryRows(
 			if (result.detail) {
 				rows.push(`    ${result.detail}`);
 			}
+			if (index === selected) {
+				rows.push(
+					...formatStatusActivityResultAuditJumpIntentRows(
+						latestAuditJumpIntent,
+						"    ",
+					),
+				);
+			}
 			return rows;
 		}),
 	];
+}
+
+function formatStatusActivityResultAuditJumpIntentRows(
+	intent: StatusActivityCopyIntentRecord | undefined,
+	prefix: string,
+): string[] {
+	if (!intent) {
+		return [];
+	}
+	return [`${prefix}audit jump intent=${intent.preview} lines=${intent.lines}`];
 }
 
 export function moveStatusActivityResultHistorySelection(
@@ -621,6 +645,14 @@ export function createStatusActivityResultTimelineSearchIntent(
 			label: `status activity result audit jump ${jump.query}`,
 			copyText: [jump.query, jump.message, `filter=${jump.filter}`].join("\n"),
 		}),
+	);
+}
+
+export function getLatestStatusActivityResultAuditJumpIntent(
+	history: StatusActivityCopyIntentRecord[],
+): StatusActivityCopyIntentRecord | undefined {
+	return history.find((record) =>
+		record.label.startsWith("status activity result audit jump "),
 	);
 }
 

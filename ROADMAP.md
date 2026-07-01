@@ -3129,6 +3129,19 @@ Goal: make Status result-row audit jumps reusable through the same copy-intent s
 - Tests cover the jump-intent record shape and its compatibility with copy-intent Timeline search.
 - Next: show the latest `I` jump intent as a compact row beside the selected Status Activity result so the operator can see the pending reusable audit handoff before leaving Status.
 
+## v0.4.174 - Status Result Audit Jump Preview
+
+Status: draft PR [#236](https://github.com/uulab-official/picos/pull/236) on `codex/picos-v0.4.174-result-audit-jump-preview`.
+
+Goal: keep the latest reusable `I` audit jump visible beside Status Activity result rows.
+
+- Status Activity result and selected result-history rows now render an `audit jump intent=<query> lines=<n>` hint when a reusable result audit jump exists.
+- The preview reuses the latest `status activity result audit jump ...` copy-intent row, so it stays aligned with the existing copy/export/replay shelf.
+- Non-jump copy intents stay hidden from the Status result preview to avoid noisy unrelated hints.
+- The Status TUI passes the latest audit-jump intent into both result formatters and renders the hint as a quiet detail row.
+- Tests cover result-row formatting, selected-history formatting, and latest jump-intent detection.
+- Next: add a small status counter for result audit jump intents so repeated `I` jumps are easier to scan.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
