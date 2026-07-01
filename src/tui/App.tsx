@@ -366,6 +366,7 @@ import {
 	writeRouteRawHandoffPlan,
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
+import { formatStatusEvidenceDetailRows } from "./statusEvidence";
 import {
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
@@ -9503,6 +9504,43 @@ function StatusWorkspace({
 							</Text>
 						))}
 				</Box>
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="gray">STATUS EVIDENCE · selected files and controls</Text>
+				{formatStatusEvidenceDetailRows(
+					{
+						handoffIndex,
+						auditExportIndex,
+						auditExportArchiveIndex,
+						cleanupExportIndex,
+						cleanupExportArchiveIndex,
+					},
+					{
+						selectedHandoffIndex,
+						selectedAuditExportIndex,
+						selectedAuditExportArchiveIndex,
+						selectedCleanupExportIndex,
+						selectedCleanupExportArchiveIndex,
+					},
+					10,
+				).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("STATUS EVIDENCE")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("  path=") || row.startsWith("no ")
+										? "gray"
+										: row.startsWith("  controls=")
+											? "yellow"
+											: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
