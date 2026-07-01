@@ -2476,6 +2476,19 @@ Goal: make Status Evidence feel more like an OS control panel by keeping the act
 - Tests cover active audit command strip rows, archived Timeline retention rows, and empty evidence strip rows.
 - Next: make Status Evidence selection keys operate like a small indexed table, with direct number jumps for available evidence families.
 
+## v0.4.123 - Status Evidence Number Jumps
+
+Status: draft PR #185 on `codex/picos-v0.4.123-status-evidence-number-jumps`.
+
+Goal: make Status Evidence operate like a compact indexed OS table, so operators can jump directly to an evidence family without cycling through every group.
+
+- Status Evidence now formats a numbered evidence family index for the currently available handoff, Timeline, cleanup, and archived evidence groups.
+- `1..9` in the Status workspace selects the matching evidence family before global workspace shortcut handling runs.
+- Number jump planning is pure and ignores unavailable or out-of-range indexes safely.
+- The evidence index renders above the detail rows beside the active-target command strip, keeping direct-jump controls visible on narrow terminals.
+- Tests cover index row formatting, valid number jump plans, and unavailable number jump handling.
+- Next: make Status Evidence support per-family item movement with local `[`/`]` style controls from the same active-target model instead of relying on separate index sections.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

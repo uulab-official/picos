@@ -69,6 +69,12 @@ export type StatusEvidenceActionPlan = {
 	path: string;
 };
 
+export type StatusEvidenceNumberJumpPlan = {
+	kind: StatusEvidenceKind;
+	shortcut: string;
+	label: string;
+};
+
 type EvidenceEntry = {
 	kind: StatusEvidenceKind;
 	label: string;
@@ -101,6 +107,26 @@ export function formatStatusEvidenceDetailRows(
 				];
 
 	return rows.slice(0, Math.max(1, visibleRows));
+}
+
+export function formatStatusEvidenceIndexRows(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+): string[] {
+	const entries = collectStatusEvidenceEntries(indexes, selection);
+	if (entries.length === 0) {
+		return ["EVIDENCE INDEX 0", "no indexed evidence families"];
+	}
+	const activeEntry = getActiveStatusEvidenceEntry(entries, activeKind);
+	return [
+		`EVIDENCE INDEX 1..${Math.min(entries.length, 9)}`,
+		...entries.slice(0, 9).map((entry, index) => {
+			const shortcut = String(index + 1);
+			const cursor = entry.kind === activeEntry?.kind ? ">" : "";
+			return `${cursor}${shortcut} ${entry.label}`;
+		}),
+	];
 }
 
 export function formatStatusEvidenceCommandStripRows(
@@ -139,6 +165,26 @@ export function formatStatusEvidenceCommandStripRows(
 		}`,
 		`target=${activeEntry.label}`,
 	];
+}
+
+export function createStatusEvidenceNumberJumpPlan(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	shortcut: string,
+): StatusEvidenceNumberJumpPlan | undefined {
+	if (!/^[1-9]$/.test(shortcut)) {
+		return undefined;
+	}
+	const entries = collectStatusEvidenceEntries(indexes, selection).slice(0, 9);
+	const entry = entries[Number(shortcut) - 1];
+	if (!entry) {
+		return undefined;
+	}
+	return {
+		kind: entry.kind,
+		shortcut,
+		label: entry.label,
+	};
 }
 
 export function moveStatusEvidenceFocus(

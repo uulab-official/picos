@@ -369,8 +369,10 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
+	createStatusEvidenceNumberJumpPlan,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
+	formatStatusEvidenceIndexRows,
 	moveStatusEvidenceFocus,
 	type StatusEvidenceKind,
 } from "./statusEvidence";
@@ -4519,6 +4521,40 @@ export function App(): React.ReactElement {
 				log("info", `update handoff selected ${links[next].label}`);
 				return next;
 			});
+			return;
+		}
+
+		if (
+			screen === "status" &&
+			focusArea === "workspaces" &&
+			/^[1-9]$/.test(input)
+		) {
+			const evidenceJumpPlan = createStatusEvidenceNumberJumpPlan(
+				{
+					handoffIndex,
+					auditExportIndex,
+					auditExportArchiveIndex,
+					cleanupExportIndex,
+					cleanupExportArchiveIndex,
+				},
+				{
+					selectedHandoffIndex,
+					selectedAuditExportIndex,
+					selectedAuditExportArchiveIndex,
+					selectedCleanupExportIndex,
+					selectedCleanupExportArchiveIndex,
+				},
+				input,
+			);
+			if (!evidenceJumpPlan) {
+				log("warn", `status evidence index unavailable ${input}`);
+				return;
+			}
+			setSelectedStatusEvidenceKind(evidenceJumpPlan.kind);
+			log(
+				"info",
+				`status evidence focus ${evidenceJumpPlan.shortcut} ${evidenceJumpPlan.kind} ${evidenceJumpPlan.label}`,
+			);
 			return;
 		}
 
@@ -9708,6 +9744,38 @@ function StatusWorkspace({
 								: row.startsWith(">")
 									? "yellow"
 									: "gray"
+						}
+					>
+						{row}
+					</Text>
+				))}
+				{formatStatusEvidenceIndexRows(
+					{
+						handoffIndex,
+						auditExportIndex,
+						auditExportArchiveIndex,
+						cleanupExportIndex,
+						cleanupExportArchiveIndex,
+					},
+					{
+						selectedHandoffIndex,
+						selectedAuditExportIndex,
+						selectedAuditExportArchiveIndex,
+						selectedCleanupExportIndex,
+						selectedCleanupExportArchiveIndex,
+					},
+					selectedStatusEvidenceKind,
+				).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("EVIDENCE INDEX")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("no ")
+										? "gray"
+										: "white"
 						}
 					>
 						{row}
