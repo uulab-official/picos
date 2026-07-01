@@ -286,6 +286,56 @@ export function formatCleanupShelfDetailRows(
 	];
 }
 
+export function formatCleanupOpsConsoleRows(
+	index: CleanupShelfIndex,
+	selectedShelfIndex: number,
+	histories: CleanupHandoffHistory[],
+	selectedHistoryIndex: number,
+): string[] {
+	const activeShelves = getActiveCleanupShelves(index);
+	const selectedShelf = getSelectedCleanupShelf(index, selectedShelfIndex);
+	const selectedHistory = getSelectedCleanupHandoffHistory(
+		histories,
+		selectedHistoryIndex,
+	);
+	const rows = [
+		`CLEANUP OPS active=${index.activeShelves} items=${index.totalItems} history=${histories.length} selected=${
+			selectedShelf?.workspace ?? "none"
+		}`,
+		...(activeShelves.length > 0
+			? orderCleanupShelvesForOpsConsole(activeShelves, selectedShelf).map(
+					(shelf) => {
+						const marker = selectedShelf?.id === shelf.id ? "> " : "  ";
+						return `${marker}shelf ${shelf.workspace} ${shelf.shortcut} count=${shelf.count} confirm=${shelf.confirmationPhrase} detail=${shelf.detail}`;
+					},
+				)
+			: ["no saved preset shelves to clean"]),
+		selectedHistory
+			? `history=${selectedHistory.outcome} ${selectedHistory.workspace} ${selectedHistory.shortcut} confirm=${selectedHistory.confirmationPhrase} detail=${selectedHistory.detail}`
+			: "history=none",
+		...(selectedHistory
+			? [
+					`reopen=R jump ${selectedHistory.workspace} exact-confirm stays locked`,
+				]
+			: []),
+		"controls=j/k shelf enter jump [ history R reopen E export",
+	];
+	return rows;
+}
+
+function orderCleanupShelvesForOpsConsole(
+	shelves: CleanupShelf[],
+	selectedShelf: CleanupShelf | undefined,
+): CleanupShelf[] {
+	if (!selectedShelf) {
+		return shelves;
+	}
+	return [
+		selectedShelf,
+		...shelves.filter((shelf) => shelf.id !== selectedShelf.id),
+	];
+}
+
 export function createCleanupJumpAudit(shelf: CleanupShelf): CleanupJumpAudit {
 	return {
 		id: shelf.id,

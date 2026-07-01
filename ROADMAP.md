@@ -2552,6 +2552,19 @@ Goal: collapse the older explicit handoff/audit/cleanup evidence browser blocks 
 - Tests cover populated bridge rows and empty bridge fallback.
 - Next: fold cleanup shelf/history into a similarly compact Status operations console so cleanup decisions stop pushing evidence rows down the terminal.
 
+## v0.4.129 - Status Cleanup Ops Console
+
+Status: draft PR #191 on `codex/picos-v0.4.129-status-cleanup-ops-console`.
+
+Goal: make cleanup shelf decisions and cleanup handoff history fit into one compact Status operations surface.
+
+- Status cleanup shelves and cleanup handoff history now format through a single `CLEANUP OPS` console.
+- The compact console places the selected shelf first, then shows active shelf counts, exact-confirm phrases, selected history, reopen, export, and keyboard controls.
+- Status replaces the separate cleanup index, detail, history, and reopen blocks with the compact operations console so Status Evidence stays higher in tall and short terminals.
+- Empty cleanup state still shows the controls and history fallback without implying mutation is available.
+- Tests cover populated and empty cleanup ops console rows.
+- Next: combine update handoff, release check, and locked update-apply preview into a compact Status release console so the top of Status also behaves like an OS control strip.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
