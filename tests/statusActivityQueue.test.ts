@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	createStatusActivityEnterPlan,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
 	moveStatusActivitySource,
@@ -66,7 +67,7 @@ describe("Status activity queue", () => {
 			"> STATUS RELEASE CONSOLE npm=update-available github=up-to-date current=0.2.0 latest=0.3.0",
 			"  package=@uulab/picos repo=uulab-official/picos",
 			"  link release notes https://github.com/uulab-official/picos/releases/tag/v0.3.0",
-			"controls=,/. activity source · detail mirrors the selected Status console",
+			"controls=enter action · ,/. activity source · detail mirrors selected Status console",
 		]);
 	});
 
@@ -85,7 +86,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY DETAIL active=cleanup rows=2",
 			"> CLEANUP OPS active=1 items=2 history=0 selected=Logs",
 			"  shelf Logs l count=2 confirm=delete logs",
-			"controls=,/. activity source · detail mirrors the selected Status console",
+			"controls=enter action · ,/. activity source · detail mirrors selected Status console",
 		]);
 	});
 
@@ -97,5 +98,69 @@ describe("Status activity queue", () => {
 		expect(moveStatusActivitySource(input, "release", 1)).toBe("evidence");
 		expect(moveStatusActivitySource(input, "release", -1)).toBe("evidence");
 		expect(moveStatusActivitySource({}, "release", 1)).toBe("release");
+	});
+
+	test("plans the safest enter action for the selected activity source", () => {
+		const input = {
+			releaseRows: [
+				"STATUS RELEASE CONSOLE npm=update-available github=up-to-date current=0.2.0 latest=0.3.0",
+				"> link release notes https://github.com/uulab-official/picos/releases/tag/v0.3.0",
+			],
+			dialogRows: [
+				"STATUS DIALOG PREVIEW active=file-open count=1",
+				"> file-open FILE OPEN cleanup-export",
+			],
+			cleanupRows: [
+				"CLEANUP OPS active=1 items=2 history=0 selected=Logs",
+				"> shelf Logs l count=2 confirm=delete logs",
+			],
+			evidenceRows: [
+				"STATUS EVIDENCE SUMMARY active=audit families=1 files=1",
+				"> audit selected=1 total=1 open=W",
+			],
+		};
+
+		expect(createStatusActivityEnterPlan(input, "release")).toEqual({
+			source: "release",
+			action: "cycle-release-link",
+			message: "release activity selected; cycling release handoff link",
+		});
+		expect(createStatusActivityEnterPlan(input, "dialog")).toEqual({
+			source: "dialog",
+			action: "show-dialog",
+			message: "dialog activity selected; type the exact confirmation phrase",
+		});
+		expect(createStatusActivityEnterPlan(input, "cleanup")).toEqual({
+			source: "cleanup",
+			action: "jump-cleanup",
+			message: "cleanup activity selected; jumping to selected cleanup shelf",
+		});
+		expect(createStatusActivityEnterPlan(input, "evidence")).toEqual({
+			source: "evidence",
+			action: "enter-evidence",
+			message: "evidence activity selected; running active evidence enter",
+		});
+	});
+
+	test("falls back to the first available enter action", () => {
+		expect(
+			createStatusActivityEnterPlan(
+				{
+					evidenceRows: [
+						"STATUS EVIDENCE SUMMARY active=audit families=1 files=1",
+					],
+				},
+				"release",
+			),
+		).toEqual({
+			source: "evidence",
+			action: "enter-evidence",
+			message: "evidence activity selected; running active evidence enter",
+		});
+		expect(createStatusActivityEnterPlan({}, "release")).toEqual({
+			source: "release",
+			action: "none",
+			message: "no Status activity available",
+		});
 	});
 });

@@ -359,6 +359,7 @@ import {
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
+	createStatusActivityEnterPlan,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
 	moveStatusActivitySource,
@@ -4767,6 +4768,81 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "\r") {
+			const activityEnterPlan = createStatusActivityEnterPlan(
+				{
+					releaseRows:
+						updateCheckResult || githubReleaseCheckResult
+							? ["STATUS RELEASE CONSOLE"]
+							: [],
+					dialogRows:
+						externalOpenPlan ||
+						fileOpenPlan ||
+						auditExportArchivePlan ||
+						auditArchiveRetentionPlan ||
+						cleanupExportArchivePlan
+							? ["STATUS DIALOG PREVIEW"]
+							: [],
+					cleanupRows:
+						cleanupShelfIndex.activeShelves > 0 ||
+						cleanupHandoffHistory.length > 0
+							? ["CLEANUP OPS"]
+							: [],
+					evidenceRows:
+						handoffIndex.items.length > 0 ||
+						auditExportIndex.items.length > 0 ||
+						auditExportArchiveIndex.items.length > 0 ||
+						cleanupExportIndex.items.length > 0 ||
+						cleanupExportArchiveIndex.items.length > 0
+							? ["STATUS EVIDENCE SUMMARY"]
+							: [],
+				},
+				selectedStatusActivitySource,
+			);
+			switch (activityEnterPlan.action) {
+				case "cycle-release-link": {
+					const handoff = updateCheckResult
+						? createUpdateReleaseHandoff(updateCheckResult)
+						: undefined;
+					if (!handoff) {
+						log("warn", "no update handoff links");
+						return;
+					}
+					const links = getUpdateReleaseHandoffLinks(handoff);
+					setSelectedUpdateHandoffIndex((index) => {
+						const next = (index + 1) % links.length;
+						log("info", `update handoff selected ${links[next].label}`);
+						return next;
+					});
+					log("info", activityEnterPlan.message);
+					return;
+				}
+				case "show-dialog":
+					log("info", activityEnterPlan.message);
+					return;
+				case "jump-cleanup": {
+					const shelf = getSelectedCleanupShelf(
+						cleanupShelfIndex,
+						selectedCleanupShelfIndex,
+					);
+					if (!shelf) {
+						log("warn", "no cleanup shelf selected");
+						return;
+					}
+					setCleanupJumpAudit(createCleanupJumpAudit(shelf));
+					setScreen(shelf.screen);
+					log("info", activityEnterPlan.message);
+					log(
+						"info",
+						`cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
+					);
+					return;
+				}
+				case "none":
+					log("warn", activityEnterPlan.message);
+					return;
+				case "enter-evidence":
+					break;
+			}
 			const evidenceEnterPlan = createStatusEvidenceEnterPlan(
 				{
 					handoffIndex,

@@ -2617,6 +2617,20 @@ Goal: make the Status activity queue behave like a keyboard-driven OS console se
 - Tests cover detail row formatting, fallback behavior, and source cursor movement.
 - Next: wire the Status activity cursor into jump actions so `enter` can move focus or trigger the selected source's safest primary action.
 
+## v0.4.134 - Status Activity Enter Plan
+
+Status: draft PR #196 on `codex/picos-v0.4.134-status-activity-enter-plan`.
+
+Goal: let the Status activity cursor perform the selected source's safest primary action with `enter`.
+
+- Status Activity now creates an explicit enter plan for release, dialog, cleanup, evidence, and empty activity states.
+- `enter` on release cycles the selected release handoff link using the same safe path as `n`.
+- `enter` on dialog surfaces exact-confirm guidance without bypassing the locked confirmation prompt.
+- `enter` on cleanup jumps to the selected cleanup shelf and leaves the existing exact-confirm handoff banner.
+- `enter` on evidence runs the existing active evidence enter plan, preserving locked file-open behavior.
+- Tests cover source-specific enter plans and fallback behavior when the requested source is unavailable.
+- Next: add visible activity action result rows so recent Status enter outcomes are readable without opening Timeline.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
