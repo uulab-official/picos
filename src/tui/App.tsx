@@ -405,19 +405,22 @@ import {
 	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
 	getStatusActivityResultAuditJumpIntentCount,
+	getStatusActivityResultHistoryFilteredSelection,
 	getStatusActivityResultTimelineJumpSelection,
 	getTimelineEvidenceTrailAuditExports,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultAuditJumpSelection,
-	moveStatusActivityResultHistorySelection,
+	moveStatusActivityResultHistoryFilteredSelection,
 	moveStatusActivityResultTimelineJumpSelection,
 	moveStatusActivitySource,
 	moveTimelineEvidenceTrailSelection,
+	nextStatusActivityResultHistoryFilter,
 	nextTimelineEvidenceTrailSourceFilter,
 	type StatusActivityCopyIntentEvidenceFocusPlan,
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
+	type StatusActivityResultHistoryFilter,
 	type StatusActivitySource,
 	type TimelineEvidenceTrailSourceFilter,
 	writeStatusActivityCopyIntentAuditExport,
@@ -634,6 +637,10 @@ export function App(): React.ReactElement {
 		selectedStatusActivityResultIndex,
 		setSelectedStatusActivityResultIndex,
 	] = useState(0);
+	const [
+		statusActivityResultHistoryFilter,
+		setStatusActivityResultHistoryFilter,
+	] = useState<StatusActivityResultHistoryFilter>("all");
 	const [
 		selectedStatusActivityCopyPreviewRowIndex,
 		setSelectedStatusActivityCopyPreviewRowIndex,
@@ -5190,18 +5197,37 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setSelectedStatusActivityResultIndex((current) => {
-				const next = moveStatusActivityResultHistorySelection(
+				const next = moveStatusActivityResultHistoryFilteredSelection(
 					statusActivityResults,
 					current,
 					input === "i" ? "next" : "previous",
+					statusActivityResultHistoryFilter,
 				);
 				const result = statusActivityResults[next];
 				log(
 					"info",
-					`status activity history ${next + 1}/${statusActivityResults.length} ${result?.source ?? "none"} ${result?.action ?? "none"}`,
+					`status activity history ${next + 1}/${statusActivityResults.length} filter=${statusActivityResultHistoryFilter} ${result?.source ?? "none"} ${result?.action ?? "none"}`,
 				);
 				setSelectedStatusActivityCopyPreviewRowIndex(0);
 				setStatusActivityCopyPreviewExpanded(false);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "f") {
+			setStatusActivityResultHistoryFilter((current) => {
+				const next = nextStatusActivityResultHistoryFilter(current);
+				setSelectedStatusActivityResultIndex((selected) =>
+					getStatusActivityResultHistoryFilteredSelection(
+						statusActivityResults,
+						selected,
+						next,
+					),
+				);
+				setSelectedStatusActivityCopyPreviewRowIndex(0);
+				setStatusActivityCopyPreviewExpanded(false);
+				log("info", `status activity result history filter ${next}`);
 				return next;
 			});
 			return;
@@ -7461,6 +7487,7 @@ export function App(): React.ReactElement {
 					selectedStatusActivitySource={selectedStatusActivitySource}
 					statusActivityResults={statusActivityResults}
 					selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
+					statusActivityResultHistoryFilter={statusActivityResultHistoryFilter}
 					selectedStatusActivityCopyPreviewRowIndex={
 						selectedStatusActivityCopyPreviewRowIndex
 					}
@@ -7702,6 +7729,7 @@ function MainWorkspace({
 	selectedStatusActivitySource,
 	statusActivityResults,
 	selectedStatusActivityResultIndex,
+	statusActivityResultHistoryFilter,
 	selectedStatusActivityCopyPreviewRowIndex,
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
@@ -7832,6 +7860,7 @@ function MainWorkspace({
 	selectedStatusActivitySource: StatusActivitySource;
 	statusActivityResults: StatusActivityResult[];
 	selectedStatusActivityResultIndex: number;
+	statusActivityResultHistoryFilter: StatusActivityResultHistoryFilter;
 	selectedStatusActivityCopyPreviewRowIndex: number;
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
@@ -8040,6 +8069,7 @@ function MainWorkspace({
 						selectedStatusActivitySource,
 						statusActivityResults,
 						selectedStatusActivityResultIndex,
+						statusActivityResultHistoryFilter,
 						selectedStatusActivityCopyPreviewRowIndex,
 						statusActivityCopyPreviewExpanded,
 						statusActivityCopyIntentHistory,
@@ -8175,6 +8205,7 @@ function renderWorkspace(
 	selectedStatusActivitySource: StatusActivitySource,
 	statusActivityResults: StatusActivityResult[],
 	selectedStatusActivityResultIndex: number,
+	statusActivityResultHistoryFilter: StatusActivityResultHistoryFilter,
 	selectedStatusActivityCopyPreviewRowIndex: number,
 	statusActivityCopyPreviewExpanded: boolean,
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[],
@@ -8455,6 +8486,7 @@ function renderWorkspace(
 				selectedStatusActivitySource={selectedStatusActivitySource}
 				statusActivityResults={statusActivityResults}
 				selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
+				statusActivityResultHistoryFilter={statusActivityResultHistoryFilter}
 				selectedStatusActivityCopyPreviewRowIndex={
 					selectedStatusActivityCopyPreviewRowIndex
 				}
@@ -10668,6 +10700,7 @@ function StatusWorkspace({
 	selectedStatusActivitySource,
 	statusActivityResults,
 	selectedStatusActivityResultIndex,
+	statusActivityResultHistoryFilter,
 	selectedStatusActivityCopyPreviewRowIndex,
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
@@ -10708,6 +10741,7 @@ function StatusWorkspace({
 	selectedStatusActivitySource: StatusActivitySource;
 	statusActivityResults: StatusActivityResult[];
 	selectedStatusActivityResultIndex: number;
+	statusActivityResultHistoryFilter: StatusActivityResultHistoryFilter;
 	selectedStatusActivityCopyPreviewRowIndex: number;
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
@@ -10896,9 +10930,10 @@ function StatusWorkspace({
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
-					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
-					copy · &lt;/&gt; intents · v replay · e export · z open · L trail · N
-					trail search · S trail select · g Timeline
+					STATUS ACTIVITY · ,/. source · f result filter=
+					{statusActivityResultHistoryFilter} · u/i history · ; preview · =
+					expand · y copy · &lt;/&gt; intents · v replay · e export · z open · L
+					trail · N trail search · S trail select · g Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,
@@ -10976,6 +11011,7 @@ function StatusWorkspace({
 					selectedStatusActivityResultIndex,
 					latestStatusActivityResultAuditJumpIntent,
 					statusActivityResultAuditJumpIntentCount,
+					statusActivityResultHistoryFilter,
 				).map((row) => (
 					<Text
 						key={`history-${row}`}
@@ -10986,9 +11022,11 @@ function StatusWorkspace({
 									? "yellow"
 									: row.startsWith("no ")
 										? "gray"
-										: row.startsWith("    ")
-											? "gray"
-											: "white"
+										: row.startsWith("controls=")
+											? "yellow"
+											: row.startsWith("    ")
+												? "gray"
+												: "white"
 						}
 					>
 						{row}
