@@ -358,7 +358,12 @@ import {
 	writeRouteRawHandoffPlan,
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
-import { formatStatusActivityQueueRows } from "./statusActivityQueue";
+import {
+	formatStatusActivityDetailRows,
+	formatStatusActivityQueueRows,
+	moveStatusActivitySource,
+	type StatusActivitySource,
+} from "./statusActivityQueue";
 import {
 	formatStatusDialogPreviewRows,
 	type StatusDialogPreviewGroup,
@@ -559,6 +564,8 @@ export function App(): React.ReactElement {
 		useState<ConsoleAuditArchiveRetentionPlan>();
 	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
 	const [fileOpenPlan, setFileOpenPlan] = useState<FileOpenPlan>();
+	const [selectedStatusActivitySource, setSelectedStatusActivitySource] =
+		useState<StatusActivitySource>("release");
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -4527,6 +4534,49 @@ export function App(): React.ReactElement {
 		if (
 			screen === "status" &&
 			focusArea === "workspaces" &&
+			(input === "," || input === ".")
+		) {
+			setSelectedStatusActivitySource((current) => {
+				const next = moveStatusActivitySource(
+					{
+						releaseRows:
+							updateCheckResult || githubReleaseCheckResult
+								? ["STATUS RELEASE CONSOLE"]
+								: [],
+						dialogRows:
+							externalOpenPlan ||
+							fileOpenPlan ||
+							auditExportArchivePlan ||
+							auditArchiveRetentionPlan ||
+							cleanupExportArchivePlan
+								? ["STATUS DIALOG PREVIEW"]
+								: [],
+						cleanupRows:
+							cleanupShelfIndex.activeShelves > 0 ||
+							cleanupHandoffHistory.length > 0
+								? ["CLEANUP OPS"]
+								: [],
+						evidenceRows:
+							handoffIndex.items.length > 0 ||
+							auditExportIndex.items.length > 0 ||
+							auditExportArchiveIndex.items.length > 0 ||
+							cleanupExportIndex.items.length > 0 ||
+							cleanupExportArchiveIndex.items.length > 0
+								? ["STATUS EVIDENCE SUMMARY"]
+								: [],
+					},
+					current,
+					input === "." ? 1 : -1,
+				);
+				log("info", `status activity focus ${next}`);
+				return next;
+			});
+			return;
+		}
+
+		if (
+			screen === "status" &&
+			focusArea === "workspaces" &&
 			/^[1-9]$/.test(input)
 		) {
 			const evidenceJumpPlan = createStatusEvidenceNumberJumpPlan(
@@ -6312,6 +6362,7 @@ export function App(): React.ReactElement {
 					selectedCleanupExportIndex={selectedCleanupExportIndex}
 					cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 					selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
+					selectedStatusActivitySource={selectedStatusActivitySource}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -6528,6 +6579,7 @@ function MainWorkspace({
 	selectedCleanupExportIndex: _selectedCleanupExportIndex,
 	cleanupExportArchiveIndex: _cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex: _selectedCleanupExportArchiveIndex,
+	selectedStatusActivitySource,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -6645,6 +6697,7 @@ function MainWorkspace({
 	selectedCleanupExportIndex: number;
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
+	selectedStatusActivitySource: StatusActivitySource;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -6840,6 +6893,7 @@ function MainWorkspace({
 						_selectedCleanupExportIndex,
 						_cleanupExportArchiveIndex,
 						_selectedCleanupExportArchiveIndex,
+						selectedStatusActivitySource,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -6962,6 +7016,7 @@ function renderWorkspace(
 	selectedCleanupExportIndex: number,
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex,
 	selectedCleanupExportArchiveIndex: number,
+	selectedStatusActivitySource: StatusActivitySource,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7228,6 +7283,7 @@ function renderWorkspace(
 				selectedCleanupExportIndex={selectedCleanupExportIndex}
 				cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 				selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
+				selectedStatusActivitySource={selectedStatusActivitySource}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
@@ -9404,6 +9460,7 @@ function StatusWorkspace({
 	selectedCleanupExportIndex,
 	cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex,
+	selectedStatusActivitySource,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -9430,6 +9487,7 @@ function StatusWorkspace({
 	selectedCleanupExportIndex: number;
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
+	selectedStatusActivitySource: StatusActivitySource;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -9590,6 +9648,32 @@ function StatusWorkspace({
 						key={row}
 						color={
 							row.startsWith("STATUS ACTIVITY QUEUE")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("controls=")
+										? "yellow"
+										: row.startsWith("no ")
+											? "gray"
+											: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+				{formatStatusActivityDetailRows(
+					{
+						releaseRows: statusActivityReleaseRows,
+						dialogRows: statusDialogRows,
+						cleanupRows: statusActivityCleanupRows,
+						evidenceRows: statusActivityEvidenceRows,
+					},
+					selectedStatusActivitySource,
+				).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("STATUS ACTIVITY DETAIL")
 								? "cyan"
 								: row.startsWith(">")
 									? "yellow"

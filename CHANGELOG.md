@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity now has a `STATUS ACTIVITY DETAIL` cursor; `,` and `.` move across release, dialog, cleanup, and evidence sources without leaving Status.
 - Status now shows a compact `STATUS ACTIVITY QUEUE` that summarizes meaningful release, dialog, cleanup, and evidence activity before the detailed Status consoles.
 - Status external-open, file-open, audit archive, audit retention, and cleanup archive confirmations now render through one compact `STATUS DIALOG PREVIEW` strip with exact-confirm, target path/URL, origin, and prompt hints.
 - Status release checks, GitHub release state, locked update-apply preview, selected handoff link, and update errors now render through a compact `STATUS RELEASE CONSOLE` instead of several stacked Status blocks.
