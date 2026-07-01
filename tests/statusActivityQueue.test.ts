@@ -1642,7 +1642,7 @@ describe("Status activity queue", () => {
 			filter: "audit",
 			query: "action=source source=palette visible=2/5",
 			message:
-				"status activity result audit jump replay action=source source=palette visible=2/5",
+				"status activity result audit jump replay latest action=source source=palette visible=2/5",
 		});
 		expect(
 			createStatusActivityResultTimelineSearchReplay(
@@ -1655,7 +1655,7 @@ describe("Status activity queue", () => {
 			filter: "audit",
 			query: "action=source source=evidence visible=1/3",
 			message:
-				"status activity result audit jump replay action=source source=evidence visible=1/3",
+				"status activity result audit jump replay selected action=source source=evidence visible=1/3",
 		});
 		expect(
 			createStatusActivityResultTimelineSearchReplay(history, 0),

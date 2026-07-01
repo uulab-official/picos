@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.182 - Status Audit Jump Replay Source
+
+Status: draft PR [#244](https://github.com/uulab-official/picos/pull/244) on `codex/picos-v0.4.182-audit-jump-replay-source`.
+
+Goal: make Timeline audit evidence reveal whether `I` replay used the selected audit-jump cursor or the latest fallback.
+
+- Status Activity replay messages now include `selected` when the `P audit jump` cursor supplied the replay.
+- Status Activity replay messages now include `latest` when replay falls back to the newest reusable audit jump.
+- Fresh jumps from selected result rows keep their existing message shape, so only replay evidence gets the source marker.
+- Tests cover both selected-cursor replay and latest-fallback replay messages.
+- Next: surface the replay-source marker in the Status Activity copy-intent shelf summary so operators can see the replay path before switching to Timeline.
+
 ## v0.4.181 - Status Selected Audit Jump Replay
 
 Status: draft PR [#243](https://github.com/uulab-official/picos/pull/243) on `codex/picos-v0.4.181-selected-audit-jump-replay`.
