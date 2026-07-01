@@ -40,9 +40,7 @@ import {
 	createConsoleAuditExportArchivePlan,
 	createConsoleAuditExportPlan,
 	formatConsoleAuditArchiveRetentionRows,
-	formatConsoleAuditExportArchiveIndexRows,
 	formatConsoleAuditExportArchiveRows,
-	formatConsoleAuditExportIndexRows,
 	getSelectedConsoleAuditExport,
 	pruneConsoleAuditArchive,
 	readConsoleAuditExportArchiveIndex,
@@ -100,7 +98,6 @@ import {
 } from "../core/files";
 import {
 	archiveHandoffFile,
-	formatHandoffIndexRows,
 	getSelectedHandoffIndexItem,
 	type HandoffIndex,
 	readHandoffIndex,
@@ -197,9 +194,7 @@ import {
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
-	formatCleanupHandoffHistoryExportArchiveIndexRows,
 	formatCleanupHandoffHistoryExportArchiveRows,
-	formatCleanupHandoffHistoryExportIndexRows,
 	formatCleanupHandoffHistoryIndexRows,
 	formatCleanupHandoffHistoryRows,
 	formatCleanupHandoffReopenRows,
@@ -372,6 +367,7 @@ import {
 	createStatusEvidenceItemMovePlan,
 	createStatusEvidenceNumberJumpPlan,
 	formatStatusEvidenceCommandStripRows,
+	formatStatusEvidenceLegacyBridgeRows,
 	formatStatusEvidenceSummaryRows,
 	formatStatusEvidenceTableDetailRows,
 	formatStatusEvidenceTableRows,
@@ -9904,119 +9900,33 @@ function StatusWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
-					HANDOFF INDEX · H refresh · ] select · O open · A archive
+					LEGACY EVIDENCE · explicit shortcuts kept · compact bridge
 				</Text>
-				{formatHandoffIndexRows(handoffIndex, selectedHandoffIndex, 6).map(
-					(row) => (
-						<Text
-							key={row}
-							color={
-								row.startsWith(">")
+				{formatStatusEvidenceLegacyBridgeRows(
+					{
+						handoffIndex,
+						auditExportIndex,
+						auditExportArchiveIndex,
+						cleanupExportIndex,
+						cleanupExportArchiveIndex,
+					},
+					{
+						selectedHandoffIndex,
+						selectedAuditExportIndex,
+						selectedAuditExportArchiveIndex,
+						selectedCleanupExportIndex,
+						selectedCleanupExportArchiveIndex,
+					},
+					selectedStatusEvidenceKind,
+				).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("LEGACY EVIDENCE BRIDGE")
+								? "cyan"
+								: row.startsWith(">")
 									? "yellow"
-									: row.startsWith("HANDOFFS")
-										? "cyan"
-										: row.startsWith("open target")
-											? "gray"
-											: row.startsWith("archive target")
-												? "gray"
-												: "white"
-							}
-						>
-							{row}
-						</Text>
-					),
-				)}
-			</Box>
-			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">
-					AUDIT EXPORTS · T refresh · ) select · W open · Z archive
-				</Text>
-				{formatConsoleAuditExportIndexRows(
-					auditExportIndex,
-					selectedAuditExportIndex,
-					5,
-				).map((row) => (
-					<Text
-						key={row}
-						color={
-							row.startsWith(">")
-								? "yellow"
-								: row.startsWith("AUDIT EXPORTS")
-									? "cyan"
-									: row.startsWith("path=") || row.startsWith("no ")
-										? "gray"
-										: "white"
-						}
-					>
-						{row}
-					</Text>
-				))}
-			</Box>
-			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">
-					AUDIT ARCHIVE · U refresh · ( select · J open · M retention
-				</Text>
-				{formatConsoleAuditExportArchiveIndexRows(
-					auditExportArchiveIndex,
-					selectedAuditExportArchiveIndex,
-					4,
-				).map((row) => (
-					<Text
-						key={row}
-						color={
-							row.startsWith(">")
-								? "yellow"
-								: row.startsWith("AUDIT ARCHIVE")
-									? "cyan"
-									: row.startsWith("path=") || row.startsWith("no ")
-										? "gray"
-										: "white"
-						}
-					>
-						{row}
-					</Text>
-				))}
-			</Box>
-			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">
-					CLEANUP EXPORTS · Y refresh · {"}"} select · V open · X archive
-				</Text>
-				{formatCleanupHandoffHistoryExportIndexRows(
-					cleanupExportIndex,
-					selectedCleanupExportIndex,
-					5,
-				).map((row) => (
-					<Text
-						key={row}
-						color={
-							row.startsWith(">")
-								? "yellow"
-								: row.startsWith("CLEANUP EXPORTS")
-									? "cyan"
-									: row.startsWith("path=") || row.startsWith("no ")
-										? "gray"
-										: "white"
-						}
-					>
-						{row}
-					</Text>
-				))}
-			</Box>
-			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">CLEANUP ARCHIVE · B refresh · {"{"} select</Text>
-				{formatCleanupHandoffHistoryExportArchiveIndexRows(
-					cleanupExportArchiveIndex,
-					selectedCleanupExportArchiveIndex,
-					4,
-				).map((row) => (
-					<Text
-						key={row}
-						color={
-							row.startsWith(">")
-								? "yellow"
-								: row.startsWith("CLEANUP ARCHIVE")
-									? "cyan"
-									: row.startsWith("path=") || row.startsWith("no ")
+									: row.startsWith("shortcuts")
 										? "gray"
 										: "white"
 						}

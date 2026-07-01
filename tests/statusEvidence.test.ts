@@ -7,6 +7,7 @@ import {
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
 	formatStatusEvidenceIndexRows,
+	formatStatusEvidenceLegacyBridgeRows,
 	formatStatusEvidenceSummaryRows,
 	formatStatusEvidenceTableDetailRows,
 	formatStatusEvidenceTableRows,
@@ -562,6 +563,46 @@ describe("Status evidence detail rows", () => {
 			"> handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
 			"  audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
 			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- move=-",
+		]);
+	});
+
+	test("formats a compact bridge for legacy evidence browser shortcuts", () => {
+		expect(
+			formatStatusEvidenceLegacyBridgeRows(
+				populatedIndexes,
+				selection,
+				"audit",
+			),
+		).toEqual([
+			"LEGACY EVIDENCE BRIDGE active=audit families=3 files=3",
+			"  handoff         selected=1/1 refresh=H select=] open=O archive=A retention=-",
+			"> audit           selected=1/1 refresh=T select=) open=W archive=Z retention=-",
+			"  cleanup         selected=1/1 refresh=Y select=} open=V archive=X retention=-",
+		]);
+	});
+
+	test("keeps the legacy evidence bridge useful when no files are indexed", () => {
+		expect(
+			formatStatusEvidenceLegacyBridgeRows(
+				{
+					handoffIndex: { baseDir: "/tmp/picos/handoffs", items: [] },
+					auditExportIndex: { baseDir: "/tmp/picos/audit", items: [] },
+					auditExportArchiveIndex: {
+						baseDir: "/tmp/picos/audit/archive",
+						items: [],
+					},
+					cleanupExportIndex: { baseDir: "/tmp/picos/cleanup", items: [] },
+					cleanupExportArchiveIndex: {
+						baseDir: "/tmp/picos/cleanup/archive",
+						items: [],
+					},
+				},
+				selection,
+				"handoff",
+			),
+		).toEqual([
+			"LEGACY EVIDENCE BRIDGE active=none families=0 files=0",
+			"shortcuts still available after indexes refresh: H/T/U/Y/B",
 		]);
 	});
 

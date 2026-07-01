@@ -177,6 +177,43 @@ export function formatStatusEvidenceSummaryRows(
 	];
 }
 
+export function formatStatusEvidenceLegacyBridgeRows(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+): string[] {
+	const activeEntry = getActiveStatusEvidenceEntry(
+		collectStatusEvidenceEntries(indexes, selection),
+		activeKind,
+	);
+	const effectiveActiveKind = activeEntry?.kind ?? activeKind;
+	const rows = STATUS_EVIDENCE_KIND_ORDER.map((kind) =>
+		createStatusEvidenceLegacyBridgeRow(
+			indexes,
+			selection,
+			effectiveActiveKind,
+			kind,
+		),
+	).filter((row): row is string => Boolean(row));
+	const fileCount = STATUS_EVIDENCE_KIND_ORDER.reduce(
+		(count, kind) =>
+			count +
+			collectStatusEvidenceFamilyEntries(indexes, selection, kind).entries
+				.length,
+		0,
+	);
+	if (rows.length === 0) {
+		return [
+			"LEGACY EVIDENCE BRIDGE active=none families=0 files=0",
+			"shortcuts still available after indexes refresh: H/T/U/Y/B",
+		];
+	}
+	return [
+		`LEGACY EVIDENCE BRIDGE active=${activeEntry?.kind ?? "none"} families=${rows.length} files=${fileCount}`,
+		...rows,
+	];
+}
+
 export function formatStatusEvidenceTableRows(
 	indexes: StatusEvidenceIndexes,
 	selection: StatusEvidenceSelection,
@@ -577,6 +614,80 @@ function createStatusEvidenceSummaryRow(
 	} retention=${
 		retentionAction ? `m/${retentionAction.shortcut}` : "-"
 	} move=${movement}`;
+}
+
+function createStatusEvidenceLegacyBridgeRow(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+	kind: StatusEvidenceKind,
+): string | undefined {
+	const family = collectStatusEvidenceFamilyEntries(indexes, selection, kind);
+	if (family.entries.length === 0) {
+		return undefined;
+	}
+	const shortcuts = getStatusEvidenceLegacyShortcuts(kind);
+	const selectedIndex = clampEvidenceSelectionIndex(
+		family.selectedIndex,
+		family.entries.length,
+	);
+	const cursor = kind === activeKind ? ">" : " ";
+	return `${cursor} ${kind.padEnd(15)} selected=${selectedIndex + 1}/${
+		family.entries.length
+	} refresh=${shortcuts.refresh} select=${shortcuts.select} open=${
+		shortcuts.open
+	} archive=${shortcuts.archive} retention=${shortcuts.retention}`;
+}
+
+function getStatusEvidenceLegacyShortcuts(kind: StatusEvidenceKind): {
+	refresh: string;
+	select: string;
+	open: string;
+	archive: string;
+	retention: string;
+} {
+	switch (kind) {
+		case "handoff":
+			return {
+				refresh: "H",
+				select: "]",
+				open: "O",
+				archive: "A",
+				retention: "-",
+			};
+		case "audit":
+			return {
+				refresh: "T",
+				select: ")",
+				open: "W",
+				archive: "Z",
+				retention: "-",
+			};
+		case "audit-archive":
+			return {
+				refresh: "U",
+				select: "(",
+				open: "J",
+				archive: "-",
+				retention: "M",
+			};
+		case "cleanup":
+			return {
+				refresh: "Y",
+				select: "}",
+				open: "V",
+				archive: "X",
+				retention: "-",
+			};
+		case "cleanup-archive":
+			return {
+				refresh: "B",
+				select: "{",
+				open: "-",
+				archive: "-",
+				retention: "-",
+			};
+	}
 }
 
 function formatHandoffEvidence(
