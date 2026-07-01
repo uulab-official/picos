@@ -9,6 +9,7 @@ import {
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
+	createStatusActivityCopyIntentEvidenceFocusResult,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
@@ -810,6 +811,40 @@ describe("Status activity queue", () => {
 				scope: "selected",
 			}),
 		).toBeUndefined();
+	});
+
+	test("creates status activity results for copy intent evidence focus jumps", () => {
+		const focusPlan = {
+			kind: "audit" as const,
+			selectedIndex: 1,
+			itemCount: 2,
+			shortcut: "w" as const,
+			label: "picos-audit-selected-2026-07-01T030000000Z.log",
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			message:
+				"status activity copy intent evidence focus audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+		};
+
+		const result = createStatusActivityCopyIntentEvidenceFocusResult(focusPlan);
+
+		expect(result).toEqual({
+			source: "evidence",
+			action: "focus-evidence",
+			message:
+				"status activity copy intent evidence focus audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+			detail:
+				"evidence audit selected=2/2 path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=evidence action=focus-evidence",
+			"> status activity copy intent evidence focus audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+			"  evidence audit selected=2/2 path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> evidence focus-evidence status activity copy intent evidence focus audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+			"    evidence audit selected=2/2 path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+		]);
 	});
 
 	test("selects status activity copy intents and creates timeline search jumps", () => {

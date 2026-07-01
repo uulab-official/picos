@@ -2838,6 +2838,19 @@ Goal: let operators move from the Status Activity copy-intent export target to i
 - Tests cover the pure focus plan, stale target behavior, and the visible `w Evidence focus` control row.
 - Next: add an Activity-to-Evidence status result row so `w` focus jumps are recorded in the recent Status Activity result history.
 
+## v0.4.151 - Status Activity Evidence Focus Result
+
+Status: draft PR [#213](https://github.com/uulab-official/picos/pull/213) on `codex/picos-v0.4.151-status-activity-evidence-focus-result`.
+
+Goal: keep `w` Activity-to-Evidence focus jumps visible in the same recent activity result stream as other Status actions.
+
+- `w` focus now records a `STATUS ACTIVITY RESULT source=evidence action=focus-evidence` row.
+- The result detail preserves the target Evidence family, one-based selected row, total audit export count, and target path.
+- `STATUS ACTIVITY RESULT HISTORY` now retains the focus jump, so `u`/`i`, copy preview, and copy-intent capture can reuse it like other Status actions.
+- The helper converts the same focus plan used by the `w` handler into the activity result, keeping visible logs and history aligned.
+- Tests cover result formatting and history formatting for copy-intent Evidence focus jumps.
+- Next: add a compact copy-intent focus audit event so `w` focus jumps are searchable in Timeline without requiring a clipboard action.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

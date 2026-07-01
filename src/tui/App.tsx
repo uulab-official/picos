@@ -365,6 +365,7 @@ import {
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
+	createStatusActivityCopyIntentEvidenceFocusResult,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
@@ -4876,6 +4877,9 @@ export function App(): React.ReactElement {
 			setSelectedAuditExportIndex(focusPlan.selectedIndex);
 			setSelectedStatusEvidenceKind(focusPlan.kind);
 			setScreen("status");
+			recordStatusActivityResult(
+				createStatusActivityCopyIntentEvidenceFocusResult(focusPlan),
+			);
 			log("info", focusPlan.message);
 			return;
 		}
