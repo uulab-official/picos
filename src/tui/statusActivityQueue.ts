@@ -40,6 +40,7 @@ export type StatusActivityEnterAction =
 	| "timeline-evidence-trail"
 	| "timeline-selected-copy"
 	| "timeline-selected-export"
+	| "filter-result-history"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -423,6 +424,23 @@ export function getStatusActivityResultHistoryFilteredSelection(
 		selectedIndex,
 	);
 	return indexes.includes(selected) ? selected : (indexes[0] as number);
+}
+
+export function createStatusActivityResultHistoryFilterPaletteResult(
+	filter: StatusActivityResultHistoryFilter,
+	options: {
+		total?: number;
+		visible?: number;
+	} = {},
+): StatusActivityResult {
+	const total = Math.max(0, Math.floor(options.total ?? 0));
+	const visible = Math.max(0, Math.floor(options.visible ?? 0));
+	return {
+		source: "timeline",
+		action: "filter-result-history",
+		message: `palette status result filter ${filter} visible=${visible}/${total}`,
+		detail: `result history filter changed to ${filter}`,
+	};
 }
 
 function isPaletteStatusActivityResultJump(
