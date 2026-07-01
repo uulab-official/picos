@@ -381,6 +381,7 @@ import {
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
+	createTimelineSelectedStatusActivityResult,
 	filterTimelineEvidenceTrailAuditExports,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -6191,6 +6192,15 @@ export function App(): React.ReactElement {
 				return;
 			}
 			openClipboardConfirmation(preview);
+			recordStatusActivityResult(
+				createTimelineSelectedStatusActivityResult("copy", {
+					filter: timelineFilter,
+					label: preview.label,
+					query: timelineSearchQuery,
+					selectedIndex: selectedTimelineIndex,
+					total: visibleTimelineEvents.length,
+				}),
+			);
 			return;
 		}
 
@@ -6211,6 +6221,16 @@ export function App(): React.ReactElement {
 					log(
 						"ok",
 						`audit selected exported ${written.path} events=${written.eventCount}`,
+					);
+					recordStatusActivityResult(
+						createTimelineSelectedStatusActivityResult("export", {
+							filter: timelineFilter,
+							label: `timeline audit selected ${written.eventCount}`,
+							path: written.path,
+							query: timelineSearchQuery,
+							selectedIndex: selectedTimelineIndex,
+							total: visibleTimelineEvents.length,
+						}),
 					);
 				})
 				.catch((caught) =>

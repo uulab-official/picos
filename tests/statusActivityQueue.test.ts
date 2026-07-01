@@ -30,6 +30,7 @@ import {
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
+	createTimelineSelectedStatusActivityResult,
 	filterTimelineEvidenceTrailAuditExports,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -1343,6 +1344,45 @@ describe("Status activity queue", () => {
 			"> timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
 			"  Status Evidence W=open Z=archive enter=open path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
 		]);
+	});
+
+	test("creates status activity results for selected timeline raw-source handoffs", () => {
+		const copyResult = createTimelineSelectedStatusActivityResult("copy", {
+			filter: "audit",
+			label: "timeline audit 12:00:06",
+			query: "control preview",
+			selectedIndex: 0,
+			total: 2,
+		});
+
+		expect(copyResult).toEqual({
+			source: "timeline",
+			action: "timeline-selected-copy",
+			message: "timeline selected copy 1/2 timeline audit 12:00:06",
+			detail:
+				"filter=audit search=control preview controls=t raw c copy e export",
+		});
+		expect(formatStatusActivityResultRows(copyResult)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=timeline-selected-copy",
+			"> timeline selected copy 1/2 timeline audit 12:00:06",
+			"  filter=audit search=control preview controls=t raw c copy e export",
+		]);
+
+		expect(
+			createTimelineSelectedStatusActivityResult("export", {
+				filter: "audit",
+				label: "timeline audit 12:00:06",
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected.log",
+				selectedIndex: 1,
+				total: 2,
+			}),
+		).toEqual({
+			source: "timeline",
+			action: "timeline-selected-export",
+			message: "timeline selected export 2/2 timeline audit 12:00:06",
+			detail:
+				"filter=audit controls=t raw c copy e export path=/Users/bonjin/.config/picos/audit/picos-audit-selected.log",
+		});
 	});
 
 	test("creates status activity results for palette-triggered timeline evidence trail actions", () => {

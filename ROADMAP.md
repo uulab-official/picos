@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.193 - Timeline Selected Status Results
+
+Status: draft PR [#255](https://github.com/uulab-official/picos/pull/255) on `codex/picos-v0.4.193-timeline-selected-status-results`.
+
+Goal: make selected Timeline raw/source copy and export handoffs revisit-able from Status Activity.
+
+- Timeline `c` selected copy now records a `timeline-selected-copy` Status Activity result row.
+- Timeline `e` selected export records a `timeline-selected-export` Status Activity result row after the audit file is written.
+- Result details include filter, search query when present, raw/source controls, and export path when available.
+- Tests cover the selected Timeline copy/export result shape and Status Activity rendering.
+- Next: add a Status Activity Timeline-result jump that restores the matching Timeline search/filter from those result rows.
+
 ## v0.4.192 - Timeline Raw Source Preview Hint
 
 Status: draft PR [#254](https://github.com/uulab-official/picos/pull/254) on `codex/picos-v0.4.192-timeline-raw-source-hint`.
@@ -10,7 +22,7 @@ Goal: make Timeline selected previews point operators toward raw/source comparis
 - The hint makes the raw filter, selected-row clipboard copy, and selected-row export path visible beside the active event.
 - The pure preview formatter keeps the hint opt-in so existing CLI/test formatter consumers remain stable.
 - Tests cover the raw-source hint text on a selected audit-search preview.
-- Next: add selected Timeline raw/source handoff rows to Status Activity so copied/exported Timeline rows can be revisited without searching manually.
+- Next: selected Timeline raw/source Status Activity result rows moved into v0.4.193.
 
 ## v0.4.191 - Width Aware Timeline Jump Preview
 
