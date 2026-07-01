@@ -75,6 +75,17 @@ export type StatusEvidenceNumberJumpPlan = {
 	label: string;
 };
 
+export type StatusEvidenceItemMoveDirection = "next" | "previous";
+
+export type StatusEvidenceItemMovePlan = {
+	kind: StatusEvidenceKind;
+	direction: StatusEvidenceItemMoveDirection;
+	shortcut: string;
+	selectedIndex: number;
+	itemCount: number;
+	label: string;
+};
+
 type EvidenceEntry = {
 	kind: StatusEvidenceKind;
 	label: string;
@@ -139,7 +150,7 @@ export function formatStatusEvidenceCommandStripRows(
 	if (!activeEntry) {
 		return [
 			"COMMAND STRIP active=none",
-			"> enter=cleanup-shelf archive=- retention=-",
+			"> enter=cleanup-shelf archive=- retention=- item=-",
 			"target=no selected evidence",
 		];
 	}
@@ -152,6 +163,11 @@ export function formatStatusEvidenceCommandStripRows(
 		activeEntry.kind,
 		"retention",
 	);
+	const itemMovement =
+		collectStatusEvidenceFamilyEntries(indexes, selection, activeEntry.kind)
+			.entries.length > 1
+			? "[/]"
+			: "-";
 	return [
 		`COMMAND STRIP active=${activeEntry.kind}`,
 		`> enter=${formatCommandStripAction("open", enterAction.shortcut)} archive=${
@@ -162,7 +178,7 @@ export function formatStatusEvidenceCommandStripRows(
 			retentionAction
 				? formatCommandStripAction("m", retentionAction.shortcut)
 				: "-"
-		}`,
+		} item=${itemMovement}`,
 		`target=${activeEntry.label}`,
 	];
 }
@@ -263,6 +279,38 @@ export function createStatusEvidenceActionPlan(
 	};
 }
 
+export function createStatusEvidenceItemMovePlan(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+	direction: StatusEvidenceItemMoveDirection,
+): StatusEvidenceItemMovePlan | undefined {
+	const family = collectStatusEvidenceFamilyEntries(
+		indexes,
+		selection,
+		activeKind,
+	);
+	if (family.entries.length <= 1) {
+		return undefined;
+	}
+	const offset = direction === "next" ? 1 : -1;
+	const selectedIndex =
+		(family.selectedIndex + offset + family.entries.length) %
+		family.entries.length;
+	const entry = family.entries[selectedIndex];
+	if (!entry) {
+		return undefined;
+	}
+	return {
+		kind: activeKind,
+		direction,
+		shortcut: direction === "next" ? "]" : "[",
+		selectedIndex,
+		itemCount: family.entries.length,
+		label: entry.label,
+	};
+}
+
 function collectStatusEvidenceEntries(
 	indexes: StatusEvidenceIndexes,
 	selection: StatusEvidenceSelection,
@@ -307,6 +355,74 @@ function collectStatusEvidenceEntries(
 			"enter=select open=- archive=archived retention=-",
 		),
 	].filter((entry): entry is EvidenceEntry => Boolean(entry));
+}
+
+function collectStatusEvidenceFamilyEntries(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	kind: StatusEvidenceKind,
+): { entries: EvidenceEntry[]; selectedIndex: number } {
+	switch (kind) {
+		case "handoff":
+			return {
+				entries: indexes.handoffIndex.items
+					.map(formatHandoffEvidence)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex: selection.selectedHandoffIndex,
+			};
+		case "audit":
+			return {
+				entries: indexes.auditExportIndex.items
+					.map((item) =>
+						formatAuditEvidence(
+							item,
+							"audit",
+							"enter=open open W archive Z/a retention=-",
+						),
+					)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex: selection.selectedAuditExportIndex,
+			};
+		case "audit-archive":
+			return {
+				entries: indexes.auditExportArchiveIndex.items
+					.map((item) =>
+						formatAuditEvidence(
+							item,
+							"audit-archive",
+							"enter=open open J archive=archived retention=M/m",
+						),
+					)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex: selection.selectedAuditExportArchiveIndex,
+			};
+		case "cleanup":
+			return {
+				entries: indexes.cleanupExportIndex.items
+					.map((item) =>
+						formatCleanupEvidence(
+							item,
+							"cleanup",
+							"enter=open open V archive X/x retention=-",
+						),
+					)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex: selection.selectedCleanupExportIndex,
+			};
+		case "cleanup-archive":
+			return {
+				entries: indexes.cleanupExportArchiveIndex.items
+					.map((item) =>
+						formatCleanupEvidence(
+							item,
+							"cleanup-archive",
+							"enter=select open=- archive=archived retention=-",
+						),
+					)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex: selection.selectedCleanupExportArchiveIndex,
+			};
+	}
 }
 
 function formatHandoffEvidence(

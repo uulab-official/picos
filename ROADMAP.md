@@ -2489,6 +2489,19 @@ Goal: make Status Evidence operate like a compact indexed OS table, so operators
 - Tests cover index row formatting, valid number jump plans, and unavailable number jump handling.
 - Next: make Status Evidence support per-family item movement with local `[`/`]` style controls from the same active-target model instead of relying on separate index sections.
 
+## v0.4.124 - Status Evidence Item Movement
+
+Status: draft PR #186 on `codex/picos-v0.4.124-status-evidence-item-move`.
+
+Goal: make Status Evidence item selection operate from the active-target model instead of relying on scattered per-index shortcut sections.
+
+- Status Evidence now creates pure active-family item move plans with wraparound for `previous` and `next` movement.
+- `[` and `]` in Status move the selected item inside the active evidence family when that family has multiple indexed items.
+- The command strip now shows `item=[/]` only when the active family has multiple movable items; otherwise it shows `item=-`.
+- Status applies item movement to handoff, Timeline export, archived Timeline export, cleanup export, and archived cleanup export selections through the same planner.
+- Tests cover item movement wraparound, single-item unavailable behavior, and command strip item availability.
+- Next: collapse the older per-index evidence selector rows into a denser Status Evidence table so the active-target model owns browsing, opening, archiving, and retention from one place.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

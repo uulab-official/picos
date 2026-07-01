@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
+	createStatusEvidenceItemMovePlan,
 	createStatusEvidenceNumberJumpPlan,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
@@ -387,7 +388,35 @@ describe("Status evidence detail rows", () => {
 			),
 		).toEqual([
 			"COMMAND STRIP active=audit",
-			"> enter=open/W archive=a/Z retention=-",
+			"> enter=open/W archive=a/Z retention=- item=-",
+			"target=audit selected events=1 query=control",
+		]);
+	});
+
+	test("formats item movement controls in the command strip when available", () => {
+		const multiIndexes = {
+			...populatedIndexes,
+			auditExportIndex: {
+				...populatedIndexes.auditExportIndex,
+				items: [
+					...populatedIndexes.auditExportIndex.items,
+					{
+						fileName: "picos-audit-all.log",
+						path: "/tmp/picos/audit/picos-audit-all.log",
+						generatedAt: "2026-07-01T06:00:00.000Z",
+						scope: "all" as const,
+						entryCount: 5,
+						origin,
+					},
+				],
+			},
+		};
+
+		expect(
+			formatStatusEvidenceCommandStripRows(multiIndexes, selection, "audit"),
+		).toEqual([
+			"COMMAND STRIP active=audit",
+			"> enter=open/W archive=a/Z retention=- item=[/]",
 			"target=audit selected events=1 query=control",
 		]);
 	});
@@ -418,7 +447,7 @@ describe("Status evidence detail rows", () => {
 			),
 		).toEqual([
 			"COMMAND STRIP active=audit-archive",
-			"> enter=open/J archive=- retention=m/M",
+			"> enter=open/J archive=- retention=m/M item=-",
 			"target=audit-archive all events=7",
 		]);
 	});
@@ -460,6 +489,68 @@ describe("Status evidence detail rows", () => {
 		).toBeUndefined();
 	});
 
+	test("creates active evidence item move plans with wraparound", () => {
+		const multiIndexes = {
+			...populatedIndexes,
+			auditExportIndex: {
+				...populatedIndexes.auditExportIndex,
+				items: [
+					...populatedIndexes.auditExportIndex.items,
+					{
+						fileName: "picos-audit-all.log",
+						path: "/tmp/picos/audit/picos-audit-all.log",
+						generatedAt: "2026-07-01T06:00:00.000Z",
+						scope: "all" as const,
+						entryCount: 5,
+						origin,
+					},
+				],
+			},
+		};
+
+		expect(
+			createStatusEvidenceItemMovePlan(
+				multiIndexes,
+				selection,
+				"audit",
+				"next",
+			),
+		).toEqual({
+			kind: "audit",
+			direction: "next",
+			shortcut: "]",
+			selectedIndex: 1,
+			itemCount: 2,
+			label: "audit all events=5",
+		});
+		expect(
+			createStatusEvidenceItemMovePlan(
+				multiIndexes,
+				selection,
+				"audit",
+				"previous",
+			),
+		).toEqual({
+			kind: "audit",
+			direction: "previous",
+			shortcut: "[",
+			selectedIndex: 1,
+			itemCount: 2,
+			label: "audit all events=5",
+		});
+	});
+
+	test("does not create item move plans for single-item evidence families", () => {
+		expect(
+			createStatusEvidenceItemMovePlan(
+				populatedIndexes,
+				selection,
+				"cleanup",
+				"next",
+			),
+		).toBeUndefined();
+	});
+
 	test("keeps the command strip useful when no evidence is indexed", () => {
 		expect(
 			formatStatusEvidenceCommandStripRows(
@@ -481,7 +572,7 @@ describe("Status evidence detail rows", () => {
 			),
 		).toEqual([
 			"COMMAND STRIP active=none",
-			"> enter=cleanup-shelf archive=- retention=-",
+			"> enter=cleanup-shelf archive=- retention=- item=-",
 			"target=no selected evidence",
 		]);
 	});
