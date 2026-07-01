@@ -772,14 +772,27 @@ export function createTimelineEvidenceTrailStatusActivityResult(
 }
 
 export function createTimelineEvidenceTrailPaletteStatusActivityResult(
-	action?: "select" | "open" | "search",
+	action?: "select" | "open" | "search" | "source",
 	plan?: ConsoleAuditExportPlan,
 	options: {
 		selectedIndex?: number;
+		sourceFilter?: TimelineEvidenceTrailSourceFilter;
 		total?: number;
+		visible?: number;
 	} = {},
 ): StatusActivityResult {
 	const paletteAction = action ?? "select";
+	if (paletteAction === "source") {
+		const sourceFilter = options.sourceFilter ?? "all";
+		const visible = Math.max(0, Math.floor(options.visible ?? 0));
+		const total = Math.max(0, Math.floor(options.total ?? 0));
+		return {
+			source: "evidence",
+			action: "timeline-evidence-trail",
+			message: `palette timeline trail source ${sourceFilter} visible=${visible}/${total}`,
+			detail: `source filter changed to ${sourceFilter}`,
+		};
+	}
 	if (!plan) {
 		return {
 			source: "evidence",

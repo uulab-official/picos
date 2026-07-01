@@ -2993,8 +2993,26 @@ export function App(): React.ReactElement {
 				visible.length ? "info" : "warn",
 				`timeline evidence trail source filter ${nextFilter} visible ${visible.length}/${timelineEvidenceTrailAuditExports.length}${options.origin === "palette" ? " origin=palette" : ""}`,
 			);
+			if (options.origin === "palette") {
+				recordStatusActivityResult(
+					createTimelineEvidenceTrailPaletteStatusActivityResult(
+						"source",
+						undefined,
+						{
+							sourceFilter: nextFilter,
+							visible: visible.length,
+							total: timelineEvidenceTrailAuditExports.length,
+						},
+					),
+				);
+			}
 		},
-		[log, timelineEvidenceTrailAuditExports, timelineEvidenceTrailSourceFilter],
+		[
+			log,
+			recordStatusActivityResult,
+			timelineEvidenceTrailAuditExports,
+			timelineEvidenceTrailSourceFilter,
+		],
 	);
 
 	const jumpSelectedTimelineEvidenceTrailSearch = useCallback(
