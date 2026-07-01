@@ -2886,6 +2886,80 @@ export function App(): React.ReactElement {
 		}
 	}, [log]);
 
+	const selectNextTimelineEvidenceTrailExport = useCallback(() => {
+		setScreen("status");
+		if (timelineEvidenceTrailAuditExports.length <= 1) {
+			log("warn", "no alternate timeline evidence trail exports");
+			return;
+		}
+		setSelectedTimelineEvidenceTrailAuditExportIndex((current) => {
+			const next = moveTimelineEvidenceTrailSelection(
+				timelineEvidenceTrailAuditExports,
+				current,
+				"next",
+			);
+			const trail = timelineEvidenceTrailAuditExports[next];
+			log(
+				"info",
+				`timeline evidence trail selected ${next + 1}/${timelineEvidenceTrailAuditExports.length} ${trail ? basename(trail.path) : "none"}`,
+			);
+			return next;
+		});
+	}, [log, timelineEvidenceTrailAuditExports]);
+
+	const jumpSelectedTimelineEvidenceTrailSearch = useCallback(() => {
+		const jump = createTimelineEvidenceTrailTimelineSearch(
+			selectedTimelineEvidenceTrailAuditExport,
+		);
+		if (!jump) {
+			log("warn", "no timeline evidence trail export for timeline");
+			return;
+		}
+		const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+		setTimelineFilter(jump.filter);
+		setTimelineSearchQuery(jump.query);
+		setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+		setScreen("timeline");
+		log(
+			filtered.length ? "info" : "warn",
+			`${jump.message} matches ${filtered.length}`,
+		);
+	}, [events, log, selectedTimelineEvidenceTrailAuditExport]);
+
+	const openSelectedTimelineEvidenceTrailExport = useCallback(() => {
+		if (!selectedTimelineEvidenceTrailAuditExport) {
+			log("warn", "no timeline evidence trail export to open");
+			setScreen("status");
+			return;
+		}
+		const plan = createTimelineEvidenceTrailAuditExportOpenPlan(
+			selectedTimelineEvidenceTrailAuditExport,
+			{
+				baseDir: dirname(getConfigPath()),
+				platform: currentPlatform(),
+			},
+		);
+		const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+			auditExportIndex,
+			selectedTimelineEvidenceTrailAuditExport,
+		);
+		if (evidenceIndex !== undefined) {
+			setSelectedAuditExportIndex(evidenceIndex);
+			setSelectedStatusEvidenceKind("audit");
+		}
+		setFileOpenPlan(plan);
+		setExternalOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
+		setAuditArchiveRetentionPlan(undefined);
+		setCleanupExportArchivePlan(undefined);
+		setCommandLine(openCommandLine("file-open"));
+		setScreen("status");
+		log(
+			"info",
+			`timeline evidence trail export open confirmation opened for ${selectedTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
+		);
+	}, [auditExportIndex, log, selectedTimelineEvidenceTrailAuditExport]);
+
 	const runAction = useCallback(
 		async (action: PicosAction) => {
 			if (!action.enabled) {
@@ -3096,6 +3170,18 @@ export function App(): React.ReactElement {
 					}
 				}
 
+				if (action.id === "status.timelineTrail.select") {
+					selectNextTimelineEvidenceTrailExport();
+				}
+
+				if (action.id === "status.timelineTrail.open") {
+					openSelectedTimelineEvidenceTrailExport();
+				}
+
+				if (action.id === "status.timelineTrail.search") {
+					jumpSelectedTimelineEvidenceTrailSearch();
+				}
+
 				if (
 					action.id === "process.inspect" ||
 					action.id === "remote.sftp.connect"
@@ -3130,9 +3216,12 @@ export function App(): React.ReactElement {
 			events,
 			exportToolHistory,
 			fileRoot,
+			jumpSelectedTimelineEvidenceTrailSearch,
 			log,
+			openSelectedTimelineEvidenceTrailExport,
 			refresh,
 			refreshFiles,
+			selectNextTimelineEvidenceTrailExport,
 			timelineFilter,
 			timelineSearchQuery,
 			toolHistory,
@@ -4855,43 +4944,12 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "N") {
-			const jump = createTimelineEvidenceTrailTimelineSearch(
-				selectedTimelineEvidenceTrailAuditExport,
-			);
-			if (!jump) {
-				log("warn", "no timeline evidence trail export for timeline");
-				return;
-			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
-			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			jumpSelectedTimelineEvidenceTrailSearch();
 			return;
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "S") {
-			if (timelineEvidenceTrailAuditExports.length <= 1) {
-				log("warn", "no alternate timeline evidence trail exports");
-				return;
-			}
-			setSelectedTimelineEvidenceTrailAuditExportIndex((current) => {
-				const next = moveTimelineEvidenceTrailSelection(
-					timelineEvidenceTrailAuditExports,
-					current,
-					"next",
-				);
-				const trail = timelineEvidenceTrailAuditExports[next];
-				log(
-					"info",
-					`timeline evidence trail selected ${next + 1}/${timelineEvidenceTrailAuditExports.length} ${trail ? basename(trail.path) : "none"}`,
-				);
-				return next;
-			});
+			selectNextTimelineEvidenceTrailExport();
 			return;
 		}
 
@@ -4976,36 +5034,7 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "L") {
-			if (!selectedTimelineEvidenceTrailAuditExport) {
-				log("warn", "no timeline evidence trail export to open");
-				return;
-			}
-			const plan = createTimelineEvidenceTrailAuditExportOpenPlan(
-				selectedTimelineEvidenceTrailAuditExport,
-				{
-					baseDir: dirname(getConfigPath()),
-					platform: currentPlatform(),
-				},
-			);
-			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
-				auditExportIndex,
-				selectedTimelineEvidenceTrailAuditExport,
-			);
-			if (evidenceIndex !== undefined) {
-				setSelectedAuditExportIndex(evidenceIndex);
-				setSelectedStatusEvidenceKind("audit");
-			}
-			setFileOpenPlan(plan);
-			setExternalOpenPlan(undefined);
-			setAuditExportArchivePlan(undefined);
-			setAuditArchiveRetentionPlan(undefined);
-			setCleanupExportArchivePlan(undefined);
-			setCommandLine(openCommandLine("file-open"));
-			setScreen("status");
-			log(
-				"info",
-				`timeline evidence trail export open confirmation opened for ${selectedTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
-			);
+			openSelectedTimelineEvidenceTrailExport();
 			return;
 		}
 

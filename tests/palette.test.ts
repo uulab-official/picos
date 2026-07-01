@@ -67,6 +67,29 @@ describe("TUI command palette", () => {
 		expect(actions.map((action) => action.id)).toContain("network.connect");
 	});
 
+	test("finds recovered timeline trail actions from the command palette", () => {
+		const state = appendCommandPaletteQuery(openCommandPalette(), "trail");
+		const actions = getFilteredPaletteActions(getActionCatalog(), state);
+
+		expect(actions.map((action) => action.id)).toEqual(
+			expect.arrayContaining([
+				"status.timelineTrail.select",
+				"status.timelineTrail.open",
+				"status.timelineTrail.search",
+			]),
+		);
+		expect(
+			actions.find((action) => action.id === "status.timelineTrail.select"),
+		).toEqual(
+			expect.objectContaining({
+				category: "status",
+				risk: "read",
+				enabled: true,
+				confirmationRequired: false,
+			}),
+		);
+	});
+
 	test("edits query with backspace and ignores control input", () => {
 		let state = openCommandPalette();
 		state = appendCommandPaletteQuery(state, "dns");

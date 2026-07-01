@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 36,
-			enabled: 24,
+			total: 39,
+			enabled: 27,
 			locked: 12,
 			elevated: 4,
 		});
@@ -69,6 +69,9 @@ describe("action catalog", () => {
 			"tools.export",
 			"picos.update",
 			"remote.profiles",
+			"status.timelineTrail.select",
+			"status.timelineTrail.open",
+			"status.timelineTrail.search",
 		]);
 	});
 
@@ -214,6 +217,34 @@ describe("action catalog", () => {
 		expect(getActionCatalog().map((action) => action.id)).toContain("raw.view");
 		expect(getActionCatalog().map((action) => action.id)).toContain(
 			"tools.export",
+		);
+		expect(getActionCatalog()).toContainEqual(
+			expect.objectContaining({
+				id: "status.timelineTrail.select",
+				title: "Select recovered Timeline trail",
+				category: "status",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
+			}),
+		);
+		expect(getActionCatalog()).toContainEqual(
+			expect.objectContaining({
+				id: "status.timelineTrail.open",
+				category: "status",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
+			}),
+		);
+		expect(getActionCatalog()).toContainEqual(
+			expect.objectContaining({
+				id: "status.timelineTrail.search",
+				category: "status",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
+			}),
 		);
 	});
 
