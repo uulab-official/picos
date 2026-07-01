@@ -169,6 +169,7 @@ describe("TUI command palette", () => {
 
 		expect(actions.map((action) => action.id)).toEqual(
 			expect.arrayContaining([
+				"status.toolsEvidence.filter",
 				"status.toolsEvidence.archive",
 				"status.toolsEvidence.retention",
 			]),
@@ -190,6 +191,12 @@ describe("TUI command palette", () => {
 				appendCommandPaletteQuery(openCommandPalette(), "tools archive"),
 			).map((action) => action.id),
 		).toContain("status.toolsEvidence.retention");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools compare"),
+			).map((action) => action.id),
+		).toContain("status.toolsEvidence.filter");
 	});
 
 	test("edits query with backspace and ignores control input", () => {

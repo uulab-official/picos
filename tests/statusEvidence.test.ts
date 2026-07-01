@@ -215,6 +215,49 @@ describe("Status evidence detail rows", () => {
 		});
 	});
 
+	test("filters Tools evidence selections by scope", () => {
+		const indexes = {
+			...populatedIndexes,
+			toolExportIndex: {
+				baseDir: "/tmp/picos/tools",
+				items: [
+					{
+						fileName: "picos-tools-selected.md",
+						path: "/tmp/picos/tools/picos-tools-selected.md",
+						scope: "selected" as const,
+						runCount: 1,
+						generatedAt: "2026-07-01T04:00:00.000Z",
+					},
+					{
+						fileName: "picos-tools-compare.md",
+						path: "/tmp/picos/tools/picos-tools-compare.md",
+						scope: "compare" as const,
+						runCount: 1,
+						generatedAt: "2026-07-01T04:05:00.000Z",
+					},
+				],
+			},
+		};
+		const filteredSelection = {
+			...selection,
+			toolExportFilter: "compare" as const,
+		};
+
+		expect(
+			formatStatusEvidenceDetailRows(indexes, filteredSelection, 20, "tools"),
+		).toContain("> tools compare runs=1 source=- scope=-");
+		expect(
+			createStatusEvidenceEnterPlan(indexes, filteredSelection, "tools"),
+		).toEqual(
+			expect.objectContaining({
+				kind: "tools",
+				action: "open-tools",
+				label: "tools compare runs=1",
+				path: "/tmp/picos/tools/picos-tools-compare.md",
+			}),
+		);
+	});
+
 	test("routes archived evidence enter actions to safe existing controls", () => {
 		const archivedIndexes = {
 			...populatedIndexes,

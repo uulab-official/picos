@@ -106,6 +106,7 @@ export type ToolHistoryItem = {
 };
 
 export type ToolHistoryExportScope = "selected" | "all" | "compare";
+export type ToolHistoryEvidenceFilter = "any" | ToolHistoryExportScope;
 
 export type ToolHistorySort = "time" | "tool" | "status";
 
@@ -1404,26 +1405,63 @@ export async function pruneToolHistoryExportArchive(
 export function getSelectedToolHistoryExport(
 	index: ToolHistoryExportIndex,
 	selectedIndex: number,
+	filter: ToolHistoryEvidenceFilter = "any",
 ): ToolHistoryExportIndexItem | undefined {
-	if (index.items.length === 0) {
+	const filtered = filterToolHistoryExportIndex(index, filter);
+	if (filtered.items.length === 0) {
 		return undefined;
 	}
-	return index.items[
-		Math.min(Math.max(selectedIndex, 0), index.items.length - 1)
+	return filtered.items[
+		Math.min(Math.max(selectedIndex, 0), filtered.items.length - 1)
 	];
+}
+
+export function filterToolHistoryExportIndex(
+	index: ToolHistoryExportIndex,
+	filter: ToolHistoryEvidenceFilter = "any",
+): ToolHistoryExportIndex {
+	if (filter === "any") {
+		return index;
+	}
+	return {
+		baseDir: index.baseDir,
+		items: index.items.filter((item) => item.scope === filter),
+	};
+}
+
+export function nextToolHistoryEvidenceFilter(
+	filter: ToolHistoryEvidenceFilter,
+): ToolHistoryEvidenceFilter {
+	const filters: ToolHistoryEvidenceFilter[] = [
+		"any",
+		"selected",
+		"all",
+		"compare",
+	];
+	const currentIndex = filters.indexOf(filter);
+	return filters[(currentIndex + 1) % filters.length] ?? "any";
 }
 
 export function formatToolHistoryExportIndexRows(
 	index: ToolHistoryExportIndex,
 	selectedIndex = 0,
 	visibleRows = 8,
+	filter: ToolHistoryEvidenceFilter = "any",
 ): string[] {
-	const selected = getSelectedToolHistoryExport(index, selectedIndex);
+	const filtered = filterToolHistoryExportIndex(index, filter);
+	const selected = getSelectedToolHistoryExport(filtered, selectedIndex);
 	const selectedTargets = selected ? [`open target=${selected.path}`] : [];
 	const budget = Math.max(0, visibleRows - 1 - selectedTargets.length);
+	const heading =
+		filter === "any"
+			? `TOOLS EVIDENCE ${index.items.length} base=${index.baseDir}`
+			: `TOOLS EVIDENCE ${filtered.items.length}/${index.items.length} filter=${filter} base=${index.baseDir}`;
+	if (filtered.items.length === 0) {
+		return [heading, "no matching tools evidence"].slice(0, visibleRows);
+	}
 	return [
-		`TOOLS EVIDENCE ${index.items.length} base=${index.baseDir}`,
-		...index.items
+		heading,
+		...filtered.items
 			.slice(0, budget)
 			.map((item, itemIndex) =>
 				[

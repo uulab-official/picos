@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.216 - Tools Evidence Scope Filters
+
+Status: draft PR [#278](https://github.com/uulab-official/picos/pull/278) on `codex/picos-v0.4.216-tools-evidence-filter`.
+
+Goal: make exported Tools evidence easier to recover after compare/export/archive flows by filtering the active evidence surface by export scope.
+
+- Tools evidence indexes now have an `any`/`selected`/`all`/`compare` scope filter model with cycling helpers and filtered row formatting.
+- Status Evidence applies Tools evidence filters to active and archived Tools families, so the visible `compare` row is also the row opened or archived.
+- Status workspace adds `q` as a Tools evidence filter shortcut and resets the filtered selection cursor to the first matching item.
+- Command palette search for `tools compare` exposes a read-only Tools evidence filter action alongside archive and retention prompts.
+- Tests cover filter cycling, filtered Tools evidence rows, compare selection/open planning, Status Evidence filtered selections, action catalog counts, and palette discovery.
+- Next: add a small Tools Evidence search token prompt so archived diagnostic files can be narrowed by filename/date in addition to scope.
+
 ## v0.4.215 - Tools Compare Handoffs
 
 Status: draft PR [#277](https://github.com/uulab-official/picos/pull/277) on `codex/picos-v0.4.215-tools-compare-handoffs`.
@@ -11,7 +24,7 @@ Goal: make Tools compare output reusable as picos-owned evidence instead of a tr
 - Compare exports use `scope=compare`, `runs=1`, and the same picos-owned Tools evidence index, so they appear in Status Evidence and can be opened, archived, and retention-managed.
 - The Tools evidence index recognizes `selected`, `all`, and `compare` export scopes while keeping picos-owned filename/path validation.
 - Tests cover compare clipboard previews, compare export plans, indexed compare evidence recovery, and the existing Tools history export/archive path.
-- Next: add archived Tools evidence search/filter controls and command-palette entries for compare handoffs.
+- Next: archived Tools evidence scope filters moved into v0.4.216; filename/date search remains a follow-up.
 
 ## v0.4.214 - Tools Result Compare
 

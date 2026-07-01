@@ -415,6 +415,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.toolsEvidence.filter",
+		title: "Filter Tools compare evidence",
+		description:
+			"Cycle Tools evidence scope filters across any, selected, all, and compare exports for active and archived Tools evidence.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.toolsEvidence.archive",
 		title: "Archive Tools evidence",
 		description:
