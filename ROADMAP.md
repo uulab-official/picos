@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.177 - Status Result Audit Jump Replay
+
+Status: draft PR [#239](https://github.com/uulab-official/picos/pull/239) on `codex/picos-v0.4.177-result-audit-jump-replay`.
+
+Goal: make the Status copy-intent audit-jump shelf summary actionable from the same `I` key.
+
+- Status Activity `I` now prefers a fresh jump from the selected result row when the row is jump-capable.
+- When the selected result row cannot create a fresh jump, `I` replays the latest reusable `status activity result audit jump ...` intent from the copy-intent shelf.
+- Replay uses the stored query/filter payload from the original audit-jump intent and logs `status activity result audit jump replay ...` into Timeline navigation.
+- Tests cover the fallback with a non-jumpable selected result row and no-fallback behavior when no reusable jump exists.
+- Next: expose replay-vs-fresh state directly in the `audit jumps` shelf summary so operators can see what `I` will do before pressing it.
+
 ## v0.4.176 - Status Copy Intent Audit Jump Shelf Summary
 
 Status: draft PR [#238](https://github.com/uulab-official/picos/pull/238) on `codex/picos-v0.4.176-result-audit-jump-shelf-summary`.

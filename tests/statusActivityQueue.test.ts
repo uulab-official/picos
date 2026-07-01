@@ -21,6 +21,7 @@ import {
 	createStatusActivityEnterPlan,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
+	createStatusActivityResultTimelineSearchReplay,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -1521,6 +1522,35 @@ describe("Status activity queue", () => {
 			createStatusActivityResultTimelineSearch(history, 1),
 		).toBeUndefined();
 		expect(createStatusActivityResultTimelineSearch([], 0)).toBeUndefined();
+	});
+
+	test("replays the latest result audit jump when the selected result cannot jump", () => {
+		const history = [
+			{
+				source: "cleanup" as const,
+				action: "jump-cleanup" as const,
+				message: "cleanup activity selected; jumping to selected cleanup shelf",
+			},
+		];
+		const latestIntent = createStatusActivityResultTimelineSearchIntent({
+			filter: "audit",
+			query: "action=source source=palette visible=2/5",
+			message:
+				"status activity result timeline search palette source palette visible=2/5",
+		});
+
+		expect(latestIntent).toBeDefined();
+		expect(
+			createStatusActivityResultTimelineSearchReplay(history, 0, latestIntent),
+		).toEqual({
+			filter: "audit",
+			query: "action=source source=palette visible=2/5",
+			message:
+				"status activity result audit jump replay action=source source=palette visible=2/5",
+		});
+		expect(
+			createStatusActivityResultTimelineSearchReplay(history, 0),
+		).toBeUndefined();
 	});
 
 	test("creates copy intents for status result audit jumps", () => {

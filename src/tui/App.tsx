@@ -370,8 +370,8 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
-	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
+	createStatusActivityResultTimelineSearchReplay,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -999,6 +999,10 @@ export function App(): React.ReactElement {
 		() => filterTimelineEvents(events, timelineSearchQuery, timelineFilter),
 		[events, timelineFilter, timelineSearchQuery],
 	);
+	const latestStatusActivityResultAuditJumpIntent =
+		getLatestStatusActivityResultAuditJumpIntent(
+			statusActivityCopyIntentHistory,
+		);
 	useEffect(() => {
 		setSelectedTimelineIndex((index) =>
 			Math.min(
@@ -5038,9 +5042,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "I") {
-			const jump = createStatusActivityResultTimelineSearch(
+			const jump = createStatusActivityResultTimelineSearchReplay(
 				statusActivityResults,
 				selectedStatusActivityResultIndex,
+				latestStatusActivityResultAuditJumpIntent,
 			);
 			if (!jump) {
 				log("warn", "no status activity result audit jump");

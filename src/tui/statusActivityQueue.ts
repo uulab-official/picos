@@ -653,6 +653,36 @@ export function createStatusActivityResultTimelineSearch(
 	};
 }
 
+export function createStatusActivityResultTimelineSearchReplay(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const selectedJump = createStatusActivityResultTimelineSearch(
+		history,
+		selectedIndex,
+	);
+	if (selectedJump) {
+		return selectedJump;
+	}
+	if (
+		!latestAuditJumpIntent?.label.startsWith(
+			"status activity result audit jump ",
+		)
+	) {
+		return undefined;
+	}
+	const [query, , filterLine] = latestAuditJumpIntent.copyText.split(/\r?\n/);
+	if (!query || filterLine !== "filter=audit") {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query,
+		message: `status activity result audit jump replay ${query}`,
+	};
+}
+
 export function createStatusActivityResultTimelineSearchIntent(
 	jump?: StatusActivityCopyIntentTimelineSearch,
 ): StatusActivityCopyIntentRecord | undefined {
