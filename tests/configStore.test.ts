@@ -163,7 +163,7 @@ describe("config store", () => {
 				filterPresets: [" dns ", "", "fail", "dns", "tls"],
 				sort: "status",
 				group: "tool",
-				detailView: "command",
+				detailView: "compare",
 			},
 			path,
 		);
@@ -172,7 +172,7 @@ describe("config store", () => {
 		expect(config.toolHistoryFilterPresets).toEqual(["dns", "fail", "tls"]);
 		expect(config.toolHistorySort).toBe("status");
 		expect(config.toolHistoryGroup).toBe("tool");
-		expect(config.toolHistoryDetailView).toBe("command");
+		expect(config.toolHistoryDetailView).toBe("compare");
 		expect(config.theme).toBe("dark");
 
 		const raw = await readFile(path, "utf8");
@@ -183,7 +183,7 @@ describe("config store", () => {
 		]);
 		expect(JSON.parse(raw).toolHistorySort).toBe("status");
 		expect(JSON.parse(raw).toolHistoryGroup).toBe("tool");
-		expect(JSON.parse(raw).toolHistoryDetailView).toBe("command");
+		expect(JSON.parse(raw).toolHistoryDetailView).toBe("compare");
 	});
 
 	test("persists normalized tool target presets without losing existing config", async () => {

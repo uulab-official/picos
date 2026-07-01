@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.214 - Tools Result Compare
+
+Status: draft PR [#276](https://github.com/uulab-official/picos/pull/276) on `codex/picos-v0.4.214-tools-result-compare`.
+
+Goal: make repeated Tools Hub checks easier to compare like an operator console, especially for lazyifconfig-style raw diagnostics.
+
+- Tools detail cycling now includes `compare` after raw, summary, and command views.
+- The compare view finds the previous matching Tools run by action id and arguments, so repeated DNS, ping, TCP, TLS, WHOIS, IP, and trace checks can be compared without manual raw-output scanning.
+- Compare rows show current and previous run labels, status change/unchanged state, summary change/unchanged state, raw line counts, signed line-count delta, and compact added/removed raw output rows.
+- Runs without a previous matching action/target show an explicit `no previous matching tool run` row.
+- `toolHistoryDetailView=compare` is normalized and persisted through the config store.
+- Tests cover detail cycling, compare row formatting, no-match behavior, and config persistence for the compare view.
+- Next: add Tools compare export/copy handoffs and archived Tools evidence search filters.
+
 ## v0.4.213 - Tools Evidence Activity And Palette
 
 Status: draft PR [#275](https://github.com/uulab-official/picos/pull/275) on `codex/picos-v0.4.213-tools-evidence-activity-palette`.
@@ -11,7 +25,7 @@ Goal: make Tools evidence archive/retention discoverable from the command palett
 - Confirmed Tools evidence archive and archive-retention submissions append outcome rows to Status Activity result history, including blocked states.
 - Palette-triggered Tools evidence management logs structured audit text so the operation can be searched from Timeline.
 - Tests cover action catalog counts, palette discoverability, Tools evidence result row creation, and audit message formatting.
-- Next: continue lazyifconfig parity by expanding Tools result comparison/detail workflows and archived evidence search filters.
+- Next: Tools result comparison moved into v0.4.214; archived evidence search filters remain a follow-up.
 
 ## v0.4.212 - Tools Evidence Archive And Retention
 

@@ -216,13 +216,13 @@ describe("config schema", () => {
 				],
 				toolHistorySort: "status",
 				toolHistoryGroup: "tool",
-				toolHistoryDetailView: "command",
+				toolHistoryDetailView: "compare",
 			}),
 		).toMatchObject({
 			toolHistoryFilterPresets: ["dns", "fail", "tls", "trace", "rdap", "ping"],
 			toolHistorySort: "status",
 			toolHistoryGroup: "tool",
-			toolHistoryDetailView: "command",
+			toolHistoryDetailView: "compare",
 		});
 
 		expect(
