@@ -25,7 +25,8 @@ export type StatusActivitySource =
 	| "release"
 	| "dialog"
 	| "cleanup"
-	| "evidence";
+	| "evidence"
+	| "timeline";
 
 export type StatusActivityEnterAction =
 	| "cycle-release-link"
@@ -34,6 +35,8 @@ export type StatusActivityEnterAction =
 	| "enter-evidence"
 	| "focus-evidence"
 	| "timeline-evidence-trail"
+	| "timeline-selected-copy"
+	| "timeline-selected-export"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -216,6 +219,12 @@ export function createStatusActivityEnterPlan(
 				source,
 				action: "enter-evidence",
 				message: "evidence activity selected; running active evidence enter",
+			};
+		case "timeline":
+			return {
+				source,
+				action: "none",
+				message: "timeline activity is available in result history",
 			};
 	}
 }
@@ -1093,6 +1102,36 @@ export function createTimelineEvidenceTrailStatusActivityResult(
 	};
 }
 
+export function createTimelineSelectedStatusActivityResult(
+	action: "copy" | "export",
+	options: {
+		filter: string;
+		label: string;
+		path?: string;
+		query?: string;
+		selectedIndex: number;
+		total: number;
+	},
+): StatusActivityResult {
+	const selected = Math.max(0, Math.floor(options.selectedIndex)) + 1;
+	const total = Math.max(1, Math.floor(options.total));
+	const detail = [
+		`filter=${options.filter}`,
+		options.query?.trim() ? `search=${options.query.trim()}` : "",
+		"controls=t raw c copy e export",
+		options.path ? `path=${options.path}` : "",
+	]
+		.filter(Boolean)
+		.join(" ");
+	return {
+		source: "timeline",
+		action:
+			action === "copy" ? "timeline-selected-copy" : "timeline-selected-export",
+		message: `timeline selected ${action} ${selected}/${total} ${options.label}`,
+		detail,
+	};
+}
+
 export function createTimelineEvidenceTrailPaletteStatusActivityResult(
 	action?: "select" | "open" | "search" | "source",
 	plan?: ConsoleAuditExportPlan,
@@ -1335,6 +1374,8 @@ function getSourceRows(
 			return input.cleanupRows ?? [];
 		case "evidence":
 			return input.evidenceRows ?? [];
+		case "timeline":
+			return [];
 	}
 }
 
