@@ -64,6 +64,13 @@ export type StatusActivityCopyIntentTimelineSearch = {
 
 type StatusActivityTimelineMessageSource = {
 	message: string;
+	time?: string;
+};
+
+export type StatusActivityResultAuditJumpReplayWarningSummary = {
+	count: number;
+	latestTime?: string;
+	latestMessage: string;
 };
 
 export type StatusActivityCopyIntentEvidenceFocusPlan = {
@@ -456,6 +463,7 @@ export function formatStatusActivityCopyIntentRows(
 	auditJumpIntentCount = 0,
 	auditJumpActionHint?: "fresh" | "replay",
 	selectedAuditJumpIndex = 0,
+	staleReplayWarningSummary?: StatusActivityResultAuditJumpReplayWarningSummary,
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -538,6 +546,9 @@ export function formatStatusActivityCopyIntentRows(
 	const rowsBeforeHistory = [
 		...exportRows,
 		...auditJumpRows,
+		...formatStatusActivityResultAuditJumpReplayWarningSummaryRows(
+			staleReplayWarningSummary,
+		),
 		...timelineTrailRows,
 	];
 	const canFilterTimelineTrails =
@@ -806,15 +817,29 @@ export function formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
 	return `status activity result audit jump warning ${warning}`;
 }
 
+export function createStatusActivityResultAuditJumpReplayWarningSummary(
+	events: StatusActivityTimelineMessageSource[],
+): StatusActivityResultAuditJumpReplayWarningSummary | undefined {
+	const warnings = events.filter((event) =>
+		isStatusActivityResultAuditJumpStaleReplayWarning(event.message),
+	);
+	const latest = warnings.at(-1);
+	if (!latest) {
+		return undefined;
+	}
+	return {
+		count: warnings.length,
+		...(latest.time ? { latestTime: latest.time } : {}),
+		latestMessage: latest.message,
+	};
+}
+
 export function createStatusActivityResultAuditJumpReplayWarningTimelineSearch(
 	events: StatusActivityTimelineMessageSource[],
 ): StatusActivityCopyIntentTimelineSearch | undefined {
 	for (let index = events.length - 1; index >= 0; index -= 1) {
 		const message = events[index]?.message ?? "";
-		if (
-			message.startsWith("status activity result audit jump warning ") &&
-			message.includes("fix=P audit jump/new result")
-		) {
+		if (isStatusActivityResultAuditJumpStaleReplayWarning(message)) {
 			return {
 				filter: "audit",
 				query: message,
@@ -824,6 +849,26 @@ export function createStatusActivityResultAuditJumpReplayWarningTimelineSearch(
 		}
 	}
 	return undefined;
+}
+
+function formatStatusActivityResultAuditJumpReplayWarningSummaryRows(
+	summary?: StatusActivityResultAuditJumpReplayWarningSummary,
+): string[] {
+	if (!summary) {
+		return [];
+	}
+	return [
+		`stale warnings count=${summary.count}${summary.latestTime ? ` latest=${summary.latestTime}` : ""} K search`,
+	];
+}
+
+function isStatusActivityResultAuditJumpStaleReplayWarning(
+	message: string,
+): boolean {
+	return (
+		message.startsWith("status activity result audit jump warning ") &&
+		message.includes("fix=P audit jump/new result")
+	);
 }
 
 export function createStatusActivityResultTimelineSearchIntent(

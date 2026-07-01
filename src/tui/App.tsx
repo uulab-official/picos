@@ -370,6 +370,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createStatusActivityResultAuditJumpReplayWarningSummary,
 	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
@@ -8302,6 +8303,7 @@ function renderWorkspace(
 					selectedTimelineEvidenceTrailAuditExportIndex
 				}
 				timelineEvidenceTrailSourceFilter={timelineEvidenceTrailSourceFilter}
+				events={events}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
@@ -10491,6 +10493,7 @@ function StatusWorkspace({
 	timelineEvidenceTrailAuditExports,
 	selectedTimelineEvidenceTrailAuditExportIndex,
 	timelineEvidenceTrailSourceFilter,
+	events,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -10530,6 +10533,7 @@ function StatusWorkspace({
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
 	selectedTimelineEvidenceTrailAuditExportIndex: number;
 	timelineEvidenceTrailSourceFilter: TimelineEvidenceTrailSourceFilter;
+	events: ConsoleEvent[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -10835,6 +10839,7 @@ function StatusWorkspace({
 					statusActivityResultAuditJumpIntentCount,
 					statusActivityResultAuditJumpActionHint,
 					selectedStatusActivityResultAuditJumpIndex,
+					createStatusActivityResultAuditJumpReplayWarningSummary(events),
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}

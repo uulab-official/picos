@@ -19,6 +19,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createStatusActivityResultAuditJumpReplayWarningSummary,
 	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
@@ -642,6 +643,62 @@ describe("Status activity queue", () => {
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
 		]);
+	});
+
+	test("shows latest stale replay warning summary in the copy intent shelf", () => {
+		const warningSummary =
+			createStatusActivityResultAuditJumpReplayWarningSummary([
+				{
+					message: formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
+						"no status activity result audit jump fix=P audit jump/new result",
+					),
+					time: "12:00:08",
+				},
+				{
+					message: formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
+						"no status activity result audit jump fix=P audit jump/new result",
+					),
+					time: "12:00:09",
+				},
+			]);
+
+		expect(warningSummary).toEqual({
+			count: 2,
+			latestTime: "12:00:09",
+			latestMessage:
+				"status activity result audit jump warning no status activity result audit jump fix=P audit jump/new result",
+		});
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				undefined,
+				0,
+				warningSummary,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"stale warnings count=2 latest=12:00:09 K search",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
+		]);
+		expect(
+			createStatusActivityResultAuditJumpReplayWarningSummary([
+				{
+					message:
+						formatStatusActivityResultAuditJumpReplayWarningAuditMessage(),
+					time: "12:00:10",
+				},
+			]),
+		).toBeUndefined();
 	});
 
 	test("selects reusable result audit jumps without walking all copy intents", () => {
