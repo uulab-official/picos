@@ -36,6 +36,7 @@ import {
 	type ConsoleAuditArchiveRetentionPlan,
 	type ConsoleAuditExportArchivePlan,
 	type ConsoleAuditExportIndex,
+	type ConsoleAuditExportPlan,
 	createConsoleAuditArchiveRetentionPlan,
 	createConsoleAuditExportArchivePlan,
 	createConsoleAuditExportPlan,
@@ -361,6 +362,7 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
@@ -606,6 +608,10 @@ export function App(): React.ReactElement {
 		selectedStatusActivityCopyIntentIndex,
 		setSelectedStatusActivityCopyIntentIndex,
 	] = useState(0);
+	const [
+		lastStatusActivityCopyIntentAuditExport,
+		setLastStatusActivityCopyIntentAuditExport,
+	] = useState<ConsoleAuditExportPlan>();
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -4793,6 +4799,7 @@ export function App(): React.ReactElement {
 			}
 			void writeStatusActivityCopyIntentAuditExport(plan)
 				.then((written) => {
+					setLastStatusActivityCopyIntentAuditExport(written);
 					log(
 						"ok",
 						`status activity copy intent exported ${written.path} events=${written.eventCount}`,
@@ -4807,6 +4814,32 @@ export function App(): React.ReactElement {
 							: `status activity copy intent export failed ${String(caught)}`,
 					),
 				);
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "z") {
+			if (!lastStatusActivityCopyIntentAuditExport) {
+				log("warn", "no status activity copy intent export to open");
+				return;
+			}
+			const plan = createStatusActivityCopyIntentAuditExportOpenPlan(
+				lastStatusActivityCopyIntentAuditExport,
+				{
+					baseDir: dirname(getConfigPath()),
+					platform: currentPlatform(),
+				},
+			);
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
+			log(
+				"info",
+				`status activity copy intent export open confirmation opened for ${lastStatusActivityCopyIntentAuditExport.path}`,
+			);
 			return;
 		}
 
@@ -10027,7 +10060,7 @@ function StatusWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
-					copy · &lt;/&gt; intents · v replay · e export · g Timeline
+					copy · &lt;/&gt; intents · v replay · e export · z open · g Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,

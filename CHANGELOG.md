@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy intent exports can now be reopened with `z`, which opens the latest exported audit file through the locked `:file-open` confirmation.
 - Status Activity copy intent rows can now be exported with `e` as selected audit logs, then refreshed into the Status audit evidence index.
 - Status Activity copy intent rows can now be replayed with `v`, reopening the selected intent's original payload in the locked clipboard confirmation.
 - Status Activity copy intent shelf now supports `<`/`>` selection and `g` to jump into Timeline with an audit search for the selected intent.

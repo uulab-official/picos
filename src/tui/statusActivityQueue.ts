@@ -3,6 +3,8 @@ import {
 	createConsoleAuditExportPlan,
 	writeConsoleAuditExport,
 } from "../core/auditLog";
+import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
+import type { SupportedPlatform } from "../core/types";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -394,7 +396,7 @@ export function formatStatusActivityCopyIntentRows(
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search",
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -407,7 +409,7 @@ export function formatStatusActivityCopyIntentRows(
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
 		}),
-		"controls=y records intent · </> select · v replay · e export · g Timeline audit search · :clipboard confirm=copy locked",
+		"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 	];
 }
 
@@ -508,6 +510,22 @@ export async function writeStatusActivityCopyIntentAuditExport(
 	plan: ConsoleAuditExportPlan,
 ): Promise<ConsoleAuditExportPlan> {
 	return writeConsoleAuditExport(plan);
+}
+
+export function createStatusActivityCopyIntentAuditExportOpenPlan(
+	plan: ConsoleAuditExportPlan,
+	options: {
+		baseDir: string;
+		platform: SupportedPlatform;
+	},
+): FileOpenPlan {
+	return buildFileOpenPlan({
+		baseDir: options.baseDir,
+		label: `status activity copy intent export ${plan.scope} ${plan.query}`,
+		path: plan.path,
+		platform: options.platform,
+		source: "timeline-export",
+	});
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
