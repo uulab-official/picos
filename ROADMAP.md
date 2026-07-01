@@ -3116,6 +3116,19 @@ Goal: let operators jump from a palette source-filter Status result row back int
 - Tests cover the result-row search planner and copy preview control hint.
 - Next: persist the latest result-row audit jump as a reusable Status copy intent so it can be exported like other handoffs.
 
+## v0.4.173 - Status Result Audit Jump Intents
+
+Status: draft PR [#235](https://github.com/uulab-official/picos/pull/235) on `codex/picos-v0.4.173-result-audit-jump-intent`.
+
+Goal: make Status result-row audit jumps reusable through the same copy-intent shelf as other Status handoffs.
+
+- Pressing `I` for a palette `trail source` result now appends a newest-first `STATUS ACTIVITY COPY INTENTS` row before switching to Timeline.
+- The jump intent stores the audit query, jump message, and `filter=audit` payload so it can be copied, exported, or replayed through existing controls.
+- The jump intent logs a searchable `clipboard intent status-activity ...` audit event before the Timeline handoff log.
+- Existing `g`, `e`, and `v` copy-intent controls can now reuse the result audit jump without a separate workflow.
+- Tests cover the jump-intent record shape and its compatibility with copy-intent Timeline search.
+- Next: show the latest `I` jump intent as a compact row beside the selected Status Activity result so the operator can see the pending reusable audit handoff before leaving Status.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
