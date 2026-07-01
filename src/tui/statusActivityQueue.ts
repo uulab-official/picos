@@ -62,6 +62,10 @@ export type StatusActivityCopyIntentTimelineSearch = {
 	message: string;
 };
 
+type StatusActivityTimelineMessageSource = {
+	message: string;
+};
+
 export type StatusActivityCopyIntentEvidenceFocusPlan = {
 	kind: "audit";
 	selectedIndex: number;
@@ -546,7 +550,7 @@ export function formatStatusActivityCopyIntentRows(
 	];
 	const trailControls =
 		trailControlParts.length > 0 ? ` · ${trailControlParts.join(" · ")}` : "";
-	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export${trailControls} · g Timeline audit search`;
+	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${trailControls} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
@@ -800,6 +804,26 @@ export function formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
 	warning = "no status activity result audit jump",
 ): string {
 	return `status activity result audit jump warning ${warning}`;
+}
+
+export function createStatusActivityResultAuditJumpReplayWarningTimelineSearch(
+	events: StatusActivityTimelineMessageSource[],
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	for (let index = events.length - 1; index >= 0; index -= 1) {
+		const message = events[index]?.message ?? "";
+		if (
+			message.startsWith("status activity result audit jump warning ") &&
+			message.includes("fix=P audit jump/new result")
+		) {
+			return {
+				filter: "audit",
+				query: message,
+				message:
+					"status activity result audit jump warning timeline search fix=P audit jump/new result",
+			};
+		}
+	}
+	return undefined;
 }
 
 export function createStatusActivityResultTimelineSearchIntent(

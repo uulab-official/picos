@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy-intent controls now include `K stale search` to jump directly into Timeline audit search for the latest stale audit-jump replay warning.
 - Status Activity stale audit-jump replay refusals now log a structured Timeline audit warning that can be searched by the recovery hint.
 - Status Activity stale audit-jump replay warnings now include the same recovery hint shown in the shelf.
 - Status Activity stale audit-jump shelf summaries now include a compact recovery hint for `P audit jump` or a new result jump.

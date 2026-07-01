@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.188 - Status Stale Warning Search Shortcut
+
+Status: draft PR [#250](https://github.com/uulab-official/picos/pull/250) on `codex/picos-v0.4.188-stale-warning-search-shortcut`.
+
+Goal: let operators jump from Status directly into the latest stale audit-jump replay warning.
+
+- `STATUS ACTIVITY COPY INTENTS` controls now advertise `K stale search`.
+- Pressing `K` in Status searches the Timeline audit stream for the latest structured stale replay warning.
+- The search query uses the full warning message, so the selected Timeline result lands on the matching recovery hint rather than a broad audit-jump bucket.
+- Tests cover latest stale warning search plan creation, non-stale fallback behavior, and updated Status controls.
+- Next: surface the latest stale warning age/count in the Status Activity shelf before jumping.
+
 ## v0.4.187 - Status Audit Jump Stale Audit Event
 
 Status: draft PR [#249](https://github.com/uulab-official/picos/pull/249) on `codex/picos-v0.4.187-audit-jump-stale-audit-event`.
