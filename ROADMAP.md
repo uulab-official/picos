@@ -2990,6 +2990,19 @@ Goal: let Status Activity review more than the latest recovered Timeline Evidenc
 - Tests cover multi-trail shelf formatting, recovered trail list indexing, selected trail lookup, and wraparound selection.
 - Next: expose previous/next recovered trail shortcuts in the command palette so trail review is discoverable outside the Status footer.
 
+## v0.4.163 - Timeline Evidence Trail Palette Actions
+
+Status: draft PR [#225](https://github.com/uulab-official/picos/pull/225) on `codex/picos-v0.4.163-timeline-trail-palette-actions`.
+
+Goal: make recovered Timeline Evidence trail review discoverable through the command palette, not only the Status footer.
+
+- The action catalog now includes `status.timelineTrail.select`, `status.timelineTrail.open`, and `status.timelineTrail.search` read-only actions.
+- Command palette searches for `trail` surface the recovered trail select/open/search actions.
+- Running the palette actions reuses the same Status Activity selection, locked file-open, and Timeline audit-search paths as `S`, `L`, and `N`.
+- Action summary counts include the new read-only Status actions while mutable action locks remain unchanged.
+- Tests cover palette filtering and action catalog metadata for the recovered trail actions.
+- Next: add command-palette result logging rows in Status Activity so palette-triggered trail operations are visible in the result history.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

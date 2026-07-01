@@ -17,6 +17,7 @@ export type PicosAction = {
 		| "ports"
 		| "tools"
 		| "timeline"
+		| "status"
 		| "logs"
 		| "raw"
 		| "remote"
@@ -331,6 +332,39 @@ const actionCatalog: PicosAction[] = [
 		description:
 			"List configured SFTP file profiles without opening a session.",
 		category: "remote",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.timelineTrail.select",
+		title: "Select recovered Timeline trail",
+		description:
+			"Cycle recovered Timeline Evidence trail exports in the Status Activity shelf.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.timelineTrail.open",
+		title: "Open recovered Timeline trail",
+		description:
+			"Open the selected recovered Timeline Evidence trail export through the locked file-open prompt.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.timelineTrail.search",
+		title: "Search recovered Timeline trail",
+		description:
+			"Jump to Timeline audit search for the selected recovered Evidence trail query.",
+		category: "status",
 		risk: "read",
 		privilege: "none",
 		enabled: true,
