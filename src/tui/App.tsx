@@ -381,6 +381,7 @@ import {
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	getLatestStatusActivityCopyIntentAuditExport,
+	getLatestTimelineEvidenceTrailAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	getStatusActivityCopyIntentAuditExportIndex,
@@ -622,6 +623,10 @@ export function App(): React.ReactElement {
 	const [
 		lastStatusActivityCopyIntentAuditExport,
 		setLastStatusActivityCopyIntentAuditExport,
+	] = useState<ConsoleAuditExportPlan>();
+	const [
+		lastTimelineEvidenceTrailAuditExport,
+		setLastTimelineEvidenceTrailAuditExport,
 	] = useState<ConsoleAuditExportPlan>();
 	const [
 		lastStatusActivityEvidenceFocusPlan,
@@ -2176,6 +2181,9 @@ export function App(): React.ReactElement {
 				setLastStatusActivityCopyIntentAuditExport(
 					getLatestStatusActivityCopyIntentAuditExport(index),
 				);
+				setLastTimelineEvidenceTrailAuditExport(
+					getLatestTimelineEvidenceTrailAuditExport(index),
+				);
 				setSelectedAuditExportIndex((current) =>
 					Math.min(current, Math.max(0, index.items.length - 1)),
 				);
@@ -3180,6 +3188,9 @@ export function App(): React.ReactElement {
 			setAuditExportIndex(auditExports);
 			setLastStatusActivityCopyIntentAuditExport(
 				getLatestStatusActivityCopyIntentAuditExport(auditExports),
+			);
+			setLastTimelineEvidenceTrailAuditExport(
+				getLatestTimelineEvidenceTrailAuditExport(auditExports),
 			);
 			setSelectedAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, auditExports.items.length - 1)),
@@ -6856,6 +6867,9 @@ export function App(): React.ReactElement {
 					lastStatusActivityCopyIntentAuditExport={
 						lastStatusActivityCopyIntentAuditExport
 					}
+					lastTimelineEvidenceTrailAuditExport={
+						lastTimelineEvidenceTrailAuditExport
+					}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -7080,6 +7094,7 @@ function MainWorkspace({
 	statusActivityCopyIntentHistory,
 	selectedStatusActivityCopyIntentIndex,
 	lastStatusActivityCopyIntentAuditExport,
+	lastTimelineEvidenceTrailAuditExport,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -7205,6 +7220,7 @@ function MainWorkspace({
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusActivityCopyIntentIndex: number;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
+	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -7408,6 +7424,7 @@ function MainWorkspace({
 						statusActivityCopyIntentHistory,
 						selectedStatusActivityCopyIntentIndex,
 						lastStatusActivityCopyIntentAuditExport,
+						lastTimelineEvidenceTrailAuditExport,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7538,6 +7555,7 @@ function renderWorkspace(
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[],
 	selectedStatusActivityCopyIntentIndex: number,
 	lastStatusActivityCopyIntentAuditExport: ConsoleAuditExportPlan | undefined,
+	lastTimelineEvidenceTrailAuditExport: ConsoleAuditExportPlan | undefined,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7817,6 +7835,9 @@ function renderWorkspace(
 				}
 				lastStatusActivityCopyIntentAuditExport={
 					lastStatusActivityCopyIntentAuditExport
+				}
+				lastTimelineEvidenceTrailAuditExport={
+					lastTimelineEvidenceTrailAuditExport
 				}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
@@ -10002,6 +10023,7 @@ function StatusWorkspace({
 	statusActivityCopyIntentHistory,
 	selectedStatusActivityCopyIntentIndex,
 	lastStatusActivityCopyIntentAuditExport,
+	lastTimelineEvidenceTrailAuditExport,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -10036,6 +10058,7 @@ function StatusWorkspace({
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusActivityCopyIntentIndex: number;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
+	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -10307,6 +10330,7 @@ function StatusWorkspace({
 						auditExportIndex,
 						lastStatusActivityCopyIntentAuditExport,
 					),
+					lastTimelineEvidenceTrailAuditExport,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}

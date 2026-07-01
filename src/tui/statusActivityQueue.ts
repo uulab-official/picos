@@ -408,18 +408,26 @@ export function formatStatusActivityCopyIntentRows(
 	selectedIndex = 0,
 	latestExport?: ConsoleAuditExportPlan,
 	latestExportEvidenceIndex?: number,
+	latestTimelineTrailExport?: ConsoleAuditExportPlan,
 ): string[] {
 	const exportRows = latestExport
 		? [
 				`z target=${basename(latestExport.path)}${latestExportEvidenceIndex !== undefined ? ` evidence=${latestExportEvidenceIndex + 1}` : ""}${latestExport.query ? ` query=${latestExport.query}` : ""} events=${latestExport.eventCount}`,
 			]
 		: [];
+	const timelineTrailRows = latestTimelineTrailExport
+		? [
+				`trail target=${basename(latestTimelineTrailExport.path)}${latestTimelineTrailExport.query ? ` query=${latestTimelineTrailExport.query}` : ""} events=${latestTimelineTrailExport.eventCount}`,
+			]
+		: [];
+	const rowsBeforeHistory = [...exportRows, ...timelineTrailRows];
+	const controls = `controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export${latestTimelineTrailExport ? " · trail recovered" : ""} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
-			...exportRows,
+			...rowsBeforeHistory,
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+			controls,
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -428,12 +436,12 @@ export function formatStatusActivityCopyIntentRows(
 	);
 	return [
 		`STATUS ACTIVITY COPY INTENTS count=${history.length} selected=${selected + 1}/${history.length}`,
-		...exportRows,
+		...rowsBeforeHistory,
 		...history.map((record, index) => {
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
 		}),
-		"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+		`${controls} · :clipboard confirm=copy locked`,
 	];
 }
 

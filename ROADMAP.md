@@ -2926,6 +2926,19 @@ Goal: make Timeline Evidence trail handoffs durable through the existing selecte
 - Tests cover selected export formatting, disk write, and latest persisted trail recovery.
 - Next: surface the recovered latest Timeline trail record directly in the Status Activity copy-intent shelf so restart recovery is visible without opening the audit index first.
 
+## v0.4.158 - Timeline Evidence Trail Recovery Shelf
+
+Status: draft PR [#220](https://github.com/uulab-official/picos/pull/220) on `codex/picos-v0.4.158-timeline-trail-recovery-shelf`.
+
+Goal: make recovered Timeline Evidence trail records visible in Status Activity without opening the audit index first.
+
+- Status Activity copy-intent shelves now render a `trail target=` row for the latest recovered Timeline Evidence trail audit export.
+- The row shows the trail export file name, recovery query, and event count after audit index refresh or TUI boot.
+- `refreshAuditExportIndex()` and startup audit index loading now restore the latest Timeline trail export into TUI state.
+- The recovered trail row updates the shelf controls with a `trail recovered` hint.
+- Tests cover the empty-shelf recovery row and control hint.
+- Next: add a direct keyboard action that opens the recovered Timeline trail export through the locked file-open prompt.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
