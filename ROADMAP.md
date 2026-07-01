@@ -2539,6 +2539,19 @@ Goal: make the remaining Status evidence browsers scannable as a compact summary
 - Tests cover summary formatting across archived families and fallback cursor behavior.
 - Next: start hiding or clipping the older explicit handoff/audit/cleanup browser blocks behind the summary/table so the Status panel becomes one evidence console instead of several stacked browsers.
 
+## v0.4.128 - Status Evidence Legacy Bridge
+
+Status: draft PR #190 on `codex/picos-v0.4.128-status-evidence-legacy-bridge`.
+
+Goal: collapse the older explicit handoff/audit/cleanup evidence browser blocks behind the summary/table model while preserving their shortcut affordances.
+
+- Status Evidence now formats a compact legacy bridge for the older handoff, Timeline audit, archived Timeline audit, cleanup, and archived cleanup browser shortcuts.
+- The bridge shows selected item count and explicit refresh/select/open/archive/retention shortcuts for each indexed family.
+- Status replaces the five expanded legacy browser blocks with the single bridge block below the table detail, reducing vertical pressure while keeping old shortcuts discoverable.
+- Empty bridge state keeps a refresh shortcut hint for `H/T/U/Y/B`.
+- Tests cover populated bridge rows and empty bridge fallback.
+- Next: fold cleanup shelf/history into a similarly compact Status operations console so cleanup decisions stop pushing evidence rows down the terminal.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
