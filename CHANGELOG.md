@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy-intent shelves now show the recovered latest Timeline Evidence trail export as a `trail target=` row after audit index refresh or restart.
 - Timeline `E` Evidence trail handoffs now persist as selected audit exports, so the trail record can be recovered through the Status Evidence audit index after refresh or restart.
 - Status Activity now records Timeline Evidence trail handoffs as result/history entries so they can be copied or exported like other Status actions.
 - Timeline Evidence trail plans now preview the matching Status Evidence `W` open, `Z` archive, and `enter` controls before switching screens.
