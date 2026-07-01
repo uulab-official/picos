@@ -696,6 +696,45 @@ export function getStatusActivityResultTimelineJumpSelection(
 	};
 }
 
+export function formatStatusActivityResultTimelineJumpRows(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+	visibleRows = 3,
+): string[] {
+	const indexes = getStatusActivityResultTimelineJumpIndexes(history);
+	if (indexes.length === 0) {
+		return [
+			"STATUS RESULT TIMELINE JUMPS count=0",
+			"no Timeline result jumps yet",
+		];
+	}
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const selectedJumpIndex = Math.max(0, indexes.indexOf(selected));
+	const safeVisibleRows = Math.max(1, Math.floor(visibleRows));
+	const start = Math.min(
+		Math.max(0, selectedJumpIndex - safeVisibleRows + 1),
+		Math.max(0, indexes.length - safeVisibleRows),
+	);
+	const visibleIndexes = indexes.slice(start, start + safeVisibleRows);
+	const rows = visibleIndexes.map((historyIndex) => {
+		const jump = createStatusActivityResultTimelineSearch(
+			history,
+			historyIndex,
+		);
+		const result = history[historyIndex];
+		const marker = historyIndex === selected ? "> " : "  ";
+		return `${marker}#${historyIndex + 1} filter=${jump?.filter ?? "unknown"} query=${jump?.query ?? "unknown"} action=${result?.action ?? "unknown"}`;
+	});
+	return [
+		`STATUS RESULT TIMELINE JUMPS count=${indexes.length} selected=${selectedJumpIndex + 1}/${indexes.length}`,
+		...rows,
+		"controls=J select result jump · I open selected Timeline result",
+	];
+}
+
 export function moveStatusActivityResultTimelineJumpSelection(
 	history: StatusActivityResult[],
 	selectedIndex: number,
