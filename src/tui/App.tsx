@@ -370,6 +370,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailStatusActivityResult,
 	formatStatusActivityCopyIntentAuditMessage,
@@ -4899,6 +4900,40 @@ export function App(): React.ReactElement {
 			log(
 				"info",
 				`status activity copy intent export open confirmation opened for ${lastStatusActivityCopyIntentAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
+			);
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "L") {
+			if (!lastTimelineEvidenceTrailAuditExport) {
+				log("warn", "no timeline evidence trail export to open");
+				return;
+			}
+			const plan = createTimelineEvidenceTrailAuditExportOpenPlan(
+				lastTimelineEvidenceTrailAuditExport,
+				{
+					baseDir: dirname(getConfigPath()),
+					platform: currentPlatform(),
+				},
+			);
+			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+				auditExportIndex,
+				lastTimelineEvidenceTrailAuditExport,
+			);
+			if (evidenceIndex !== undefined) {
+				setSelectedAuditExportIndex(evidenceIndex);
+				setSelectedStatusEvidenceKind("audit");
+			}
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
+			log(
+				"info",
+				`timeline evidence trail export open confirmation opened for ${lastTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
 			);
 			return;
 		}
@@ -10213,7 +10248,8 @@ function StatusWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
-					copy · &lt;/&gt; intents · v replay · e export · z open · g Timeline
+					copy · &lt;/&gt; intents · v replay · e export · z open · L trail · g
+					Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,
