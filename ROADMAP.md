@@ -2747,6 +2747,19 @@ Goal: let selected Status copy-intent rows reopen their original payload through
 - Tests cover payload retention, selected replay preview shape, and empty replay behavior.
 - Next: export selected copy-intent rows as small audit handoff files from Status for durable review outside the live event buffer.
 
+## v0.4.144 - Status Activity Copy Intent Audit Export
+
+Status: draft PR [#206](https://github.com/uulab-official/picos/pull/206) on `codex/picos-v0.4.144-status-activity-copy-intent-export`.
+
+Goal: make selected Status copy-intent rows durable by exporting them as selected audit logs.
+
+- `STATUS ACTIVITY COPY INTENTS` now exposes `e export` beside replay and Timeline search controls.
+- Status `e` writes the selected copy-intent audit message through the shared `ConsoleAuditExportPlan`/`writeConsoleAuditExport` path.
+- Exported files use the existing `audit/picos-audit-selected-*.log` format so Status Evidence and Timeline audit tooling can read them.
+- Successful exports refresh the Status audit export index quietly so the file appears in existing evidence controls.
+- Tests cover selected export plan shape, empty export behavior, and writing the selected export file.
+- Next: add a Status copy-intent export-open shortcut so the newly exported audit file can be opened immediately after export.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

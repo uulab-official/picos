@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
@@ -18,6 +22,7 @@ import {
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
+	writeStatusActivityCopyIntentAuditExport,
 } from "../src/tui/statusActivityQueue";
 
 describe("Status activity queue", () => {
@@ -456,12 +461,12 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=2 selected=2/2",
 			"  status activity dialog show-dialog row=1 expanded=false lines=2 preview=dialog show-dialog",
 			"> status activity cleanup jump-cleanup row=4 expanded=true lines=3 preview=cleanup jump-cleanup",
-			"controls=y records intent · </> select · v replay · g Timeline audit search · :clipboard confirm=copy locked",
+			"controls=y records intent · </> select · v replay · e export · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 		expect(formatStatusActivityCopyIntentRows([])).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · g Timeline audit search",
 		]);
 	});
 
@@ -506,6 +511,99 @@ describe("Status activity queue", () => {
 		expect(
 			getSelectedStatusActivityCopyIntentClipboardPreview([], 0),
 		).toBeUndefined();
+	});
+
+	test("creates selected status activity copy intent audit export plans", () => {
+		const history = [
+			{
+				label: "status activity dialog show-dialog",
+				copyText:
+					"dialog show-dialog\ndialog activity selected; type the exact confirmation phrase",
+				selectedRow: 1,
+				expanded: false,
+				lines: 2,
+				preview: "dialog show-dialog",
+				auditMessage:
+					'clipboard intent status-activity label="status activity dialog show-dialog" selectedRow=1 expanded=false lines=2 preview="dialog show-dialog"',
+			},
+			{
+				label: "status activity cleanup jump-cleanup",
+				copyText:
+					"cleanup jump-cleanup\ncleanup activity selected; jumping to selected cleanup shelf\ncleanup handoff Logs: press l then type delete logs",
+				selectedRow: 4,
+				expanded: true,
+				lines: 3,
+				preview: "cleanup jump-cleanup",
+				auditMessage:
+					'clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+			},
+		];
+
+		expect(
+			createStatusActivityCopyIntentAuditExportPlan(history, 1, {
+				baseDir: "/Users/bonjin/.config/picos",
+				generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+			}),
+		).toEqual({
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			content: [
+				"# picos audit log",
+				"generatedAt=2026-07-01T03:00:00.000Z",
+				"scope=selected",
+				"query=status activity cleanup jump-cleanup",
+				"events=1",
+				"",
+				'[03:00:00] INFO clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+				"",
+			].join("\n"),
+			eventCount: 1,
+			query: "status activity cleanup jump-cleanup",
+			scope: "selected",
+		});
+		expect(
+			createStatusActivityCopyIntentAuditExportPlan([], 0, {
+				baseDir: "/Users/bonjin/.config/picos",
+			}),
+		).toBeUndefined();
+	});
+
+	test("writes selected status activity copy intent audit exports", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-status-intent-"));
+		try {
+			const plan = createStatusActivityCopyIntentAuditExportPlan(
+				[
+					{
+						label: "status activity cleanup jump-cleanup",
+						copyText:
+							"cleanup jump-cleanup\ncleanup activity selected; jumping to selected cleanup shelf\ncleanup handoff Logs: press l then type delete logs",
+						selectedRow: 4,
+						expanded: true,
+						lines: 3,
+						preview: "cleanup jump-cleanup",
+						auditMessage:
+							'clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+					},
+				],
+				0,
+				{
+					baseDir: root,
+					generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+				},
+			);
+
+			expect(plan).toBeDefined();
+			if (!plan) {
+				throw new Error("expected copy intent export plan");
+			}
+			const written = await writeStatusActivityCopyIntentAuditExport(plan);
+
+			expect(written).toEqual(plan);
+			expect(await readFile(plan.path, "utf8")).toContain(
+				'clipboard intent status-activity label="status activity cleanup jump-cleanup"',
+			);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
 	});
 
 	test("selects status activity copy intents and creates timeline search jumps", () => {
