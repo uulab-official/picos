@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.184 - Status Audit Jump Replay Validity
+
+Status: draft PR [#246](https://github.com/uulab-official/picos/pull/246) on `codex/picos-v0.4.184-audit-jump-replay-validity`.
+
+Goal: make stale stored audit-jump payloads visible before `I` refuses to replay them.
+
+- Status Activity audit-jump shelf summaries now append `valid` when the selected or latest replay payload can open Timeline audit search.
+- The same shelf appends `stale` when a stored replay payload has the right audit-jump label but no longer carries the expected `filter=audit` payload.
+- Replay execution now shares the same payload-validity helper as the shelf summary so preview and behavior stay aligned.
+- Tests cover valid latest fallback, valid selected replay, and stale latest fallback shelf summaries.
+- Next: add a compact recovery hint for stale audit jumps so operators know whether to press `P audit jump`, select another result, or recreate the jump.
+
 ## v0.4.183 - Status Audit Jump Shelf Replay Source
 
 Status: draft PR [#245](https://github.com/uulab-official/picos/pull/245) on `codex/picos-v0.4.183-audit-jump-shelf-replay-source`.

@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity audit-jump shelf summaries now mark replay payloads as `valid` or `stale` before `I` opens Timeline.
 - Status Activity audit-jump shelf summaries now preview whether `I` replay will use the selected cursor or latest fallback.
 - Status Activity audit-jump replay messages now distinguish selected cursor replays from latest fallback replays.
 - Status Activity `I` replay now follows the selected audit-jump cursor instead of always replaying the newest reusable jump.

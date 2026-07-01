@@ -599,7 +599,43 @@ describe("Status activity queue", () => {
 			),
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
-			"audit jumps count=3 target=source:palette visible:2/5 latest=action=source source=palette visible=2/5 lines=3 I=replay replay=latest",
+			"audit jumps count=3 target=source:palette visible:2/5 latest=action=source source=palette visible=2/5 lines=3 I=replay replay=latest valid",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+		]);
+	});
+
+	test("marks stale audit jump replay payloads in the copy intent shelf", () => {
+		const staleAuditJumpIntent = {
+			label:
+				"status activity result audit jump action=source source=palette visible=2/5",
+			copyText:
+				"action=source source=palette visible=2/5\nstatus activity result timeline search palette source palette visible=2/5\nfilter=timeline",
+			selectedRow: 1,
+			expanded: false,
+			lines: 3,
+			preview: "action=source source=palette visible=2/5",
+			auditMessage:
+				'clipboard intent status-activity label="status activity result audit jump action=source source=palette visible=2/5" selectedRow=1 expanded=false lines=3 preview="action=source source=palette visible=2/5"',
+		};
+
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				staleAuditJumpIntent,
+				1,
+				"replay",
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"audit jumps count=1 target=source:palette visible:2/5 latest=action=source source=palette visible=2/5 lines=3 I=replay replay=latest stale",
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
 		]);
@@ -664,7 +700,7 @@ describe("Status activity queue", () => {
 			),
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=3 selected=1/3",
-			"audit jumps count=2 selected=2/2 target=source:evidence visible:1/3 latest=action=source source=evidence visible=1/3 lines=3 I=replay replay=selected",
+			"audit jumps count=2 selected=2/2 target=source:evidence visible:1/3 latest=action=source source=evidence visible=1/3 lines=3 I=replay replay=selected valid",
 			"> status activity result audit jump action=source source=palette visible=2/5 row=1 expanded=false lines=3 preview=action=source source=palette visible=2/5",
 			"  status activity cleanup jump-cleanup row=1 expanded=false lines=2 preview=cleanup jump-cleanup",
 			"  status activity result audit jump action=source source=evidence visible=1/3 row=1 expanded=false lines=3 preview=action=source source=evidence visible=1/3",

@@ -472,6 +472,10 @@ export function formatStatusActivityCopyIntentRows(
 				? "selected"
 				: "latest"
 			: undefined;
+	const replayValidity =
+		auditJumpActionHint === "replay"
+			? getStatusActivityResultAuditJumpReplayValidity(selectedAuditJumpIntent)
+			: undefined;
 	const auditJumpTotal = auditJumpIntents.length || auditJumpIntentCount;
 	const selectedAuditJump =
 		auditJumpIntents.length > 1
@@ -483,7 +487,7 @@ export function formatStatusActivityCopyIntentRows(
 	const auditJumpRows =
 		selectedAuditJumpIntent && auditJumpTotal > 0
 			? [
-					`audit jumps count=${auditJumpTotal}${selectedAuditJump !== undefined ? ` selected=${selectedAuditJump + 1}/${auditJumpIntents.length}` : ""}${formatStatusActivityResultAuditJumpTargetToken(selectedAuditJumpIntent)} latest=${selectedAuditJumpIntent.preview} lines=${selectedAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}${replaySource ? ` replay=${replaySource}` : ""}`,
+					`audit jumps count=${auditJumpTotal}${selectedAuditJump !== undefined ? ` selected=${selectedAuditJump + 1}/${auditJumpIntents.length}` : ""}${formatStatusActivityResultAuditJumpTargetToken(selectedAuditJumpIntent)} latest=${selectedAuditJumpIntent.preview} lines=${selectedAuditJumpIntent.lines}${auditJumpActionHint ? ` I=${auditJumpActionHint}` : ""}${replaySource ? ` replay=${replaySource}` : ""}${replayValidity ? ` ${replayValidity}` : ""}`,
 				]
 			: [];
 	const filteredTimelineTrailExports = filterTimelineEvidenceTrailAuditExports(
@@ -575,6 +579,19 @@ function formatStatusActivityResultAuditJumpTargetToken(
 	}
 	const [, source, visible] = match;
 	return ` target=source:${source} visible:${visible}`;
+}
+
+function getStatusActivityResultAuditJumpReplayValidity(
+	intent: StatusActivityCopyIntentRecord | undefined,
+): "valid" | "stale" | undefined {
+	if (!intent) {
+		return undefined;
+	}
+	if (!intent.label.startsWith("status activity result audit jump ")) {
+		return "stale";
+	}
+	const [query, , filterLine] = intent.copyText.split(/\r?\n/);
+	return query && filterLine === "filter=audit" ? "valid" : "stale";
 }
 
 export function getStatusActivityResultAuditJumpIntents(
@@ -739,7 +756,10 @@ export function createStatusActivityResultTimelineSearchReplay(
 	}
 	const replaySource = selectedAuditJumpIntent ? "selected" : "latest";
 	const replayIntent = selectedAuditJumpIntent ?? latestAuditJumpIntent;
-	if (!replayIntent?.label.startsWith("status activity result audit jump ")) {
+	if (
+		!replayIntent ||
+		getStatusActivityResultAuditJumpReplayValidity(replayIntent) !== "valid"
+	) {
 		return undefined;
 	}
 	const [query, , filterLine] = replayIntent.copyText.split(/\r?\n/);
