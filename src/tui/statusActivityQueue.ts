@@ -437,7 +437,7 @@ export function formatStatusActivityCopyIntentRows(
 						]
 					: []),
 				`trail target=${basename(selectedTimelineTrailExport.path)}${selectedTimelineTrailExport.query ? ` query=${selectedTimelineTrailExport.query}` : ""} events=${selectedTimelineTrailExport.eventCount}`,
-				`trail detail path=${selectedTimelineTrailExport.path} actions=L open N search`,
+				`trail detail source=${getTimelineEvidenceTrailExportSource(selectedTimelineTrailExport)} path=${selectedTimelineTrailExport.path} actions=L open N search`,
 			]
 		: [];
 	const rowsBeforeHistory = [...exportRows, ...timelineTrailRows];
@@ -842,6 +842,16 @@ function isTimelineEvidenceTrailAuditExport(
 		query === "palette timeline trail" ||
 		query.startsWith("palette timeline trail ")
 	);
+}
+
+function getTimelineEvidenceTrailExportSource(
+	plan: ConsoleAuditExportPlan,
+): "evidence" | "palette" {
+	const query = plan.query ?? "";
+	return query === "palette timeline trail" ||
+		query.startsWith("palette timeline trail ")
+		? "palette"
+		: "evidence";
 }
 
 function getNormalizedSelectionIndex(
