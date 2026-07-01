@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	type ConsoleAuditExportIndex,
+	createConsoleAuditExportPlan,
 	readConsoleAuditExportIndex,
+	writeConsoleAuditExport,
 } from "../src/core/auditLog";
 import {
 	appendStatusActivityCopyIntentHistory,
@@ -1186,9 +1188,30 @@ describe("Status activity queue", () => {
 					generatedAt: new Date("2026-07-01T03:00:00.000Z"),
 				},
 			);
+			const palette = createConsoleAuditExportPlan(
+				[
+					{
+						id: "palette-trail-search",
+						level: "info",
+						time: "04:00:00",
+						message: formatTimelineEvidenceTrailPaletteAuditMessage(
+							"search",
+							newer,
+							{ selectedIndex: 0, total: 2 },
+						),
+					},
+				],
+				{
+					baseDir: root,
+					generatedAt: new Date("2026-07-01T04:00:00.000Z"),
+					query: "palette timeline trail",
+					scope: "selected",
+				},
+			);
 
 			await writeTimelineEvidenceTrailAuditExport(older);
 			await writeTimelineEvidenceTrailAuditExport(newer);
+			await writeConsoleAuditExport(palette);
 
 			const latest = getLatestTimelineEvidenceTrailAuditExport(
 				await readConsoleAuditExportIndex(root),
@@ -1198,13 +1221,20 @@ describe("Status activity queue", () => {
 			);
 
 			expect(latest).toEqual({
-				path: newer.path,
+				path: palette.path,
 				content: "",
 				eventCount: 1,
-				query: "timeline evidence trail newer.log",
+				query: "palette timeline trail",
 				scope: "selected",
 			});
 			expect(trailExports).toEqual([
+				{
+					path: palette.path,
+					content: "",
+					eventCount: 1,
+					query: "palette timeline trail",
+					scope: "selected",
+				},
 				{
 					path: newer.path,
 					content: "",
@@ -1221,14 +1251,31 @@ describe("Status activity queue", () => {
 				},
 			]);
 			expect(
+				formatStatusActivityCopyIntentRows(
+					[],
+					0,
+					undefined,
+					undefined,
+					latest,
+					trailExports,
+				),
+			).toEqual([
+				"STATUS ACTIVITY COPY INTENTS count=0",
+				"trail selected=1/3",
+				"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=palette timeline trail events=1",
+				`trail detail path=${palette.path} actions=L open N search`,
+				"no Status activity copy intents yet",
+				"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · trail recovered · g Timeline audit search",
+			]);
+			expect(
 				getSelectedTimelineEvidenceTrailAuditExport(trailExports, 1),
 			).toEqual(trailExports[1]);
 			expect(moveTimelineEvidenceTrailSelection(trailExports, 1, "next")).toBe(
-				0,
+				2,
 			);
 			expect(
 				moveTimelineEvidenceTrailSelection(trailExports, 0, "previous"),
-			).toBe(1);
+			).toBe(2);
 			expect(await readFile(newer.path, "utf8")).toContain(
 				'timeline evidence trail kind=audit selected=2/2 label="newer.log"',
 			);

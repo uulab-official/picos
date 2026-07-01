@@ -3029,6 +3029,18 @@ Goal: make command-palette recovered trail operations searchable in Timeline aud
 - Tests cover the audit message formatter and Timeline audit search rendering.
 - Next: persist palette trail audit events through selected audit export shortcuts so they can be reopened after restart.
 
+## v0.4.166 - Timeline Evidence Trail Palette Export Recovery
+
+Status: draft PR [#228](https://github.com/uulab-official/picos/pull/228) on `codex/picos-v0.4.166-timeline-trail-palette-export-recovery`.
+
+Goal: let palette trail audit events saved with Timeline `e` recover as trail exports after refresh or restart.
+
+- Selected audit exports with `palette timeline trail` queries now join the recovered Timeline Evidence trail export list.
+- Status Activity copy-intent shelves show palette trail selected exports as `trail target=... query=palette timeline trail` rows.
+- Recovered palette trail exports reuse existing `L` locked file-open, `N` Timeline search, and `S` trail selection controls.
+- Tests cover persisted palette trail selected audit exports through the audit index and recovered shelf rows.
+- Next: surface the recovered trail query source in the detail row so operators can distinguish direct Timeline Evidence handoffs from palette audit exports.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

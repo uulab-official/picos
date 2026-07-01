@@ -821,19 +821,27 @@ export function getLatestTimelineEvidenceTrailAuditExport(
 export function getTimelineEvidenceTrailAuditExports(
 	index: ConsoleAuditExportIndex,
 ): ConsoleAuditExportPlan[] {
-	return index.items
-		.filter(
-			(candidate) =>
-				candidate.scope === "selected" &&
-				candidate.query?.startsWith("timeline evidence trail "),
-		)
-		.map((item) => ({
-			path: item.path,
-			content: "",
-			eventCount: item.entryCount,
-			...(item.query ? { query: item.query } : {}),
-			scope: item.scope,
-		}));
+	return index.items.filter(isTimelineEvidenceTrailAuditExport).map((item) => ({
+		path: item.path,
+		content: "",
+		eventCount: item.entryCount,
+		...(item.query ? { query: item.query } : {}),
+		scope: item.scope,
+	}));
+}
+
+function isTimelineEvidenceTrailAuditExport(
+	candidate: ConsoleAuditExportIndex["items"][number],
+): boolean {
+	if (candidate.scope !== "selected") {
+		return false;
+	}
+	const query = candidate.query ?? "";
+	return (
+		query.startsWith("timeline evidence trail ") ||
+		query === "palette timeline trail" ||
+		query.startsWith("palette timeline trail ")
+	);
 }
 
 function getNormalizedSelectionIndex(
