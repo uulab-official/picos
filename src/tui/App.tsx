@@ -366,7 +366,11 @@ import {
 	writeRouteRawHandoffPlan,
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
-import { formatStatusEvidenceDetailRows } from "./statusEvidence";
+import {
+	formatStatusEvidenceDetailRows,
+	moveStatusEvidenceFocus,
+	type StatusEvidenceKind,
+} from "./statusEvidence";
 import {
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
@@ -550,6 +554,8 @@ export function App(): React.ReactElement {
 		useState<ConsoleAuditArchiveRetentionPlan>();
 	const [externalOpenPlan, setExternalOpenPlan] = useState<ExternalOpenPlan>();
 	const [fileOpenPlan, setFileOpenPlan] = useState<FileOpenPlan>();
+	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
+		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
 		createEvent("info", "picos console booted"),
 		createEvent("info", "write actions locked by policy"),
@@ -4513,6 +4519,35 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "status" && focusArea === "workspaces" && key.tab) {
+			const evidenceCount =
+				handoffIndex.items.length +
+				auditExportIndex.items.length +
+				auditExportArchiveIndex.items.length +
+				cleanupExportIndex.items.length +
+				cleanupExportArchiveIndex.items.length;
+			if (evidenceCount === 0) {
+				log("warn", "no status evidence indexed");
+				return;
+			}
+			setSelectedStatusEvidenceKind((current) => {
+				const next = moveStatusEvidenceFocus(
+					{
+						handoffIndex,
+						auditExportIndex,
+						auditExportArchiveIndex,
+						cleanupExportIndex,
+						cleanupExportArchiveIndex,
+					},
+					current,
+					"next",
+				);
+				log("info", `status evidence focus ${next}`);
+				return next;
+			});
+			return;
+		}
+
 		if (
 			screen === "status" &&
 			focusArea === "workspaces" &&
@@ -6056,6 +6091,7 @@ export function App(): React.ReactElement {
 					selectedCleanupExportIndex={selectedCleanupExportIndex}
 					cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 					selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
+					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
 					selectedHandoffIndex={selectedHandoffIndex}
@@ -6271,6 +6307,7 @@ function MainWorkspace({
 	selectedCleanupExportIndex: _selectedCleanupExportIndex,
 	cleanupExportArchiveIndex: _cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex: _selectedCleanupExportArchiveIndex,
+	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
 	selectedHandoffIndex,
@@ -6387,6 +6424,7 @@ function MainWorkspace({
 	selectedCleanupExportIndex: number;
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
+	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
 	selectedHandoffIndex: number;
@@ -6581,6 +6619,7 @@ function MainWorkspace({
 						_selectedCleanupExportIndex,
 						_cleanupExportArchiveIndex,
 						_selectedCleanupExportArchiveIndex,
+						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
 						selectedHandoffIndex,
@@ -6702,6 +6741,7 @@ function renderWorkspace(
 	selectedCleanupExportIndex: number,
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex,
 	selectedCleanupExportArchiveIndex: number,
+	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
 	selectedHandoffIndex: number,
@@ -6967,6 +7007,7 @@ function renderWorkspace(
 				selectedCleanupExportIndex={selectedCleanupExportIndex}
 				cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 				selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
+				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
 			/>
@@ -9142,6 +9183,7 @@ function StatusWorkspace({
 	selectedCleanupExportIndex,
 	cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex,
+	selectedStatusEvidenceKind,
 	commandLine,
 	t,
 }: {
@@ -9167,6 +9209,7 @@ function StatusWorkspace({
 	selectedCleanupExportIndex: number;
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
+	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -9506,7 +9549,9 @@ function StatusWorkspace({
 				</Box>
 			</Box>
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">STATUS EVIDENCE · selected files and controls</Text>
+				<Text color="gray">
+					STATUS EVIDENCE · tab evidence · selected files and controls
+				</Text>
 				{formatStatusEvidenceDetailRows(
 					{
 						handoffIndex,
@@ -9523,6 +9568,7 @@ function StatusWorkspace({
 						selectedCleanupExportArchiveIndex,
 					},
 					10,
+					selectedStatusEvidenceKind,
 				).map((row) => (
 					<Text
 						key={row}

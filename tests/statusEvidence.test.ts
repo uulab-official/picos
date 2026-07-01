@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { ConsoleAuditExportIndex } from "../src/core/auditLog";
-import type { HandoffIndex } from "../src/core/handoffIndex";
-import type { CleanupHandoffHistoryExportIndex } from "../src/tui/cleanupIndex";
-import { formatStatusEvidenceDetailRows } from "../src/tui/statusEvidence";
+import {
+	formatStatusEvidenceDetailRows,
+	moveStatusEvidenceFocus,
+} from "../src/tui/statusEvidence";
 
 describe("Status evidence detail rows", () => {
 	const origin = {
@@ -12,13 +12,13 @@ describe("Status evidence detail rows", () => {
 		scope: "logs.profiles",
 	};
 
-	test("summarizes selected evidence source, path, and controls", () => {
-		const handoffIndex: HandoffIndex = {
+	const populatedIndexes = {
+		handoffIndex: {
 			baseDir: "/tmp/picos/handoffs",
 			items: [
 				{
-					source: "route-handoff",
-					kind: "routes",
+					source: "route-handoff" as const,
+					kind: "routes" as const,
 					view: "table",
 					label: "default route",
 					command: "picos routes",
@@ -27,70 +27,119 @@ describe("Status evidence detail rows", () => {
 					path: "/tmp/picos/handoffs/routes/route.md",
 				},
 			],
-		};
-		const auditExportIndex: ConsoleAuditExportIndex = {
+		},
+		auditExportIndex: {
 			baseDir: "/tmp/picos/audit",
 			items: [
 				{
 					fileName: "picos-audit-selected.log",
 					path: "/tmp/picos/audit/picos-audit-selected.log",
 					generatedAt: "2026-07-01T02:00:00.000Z",
-					scope: "selected",
+					scope: "selected" as const,
 					query: "control",
 					entryCount: 1,
 					origin,
 				},
 			],
-		};
-		const cleanupExportIndex: CleanupHandoffHistoryExportIndex = {
+		},
+		auditExportArchiveIndex: {
+			baseDir: "/tmp/picos/audit/archive",
+			items: [],
+		},
+		cleanupExportIndex: {
 			baseDir: "/tmp/picos/cleanup",
 			items: [
 				{
 					fileName: "picos-cleanup-selected.md",
 					path: "/tmp/picos/cleanup/picos-cleanup-selected.md",
-					scope: "selected",
+					scope: "selected" as const,
 					entryCount: 2,
 					generatedAt: "2026-07-01T03:00:00.000Z",
 					origin,
 				},
 			],
-		};
+		},
+		cleanupExportArchiveIndex: {
+			baseDir: "/tmp/picos/cleanup/archive",
+			items: [],
+		},
+	};
 
+	const selection = {
+		selectedHandoffIndex: 0,
+		selectedAuditExportIndex: 0,
+		selectedAuditExportArchiveIndex: 0,
+		selectedCleanupExportIndex: 0,
+		selectedCleanupExportArchiveIndex: 0,
+	};
+
+	test("summarizes selected evidence source, path, and controls", () => {
+		expect(formatStatusEvidenceDetailRows(populatedIndexes, selection)).toEqual(
+			[
+				"STATUS EVIDENCE selected=3",
+				"> handoff route routes/table source=Config>Logs scope=logs.profiles",
+				"  path=/tmp/picos/handoffs/routes/route.md",
+				"  controls=open O archive A retention=-",
+				"  audit selected events=1 query=control source=Config>Logs scope=logs.profiles",
+				"  path=/tmp/picos/audit/picos-audit-selected.log",
+				"  controls=open W archive Z retention=-",
+				"  cleanup selected entries=2 source=Config>Logs scope=logs.profiles",
+				"  path=/tmp/picos/cleanup/picos-cleanup-selected.md",
+				"  controls=open V archive X retention=-",
+			],
+		);
+	});
+
+	test("marks the active evidence entry when focus changes", () => {
 		expect(
 			formatStatusEvidenceDetailRows(
-				{
-					handoffIndex,
-					auditExportIndex,
-					auditExportArchiveIndex: {
-						baseDir: "/tmp/picos/audit/archive",
-						items: [],
-					},
-					cleanupExportIndex,
-					cleanupExportArchiveIndex: {
-						baseDir: "/tmp/picos/cleanup/archive",
-						items: [],
-					},
-				},
-				{
-					selectedHandoffIndex: 0,
-					selectedAuditExportIndex: 0,
-					selectedAuditExportArchiveIndex: 0,
-					selectedCleanupExportIndex: 0,
-					selectedCleanupExportArchiveIndex: 0,
-				},
+				populatedIndexes,
+				selection,
+				14,
+				"cleanup",
 			),
-		).toEqual([
-			"STATUS EVIDENCE selected=3",
-			"> handoff route routes/table source=Config>Logs scope=logs.profiles",
-			"  path=/tmp/picos/handoffs/routes/route.md",
-			"  controls=open O archive A retention=-",
-			"  audit selected events=1 query=control source=Config>Logs scope=logs.profiles",
-			"  path=/tmp/picos/audit/picos-audit-selected.log",
-			"  controls=open W archive Z retention=-",
-			"  cleanup selected entries=2 source=Config>Logs scope=logs.profiles",
-			"  path=/tmp/picos/cleanup/picos-cleanup-selected.md",
-			"  controls=open V archive X retention=-",
-		]);
+		).toContain(
+			"> cleanup selected entries=2 source=Config>Logs scope=logs.profiles",
+		);
+		expect(
+			formatStatusEvidenceDetailRows(
+				populatedIndexes,
+				selection,
+				14,
+				"cleanup",
+			),
+		).toContain(
+			"  handoff route routes/table source=Config>Logs scope=logs.profiles",
+		);
+	});
+
+	test("cycles evidence focus across available evidence families", () => {
+		expect(moveStatusEvidenceFocus(populatedIndexes, "handoff", "next")).toBe(
+			"audit",
+		);
+		expect(moveStatusEvidenceFocus(populatedIndexes, "audit", "next")).toBe(
+			"cleanup",
+		);
+		expect(moveStatusEvidenceFocus(populatedIndexes, "cleanup", "next")).toBe(
+			"handoff",
+		);
+		expect(
+			moveStatusEvidenceFocus(populatedIndexes, "handoff", "previous"),
+		).toBe("cleanup");
+	});
+
+	test("starts focus on the first available evidence when the current family is unavailable", () => {
+		const withoutHandoff = {
+			...populatedIndexes,
+			handoffIndex: { baseDir: "/tmp/picos/handoffs", items: [] },
+		};
+
+		expect(moveStatusEvidenceFocus(withoutHandoff, "handoff", "next")).toBe(
+			"audit",
+		);
+		expect(moveStatusEvidenceFocus(withoutHandoff, "handoff", "previous")).toBe(
+			"cleanup",
+		);
 	});
 
 	test("keeps an empty evidence detail pane useful", () => {
