@@ -2423,6 +2423,19 @@ Goal: make selected Status evidence feel like an OS file-control detail pane ins
 - Tests cover populated and empty evidence detail panes.
 - Next: add keyboard focus/cycling for the Status Evidence pane so operators can choose one evidence family as the active detail target.
 
+## v0.4.119 - Status Evidence Focus
+
+Status: draft PR #181 on `codex/picos-v0.4.119-status-evidence-focus`.
+
+Goal: make the Status Evidence detail pane keyboard-addressable instead of static.
+
+- Status Evidence now tracks an active evidence family across handoff, Timeline audit export, archived Timeline audit export, cleanup export, and archived cleanup export groups.
+- `Tab` in Status cycles the active evidence family across the groups that currently have indexed files.
+- The detail pane cursor follows the active evidence family while preserving existing per-index selection keys.
+- Focus cycling skips unavailable evidence groups and starts on the first available group when the stored focus is no longer present.
+- Tests cover active row rendering, focus wraparound, unavailable-family fallback, and empty evidence state.
+- Next: let the active Status Evidence target drive a unified `enter` action so operators can open, archive, or preview retention from the pane without remembering each per-index shortcut.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

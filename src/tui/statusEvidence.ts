@@ -31,7 +31,15 @@ export type StatusEvidenceSelection = {
 	selectedCleanupExportArchiveIndex: number;
 };
 
+export type StatusEvidenceKind =
+	| "handoff"
+	| "audit"
+	| "audit-archive"
+	| "cleanup"
+	| "cleanup-archive";
+
 type EvidenceEntry = {
+	kind: StatusEvidenceKind;
 	label: string;
 	path: string;
 	origin?: FileOpenOrigin;
@@ -42,8 +50,10 @@ export function formatStatusEvidenceDetailRows(
 	indexes: StatusEvidenceIndexes,
 	selection: StatusEvidenceSelection,
 	visibleRows = 14,
+	activeKind?: StatusEvidenceKind,
 ): string[] {
 	const entries = collectStatusEvidenceEntries(indexes, selection);
+	const activeEntry = getActiveStatusEvidenceEntry(entries, activeKind);
 	const rows =
 		entries.length === 0
 			? [
@@ -52,14 +62,42 @@ export function formatStatusEvidenceDetailRows(
 				]
 			: [
 					`STATUS EVIDENCE selected=${entries.length}`,
-					...entries.flatMap((entry, index) => [
-						`${index === 0 ? ">" : " "} ${entry.label} ${formatEvidenceOrigin(entry.origin)}`,
+					...entries.flatMap((entry) => [
+						`${entry.kind === activeEntry?.kind ? ">" : " "} ${entry.label} ${formatEvidenceOrigin(entry.origin)}`,
 						`  path=${entry.path}`,
 						`  controls=${entry.controls}`,
 					]),
 				];
 
 	return rows.slice(0, Math.max(1, visibleRows));
+}
+
+export function moveStatusEvidenceFocus(
+	indexes: StatusEvidenceIndexes,
+	currentKind: StatusEvidenceKind,
+	direction: "next" | "previous",
+): StatusEvidenceKind {
+	const availableKinds = collectStatusEvidenceEntries(indexes, {
+		selectedHandoffIndex: 0,
+		selectedAuditExportIndex: 0,
+		selectedAuditExportArchiveIndex: 0,
+		selectedCleanupExportIndex: 0,
+		selectedCleanupExportArchiveIndex: 0,
+	}).map((entry) => entry.kind);
+	if (availableKinds.length === 0) {
+		return currentKind;
+	}
+	const currentIndex = availableKinds.indexOf(currentKind);
+	if (currentIndex < 0) {
+		return direction === "next"
+			? (availableKinds[0] ?? currentKind)
+			: (availableKinds.at(-1) ?? currentKind);
+	}
+	const baseIndex = currentIndex;
+	const offset = direction === "next" ? 1 : -1;
+	const nextIndex =
+		(baseIndex + offset + availableKinds.length) % availableKinds.length;
+	return availableKinds[nextIndex] ?? currentKind;
 }
 
 function collectStatusEvidenceEntries(
@@ -116,6 +154,7 @@ function formatHandoffEvidence(
 	}
 	const handoffKind = item.source === "route-handoff" ? "route" : "endpoint";
 	return {
+		kind: "handoff",
 		label: `handoff ${handoffKind} ${item.kind}/${item.view}`,
 		path: item.path,
 		origin: item.origin,
@@ -125,13 +164,14 @@ function formatHandoffEvidence(
 
 function formatAuditEvidence(
 	item: ConsoleAuditExportIndexItem | undefined,
-	label: string,
+	label: "audit" | "audit-archive",
 	controls: string,
 ): EvidenceEntry | undefined {
 	if (!item) {
 		return undefined;
 	}
 	return {
+		kind: label,
 		label: `${label} ${item.scope} events=${item.entryCount}${item.query ? ` query=${item.query}` : ""}`,
 		path: item.path,
 		origin: item.origin,
@@ -141,13 +181,14 @@ function formatAuditEvidence(
 
 function formatCleanupEvidence(
 	item: CleanupHandoffHistoryExportIndexItem | undefined,
-	label: string,
+	label: "cleanup" | "cleanup-archive",
 	controls: string,
 ): EvidenceEntry | undefined {
 	if (!item) {
 		return undefined;
 	}
 	return {
+		kind: label,
 		label: `${label} ${item.scope} entries=${item.entryCount}`,
 		path: item.path,
 		origin: item.origin,
@@ -159,4 +200,11 @@ function formatEvidenceOrigin(origin: FileOpenOrigin | undefined): string {
 	return origin
 		? `source=Config>${origin.label} scope=${origin.scope}`
 		: "source=- scope=-";
+}
+
+function getActiveStatusEvidenceEntry(
+	entries: EvidenceEntry[],
+	activeKind: StatusEvidenceKind | undefined,
+): EvidenceEntry | undefined {
+	return entries.find((entry) => entry.kind === activeKind) ?? entries.at(0);
 }
