@@ -93,10 +93,15 @@ import {
 	createLocalFileProvider,
 	type FileEntry,
 	type FileLocation,
+	type FileProviderKind,
 	getSystemFileLocations,
 	getSystemFileRoot,
 	withParentDirectoryEntry,
 } from "../core/files";
+import {
+	createEditorWritePreview,
+	formatEditorWritePreviewRows,
+} from "../core/fileWritePreview";
 import {
 	archiveHandoffFile,
 	getSelectedHandoffIndexItem,
@@ -535,6 +540,7 @@ function appendLogFollowHistory(
 
 type EditorPreview = {
 	path: string;
+	content: string;
 	lines: {
 		number: number;
 		content: string;
@@ -1296,6 +1302,7 @@ export function App(): React.ReactElement {
 			const read = await fileProvider.read(entry.path, { maxBytes: 6000 });
 			setEditorPreview({
 				path: read.path,
+				content: read.content,
 				lines: read.content
 					.split(/\r?\n/)
 					.slice(0, 16)
@@ -7459,6 +7466,7 @@ export function App(): React.ReactElement {
 					fileFilter={fileFilter}
 					fileOperationDialog={fileOperationDialog}
 					editorPreview={editorPreview}
+					fileProviderKind={fileProvider.kind}
 					remoteProfiles={remoteProfiles}
 					selectedRemoteIndex={selectedRemoteIndex}
 					remoteFileContext={remoteFileContext}
@@ -7703,6 +7711,7 @@ function MainWorkspace({
 	fileFilter,
 	fileOperationDialog,
 	editorPreview,
+	fileProviderKind,
 	remoteProfiles,
 	selectedRemoteIndex,
 	remoteFileContext,
@@ -7834,6 +7843,7 @@ function MainWorkspace({
 	fileFilter: FileFilterState;
 	fileOperationDialog: FileOperationDialogState;
 	editorPreview?: EditorPreview;
+	fileProviderKind: FileProviderKind;
 	remoteProfiles: SftpRemoteProfile[];
 	selectedRemoteIndex: number;
 	remoteFileContext?: RemoteFileContext;
@@ -8044,6 +8054,7 @@ function MainWorkspace({
 						fileFilter,
 						fileOperationDialog,
 						editorPreview,
+						fileProviderKind,
 						remoteProfiles,
 						selectedRemoteIndex,
 						remoteFileContext,
@@ -8180,6 +8191,7 @@ function renderWorkspace(
 	fileFilter: FileFilterState,
 	fileOperationDialog: FileOperationDialogState,
 	editorPreview: EditorPreview | undefined,
+	fileProviderKind: FileProviderKind,
 	remoteProfiles: SftpRemoteProfile[],
 	selectedRemoteIndex: number,
 	remoteFileContext: RemoteFileContext | undefined,
@@ -8329,6 +8341,7 @@ function renderWorkspace(
 			<EditorWorkspace
 				preview={editorPreview}
 				entries={fileEntries}
+				providerKind={fileProviderKind}
 				visibleRows={Math.max(5, height - 10)}
 				t={t}
 			/>
@@ -9050,11 +9063,13 @@ function FilesWorkspace({
 function EditorWorkspace({
 	preview,
 	entries,
+	providerKind,
 	visibleRows,
 	t,
 }: {
 	preview?: EditorPreview;
 	entries: FileEntry[];
+	providerKind: FileProviderKind;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -9064,6 +9079,21 @@ function EditorWorkspace({
 			/\.(md|ts|tsx|json|txt|js|mjs|cjs|yml|yaml)$/i.test(entry.name),
 	);
 	const lines = preview?.lines.slice(0, visibleRows) ?? [];
+	const savePreview = preview
+		? createEditorWritePreview({
+				path: preview.path,
+				originalContent: preview.content,
+				nextContent: preview.content,
+				providerKind,
+				maxDiffRows: Math.max(1, visibleRows - lines.length - 12),
+			})
+		: undefined;
+	const savePreviewRows = savePreview
+		? formatEditorWritePreviewRows(savePreview)
+		: [
+				"EDITOR SAVE PREVIEW",
+				"open a text file to stage a locked save preview",
+			];
 
 	return (
 		<Box flexDirection="column">
@@ -9091,10 +9121,20 @@ function EditorWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">SAVE POLICY</Text>
-				<Text color="yellow">
-					files.write locked · requires diff preview, path review, and confirm
-				</Text>
-				<Text color="gray">planned: local + SFTP provider parity</Text>
+				{savePreviewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row === "EDITOR SAVE PREVIEW" || row === "DIFF"
+								? "cyan"
+								: row.startsWith("locked") || row.startsWith("reason")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
 			</Box>
 		</Box>
 	);

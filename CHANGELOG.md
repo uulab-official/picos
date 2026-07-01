@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Editor now builds a locked diff-based save preview for the current buffer, including provider, path, risk, confirmation phrase, changed-line counts, and preview rows before any file write can execute.
 - Palette-triggered Status Activity result-history filter changes now append compact result/history rows with filter and visible counts.
 - Command palette now exposes the Status Activity result-history filter via `result filter` and `palette result jumps` searches.
 - Status Activity result history now supports an `f` result filter for narrowing rows to palette-triggered Status result jumps while keeping `u`/`i` navigation inside the filtered list.

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.205 - Editor Write Preview
+
+Status: draft PR [#267](https://github.com/uulab-official/picos/pull/267) on `codex/picos-v0.4.205-editor-write-preview`.
+
+Goal: move the Editor workspace from read-only preview toward a real OS-style file editor by staging safe write previews before any filesystem mutation.
+
+- Core editor-save previews now compare original and next buffer text and produce compact diff rows.
+- Save previews include provider kind, target path, write risk, user privilege, exact `save file` phrase, and executable lock state.
+- Unchanged buffers show an explicit `no changes` diff row instead of pretending there is a write to perform.
+- The TUI Editor workspace now renders an `EDITOR SAVE PREVIEW` block from the loaded buffer so path/provider/risk/change counts are visible in the console.
+- Tests cover changed and unchanged editor write preview models.
+- Next: add keyboard-editable dirty buffer controls and an exact-confirm save prompt while keeping provider writes policy-gated.
+
 ## v0.4.204 - Status Result Filter Result History
 
 Status: draft PR [#266](https://github.com/uulab-official/picos/pull/266) on `codex/picos-v0.4.204-status-result-filter-result`.
@@ -11,7 +24,7 @@ Goal: make palette-triggered Status Activity result-history filter changes visib
 - The latest result row and bounded result history both show the filter change detail.
 - Palette filter execution keeps the same Status focus and filtered selection behavior as v0.4.203.
 - Tests cover current result rows, history rows, default counts, and the new `filter-result-history` action.
-- Next: add Timeline audit search rows for palette result-history filter changes so filter operations are searchable outside Status.
+- Next: Editor write-preview work moved into v0.4.205.
 
 ## v0.4.203 - Status Result Filter Palette
 
