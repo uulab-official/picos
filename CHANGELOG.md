@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Evidence `enter` now follows the active evidence family and opens the matching locked file-open confirmation or selection action before falling back to cleanup shelf handoff.
 - Status Evidence can now cycle its active evidence family with `Tab`, moving the visible cursor across available handoff, Timeline, cleanup, and archived evidence groups.
 - Status now shows a compact evidence detail pane that summarizes selected handoff, Timeline, and cleanup export files with Config source, path, open/archive, and retention controls together.
 - Timeline audit exports and cleanup history exports now write Config-origin metadata into their files and restore it from Status indexes for reopened locked file-open confirmations.

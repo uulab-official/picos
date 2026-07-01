@@ -2436,6 +2436,19 @@ Goal: make the Status Evidence detail pane keyboard-addressable instead of stati
 - Tests cover active row rendering, focus wraparound, unavailable-family fallback, and empty evidence state.
 - Next: let the active Status Evidence target drive a unified `enter` action so operators can open, archive, or preview retention from the pane without remembering each per-index shortcut.
 
+## v0.4.120 - Status Evidence Enter
+
+Status: draft PR #182 on `codex/picos-v0.4.120-status-evidence-enter`.
+
+Goal: make the active Status Evidence target perform a safe primary action from the pane.
+
+- Status Evidence now creates a pure enter plan for the active evidence family.
+- `enter` in Status follows that plan and routes to the matching existing safe control: handoff open, audit export open, archived audit open, cleanup export open, or archived cleanup selection.
+- Evidence detail rows now show `enter=` hints beside the existing explicit shortcuts.
+- When no evidence is indexed, `enter` still falls back to the cleanup shelf handoff flow.
+- Tests cover unified enter plans, archived evidence routing, and no-evidence fallback planning.
+- Next: add a secondary Status Evidence action mode so `a`/`x` can archive the active target and `m` can preview retention for archived Timeline evidence from the same pane.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

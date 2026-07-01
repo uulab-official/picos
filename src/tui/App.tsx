@@ -367,6 +367,7 @@ import {
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
+	createStatusEvidenceEnterPlan,
 	formatStatusEvidenceDetailRows,
 	moveStatusEvidenceFocus,
 	type StatusEvidenceKind,
@@ -4624,6 +4625,50 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "\r") {
+			const evidenceEnterPlan = createStatusEvidenceEnterPlan(
+				{
+					handoffIndex,
+					auditExportIndex,
+					auditExportArchiveIndex,
+					cleanupExportIndex,
+					cleanupExportArchiveIndex,
+				},
+				{
+					selectedHandoffIndex,
+					selectedAuditExportIndex,
+					selectedAuditExportArchiveIndex,
+					selectedCleanupExportIndex,
+					selectedCleanupExportArchiveIndex,
+				},
+				selectedStatusEvidenceKind,
+			);
+			if (evidenceEnterPlan) {
+				switch (evidenceEnterPlan.action) {
+					case "open-handoff":
+						openSelectedHandoffFile();
+						break;
+					case "open-audit":
+						openSelectedAuditExportFile();
+						break;
+					case "open-audit-archive":
+						openSelectedAuditExportArchiveFile();
+						break;
+					case "open-cleanup":
+						openSelectedCleanupExportFile();
+						break;
+					case "select-cleanup-archive":
+						log(
+							"info",
+							`cleanup archive selected ${evidenceEnterPlan.label}; use { to cycle archived cleanup exports`,
+						);
+						break;
+				}
+				log(
+					"info",
+					`status evidence enter ${evidenceEnterPlan.action} ${evidenceEnterPlan.shortcut} ${evidenceEnterPlan.label}`,
+				);
+				return;
+			}
 			const shelf = getSelectedCleanupShelf(
 				cleanupShelfIndex,
 				selectedCleanupShelfIndex,
