@@ -21,6 +21,7 @@ import {
 	createStatusActivityEnterPlan,
 	createStatusActivityResultAuditJumpReplayWarningSummary,
 	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
+	createStatusActivityResultTimelineJumpPaletteResult,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
@@ -1619,6 +1620,58 @@ describe("Status activity queue", () => {
 		expect(formatTimelineEvidenceTrailPaletteAuditMessage("open")).toBe(
 			'palette timeline trail audit action=open status=unavailable reason="no recovered Timeline Evidence trail export selected"',
 		);
+	});
+
+	test("creates status activity results for palette-triggered status result jumps", () => {
+		const jump = createStatusActivityResultTimelineSearch(
+			[
+				createTimelineSelectedStatusActivityResult("copy", {
+					filter: "audit",
+					label: "timeline audit 12:00:06",
+					query: "control preview",
+					selectedIndex: 0,
+					total: 2,
+				}),
+			],
+			0,
+		);
+
+		if (!jump) {
+			throw new Error("expected jump");
+		}
+
+		const result = createStatusActivityResultTimelineJumpPaletteResult("open", {
+			historyIndex: 3,
+			jump,
+			matches: 5,
+			selectedIndex: 1,
+			total: 2,
+		});
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "timeline-selected-copy",
+			message: "palette status result jump open 2/2 row=4",
+			detail: "filter=audit search=control preview matches=5",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=timeline-selected-copy",
+			"> palette status result jump open 2/2 row=4",
+			"  filter=audit search=control preview matches=5",
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> timeline timeline-selected-copy palette status result jump open 2/2 row=4",
+			"    filter=audit search=control preview matches=5",
+		]);
+		expect(
+			createStatusActivityResultTimelineJumpPaletteResult("select"),
+		).toEqual({
+			source: "timeline",
+			action: "timeline-selected-copy",
+			message: "palette status result jump select unavailable",
+			detail: "no Status result Timeline jump selected",
+		});
 	});
 
 	test("formats palette-triggered status result jump audit messages", () => {

@@ -1353,6 +1353,44 @@ export function createTimelineEvidenceTrailPaletteStatusActivityResult(
 	};
 }
 
+export function createStatusActivityResultTimelineJumpPaletteResult(
+	action: "select" | "open",
+	options: {
+		historyIndex?: number;
+		jump?: StatusActivityCopyIntentTimelineSearch;
+		matches?: number;
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	if (!options.jump) {
+		return {
+			source: "timeline",
+			action: "timeline-selected-copy",
+			message: `palette status result jump ${action} unavailable`,
+			detail: "no Status result Timeline jump selected",
+		};
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0)) + 1;
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	const row = Math.max(0, Math.floor(options.historyIndex ?? 0)) + 1;
+	const detail = [
+		`filter=${options.jump.filter}`,
+		`search=${options.jump.query}`,
+		options.matches !== undefined
+			? `matches=${Math.max(0, Math.floor(options.matches))}`
+			: "",
+	]
+		.filter(Boolean)
+		.join(" ");
+	return {
+		source: "timeline",
+		action: "timeline-selected-copy",
+		message: `palette status result jump ${action} ${selected}/${total} row=${row}`,
+		detail,
+	};
+}
+
 export function formatTimelineEvidenceTrailPaletteAuditMessage(
 	action: "select" | "open" | "search" | "source",
 	plan?: ConsoleAuditExportPlan,
