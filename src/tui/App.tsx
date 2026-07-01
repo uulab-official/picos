@@ -362,7 +362,9 @@ import {
 	createStatusActivityEnterPlan,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
+	formatStatusActivityResultRows,
 	moveStatusActivitySource,
+	type StatusActivityResult,
 	type StatusActivitySource,
 } from "./statusActivityQueue";
 import {
@@ -567,6 +569,8 @@ export function App(): React.ReactElement {
 	const [fileOpenPlan, setFileOpenPlan] = useState<FileOpenPlan>();
 	const [selectedStatusActivitySource, setSelectedStatusActivitySource] =
 		useState<StatusActivitySource>("release");
+	const [statusActivityResult, setStatusActivityResult] =
+		useState<StatusActivityResult>();
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -4813,10 +4817,15 @@ export function App(): React.ReactElement {
 						log("info", `update handoff selected ${links[next].label}`);
 						return next;
 					});
+					setStatusActivityResult({
+						...activityEnterPlan,
+						detail: "release handoff link cycled",
+					});
 					log("info", activityEnterPlan.message);
 					return;
 				}
 				case "show-dialog":
+					setStatusActivityResult(activityEnterPlan);
 					log("info", activityEnterPlan.message);
 					return;
 				case "jump-cleanup": {
@@ -4830,6 +4839,10 @@ export function App(): React.ReactElement {
 					}
 					setCleanupJumpAudit(createCleanupJumpAudit(shelf));
 					setScreen(shelf.screen);
+					setStatusActivityResult({
+						...activityEnterPlan,
+						detail: `cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
+					});
 					log("info", activityEnterPlan.message);
 					log(
 						"info",
@@ -4838,6 +4851,7 @@ export function App(): React.ReactElement {
 					return;
 				}
 				case "none":
+					setStatusActivityResult(activityEnterPlan);
 					log("warn", activityEnterPlan.message);
 					return;
 				case "enter-evidence":
@@ -4885,6 +4899,10 @@ export function App(): React.ReactElement {
 					"info",
 					`status evidence enter ${evidenceEnterPlan.action} ${evidenceEnterPlan.shortcut} ${evidenceEnterPlan.label}`,
 				);
+				setStatusActivityResult({
+					...activityEnterPlan,
+					detail: `${evidenceEnterPlan.action} ${evidenceEnterPlan.shortcut} ${evidenceEnterPlan.label}`,
+				});
 				return;
 			}
 			const shelf = getSelectedCleanupShelf(
@@ -6439,6 +6457,7 @@ export function App(): React.ReactElement {
 					cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 					selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 					selectedStatusActivitySource={selectedStatusActivitySource}
+					statusActivityResult={statusActivityResult}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -6656,6 +6675,7 @@ function MainWorkspace({
 	cleanupExportArchiveIndex: _cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex: _selectedCleanupExportArchiveIndex,
 	selectedStatusActivitySource,
+	statusActivityResult,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -6774,6 +6794,7 @@ function MainWorkspace({
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
 	selectedStatusActivitySource: StatusActivitySource;
+	statusActivityResult?: StatusActivityResult;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -6970,6 +6991,7 @@ function MainWorkspace({
 						_cleanupExportArchiveIndex,
 						_selectedCleanupExportArchiveIndex,
 						selectedStatusActivitySource,
+						statusActivityResult,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7093,6 +7115,7 @@ function renderWorkspace(
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex,
 	selectedCleanupExportArchiveIndex: number,
 	selectedStatusActivitySource: StatusActivitySource,
+	statusActivityResult: StatusActivityResult | undefined,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7360,6 +7383,7 @@ function renderWorkspace(
 				cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 				selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 				selectedStatusActivitySource={selectedStatusActivitySource}
+				statusActivityResult={statusActivityResult}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
@@ -9537,6 +9561,7 @@ function StatusWorkspace({
 	cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex,
 	selectedStatusActivitySource,
+	statusActivityResult,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -9564,6 +9589,7 @@ function StatusWorkspace({
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
 	selectedStatusActivitySource: StatusActivitySource;
+	statusActivityResult?: StatusActivityResult;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -9758,6 +9784,22 @@ function StatusWorkspace({
 										: row.startsWith("no ")
 											? "gray"
 											: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+				{formatStatusActivityResultRows(statusActivityResult).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("STATUS ACTIVITY RESULT")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("no ")
+										? "gray"
+										: "white"
 						}
 					>
 						{row}

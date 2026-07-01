@@ -24,6 +24,10 @@ export type StatusActivityEnterPlan = {
 	message: string;
 };
 
+export type StatusActivityResult = StatusActivityEnterPlan & {
+	detail?: string;
+};
+
 type StatusActivityQueueSource = {
 	key: StatusActivitySource;
 	prefix: string;
@@ -157,6 +161,22 @@ export function createStatusActivityEnterPlan(
 				message: "evidence activity selected; running active evidence enter",
 			};
 	}
+}
+
+export function formatStatusActivityResultRows(
+	result?: StatusActivityResult,
+): string[] {
+	if (!result) {
+		return [
+			"STATUS ACTIVITY RESULT source=none action=none",
+			"no Status activity action yet",
+		];
+	}
+	return [
+		`STATUS ACTIVITY RESULT source=${result.source} action=${result.action}`,
+		`> ${result.message}`,
+		...(result.detail ? [`  ${result.detail}`] : []),
+	];
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
