@@ -111,7 +111,7 @@ export type ToolHistorySort = "time" | "tool" | "status";
 
 export type ToolHistoryGroup = "none" | "tool" | "status";
 
-export type ToolHistoryDetailView = "raw" | "summary" | "command";
+export type ToolHistoryDetailView = "raw" | "summary" | "command" | "compare";
 
 export type ToolSectionClipboardSelection = "target" | "status";
 
@@ -396,6 +396,8 @@ export function formatToolsWorkspaceRows(
 				...formatToolHistoryDetailRows(latest, detailView, {
 					section: sectionClipboardSelection,
 					rowIndex: sectionClipboardRowIndex,
+					history,
+					selectedIndex: latestIndex,
 				}),
 			]
 		: [history.length ? "no matching tool runs" : "no tool runs yet"];
@@ -545,6 +547,9 @@ export function nextToolHistoryDetailView(
 	}
 	if (view === "summary") {
 		return "command";
+	}
+	if (view === "command") {
+		return "compare";
 	}
 	return "raw";
 }
@@ -1546,6 +1551,8 @@ function formatToolHistoryDetailRows(
 	marker?: {
 		section: ToolSectionClipboardSelection;
 		rowIndex: number;
+		history?: ToolHistoryItem[];
+		selectedIndex?: number;
 	},
 ): string[] {
 	if (view === "summary") {
@@ -1566,6 +1573,16 @@ function formatToolHistoryDetailRows(
 			`rerun=${formatToolHistoryCommand(item)}`,
 		];
 	}
+	if (view === "compare") {
+		return formatToolHistoryCompareRows(
+			item,
+			findPreviousMatchingToolHistoryItem(
+				marker?.history ?? [],
+				typeof marker?.selectedIndex === "number" ? marker.selectedIndex : -1,
+				item,
+			),
+		);
+	}
 	return [
 		item.summary,
 		"RAW",
@@ -1575,6 +1592,128 @@ function formatToolHistoryDetailRows(
 
 function formatToolHistoryCommand(item: ToolHistoryItem): string {
 	return `picos tools ${item.plan.toolId} ${item.plan.args.join(" ")}`.trim();
+}
+
+function findPreviousMatchingToolHistoryItem(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	item: ToolHistoryItem,
+): ToolHistoryItem | undefined {
+	const compareKey = getToolHistoryCompareKey(item);
+	for (
+		let index = Math.min(selectedIndex - 1, history.length - 1);
+		index >= 0;
+		index -= 1
+	) {
+		const candidate = history[index];
+		if (candidate && getToolHistoryCompareKey(candidate) === compareKey) {
+			return candidate;
+		}
+	}
+	return undefined;
+}
+
+function formatToolHistoryCompareRows(
+	current: ToolHistoryItem,
+	previous: ToolHistoryItem | undefined,
+): string[] {
+	const currentLabel = formatToolHistoryCompareRunLabel(current);
+	const compareKey = getToolHistoryCompareKey(current);
+	if (!previous) {
+		return [
+			"DETAIL compare",
+			`current=${currentLabel}`,
+			"no previous matching tool run",
+			`compare key=${compareKey}`,
+		];
+	}
+
+	const previousLabel = formatToolHistoryCompareRunLabel(previous);
+	const currentRawRows = splitToolHistoryRawRows(current.rawOutput);
+	const previousRawRows = splitToolHistoryRawRows(previous.rawOutput);
+	const delta = currentRawRows.length - previousRawRows.length;
+	return [
+		"DETAIL compare",
+		`current=${currentLabel}`,
+		`previous=${previousLabel}`,
+		current.status === previous.status
+			? `status=unchanged ${current.status}`
+			: `status=changed ${previous.status}->${current.status}`,
+		current.summary === previous.summary
+			? "summary=unchanged"
+			: "summary=changed",
+		`raw lines current=${currentRawRows.length} previous=${previousRawRows.length} delta=${formatSignedToolHistoryDelta(delta)}`,
+		...formatToolHistoryRawLineDiff(previousRawRows, currentRawRows),
+		`compare key=${compareKey}`,
+	];
+}
+
+function formatToolHistoryCompareRunLabel(item: ToolHistoryItem): string {
+	return `${item.time} ${item.status} ${item.label}`;
+}
+
+function getToolHistoryCompareKey(item: ToolHistoryItem): string {
+	return `${item.plan.actionId} ${item.plan.args.join(" ")}`.trim();
+}
+
+function splitToolHistoryRawRows(rawOutput: string): string[] {
+	return rawOutput.split(/\r?\n/);
+}
+
+function formatSignedToolHistoryDelta(delta: number): string {
+	return delta > 0 ? `+${delta}` : String(delta);
+}
+
+function formatToolHistoryRawLineDiff(
+	previousRows: string[],
+	currentRows: string[],
+	limit = 6,
+): string[] {
+	const previousCounts = countToolHistoryRows(previousRows);
+	const currentCounts = countToolHistoryRows(currentRows);
+	const removed = formatToolHistoryRowCountDiff(
+		previousRows,
+		previousCounts,
+		currentCounts,
+		"-",
+	);
+	const added = formatToolHistoryRowCountDiff(
+		currentRows,
+		currentCounts,
+		previousCounts,
+		"+",
+	);
+	const rows = [...removed, ...added].slice(0, limit);
+	return rows.length ? rows : ["raw=unchanged"];
+}
+
+function countToolHistoryRows(rows: string[]): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const row of rows) {
+		counts.set(row, (counts.get(row) ?? 0) + 1);
+	}
+	return counts;
+}
+
+function formatToolHistoryRowCountDiff(
+	rows: string[],
+	leftCounts: Map<string, number>,
+	rightCounts: Map<string, number>,
+	prefix: "+" | "-",
+): string[] {
+	const seen = new Set<string>();
+	const diffRows: string[] = [];
+	for (const row of rows) {
+		if (seen.has(row)) {
+			continue;
+		}
+		seen.add(row);
+		const delta = (leftCounts.get(row) ?? 0) - (rightCounts.get(row) ?? 0);
+		for (let count = 0; count < delta; count += 1) {
+			diffRows.push(`${prefix} ${truncateToolCopyPreviewValue(row, 96)}`);
+		}
+	}
+	return diffRows;
 }
 
 function getToolSectionClipboardRows(

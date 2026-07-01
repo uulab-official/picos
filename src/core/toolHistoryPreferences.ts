@@ -1,6 +1,10 @@
 export type ToolHistorySortPreference = "time" | "tool" | "status";
 export type ToolHistoryGroupPreference = "none" | "tool" | "status";
-export type ToolHistoryDetailPreference = "raw" | "summary" | "command";
+export type ToolHistoryDetailPreference =
+	| "raw"
+	| "summary"
+	| "command"
+	| "compare";
 export type ToolRunActionPreference =
 	| "tools.dns"
 	| "tools.traceroute"
@@ -66,7 +70,7 @@ export function normalizeToolHistoryGroupPreference(
 export function normalizeToolHistoryDetailPreference(
 	input: unknown,
 ): ToolHistoryDetailPreference {
-	if (input === "summary" || input === "command") {
+	if (input === "summary" || input === "command" || input === "compare") {
 		return input;
 	}
 	return "raw";

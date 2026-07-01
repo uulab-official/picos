@@ -1106,7 +1106,8 @@ describe("TUI tool history", () => {
 
 		expect(nextToolHistoryDetailView("raw")).toBe("summary");
 		expect(nextToolHistoryDetailView("summary")).toBe("command");
-		expect(nextToolHistoryDetailView("command")).toBe("raw");
+		expect(nextToolHistoryDetailView("command")).toBe("compare");
+		expect(nextToolHistoryDetailView("compare")).toBe("raw");
 		expect(
 			formatToolsWorkspaceRows(
 				history,
@@ -1150,6 +1151,98 @@ describe("TUI tool history", () => {
 			"args=example.com",
 			"rerun=picos tools dns example.com",
 		]);
+	});
+
+	test("compares the selected tool run with the previous matching target", () => {
+		const history = appendToolHistory(
+			appendToolHistory(
+				appendToolHistory(
+					[],
+					{
+						plan: {
+							actionId: "tools.dns",
+							toolId: "dns",
+							args: ["example.com"],
+							label: "tools.dns example.com",
+						},
+						result: {
+							...result,
+							rawOutput:
+								"$ picos tools dns example.com\n[Summary]\nQuery: example.com\nA: 2",
+						},
+					},
+					"12:00:00",
+				),
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.org"],
+						label: "tools.dns example.org",
+					},
+					result: {
+						...result,
+						rawOutput:
+							"$ picos tools dns example.org\n[Summary]\nQuery: example.org\nA: 1",
+					},
+				},
+				"12:00:01",
+			),
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result: {
+					...result,
+					rawOutput:
+						"$ picos tools dns example.com\n[Summary]\nQuery: example.com\nA: 2\nAAAA: 1",
+				},
+			},
+			"12:00:02",
+		);
+
+		expect(
+			formatToolsWorkspaceRows(
+				history,
+				14,
+				2,
+				"",
+				"time",
+				"none",
+				[],
+				"compare",
+			),
+		).toEqual([
+			"TOOLS history=3 detail=compare selected=DNS Lookup",
+			"  [12:00:00] ok tools.dns example.com",
+			"  [12:00:01] ok tools.dns example.org",
+			"> [12:00:02] ok tools.dns example.com",
+			"DETAIL compare",
+			"current=12:00:02 ok tools.dns example.com",
+			"previous=12:00:00 ok tools.dns example.com",
+			"status=unchanged ok",
+			"summary=unchanged",
+			"raw lines current=5 previous=4 delta=+1",
+			"+ AAAA: 1",
+			"compare key=tools.dns example.com",
+			"copy help: b row=- · v section=- · c raw=ok · y summary=ok",
+			"copy hint: b/v need TCP Target or Status rows; use c raw or y summary",
+		]);
+		expect(
+			formatToolsWorkspaceRows(
+				history,
+				9,
+				1,
+				"",
+				"time",
+				"none",
+				[],
+				"compare",
+			),
+		).toContain("no previous matching tool run");
 	});
 
 	test("formats active tool target prompt rows", () => {
