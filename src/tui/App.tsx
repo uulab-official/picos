@@ -362,6 +362,7 @@ import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
 	createStatusActivityCopyIntentRecord,
+	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -371,6 +372,7 @@ import {
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
@@ -597,6 +599,10 @@ export function App(): React.ReactElement {
 	] = useState(false);
 	const [statusActivityCopyIntentHistory, setStatusActivityCopyIntentHistory] =
 		useState<StatusActivityCopyIntentRecord[]>([]);
+	const [
+		selectedStatusActivityCopyIntentIndex,
+		setSelectedStatusActivityCopyIntentIndex,
+	] = useState(0);
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -4697,6 +4703,7 @@ export function App(): React.ReactElement {
 			setStatusActivityCopyIntentHistory((current) =>
 				appendStatusActivityCopyIntentHistory(current, intent),
 			);
+			setSelectedStatusActivityCopyIntentIndex(0);
 			log(
 				"info",
 				intent?.auditMessage ??
@@ -4706,6 +4713,52 @@ export function App(): React.ReactElement {
 					}),
 			);
 			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (
+			screen === "status" &&
+			focusArea === "workspaces" &&
+			(input === "<" || input === ">")
+		) {
+			if (statusActivityCopyIntentHistory.length === 0) {
+				log("warn", "no status activity copy intents");
+				return;
+			}
+			setSelectedStatusActivityCopyIntentIndex((current) => {
+				const next = moveStatusActivityCopyIntentSelection(
+					statusActivityCopyIntentHistory,
+					current,
+					input === ">" ? "next" : "previous",
+				);
+				const intent = statusActivityCopyIntentHistory[next];
+				log(
+					"info",
+					`status activity copy intent ${next + 1}/${statusActivityCopyIntentHistory.length} ${intent?.label ?? "none"}`,
+				);
+				return next;
+			});
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "g") {
+			const jump = createStatusActivityCopyIntentTimelineSearch(
+				statusActivityCopyIntentHistory,
+				selectedStatusActivityCopyIntentIndex,
+			);
+			if (!jump) {
+				log("warn", "no status activity copy intent for timeline");
+				return;
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(0);
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}`,
+			);
 			return;
 		}
 
@@ -6598,6 +6651,9 @@ export function App(): React.ReactElement {
 					}
 					statusActivityCopyPreviewExpanded={statusActivityCopyPreviewExpanded}
 					statusActivityCopyIntentHistory={statusActivityCopyIntentHistory}
+					selectedStatusActivityCopyIntentIndex={
+						selectedStatusActivityCopyIntentIndex
+					}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -6820,6 +6876,7 @@ function MainWorkspace({
 	selectedStatusActivityCopyPreviewRowIndex,
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
+	selectedStatusActivityCopyIntentIndex,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -6943,6 +7000,7 @@ function MainWorkspace({
 	selectedStatusActivityCopyPreviewRowIndex: number;
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
+	selectedStatusActivityCopyIntentIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -7144,6 +7202,7 @@ function MainWorkspace({
 						selectedStatusActivityCopyPreviewRowIndex,
 						statusActivityCopyPreviewExpanded,
 						statusActivityCopyIntentHistory,
+						selectedStatusActivityCopyIntentIndex,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7272,6 +7331,7 @@ function renderWorkspace(
 	selectedStatusActivityCopyPreviewRowIndex: number,
 	statusActivityCopyPreviewExpanded: boolean,
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[],
+	selectedStatusActivityCopyIntentIndex: number,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7546,6 +7606,9 @@ function renderWorkspace(
 				}
 				statusActivityCopyPreviewExpanded={statusActivityCopyPreviewExpanded}
 				statusActivityCopyIntentHistory={statusActivityCopyIntentHistory}
+				selectedStatusActivityCopyIntentIndex={
+					selectedStatusActivityCopyIntentIndex
+				}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
@@ -9728,6 +9791,7 @@ function StatusWorkspace({
 	selectedStatusActivityCopyPreviewRowIndex,
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
+	selectedStatusActivityCopyIntentIndex,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -9760,6 +9824,7 @@ function StatusWorkspace({
 	selectedStatusActivityCopyPreviewRowIndex: number;
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
+	selectedStatusActivityCopyIntentIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -9914,7 +9979,7 @@ function StatusWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
-					copy
+					copy · &lt;/&gt; intents · g Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,
@@ -10025,6 +10090,7 @@ function StatusWorkspace({
 				))}
 				{formatStatusActivityCopyIntentRows(
 					statusActivityCopyIntentHistory,
+					selectedStatusActivityCopyIntentIndex,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}

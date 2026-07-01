@@ -43,6 +43,12 @@ export type StatusActivityCopyIntentRecord = {
 	auditMessage: string;
 };
 
+export type StatusActivityCopyIntentTimelineSearch = {
+	filter: "audit";
+	query: string;
+	message: string;
+};
+
 type StatusActivityQueueSource = {
 	key: StatusActivitySource;
 	prefix: string;
@@ -381,7 +387,7 @@ export function formatStatusActivityCopyIntentRows(
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · Timeline audit searchable=status-activity",
+			"controls=y records intent · </> select · g Timeline audit search",
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -394,8 +400,43 @@ export function formatStatusActivityCopyIntentRows(
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
 		}),
-		"controls=y records intent · Timeline audit searchable=status-activity · :clipboard confirm=copy locked",
+		"controls=y records intent · </> select · g Timeline audit search · :clipboard confirm=copy locked",
 	];
+}
+
+export function moveStatusActivityCopyIntentSelection(
+	history: StatusActivityCopyIntentRecord[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (history.length === 0) {
+		return 0;
+	}
+	const current = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + history.length) % history.length;
+}
+
+export function createStatusActivityCopyIntentTimelineSearch(
+	history: StatusActivityCopyIntentRecord[],
+	selectedIndex: number,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const record = history[selected];
+	if (!record) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: record.label,
+		message: `status activity copy intent timeline search ${record.label}`,
+	};
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
