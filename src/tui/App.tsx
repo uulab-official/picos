@@ -10920,9 +10920,11 @@ function StatusWorkspace({
 									? "yellow"
 									: row.startsWith("no ")
 										? "gray"
-										: row.startsWith("controls=")
-											? "yellow"
-											: "white"
+										: row.startsWith("palette=?")
+											? "gray"
+											: row.startsWith("controls=")
+												? "yellow"
+												: "white"
 						}
 					>
 						{row}

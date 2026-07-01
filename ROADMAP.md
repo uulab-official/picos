@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.199 - Status Result Palette Hints
+
+Status: draft PR [#261](https://github.com/uulab-official/picos/pull/261) on `codex/picos-v0.4.199-status-result-palette-hints`.
+
+Goal: make Status result Timeline jump browser controls self-discoverable directly inside the console panel.
+
+- `STATUS RESULT TIMELINE JUMPS` now prints `palette=? result jump · timeline result open · result select`.
+- The hint appears for both populated and empty jump browsers so operators can discover the command palette path before any jump exists.
+- TUI rendering treats the palette hint as muted helper text while keeping the browser title and active row visually distinct.
+- Tests cover the populated and empty hint rows in the compact jump browser.
+- Next: add palette-triggered Status result jump audit rows so command-palette usage leaves searchable Timeline evidence.
+
 ## v0.4.198 - Status Result Palette Jumps
 
 Status: draft PR [#260](https://github.com/uulab-official/picos/pull/260) on `codex/picos-v0.4.198-status-result-palette-jumps`.
@@ -11,7 +23,7 @@ Goal: make Status result Timeline jump controls discoverable from the command pa
 - Palette select returns focus to the Status workspace so the `STATUS RESULT TIMELINE JUMPS` cursor is visible.
 - Palette open reuses the same Timeline filter/search restoration path as keyboard `I`.
 - Tests cover palette discoverability, action metadata, and action summary counts.
-- Next: add a small command-palette hint row beside `STATUS RESULT TIMELINE JUMPS` so the browser advertises searchable phrases inline.
+- Next: inline command-palette hints moved into v0.4.199.
 
 ## v0.4.197 - Status Result Jump Browser
 

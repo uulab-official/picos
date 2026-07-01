@@ -722,12 +722,14 @@ describe("Status activity queue", () => {
 
 		expect(formatStatusActivityResultTimelineJumpRows(history, 2)).toEqual([
 			"STATUS RESULT TIMELINE JUMPS count=2 selected=2/2",
+			"palette=? result jump · timeline result open · result select",
 			"  #2 filter=audit query=control preview action=timeline-selected-copy",
 			"> #3 filter=raw query=timeline raw 12:00:09 action=timeline-selected-export",
 			"controls=J select result jump · I open selected Timeline result",
 		]);
 		expect(formatStatusActivityResultTimelineJumpRows([], 0)).toEqual([
 			"STATUS RESULT TIMELINE JUMPS count=0",
+			"palette=? result jump · timeline result open · result select",
 			"no Timeline result jumps yet",
 		]);
 	});
