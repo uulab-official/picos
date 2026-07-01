@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Editor saves now leave an `EDITOR SAVE RESULT` panel with success/blocker/error rows, and successful `editor save` records are classified as searchable Timeline audit evidence.
 - Editor saves now use a policy-gated execution path: the default `editorSaveMode=disabled` records a blocked save audit, `editorSaveMode=local-write` allows exact-confirmed local provider writes, and SFTP writes remain locked.
 - Editor workspace now supports line insertion and undo: `i` inserts before the selected line, `o` inserts after it, `u` restores the previous in-memory buffer content, and the buffer status shows available undo depth before provider writes are enabled.
 - Editor workspace now supports selected-line editing: `j/k` move the buffer cursor, `r` opens a replace-line prompt, and `x` deletes the selected in-memory line while the save preview updates before any provider write is enabled.

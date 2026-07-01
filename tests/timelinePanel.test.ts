@@ -453,6 +453,29 @@ describe("timeline TUI panel formatting", () => {
 		]);
 	});
 
+	test("classifies successful editor save records as searchable audit evidence", () => {
+		const saveEvents: ConsoleEvent[] = [
+			{
+				id: "12:00:10-ok-editor-save",
+				level: "ok",
+				time: "12:00:10",
+				message:
+					"editor save /workspace/picos/README.md status=saved policy=local-write provider=local confirmed=true willExecute=true changed=true",
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(saveEvents, 4, "audit", {
+				query: "editor save status=saved",
+			}),
+		).toEqual([
+			"SUMMARY events=1/1 network=0 audit=1 action=0 raw=0 filter=audit search=editor save status=saved",
+			"TIMELINE",
+			"[12:00:10] OK   audit  editor save /workspace/picos/README.md status=saved policy=local-write provider=local confirmed=true willExecute=true changed=true",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
 	test("classifies ports file evidence unavailable records as audit", () => {
 		const evidenceEvents: ConsoleEvent[] = [
 			{

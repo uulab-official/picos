@@ -3,6 +3,7 @@ import {
 	createEditorSaveExecutionPlan,
 	defaultEditorSaveExecutionPolicy,
 	formatEditorSaveExecutionAuditMessage,
+	formatEditorSaveExecutionResultRows,
 	formatEditorSaveExecutionRows,
 	runEditorSaveExecutionPlan,
 } from "../src/core/editorSaveExecution";
@@ -133,5 +134,16 @@ describe("editor save execution", () => {
 			confirmed: true,
 			willExecute: true,
 		});
+		expect(formatEditorSaveExecutionResultRows(result)).toEqual([
+			"EDITOR SAVE RESULT",
+			"path /workspace/picos/README.md",
+			"status=saved success=true policy=local-write provider=local",
+			"confirmed=true willExecute=true changed=true",
+			"blockers=-",
+			"timeline search: editor save /workspace/picos/README.md status=saved",
+		]);
+		expect(formatEditorSaveExecutionAuditMessage(result.audit)).toContain(
+			"status=saved policy=local-write provider=local confirmed=true",
+		);
 	});
 });
