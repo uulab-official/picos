@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Timeline selected preview rows now include a compact `source=t raw c copy e export` hint so operators can compare summaries with raw/source evidence faster.
 - Timeline selected preview rows now clip to the workspace width while preserving stale audit-jump recovery hints such as `fix=P audit jump/new result`.
 - Timeline now shows a compact `selected timeline ...` preview row above the filtered event list, so Status `K`/`I` and recovered trail jumps land with visible context.
 - Status Activity copy-intent shelves now show stale audit-jump replay warning count and latest warning time before `K stale search`.

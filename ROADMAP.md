@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.192 - Timeline Raw Source Preview Hint
+
+Status: draft PR [#254](https://github.com/uulab-official/picos/pull/254) on `codex/picos-v0.4.192-timeline-raw-source-hint`.
+
+Goal: make Timeline selected previews point operators toward raw/source comparison paths.
+
+- Timeline selected previews now opt into a compact `source=t raw c copy e export` hint in the TUI.
+- The hint makes the raw filter, selected-row clipboard copy, and selected-row export path visible beside the active event.
+- The pure preview formatter keeps the hint opt-in so existing CLI/test formatter consumers remain stable.
+- Tests cover the raw-source hint text on a selected audit-search preview.
+- Next: add selected Timeline raw/source handoff rows to Status Activity so copied/exported Timeline rows can be revisited without searching manually.
+
 ## v0.4.191 - Width Aware Timeline Jump Preview
 
 Status: draft PR [#253](https://github.com/uulab-official/picos/pull/253) on `codex/picos-v0.4.191-width-aware-timeline-preview`.
@@ -10,7 +22,7 @@ Goal: keep Timeline jump context usable on narrower terminal layouts.
 - Selected Timeline preview rows now clip to that width instead of spilling across narrow consoles.
 - Long stale audit-jump warning payloads preserve the recovery tail, including `fix=P audit jump/new result`, after clipping.
 - Tests cover max-width clipping, ellipsis insertion, and recovery hint preservation.
-- Next: add a compact raw-source toggle hint beside selected Timeline previews so operators can compare rendered summaries with source command output faster.
+- Next: raw-source selected preview hint moved into v0.4.192.
 
 ## v0.4.190 - Timeline Jump Preview Row
 

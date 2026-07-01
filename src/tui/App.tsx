@@ -9948,6 +9948,7 @@ function TimelineWorkspace({
 		maxWidth: Math.max(24, width - 4),
 		query,
 		selectedIndex,
+		showRawSourceHint: true,
 	});
 	const rows = [
 		selectedPreviewRow,
