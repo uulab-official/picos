@@ -1627,8 +1627,15 @@ describe("Status activity queue", () => {
 			message:
 				"status activity result timeline search palette source palette visible=2/5",
 		});
+		const selectedIntent = createStatusActivityResultTimelineSearchIntent({
+			filter: "audit",
+			query: "action=source source=evidence visible=1/3",
+			message:
+				"status activity result timeline search palette source evidence visible=1/3",
+		});
 
 		expect(latestIntent).toBeDefined();
+		expect(selectedIntent).toBeDefined();
 		expect(
 			createStatusActivityResultTimelineSearchReplay(history, 0, latestIntent),
 		).toEqual({
@@ -1636,6 +1643,19 @@ describe("Status activity queue", () => {
 			query: "action=source source=palette visible=2/5",
 			message:
 				"status activity result audit jump replay action=source source=palette visible=2/5",
+		});
+		expect(
+			createStatusActivityResultTimelineSearchReplay(
+				history,
+				0,
+				latestIntent,
+				selectedIntent,
+			),
+		).toEqual({
+			filter: "audit",
+			query: "action=source source=evidence visible=1/3",
+			message:
+				"status activity result audit jump replay action=source source=evidence visible=1/3",
 		});
 		expect(
 			createStatusActivityResultTimelineSearchReplay(history, 0),

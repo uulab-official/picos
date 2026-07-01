@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.181 - Status Selected Audit Jump Replay
+
+Status: draft PR [#243](https://github.com/uulab-official/picos/pull/243) on `codex/picos-v0.4.181-selected-audit-jump-replay`.
+
+Goal: make `I` replay honor the selected result-audit-jump cursor.
+
+- Status Activity `I` still prefers a fresh jump from the selected result row when one is available.
+- When `I` falls back to replay, it now uses the `P audit jump` selected reusable jump before falling back to the newest reusable jump.
+- Replay continues to validate the stored audit-jump payload before opening Timeline audit search.
+- Tests cover selected replay overriding the newest reusable jump while preserving the existing newest fallback.
+- Next: expose the selected audit-jump replay source in the Timeline log message so replay evidence distinguishes cursor replay from newest fallback.
+
 ## v0.4.180 - Status Audit Jump Cursor
 
 Status: draft PR [#242](https://github.com/uulab-official/picos/pull/242) on `codex/picos-v0.4.180-audit-jump-cursor`.
