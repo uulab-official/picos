@@ -59,6 +59,14 @@ export type UpdateReleaseHandoffLink = {
 	url: string;
 };
 
+export type StatusReleaseConsoleInput = {
+	update?: PackageUpdateCheckResult;
+	github?: GitHubReleaseCheckResult;
+	applyPreview?: UpdateApplyPreview;
+	handoff?: UpdateReleaseHandoff;
+	selectedLinkIndex?: number;
+};
+
 export type PackageUpdateFetch = (
 	input: string | URL | Request,
 	init?: RequestInit,
@@ -299,6 +307,58 @@ export function getSelectedUpdateReleaseHandoffLink(
 	const links = getUpdateReleaseHandoffLinks(handoff);
 	const index = ((selectedIndex % links.length) + links.length) % links.length;
 	return links[index];
+}
+
+export function formatStatusReleaseConsoleRows(
+	input: StatusReleaseConsoleInput,
+): string[] {
+	const { update, github, applyPreview, handoff } = input;
+	const latestVersion =
+		update?.latestVersion ??
+		github?.latestVersion ??
+		handoff?.latestVersion ??
+		"-";
+	const currentVersion =
+		update?.currentVersion ??
+		github?.currentVersion ??
+		handoff?.currentVersion ??
+		"-";
+	const rows = [
+		`STATUS RELEASE CONSOLE npm=${update?.status ?? "not-run"} github=${
+			github?.status ?? "not-run"
+		} current=${currentVersion} latest=${latestVersion}`,
+	];
+
+	if (update || github) {
+		rows.push(
+			`package=${update?.packageName ?? handoff?.packageName ?? "-"} repo=${
+				github ? `${github.owner}/${github.repo}` : "-"
+			}`,
+		);
+		if (handoff) {
+			const link = getSelectedUpdateReleaseHandoffLink(
+				handoff,
+				input.selectedLinkIndex ?? 0,
+			);
+			rows.push(`> link ${link.key} ${link.label} ${link.url}`);
+		}
+		const errors = [update?.error, github?.error].filter(
+			(error): error is string => Boolean(error),
+		);
+		if (errors.length > 0) {
+			rows.push(`errors=${errors.join(" | ")}`);
+		}
+	} else {
+		rows.push("run=picos.update or picos update");
+	}
+
+	rows.push(
+		applyPreview
+			? `apply=locked risk=${applyPreview.risk} privilege=${applyPreview.privilege} confirm=${applyPreview.confirmationPhrase}`
+			: "apply=unavailable",
+		"controls=n link c copy o open apply=:action",
+	);
+	return rows;
 }
 
 function createNpmLatestUrl(packageName: string): string {
