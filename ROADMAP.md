@@ -2977,6 +2977,19 @@ Goal: make recovered Timeline Evidence trail rows self-explanatory without openi
 - Tests cover the compact detail row in the empty recovered shelf state.
 - Next: add a selected recovered trail cursor so multiple recovered trail exports can be reviewed instead of only the latest one.
 
+## v0.4.162 - Timeline Evidence Trail Selection
+
+Status: draft PR [#224](https://github.com/uulab-official/picos/pull/224) on `codex/picos-v0.4.162-timeline-trail-selection`.
+
+Goal: let Status Activity review more than the latest recovered Timeline Evidence trail export.
+
+- Status Activity now indexes recovered Timeline Evidence trail exports as a selectable list.
+- The copy-intent shelf shows `trail selected=current/total` when multiple recovered trail exports are available.
+- `S` cycles the recovered trail selection without disturbing copy-intent `<`/`>` selection or Status Evidence item movement.
+- `L` locked file-open and `N` Timeline audit search now target the selected recovered trail export.
+- Tests cover multi-trail shelf formatting, recovered trail list indexing, selected trail lookup, and wraparound selection.
+- Next: expose previous/next recovered trail shortcuts in the command palette so trail review is discoverable outside the Status footer.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
