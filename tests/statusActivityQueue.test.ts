@@ -12,6 +12,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
@@ -441,6 +442,8 @@ describe("Status activity queue", () => {
 
 		expect(cleanupIntent).toEqual({
 			label: "status activity cleanup jump-cleanup",
+			copyText:
+				"cleanup jump-cleanup\ncleanup activity selected; jumping to selected cleanup shelf\ncleanup handoff Logs: press l then type delete logs",
 			selectedRow: 4,
 			expanded: true,
 			lines: 3,
@@ -453,19 +456,21 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=2 selected=2/2",
 			"  status activity dialog show-dialog row=1 expanded=false lines=2 preview=dialog show-dialog",
 			"> status activity cleanup jump-cleanup row=4 expanded=true lines=3 preview=cleanup jump-cleanup",
-			"controls=y records intent · </> select · g Timeline audit search · :clipboard confirm=copy locked",
+			"controls=y records intent · </> select · v replay · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 		expect(formatStatusActivityCopyIntentRows([])).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · g Timeline audit search",
 		]);
 	});
 
-	test("selects status activity copy intents and creates timeline search jumps", () => {
+	test("replays selected status activity copy intents as locked clipboard previews", () => {
 		const history = [
 			{
 				label: "status activity dialog show-dialog",
+				copyText:
+					"dialog show-dialog\ndialog activity selected; type the exact confirmation phrase",
 				selectedRow: 1,
 				expanded: false,
 				lines: 2,
@@ -475,6 +480,51 @@ describe("Status activity queue", () => {
 			},
 			{
 				label: "status activity cleanup jump-cleanup",
+				copyText:
+					"cleanup jump-cleanup\ncleanup activity selected; jumping to selected cleanup shelf\ncleanup handoff Logs: press l then type delete logs",
+				selectedRow: 4,
+				expanded: true,
+				lines: 3,
+				preview: "cleanup jump-cleanup",
+				auditMessage:
+					'clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+			},
+		];
+
+		expect(
+			getSelectedStatusActivityCopyIntentClipboardPreview(history, 1),
+		).toEqual({
+			source: "status-activity",
+			label: "status activity cleanup jump-cleanup",
+			copyText:
+				"cleanup jump-cleanup\ncleanup activity selected; jumping to selected cleanup shelf\ncleanup handoff Logs: press l then type delete logs",
+			details: ["copy-intent selected=2/2", "row=4 expanded=true lines=3"],
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(
+			getSelectedStatusActivityCopyIntentClipboardPreview([], 0),
+		).toBeUndefined();
+	});
+
+	test("selects status activity copy intents and creates timeline search jumps", () => {
+		const history = [
+			{
+				label: "status activity dialog show-dialog",
+				copyText:
+					"dialog show-dialog\ndialog activity selected; type the exact confirmation phrase",
+				selectedRow: 1,
+				expanded: false,
+				lines: 2,
+				preview: "dialog show-dialog",
+				auditMessage:
+					'clipboard intent status-activity label="status activity dialog show-dialog" selectedRow=1 expanded=false lines=2 preview="dialog show-dialog"',
+			},
+			{
+				label: "status activity cleanup jump-cleanup",
+				copyText:
+					"cleanup jump-cleanup\ncleanup activity selected; jumping to selected cleanup shelf\ncleanup handoff Logs: press l then type delete logs",
 				selectedRow: 4,
 				expanded: true,
 				lines: 3,

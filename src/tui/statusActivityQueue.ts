@@ -36,6 +36,7 @@ export type StatusActivityResult = StatusActivityEnterPlan & {
 
 export type StatusActivityCopyIntentRecord = {
 	label: string;
+	copyText: string;
 	selectedRow: number;
 	expanded: boolean;
 	lines: number;
@@ -360,6 +361,7 @@ export function createStatusActivityCopyIntentRecord(
 	const copyLines = preview.copyText.split(/\r?\n/);
 	return {
 		label: preview.label,
+		copyText: preview.copyText,
 		selectedRow: Math.max(0, Math.floor(options.selectedRowIndex ?? 0)) + 1,
 		expanded: Boolean(options.expanded),
 		lines: copyLines.length,
@@ -387,7 +389,7 @@ export function formatStatusActivityCopyIntentRows(
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · g Timeline audit search",
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -400,7 +402,7 @@ export function formatStatusActivityCopyIntentRows(
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
 		}),
-		"controls=y records intent · </> select · g Timeline audit search · :clipboard confirm=copy locked",
+		"controls=y records intent · </> select · v replay · g Timeline audit search · :clipboard confirm=copy locked",
 	];
 }
 
@@ -437,6 +439,29 @@ export function createStatusActivityCopyIntentTimelineSearch(
 		query: record.label,
 		message: `status activity copy intent timeline search ${record.label}`,
 	};
+}
+
+export function getSelectedStatusActivityCopyIntentClipboardPreview(
+	history: StatusActivityCopyIntentRecord[],
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const record = history[selected];
+	if (!record) {
+		return undefined;
+	}
+	return createClipboardPreview({
+		source: "status-activity",
+		label: record.label,
+		copyText: record.copyText,
+		details: [
+			`copy-intent selected=${selected + 1}/${history.length}`,
+			`row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines}`,
+		],
+	});
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
