@@ -775,6 +775,27 @@ export function createStatusActivityResultTimelineSearchReplay(
 	};
 }
 
+export function createStatusActivityResultTimelineSearchReplayWarning(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
+	selectedAuditJumpIntent?: StatusActivityCopyIntentRecord,
+): string {
+	const selectedJump = createStatusActivityResultTimelineSearch(
+		history,
+		selectedIndex,
+	);
+	if (selectedJump) {
+		return "no status activity result audit jump";
+	}
+	const replayIntent = selectedAuditJumpIntent ?? latestAuditJumpIntent;
+	const recoveryHint =
+		getStatusActivityResultAuditJumpReplayValidity(replayIntent) === "stale"
+			? " fix=P audit jump/new result"
+			: "";
+	return `no status activity result audit jump${recoveryHint}`;
+}
+
 export function createStatusActivityResultTimelineSearchIntent(
 	jump?: StatusActivityCopyIntentTimelineSearch,
 ): StatusActivityCopyIntentRecord | undefined {

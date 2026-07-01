@@ -373,6 +373,7 @@ import {
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
+	createStatusActivityResultTimelineSearchReplayWarning,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -5053,17 +5054,27 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "I") {
+			const selectedAuditJumpIntent =
+				getSelectedStatusActivityResultAuditJumpIntent(
+					statusActivityCopyIntentHistory,
+					selectedStatusActivityResultAuditJumpIndex,
+				);
 			const jump = createStatusActivityResultTimelineSearchReplay(
 				statusActivityResults,
 				selectedStatusActivityResultIndex,
 				latestStatusActivityResultAuditJumpIntent,
-				getSelectedStatusActivityResultAuditJumpIntent(
-					statusActivityCopyIntentHistory,
-					selectedStatusActivityResultAuditJumpIndex,
-				),
+				selectedAuditJumpIntent,
 			);
 			if (!jump) {
-				log("warn", "no status activity result audit jump");
+				log(
+					"warn",
+					createStatusActivityResultTimelineSearchReplayWarning(
+						statusActivityResults,
+						selectedStatusActivityResultIndex,
+						latestStatusActivityResultAuditJumpIntent,
+						selectedAuditJumpIntent,
+					),
+				);
 				return;
 			}
 			const intent = createStatusActivityResultTimelineSearchIntent(jump);

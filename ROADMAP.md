@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.186 - Status Audit Jump Stale Warning Hint
+
+Status: draft PR [#248](https://github.com/uulab-official/picos/pull/248) on `codex/picos-v0.4.186-audit-jump-stale-warning`.
+
+Goal: keep stale audit-jump recovery guidance visible in logs as well as the Status shelf.
+
+- Status Activity `I` replay refusals now build their warning message through the same audit-jump replay helper path as the shelf.
+- Stale replay payload warnings append `fix=P audit jump/new result`, matching the Status copy-intent shelf recovery hint.
+- Empty or missing replay states keep the existing `no status activity result audit jump` warning.
+- Tests cover stale warning hints and the unchanged empty warning path.
+- Next: make Timeline audit search preserve the stale replay refusal warning as a searchable audit event.
+
 ## v0.4.185 - Status Audit Jump Stale Recovery Hint
 
 Status: draft PR [#247](https://github.com/uulab-official/picos/pull/247) on `codex/picos-v0.4.185-audit-jump-stale-hint`.

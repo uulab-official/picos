@@ -22,6 +22,7 @@ import {
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
+	createStatusActivityResultTimelineSearchReplayWarning,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -1696,6 +1697,39 @@ describe("Status activity queue", () => {
 		expect(
 			createStatusActivityResultTimelineSearchReplay(history, 0),
 		).toBeUndefined();
+	});
+
+	test("adds stale audit jump recovery hints to replay warnings", () => {
+		const history = [
+			{
+				source: "cleanup" as const,
+				action: "jump-cleanup" as const,
+				message: "cleanup activity selected; jumping to selected cleanup shelf",
+			},
+		];
+		const staleIntent = {
+			label:
+				"status activity result audit jump action=source source=palette visible=2/5",
+			copyText:
+				"action=source source=palette visible=2/5\nstatus activity result timeline search palette source palette visible=2/5\nfilter=timeline",
+			selectedRow: 1,
+			expanded: false,
+			lines: 3,
+			preview: "action=source source=palette visible=2/5",
+			auditMessage:
+				'clipboard intent status-activity label="status activity result audit jump action=source source=palette visible=2/5" selectedRow=1 expanded=false lines=3 preview="action=source source=palette visible=2/5"',
+		};
+
+		expect(
+			createStatusActivityResultTimelineSearchReplayWarning(
+				history,
+				0,
+				staleIntent,
+			),
+		).toBe("no status activity result audit jump fix=P audit jump/new result");
+		expect(
+			createStatusActivityResultTimelineSearchReplayWarning(history, 0),
+		).toBe("no status activity result audit jump");
 	});
 
 	test("creates copy intents for status result audit jumps", () => {
