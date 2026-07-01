@@ -373,7 +373,7 @@ import {
 	createStatusEvidenceNumberJumpPlan,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
-	formatStatusEvidenceIndexRows,
+	formatStatusEvidenceTableRows,
 	moveStatusEvidenceFocus,
 	type StatusEvidenceKind,
 } from "./statusEvidence";
@@ -9772,7 +9772,7 @@ function StatusWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
-					STATUS EVIDENCE · tab evidence · selected files and controls
+					STATUS EVIDENCE · tab/1..9 family · [/] item · enter/a/m action
 				</Text>
 				{formatStatusEvidenceCommandStripRows(
 					{
@@ -9804,7 +9804,7 @@ function StatusWorkspace({
 						{row}
 					</Text>
 				))}
-				{formatStatusEvidenceIndexRows(
+				{formatStatusEvidenceTableRows(
 					{
 						handoffIndex,
 						auditExportIndex,
@@ -9824,7 +9824,7 @@ function StatusWorkspace({
 					<Text
 						key={row}
 						color={
-							row.startsWith("EVIDENCE INDEX")
+							row.startsWith("STATUS EVIDENCE TABLE")
 								? "cyan"
 								: row.startsWith(">")
 									? "yellow"
