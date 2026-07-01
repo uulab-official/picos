@@ -14,6 +14,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createTimelineEvidenceTrailStatusActivityResult,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -877,6 +878,38 @@ describe("Status activity queue", () => {
 		expect(
 			createStatusActivityCopyIntentEvidenceFocusTimelineSearch(undefined),
 		).toBeUndefined();
+	});
+
+	test("creates status activity results for timeline evidence trail handoffs", () => {
+		const result = createTimelineEvidenceTrailStatusActivityResult({
+			kind: "audit",
+			selectedIndex: 1,
+			itemCount: 2,
+			label: "picos-audit-selected-2026-07-01T030000000Z.log",
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			message:
+				"timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+			rows: [
+				"TIMELINE EVIDENCE TRAIL audit selected=2/2",
+				"> picos-audit-selected-2026-07-01T030000000Z.log",
+				"path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				"controls=Status Evidence W=open Z=archive enter=open",
+			],
+		});
+
+		expect(result).toEqual({
+			source: "evidence",
+			action: "timeline-evidence-trail",
+			message:
+				"timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+			detail:
+				"Status Evidence W=open Z=archive enter=open path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=evidence action=timeline-evidence-trail",
+			"> timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+			"  Status Evidence W=open Z=archive enter=open path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+		]);
 	});
 
 	test("selects status activity copy intents and creates timeline search jumps", () => {

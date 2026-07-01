@@ -2901,6 +2901,18 @@ Goal: make Timeline-to-Status Evidence handoffs explain the next available audit
 - Tests cover the preview rows alongside the existing path extraction and index matching behavior.
 - Next: render the latest Timeline evidence trail preview as a Status Activity result/history entry so the operator can copy or export the trail handoff itself.
 
+## v0.4.156 - Timeline Evidence Trail Activity Result
+
+Status: draft PR [#218](https://github.com/uulab-official/picos/pull/218) on `codex/picos-v0.4.156-timeline-trail-activity-result`.
+
+Goal: make Timeline-to-Status Evidence trail handoffs reusable through Status Activity result/history.
+
+- Timeline `E` handoffs now record a `STATUS ACTIVITY RESULT source=evidence action=timeline-evidence-trail`.
+- The result detail preserves Status Evidence `W` open, `Z` archive, `enter` hints, and the target path.
+- The existing Status Activity result history, copy preview, copy-intent, and export flow can reuse the trail handoff like other Status actions.
+- Tests cover the result conversion and formatted rows.
+- Next: persist Timeline evidence trail handoff records as selected audit exports so a restarted TUI can recover the last trail.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

@@ -12,6 +12,7 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
+import type { TimelineFocusEvidenceTrailPlan } from "./timelinePanel";
 
 export type StatusActivityQueueInput = {
 	releaseRows?: string[];
@@ -32,6 +33,7 @@ export type StatusActivityEnterAction =
 	| "jump-cleanup"
 	| "enter-evidence"
 	| "focus-evidence"
+	| "timeline-evidence-trail"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -615,6 +617,20 @@ export function createStatusActivityCopyIntentEvidenceFocusResult(
 		action: "focus-evidence",
 		message: plan.message,
 		detail: `evidence ${plan.kind} selected=${plan.selectedIndex + 1}/${plan.itemCount} path=${plan.path}`,
+	};
+}
+
+export function createTimelineEvidenceTrailStatusActivityResult(
+	plan: TimelineFocusEvidenceTrailPlan,
+): StatusActivityResult {
+	const controls = plan.rows
+		.find((row) => row.startsWith("controls="))
+		?.replace(/^controls=/, "");
+	return {
+		source: "evidence",
+		action: "timeline-evidence-trail",
+		message: plan.message,
+		detail: `${controls ?? "Status Evidence controls unavailable"} path=${plan.path}`,
 	};
 }
 
