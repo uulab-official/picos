@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.212 - Tools Evidence Archive And Retention
+
+Status: draft PR [#274](https://github.com/uulab-official/picos/pull/274) on `codex/picos-v0.4.212-tools-evidence-retention`.
+
+Goal: make Tools Hub raw-output evidence behave like managed OS console evidence, not loose export files.
+
+- Tools selected/all export files can be archived from Status Evidence through the exact `archive tools export` confirmation.
+- Archived Tools export files are indexed from `tools/archive` and remain openable through the locked `:file-open` flow.
+- Archived Tools evidence supports retention preview and exact `prune tools archive` pruning, with picos-owned path validation before deletion.
+- Status Evidence now includes `tools-archive`, plus `D/a` archive and `M/m` retention controls for Tools evidence families.
+- Status dialog preview now renders Tools archive and Tools archive retention confirmation rows alongside audit/cleanup dialogs.
+- Tests cover Tools export archive, archived index recovery, retention pruning, Status Evidence action routing, and locked file-open access for archived Tools exports.
+- Next: surface Tools archive/prune outcomes in Status Activity result history and add command-palette entries for Tools evidence management.
+
 ## v0.4.211 - Tools Evidence Index
 
 Status: draft PR [#273](https://github.com/uulab-official/picos/pull/273) on `codex/picos-v0.4.211-tools-evidence-index`.
@@ -13,7 +27,7 @@ Goal: close more lazyifconfig raw-output parity by making Tools Hub exports reco
 - Active Tools evidence opens through the locked `:file-open` confirmation with a `tools-export` source and picos-owned path validation.
 - Tools exports refresh the Tools evidence index immediately after writing and focus the Status Evidence `tools` family.
 - Tests cover Tools export indexing, Status Evidence integration, and locked file-open planning for Tools evidence.
-- Next: add archive/retention controls for Tools evidence exports and surface them in Status Activity copy/result history.
+- Next: Tools evidence archive/retention moved into v0.4.212; Status Activity result-history surfacing remains a follow-up.
 
 ## v0.4.210 - Editor Save Evidence Panel
 

@@ -1,5 +1,12 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import {
+	mkdir,
+	readdir,
+	readFile,
+	rename,
+	unlink,
+	writeFile,
+} from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import {
 	type ConfigCleanupPreview,
 	createConfigCleanupPreview,
@@ -135,6 +142,47 @@ export type ToolHistoryExportIndexItem = {
 export type ToolHistoryExportIndex = {
 	baseDir: string;
 	items: ToolHistoryExportIndexItem[];
+};
+
+export type ToolHistoryExportArchivePlan = {
+	sourcePath: string;
+	archivedPath: string;
+	fileName: string;
+	risk: "write";
+	privilege: "user";
+	confirmationRequired: true;
+	confirmationPhrase: "archive tools export";
+	confirmed: boolean;
+	enabled: boolean;
+	reason: string;
+};
+
+export type ToolHistoryExportArchiveResult = {
+	status: "archived" | "blocked";
+	sourcePath: string;
+	archivedPath: string;
+	message: string;
+};
+
+export type ToolHistoryArchiveRetentionPlan = {
+	baseDir: string;
+	maxItems: number;
+	retainedItems: ToolHistoryExportIndexItem[];
+	candidateItems: ToolHistoryExportIndexItem[];
+	risk: "destructive";
+	privilege: "user";
+	confirmationRequired: true;
+	confirmationPhrase: "prune tools archive";
+	confirmed: boolean;
+	enabled: boolean;
+	reason: string;
+};
+
+export type ToolHistoryArchivePruneResult = {
+	status: "pruned" | "blocked";
+	removed: number;
+	removedPaths: string[];
+	message: string;
 };
 
 export type FilteredToolHistoryItem = {
@@ -1084,6 +1132,21 @@ export async function readToolHistoryExportIndex(
 	limit = 20,
 ): Promise<ToolHistoryExportIndex> {
 	const toolsDir = join(baseDir, "tools");
+	return readToolHistoryExportIndexFromDirectory(toolsDir, limit);
+}
+
+export async function readToolHistoryExportArchiveIndex(
+	baseDir: string,
+	limit = 20,
+): Promise<ToolHistoryExportIndex> {
+	const archiveDir = join(baseDir, "tools", "archive");
+	return readToolHistoryExportIndexFromDirectory(archiveDir, limit);
+}
+
+async function readToolHistoryExportIndexFromDirectory(
+	toolsDir: string,
+	limit: number,
+): Promise<ToolHistoryExportIndex> {
 	let entries: string[];
 	try {
 		entries = await readdir(toolsDir);
@@ -1105,6 +1168,165 @@ export async function readToolHistoryExportIndex(
 		.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))
 		.slice(0, limit);
 	return { baseDir: toolsDir, items };
+}
+
+export function createToolHistoryExportArchivePlan(
+	baseDir: string,
+	path: string,
+	options: { confirmation?: string } = {},
+): ToolHistoryExportArchivePlan {
+	const toolsDir = resolve(baseDir, "tools");
+	const sourcePath = resolve(path);
+	const fileName = basename(sourcePath);
+	const allowed =
+		dirname(sourcePath) === toolsDir &&
+		isPicosToolHistoryExportFilename(fileName);
+	const confirmed = options.confirmation === "archive tools export";
+	const archivedPath = allowed ? join(toolsDir, "archive", fileName) : "";
+	const reason = !allowed
+		? "tools export archive is limited to picos-owned export files"
+		: confirmed
+			? `ready to archive tools export ${fileName}`
+			: "type archive tools export to move selected tools export";
+
+	return {
+		sourcePath,
+		archivedPath,
+		fileName,
+		risk: "write",
+		privilege: "user",
+		confirmationRequired: true,
+		confirmationPhrase: "archive tools export",
+		confirmed,
+		enabled: allowed && confirmed,
+		reason,
+	};
+}
+
+export function formatToolHistoryExportArchiveRows(
+	plan: ToolHistoryExportArchivePlan | undefined,
+): string[] {
+	if (!plan) {
+		return [];
+	}
+	return [
+		`TOOLS EVIDENCE ARCHIVE ${plan.fileName}`,
+		`risk=${plan.risk} privilege=${plan.privilege} confirmed=${plan.confirmed}`,
+		`confirm ${plan.confirmationPhrase} ${plan.enabled ? "ready" : "locked"}`,
+		`from=${plan.sourcePath}`,
+		`to=${plan.archivedPath || "-"}`,
+		`reason=${plan.reason}`,
+	];
+}
+
+export async function archiveToolHistoryExport(
+	plan: ToolHistoryExportArchivePlan,
+): Promise<ToolHistoryExportArchiveResult> {
+	if (!plan.enabled) {
+		return {
+			status: "blocked",
+			sourcePath: plan.sourcePath,
+			archivedPath: plan.archivedPath,
+			message: `tools export archive is locked: ${plan.reason}`,
+		};
+	}
+
+	await mkdir(dirname(plan.archivedPath), { recursive: true });
+	await rename(plan.sourcePath, plan.archivedPath);
+	return {
+		status: "archived",
+		sourcePath: plan.sourcePath,
+		archivedPath: plan.archivedPath,
+		message: `archived tools export ${plan.fileName}`,
+	};
+}
+
+export function createToolHistoryArchiveRetentionPlan(
+	index: ToolHistoryExportIndex,
+	options: { maxItems?: number; confirmation?: string } = {},
+): ToolHistoryArchiveRetentionPlan {
+	const maxItems = Math.max(1, Math.floor(options.maxItems ?? 10));
+	const sorted = [...index.items].sort((left, right) =>
+		right.generatedAt.localeCompare(left.generatedAt),
+	);
+	const retainedItems = sorted.slice(0, maxItems);
+	const candidateItems = sorted.slice(maxItems);
+	const confirmed = options.confirmation === "prune tools archive";
+	const reason =
+		candidateItems.length === 0
+			? `tools archive retention has no files beyond ${maxItems}`
+			: confirmed
+				? `ready to prune ${candidateItems.length} archived tools exports`
+				: `type prune tools archive to remove ${candidateItems.length} archived tools exports`;
+	return {
+		baseDir: index.baseDir,
+		maxItems,
+		retainedItems,
+		candidateItems,
+		risk: "destructive",
+		privilege: "user",
+		confirmationRequired: true,
+		confirmationPhrase: "prune tools archive",
+		confirmed,
+		enabled: candidateItems.length > 0 && confirmed,
+		reason,
+	};
+}
+
+export function formatToolHistoryArchiveRetentionRows(
+	plan: ToolHistoryArchiveRetentionPlan | undefined,
+	visibleRows = 8,
+): string[] {
+	if (!plan) {
+		return [];
+	}
+	return [
+		`TOOLS ARCHIVE RETENTION max=${plan.maxItems} candidates=${plan.candidateItems.length}`,
+		`risk=${plan.risk} privilege=${plan.privilege} confirmed=${plan.confirmed}`,
+		`confirm ${plan.confirmationPhrase} ${plan.enabled ? "ready" : "locked"}`,
+		...plan.retainedItems.slice(0, 2).map((item) => `keep ${item.fileName}`),
+		...plan.candidateItems
+			.slice(0, Math.max(0, visibleRows - 5))
+			.map((item) => `remove ${item.fileName}`),
+		`reason=${plan.reason}`,
+	].slice(0, visibleRows);
+}
+
+export async function pruneToolHistoryExportArchive(
+	plan: ToolHistoryArchiveRetentionPlan,
+): Promise<ToolHistoryArchivePruneResult> {
+	if (!plan.enabled) {
+		return {
+			status: "blocked",
+			removed: 0,
+			removedPaths: [],
+			message: `tools archive retention is locked: ${plan.reason}`,
+		};
+	}
+
+	const unsafe = plan.candidateItems.find(
+		(item) => !isAllowedArchivedToolHistoryExportPath(plan.baseDir, item),
+	);
+	if (unsafe) {
+		return {
+			status: "blocked",
+			removed: 0,
+			removedPaths: [],
+			message: `tools archive retention refused unsafe path ${unsafe.path}`,
+		};
+	}
+
+	const removedPaths: string[] = [];
+	for (const item of plan.candidateItems) {
+		await unlink(item.path);
+		removedPaths.push(item.path);
+	}
+	return {
+		status: "pruned",
+		removed: removedPaths.length,
+		removedPaths,
+		message: `pruned ${removedPaths.length} archived tools exports`,
+	};
 }
 
 export function getSelectedToolHistoryExport(
@@ -1216,6 +1438,18 @@ function parseToolHistoryExportMetadata(
 function isPicosToolHistoryExportFilename(fileName: string): boolean {
 	return /^picos-tools-(selected|all)-\d{4}-\d{2}-\d{2}T\d{9}Z\.md$/.test(
 		fileName,
+	);
+}
+
+function isAllowedArchivedToolHistoryExportPath(
+	archiveDir: string,
+	item: ToolHistoryExportIndexItem,
+): boolean {
+	const target = resolve(item.path);
+	return (
+		dirname(target) === resolve(archiveDir) &&
+		basename(target) === item.fileName &&
+		isPicosToolHistoryExportFilename(item.fileName)
 	);
 }
 

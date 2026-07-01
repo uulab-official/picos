@@ -1,18 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { ToolResult } from "../src/core/tools";
 import type { NetworkSummary } from "../src/core/types";
 import {
 	appendToolHistory,
+	archiveToolHistoryExport,
+	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
+	createToolHistoryExportArchivePlan,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
 	createToolRunPlanFromPreset,
 	createToolTargetCleanupPreview,
 	filterToolHistory,
+	formatToolHistoryArchiveRetentionRows,
 	formatToolHistoryExport,
+	formatToolHistoryExportArchiveRows,
 	formatToolHistoryExportIndexRows,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
@@ -36,6 +41,8 @@ import {
 	nextToolSectionClipboardSelection,
 	normalizeToolTargetPresets,
 	promoteToolTargetPreset,
+	pruneToolHistoryExportArchive,
+	readToolHistoryExportArchiveIndex,
 	readToolHistoryExportIndex,
 	reassignToolTargetPresetAction,
 	removeToolTargetPreset,
@@ -2151,6 +2158,201 @@ describe("TUI tool history", () => {
 				"  selected runs=1 2026-06-30T04:00:00.000Z picos-tools-selected-2026-06-30T040000000Z.md",
 				`open target=${allPlan.path}`,
 			]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("archives tool history export files only after exact confirmation", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-tools-archive-"));
+		try {
+			const history = appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			);
+			const plan = createToolHistoryExportPlan(history, 0, {
+				baseDir: root,
+				scope: "all",
+				generatedAt: new Date("2026-07-01T05:00:00.000Z"),
+			});
+			if (!plan) {
+				throw new Error("expected tool history export plan");
+			}
+			await writeToolHistoryExport(plan);
+			const fileName = basename(plan.path);
+
+			const locked = createToolHistoryExportArchivePlan(root, plan.path);
+			expect(locked).toMatchObject({
+				sourcePath: plan.path,
+				archivedPath: join(root, "tools", "archive", fileName),
+				fileName,
+				risk: "write",
+				privilege: "user",
+				confirmationRequired: true,
+				confirmationPhrase: "archive tools export",
+				confirmed: false,
+				enabled: false,
+				reason: "type archive tools export to move selected tools export",
+			});
+			expect(formatToolHistoryExportArchiveRows(locked)).toEqual([
+				`TOOLS EVIDENCE ARCHIVE ${fileName}`,
+				"risk=write privilege=user confirmed=false",
+				"confirm archive tools export locked",
+				`from=${plan.path}`,
+				`to=${join(root, "tools", "archive", fileName)}`,
+				"reason=type archive tools export to move selected tools export",
+			]);
+
+			expect(await archiveToolHistoryExport(locked)).toEqual({
+				status: "blocked",
+				sourcePath: plan.path,
+				archivedPath: join(root, "tools", "archive", fileName),
+				message:
+					"tools export archive is locked: type archive tools export to move selected tools export",
+			});
+			expect((await readToolHistoryExportIndex(root)).items).toHaveLength(1);
+
+			const archived = await archiveToolHistoryExport(
+				createToolHistoryExportArchivePlan(root, plan.path, {
+					confirmation: "archive tools export",
+				}),
+			);
+			expect(archived).toEqual({
+				status: "archived",
+				sourcePath: plan.path,
+				archivedPath: join(root, "tools", "archive", fileName),
+				message: `archived tools export ${fileName}`,
+			});
+			expect((await readToolHistoryExportIndex(root)).items).toEqual([]);
+			expect((await readToolHistoryExportArchiveIndex(root)).items).toEqual([
+				expect.objectContaining({
+					fileName,
+					generatedAt: "2026-07-01T05:00:00.000Z",
+					scope: "all",
+					runCount: 1,
+				}),
+			]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("prunes old archived tool history exports only after exact confirmation", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-tools-retention-"));
+		try {
+			const history = appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			);
+			for (const stamp of [
+				"2026-07-01T050000000Z",
+				"2026-07-01T040000000Z",
+				"2026-07-01T030000000Z",
+			]) {
+				const plan = createToolHistoryExportPlan(history, 0, {
+					baseDir: root,
+					scope: "selected",
+					generatedAt: new Date(
+						stamp.replace(/T(\d{2})(\d{2})(\d{2})(\d{3})Z$/, "T$1:$2:$3.$4Z"),
+					),
+				});
+				if (!plan) {
+					throw new Error("expected tool history export plan");
+				}
+				await writeToolHistoryExport(plan);
+				await archiveToolHistoryExport(
+					createToolHistoryExportArchivePlan(root, plan.path, {
+						confirmation: "archive tools export",
+					}),
+				);
+			}
+
+			const index = await readToolHistoryExportArchiveIndex(root);
+			const retention = createToolHistoryArchiveRetentionPlan(index, {
+				maxItems: 1,
+			});
+
+			expect(retention).toMatchObject({
+				baseDir: join(root, "tools", "archive"),
+				maxItems: 1,
+				risk: "destructive",
+				privilege: "user",
+				confirmationRequired: true,
+				confirmationPhrase: "prune tools archive",
+				confirmed: false,
+				enabled: false,
+				reason: "type prune tools archive to remove 2 archived tools exports",
+			});
+			expect(retention.retainedItems.map((item) => item.fileName)).toEqual([
+				"picos-tools-selected-2026-07-01T050000000Z.md",
+			]);
+			expect(retention.candidateItems.map((item) => item.fileName)).toEqual([
+				"picos-tools-selected-2026-07-01T040000000Z.md",
+				"picos-tools-selected-2026-07-01T030000000Z.md",
+			]);
+			expect(formatToolHistoryArchiveRetentionRows(retention)).toEqual([
+				"TOOLS ARCHIVE RETENTION max=1 candidates=2",
+				"risk=destructive privilege=user confirmed=false",
+				"confirm prune tools archive locked",
+				"keep picos-tools-selected-2026-07-01T050000000Z.md",
+				"remove picos-tools-selected-2026-07-01T040000000Z.md",
+				"remove picos-tools-selected-2026-07-01T030000000Z.md",
+				"reason=type prune tools archive to remove 2 archived tools exports",
+			]);
+			expect(await pruneToolHistoryExportArchive(retention)).toEqual({
+				status: "blocked",
+				removed: 0,
+				removedPaths: [],
+				message:
+					"tools archive retention is locked: type prune tools archive to remove 2 archived tools exports",
+			});
+
+			const confirmed = createToolHistoryArchiveRetentionPlan(index, {
+				maxItems: 1,
+				confirmation: "prune tools archive",
+			});
+			expect(await pruneToolHistoryExportArchive(confirmed)).toEqual({
+				status: "pruned",
+				removed: 2,
+				removedPaths: [
+					join(
+						root,
+						"tools",
+						"archive",
+						"picos-tools-selected-2026-07-01T040000000Z.md",
+					),
+					join(
+						root,
+						"tools",
+						"archive",
+						"picos-tools-selected-2026-07-01T030000000Z.md",
+					),
+				],
+				message: "pruned 2 archived tools exports",
+			});
+			expect(
+				(await readToolHistoryExportArchiveIndex(root)).items.map(
+					(item) => item.fileName,
+				),
+			).toEqual(["picos-tools-selected-2026-07-01T050000000Z.md"]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
