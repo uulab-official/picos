@@ -24,6 +24,7 @@ import {
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
+	filterTimelineEvidenceTrailAuditExports,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -45,6 +46,7 @@ import {
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
 	moveTimelineEvidenceTrailSelection,
+	nextTimelineEvidenceTrailSourceFilter,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
 } from "../src/tui/statusActivityQueue";
@@ -565,12 +567,63 @@ describe("Status activity queue", () => {
 			),
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
+			"trail source=all visible=2/2",
 			"trail selected=2/2",
 			"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log events=1",
 			"trail detail source=evidence path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · trail recovered · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · Q trail source · trail recovered · g Timeline audit search",
 		]);
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				newer,
+				[newer, older],
+				1,
+				"palette",
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"trail source=palette visible=0/2",
+			"no recovered Timeline Evidence trail exports for source=palette",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · Q trail source · g Timeline audit search",
+		]);
+	});
+
+	test("filters recovered timeline evidence trail exports by source", () => {
+		const evidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+			scope: "selected" as const,
+		};
+		const palette = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+			content: "",
+			eventCount: 1,
+			query: "palette timeline trail",
+			scope: "selected" as const,
+		};
+		const trailExports = [palette, evidence];
+
+		expect(
+			filterTimelineEvidenceTrailAuditExports(trailExports, "all"),
+		).toEqual(trailExports);
+		expect(
+			filterTimelineEvidenceTrailAuditExports(trailExports, "palette"),
+		).toEqual([palette]);
+		expect(
+			filterTimelineEvidenceTrailAuditExports(trailExports, "evidence"),
+		).toEqual([evidence]);
+		expect(nextTimelineEvidenceTrailSourceFilter("all")).toBe("evidence");
+		expect(nextTimelineEvidenceTrailSourceFilter("evidence")).toBe("palette");
+		expect(nextTimelineEvidenceTrailSourceFilter("palette")).toBe("all");
 	});
 
 	test("replays selected status activity copy intents as locked clipboard previews", () => {
@@ -1261,11 +1314,12 @@ describe("Status activity queue", () => {
 				),
 			).toEqual([
 				"STATUS ACTIVITY COPY INTENTS count=0",
+				"trail source=all visible=3/3",
 				"trail selected=1/3",
 				"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=palette timeline trail events=1",
 				`trail detail source=palette path=${palette.path} actions=L open N search`,
 				"no Status activity copy intents yet",
-				"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · trail recovered · g Timeline audit search",
+				"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · Q trail source · trail recovered · g Timeline audit search",
 			]);
 			expect(
 				getSelectedTimelineEvidenceTrailAuditExport(trailExports, 1),
