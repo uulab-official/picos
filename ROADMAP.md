@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.176 - Status Copy Intent Audit Jump Shelf Summary
+
+Status: draft PR [#238](https://github.com/uulab-official/picos/pull/238) on `codex/picos-v0.4.176-result-audit-jump-shelf-summary`.
+
+Goal: keep reusable result audit jumps visible inside the Status copy-intent shelf even when the result pane is not the operator's focus.
+
+- Status Activity copy-intent shelves now show `audit jumps count=<n> latest=<preview> lines=<n>` when reusable result audit jumps exist.
+- The shelf summary reuses the same latest jump and filtered count as Status result rows, so unrelated copy intents do not inflate the count.
+- Empty copy-intent shelves can still display the audit-jump summary before the `no Status activity copy intents yet` row.
+- Tests cover the shelf summary with an empty history to prove the reusable jump context remains visible.
+- Next: make the shelf summary actionable by letting `I` replay the latest result audit jump when the result history cursor is not on a jump-capable row.
+
 ## v0.4.175 - Status Result Audit Jump Counter
 
 Status: draft PR [#237](https://github.com/uulab-official/picos/pull/237) on `codex/picos-v0.4.175-result-audit-jump-counter`.

@@ -551,6 +551,37 @@ describe("Status activity queue", () => {
 		]);
 	});
 
+	test("summarizes reusable result audit jumps in the copy intent shelf", () => {
+		const latestAuditJumpIntent =
+			createStatusActivityResultTimelineSearchIntent({
+				filter: "audit",
+				query: "action=source source=palette visible=2/5",
+				message:
+					"status activity result timeline search palette source palette visible=2/5",
+			});
+
+		expect(latestAuditJumpIntent).toBeDefined();
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				latestAuditJumpIntent,
+				3,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"audit jumps count=3 latest=action=source source=palette visible=2/5 lines=3",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+		]);
+	});
+
 	test("shows recovered timeline evidence trail exports in the copy intent shelf", () => {
 		expect(
 			formatStatusActivityCopyIntentRows([], 0, undefined, undefined, {

@@ -448,12 +448,20 @@ export function formatStatusActivityCopyIntentRows(
 		: [],
 	selectedTimelineTrailIndex = 0,
 	timelineTrailSourceFilter: TimelineEvidenceTrailSourceFilter = "all",
+	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
+	auditJumpIntentCount = 0,
 ): string[] {
 	const exportRows = latestExport
 		? [
 				`z target=${basename(latestExport.path)}${latestExportEvidenceIndex !== undefined ? ` evidence=${latestExportEvidenceIndex + 1}` : ""}${latestExport.query ? ` query=${latestExport.query}` : ""} events=${latestExport.eventCount}`,
 			]
 		: [];
+	const auditJumpRows =
+		latestAuditJumpIntent && auditJumpIntentCount > 0
+			? [
+					`audit jumps count=${auditJumpIntentCount} latest=${latestAuditJumpIntent.preview} lines=${latestAuditJumpIntent.lines}`,
+				]
+			: [];
 	const filteredTimelineTrailExports = filterTimelineEvidenceTrailAuditExports(
 		timelineTrailExports,
 		timelineTrailSourceFilter,
@@ -493,7 +501,11 @@ export function formatStatusActivityCopyIntentRows(
 					`no recovered Timeline Evidence trail exports for source=${timelineTrailSourceFilter}`,
 				]
 			: [];
-	const rowsBeforeHistory = [...exportRows, ...timelineTrailRows];
+	const rowsBeforeHistory = [
+		...exportRows,
+		...auditJumpRows,
+		...timelineTrailRows,
+	];
 	const canFilterTimelineTrails =
 		timelineTrailExports.length > 1 || timelineTrailSourceFilter !== "all";
 	const trailControlParts = [
