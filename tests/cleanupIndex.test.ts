@@ -25,6 +25,7 @@ import {
 	formatCleanupHandoffHistoryRows,
 	formatCleanupHandoffReopenRows,
 	formatCleanupJumpAuditRows,
+	formatCleanupOpsConsoleRows,
 	formatCleanupShelfDetailRows,
 	formatCleanupShelfIndexRows,
 	getSelectedCleanupHandoffHistory,
@@ -438,6 +439,48 @@ describe("cleanup shelf index", () => {
 		]);
 		expect(createCleanupHandoffReopenPlan(undefined)).toBeUndefined();
 		expect(formatCleanupHandoffReopenRows(undefined)).toEqual([]);
+	});
+
+	test("formats cleanup shelf and history as a compact ops console", () => {
+		const index = createCleanupShelfIndex({
+			connectionFilterPresets: ["443"],
+			routeFilterPresets: ["default"],
+			toolHistoryFilterPresets: ["dns"],
+		});
+		const route = index.shelves.find((shelf) => shelf.id === "routes");
+		const connection = index.shelves.find(
+			(shelf) => shelf.id === "connections",
+		);
+
+		if (!route || !connection) {
+			throw new Error("expected cleanup shelves");
+		}
+
+		const histories = [
+			createCleanupHandoffHistory(createCleanupJumpAudit(route), "dismissed"),
+			createCleanupHandoffHistory(
+				createCleanupJumpAudit(connection),
+				"prompt-opened",
+			),
+		];
+
+		expect(formatCleanupOpsConsoleRows(index, 1, histories, 1)).toEqual([
+			"CLEANUP OPS active=3 items=3 history=2 selected=Connections",
+			"> shelf Connections D count=1 confirm=clear connections detail=filters=1",
+			"  shelf Routes D count=1 confirm=clear routes detail=filters=1",
+			"  shelf Tools C count=1 confirm=clear tools history detail=filters=1",
+			"history=prompt-opened Connections D confirm=clear connections detail=filters=1",
+			"reopen=R jump Connections exact-confirm stays locked",
+			"controls=j/k shelf enter jump [ history R reopen E export",
+		]);
+		expect(
+			formatCleanupOpsConsoleRows(createCleanupShelfIndex({}), 0, [], 0),
+		).toEqual([
+			"CLEANUP OPS active=0 items=0 history=0 selected=none",
+			"no saved preset shelves to clean",
+			"history=none",
+			"controls=j/k shelf enter jump [ history R reopen E export",
+		]);
 	});
 
 	test("creates durable cleanup handoff history export plans", () => {

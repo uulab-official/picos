@@ -195,12 +195,8 @@ import {
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
 	formatCleanupHandoffHistoryExportArchiveRows,
-	formatCleanupHandoffHistoryIndexRows,
-	formatCleanupHandoffHistoryRows,
-	formatCleanupHandoffReopenRows,
 	formatCleanupJumpAuditRows,
-	formatCleanupShelfDetailRows,
-	formatCleanupShelfIndexRows,
+	formatCleanupOpsConsoleRows,
 	getSelectedCleanupHandoffHistory,
 	getSelectedCleanupHandoffHistoryExport,
 	getSelectedCleanupShelf,
@@ -9441,13 +9437,6 @@ function StatusWorkspace({
 	const updateReleaseLinks = updateReleaseHandoff
 		? getUpdateReleaseHandoffLinks(updateReleaseHandoff)
 		: [];
-	const selectedCleanupHandoffHistory = getSelectedCleanupHandoffHistory(
-		cleanupHandoffHistory,
-		selectedCleanupHandoffHistoryIndex,
-	);
-	const cleanupHandoffReopenPlan = createCleanupHandoffReopenPlan(
-		selectedCleanupHandoffHistory,
-	);
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -9680,92 +9669,32 @@ function StatusWorkspace({
 				</Box>
 			) : null}
 			<Box marginTop={1} flexDirection="column">
-				<Text color="gray">
-					CLEANUP INDEX · j/k select · enter jump · type shown phrase
-				</Text>
-				{formatCleanupShelfIndexRows(
+				<Text color="gray">CLEANUP OPS · compact shelf/history console</Text>
+				{formatCleanupOpsConsoleRows(
 					cleanupShelfIndex,
-					8,
 					selectedCleanupShelfIndex,
+					cleanupHandoffHistory,
+					selectedCleanupHandoffHistoryIndex,
 				).map((row) => (
 					<Text
 						key={row}
 						color={
-							row.startsWith(">")
-								? "yellow"
-								: row.startsWith("CLEANUP INDEX")
-									? "cyan"
-									: row.includes("count=0") || row.startsWith("no ")
+							row.startsWith("CLEANUP OPS")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("history=") || row.startsWith("reopen=")
 										? "gray"
-										: "white"
+										: row.startsWith("controls=")
+											? "yellow"
+											: row.startsWith("no ")
+												? "gray"
+												: "white"
 						}
 					>
 						{row}
 					</Text>
 				))}
-				<Box marginTop={1} flexDirection="column">
-					{formatCleanupShelfDetailRows(
-						cleanupShelfIndex,
-						selectedCleanupShelfIndex,
-					).map((row) => (
-						<Text
-							key={row}
-							color={
-								row.startsWith("CLEANUP DETAIL")
-									? "cyan"
-									: row.startsWith("confirm=")
-										? "yellow"
-										: row.startsWith("no ")
-											? "gray"
-											: "white"
-							}
-						>
-							{row}
-						</Text>
-					))}
-				</Box>
-				<Box marginTop={1} flexDirection="column">
-					<Text color="gray">
-						CLEANUP HISTORY · [ cycle · R reopen · E export
-					</Text>
-					{formatCleanupHandoffHistoryIndexRows(
-						cleanupHandoffHistory,
-						selectedCleanupHandoffHistoryIndex,
-						4,
-					).map((row) => (
-						<Text
-							key={row}
-							color={
-								row.startsWith(">")
-									? "yellow"
-									: row.startsWith("CLEANUP HISTORY")
-										? "cyan"
-										: row.startsWith("no ")
-											? "gray"
-											: "white"
-							}
-						>
-							{row}
-						</Text>
-					))}
-					{formatCleanupHandoffHistoryRows(selectedCleanupHandoffHistory)
-						.slice(1)
-						.map((row) => (
-							<Text
-								key={row}
-								color={row.startsWith("detail=") ? "gray" : "white"}
-							>
-								{row}
-							</Text>
-						))}
-					{formatCleanupHandoffReopenRows(cleanupHandoffReopenPlan)
-						.slice(1)
-						.map((row) => (
-							<Text key={row} color={row.startsWith("R ") ? "yellow" : "gray"}>
-								{row}
-							</Text>
-						))}
-				</Box>
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
