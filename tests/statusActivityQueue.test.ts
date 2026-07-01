@@ -20,6 +20,7 @@ import {
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailStatusActivityResult,
+	createTimelineEvidenceTrailTimelineSearch,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -522,7 +523,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log events=1",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · trail recovered · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · trail recovered · g Timeline audit search",
 		]);
 	});
 
@@ -735,6 +736,26 @@ describe("Status activity queue", () => {
 				],
 			},
 		});
+	});
+
+	test("creates timeline searches for recovered timeline evidence trail exports", () => {
+		expect(
+			createTimelineEvidenceTrailTimelineSearch({
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+				content: "",
+				eventCount: 1,
+				query:
+					"timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+				scope: "selected",
+			}),
+		).toEqual({
+			filter: "audit",
+			query:
+				"timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+			message:
+				"timeline evidence trail recovered search picos-audit-selected-2026-07-01T040000000Z.log",
+		});
+		expect(createTimelineEvidenceTrailTimelineSearch()).toBeUndefined();
 	});
 
 	test("finds the latest persisted status activity copy intent audit export", () => {
