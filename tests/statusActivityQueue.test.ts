@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createStatusActivityCopyIntentRecord,
 	createStatusActivityEnterPlan,
 	formatStatusActivityCopyIntentAuditMessage,
+	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
 	formatStatusActivityResultCopyPreviewRows,
@@ -394,5 +397,66 @@ describe("Status activity queue", () => {
 		expect(formatStatusActivityCopyIntentAuditMessage()).toBe(
 			"clipboard intent status-activity unavailable",
 		);
+	});
+
+	test("formats recent status activity copy intents as a review shelf", () => {
+		const cleanupPreview =
+			getSelectedStatusActivityResultHistoryClipboardPreview(
+				[
+					{
+						source: "cleanup",
+						action: "jump-cleanup",
+						message:
+							"cleanup activity selected; jumping to selected cleanup shelf",
+						detail: "cleanup handoff Logs: press l then type delete logs",
+					},
+				],
+				0,
+			);
+		const dialogPreview =
+			getSelectedStatusActivityResultHistoryClipboardPreview(
+				[
+					{
+						source: "dialog",
+						action: "show-dialog",
+						message:
+							"dialog activity selected; type the exact confirmation phrase",
+					},
+				],
+				0,
+			);
+
+		const cleanupIntent = createStatusActivityCopyIntentRecord(cleanupPreview, {
+			selectedRowIndex: 3,
+			expanded: true,
+		});
+		const dialogIntent = createStatusActivityCopyIntentRecord(dialogPreview);
+		const history = appendStatusActivityCopyIntentHistory(
+			appendStatusActivityCopyIntentHistory([], cleanupIntent, 2),
+			dialogIntent,
+			2,
+		);
+
+		expect(cleanupIntent).toEqual({
+			label: "status activity cleanup jump-cleanup",
+			selectedRow: 4,
+			expanded: true,
+			lines: 3,
+			preview: "cleanup jump-cleanup",
+			auditMessage:
+				'clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+		});
+		expect(createStatusActivityCopyIntentRecord()).toBeUndefined();
+		expect(formatStatusActivityCopyIntentRows(history, 1)).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=2 selected=2/2",
+			"  status activity dialog show-dialog row=1 expanded=false lines=2 preview=dialog show-dialog",
+			"> status activity cleanup jump-cleanup row=4 expanded=true lines=3 preview=cleanup jump-cleanup",
+			"controls=y records intent · Timeline audit searchable=status-activity · :clipboard confirm=copy locked",
+		]);
+		expect(formatStatusActivityCopyIntentRows([])).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"no Status activity copy intents yet",
+			"controls=y records intent · Timeline audit searchable=status-activity",
+		]);
 	});
 });

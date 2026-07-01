@@ -2708,6 +2708,19 @@ Goal: make Status activity copy intent searchable in Timeline before the operato
 - Tests cover the copy-intent audit message and Timeline audit search behavior.
 - Next: add a Status activity copy-intent review shelf so recent unconfirmed copy intents can be revisited without filtering Timeline manually.
 
+## v0.4.141 - Status Activity Copy Intent Shelf
+
+Status: draft PR [#203](https://github.com/uulab-official/picos/pull/203) on `codex/picos-v0.4.141-status-activity-copy-intent-shelf`.
+
+Goal: keep recent Status activity copy intents visible in Status after `y` opens the locked clipboard confirmation.
+
+- Status Activity now creates structured copy-intent records from the same selected preview data used by the Timeline audit message.
+- Pressing `y` appends the intent to a newest-first `STATUS ACTIVITY COPY INTENTS` shelf before opening `:clipboard`.
+- The shelf shows selected preview row, expanded state, copy line count, and first preview text so unconfirmed clipboard attempts can be reviewed without filtering Timeline manually.
+- Empty Status sessions keep an explicit no-intents row so the keyboard workflow remains discoverable.
+- Tests cover intent record creation, bounded history append, populated shelf rows, and empty shelf rows.
+- Next: add keyboard selection for the copy-intent shelf and a direct Timeline audit search jump for the selected intent.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

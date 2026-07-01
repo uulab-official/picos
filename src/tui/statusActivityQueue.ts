@@ -34,6 +34,15 @@ export type StatusActivityResult = StatusActivityEnterPlan & {
 	detail?: string;
 };
 
+export type StatusActivityCopyIntentRecord = {
+	label: string;
+	selectedRow: number;
+	expanded: boolean;
+	lines: number;
+	preview: string;
+	auditMessage: string;
+};
+
 type StatusActivityQueueSource = {
 	key: StatusActivitySource;
 	prefix: string;
@@ -330,6 +339,63 @@ export function formatStatusActivityCopyIntentAuditMessage(
 		`lines=${copyLines.length}`,
 		`preview="${previewText}"`,
 	].join(" ");
+}
+
+export function createStatusActivityCopyIntentRecord(
+	preview?: ClipboardPreview,
+	options: {
+		selectedRowIndex?: number;
+		expanded?: boolean;
+	} = {},
+): StatusActivityCopyIntentRecord | undefined {
+	if (!preview) {
+		return undefined;
+	}
+	const copyLines = preview.copyText.split(/\r?\n/);
+	return {
+		label: preview.label,
+		selectedRow: Math.max(0, Math.floor(options.selectedRowIndex ?? 0)) + 1,
+		expanded: Boolean(options.expanded),
+		lines: copyLines.length,
+		preview: copyLines[0] ?? "",
+		auditMessage: formatStatusActivityCopyIntentAuditMessage(preview, options),
+	};
+}
+
+export function appendStatusActivityCopyIntentHistory(
+	history: StatusActivityCopyIntentRecord[],
+	record: StatusActivityCopyIntentRecord | undefined,
+	limit = 5,
+): StatusActivityCopyIntentRecord[] {
+	if (!record) {
+		return history;
+	}
+	return [record, ...history].slice(0, Math.max(1, limit));
+}
+
+export function formatStatusActivityCopyIntentRows(
+	history: StatusActivityCopyIntentRecord[],
+	selectedIndex = 0,
+): string[] {
+	if (history.length === 0) {
+		return [
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"no Status activity copy intents yet",
+			"controls=y records intent · Timeline audit searchable=status-activity",
+		];
+	}
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	return [
+		`STATUS ACTIVITY COPY INTENTS count=${history.length} selected=${selected + 1}/${history.length}`,
+		...history.map((record, index) => {
+			const marker = index === selected ? "> " : "  ";
+			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
+		}),
+		"controls=y records intent · Timeline audit searchable=status-activity · :clipboard confirm=copy locked",
+	];
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {

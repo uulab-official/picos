@@ -359,9 +359,12 @@ import {
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
+	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createStatusActivityCopyIntentRecord,
 	createStatusActivityEnterPlan,
 	formatStatusActivityCopyIntentAuditMessage,
+	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
 	formatStatusActivityResultCopyPreviewRows,
@@ -371,6 +374,7 @@ import {
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
+	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
 	type StatusActivitySource,
 } from "./statusActivityQueue";
@@ -591,6 +595,8 @@ export function App(): React.ReactElement {
 		statusActivityCopyPreviewExpanded,
 		setStatusActivityCopyPreviewExpanded,
 	] = useState(false);
+	const [statusActivityCopyIntentHistory, setStatusActivityCopyIntentHistory] =
+		useState<StatusActivityCopyIntentRecord[]>([]);
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -4684,12 +4690,20 @@ export function App(): React.ReactElement {
 				log("warn", "no status activity result history to copy");
 				return;
 			}
+			const intent = createStatusActivityCopyIntentRecord(preview, {
+				selectedRowIndex: selectedStatusActivityCopyPreviewRowIndex,
+				expanded: statusActivityCopyPreviewExpanded,
+			});
+			setStatusActivityCopyIntentHistory((current) =>
+				appendStatusActivityCopyIntentHistory(current, intent),
+			);
 			log(
 				"info",
-				formatStatusActivityCopyIntentAuditMessage(preview, {
-					selectedRowIndex: selectedStatusActivityCopyPreviewRowIndex,
-					expanded: statusActivityCopyPreviewExpanded,
-				}),
+				intent?.auditMessage ??
+					formatStatusActivityCopyIntentAuditMessage(preview, {
+						selectedRowIndex: selectedStatusActivityCopyPreviewRowIndex,
+						expanded: statusActivityCopyPreviewExpanded,
+					}),
 			);
 			openClipboardConfirmation(preview);
 			return;
@@ -6583,6 +6597,7 @@ export function App(): React.ReactElement {
 						selectedStatusActivityCopyPreviewRowIndex
 					}
 					statusActivityCopyPreviewExpanded={statusActivityCopyPreviewExpanded}
+					statusActivityCopyIntentHistory={statusActivityCopyIntentHistory}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -6804,6 +6819,7 @@ function MainWorkspace({
 	selectedStatusActivityResultIndex,
 	selectedStatusActivityCopyPreviewRowIndex,
 	statusActivityCopyPreviewExpanded,
+	statusActivityCopyIntentHistory,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -6926,6 +6942,7 @@ function MainWorkspace({
 	selectedStatusActivityResultIndex: number;
 	selectedStatusActivityCopyPreviewRowIndex: number;
 	statusActivityCopyPreviewExpanded: boolean;
+	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -7126,6 +7143,7 @@ function MainWorkspace({
 						selectedStatusActivityResultIndex,
 						selectedStatusActivityCopyPreviewRowIndex,
 						statusActivityCopyPreviewExpanded,
+						statusActivityCopyIntentHistory,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7253,6 +7271,7 @@ function renderWorkspace(
 	selectedStatusActivityResultIndex: number,
 	selectedStatusActivityCopyPreviewRowIndex: number,
 	statusActivityCopyPreviewExpanded: boolean,
+	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[],
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7526,6 +7545,7 @@ function renderWorkspace(
 					selectedStatusActivityCopyPreviewRowIndex
 				}
 				statusActivityCopyPreviewExpanded={statusActivityCopyPreviewExpanded}
+				statusActivityCopyIntentHistory={statusActivityCopyIntentHistory}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
@@ -9707,6 +9727,7 @@ function StatusWorkspace({
 	selectedStatusActivityResultIndex,
 	selectedStatusActivityCopyPreviewRowIndex,
 	statusActivityCopyPreviewExpanded,
+	statusActivityCopyIntentHistory,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -9738,6 +9759,7 @@ function StatusWorkspace({
 	selectedStatusActivityResultIndex: number;
 	selectedStatusActivityCopyPreviewRowIndex: number;
 	statusActivityCopyPreviewExpanded: boolean;
+	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -9988,6 +10010,26 @@ function StatusWorkspace({
 						key={`activity-copy-${row}`}
 						color={
 							row.startsWith("STATUS ACTIVITY COPY PREVIEW")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("no ")
+										? "gray"
+										: row.startsWith("controls=")
+											? "yellow"
+											: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+				{formatStatusActivityCopyIntentRows(
+					statusActivityCopyIntentHistory,
+				).map((row) => (
+					<Text
+						key={`activity-copy-intent-${row}`}
+						color={
+							row.startsWith("STATUS ACTIVITY COPY INTENTS")
 								? "cyan"
 								: row.startsWith(">")
 									? "yellow"
