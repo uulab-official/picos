@@ -145,6 +145,30 @@ describe("timeline TUI panel formatting", () => {
 		]);
 	});
 
+	test("surfaces palette-triggered timeline trail actions in audit search", () => {
+		const paletteTrailEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-info-palette-trail",
+				level: "info",
+				time: "12:00:09",
+				message:
+					'palette timeline trail audit action=search selected=2/3 label="picos-audit-selected-2026-07-01T040000000Z.log" query="timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log"',
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(paletteTrailEvents, 5, "audit", {
+				query: "palette timeline trail",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette timeline trail",
+			"TIMELINE",
+			'[12:00:09] INFO audit  palette timeline trail audit action=search selected=2/3 label="picos-audit-selected-2026-07-01T040000000Z.log" query="timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log"',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
 	test("creates evidence trail plans from selected status focus audit rows", () => {
 		const focusEvents: ConsoleEvent[] = [
 			{

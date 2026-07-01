@@ -3016,6 +3016,19 @@ Goal: make command-palette recovered trail operations visible in Status Activity
 - Tests cover result row and result-history formatting for palette-triggered recovered trail actions.
 - Next: add Timeline audit events for palette-triggered recovered trail actions so they are searchable across sessions.
 
+## v0.4.165 - Timeline Evidence Trail Palette Audit Events
+
+Status: draft PR [#227](https://github.com/uulab-official/picos/pull/227) on `codex/picos-v0.4.165-timeline-trail-palette-audit`.
+
+Goal: make command-palette recovered trail operations searchable in Timeline audit, not only Status Activity result history.
+
+- Palette-triggered recovered trail select/open/search actions now emit `palette timeline trail audit ...` events.
+- Audit messages include action, selected index, total recovered trail count, file name, query, and path when a trail is selected.
+- Missing recovered trail actions emit an unavailable audit row instead of only warning in the event log.
+- Timeline audit search surfaces `palette timeline trail` events through the existing audit filter.
+- Tests cover the audit message formatter and Timeline audit search rendering.
+- Next: persist palette trail audit events through selected audit export shortcuts so they can be reopened after restart.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

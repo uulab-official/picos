@@ -383,6 +383,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
@@ -2904,6 +2905,7 @@ export function App(): React.ReactElement {
 			if (timelineEvidenceTrailAuditExports.length <= 1) {
 				log("warn", "no alternate timeline evidence trail exports");
 				if (options.origin === "palette") {
+					log("info", formatTimelineEvidenceTrailPaletteAuditMessage("select"));
 					recordStatusActivityResult(
 						createTimelineEvidenceTrailPaletteStatusActivityResult("select"),
 					);
@@ -2922,6 +2924,13 @@ export function App(): React.ReactElement {
 					`timeline evidence trail selected ${next + 1}/${timelineEvidenceTrailAuditExports.length} ${trail ? basename(trail.path) : "none"}`,
 				);
 				if (options.origin === "palette") {
+					log(
+						"info",
+						formatTimelineEvidenceTrailPaletteAuditMessage("select", trail, {
+							selectedIndex: next,
+							total: timelineEvidenceTrailAuditExports.length,
+						}),
+					);
 					recordStatusActivityResult(
 						createTimelineEvidenceTrailPaletteStatusActivityResult(
 							"select",
@@ -2947,6 +2956,7 @@ export function App(): React.ReactElement {
 			if (!jump) {
 				log("warn", "no timeline evidence trail export for timeline");
 				if (options.origin === "palette") {
+					log("info", formatTimelineEvidenceTrailPaletteAuditMessage("search"));
 					recordStatusActivityResult(
 						createTimelineEvidenceTrailPaletteStatusActivityResult("search"),
 					);
@@ -2963,6 +2973,14 @@ export function App(): React.ReactElement {
 				`${jump.message} matches ${filtered.length}`,
 			);
 			if (options.origin === "palette") {
+				log(
+					"info",
+					formatTimelineEvidenceTrailPaletteAuditMessage(
+						"search",
+						selectedTimelineEvidenceTrailAuditExport,
+						getSelectedTimelineEvidenceTrailResultOptions(),
+					),
+				);
 				recordStatusActivityResult(
 					createTimelineEvidenceTrailPaletteStatusActivityResult(
 						"search",
@@ -2987,6 +3005,7 @@ export function App(): React.ReactElement {
 				log("warn", "no timeline evidence trail export to open");
 				setScreen("status");
 				if (options.origin === "palette") {
+					log("info", formatTimelineEvidenceTrailPaletteAuditMessage("open"));
 					recordStatusActivityResult(
 						createTimelineEvidenceTrailPaletteStatusActivityResult("open"),
 					);
@@ -3020,6 +3039,14 @@ export function App(): React.ReactElement {
 				`timeline evidence trail export open confirmation opened for ${selectedTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
 			);
 			if (options.origin === "palette") {
+				log(
+					"info",
+					formatTimelineEvidenceTrailPaletteAuditMessage(
+						"open",
+						selectedTimelineEvidenceTrailAuditExport,
+						getSelectedTimelineEvidenceTrailResultOptions(),
+					),
+				);
 				recordStatusActivityResult(
 					createTimelineEvidenceTrailPaletteStatusActivityResult(
 						"open",
