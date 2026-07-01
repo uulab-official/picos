@@ -392,6 +392,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	formatStatusActivityResultTimelineJumpRows,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
@@ -10861,6 +10862,27 @@ function StatusWorkspace({
 										? "gray"
 										: row.startsWith("    ")
 											? "gray"
+											: "white"
+						}
+					>
+						{row}
+					</Text>
+				))}
+				{formatStatusActivityResultTimelineJumpRows(
+					statusActivityResults,
+					selectedStatusActivityResultIndex,
+				).map((row) => (
+					<Text
+						key={`timeline-jump-${row}`}
+						color={
+							row.startsWith("STATUS RESULT TIMELINE JUMPS")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: row.startsWith("no ")
+										? "gray"
+										: row.startsWith("controls=")
+											? "yellow"
 											: "white"
 						}
 					>

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.197 - Status Result Jump Browser
+
+Status: draft PR [#259](https://github.com/uulab-official/picos/pull/259) on `codex/picos-v0.4.197-status-result-jump-browser`.
+
+Goal: make Timeline selected copy/export result jumps scan-able from a compact Status browser instead of relying on raw history order.
+
+- Status now renders `STATUS RESULT TIMELINE JUMPS` below result history.
+- The browser lists only Timeline-jumpable result rows with history row number, filter, query, and action.
+- The active row mirrors the selected Status Activity result so `J` selection and `I` opening stay visually aligned.
+- Empty states remain explicit when no Timeline result jumps exist.
+- Tests cover jump-only browser rows, active marker, controls, and empty state.
+- Next: add command-palette entries for the Status result jump browser so operators can discover `J` and `I` without reading the footer.
+
 ## v0.4.196 - Timeline Result Jump Select
 
 Status: draft PR [#258](https://github.com/uulab-official/picos/pull/258) on `codex/picos-v0.4.196-timeline-result-jump-select`.
@@ -11,7 +24,7 @@ Goal: let operators select Timeline result jump targets directly from Status whe
 - The copy-intent shelf shows `selected=.../...` beside the fresh result jump target when several jump targets exist.
 - Controls expose `J result select` only when there is more than one fresh result jump target.
 - Tests cover jump-only selection, wrapping, empty fallback, and shelf selected-count rendering.
-- Next: add a compact status result jump browser so Timeline selected copy/export jumps can be scanned without relying on history row order.
+- Next: compact Status result jump browser moved into v0.4.197.
 
 ## v0.4.195 - Timeline Result Shelf Target
 

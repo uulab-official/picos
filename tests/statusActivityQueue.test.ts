@@ -41,6 +41,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	formatStatusActivityResultTimelineJumpRows,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
@@ -695,6 +696,40 @@ describe("Status activity queue", () => {
 		expect(
 			moveStatusActivityResultTimelineJumpSelection([history[0]], 0, "next"),
 		).toBe(0);
+	});
+
+	test("formats a compact timeline result jump browser", () => {
+		const history = [
+			{
+				source: "cleanup" as const,
+				action: "jump-cleanup" as const,
+				message: "cleanup activity selected; jumping to selected cleanup shelf",
+			},
+			createTimelineSelectedStatusActivityResult("copy", {
+				filter: "audit",
+				label: "timeline audit 12:00:06",
+				query: "control preview",
+				selectedIndex: 0,
+				total: 2,
+			}),
+			createTimelineSelectedStatusActivityResult("export", {
+				filter: "raw",
+				label: "timeline raw 12:00:09",
+				selectedIndex: 1,
+				total: 2,
+			}),
+		];
+
+		expect(formatStatusActivityResultTimelineJumpRows(history, 2)).toEqual([
+			"STATUS RESULT TIMELINE JUMPS count=2 selected=2/2",
+			"  #2 filter=audit query=control preview action=timeline-selected-copy",
+			"> #3 filter=raw query=timeline raw 12:00:09 action=timeline-selected-export",
+			"controls=J select result jump · I open selected Timeline result",
+		]);
+		expect(formatStatusActivityResultTimelineJumpRows([], 0)).toEqual([
+			"STATUS RESULT TIMELINE JUMPS count=0",
+			"no Timeline result jumps yet",
+		]);
 	});
 
 	test("marks stale audit jump replay payloads in the copy intent shelf", () => {

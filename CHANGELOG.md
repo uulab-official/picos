@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status now shows a compact `STATUS RESULT TIMELINE JUMPS` browser for scanning Timeline result jump targets without relying on raw history order.
 - Status Activity copy-intent shelves now expose `J result select` for cycling Timeline result jump targets without stopping on non-jump rows.
 - Status Activity copy-intent shelves now preview the selected Timeline result jump filter/query before `I` opens Timeline.
 - Status Activity `I` now restores Timeline selected copy/export result rows back into the matching Timeline search/filter.
