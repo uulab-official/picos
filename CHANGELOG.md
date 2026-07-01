@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Timeline selected preview rows now clip to the workspace width while preserving stale audit-jump recovery hints such as `fix=P audit jump/new result`.
 - Timeline now shows a compact `selected timeline ...` preview row above the filtered event list, so Status `K`/`I` and recovered trail jumps land with visible context.
 - Status Activity copy-intent shelves now show stale audit-jump replay warning count and latest warning time before `K stale search`.
 - Status Activity copy-intent controls now include `K stale search` to jump directly into Timeline audit search for the latest stale audit-jump replay warning.

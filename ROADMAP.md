@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.191 - Width Aware Timeline Jump Preview
+
+Status: draft PR [#253](https://github.com/uulab-official/picos/pull/253) on `codex/picos-v0.4.191-width-aware-timeline-preview`.
+
+Goal: keep Timeline jump context usable on narrower terminal layouts.
+
+- Timeline passes the active workspace width into the selected preview formatter.
+- Selected Timeline preview rows now clip to that width instead of spilling across narrow consoles.
+- Long stale audit-jump warning payloads preserve the recovery tail, including `fix=P audit jump/new result`, after clipping.
+- Tests cover max-width clipping, ellipsis insertion, and recovery hint preservation.
+- Next: add a compact raw-source toggle hint beside selected Timeline previews so operators can compare rendered summaries with source command output faster.
+
 ## v0.4.190 - Timeline Jump Preview Row
 
 Status: draft PR [#252](https://github.com/uulab-official/picos/pull/252) on `codex/picos-v0.4.190-timeline-jump-preview`.
@@ -10,7 +22,7 @@ Goal: keep the selected Timeline target visible after Status and recovered trail
 - The preview includes selected position, classified event kind, active search query, timestamp, level, and message.
 - Empty filtered/search results show `selected timeline none filter=... search=...` instead of leaving the operator to infer why no row is active.
 - Tests cover selected audit-search previews and no-match fallback rows.
-- Next: make the preview row width-aware so narrow terminals keep the timestamp, level, and recovery hint while clipping long command payloads.
+- Next: width-aware selected preview moved into v0.4.191.
 
 ## v0.4.189 - Status Stale Warning Shelf Summary
 

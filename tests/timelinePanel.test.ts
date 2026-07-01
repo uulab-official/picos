@@ -310,6 +310,32 @@ describe("timeline TUI panel formatting", () => {
 		).toBe("selected timeline none filter=network search=not-found");
 	});
 
+	test("clips selected timeline previews while preserving recovery hints", () => {
+		const warningEvents: ConsoleEvent[] = [
+			{
+				id: "12:00:09-warn-audit-jump",
+				level: "warn",
+				time: "12:00:09",
+				message:
+					'status activity result audit jump warning command="sudo dscacheutil -flushcache && sudo killall -HUP mDNSResponder" detail="very long stale payload that would otherwise hide the recovery action" fix=P audit jump/new result',
+			},
+		];
+
+		const row = formatSelectedTimelinePreviewRow(warningEvents, {
+			filter: "audit",
+			maxWidth: 112,
+			query: "fix=P audit jump/new result",
+			selectedIndex: 0,
+		});
+
+		expect(row.length).toBeLessThanOrEqual(112);
+		expect(row).toStartWith(
+			"selected timeline 1/1 audit search=fix=P audit jump/new result [12:00:09] WARN",
+		);
+		expect(row).toContain("…");
+		expect(row).toEndWith("fix=P audit jump/new result");
+	});
+
 	test("moves timeline selection with wraparound", () => {
 		expect(moveTimelineSelection(0, 1, 2)).toBe(1);
 		expect(moveTimelineSelection(1, 1, 2)).toBe(0);

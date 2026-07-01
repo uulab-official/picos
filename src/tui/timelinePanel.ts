@@ -133,6 +133,7 @@ export function formatSelectedTimelinePreviewRow(
 	events: ConsoleEvent[],
 	options: {
 		filter?: TimelineFilter;
+		maxWidth?: number;
 		query?: string;
 		selectedIndex?: number;
 	} = {},
@@ -145,35 +146,38 @@ export function formatSelectedTimelinePreviewRow(
 		options.selectedIndex,
 	);
 	if (index === undefined) {
-		return [
-			"selected timeline none",
-			`filter=${filter}`,
-			query ? `search=${query}` : "",
-		]
-			.filter(Boolean)
-			.join(" ");
+		return clipSelectedTimelinePreviewRow(
+			[
+				"selected timeline none",
+				`filter=${filter}`,
+				query ? `search=${query}` : "",
+			],
+			options.maxWidth,
+		);
 	}
 	const event = filtered[index];
 	if (!event) {
-		return [
-			"selected timeline none",
-			`filter=${filter}`,
-			query ? `search=${query}` : "",
-		]
-			.filter(Boolean)
-			.join(" ");
+		return clipSelectedTimelinePreviewRow(
+			[
+				"selected timeline none",
+				`filter=${filter}`,
+				query ? `search=${query}` : "",
+			],
+			options.maxWidth,
+		);
 	}
 	const kind = classifyTimelineEvent(event);
-	return [
-		`selected timeline ${index + 1}/${filtered.length}`,
-		kind,
-		query ? `search=${query}` : "",
-		`[${event.time}]`,
-		event.level.toUpperCase(),
-		event.message,
-	]
-		.filter(Boolean)
-		.join(" ");
+	return clipSelectedTimelinePreviewRow(
+		[
+			`selected timeline ${index + 1}/${filtered.length}`,
+			kind,
+			query ? `search=${query}` : "",
+			`[${event.time}]`,
+			event.level.toUpperCase(),
+			event.message,
+		],
+		options.maxWidth,
+	);
 }
 
 export function getSelectedTimelineClipboardPreview(
@@ -491,6 +495,30 @@ function formatTimelineSelectionMarker(
 		return row;
 	}
 	return `${index === selectedIndex ? ">" : " "} ${row}`;
+}
+
+function clipSelectedTimelinePreviewRow(
+	parts: string[],
+	maxWidth: number | undefined,
+): string {
+	const row = parts.filter(Boolean).join(" ");
+	if (!maxWidth || maxWidth <= 0 || row.length <= maxWidth) {
+		return row;
+	}
+	const recoveryHint = getTimelineRecoveryHint(row);
+	if (recoveryHint && recoveryHint.length + 3 < maxWidth) {
+		const headWidth = maxWidth - recoveryHint.length - 3;
+		return `${row.slice(0, Math.max(1, headWidth))}… ${recoveryHint}`;
+	}
+	if (maxWidth === 1) {
+		return "…";
+	}
+	return `${row.slice(0, Math.max(0, maxWidth - 1))}…`;
+}
+
+function getTimelineRecoveryHint(row: string): string | undefined {
+	const match = /\bfix=[^"]+$/.exec(row);
+	return match?.[0];
 }
 
 function countLabel(

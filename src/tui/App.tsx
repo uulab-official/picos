@@ -8231,6 +8231,7 @@ function renderWorkspace(
 				presets={timelineSearchPresets}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 7)}
+				width={workspaceWidth}
 				t={t}
 			/>
 		);
@@ -9928,6 +9929,7 @@ function TimelineWorkspace({
 	presets,
 	commandLine,
 	visibleRows,
+	width,
 	t,
 }: {
 	events: ConsoleEvent[];
@@ -9937,11 +9939,13 @@ function TimelineWorkspace({
 	presets: string[];
 	commandLine: CommandLineState;
 	visibleRows: number;
+	width: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const promptRows = formatTimelineSearchPromptRows(commandLine, presets);
 	const selectedPreviewRow = formatSelectedTimelinePreviewRow(events, {
 		filter,
+		maxWidth: Math.max(24, width - 4),
 		query,
 		selectedIndex,
 	});
