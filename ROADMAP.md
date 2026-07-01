@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.206 - Editor Dirty Buffer Controls
+
+Status: draft PR [#268](https://github.com/uulab-official/picos/pull/268) on `codex/picos-v0.4.206-editor-dirty-buffer`.
+
+Goal: make the Editor workspace feel like an interactive OS console editor, not just a read-only preview with save metadata.
+
+- Editor buffers now preserve original content separately from the editable in-memory content.
+- Pressing `a` in the Editor opens an append-line prompt and appends the typed line to the in-memory buffer on enter.
+- The Editor panel shows dirty state, current/original line counts, and truncation state above the preview lines.
+- Pressing `s` opens an exact `save file` confirmation prompt, but provider writes remain locked after confirmation.
+- The existing save preview now compares original content against the dirty buffer, so appended lines appear in diff rows.
+- Tests cover dirty buffer append behavior, blank appended lines, and line previews.
+- Next: add cursor movement and replace/delete-line editing before enabling policy-gated provider writes.
+
 ## v0.4.205 - Editor Write Preview
 
 Status: draft PR [#267](https://github.com/uulab-official/picos/pull/267) on `codex/picos-v0.4.205-editor-write-preview`.
@@ -11,7 +25,7 @@ Goal: move the Editor workspace from read-only preview toward a real OS-style fi
 - Unchanged buffers show an explicit `no changes` diff row instead of pretending there is a write to perform.
 - The TUI Editor workspace now renders an `EDITOR SAVE PREVIEW` block from the loaded buffer so path/provider/risk/change counts are visible in the console.
 - Tests cover changed and unchanged editor write preview models.
-- Next: add keyboard-editable dirty buffer controls and an exact-confirm save prompt while keeping provider writes policy-gated.
+- Next: keyboard-editable dirty buffer controls and exact-confirm save prompt moved into v0.4.206.
 
 ## v0.4.204 - Status Result Filter Result History
 
