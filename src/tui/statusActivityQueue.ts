@@ -1,4 +1,9 @@
 import {
+	type ConsoleAuditExportPlan,
+	createConsoleAuditExportPlan,
+	writeConsoleAuditExport,
+} from "../core/auditLog";
+import {
 	type ClipboardPreview,
 	createClipboardPreview,
 	formatClipboardPreviewRows,
@@ -389,7 +394,7 @@ export function formatStatusActivityCopyIntentRows(
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · g Timeline audit search",
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -402,7 +407,7 @@ export function formatStatusActivityCopyIntentRows(
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
 		}),
-		"controls=y records intent · </> select · v replay · g Timeline audit search · :clipboard confirm=copy locked",
+		"controls=y records intent · </> select · v replay · e export · g Timeline audit search · :clipboard confirm=copy locked",
 	];
 }
 
@@ -462,6 +467,47 @@ export function getSelectedStatusActivityCopyIntentClipboardPreview(
 			`row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines}`,
 		],
 	});
+}
+
+export function createStatusActivityCopyIntentAuditExportPlan(
+	history: StatusActivityCopyIntentRecord[],
+	selectedIndex: number,
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+	},
+): ConsoleAuditExportPlan | undefined {
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const record = history[selected];
+	if (!record) {
+		return undefined;
+	}
+	const generatedAt = options.generatedAt ?? new Date();
+	return createConsoleAuditExportPlan(
+		[
+			{
+				id: `status-activity-copy-intent-${selected + 1}`,
+				level: "info",
+				time: formatAuditEventTime(generatedAt),
+				message: record.auditMessage,
+			},
+		],
+		{
+			baseDir: options.baseDir,
+			generatedAt,
+			query: record.label,
+			scope: "selected",
+		},
+	);
+}
+
+export async function writeStatusActivityCopyIntentAuditExport(
+	plan: ConsoleAuditExportPlan,
+): Promise<ConsoleAuditExportPlan> {
+	return writeConsoleAuditExport(plan);
 }
 
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
@@ -541,4 +587,8 @@ function getSelectedStatusActivityCopyPreviewIndex(
 		return 0;
 	}
 	return Math.min(Math.max(selectedIndex, 0), length - 1);
+}
+
+function formatAuditEventTime(date: Date): string {
+	return date.toISOString().slice(11, 19);
 }

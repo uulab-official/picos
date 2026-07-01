@@ -361,6 +361,7 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
@@ -380,6 +381,7 @@ import {
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
 	type StatusActivitySource,
+	writeStatusActivityCopyIntentAuditExport,
 } from "./statusActivityQueue";
 import {
 	formatStatusDialogPreviewRows,
@@ -4774,6 +4776,37 @@ export function App(): React.ReactElement {
 			}
 			log("info", `status activity copy intent replay ${preview.label}`);
 			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "e") {
+			const plan = createStatusActivityCopyIntentAuditExportPlan(
+				statusActivityCopyIntentHistory,
+				selectedStatusActivityCopyIntentIndex,
+				{
+					baseDir: dirname(getConfigPath()),
+				},
+			);
+			if (!plan) {
+				log("warn", "no status activity copy intent to export");
+				return;
+			}
+			void writeStatusActivityCopyIntentAuditExport(plan)
+				.then((written) => {
+					log(
+						"ok",
+						`status activity copy intent exported ${written.path} events=${written.eventCount}`,
+					);
+					void refreshAuditExportIndex(false);
+				})
+				.catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `status activity copy intent export failed ${caught.message}`
+							: `status activity copy intent export failed ${String(caught)}`,
+					),
+				);
 			return;
 		}
 
@@ -9994,7 +10027,7 @@ function StatusWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
-					copy · &lt;/&gt; intents · v replay · g Timeline
+					copy · &lt;/&gt; intents · v replay · e export · g Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,
