@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	appendStatusActivityResultHistory,
 	createStatusActivityEnterPlan,
+	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
 	formatStatusActivityResultCopyPreviewRows,
@@ -366,5 +367,32 @@ describe("Status activity queue", () => {
 			"  copy cleanup handoff Logs: press l then type delete logs",
 			"controls=; row · = expand · y copy selected history · :clipboard confirm=copy locked",
 		]);
+	});
+
+	test("formats status activity copy intent audit messages", () => {
+		const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
+			[
+				{
+					source: "cleanup",
+					action: "jump-cleanup",
+					message:
+						"cleanup activity selected; jumping to selected cleanup shelf",
+					detail: "cleanup handoff Logs: press l then type delete logs",
+				},
+			],
+			0,
+		);
+
+		expect(
+			formatStatusActivityCopyIntentAuditMessage(preview, {
+				selectedRowIndex: 3,
+				expanded: true,
+			}),
+		).toBe(
+			'clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+		);
+		expect(formatStatusActivityCopyIntentAuditMessage()).toBe(
+			"clipboard intent status-activity unavailable",
+		);
 	});
 });

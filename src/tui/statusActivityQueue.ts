@@ -310,6 +310,28 @@ export function moveStatusActivityCopyPreviewSelection(
 	return (current + delta + rows.length) % rows.length;
 }
 
+export function formatStatusActivityCopyIntentAuditMessage(
+	preview?: ClipboardPreview,
+	options: {
+		selectedRowIndex?: number;
+		expanded?: boolean;
+	} = {},
+): string {
+	if (!preview) {
+		return "clipboard intent status-activity unavailable";
+	}
+	const copyLines = preview.copyText.split(/\r?\n/);
+	const previewText = copyLines[0] ?? "";
+	return [
+		"clipboard intent status-activity",
+		`label="${preview.label}"`,
+		`selectedRow=${Math.max(0, Math.floor(options.selectedRowIndex ?? 0)) + 1}`,
+		`expanded=${Boolean(options.expanded)}`,
+		`lines=${copyLines.length}`,
+		`preview="${previewText}"`,
+	].join(" ");
+}
+
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
 	return STATUS_ACTIVITY_QUEUE_SOURCES.map((source) => ({
 		key: source.key,

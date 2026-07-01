@@ -96,6 +96,30 @@ describe("timeline TUI panel formatting", () => {
 		]);
 	});
 
+	test("surfaces status activity copy intent in audit search", () => {
+		const copyIntentEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:07-info-status-activity-copy",
+				level: "info",
+				time: "12:00:07",
+				message:
+					'clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(copyIntentEvents, 5, "audit", {
+				query: "status-activity",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=status-activity",
+			"TIMELINE",
+			'[12:00:07] INFO audit  clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
 	test("marks selected timeline rows with a stable cursor", () => {
 		expect(
 			formatTimelineWorkspaceRows(events, 5, "audit", {

@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy intent now records a searchable Timeline audit event before opening the locked clipboard confirmation.
 - Status Activity copy preview now supports `;` row selection and `=` expansion for inspecting longer selected history payloads before clipboard confirmation.
 - Status Activity now renders a compact `STATUS ACTIVITY COPY PREVIEW` strip for the selected result history row before opening the locked clipboard confirmation.
 - Status Activity result history now has keyboard selection and a locked clipboard handoff so recent action details can be reused without opening Timeline.

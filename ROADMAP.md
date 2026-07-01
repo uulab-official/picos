@@ -2696,6 +2696,18 @@ Goal: let operators inspect longer Status activity copy previews in-place before
 - Tests cover preview row movement, wraparound, expanded rows, and empty preview behavior.
 - Next: add a dedicated Status activity copy preview audit event so copy-intent inspection is searchable in Timeline before confirmation.
 
+## v0.4.140 - Status Activity Copy Intent Audit
+
+Status: draft PR [#202](https://github.com/uulab-official/picos/pull/202) on `codex/picos-v0.4.140-status-activity-copy-intent-audit`.
+
+Goal: make Status activity copy intent searchable in Timeline before the operator confirms a clipboard write.
+
+- Status Activity now formats a dedicated `clipboard intent status-activity` audit message for selected history copy previews.
+- Pressing `y` in Status logs the copy intent, selected preview row, expanded state, copy line count, and first preview line before opening `:clipboard`.
+- Timeline audit filtering/search can find `status-activity` copy intent events even when the clipboard write remains unconfirmed.
+- Tests cover the copy-intent audit message and Timeline audit search behavior.
+- Next: add a Status activity copy-intent review shelf so recent unconfirmed copy intents can be revisited without filtering Timeline manually.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
