@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.185 - Status Audit Jump Stale Recovery Hint
+
+Status: draft PR [#247](https://github.com/uulab-official/picos/pull/247) on `codex/picos-v0.4.185-audit-jump-stale-hint`.
+
+Goal: show the next recovery action when a reusable audit-jump replay payload is stale.
+
+- Stale Status Activity audit-jump shelf summaries now append `fix=P audit jump/new result`.
+- The hint appears only for stale replay payloads, keeping valid and fresh summaries compact.
+- The recovery text points operators toward cycling another reusable audit jump or recreating a fresh result jump.
+- Tests cover the stale latest-fallback shelf summary with the recovery hint.
+- Next: make the `I` warning log include the same stale recovery hint when replay is refused.
+
 ## v0.4.184 - Status Audit Jump Replay Validity
 
 Status: draft PR [#246](https://github.com/uulab-official/picos/pull/246) on `codex/picos-v0.4.184-audit-jump-replay-validity`.
