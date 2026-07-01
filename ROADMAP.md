@@ -2631,6 +2631,19 @@ Goal: let the Status activity cursor perform the selected source's safest primar
 - Tests cover source-specific enter plans and fallback behavior when the requested source is unavailable.
 - Next: add visible activity action result rows so recent Status enter outcomes are readable without opening Timeline.
 
+## v0.4.135 - Status Activity Result Rows
+
+Status: draft PR [#197](https://github.com/uulab-official/picos/pull/197) on `codex/picos-v0.4.135-status-activity-result-rows`.
+
+Goal: keep recent Status activity enter outcomes readable in Status without requiring operators to open Timeline.
+
+- Status Activity now formats compact `STATUS ACTIVITY RESULT` rows for the latest activity source action.
+- The result row shows source, action, message, and optional detail such as cleanup handoff instructions or evidence action labels.
+- Status stores the latest activity result after release, dialog, cleanup, evidence, and empty activity enter paths.
+- The result appears directly below the activity queue/detail block, keeping action feedback close to the cursor.
+- Tests cover populated result rows and empty result rows.
+- Next: add bounded activity result history so the last few Status activity actions remain visible across rapid keyboard operations.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

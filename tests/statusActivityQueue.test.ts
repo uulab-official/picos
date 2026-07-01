@@ -3,6 +3,7 @@ import {
 	createStatusActivityEnterPlan,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
+	formatStatusActivityResultRows,
 	moveStatusActivitySource,
 } from "../src/tui/statusActivityQueue";
 
@@ -162,5 +163,27 @@ describe("Status activity queue", () => {
 			action: "none",
 			message: "no Status activity available",
 		});
+	});
+
+	test("formats recent activity action results", () => {
+		expect(
+			formatStatusActivityResultRows({
+				source: "cleanup",
+				action: "jump-cleanup",
+				message: "cleanup activity selected; jumping to selected cleanup shelf",
+				detail: "cleanup handoff Logs: press l then type delete logs",
+			}),
+		).toEqual([
+			"STATUS ACTIVITY RESULT source=cleanup action=jump-cleanup",
+			"> cleanup activity selected; jumping to selected cleanup shelf",
+			"  cleanup handoff Logs: press l then type delete logs",
+		]);
+	});
+
+	test("keeps an empty activity result useful", () => {
+		expect(formatStatusActivityResultRows()).toEqual([
+			"STATUS ACTIVITY RESULT source=none action=none",
+			"no Status activity action yet",
+		]);
 	});
 });
