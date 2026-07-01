@@ -7,6 +7,7 @@ import {
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
 	formatStatusEvidenceIndexRows,
+	formatStatusEvidenceTableDetailRows,
 	formatStatusEvidenceTableRows,
 	moveStatusEvidenceFocus,
 } from "../src/tui/statusEvidence";
@@ -493,6 +494,18 @@ describe("Status evidence detail rows", () => {
 		]);
 	});
 
+	test("formats active evidence table detail rows for path and source inspection", () => {
+		expect(
+			formatStatusEvidenceTableDetailRows(populatedIndexes, selection, "audit"),
+		).toEqual([
+			"TABLE DETAIL active=audit item=1/1",
+			"label=audit selected events=1 query=control",
+			"source=Config>Logs scope=logs.profiles",
+			"path=/tmp/picos/audit/picos-audit-selected.log",
+			"controls=enter=open open W archive Z/a retention=-",
+		]);
+	});
+
 	test("creates number jump plans for available evidence families", () => {
 		expect(
 			createStatusEvidenceNumberJumpPlan(populatedIndexes, selection, "1"),
@@ -604,6 +617,31 @@ describe("Status evidence detail rows", () => {
 			"COMMAND STRIP active=none",
 			"> enter=cleanup-shelf archive=- retention=- item=-",
 			"target=no selected evidence",
+		]);
+	});
+
+	test("keeps the evidence table detail useful when no evidence is indexed", () => {
+		expect(
+			formatStatusEvidenceTableDetailRows(
+				{
+					handoffIndex: { baseDir: "/tmp/picos/handoffs", items: [] },
+					auditExportIndex: { baseDir: "/tmp/picos/audit", items: [] },
+					auditExportArchiveIndex: {
+						baseDir: "/tmp/picos/audit/archive",
+						items: [],
+					},
+					cleanupExportIndex: { baseDir: "/tmp/picos/cleanup", items: [] },
+					cleanupExportArchiveIndex: {
+						baseDir: "/tmp/picos/cleanup/archive",
+						items: [],
+					},
+				},
+				selection,
+				"handoff",
+			),
+		).toEqual([
+			"TABLE DETAIL active=none item=0/0",
+			"no selected evidence; refresh Status indexes first",
 		]);
 	});
 

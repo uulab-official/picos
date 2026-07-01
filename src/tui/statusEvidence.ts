@@ -190,6 +190,37 @@ export function formatStatusEvidenceTableRows(
 	];
 }
 
+export function formatStatusEvidenceTableDetailRows(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+): string[] {
+	const entries = collectStatusEvidenceEntries(indexes, selection);
+	const activeEntry = getActiveStatusEvidenceEntry(entries, activeKind);
+	if (!activeEntry) {
+		return [
+			"TABLE DETAIL active=none item=0/0",
+			"no selected evidence; refresh Status indexes first",
+		];
+	}
+	const family = collectStatusEvidenceFamilyEntries(
+		indexes,
+		selection,
+		activeEntry.kind,
+	);
+	const selectedIndex = clampEvidenceSelectionIndex(
+		family.selectedIndex,
+		family.entries.length,
+	);
+	return [
+		`TABLE DETAIL active=${activeEntry.kind} item=${selectedIndex + 1}/${family.entries.length}`,
+		`label=${activeEntry.label}`,
+		formatEvidenceOrigin(activeEntry.origin),
+		`path=${activeEntry.path}`,
+		`controls=${activeEntry.controls}`,
+	];
+}
+
 export function formatStatusEvidenceCommandStripRows(
 	indexes: StatusEvidenceIndexes,
 	selection: StatusEvidenceSelection,

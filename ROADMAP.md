@@ -2514,6 +2514,18 @@ Goal: make Status Evidence read like a compact OS console table instead of separ
 - Tests cover table row formatting with multi-item evidence and active-family command availability.
 - Next: reduce the remaining per-family Status sections so evidence browsing, handoff cleanup, archive browsing, and retention feel like one table-driven control surface.
 
+## v0.4.126 - Status Evidence Table Detail
+
+Status: draft PR #188 on `codex/picos-v0.4.126-status-evidence-table-detail`.
+
+Goal: keep Status Evidence source/path inspection inside the table-driven control surface instead of expanding every evidence family at once.
+
+- Status Evidence now formats active table detail rows for the focused evidence family, including selected item count, label, Config source, path, and explicit controls.
+- Status renders active table detail below the dense table, replacing the older all-family detail list in the main panel.
+- Empty evidence state keeps a table detail hint so narrow terminals still explain how to refresh indexes.
+- Tests cover active detail rows and empty detail rows.
+- Next: fold the remaining handoff/audit/cleanup archive browsers into smaller Status table summaries while keeping their existing explicit shortcuts available.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
