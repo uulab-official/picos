@@ -2604,6 +2604,19 @@ Goal: make Status feel more like an OS console by showing the current release, d
 - Tests cover populated multi-source queue rows and empty queue rows.
 - Next: add a Status activity detail cursor so the queue can jump into the matching release, dialog, cleanup, or evidence console section.
 
+## v0.4.133 - Status Activity Detail Cursor
+
+Status: draft PR #195 on `codex/picos-v0.4.133-status-activity-detail-cursor`.
+
+Goal: make the Status activity queue behave like a keyboard-driven OS console selector instead of a static summary.
+
+- Status Activity now formats a compact `STATUS ACTIVITY DETAIL` block for the selected release, dialog, cleanup, or evidence source.
+- The detail block mirrors the selected console header and first detail rows so operators can inspect the active source before scrolling into the full panel.
+- Status `,` and `.` move the activity source cursor across currently available sources with wraparound.
+- Empty or unavailable selected sources fall back to the first active activity source while keeping an explicit no-detail state when the queue is empty.
+- Tests cover detail row formatting, fallback behavior, and source cursor movement.
+- Next: wire the Status activity cursor into jump actions so `enter` can move focus or trigger the selected source's safest primary action.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

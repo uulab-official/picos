@@ -5,8 +5,14 @@ export type StatusActivityQueueInput = {
 	evidenceRows?: string[];
 };
 
+export type StatusActivitySource =
+	| "release"
+	| "dialog"
+	| "cleanup"
+	| "evidence";
+
 type StatusActivityQueueSource = {
-	key: "release" | "dialog" | "cleanup" | "evidence";
+	key: StatusActivitySource;
 	prefix: string;
 	rows?: string[];
 };
@@ -32,17 +38,13 @@ const STATUS_ACTIVITY_QUEUE_SOURCES: StatusActivityQueueSource[] = [
 
 const STATUS_ACTIVITY_QUEUE_CONTROLS =
 	"controls=Status queue scans release/dialog/cleanup/evidence; open panels for detail";
+const STATUS_ACTIVITY_DETAIL_CONTROLS =
+	"controls=,/. activity source · detail mirrors the selected Status console";
 
 export function formatStatusActivityQueueRows(
 	input: StatusActivityQueueInput,
 ): string[] {
-	const entries = STATUS_ACTIVITY_QUEUE_SOURCES.map((source) => ({
-		key: source.key,
-		row: getSourceHeader(input, source),
-	})).filter(
-		(entry): entry is { key: StatusActivityQueueSource["key"]; row: string } =>
-			Boolean(entry.row),
-	);
+	const entries = getStatusActivityEntries(input);
 	const sources =
 		entries.length > 0 ? entries.map((entry) => entry.key).join(",") : "none";
 	if (entries.length === 0) {
@@ -62,6 +64,68 @@ export function formatStatusActivityQueueRows(
 	];
 }
 
+export function formatStatusActivityDetailRows(
+	input: StatusActivityQueueInput,
+	selectedSource: StatusActivitySource,
+): string[] {
+	const activeSource = getActiveStatusActivitySource(input, selectedSource);
+	if (!activeSource) {
+		return [
+			"STATUS ACTIVITY DETAIL active=none rows=0",
+			"no Status activity detail",
+			STATUS_ACTIVITY_DETAIL_CONTROLS,
+		];
+	}
+	const rows = getSourceRows(input, activeSource);
+	return [
+		`STATUS ACTIVITY DETAIL active=${activeSource} rows=${rows.length}`,
+		...rows.slice(0, 3).map((row, index) => {
+			const marker = index === 0 ? "> " : "  ";
+			return `${marker}${normalizeActivityDetailRow(row)}`;
+		}),
+		STATUS_ACTIVITY_DETAIL_CONTROLS,
+	];
+}
+
+export function moveStatusActivitySource(
+	input: StatusActivityQueueInput,
+	selectedSource: StatusActivitySource,
+	delta: number,
+): StatusActivitySource {
+	const entries = getStatusActivityEntries(input);
+	if (entries.length === 0) {
+		return selectedSource;
+	}
+	const currentIndex = entries.findIndex(
+		(entry) => entry.key === selectedSource,
+	);
+	const startIndex = currentIndex >= 0 ? currentIndex : 0;
+	const nextIndex =
+		(startIndex + delta + entries.length * Math.abs(delta || 1)) %
+		entries.length;
+	return entries[nextIndex]?.key ?? selectedSource;
+}
+
+function getStatusActivityEntries(input: StatusActivityQueueInput) {
+	return STATUS_ACTIVITY_QUEUE_SOURCES.map((source) => ({
+		key: source.key,
+		row: getSourceHeader(input, source),
+	})).filter((entry): entry is { key: StatusActivitySource; row: string } =>
+		Boolean(entry.row),
+	);
+}
+
+function getActiveStatusActivitySource(
+	input: StatusActivityQueueInput,
+	selectedSource: StatusActivitySource,
+): StatusActivitySource | undefined {
+	const entries = getStatusActivityEntries(input);
+	return (
+		entries.find((entry) => entry.key === selectedSource)?.key ??
+		entries[0]?.key
+	);
+}
+
 function getSourceHeader(
 	input: StatusActivityQueueInput,
 	source: StatusActivityQueueSource,
@@ -72,7 +136,7 @@ function getSourceHeader(
 
 function getSourceRows(
 	input: StatusActivityQueueInput,
-	source: StatusActivityQueueSource["key"],
+	source: StatusActivitySource,
 ): string[] {
 	switch (source) {
 		case "release":
@@ -84,4 +148,8 @@ function getSourceRows(
 		case "evidence":
 			return input.evidenceRows ?? [];
 	}
+}
+
+function normalizeActivityDetailRow(row: string): string {
+	return row.replace(/^>\s*/, "");
 }
