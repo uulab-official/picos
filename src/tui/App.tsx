@@ -372,7 +372,7 @@ import {
 	createStatusEvidenceItemMovePlan,
 	createStatusEvidenceNumberJumpPlan,
 	formatStatusEvidenceCommandStripRows,
-	formatStatusEvidenceDetailRows,
+	formatStatusEvidenceTableDetailRows,
 	formatStatusEvidenceTableRows,
 	moveStatusEvidenceFocus,
 	type StatusEvidenceKind,
@@ -9836,7 +9836,7 @@ function StatusWorkspace({
 						{row}
 					</Text>
 				))}
-				{formatStatusEvidenceDetailRows(
+				{formatStatusEvidenceTableDetailRows(
 					{
 						handoffIndex,
 						auditExportIndex,
@@ -9851,21 +9851,18 @@ function StatusWorkspace({
 						selectedCleanupExportIndex,
 						selectedCleanupExportArchiveIndex,
 					},
-					10,
 					selectedStatusEvidenceKind,
 				).map((row) => (
 					<Text
 						key={row}
 						color={
-							row.startsWith("STATUS EVIDENCE")
+							row.startsWith("TABLE DETAIL")
 								? "cyan"
-								: row.startsWith(">")
-									? "yellow"
-									: row.startsWith("  path=") || row.startsWith("no ")
-										? "gray"
-										: row.startsWith("  controls=")
-											? "yellow"
-											: "white"
+								: row.startsWith("path=") || row.startsWith("no ")
+									? "gray"
+									: row.startsWith("controls=")
+										? "yellow"
+										: "white"
 						}
 					>
 						{row}
