@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
+	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
 	moveStatusEvidenceFocus,
 } from "../src/tui/statusEvidence";
@@ -373,6 +374,77 @@ describe("Status evidence detail rows", () => {
 				"retention",
 			),
 		).toBeUndefined();
+	});
+
+	test("formats a command strip for the active evidence target", () => {
+		expect(
+			formatStatusEvidenceCommandStripRows(
+				populatedIndexes,
+				selection,
+				"audit",
+			),
+		).toEqual([
+			"COMMAND STRIP active=audit",
+			"> enter=open/W archive=a/Z retention=-",
+			"target=audit selected events=1 query=control",
+		]);
+	});
+
+	test("formats archived audit retention in the command strip", () => {
+		const archivedIndexes = {
+			...populatedIndexes,
+			auditExportArchiveIndex: {
+				baseDir: "/tmp/picos/audit/archive",
+				items: [
+					{
+						fileName: "picos-audit-all.log",
+						path: "/tmp/picos/audit/archive/picos-audit-all.log",
+						generatedAt: "2026-07-01T04:00:00.000Z",
+						scope: "all" as const,
+						entryCount: 7,
+						origin,
+					},
+				],
+			},
+		};
+
+		expect(
+			formatStatusEvidenceCommandStripRows(
+				archivedIndexes,
+				selection,
+				"audit-archive",
+			),
+		).toEqual([
+			"COMMAND STRIP active=audit-archive",
+			"> enter=open/J archive=- retention=m/M",
+			"target=audit-archive all events=7",
+		]);
+	});
+
+	test("keeps the command strip useful when no evidence is indexed", () => {
+		expect(
+			formatStatusEvidenceCommandStripRows(
+				{
+					handoffIndex: { baseDir: "/tmp/picos/handoffs", items: [] },
+					auditExportIndex: { baseDir: "/tmp/picos/audit", items: [] },
+					auditExportArchiveIndex: {
+						baseDir: "/tmp/picos/audit/archive",
+						items: [],
+					},
+					cleanupExportIndex: { baseDir: "/tmp/picos/cleanup", items: [] },
+					cleanupExportArchiveIndex: {
+						baseDir: "/tmp/picos/cleanup/archive",
+						items: [],
+					},
+				},
+				selection,
+				"handoff",
+			),
+		).toEqual([
+			"COMMAND STRIP active=none",
+			"> enter=cleanup-shelf archive=- retention=-",
+			"target=no selected evidence",
+		]);
 	});
 
 	test("keeps an empty evidence detail pane useful", () => {

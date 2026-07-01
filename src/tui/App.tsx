@@ -369,6 +369,7 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
+	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
 	moveStatusEvidenceFocus,
 	type StatusEvidenceKind,
@@ -9682,6 +9683,36 @@ function StatusWorkspace({
 				<Text color="gray">
 					STATUS EVIDENCE · tab evidence · selected files and controls
 				</Text>
+				{formatStatusEvidenceCommandStripRows(
+					{
+						handoffIndex,
+						auditExportIndex,
+						auditExportArchiveIndex,
+						cleanupExportIndex,
+						cleanupExportArchiveIndex,
+					},
+					{
+						selectedHandoffIndex,
+						selectedAuditExportIndex,
+						selectedAuditExportArchiveIndex,
+						selectedCleanupExportIndex,
+						selectedCleanupExportArchiveIndex,
+					},
+					selectedStatusEvidenceKind,
+				).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("COMMAND STRIP")
+								? "cyan"
+								: row.startsWith(">")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{row}
+					</Text>
+				))}
 				{formatStatusEvidenceDetailRows(
 					{
 						handoffIndex,

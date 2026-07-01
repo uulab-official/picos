@@ -103,6 +103,44 @@ export function formatStatusEvidenceDetailRows(
 	return rows.slice(0, Math.max(1, visibleRows));
 }
 
+export function formatStatusEvidenceCommandStripRows(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+): string[] {
+	const entries = collectStatusEvidenceEntries(indexes, selection);
+	const activeEntry = getActiveStatusEvidenceEntry(entries, activeKind);
+	if (!activeEntry) {
+		return [
+			"COMMAND STRIP active=none",
+			"> enter=cleanup-shelf archive=- retention=-",
+			"target=no selected evidence",
+		];
+	}
+	const enterAction = getStatusEvidenceEnterAction(activeEntry.kind);
+	const archiveAction = getStatusEvidenceSecondaryAction(
+		activeEntry.kind,
+		"archive",
+	);
+	const retentionAction = getStatusEvidenceSecondaryAction(
+		activeEntry.kind,
+		"retention",
+	);
+	return [
+		`COMMAND STRIP active=${activeEntry.kind}`,
+		`> enter=${formatCommandStripAction("open", enterAction.shortcut)} archive=${
+			archiveAction
+				? formatCommandStripAction("a", archiveAction.shortcut)
+				: "-"
+		} retention=${
+			retentionAction
+				? formatCommandStripAction("m", retentionAction.shortcut)
+				: "-"
+		}`,
+		`target=${activeEntry.label}`,
+	];
+}
+
 export function moveStatusEvidenceFocus(
 	indexes: StatusEvidenceIndexes,
 	currentKind: StatusEvidenceKind,
@@ -279,6 +317,10 @@ function formatEvidenceOrigin(origin: FileOpenOrigin | undefined): string {
 	return origin
 		? `source=Config>${origin.label} scope=${origin.scope}`
 		: "source=- scope=-";
+}
+
+function formatCommandStripAction(primary: string, shortcut: string): string {
+	return primary === shortcut ? primary : `${primary}/${shortcut}`;
 }
 
 function getActiveStatusEvidenceEntry(
