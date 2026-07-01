@@ -15,10 +15,14 @@ import {
 	getSelectedCleanupHandoffHistoryExportArchive,
 } from "./cleanupIndex";
 import type {
+	ToolHistoryEvidenceFilter,
 	ToolHistoryExportIndex,
 	ToolHistoryExportIndexItem,
 } from "./toolHistory";
-import { getSelectedToolHistoryExport } from "./toolHistory";
+import {
+	filterToolHistoryExportIndex,
+	getSelectedToolHistoryExport,
+} from "./toolHistory";
 
 export type StatusEvidenceIndexes = {
 	handoffIndex: HandoffIndex;
@@ -38,6 +42,8 @@ export type StatusEvidenceSelection = {
 	selectedCleanupExportArchiveIndex: number;
 	selectedToolExportIndex?: number;
 	selectedToolExportArchiveIndex?: number;
+	toolExportFilter?: ToolHistoryEvidenceFilter;
+	toolExportArchiveFilter?: ToolHistoryEvidenceFilter;
 };
 
 export type StatusEvidenceKind =
@@ -528,6 +534,7 @@ function collectStatusEvidenceEntries(
 			getSelectedToolHistoryExport(
 				getToolExportIndex(indexes),
 				getSelectedToolExportIndex(selection),
+				getToolExportFilter(selection),
 			),
 			"tools",
 			"enter=open open K archive D/a retention=-",
@@ -536,6 +543,7 @@ function collectStatusEvidenceEntries(
 			getSelectedToolHistoryExport(
 				getToolExportArchiveIndex(indexes),
 				getSelectedToolExportArchiveIndex(selection),
+				getToolExportArchiveFilter(selection),
 			),
 			"tools-archive",
 			"enter=open open K archive=archived retention=M/m",
@@ -610,7 +618,10 @@ function collectStatusEvidenceFamilyEntries(
 			};
 		case "tools":
 			return {
-				entries: getToolExportIndex(indexes)
+				entries: filterToolHistoryExportIndex(
+					getToolExportIndex(indexes),
+					getToolExportFilter(selection),
+				)
 					.items.map((item) =>
 						formatToolsEvidence(
 							item,
@@ -623,7 +634,10 @@ function collectStatusEvidenceFamilyEntries(
 			};
 		case "tools-archive":
 			return {
-				entries: getToolExportArchiveIndex(indexes)
+				entries: filterToolHistoryExportIndex(
+					getToolExportArchiveIndex(indexes),
+					getToolExportArchiveFilter(selection),
+				)
 					.items.map((item) =>
 						formatToolsEvidence(
 							item,
@@ -870,6 +884,18 @@ function getSelectedToolExportArchiveIndex(
 	selection: StatusEvidenceSelection,
 ): number {
 	return selection.selectedToolExportArchiveIndex ?? 0;
+}
+
+function getToolExportFilter(
+	selection: StatusEvidenceSelection,
+): ToolHistoryEvidenceFilter {
+	return selection.toolExportFilter ?? "any";
+}
+
+function getToolExportArchiveFilter(
+	selection: StatusEvidenceSelection,
+): ToolHistoryEvidenceFilter {
+	return selection.toolExportArchiveFilter ?? "any";
 }
 
 function getActiveStatusEvidenceEntry(

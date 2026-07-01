@@ -16,6 +16,7 @@ import {
 	createToolRunPlanFromPreset,
 	createToolTargetCleanupPreview,
 	filterToolHistory,
+	filterToolHistoryExportIndex,
 	formatToolHistoryArchiveRetentionRows,
 	formatToolHistoryExport,
 	formatToolHistoryExportArchiveRows,
@@ -37,6 +38,7 @@ import {
 	moveToolSectionClipboardRow,
 	moveToolTargetPresetSelection,
 	nextToolHistoryDetailView,
+	nextToolHistoryEvidenceFilter,
 	nextToolHistoryGroup,
 	nextToolHistoryPreset,
 	nextToolHistorySort,
@@ -2352,6 +2354,41 @@ describe("TUI tool history", () => {
 				"  all runs=1 2026-06-30T04:01:00.000Z picos-tools-all-2026-06-30T040100000Z.md",
 				"  selected runs=1 2026-06-30T04:00:00.000Z picos-tools-selected-2026-06-30T040000000Z.md",
 				`open target=${comparePlan.path}`,
+			]);
+			expect(nextToolHistoryEvidenceFilter("any")).toBe("selected");
+			expect(nextToolHistoryEvidenceFilter("selected")).toBe("all");
+			expect(nextToolHistoryEvidenceFilter("all")).toBe("compare");
+			expect(nextToolHistoryEvidenceFilter("compare")).toBe("any");
+			expect(
+				filterToolHistoryExportIndex(index, "compare").items.map(
+					(item) => item.scope,
+				),
+			).toEqual(["compare"]);
+			expect(getSelectedToolHistoryExport(index, 99, "compare")?.scope).toBe(
+				"compare",
+			);
+			expect(formatToolHistoryExportIndexRows(index, 0, 5, "compare")).toEqual([
+				`TOOLS EVIDENCE 1/3 filter=compare base=${join(root, "tools")}`,
+				"> compare runs=1 2026-06-30T04:02:00.000Z picos-tools-compare-2026-06-30T040200000Z.md",
+				`open target=${comparePlan.path}`,
+			]);
+			expect(formatToolHistoryExportIndexRows(index, 0, 5, "selected")).toEqual(
+				[
+					`TOOLS EVIDENCE 1/3 filter=selected base=${join(root, "tools")}`,
+					"> selected runs=1 2026-06-30T04:00:00.000Z picos-tools-selected-2026-06-30T040000000Z.md",
+					`open target=${selectedPlan.path}`,
+				],
+			);
+			expect(
+				formatToolHistoryExportIndexRows(
+					{ baseDir: index.baseDir, items: index.items.slice(1) },
+					0,
+					5,
+					"compare",
+				),
+			).toEqual([
+				`TOOLS EVIDENCE 0/2 filter=compare base=${join(root, "tools")}`,
+				"no matching tools evidence",
 			]);
 		} finally {
 			await rm(root, { recursive: true, force: true });

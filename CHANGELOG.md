@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Tools evidence can now be scope-filtered across `any`, `selected`, `all`, and `compare` from Status Evidence with `q` or the command palette `tools compare` action, and filtered selections drive open/archive behavior.
 - Tools compare results can now be copied through a locked `o` clipboard preview and exported with `O` as indexed `scope=compare` Tools evidence.
 - Tools history now has a `compare` detail view that compares the selected run with the previous matching action/target, including status, summary, raw line counts, and added/removed raw output rows.
 - Command palette now exposes Tools evidence archive/retention prompts, and palette-opened Tools evidence management plus archive/prune outcomes are recorded in Status Activity result history.
