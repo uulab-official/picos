@@ -392,6 +392,7 @@ import {
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
+	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
@@ -5056,6 +5057,10 @@ export function App(): React.ReactElement {
 				statusActivityResults,
 				selectedStatusActivityResultIndex,
 				latestStatusActivityResultAuditJumpIntent,
+				getSelectedStatusActivityResultAuditJumpIntent(
+					statusActivityCopyIntentHistory,
+					selectedStatusActivityResultAuditJumpIndex,
+				),
 			);
 			if (!jump) {
 				log("warn", "no status activity result audit jump");

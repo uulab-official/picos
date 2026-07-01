@@ -720,6 +720,7 @@ export function createStatusActivityResultTimelineSearchReplay(
 	history: StatusActivityResult[],
 	selectedIndex: number,
 	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
+	selectedAuditJumpIntent?: StatusActivityCopyIntentRecord,
 ): StatusActivityCopyIntentTimelineSearch | undefined {
 	const selectedJump = createStatusActivityResultTimelineSearch(
 		history,
@@ -728,14 +729,11 @@ export function createStatusActivityResultTimelineSearchReplay(
 	if (selectedJump) {
 		return selectedJump;
 	}
-	if (
-		!latestAuditJumpIntent?.label.startsWith(
-			"status activity result audit jump ",
-		)
-	) {
+	const replayIntent = selectedAuditJumpIntent ?? latestAuditJumpIntent;
+	if (!replayIntent?.label.startsWith("status activity result audit jump ")) {
 		return undefined;
 	}
-	const [query, , filterLine] = latestAuditJumpIntent.copyText.split(/\r?\n/);
+	const [query, , filterLine] = replayIntent.copyText.split(/\r?\n/);
 	if (!query || filterLine !== "filter=audit") {
 		return undefined;
 	}
