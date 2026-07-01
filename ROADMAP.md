@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.195 - Timeline Result Shelf Target
+
+Status: draft PR [#257](https://github.com/uulab-official/picos/pull/257) on `codex/picos-v0.4.195-timeline-result-shelf-target`.
+
+Goal: show the selected Timeline result jump target in Status before operators press `I`.
+
+- `STATUS ACTIVITY COPY INTENTS` now shows `result jump target=filter:... query=... I=fresh` for selected Timeline result rows.
+- The shelf reuses the same Timeline result jump plan that `I` executes, keeping preview and behavior aligned.
+- The TUI passes the selected Status Activity result jump into the copy-intent shelf.
+- Tests cover the fresh Timeline selected result target row.
+- Next: add direct Status shelf selection for Timeline selected result jumps when multiple result rows are visible.
+
 ## v0.4.194 - Timeline Result Jump Restore
 
 Status: draft PR [#256](https://github.com/uulab-official/picos/pull/256) on `codex/picos-v0.4.194-timeline-result-jump`.
@@ -10,7 +22,7 @@ Goal: let Status Activity Timeline selected copy/export results jump back into t
 - Timeline selected result jumps restore the stored Timeline filter from the result detail.
 - Jumps reuse the original Timeline search query when present, and fall back to the selected Timeline label when the row was exported without an active search.
 - Tests cover copy/search restoration and export fallback search text.
-- Next: expose the Timeline selected result jump target in the Status Activity shelf before pressing `I`.
+- Next: Timeline selected result target previews moved into v0.4.195.
 
 ## v0.4.193 - Timeline Selected Status Results
 

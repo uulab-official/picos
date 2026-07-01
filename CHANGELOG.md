@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy-intent shelves now preview the selected Timeline result jump filter/query before `I` opens Timeline.
 - Status Activity `I` now restores Timeline selected copy/export result rows back into the matching Timeline search/filter.
 - Timeline selected copy/export actions now record Status Activity result history rows so raw/source handoffs can be revisited from Status.
 - Timeline selected preview rows now include a compact `source=t raw c copy e export` hint so operators can compare summaries with raw/source evidence faster.

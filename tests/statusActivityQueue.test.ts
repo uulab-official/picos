@@ -610,6 +610,46 @@ describe("Status activity queue", () => {
 		]);
 	});
 
+	test("shows fresh timeline result jump targets in the copy intent shelf", () => {
+		const timelineResultJump = createStatusActivityResultTimelineSearch(
+			[
+				createTimelineSelectedStatusActivityResult("copy", {
+					filter: "audit",
+					label: "timeline audit 12:00:06",
+					query: "control preview",
+					selectedIndex: 0,
+					total: 2,
+				}),
+			],
+			0,
+		);
+
+		expect(timelineResultJump).toBeDefined();
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				"fresh",
+				0,
+				undefined,
+				timelineResultJump,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"result jump target=filter:audit query=control preview I=fresh",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
+		]);
+	});
+
 	test("marks stale audit jump replay payloads in the copy intent shelf", () => {
 		const staleAuditJumpIntent = {
 			label:

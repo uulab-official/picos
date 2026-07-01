@@ -10667,11 +10667,13 @@ function StatusWorkspace({
 		getStatusActivityResultAuditJumpIntentCount(
 			statusActivityCopyIntentHistory,
 		);
-	const statusActivityResultAuditJumpActionHint =
+	const selectedStatusActivityResultTimelineSearch =
 		createStatusActivityResultTimelineSearch(
 			statusActivityResults,
 			selectedStatusActivityResultIndex,
-		)
+		);
+	const statusActivityResultAuditJumpActionHint =
+		selectedStatusActivityResultTimelineSearch
 			? "fresh"
 			: latestStatusActivityResultAuditJumpIntent
 				? "replay"
@@ -10873,6 +10875,7 @@ function StatusWorkspace({
 					statusActivityResultAuditJumpActionHint,
 					selectedStatusActivityResultAuditJumpIndex,
 					createStatusActivityResultAuditJumpReplayWarningSummary(events),
+					selectedStatusActivityResultTimelineSearch,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
