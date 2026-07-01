@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Recovered Timeline Evidence trail exports can now jump back into Timeline audit search from Status Activity with `N`.
 - Recovered Timeline Evidence trail exports can now be opened from Status Activity with `L`, using the locked `:file-open` confirmation.
 - Status Activity copy-intent shelves now show the recovered latest Timeline Evidence trail export as a `trail target=` row after audit index refresh or restart.
 - Timeline `E` Evidence trail handoffs now persist as selected audit exports, so the trail record can be recovered through the Status Evidence audit index after refresh or restart.

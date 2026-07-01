@@ -373,6 +373,7 @@ import {
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailStatusActivityResult,
+	createTimelineEvidenceTrailTimelineSearch,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -4810,6 +4811,26 @@ export function App(): React.ReactElement {
 			);
 			if (!jump) {
 				log("warn", "no status activity evidence focus for timeline");
+				return;
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}`,
+			);
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "N") {
+			const jump = createTimelineEvidenceTrailTimelineSearch(
+				lastTimelineEvidenceTrailAuditExport,
+			);
+			if (!jump) {
+				log("warn", "no timeline evidence trail export for timeline");
 				return;
 			}
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
@@ -10248,8 +10269,8 @@ function StatusWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
-					copy · &lt;/&gt; intents · v replay · e export · z open · L trail · g
-					Timeline
+					copy · &lt;/&gt; intents · v replay · e export · z open · L trail · N
+					trail search · g Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,

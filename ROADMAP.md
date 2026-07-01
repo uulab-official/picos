@@ -2952,6 +2952,19 @@ Goal: make recovered Timeline Evidence trail exports directly openable through t
 - Tests cover the recovered trail file-open plan and shelf control hint.
 - Next: add a Timeline search shortcut from the recovered trail row so operators can jump back to the source audit trail without opening a file.
 
+## v0.4.160 - Timeline Evidence Trail Search Action
+
+Status: draft PR [#222](https://github.com/uulab-official/picos/pull/222) on `codex/picos-v0.4.160-timeline-trail-search-action`.
+
+Goal: let recovered Timeline Evidence trail exports jump back into Timeline audit search without opening a file.
+
+- Status Activity copy-intent shelf controls now expose `N trail search` when a recovered trail export is available.
+- `N` uses the recovered `timeline evidence trail ...` query to set Timeline's audit filter and search query.
+- The jump selects the latest matching Timeline row so operators land near the most recent recovered trail event.
+- Missing recovered trail exports keep the action locked with a warning instead of changing Timeline state.
+- Tests cover the recovered trail Timeline search helper and updated shelf control hint.
+- Next: add a compact recovered trail detail preview row showing the restored target path and the available `L`/`N` actions together.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
