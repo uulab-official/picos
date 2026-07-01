@@ -372,6 +372,7 @@ import {
 	createStatusActivityEnterPlan,
 	createStatusActivityResultAuditJumpReplayWarningSummary,
 	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
+	createStatusActivityResultHistoryFilterPaletteResult,
 	createStatusActivityResultTimelineJumpPaletteResult,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
@@ -383,6 +384,7 @@ import {
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
 	createTimelineSelectedStatusActivityResult,
+	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -2958,13 +2960,42 @@ export function App(): React.ReactElement {
 			}
 			setStatusActivityResultHistoryFilter((current) => {
 				const next = nextStatusActivityResultHistoryFilter(current);
-				setSelectedStatusActivityResultIndex((selected) =>
-					getStatusActivityResultHistoryFilteredSelection(
-						statusActivityResults,
-						selected,
-						next,
-					),
-				);
+				if (options.origin === "palette") {
+					setStatusActivityResults((history) => {
+						const visible =
+							next === "all"
+								? history.length + 1
+								: filterStatusActivityResultHistoryIndexes(history, next)
+										.length;
+						const result = createStatusActivityResultHistoryFilterPaletteResult(
+							next,
+							{
+								total: history.length + 1,
+								visible,
+							},
+						);
+						const nextHistory = appendStatusActivityResultHistory(
+							history,
+							result,
+						);
+						setSelectedStatusActivityResultIndex(
+							getStatusActivityResultHistoryFilteredSelection(
+								nextHistory,
+								0,
+								next,
+							),
+						);
+						return nextHistory;
+					});
+				} else {
+					setSelectedStatusActivityResultIndex((selected) =>
+						getStatusActivityResultHistoryFilteredSelection(
+							statusActivityResults,
+							selected,
+							next,
+						),
+					);
+				}
 				setSelectedStatusActivityCopyPreviewRowIndex(0);
 				setStatusActivityCopyPreviewExpanded(false);
 				log(

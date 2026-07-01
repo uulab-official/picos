@@ -21,6 +21,7 @@ import {
 	createStatusActivityEnterPlan,
 	createStatusActivityResultAuditJumpReplayWarningSummary,
 	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
+	createStatusActivityResultHistoryFilterPaletteResult,
 	createStatusActivityResultTimelineJumpPaletteResult,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
@@ -442,6 +443,41 @@ describe("Status activity queue", () => {
 			"no Status activity result history for filter=palette-result-jumps",
 			"controls=f result filter · u/i filtered history",
 		]);
+	});
+
+	test("creates status activity results for palette-triggered result history filters", () => {
+		const result = createStatusActivityResultHistoryFilterPaletteResult(
+			"palette-result-jumps",
+			{
+				total: 5,
+				visible: 2,
+			},
+		);
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "filter-result-history",
+			message: "palette status result filter palette-result-jumps visible=2/5",
+			detail: "result history filter changed to palette-result-jumps",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=filter-result-history",
+			"> palette status result filter palette-result-jumps visible=2/5",
+			"  result history filter changed to palette-result-jumps",
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> timeline filter-result-history palette status result filter palette-result-jumps visible=2/5",
+			"    result history filter changed to palette-result-jumps",
+		]);
+		expect(createStatusActivityResultHistoryFilterPaletteResult("all")).toEqual(
+			{
+				source: "timeline",
+				action: "filter-result-history",
+				message: "palette status result filter all visible=0/0",
+				detail: "result history filter changed to all",
+			},
+		);
 	});
 
 	test("builds clipboard preview for the selected activity result history row", () => {

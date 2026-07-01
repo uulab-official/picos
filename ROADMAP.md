@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.204 - Status Result Filter Result History
+
+Status: draft PR [#266](https://github.com/uulab-official/picos/pull/266) on `codex/picos-v0.4.204-status-result-filter-result`.
+
+Goal: make palette-triggered Status Activity result-history filter changes visible in the same result history surface they affect.
+
+- Palette result-history filter changes now emit `palette status result filter ...` Status Activity result rows.
+- Rows include the target filter plus visible/total result counts.
+- The latest result row and bounded result history both show the filter change detail.
+- Palette filter execution keeps the same Status focus and filtered selection behavior as v0.4.203.
+- Tests cover current result rows, history rows, default counts, and the new `filter-result-history` action.
+- Next: add Timeline audit search rows for palette result-history filter changes so filter operations are searchable outside Status.
+
 ## v0.4.203 - Status Result Filter Palette
 
 Status: draft PR [#265](https://github.com/uulab-official/picos/pull/265) on `codex/picos-v0.4.203-status-result-filter-palette`.
@@ -11,7 +24,7 @@ Goal: make Status Activity result-history filtering reachable from the command p
 - Palette execution returns focus to Status and uses the same filter/cursor reset path as the keyboard shortcut.
 - Action summary counts now include the new read-only Status operation.
 - Tests cover command-palette discoverability, action metadata, enabled action ordering, and action summary counts.
-- Next: record palette-triggered result-history filter changes as compact Status Activity result rows so filter operations are visible in the same audit surface.
+- Next: palette-triggered result-history filter result rows moved into v0.4.204.
 
 ## v0.4.202 - Status Result History Filter
 
