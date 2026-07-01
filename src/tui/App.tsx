@@ -261,6 +261,13 @@ import {
 	withConfigManagedShelfFocusRows,
 } from "./configPanel";
 import {
+	appendEditorBufferLine,
+	createEditorBuffer,
+	type EditorBuffer,
+	formatEditorBufferLines,
+	getEditorBufferState,
+} from "./editorBuffer";
+import {
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
 	createPortProcessControlExecutionPlan,
@@ -538,16 +545,6 @@ function appendLogFollowHistory(
 	].slice(-6);
 }
 
-type EditorPreview = {
-	path: string;
-	content: string;
-	lines: {
-		number: number;
-		content: string;
-	}[];
-	truncated: boolean;
-};
-
 export function App(): React.ReactElement {
 	const { exit } = useApp();
 	const { columns, rows } = useWindowSize();
@@ -745,7 +742,7 @@ export function App(): React.ReactElement {
 		selectedIndex: 0,
 		query: "",
 	});
-	const [editorPreview, setEditorPreview] = useState<EditorPreview>();
+	const [editorPreview, setEditorPreview] = useState<EditorBuffer>();
 	const [connectionsResult, setConnectionsResult] =
 		useState<ConnectionsResult>();
 	const [portsResult, setPortsResult] = useState<PortsResult>();
@@ -1300,15 +1297,13 @@ export function App(): React.ReactElement {
 	const previewFile = useCallback(
 		async (entry: FileEntry) => {
 			const read = await fileProvider.read(entry.path, { maxBytes: 6000 });
-			setEditorPreview({
-				path: read.path,
-				content: read.content,
-				lines: read.content
-					.split(/\r?\n/)
-					.slice(0, 16)
-					.map((content, index) => ({ number: index + 1, content })),
-				truncated: read.truncated,
-			});
+			setEditorPreview(
+				createEditorBuffer({
+					path: read.path,
+					content: read.content,
+					truncated: read.truncated,
+				}),
+			);
 		},
 		[fileProvider],
 	);
@@ -1522,6 +1517,41 @@ export function App(): React.ReactElement {
 			setCommandLine((current) => closeCommandLine(current));
 		}
 	}, [commandLine.prompt, commandLine.value, log, runToolPlan]);
+
+	const submitEditorAppendLineCommand = useCallback(() => {
+		const line = commandLine.value;
+		setCommandLine((current) => closeCommandLine(current));
+		setEditorPreview((current) => {
+			if (!current) {
+				log("warn", "open a text file before editing");
+				return current;
+			}
+			const next = appendEditorBufferLine(current, line);
+			const state = getEditorBufferState(next);
+			log("ok", `editor appended line ${state.lineCount} dirty=${state.dirty}`);
+			return next;
+		});
+	}, [commandLine.value, log]);
+
+	const submitEditorSaveConfirmationCommand = useCallback(() => {
+		const value = commandLine.value.trim();
+		setCommandLine((current) => closeCommandLine(current));
+		if (!editorPreview) {
+			log("warn", "open a text file before saving");
+			return;
+		}
+		const state = getEditorBufferState(editorPreview);
+		if (value !== "save file") {
+			log("warn", "editor save confirmation rejected");
+			return;
+		}
+		log(
+			state.dirty ? "warn" : "info",
+			state.dirty
+				? "editor save confirmed but write execution remains locked"
+				: "editor save confirmed with no changes",
+		);
+	}, [commandLine.value, editorPreview, log]);
 
 	const submitToolHistoryFilterCommand = useCallback(() => {
 		const query = commandLine.value.trim();
@@ -4385,36 +4415,42 @@ export function App(): React.ReactElement {
 																					: commandLine.prompt ===
 																							"config-reset"
 																						? "config reset cancelled"
-																						: commandLine.prompt.startsWith(
-																									"config-",
-																								)
-																							? "config edit cancelled"
+																						: commandLine.prompt ===
+																								"editor-append"
+																							? "editor append cancelled"
 																							: commandLine.prompt ===
-																									"log-search"
-																								? "logs search cancelled"
-																								: commandLine.prompt ===
-																										"logs-cleanup"
-																									? "logs cleanup cancelled"
+																									"editor-save"
+																								? "editor save confirmation cancelled"
+																								: commandLine.prompt.startsWith(
+																											"config-",
+																										)
+																									? "config edit cancelled"
 																									: commandLine.prompt ===
-																											"tool-target-label"
-																										? "tool target label cancelled"
+																											"log-search"
+																										? "logs search cancelled"
 																										: commandLine.prompt ===
-																												"tool-target-value"
-																											? "tool target value cancelled"
+																												"logs-cleanup"
+																											? "logs cleanup cancelled"
 																											: commandLine.prompt ===
-																													"tool-target-action"
-																												? "tool target action cancelled"
+																													"tool-target-label"
+																												? "tool target label cancelled"
 																												: commandLine.prompt ===
-																														"tool-target-cleanup"
-																													? "tool target cleanup cancelled"
+																														"tool-target-value"
+																													? "tool target value cancelled"
 																													: commandLine.prompt ===
-																															portProcessControlPrompt
-																														? "port process control cancelled"
-																														: commandLine.prompt.startsWith(
-																																	toolPromptPrefix,
-																																)
-																															? "tool target command cancelled"
-																															: "path command cancelled",
+																															"tool-target-action"
+																														? "tool target action cancelled"
+																														: commandLine.prompt ===
+																																"tool-target-cleanup"
+																															? "tool target cleanup cancelled"
+																															: commandLine.prompt ===
+																																	portProcessControlPrompt
+																																? "port process control cancelled"
+																																: commandLine.prompt.startsWith(
+																																			toolPromptPrefix,
+																																		)
+																																	? "tool target command cancelled"
+																																	: "path command cancelled",
 				);
 				return;
 			}
@@ -4470,6 +4506,10 @@ export function App(): React.ReactElement {
 					void submitAuditArchiveRetentionCommand();
 				} else if (commandLine.prompt === "config-reset") {
 					void submitConfigResetCommand();
+				} else if (commandLine.prompt === "editor-append") {
+					submitEditorAppendLineCommand();
+				} else if (commandLine.prompt === "editor-save") {
+					submitEditorSaveConfirmationCommand();
 				} else if (commandLine.prompt.startsWith("config-")) {
 					void submitConfigTextCommand();
 				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
@@ -4732,6 +4772,22 @@ export function App(): React.ReactElement {
 		if (focusArea === "files" && input === ":") {
 			setCommandLine(openCommandLine("path"));
 			log("info", "path command opened");
+		}
+
+		if (screen === "editor" && focusArea === "workspaces" && input === "a") {
+			setCommandLine(openCommandLine("editor-append"));
+			log("info", "editor append prompt opened");
+			return;
+		}
+
+		if (screen === "editor" && focusArea === "workspaces" && input === "s") {
+			if (!editorPreview) {
+				log("warn", "open a text file before saving");
+				return;
+			}
+			setCommandLine(openCommandLine("editor-save"));
+			log("info", "editor save confirmation opened");
+			return;
 		}
 
 		if (screen === "routes" && focusArea === "workspaces" && input === ":") {
@@ -7842,7 +7898,7 @@ function MainWorkspace({
 	commandLine: CommandLineState;
 	fileFilter: FileFilterState;
 	fileOperationDialog: FileOperationDialogState;
-	editorPreview?: EditorPreview;
+	editorPreview?: EditorBuffer;
 	fileProviderKind: FileProviderKind;
 	remoteProfiles: SftpRemoteProfile[];
 	selectedRemoteIndex: number;
@@ -8190,7 +8246,7 @@ function renderWorkspace(
 	commandLine: CommandLineState,
 	fileFilter: FileFilterState,
 	fileOperationDialog: FileOperationDialogState,
-	editorPreview: EditorPreview | undefined,
+	editorPreview: EditorBuffer | undefined,
 	fileProviderKind: FileProviderKind,
 	remoteProfiles: SftpRemoteProfile[],
 	selectedRemoteIndex: number,
@@ -8342,6 +8398,7 @@ function renderWorkspace(
 				preview={editorPreview}
 				entries={fileEntries}
 				providerKind={fileProviderKind}
+				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 10)}
 				t={t}
 			/>
@@ -9064,12 +9121,14 @@ function EditorWorkspace({
 	preview,
 	entries,
 	providerKind,
+	commandLine,
 	visibleRows,
 	t,
 }: {
-	preview?: EditorPreview;
+	preview?: EditorBuffer;
 	entries: FileEntry[];
 	providerKind: FileProviderKind;
+	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -9078,11 +9137,12 @@ function EditorWorkspace({
 			entry.type === "file" &&
 			/\.(md|ts|tsx|json|txt|js|mjs|cjs|yml|yaml)$/i.test(entry.name),
 	);
-	const lines = preview?.lines.slice(0, visibleRows) ?? [];
+	const lines = preview ? formatEditorBufferLines(preview, visibleRows) : [];
+	const bufferState = preview ? getEditorBufferState(preview) : undefined;
 	const savePreview = preview
 		? createEditorWritePreview({
 				path: preview.path,
-				originalContent: preview.content,
+				originalContent: preview.originalContent,
 				nextContent: preview.content,
 				providerKind,
 				maxDiffRows: Math.max(1, visibleRows - lines.length - 12),
@@ -9101,11 +9161,28 @@ function EditorWorkspace({
 				{t("screen.editor")} · preview buffer
 			</Text>
 			<Text color="gray">
-				open: read-only now · save: locked behind diff + confirm dialog
+				a append line · s save confirm · writes locked behind diff review
 			</Text>
+			{commandLine.active &&
+			(commandLine.prompt === "editor-append" ||
+				commandLine.prompt === "editor-save") ? (
+				<Text color="yellow">
+					:{commandLine.prompt} {commandLine.value || " "}{" "}
+					{commandLine.prompt === "editor-save"
+						? 'type="save file" enter=confirm esc=cancel'
+						: "enter=append esc=cancel"}
+				</Text>
+			) : null}
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">BUFFER</Text>
 				<Text>File {clip(preview?.path ?? textFiles[0]?.path ?? "-", 72)}</Text>
+				{bufferState ? (
+					<Text color={bufferState.dirty ? "yellow" : "gray"}>
+						state dirty={String(bufferState.dirty)} lines=
+						{bufferState.lineCount}/{bufferState.originalLineCount} truncated=
+						{String(bufferState.truncated)}
+					</Text>
+				) : null}
 				{lines.length ? (
 					lines.map((line) => (
 						<Text key={`${preview?.path}:${line.number}`}>
