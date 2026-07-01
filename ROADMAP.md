@@ -3003,6 +3003,19 @@ Goal: make recovered Timeline Evidence trail review discoverable through the com
 - Tests cover palette filtering and action catalog metadata for the recovered trail actions.
 - Next: add command-palette result logging rows in Status Activity so palette-triggered trail operations are visible in the result history.
 
+## v0.4.164 - Timeline Evidence Trail Palette Results
+
+Status: draft PR [#226](https://github.com/uulab-official/picos/pull/226) on `codex/picos-v0.4.164-timeline-trail-palette-results`.
+
+Goal: make command-palette recovered trail operations visible in Status Activity history.
+
+- Palette-triggered recovered trail select/open/search actions now append `timeline-evidence-trail` result rows to Status Activity.
+- Result rows include the palette action, selected index, total recovered trail count, file name, query, and path.
+- Missing recovered trail actions record an unavailable result instead of disappearing into the event log.
+- Keyboard `S`, `L`, and `N` keep their existing behavior while palette actions add the extra history row.
+- Tests cover result row and result-history formatting for palette-triggered recovered trail actions.
+- Next: add Timeline audit events for palette-triggered recovered trail actions so they are searchable across sessions.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
