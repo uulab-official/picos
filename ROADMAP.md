@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.196 - Timeline Result Jump Select
+
+Status: draft PR [#258](https://github.com/uulab-official/picos/pull/258) on `codex/picos-v0.4.196-timeline-result-jump-select`.
+
+Goal: let operators select Timeline result jump targets directly from Status when several result rows are visible.
+
+- Status now supports `J` for cycling only Timeline-result jumpable Status Activity rows.
+- `J` skips non-jump cleanup/dialog rows and wraps across available Timeline selected copy/export result rows.
+- The copy-intent shelf shows `selected=.../...` beside the fresh result jump target when several jump targets exist.
+- Controls expose `J result select` only when there is more than one fresh result jump target.
+- Tests cover jump-only selection, wrapping, empty fallback, and shelf selected-count rendering.
+- Next: add a compact status result jump browser so Timeline selected copy/export jumps can be scanned without relying on history row order.
+
 ## v0.4.195 - Timeline Result Shelf Target
 
 Status: draft PR [#257](https://github.com/uulab-official/picos/pull/257) on `codex/picos-v0.4.195-timeline-result-shelf-target`.
@@ -10,7 +23,7 @@ Goal: show the selected Timeline result jump target in Status before operators p
 - The shelf reuses the same Timeline result jump plan that `I` executes, keeping preview and behavior aligned.
 - The TUI passes the selected Status Activity result jump into the copy-intent shelf.
 - Tests cover the fresh Timeline selected result target row.
-- Next: add direct Status shelf selection for Timeline selected result jumps when multiple result rows are visible.
+- Next: direct Status shelf selection for Timeline selected result jumps moved into v0.4.196.
 
 ## v0.4.194 - Timeline Result Jump Restore
 
