@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.207 - Editor Line Editing
+
+Status: draft PR [#269](https://github.com/uulab-official/picos/pull/269) on `codex/picos-v0.4.207-editor-line-edit`.
+
+Goal: make the Editor buffer usable as a line-oriented terminal editor before enabling policy-gated filesystem writes.
+
+- Editor buffers now support selected-line cursor movement with wraparound.
+- Pressing `j/k` in the Editor moves the selected buffer line instead of leaving the workspace.
+- Pressing `r` opens a replace-line prompt for the selected line.
+- Pressing `x` deletes the selected line from the in-memory buffer and keeps the cursor on a valid remaining line.
+- The Editor panel marks the selected line with `>` and highlights it for scanning.
+- Dirty buffer diffs now reflect append, replace, and delete edits before save confirmation.
+- Tests cover selection wraparound, selected-line replacement, and deletion.
+- Next: add cursor-aware insert-before/insert-after and undo history before enabling provider writes.
+
 ## v0.4.206 - Editor Dirty Buffer Controls
 
 Status: draft PR [#268](https://github.com/uulab-official/picos/pull/268) on `codex/picos-v0.4.206-editor-dirty-buffer`.
@@ -12,7 +27,7 @@ Goal: make the Editor workspace feel like an interactive OS console editor, not 
 - Pressing `s` opens an exact `save file` confirmation prompt, but provider writes remain locked after confirmation.
 - The existing save preview now compares original content against the dirty buffer, so appended lines appear in diff rows.
 - Tests cover dirty buffer append behavior, blank appended lines, and line previews.
-- Next: add cursor movement and replace/delete-line editing before enabling policy-gated provider writes.
+- Next: cursor movement and replace/delete-line editing moved into v0.4.207.
 
 ## v0.4.205 - Editor Write Preview
 
