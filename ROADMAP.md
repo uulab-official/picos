@@ -2410,6 +2410,19 @@ Goal: keep Config shelf origin metadata durable across Timeline audit exports an
 - Tests cover audit export metadata, cleanup export metadata, index restoration, and Status row origin hints.
 - Next: add a compact origin detail pane in Status so selected evidence can show source, scope, path, and retention/archive controls together.
 
+## v0.4.118 - Status Evidence Detail
+
+Status: draft PR #180 on `codex/picos-v0.4.118-status-origin-detail`.
+
+Goal: make selected Status evidence feel like an OS file-control detail pane instead of separate disconnected indexes.
+
+- Status now renders a compact evidence detail pane above the handoff/export indexes.
+- The pane summarizes currently selected handoff, Timeline audit export, archived Timeline audit export, cleanup export, and archived cleanup export rows when available.
+- Each evidence entry shows recovered Config source, scope, local path, and the relevant keyboard controls for open/archive/retention actions.
+- Empty evidence state remains useful with a refresh hint instead of a blank panel.
+- Tests cover populated and empty evidence detail panes.
+- Next: add keyboard focus/cycling for the Status Evidence pane so operators can choose one evidence family as the active detail target.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
