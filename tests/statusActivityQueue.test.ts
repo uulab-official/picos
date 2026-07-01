@@ -8,6 +8,7 @@ import {
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
 } from "../src/tui/statusActivityQueue";
@@ -314,18 +315,56 @@ describe("Status activity queue", () => {
 		);
 
 		expect(formatStatusActivityResultCopyPreviewRows(preview)).toEqual([
-			"STATUS ACTIVITY COPY PREVIEW source=status-activity",
+			"STATUS ACTIVITY COPY PREVIEW source=status-activity selected=1/5 expanded=false",
 			"> label status activity cleanup jump-cleanup",
 			"  detail selected=1/1",
 			"  copy cleanup jump-cleanup",
 			"  copy cleanup activity selected; jumping to selected cleanup shelf",
 			"  copy ... 1 more line",
-			"controls=y copy selected history · :clipboard confirm=copy locked",
+			"controls=; row · = expand · y copy selected history · :clipboard confirm=copy locked",
 		]);
 		expect(formatStatusActivityResultCopyPreviewRows()).toEqual([
 			"STATUS ACTIVITY COPY PREVIEW source=none",
 			"no Status activity copy preview",
 			"controls=y copy selected history",
+		]);
+	});
+
+	test("selects and expands status activity copy preview rows", () => {
+		const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
+			[
+				{
+					source: "cleanup",
+					action: "jump-cleanup",
+					message:
+						"cleanup activity selected; jumping to selected cleanup shelf",
+					detail: "cleanup handoff Logs: press l then type delete logs",
+				},
+			],
+			0,
+		);
+
+		expect(moveStatusActivityCopyPreviewSelection(preview, 0, "next")).toBe(1);
+		expect(moveStatusActivityCopyPreviewSelection(preview, 4, "next")).toBe(0);
+		expect(moveStatusActivityCopyPreviewSelection(preview, 0, "previous")).toBe(
+			4,
+		);
+		expect(moveStatusActivityCopyPreviewSelection(undefined, 3, "next")).toBe(
+			0,
+		);
+		expect(
+			formatStatusActivityResultCopyPreviewRows(preview, {
+				selectedRowIndex: 3,
+				expanded: true,
+			}),
+		).toEqual([
+			"STATUS ACTIVITY COPY PREVIEW source=status-activity selected=4/5 expanded=true",
+			"  label status activity cleanup jump-cleanup",
+			"  detail selected=1/1",
+			"  copy cleanup jump-cleanup",
+			"> copy cleanup activity selected; jumping to selected cleanup shelf",
+			"  copy cleanup handoff Logs: press l then type delete logs",
+			"controls=; row · = expand · y copy selected history · :clipboard confirm=copy locked",
 		]);
 	});
 });
