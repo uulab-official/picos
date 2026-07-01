@@ -409,20 +409,39 @@ export function formatStatusActivityCopyIntentRows(
 	latestExport?: ConsoleAuditExportPlan,
 	latestExportEvidenceIndex?: number,
 	latestTimelineTrailExport?: ConsoleAuditExportPlan,
+	timelineTrailExports: ConsoleAuditExportPlan[] = latestTimelineTrailExport
+		? [latestTimelineTrailExport]
+		: [],
+	selectedTimelineTrailIndex = 0,
 ): string[] {
 	const exportRows = latestExport
 		? [
 				`z target=${basename(latestExport.path)}${latestExportEvidenceIndex !== undefined ? ` evidence=${latestExportEvidenceIndex + 1}` : ""}${latestExport.query ? ` query=${latestExport.query}` : ""} events=${latestExport.eventCount}`,
 			]
 		: [];
-	const timelineTrailRows = latestTimelineTrailExport
+	const selectedTimelineTrailExport =
+		getSelectedTimelineEvidenceTrailAuditExport(
+			timelineTrailExports,
+			selectedTimelineTrailIndex,
+			latestTimelineTrailExport,
+		);
+	const normalizedTimelineTrailIndex = getNormalizedSelectionIndex(
+		timelineTrailExports.length,
+		selectedTimelineTrailIndex,
+	);
+	const timelineTrailRows = selectedTimelineTrailExport
 		? [
-				`trail target=${basename(latestTimelineTrailExport.path)}${latestTimelineTrailExport.query ? ` query=${latestTimelineTrailExport.query}` : ""} events=${latestTimelineTrailExport.eventCount}`,
-				`trail detail path=${latestTimelineTrailExport.path} actions=L open N search`,
+				...(timelineTrailExports.length > 1
+					? [
+							`trail selected=${normalizedTimelineTrailIndex + 1}/${timelineTrailExports.length}`,
+						]
+					: []),
+				`trail target=${basename(selectedTimelineTrailExport.path)}${selectedTimelineTrailExport.query ? ` query=${selectedTimelineTrailExport.query}` : ""} events=${selectedTimelineTrailExport.eventCount}`,
+				`trail detail path=${selectedTimelineTrailExport.path} actions=L open N search`,
 			]
 		: [];
 	const rowsBeforeHistory = [...exportRows, ...timelineTrailRows];
-	const controls = `controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export${latestTimelineTrailExport ? " · L open trail · N trail search · trail recovered" : ""} · g Timeline audit search`;
+	const controls = `controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export${selectedTimelineTrailExport ? ` · L open trail · N trail search${timelineTrailExports.length > 1 ? " · S trail select" : ""} · trail recovered` : ""} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
@@ -460,6 +479,30 @@ export function moveStatusActivityCopyIntentSelection(
 	);
 	const delta = direction === "next" ? 1 : -1;
 	return (current + delta + history.length) % history.length;
+}
+
+export function getSelectedTimelineEvidenceTrailAuditExport(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+	fallback?: ConsoleAuditExportPlan,
+): ConsoleAuditExportPlan | undefined {
+	if (exports.length === 0) {
+		return fallback;
+	}
+	return exports[getNormalizedSelectionIndex(exports.length, selectedIndex)];
+}
+
+export function moveTimelineEvidenceTrailSelection(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (exports.length === 0) {
+		return 0;
+	}
+	const current = getNormalizedSelectionIndex(exports.length, selectedIndex);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + exports.length) % exports.length;
 }
 
 export function createStatusActivityCopyIntentTimelineSearch(
@@ -715,21 +758,35 @@ export async function writeTimelineEvidenceTrailAuditExport(
 export function getLatestTimelineEvidenceTrailAuditExport(
 	index: ConsoleAuditExportIndex,
 ): ConsoleAuditExportPlan | undefined {
-	const item = index.items.find(
-		(candidate) =>
-			candidate.scope === "selected" &&
-			candidate.query?.startsWith("timeline evidence trail "),
-	);
-	if (!item) {
-		return undefined;
+	return getTimelineEvidenceTrailAuditExports(index)[0];
+}
+
+export function getTimelineEvidenceTrailAuditExports(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan[] {
+	return index.items
+		.filter(
+			(candidate) =>
+				candidate.scope === "selected" &&
+				candidate.query?.startsWith("timeline evidence trail "),
+		)
+		.map((item) => ({
+			path: item.path,
+			content: "",
+			eventCount: item.entryCount,
+			...(item.query ? { query: item.query } : {}),
+			scope: item.scope,
+		}));
+}
+
+function getNormalizedSelectionIndex(
+	length: number,
+	selectedIndex: number,
+): number {
+	if (length <= 0) {
+		return 0;
 	}
-	return {
-		path: item.path,
-		content: "",
-		eventCount: item.entryCount,
-		...(item.query ? { query: item.query } : {}),
-		scope: item.scope,
-	};
+	return Math.min(Math.max(0, Math.floor(selectedIndex)), length - 1);
 }
 
 export function formatStatusActivityCopyIntentEvidenceFocusAuditMessage(

@@ -1,4 +1,4 @@
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -386,11 +386,14 @@ import {
 	getLatestTimelineEvidenceTrailAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
+	getTimelineEvidenceTrailAuditExports,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
+	moveTimelineEvidenceTrailSelection,
 	type StatusActivityCopyIntentEvidenceFocusPlan,
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
@@ -630,6 +633,20 @@ export function App(): React.ReactElement {
 		lastTimelineEvidenceTrailAuditExport,
 		setLastTimelineEvidenceTrailAuditExport,
 	] = useState<ConsoleAuditExportPlan>();
+	const [
+		timelineEvidenceTrailAuditExports,
+		setTimelineEvidenceTrailAuditExports,
+	] = useState<ConsoleAuditExportPlan[]>([]);
+	const [
+		selectedTimelineEvidenceTrailAuditExportIndex,
+		setSelectedTimelineEvidenceTrailAuditExportIndex,
+	] = useState(0);
+	const selectedTimelineEvidenceTrailAuditExport =
+		getSelectedTimelineEvidenceTrailAuditExport(
+			timelineEvidenceTrailAuditExports,
+			selectedTimelineEvidenceTrailAuditExportIndex,
+			lastTimelineEvidenceTrailAuditExport,
+		);
 	const [
 		lastStatusActivityEvidenceFocusPlan,
 		setLastStatusActivityEvidenceFocusPlan,
@@ -2183,8 +2200,14 @@ export function App(): React.ReactElement {
 				setLastStatusActivityCopyIntentAuditExport(
 					getLatestStatusActivityCopyIntentAuditExport(index),
 				);
+				const timelineTrailExports =
+					getTimelineEvidenceTrailAuditExports(index);
+				setTimelineEvidenceTrailAuditExports(timelineTrailExports);
 				setLastTimelineEvidenceTrailAuditExport(
 					getLatestTimelineEvidenceTrailAuditExport(index),
+				);
+				setSelectedTimelineEvidenceTrailAuditExportIndex((current) =>
+					Math.min(current, Math.max(0, timelineTrailExports.length - 1)),
 				);
 				setSelectedAuditExportIndex((current) =>
 					Math.min(current, Math.max(0, index.items.length - 1)),
@@ -3191,8 +3214,14 @@ export function App(): React.ReactElement {
 			setLastStatusActivityCopyIntentAuditExport(
 				getLatestStatusActivityCopyIntentAuditExport(auditExports),
 			);
+			const timelineTrailExports =
+				getTimelineEvidenceTrailAuditExports(auditExports);
+			setTimelineEvidenceTrailAuditExports(timelineTrailExports);
 			setLastTimelineEvidenceTrailAuditExport(
 				getLatestTimelineEvidenceTrailAuditExport(auditExports),
+			);
+			setSelectedTimelineEvidenceTrailAuditExportIndex((current) =>
+				Math.min(current, Math.max(0, timelineTrailExports.length - 1)),
 			);
 			setSelectedAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, auditExports.items.length - 1)),
@@ -4827,7 +4856,7 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "N") {
 			const jump = createTimelineEvidenceTrailTimelineSearch(
-				lastTimelineEvidenceTrailAuditExport,
+				selectedTimelineEvidenceTrailAuditExport,
 			);
 			if (!jump) {
 				log("warn", "no timeline evidence trail export for timeline");
@@ -4842,6 +4871,27 @@ export function App(): React.ReactElement {
 				filtered.length ? "info" : "warn",
 				`${jump.message} matches ${filtered.length}`,
 			);
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "S") {
+			if (timelineEvidenceTrailAuditExports.length <= 1) {
+				log("warn", "no alternate timeline evidence trail exports");
+				return;
+			}
+			setSelectedTimelineEvidenceTrailAuditExportIndex((current) => {
+				const next = moveTimelineEvidenceTrailSelection(
+					timelineEvidenceTrailAuditExports,
+					current,
+					"next",
+				);
+				const trail = timelineEvidenceTrailAuditExports[next];
+				log(
+					"info",
+					`timeline evidence trail selected ${next + 1}/${timelineEvidenceTrailAuditExports.length} ${trail ? basename(trail.path) : "none"}`,
+				);
+				return next;
+			});
 			return;
 		}
 
@@ -4926,12 +4976,12 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "L") {
-			if (!lastTimelineEvidenceTrailAuditExport) {
+			if (!selectedTimelineEvidenceTrailAuditExport) {
 				log("warn", "no timeline evidence trail export to open");
 				return;
 			}
 			const plan = createTimelineEvidenceTrailAuditExportOpenPlan(
-				lastTimelineEvidenceTrailAuditExport,
+				selectedTimelineEvidenceTrailAuditExport,
 				{
 					baseDir: dirname(getConfigPath()),
 					platform: currentPlatform(),
@@ -4939,7 +4989,7 @@ export function App(): React.ReactElement {
 			);
 			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
 				auditExportIndex,
-				lastTimelineEvidenceTrailAuditExport,
+				selectedTimelineEvidenceTrailAuditExport,
 			);
 			if (evidenceIndex !== undefined) {
 				setSelectedAuditExportIndex(evidenceIndex);
@@ -4954,7 +5004,7 @@ export function App(): React.ReactElement {
 			setScreen("status");
 			log(
 				"info",
-				`timeline evidence trail export open confirmation opened for ${lastTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
+				`timeline evidence trail export open confirmation opened for ${selectedTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
 			);
 			return;
 		}
@@ -6926,6 +6976,10 @@ export function App(): React.ReactElement {
 					lastTimelineEvidenceTrailAuditExport={
 						lastTimelineEvidenceTrailAuditExport
 					}
+					timelineEvidenceTrailAuditExports={timelineEvidenceTrailAuditExports}
+					selectedTimelineEvidenceTrailAuditExportIndex={
+						selectedTimelineEvidenceTrailAuditExportIndex
+					}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -7151,6 +7205,8 @@ function MainWorkspace({
 	selectedStatusActivityCopyIntentIndex,
 	lastStatusActivityCopyIntentAuditExport,
 	lastTimelineEvidenceTrailAuditExport,
+	timelineEvidenceTrailAuditExports,
+	selectedTimelineEvidenceTrailAuditExportIndex,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -7277,6 +7333,8 @@ function MainWorkspace({
 	selectedStatusActivityCopyIntentIndex: number;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
+	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
+	selectedTimelineEvidenceTrailAuditExportIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -7481,6 +7539,8 @@ function MainWorkspace({
 						selectedStatusActivityCopyIntentIndex,
 						lastStatusActivityCopyIntentAuditExport,
 						lastTimelineEvidenceTrailAuditExport,
+						timelineEvidenceTrailAuditExports,
+						selectedTimelineEvidenceTrailAuditExportIndex,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7612,6 +7672,8 @@ function renderWorkspace(
 	selectedStatusActivityCopyIntentIndex: number,
 	lastStatusActivityCopyIntentAuditExport: ConsoleAuditExportPlan | undefined,
 	lastTimelineEvidenceTrailAuditExport: ConsoleAuditExportPlan | undefined,
+	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[],
+	selectedTimelineEvidenceTrailAuditExportIndex: number,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7894,6 +7956,10 @@ function renderWorkspace(
 				}
 				lastTimelineEvidenceTrailAuditExport={
 					lastTimelineEvidenceTrailAuditExport
+				}
+				timelineEvidenceTrailAuditExports={timelineEvidenceTrailAuditExports}
+				selectedTimelineEvidenceTrailAuditExportIndex={
+					selectedTimelineEvidenceTrailAuditExportIndex
 				}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
@@ -10080,6 +10146,8 @@ function StatusWorkspace({
 	selectedStatusActivityCopyIntentIndex,
 	lastStatusActivityCopyIntentAuditExport,
 	lastTimelineEvidenceTrailAuditExport,
+	timelineEvidenceTrailAuditExports,
+	selectedTimelineEvidenceTrailAuditExportIndex,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -10115,6 +10183,8 @@ function StatusWorkspace({
 	selectedStatusActivityCopyIntentIndex: number;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
+	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
+	selectedTimelineEvidenceTrailAuditExportIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -10270,7 +10340,7 @@ function StatusWorkspace({
 				<Text color="gray">
 					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
 					copy · &lt;/&gt; intents · v replay · e export · z open · L trail · N
-					trail search · g Timeline
+					trail search · S trail select · g Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,
@@ -10388,6 +10458,8 @@ function StatusWorkspace({
 						lastStatusActivityCopyIntentAuditExport,
 					),
 					lastTimelineEvidenceTrailAuditExport,
+					timelineEvidenceTrailAuditExports,
+					selectedTimelineEvidenceTrailAuditExportIndex,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}

@@ -33,11 +33,14 @@ import {
 	getLatestTimelineEvidenceTrailAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
+	getTimelineEvidenceTrailAuditExports,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
+	moveTimelineEvidenceTrailSelection,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
 } from "../src/tui/statusActivityQueue";
@@ -525,6 +528,44 @@ describe("Status activity queue", () => {
 			"trail detail path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · trail recovered · g Timeline audit search",
+		]);
+	});
+
+	test("shows a selected recovered timeline evidence trail export when several are indexed", () => {
+		const older = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log",
+			scope: "selected" as const,
+		};
+		const newer = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"timeline evidence trail picos-audit-selected-2026-07-01T040000000Z.log",
+			scope: "selected" as const,
+		};
+
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				newer,
+				[newer, older],
+				1,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"trail selected=2/2",
+			"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log events=1",
+			"trail detail path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · trail recovered · g Timeline audit search",
 		]);
 	});
 
@@ -1089,6 +1130,9 @@ describe("Status activity queue", () => {
 			const latest = getLatestTimelineEvidenceTrailAuditExport(
 				await readConsoleAuditExportIndex(root),
 			);
+			const trailExports = getTimelineEvidenceTrailAuditExports(
+				await readConsoleAuditExportIndex(root),
+			);
 
 			expect(latest).toEqual({
 				path: newer.path,
@@ -1097,6 +1141,31 @@ describe("Status activity queue", () => {
 				query: "timeline evidence trail newer.log",
 				scope: "selected",
 			});
+			expect(trailExports).toEqual([
+				{
+					path: newer.path,
+					content: "",
+					eventCount: 1,
+					query: "timeline evidence trail newer.log",
+					scope: "selected",
+				},
+				{
+					path: older.path,
+					content: "",
+					eventCount: 1,
+					query: "timeline evidence trail older.log",
+					scope: "selected",
+				},
+			]);
+			expect(
+				getSelectedTimelineEvidenceTrailAuditExport(trailExports, 1),
+			).toEqual(trailExports[1]);
+			expect(moveTimelineEvidenceTrailSelection(trailExports, 1, "next")).toBe(
+				0,
+			);
+			expect(
+				moveTimelineEvidenceTrailSelection(trailExports, 0, "previous"),
+			).toBe(1);
 			expect(await readFile(newer.path, "utf8")).toContain(
 				'timeline evidence trail kind=audit selected=2/2 label="newer.log"',
 			);
