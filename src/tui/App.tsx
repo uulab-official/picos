@@ -359,6 +359,10 @@ import {
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
+	formatStatusDialogPreviewRows,
+	type StatusDialogPreviewGroup,
+} from "./statusDialogPreview";
+import {
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
 	createStatusEvidenceItemMovePlan,
@@ -9435,6 +9439,88 @@ function StatusWorkspace({
 	const updateReleaseHandoff = updateCheckResult
 		? createUpdateReleaseHandoff(updateCheckResult)
 		: undefined;
+	const statusDialogPreviewGroups: StatusDialogPreviewGroup[] = [
+		...(externalOpenPlan
+			? [
+					{
+						kind: "external-open",
+						rows: formatExternalOpenPlanRows(externalOpenPlan),
+						promptRows: formatExternalOpenPromptRows(
+							commandLine,
+							externalOpenPlan,
+						),
+					},
+				]
+			: []),
+		...(fileOpenPlan
+			? [
+					{
+						kind: "file-open",
+						rows: formatFileOpenPlanRows(fileOpenPlan),
+						promptRows: formatFileOpenPromptRows(
+							commandLine,
+							fileOpenPlan,
+							formatFileOpenOriginRows(fileOpenPlan),
+						),
+					},
+				]
+			: []),
+		...(auditExportArchivePlan
+			? [
+					{
+						kind: "audit-archive",
+						rows: formatConsoleAuditExportArchiveRows(auditExportArchivePlan),
+						promptRows:
+							commandLine.active &&
+							commandLine.prompt === "audit-export-archive"
+								? [
+										`:audit-export-archive ${
+											commandLine.value || " "
+										} type="${auditExportArchivePlan.confirmationPhrase}" enter=archive esc=cancel`,
+									]
+								: [],
+					},
+				]
+			: []),
+		...(auditArchiveRetentionPlan
+			? [
+					{
+						kind: "audit-retention",
+						rows: formatConsoleAuditArchiveRetentionRows(
+							auditArchiveRetentionPlan,
+						),
+						promptRows:
+							commandLine.active &&
+							commandLine.prompt === "audit-archive-retention"
+								? [
+										`:audit-archive-retention ${
+											commandLine.value || " "
+										} type="${auditArchiveRetentionPlan.confirmationPhrase}" enter=prune esc=cancel`,
+									]
+								: [],
+					},
+				]
+			: []),
+		...(cleanupExportArchivePlan
+			? [
+					{
+						kind: "cleanup-archive",
+						rows: formatCleanupHandoffHistoryExportArchiveRows(
+							cleanupExportArchivePlan,
+						),
+						promptRows:
+							commandLine.active &&
+							commandLine.prompt === "cleanup-export-archive"
+								? [
+										`:cleanup-export-archive ${
+											commandLine.value || " "
+										} type="${cleanupExportArchivePlan.confirmationPhrase}" enter=archive esc=cancel`,
+									]
+								: [],
+					},
+				]
+			: []),
+	];
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.status")}</Text>
@@ -9472,149 +9558,36 @@ function StatusWorkspace({
 					</Text>
 				))}
 			</Box>
-			{externalOpenPlan ? (
+			{statusDialogPreviewGroups.length > 0 ? (
 				<Box marginTop={1} flexDirection="column">
-					{formatExternalOpenPlanRows(externalOpenPlan)
-						.slice(0, 7)
-						.map((row) => (
-							<Text
-								key={row}
-								color={
-									row.startsWith("EXTERNAL OPEN")
-										? "cyan"
-										: row.startsWith("confirm")
-											? "yellow"
-											: "white"
-								}
-							>
-								{row}
-							</Text>
-						))}
-					{formatExternalOpenPromptRows(commandLine, externalOpenPlan).map(
-						(row) => (
-							<Text key={row} color="yellow">
-								{row}
-							</Text>
-						),
-					)}
-				</Box>
-			) : null}
-			{fileOpenPlan ? (
-				<Box marginTop={1} flexDirection="column">
-					{formatFileOpenPlanRows(fileOpenPlan)
-						.slice(0, 7)
-						.map((row) => (
-							<Text
-								key={row}
-								color={
-									row.startsWith("FILE OPEN")
-										? "cyan"
-										: row.startsWith("confirm")
-											? "yellow"
-											: "white"
-								}
-							>
-								{row}
-							</Text>
-						))}
-					{formatFileOpenPromptRows(
-						commandLine,
-						fileOpenPlan,
-						formatFileOpenOriginRows(fileOpenPlan),
-					).map((row) => (
-						<Text
-							key={row}
-							color={row.startsWith("CONFIG ORIGIN") ? "cyan" : "yellow"}
-						>
-							{row}
-						</Text>
-					))}
-				</Box>
-			) : null}
-			{auditExportArchivePlan ? (
-				<Box marginTop={1} flexDirection="column">
-					{formatConsoleAuditExportArchiveRows(auditExportArchivePlan).map(
+					<Text color="gray">STATUS DIALOG · compact confirmations</Text>
+					{formatStatusDialogPreviewRows(statusDialogPreviewGroups).map(
 						(row) => (
 							<Text
 								key={row}
 								color={
-									row.startsWith("AUDIT EXPORT ARCHIVE")
+									row.startsWith("STATUS DIALOG PREVIEW")
 										? "cyan"
-										: row.startsWith("confirm") || row.startsWith("reason=")
+										: row.startsWith(">")
 											? "yellow"
-											: "white"
+											: row.startsWith("controls=") ||
+													row.trimStart().startsWith("confirm") ||
+													row.trimStart().startsWith(":") ||
+													row.trimStart().startsWith("reason=")
+												? "yellow"
+												: row.includes("CONFIG ORIGIN") ||
+														row.trimStart().startsWith("path=") ||
+														row.trimStart().startsWith("url=") ||
+														row.trimStart().startsWith("from=") ||
+														row.trimStart().startsWith("to=")
+													? "gray"
+													: "white"
 								}
 							>
 								{row}
 							</Text>
 						),
 					)}
-					{commandLine.active &&
-					commandLine.prompt === "audit-export-archive" ? (
-						<Text color="yellow">
-							:audit-export-archive {commandLine.value || " "} type="
-							{auditExportArchivePlan.confirmationPhrase}" enter=archive
-							esc=cancel
-						</Text>
-					) : null}
-				</Box>
-			) : null}
-			{auditArchiveRetentionPlan ? (
-				<Box marginTop={1} flexDirection="column">
-					{formatConsoleAuditArchiveRetentionRows(
-						auditArchiveRetentionPlan,
-					).map((row) => (
-						<Text
-							key={row}
-							color={
-								row.startsWith("AUDIT ARCHIVE RETENTION")
-									? "cyan"
-									: row.startsWith("confirm") ||
-											row.startsWith("remove ") ||
-											row.startsWith("reason=")
-										? "yellow"
-										: "white"
-							}
-						>
-							{row}
-						</Text>
-					))}
-					{commandLine.active &&
-					commandLine.prompt === "audit-archive-retention" ? (
-						<Text color="yellow">
-							:audit-archive-retention {commandLine.value || " "} type="
-							{auditArchiveRetentionPlan.confirmationPhrase}" enter=prune
-							esc=cancel
-						</Text>
-					) : null}
-				</Box>
-			) : null}
-			{cleanupExportArchivePlan ? (
-				<Box marginTop={1} flexDirection="column">
-					{formatCleanupHandoffHistoryExportArchiveRows(
-						cleanupExportArchivePlan,
-					).map((row) => (
-						<Text
-							key={row}
-							color={
-								row.startsWith("CLEANUP EXPORT ARCHIVE")
-									? "cyan"
-									: row.startsWith("confirm") || row.startsWith("reason=")
-										? "yellow"
-										: "white"
-							}
-						>
-							{row}
-						</Text>
-					))}
-					{commandLine.active &&
-					commandLine.prompt === "cleanup-export-archive" ? (
-						<Text color="yellow">
-							:cleanup-export-archive {commandLine.value || " "} type="
-							{cleanupExportArchivePlan.confirmationPhrase}" enter=archive
-							esc=cancel
-						</Text>
-					) : null}
 				</Box>
 			) : null}
 			<Box marginTop={1} flexDirection="column">

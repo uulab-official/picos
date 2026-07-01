@@ -2578,6 +2578,19 @@ Goal: make Status release/update state behave like a compact OS control strip in
 - Tests cover populated, empty/not-run, and error release console states.
 - Next: compact the external-open/file-open/action confirmation preview blocks into a shared Status dialog preview strip so transient confirmations stop pushing the OS dashboard down.
 
+## v0.4.131 - Status Dialog Preview Strip
+
+Status: draft PR #193 on `codex/picos-v0.4.131-status-dialog-preview-strip`.
+
+Goal: keep transient Status confirmations visible without letting several preview blocks push the OS dashboard down.
+
+- Status dialog previews now format through one shared `STATUS DIALOG PREVIEW` strip.
+- The strip summarizes external-open, file-open, audit archive, audit retention, and cleanup archive previews with exact-confirm, target path/URL, Config origin, and prompt rows.
+- Status replaces the separate transient confirmation preview blocks with the shared strip.
+- Empty strip formatting remains useful for tests and future callers without rendering unnecessary UI in Status.
+- Tests cover populated multi-preview and empty dialog preview states.
+- Next: add a compact Status activity queue so recent release, cleanup, evidence, and dialog actions can be scanned without opening Logs or Timeline.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
