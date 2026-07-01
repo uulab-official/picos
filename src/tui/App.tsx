@@ -6742,6 +6742,9 @@ export function App(): React.ReactElement {
 					selectedStatusActivityCopyIntentIndex={
 						selectedStatusActivityCopyIntentIndex
 					}
+					lastStatusActivityCopyIntentAuditExport={
+						lastStatusActivityCopyIntentAuditExport
+					}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -6965,6 +6968,7 @@ function MainWorkspace({
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
 	selectedStatusActivityCopyIntentIndex,
+	lastStatusActivityCopyIntentAuditExport,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -7089,6 +7093,7 @@ function MainWorkspace({
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusActivityCopyIntentIndex: number;
+	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -7291,6 +7296,7 @@ function MainWorkspace({
 						statusActivityCopyPreviewExpanded,
 						statusActivityCopyIntentHistory,
 						selectedStatusActivityCopyIntentIndex,
+						lastStatusActivityCopyIntentAuditExport,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7420,6 +7426,7 @@ function renderWorkspace(
 	statusActivityCopyPreviewExpanded: boolean,
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[],
 	selectedStatusActivityCopyIntentIndex: number,
+	lastStatusActivityCopyIntentAuditExport: ConsoleAuditExportPlan | undefined,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7696,6 +7703,9 @@ function renderWorkspace(
 				statusActivityCopyIntentHistory={statusActivityCopyIntentHistory}
 				selectedStatusActivityCopyIntentIndex={
 					selectedStatusActivityCopyIntentIndex
+				}
+				lastStatusActivityCopyIntentAuditExport={
+					lastStatusActivityCopyIntentAuditExport
 				}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
@@ -9880,6 +9890,7 @@ function StatusWorkspace({
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
 	selectedStatusActivityCopyIntentIndex,
+	lastStatusActivityCopyIntentAuditExport,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -9913,6 +9924,7 @@ function StatusWorkspace({
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusActivityCopyIntentIndex: number;
+	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -10179,6 +10191,7 @@ function StatusWorkspace({
 				{formatStatusActivityCopyIntentRows(
 					statusActivityCopyIntentHistory,
 					selectedStatusActivityCopyIntentIndex,
+					lastStatusActivityCopyIntentAuditExport,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
