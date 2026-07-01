@@ -19,6 +19,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
@@ -525,12 +526,12 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=2 selected=2/2",
 			"  status activity dialog show-dialog row=1 expanded=false lines=2 preview=dialog show-dialog",
 			"> status activity cleanup jump-cleanup row=4 expanded=true lines=3 preview=cleanup jump-cleanup",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 		expect(formatStatusActivityCopyIntentRows([])).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
 		]);
 	});
 
@@ -552,7 +553,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"z target=picos-audit-selected-2026-07-01T030000000Z.log evidence=2 query=status activity cleanup jump-cleanup events=1",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
 		]);
 	});
 
@@ -583,7 +584,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"audit jumps count=3 target=source:palette visible:2/5 latest=action=source source=palette visible=2/5 lines=3",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
 		]);
 		expect(
 			formatStatusActivityCopyIntentRows(
@@ -603,7 +604,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"audit jumps count=3 target=source:palette visible:2/5 latest=action=source source=palette visible=2/5 lines=3 I=replay replay=latest valid",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
 		]);
 	});
 
@@ -639,7 +640,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"audit jumps count=1 target=source:palette visible:2/5 latest=action=source source=palette visible=2/5 lines=3 I=replay replay=latest stale fix=P audit jump/new result",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
 		]);
 	});
 
@@ -706,7 +707,7 @@ describe("Status activity queue", () => {
 			"> status activity result audit jump action=source source=palette visible=2/5 row=1 expanded=false lines=3 preview=action=source source=palette visible=2/5",
 			"  status activity cleanup jump-cleanup row=1 expanded=false lines=2 preview=cleanup jump-cleanup",
 			"  status activity result audit jump action=source source=evidence visible=1/3 row=1 expanded=false lines=3 preview=action=source source=evidence visible=1/3",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 	});
 
@@ -725,7 +726,7 @@ describe("Status activity queue", () => {
 			"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log events=1",
 			"trail detail source=evidence path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · trail recovered · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · L open trail · N trail search · trail recovered · g Timeline audit search",
 		]);
 	});
 
@@ -764,7 +765,7 @@ describe("Status activity queue", () => {
 			"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log events=1",
 			"trail detail source=evidence path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · Q trail source · trail recovered · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · L open trail · N trail search · S trail select · Q trail source · trail recovered · g Timeline audit search",
 		]);
 		expect(
 			formatStatusActivityCopyIntentRows(
@@ -782,7 +783,7 @@ describe("Status activity queue", () => {
 			"trail source=palette visible=0/2",
 			"no recovered Timeline Evidence trail exports for source=palette",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · Q trail source · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · Q trail source · g Timeline audit search",
 		]);
 	});
 
@@ -1561,7 +1562,7 @@ describe("Status activity queue", () => {
 				"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=palette timeline trail events=1",
 				`trail detail source=palette path=${palette.path} actions=L open N search`,
 				"no Status activity copy intents yet",
-				"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · Q trail source · trail recovered · g Timeline audit search",
+				"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · L open trail · N trail search · S trail select · Q trail source · trail recovered · g Timeline audit search",
 			]);
 			expect(
 				getSelectedTimelineEvidenceTrailAuditExport(trailExports, 1),
@@ -1744,6 +1745,37 @@ describe("Status activity queue", () => {
 		expect(formatStatusActivityResultAuditJumpReplayWarningAuditMessage()).toBe(
 			"status activity result audit jump warning no status activity result audit jump",
 		);
+	});
+
+	test("creates timeline searches for latest stale replay warning audit events", () => {
+		const olderStaleWarning =
+			formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
+				"no status activity result audit jump fix=P audit jump/new result older",
+			);
+		const latestStaleWarning =
+			formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
+				"no status activity result audit jump fix=P audit jump/new result",
+			);
+		const newerPlainWarning =
+			formatStatusActivityResultAuditJumpReplayWarningAuditMessage();
+
+		expect(
+			createStatusActivityResultAuditJumpReplayWarningTimelineSearch([
+				{ message: olderStaleWarning },
+				{ message: latestStaleWarning },
+				{ message: newerPlainWarning },
+			]),
+		).toEqual({
+			filter: "audit",
+			query: latestStaleWarning,
+			message:
+				"status activity result audit jump warning timeline search fix=P audit jump/new result",
+		});
+		expect(
+			createStatusActivityResultAuditJumpReplayWarningTimelineSearch([
+				{ message: newerPlainWarning },
+			]),
+		).toBeUndefined();
 	});
 
 	test("creates copy intents for status result audit jumps", () => {
