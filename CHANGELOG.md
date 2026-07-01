@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Tools history exports are now indexed as Status Evidence, so selected/all tool raw-output exports can be reopened through the locked file-open flow after refresh or restart.
 - Editor saves now leave an `EDITOR SAVE RESULT` panel with success/blocker/error rows, and successful `editor save` records are classified as searchable Timeline audit evidence.
 - Editor saves now use a policy-gated execution path: the default `editorSaveMode=disabled` records a blocked save audit, `editorSaveMode=local-write` allows exact-confirmed local provider writes, and SFTP writes remain locked.
 - Editor workspace now supports line insertion and undo: `i` inserts before the selected line, `o` inserts after it, `u` restores the previous in-memory buffer content, and the buffer status shows available undo depth before provider writes are enabled.

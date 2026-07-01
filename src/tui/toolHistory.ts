@@ -1,5 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import {
 	type ConfigCleanupPreview,
 	createConfigCleanupPreview,
@@ -122,6 +122,19 @@ export type ToolHistoryExportPlan = {
 	content: string;
 	itemCount: number;
 	scope: ToolHistoryExportScope;
+};
+
+export type ToolHistoryExportIndexItem = {
+	fileName: string;
+	path: string;
+	generatedAt: string;
+	scope: ToolHistoryExportScope;
+	runCount: number;
+};
+
+export type ToolHistoryExportIndex = {
+	baseDir: string;
+	items: ToolHistoryExportIndexItem[];
 };
 
 export type FilteredToolHistoryItem = {
@@ -1066,6 +1079,71 @@ export async function writeToolHistoryExport(
 	return plan;
 }
 
+export async function readToolHistoryExportIndex(
+	baseDir: string,
+	limit = 20,
+): Promise<ToolHistoryExportIndex> {
+	const toolsDir = join(baseDir, "tools");
+	let entries: string[];
+	try {
+		entries = await readdir(toolsDir);
+	} catch (caught) {
+		if ((caught as NodeJS.ErrnoException).code === "ENOENT") {
+			return { baseDir: toolsDir, items: [] };
+		}
+		throw caught;
+	}
+
+	const items = (
+		await Promise.all(
+			entries
+				.filter(isPicosToolHistoryExportFilename)
+				.map((entry) => readToolHistoryExportIndexItem(join(toolsDir, entry))),
+		)
+	)
+		.filter((item): item is ToolHistoryExportIndexItem => Boolean(item))
+		.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))
+		.slice(0, limit);
+	return { baseDir: toolsDir, items };
+}
+
+export function getSelectedToolHistoryExport(
+	index: ToolHistoryExportIndex,
+	selectedIndex: number,
+): ToolHistoryExportIndexItem | undefined {
+	if (index.items.length === 0) {
+		return undefined;
+	}
+	return index.items[
+		Math.min(Math.max(selectedIndex, 0), index.items.length - 1)
+	];
+}
+
+export function formatToolHistoryExportIndexRows(
+	index: ToolHistoryExportIndex,
+	selectedIndex = 0,
+	visibleRows = 8,
+): string[] {
+	const selected = getSelectedToolHistoryExport(index, selectedIndex);
+	const selectedTargets = selected ? [`open target=${selected.path}`] : [];
+	const budget = Math.max(0, visibleRows - 1 - selectedTargets.length);
+	return [
+		`TOOLS EVIDENCE ${index.items.length} base=${index.baseDir}`,
+		...index.items
+			.slice(0, budget)
+			.map((item, itemIndex) =>
+				[
+					itemIndex === selectedIndex ? ">" : " ",
+					item.scope,
+					`runs=${item.runCount}`,
+					item.generatedAt,
+					item.fileName,
+				].join(" "),
+			),
+		...selectedTargets,
+	].slice(0, visibleRows);
+}
+
 function summarizeToolResult(result: ToolResult): string {
 	const section = result.sections[0];
 	if (!section) {
@@ -1099,6 +1177,71 @@ function formatToolHistoryExportItem(item: ToolHistoryItem): string[] {
 		"```",
 		"",
 	];
+}
+
+async function readToolHistoryExportIndexItem(
+	path: string,
+): Promise<ToolHistoryExportIndexItem | undefined> {
+	const fileName = basename(path);
+	const content = await readFile(path, "utf8");
+	const metadata = parseToolHistoryExportMetadata(content);
+	const scope = toToolHistoryExportScope(metadata.scope);
+	const generatedAt =
+		metadata.generatedAt ?? generatedAtFromToolExportFilename(fileName);
+	if (!scope || !generatedAt) {
+		return undefined;
+	}
+	return {
+		fileName,
+		path,
+		generatedAt,
+		scope,
+		runCount: toNonNegativeInt(metadata.runs),
+	};
+}
+
+function parseToolHistoryExportMetadata(
+	content: string,
+): Record<string, string> {
+	const metadata: Record<string, string> = {};
+	for (const line of content.split(/\r?\n/).slice(0, 8)) {
+		const match = /^([A-Za-z][A-Za-z0-9]*)=(.*)$/.exec(line);
+		if (match) {
+			metadata[match[1]] = match[2] ?? "";
+		}
+	}
+	return metadata;
+}
+
+function isPicosToolHistoryExportFilename(fileName: string): boolean {
+	return /^picos-tools-(selected|all)-\d{4}-\d{2}-\d{2}T\d{9}Z\.md$/.test(
+		fileName,
+	);
+}
+
+function generatedAtFromToolExportFilename(
+	fileName: string,
+): string | undefined {
+	const match =
+		/^picos-tools-(?:selected|all)-(\d{4}-\d{2}-\d{2}T\d{6}\d{3}Z)\.md$/.exec(
+			fileName,
+		);
+	if (!match?.[1]) {
+		return undefined;
+	}
+	const value = match[1];
+	return `${value.slice(0, 13)}:${value.slice(13, 15)}:${value.slice(15, 17)}.${value.slice(17, 20)}Z`;
+}
+
+function toToolHistoryExportScope(
+	value: string | undefined,
+): ToolHistoryExportScope | undefined {
+	return value === "selected" || value === "all" ? value : undefined;
+}
+
+function toNonNegativeInt(value: string | undefined): number {
+	const parsed = Number.parseInt(value ?? "0", 10);
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 function getToolHistoryStatusRank(status: ToolHistoryItem["status"]): number {

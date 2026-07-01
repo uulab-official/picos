@@ -13,8 +13,10 @@ import {
 	createToolTargetCleanupPreview,
 	filterToolHistory,
 	formatToolHistoryExport,
+	formatToolHistoryExportIndexRows,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getSelectedToolHistoryExport,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSectionClipboardPreview,
@@ -34,6 +36,7 @@ import {
 	nextToolSectionClipboardSelection,
 	normalizeToolTargetPresets,
 	promoteToolTargetPreset,
+	readToolHistoryExportIndex,
 	reassignToolTargetPresetAction,
 	removeToolTargetPreset,
 	removeToolTargetPresetsByAction,
@@ -2091,6 +2094,63 @@ describe("TUI tool history", () => {
 			expect(await readFile(written.path, "utf8")).toContain(
 				"tools.dns example.com",
 			);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("indexes picos-owned tool history evidence files", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-tools-index-"));
+		try {
+			const history = appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result,
+				},
+				"12:00:00",
+			);
+			const selectedPlan = createToolHistoryExportPlan(history, 0, {
+				baseDir: root,
+				scope: "selected",
+				generatedAt: new Date("2026-06-30T04:00:00.000Z"),
+			});
+			const allPlan = createToolHistoryExportPlan(history, 0, {
+				baseDir: root,
+				scope: "all",
+				generatedAt: new Date("2026-06-30T04:01:00.000Z"),
+			});
+			if (!selectedPlan || !allPlan) {
+				throw new Error("expected tool history export plans");
+			}
+			await writeToolHistoryExport(selectedPlan);
+			await writeToolHistoryExport(allPlan);
+
+			const index = await readToolHistoryExportIndex(root);
+
+			expect(index.baseDir).toBe(join(root, "tools"));
+			expect(index.items.map((item) => item.scope)).toEqual([
+				"all",
+				"selected",
+			]);
+			expect(index.items[0]).toMatchObject({
+				fileName: "picos-tools-all-2026-06-30T040100000Z.md",
+				generatedAt: "2026-06-30T04:01:00.000Z",
+				scope: "all",
+				runCount: 1,
+			});
+			expect(getSelectedToolHistoryExport(index, 99)?.scope).toBe("selected");
+			expect(formatToolHistoryExportIndexRows(index, 0, 4)).toEqual([
+				`TOOLS EVIDENCE 2 base=${join(root, "tools")}`,
+				"> all runs=1 2026-06-30T04:01:00.000Z picos-tools-all-2026-06-30T040100000Z.md",
+				"  selected runs=1 2026-06-30T04:00:00.000Z picos-tools-selected-2026-06-30T040000000Z.md",
+				`open target=${allPlan.path}`,
+			]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}

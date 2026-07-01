@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.211 - Tools Evidence Index
+
+Status: draft PR [#273](https://github.com/uulab-official/picos/pull/273) on `codex/picos-v0.4.211-tools-evidence-index`.
+
+Goal: close more lazyifconfig raw-output parity by making Tools Hub exports recoverable as picos-owned evidence, not one-off files.
+
+- Tools history selected/all exports are now indexed from the picos config `tools/` directory.
+- The Tools evidence index reads picos-owned `picos-tools-selected-*` and `picos-tools-all-*` markdown files, preserves generated time, scope, run count, filename, and path, and sorts newest first.
+- Status Evidence now includes a `tools` family alongside handoff, audit, audit archive, cleanup, and cleanup archive evidence.
+- `Tab`, `1..9`, `[`/`]`, and `enter` can focus/select/open Tools evidence rows through the same Status Evidence model.
+- Active Tools evidence opens through the locked `:file-open` confirmation with a `tools-export` source and picos-owned path validation.
+- Tools exports refresh the Tools evidence index immediately after writing and focus the Status Evidence `tools` family.
+- Tests cover Tools export indexing, Status Evidence integration, and locked file-open planning for Tools evidence.
+- Next: add archive/retention controls for Tools evidence exports and surface them in Status Activity copy/result history.
+
 ## v0.4.210 - Editor Save Evidence Panel
 
 Status: draft PR [#272](https://github.com/uulab-official/picos/pull/272) on `codex/picos-v0.4.210-editor-save-evidence`.
@@ -12,7 +27,7 @@ Goal: make policy-gated Editor saves visible inside the terminal OS surface and 
 - Successful `editor save ... status=saved` records now classify as Timeline audit events, not generic action rows.
 - Timeline search now supports both exact substring matches and token-based matches, so `editor save status=saved` finds rows even when a path sits between the words.
 - Tests cover result-row formatting and successful editor-save audit search recovery.
-- Next: add a compact Editor command/result history shelf plus save-result export into picos-owned evidence files.
+- Next: Tools evidence indexing moved into v0.4.211; editor save export remains a follow-up.
 
 ## v0.4.209 - Editor Save Execution Gate
 
