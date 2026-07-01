@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
+	createStatusEvidenceNumberJumpPlan,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
+	formatStatusEvidenceIndexRows,
 	moveStatusEvidenceFocus,
 } from "../src/tui/statusEvidence";
 
@@ -419,6 +421,43 @@ describe("Status evidence detail rows", () => {
 			"> enter=open/J archive=- retention=m/M",
 			"target=audit-archive all events=7",
 		]);
+	});
+
+	test("formats indexed evidence family jump rows", () => {
+		expect(
+			formatStatusEvidenceIndexRows(populatedIndexes, selection, "audit"),
+		).toEqual([
+			"EVIDENCE INDEX 1..3",
+			"1 handoff route routes/table",
+			">2 audit selected events=1 query=control",
+			"3 cleanup selected entries=2",
+		]);
+	});
+
+	test("creates number jump plans for available evidence families", () => {
+		expect(
+			createStatusEvidenceNumberJumpPlan(populatedIndexes, selection, "1"),
+		).toEqual({
+			kind: "handoff",
+			shortcut: "1",
+			label: "handoff route routes/table",
+		});
+		expect(
+			createStatusEvidenceNumberJumpPlan(populatedIndexes, selection, "3"),
+		).toEqual({
+			kind: "cleanup",
+			shortcut: "3",
+			label: "cleanup selected entries=2",
+		});
+	});
+
+	test("ignores number jumps outside the available evidence index", () => {
+		expect(
+			createStatusEvidenceNumberJumpPlan(populatedIndexes, selection, "4"),
+		).toBeUndefined();
+		expect(
+			createStatusEvidenceNumberJumpPlan(populatedIndexes, selection, "0"),
+		).toBeUndefined();
 	});
 
 	test("keeps the command strip useful when no evidence is indexed", () => {
