@@ -2644,6 +2644,19 @@ Goal: keep recent Status activity enter outcomes readable in Status without requ
 - Tests cover populated result rows and empty result rows.
 - Next: add bounded activity result history so the last few Status activity actions remain visible across rapid keyboard operations.
 
+## v0.4.136 - Status Activity Result History
+
+Status: draft PR [#198](https://github.com/uulab-official/picos/pull/198) on `codex/picos-v0.4.136-status-activity-result-history`.
+
+Goal: make rapid Status activity actions auditable in-place by keeping the last few outcomes visible without opening Timeline.
+
+- Status Activity now appends each source `enter` outcome into a bounded newest-first result history.
+- `STATUS ACTIVITY RESULT HISTORY` shows the count, source, action, message, and optional detail for recent activity outcomes.
+- Status keeps the latest result row while adding history rows directly below it, so both the current action and recent trail stay near the activity cursor.
+- Evidence fallback handoffs now record the cleanup handoff detail in the same activity result history.
+- Tests cover bounded newest-first history, detail rows, and empty history formatting.
+- Next: add keyboard selection/copy for Status activity result history rows so operators can reuse recent action details without opening Timeline.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

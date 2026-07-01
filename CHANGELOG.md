@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity now keeps a bounded `STATUS ACTIVITY RESULT HISTORY` so rapid `enter` actions remain visible after the latest result changes.
 - Status Activity now shows a `STATUS ACTIVITY RESULT` row after source `enter` actions so release, dialog, cleanup, and evidence outcomes remain visible in Status.
 - Status Activity `enter` now follows the selected source: cycling release handoff links, surfacing dialog confirmations, jumping cleanup shelves, or running the active evidence enter action.
 - Status Activity now has a `STATUS ACTIVITY DETAIL` cursor; `,` and `.` move across release, dialog, cleanup, and evidence sources without leaving Status.

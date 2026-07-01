@@ -359,9 +359,11 @@ import {
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
+	appendStatusActivityResultHistory,
 	createStatusActivityEnterPlan,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
+	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	moveStatusActivitySource,
 	type StatusActivityResult,
@@ -569,8 +571,9 @@ export function App(): React.ReactElement {
 	const [fileOpenPlan, setFileOpenPlan] = useState<FileOpenPlan>();
 	const [selectedStatusActivitySource, setSelectedStatusActivitySource] =
 		useState<StatusActivitySource>("release");
-	const [statusActivityResult, setStatusActivityResult] =
-		useState<StatusActivityResult>();
+	const [statusActivityResults, setStatusActivityResults] = useState<
+		StatusActivityResult[]
+	>([]);
 	const [selectedStatusEvidenceKind, setSelectedStatusEvidenceKind] =
 		useState<StatusEvidenceKind>("handoff");
 	const [events, setEvents] = useState<ConsoleEvent[]>([
@@ -908,6 +911,14 @@ export function App(): React.ReactElement {
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
 	}, []);
+	const recordStatusActivityResult = useCallback(
+		(result: StatusActivityResult) => {
+			setStatusActivityResults((history) =>
+				appendStatusActivityResultHistory(history, result),
+			);
+		},
+		[],
+	);
 
 	const syncConfigSessionState = useCallback((config: PicosConfig) => {
 		setAuditArchiveRetentionLimit(config.auditArchiveRetentionLimit);
@@ -4817,7 +4828,7 @@ export function App(): React.ReactElement {
 						log("info", `update handoff selected ${links[next].label}`);
 						return next;
 					});
-					setStatusActivityResult({
+					recordStatusActivityResult({
 						...activityEnterPlan,
 						detail: "release handoff link cycled",
 					});
@@ -4825,7 +4836,7 @@ export function App(): React.ReactElement {
 					return;
 				}
 				case "show-dialog":
-					setStatusActivityResult(activityEnterPlan);
+					recordStatusActivityResult(activityEnterPlan);
 					log("info", activityEnterPlan.message);
 					return;
 				case "jump-cleanup": {
@@ -4839,7 +4850,7 @@ export function App(): React.ReactElement {
 					}
 					setCleanupJumpAudit(createCleanupJumpAudit(shelf));
 					setScreen(shelf.screen);
-					setStatusActivityResult({
+					recordStatusActivityResult({
 						...activityEnterPlan,
 						detail: `cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
 					});
@@ -4851,7 +4862,7 @@ export function App(): React.ReactElement {
 					return;
 				}
 				case "none":
-					setStatusActivityResult(activityEnterPlan);
+					recordStatusActivityResult(activityEnterPlan);
 					log("warn", activityEnterPlan.message);
 					return;
 				case "enter-evidence":
@@ -4899,7 +4910,7 @@ export function App(): React.ReactElement {
 					"info",
 					`status evidence enter ${evidenceEnterPlan.action} ${evidenceEnterPlan.shortcut} ${evidenceEnterPlan.label}`,
 				);
-				setStatusActivityResult({
+				recordStatusActivityResult({
 					...activityEnterPlan,
 					detail: `${evidenceEnterPlan.action} ${evidenceEnterPlan.shortcut} ${evidenceEnterPlan.label}`,
 				});
@@ -4915,6 +4926,10 @@ export function App(): React.ReactElement {
 			}
 			setCleanupJumpAudit(createCleanupJumpAudit(shelf));
 			setScreen(shelf.screen);
+			recordStatusActivityResult({
+				...activityEnterPlan,
+				detail: `cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
+			});
 			log(
 				"info",
 				`cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
@@ -6457,7 +6472,7 @@ export function App(): React.ReactElement {
 					cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 					selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 					selectedStatusActivitySource={selectedStatusActivitySource}
-					statusActivityResult={statusActivityResult}
+					statusActivityResults={statusActivityResults}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -6675,7 +6690,7 @@ function MainWorkspace({
 	cleanupExportArchiveIndex: _cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex: _selectedCleanupExportArchiveIndex,
 	selectedStatusActivitySource,
-	statusActivityResult,
+	statusActivityResults,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -6794,7 +6809,7 @@ function MainWorkspace({
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
 	selectedStatusActivitySource: StatusActivitySource;
-	statusActivityResult?: StatusActivityResult;
+	statusActivityResults: StatusActivityResult[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -6991,7 +7006,7 @@ function MainWorkspace({
 						_cleanupExportArchiveIndex,
 						_selectedCleanupExportArchiveIndex,
 						selectedStatusActivitySource,
-						statusActivityResult,
+						statusActivityResults,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -7115,7 +7130,7 @@ function renderWorkspace(
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex,
 	selectedCleanupExportArchiveIndex: number,
 	selectedStatusActivitySource: StatusActivitySource,
-	statusActivityResult: StatusActivityResult | undefined,
+	statusActivityResults: StatusActivityResult[],
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -7383,7 +7398,7 @@ function renderWorkspace(
 				cleanupExportArchiveIndex={cleanupExportArchiveIndex}
 				selectedCleanupExportArchiveIndex={selectedCleanupExportArchiveIndex}
 				selectedStatusActivitySource={selectedStatusActivitySource}
-				statusActivityResult={statusActivityResult}
+				statusActivityResults={statusActivityResults}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
 				t={t}
@@ -9561,7 +9576,7 @@ function StatusWorkspace({
 	cleanupExportArchiveIndex,
 	selectedCleanupExportArchiveIndex,
 	selectedStatusActivitySource,
-	statusActivityResult,
+	statusActivityResults,
 	selectedStatusEvidenceKind,
 	commandLine,
 	t,
@@ -9589,7 +9604,7 @@ function StatusWorkspace({
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	selectedCleanupExportArchiveIndex: number;
 	selectedStatusActivitySource: StatusActivitySource;
-	statusActivityResult?: StatusActivityResult;
+	statusActivityResults: StatusActivityResult[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
 	t: (key: string) => string;
@@ -9789,9 +9804,9 @@ function StatusWorkspace({
 						{row}
 					</Text>
 				))}
-				{formatStatusActivityResultRows(statusActivityResult).map((row) => (
+				{formatStatusActivityResultRows(statusActivityResults[0]).map((row) => (
 					<Text
-						key={row}
+						key={`latest-${row}`}
 						color={
 							row.startsWith("STATUS ACTIVITY RESULT")
 								? "cyan"
@@ -9805,6 +9820,26 @@ function StatusWorkspace({
 						{row}
 					</Text>
 				))}
+				{formatStatusActivityResultHistoryRows(statusActivityResults).map(
+					(row) => (
+						<Text
+							key={`history-${row}`}
+							color={
+								row.startsWith("STATUS ACTIVITY RESULT HISTORY")
+									? "cyan"
+									: row.startsWith(">")
+										? "yellow"
+										: row.startsWith("no ")
+											? "gray"
+											: row.startsWith("    ")
+												? "gray"
+												: "white"
+							}
+						>
+							{row}
+						</Text>
+					),
+				)}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">STATUS RELEASE · n link · c copy · o open</Text>

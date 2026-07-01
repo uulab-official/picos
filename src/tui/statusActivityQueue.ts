@@ -179,6 +179,38 @@ export function formatStatusActivityResultRows(
 	];
 }
 
+export function appendStatusActivityResultHistory(
+	history: StatusActivityResult[],
+	result: StatusActivityResult,
+	limit = 3,
+): StatusActivityResult[] {
+	return [result, ...history].slice(0, Math.max(1, limit));
+}
+
+export function formatStatusActivityResultHistoryRows(
+	history: StatusActivityResult[],
+): string[] {
+	if (history.length === 0) {
+		return [
+			"STATUS ACTIVITY RESULT HISTORY count=0",
+			"no Status activity result history yet",
+		];
+	}
+	return [
+		`STATUS ACTIVITY RESULT HISTORY count=${history.length}`,
+		...history.flatMap((result, index) => {
+			const marker = index === 0 ? "> " : "  ";
+			const rows = [
+				`${marker}${result.source} ${result.action} ${result.message}`,
+			];
+			if (result.detail) {
+				rows.push(`    ${result.detail}`);
+			}
+			return rows;
+		}),
+	];
+}
+
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
 	return STATUS_ACTIVITY_QUEUE_SOURCES.map((source) => ({
 		key: source.key,
