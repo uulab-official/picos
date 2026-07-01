@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Palette-triggered Status result jump select/open actions now also append compact `STATUS ACTIVITY RESULT HISTORY` rows with selected cursor, Status row, filter/query, and open match count.
 - Palette-triggered Status result Timeline jump select/open actions now leave searchable Timeline audit rows with selected row, filter, query, and match count.
 - `STATUS RESULT TIMELINE JUMPS` now prints an inline command-palette hint for `result jump`, `timeline result open`, and `result select`.
 - Command palette now exposes Status result Timeline jump select/open actions via `result jump`, `timeline result open`, and `result select` searches.

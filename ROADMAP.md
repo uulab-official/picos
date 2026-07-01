@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.201 - Status Result Palette Result History
+
+Status: draft PR [#263](https://github.com/uulab-official/picos/pull/263) on `codex/picos-v0.4.201-status-result-palette-result`.
+
+Goal: mirror palette-triggered Status result jump evidence in Status Activity result history.
+
+- Palette result jump select/open now records a compact Status Activity result row.
+- Rows show selected cursor, Status result row number, filter/search, and open match count.
+- Unavailable palette result jumps stay visible as timeline/unavailable result rows.
+- Status history now mirrors Timeline audit evidence for palette result jump operations.
+- Tests cover current result rows, history rows, and unavailable states.
+- Next: add direct Status result-history filtering for palette result jump rows so operators can narrow the list without scanning all activity.
+
 ## v0.4.200 - Status Result Palette Audit
 
 Status: draft PR [#262](https://github.com/uulab-official/picos/pull/262) on `codex/picos-v0.4.200-status-result-palette-audit`.
@@ -11,7 +24,7 @@ Goal: make command-palette Status result jump operations leave searchable Timeli
 - Unavailable palette result jumps emit a structured unavailable audit row instead of disappearing into a warning only.
 - Timeline audit search now surfaces palette-triggered Status result jump rows.
 - Tests cover audit message formatting, unavailable rows, and Timeline audit search rendering.
-- Next: add a compact Status Activity result row for palette result jump operations so the Status result history mirrors Timeline audit evidence.
+- Next: compact Status Activity result rows moved into v0.4.201.
 
 ## v0.4.199 - Status Result Palette Hints
 

@@ -372,6 +372,7 @@ import {
 	createStatusActivityEnterPlan,
 	createStatusActivityResultAuditJumpReplayWarningSummary,
 	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
+	createStatusActivityResultTimelineJumpPaletteResult,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
@@ -3190,6 +3191,9 @@ export function App(): React.ReactElement {
 								"select",
 							),
 						);
+						recordStatusActivityResult(
+							createStatusActivityResultTimelineJumpPaletteResult("select"),
+						);
 					}
 					return current;
 				}
@@ -3205,6 +3209,9 @@ export function App(): React.ReactElement {
 							formatStatusActivityResultTimelineJumpPaletteAuditMessage(
 								"select",
 							),
+						);
+						recordStatusActivityResult(
+							createStatusActivityResultTimelineJumpPaletteResult("select"),
 						);
 					}
 					return current;
@@ -3230,11 +3237,19 @@ export function App(): React.ReactElement {
 							},
 						),
 					);
+					recordStatusActivityResult(
+						createStatusActivityResultTimelineJumpPaletteResult("select", {
+							historyIndex: next,
+							jump,
+							selectedIndex: selection?.selectedIndex,
+							total: selection?.total,
+						}),
+					);
 				}
 				return next;
 			});
 		},
-		[log, statusActivityResults],
+		[log, recordStatusActivityResult, statusActivityResults],
 	);
 
 	const openSelectedStatusActivityResultTimelineJump = useCallback(
@@ -3265,6 +3280,9 @@ export function App(): React.ReactElement {
 					log(
 						"info",
 						formatStatusActivityResultTimelineJumpPaletteAuditMessage("open"),
+					);
+					recordStatusActivityResult(
+						createStatusActivityResultTimelineJumpPaletteResult("open"),
 					);
 				}
 				return;
@@ -3301,12 +3319,22 @@ export function App(): React.ReactElement {
 						total: selection?.total,
 					}),
 				);
+				recordStatusActivityResult(
+					createStatusActivityResultTimelineJumpPaletteResult("open", {
+						historyIndex: selectedStatusActivityResultIndex,
+						jump,
+						matches: filtered.length,
+						selectedIndex: selection?.selectedIndex,
+						total: selection?.total,
+					}),
+				);
 			}
 		},
 		[
 			events,
 			latestStatusActivityResultAuditJumpIntent,
 			log,
+			recordStatusActivityResult,
 			selectedStatusActivityResultAuditJumpIndex,
 			selectedStatusActivityResultIndex,
 			statusActivityCopyIntentHistory,
