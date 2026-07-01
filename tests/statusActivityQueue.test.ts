@@ -8,6 +8,7 @@ import {
 	appendStatusActivityResultHistory,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
+	createStatusActivityCopyIntentEvidenceFocusPlan,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
@@ -465,12 +466,12 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=2 selected=2/2",
 			"  status activity dialog show-dialog row=1 expanded=false lines=2 preview=dialog show-dialog",
 			"> status activity cleanup jump-cleanup row=4 expanded=true lines=3 preview=cleanup jump-cleanup",
-			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 		expect(formatStatusActivityCopyIntentRows([])).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · z open export · g Timeline audit search",
 		]);
 	});
 
@@ -492,7 +493,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"z target=picos-audit-selected-2026-07-01T030000000Z.log evidence=2 query=status activity cleanup jump-cleanup events=1",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · v replay · e export · z open export · g Timeline audit search",
+			"controls=y records intent · </> select · v replay · e export · w Evidence focus · z open export · g Timeline audit search",
 		]);
 	});
 
@@ -750,6 +751,58 @@ describe("Status activity queue", () => {
 		).toBe(1);
 		expect(
 			getStatusActivityCopyIntentAuditExportIndex(index, {
+				path: "/Users/bonjin/.config/picos/audit/missing.log",
+				content: "",
+				eventCount: 0,
+				query: "status activity missing",
+				scope: "selected",
+			}),
+		).toBeUndefined();
+	});
+
+	test("creates status activity copy intent evidence focus plans", () => {
+		const index: ConsoleAuditExportIndex = {
+			baseDir: "/Users/bonjin/.config/picos",
+			items: [
+				{
+					fileName: "picos-audit-selected-2026-07-01T040000000Z.log",
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log",
+					generatedAt: "2026-07-01T04:00:00.000Z",
+					scope: "selected",
+					query: "tools ping google.com",
+					entryCount: 1,
+				},
+				{
+					fileName: "picos-audit-selected-2026-07-01T030000000Z.log",
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+					generatedAt: "2026-07-01T03:00:00.000Z",
+					scope: "selected",
+					query: "status activity cleanup jump-cleanup",
+					entryCount: 1,
+				},
+			],
+		};
+
+		expect(
+			createStatusActivityCopyIntentEvidenceFocusPlan(index, {
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				content: "",
+				eventCount: 1,
+				query: "status activity cleanup jump-cleanup",
+				scope: "selected",
+			}),
+		).toEqual({
+			kind: "audit",
+			selectedIndex: 1,
+			itemCount: 2,
+			shortcut: "w",
+			label: "picos-audit-selected-2026-07-01T030000000Z.log",
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			message:
+				"status activity copy intent evidence focus audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+		});
+		expect(
+			createStatusActivityCopyIntentEvidenceFocusPlan(index, {
 				path: "/Users/bonjin/.config/picos/audit/missing.log",
 				content: "",
 				eventCount: 0,

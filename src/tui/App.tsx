@@ -364,6 +364,7 @@ import {
 	appendStatusActivityResultHistory,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
+	createStatusActivityCopyIntentEvidenceFocusPlan,
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
@@ -4856,6 +4857,26 @@ export function App(): React.ReactElement {
 				"info",
 				`status activity copy intent export open confirmation opened for ${lastStatusActivityCopyIntentAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
 			);
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "w") {
+			if (!lastStatusActivityCopyIntentAuditExport) {
+				log("warn", "no status activity copy intent export to focus");
+				return;
+			}
+			const focusPlan = createStatusActivityCopyIntentEvidenceFocusPlan(
+				auditExportIndex,
+				lastStatusActivityCopyIntentAuditExport,
+			);
+			if (!focusPlan) {
+				log("warn", "status activity copy intent evidence unavailable");
+				return;
+			}
+			setSelectedAuditExportIndex(focusPlan.selectedIndex);
+			setSelectedStatusEvidenceKind(focusPlan.kind);
+			setScreen("status");
+			log("info", focusPlan.message);
 			return;
 		}
 

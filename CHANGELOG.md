@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy-intent shelves now support `w` to focus the matching Status Evidence audit row without opening a file prompt.
 - Status Activity copy-intent shelves now show a `z evidence=` row hint when the latest export matches a Status Evidence audit row.
 - Status Activity copy-intent export opens now sync the Status Evidence audit selection to the same export file before opening the locked file-open prompt.
 - Status Activity copy intent shelves now show the restored `z` export target file, query, and event count before opening the locked file-open prompt.
