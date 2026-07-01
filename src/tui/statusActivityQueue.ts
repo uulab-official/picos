@@ -558,6 +558,17 @@ export function getLatestStatusActivityCopyIntentAuditExport(
 	};
 }
 
+export function getStatusActivityCopyIntentAuditExportIndex(
+	index: ConsoleAuditExportIndex,
+	plan: ConsoleAuditExportPlan | undefined,
+): number | undefined {
+	if (!plan) {
+		return undefined;
+	}
+	const found = index.items.findIndex((item) => item.path === plan.path);
+	return found >= 0 ? found : undefined;
+}
+
 function getStatusActivityEntries(input: StatusActivityQueueInput) {
 	return STATUS_ACTIVITY_QUEUE_SOURCES.map((source) => ({
 		key: source.key,
