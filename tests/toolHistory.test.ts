@@ -9,6 +9,7 @@ import {
 	archiveToolHistoryExport,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
+	createToolHistoryCompareExportPlan,
 	createToolHistoryExportArchivePlan,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
@@ -21,6 +22,7 @@ import {
 	formatToolHistoryExportIndexRows,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getSelectedToolCompareClipboardPreview,
 	getSelectedToolHistoryExport,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
@@ -239,7 +241,7 @@ describe("TUI tool history", () => {
 			"> Default ping google.com default reachability target",
 			"  Gateway ping 192.168.0.1 primary gateway",
 			"  DNS server 1 1.1.1.1 resolver check",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 	});
 
@@ -359,7 +361,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 	});
 
@@ -440,12 +442,12 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
 			"TOOLS history=2 filter=missing matches=0 selected=-",
 			"no matching tool runs",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 		expect(
 			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
@@ -504,7 +506,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 	});
 
@@ -554,7 +556,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(history, 7, 0, "", "time", "status"),
@@ -593,7 +595,7 @@ describe("TUI tool history", () => {
 		).toEqual([
 			"TOOLS history=0 presets=connect,fail,dns selected=-",
 			"no tool runs yet",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 	});
 
@@ -1129,7 +1131,7 @@ describe("TUI tool history", () => {
 			"command=picos tools dns example.com",
 			"copy help: b row=- · v section=- · c raw=ok · y summary=ok",
 			"copy hint: b/v need TCP Target or Status rows; use c raw or y summary",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(
@@ -1243,6 +1245,99 @@ describe("TUI tool history", () => {
 				"compare",
 			),
 		).toContain("no previous matching tool run");
+	});
+
+	test("creates locked compare clipboard previews and export plans", () => {
+		const history = appendToolHistory(
+			appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.dns",
+						toolId: "dns",
+						args: ["example.com"],
+						label: "tools.dns example.com",
+					},
+					result: {
+						...result,
+						rawOutput:
+							"$ picos tools dns example.com\n[Summary]\nQuery: example.com\nA: 2",
+					},
+				},
+				"12:00:00",
+			),
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result: {
+					...result,
+					rawOutput:
+						"$ picos tools dns example.com\n[Summary]\nQuery: example.com\nA: 2\nAAAA: 1",
+				},
+			},
+			"12:00:02",
+		);
+
+		expect(getSelectedToolCompareClipboardPreview(history, 1)).toEqual({
+			source: "tool-compare",
+			label: "tools.dns example.com compare",
+			copyText: [
+				"DETAIL compare",
+				"current=12:00:02 ok tools.dns example.com",
+				"previous=12:00:00 ok tools.dns example.com",
+				"status=unchanged ok",
+				"summary=unchanged",
+				"raw lines current=5 previous=4 delta=+1",
+				"+ AAAA: 1",
+				"compare key=tools.dns example.com",
+			].join("\n"),
+			details: [
+				"path o compare",
+				"previous 12:00:00 ok tools.dns example.com",
+				"tool dns",
+				"action tools.dns",
+			],
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(
+			createToolHistoryCompareExportPlan(history, 1, {
+				baseDir: "/Users/bonjin/.config/picos",
+				generatedAt: new Date("2026-07-01T05:00:00.000Z"),
+			}),
+		).toEqual({
+			path: "/Users/bonjin/.config/picos/tools/picos-tools-compare-2026-07-01T050000000Z.md",
+			content: [
+				"# picos tools compare",
+				"generatedAt=2026-07-01T05:00:00.000Z",
+				"scope=compare",
+				"runs=1",
+				"",
+				"## tools.dns example.com",
+				"DETAIL compare",
+				"current=12:00:02 ok tools.dns example.com",
+				"previous=12:00:00 ok tools.dns example.com",
+				"status=unchanged ok",
+				"summary=unchanged",
+				"raw lines current=5 previous=4 delta=+1",
+				"+ AAAA: 1",
+				"compare key=tools.dns example.com",
+				"",
+			].join("\n"),
+			itemCount: 1,
+			scope: "compare",
+		});
+		expect(getSelectedToolCompareClipboardPreview([], 0)).toBeUndefined();
+		expect(
+			createToolHistoryCompareExportPlan([], 0, {
+				baseDir: "/Users/bonjin/.config/picos",
+			}),
+		).toBeUndefined();
 	});
 
 	test("formats active tool target prompt rows", () => {
@@ -1515,7 +1610,7 @@ describe("TUI tool history", () => {
 		).toEqual([
 			"TOOLS history=0 selected=-",
 			"no tool runs yet",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=status · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · v copy section · c raw",
 		]);
 	});
 
@@ -1626,7 +1721,7 @@ describe("TUI tool history", () => {
 				1,
 			).at(-1),
 		).toBe(
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
 		);
 	});
 
@@ -1746,7 +1841,7 @@ describe("TUI tool history", () => {
 			"copy target: section=status rows=2 row=2 text=Elapsed: 42ms",
 		);
 		expect(rows.at(-1)).toBe(
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
+			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
 		);
 	});
 
@@ -2225,31 +2320,38 @@ describe("TUI tool history", () => {
 				scope: "all",
 				generatedAt: new Date("2026-06-30T04:01:00.000Z"),
 			});
-			if (!selectedPlan || !allPlan) {
+			const comparePlan = createToolHistoryCompareExportPlan(history, 0, {
+				baseDir: root,
+				generatedAt: new Date("2026-06-30T04:02:00.000Z"),
+			});
+			if (!selectedPlan || !allPlan || !comparePlan) {
 				throw new Error("expected tool history export plans");
 			}
 			await writeToolHistoryExport(selectedPlan);
 			await writeToolHistoryExport(allPlan);
+			await writeToolHistoryExport(comparePlan);
 
 			const index = await readToolHistoryExportIndex(root);
 
 			expect(index.baseDir).toBe(join(root, "tools"));
 			expect(index.items.map((item) => item.scope)).toEqual([
+				"compare",
 				"all",
 				"selected",
 			]);
 			expect(index.items[0]).toMatchObject({
-				fileName: "picos-tools-all-2026-06-30T040100000Z.md",
-				generatedAt: "2026-06-30T04:01:00.000Z",
-				scope: "all",
+				fileName: "picos-tools-compare-2026-06-30T040200000Z.md",
+				generatedAt: "2026-06-30T04:02:00.000Z",
+				scope: "compare",
 				runCount: 1,
 			});
 			expect(getSelectedToolHistoryExport(index, 99)?.scope).toBe("selected");
-			expect(formatToolHistoryExportIndexRows(index, 0, 4)).toEqual([
-				`TOOLS EVIDENCE 2 base=${join(root, "tools")}`,
-				"> all runs=1 2026-06-30T04:01:00.000Z picos-tools-all-2026-06-30T040100000Z.md",
+			expect(formatToolHistoryExportIndexRows(index, 0, 5)).toEqual([
+				`TOOLS EVIDENCE 3 base=${join(root, "tools")}`,
+				"> compare runs=1 2026-06-30T04:02:00.000Z picos-tools-compare-2026-06-30T040200000Z.md",
+				"  all runs=1 2026-06-30T04:01:00.000Z picos-tools-all-2026-06-30T040100000Z.md",
 				"  selected runs=1 2026-06-30T04:00:00.000Z picos-tools-selected-2026-06-30T040000000Z.md",
-				`open target=${allPlan.path}`,
+				`open target=${comparePlan.path}`,
 			]);
 		} finally {
 			await rm(root, { recursive: true, force: true });
