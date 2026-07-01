@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Recovered Timeline Evidence trail detail rows now show `source=evidence` or `source=palette` so restored trail exports reveal where they came from.
 - Timeline selected audit exports created from `palette timeline trail` searches now recover as Timeline Evidence trail exports after audit index refresh or restart.
 - Command palette recovered Timeline Evidence trail select/open/search actions now emit searchable Timeline audit events.
 - Command palette recovered Timeline Evidence trail select/open/search actions now record Status Activity result history rows.

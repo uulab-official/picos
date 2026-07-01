@@ -3041,6 +3041,18 @@ Goal: let palette trail audit events saved with Timeline `e` recover as trail ex
 - Tests cover persisted palette trail selected audit exports through the audit index and recovered shelf rows.
 - Next: surface the recovered trail query source in the detail row so operators can distinguish direct Timeline Evidence handoffs from palette audit exports.
 
+## v0.4.167 - Timeline Evidence Trail Source Detail
+
+Status: draft PR [#229](https://github.com/uulab-official/picos/pull/229) on `codex/picos-v0.4.167-timeline-trail-source-detail`.
+
+Goal: make recovered trail rows reveal whether they came from a direct Evidence handoff or a palette audit export.
+
+- Recovered trail detail rows now include `source=evidence` for direct `timeline evidence trail ...` selected exports.
+- Recovered trail detail rows now include `source=palette` for `palette timeline trail` selected exports.
+- Existing `L` locked file-open, `N` Timeline search, and `S` trail selection controls keep using the same selected export.
+- Tests cover both direct recovered trail rows and palette recovered trail rows.
+- Next: add a compact source filter for recovered trail lists once the shelf has enough mixed-source rows.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

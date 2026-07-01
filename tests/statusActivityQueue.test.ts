@@ -529,7 +529,7 @@ describe("Status activity queue", () => {
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log events=1",
-			"trail detail path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
+			"trail detail source=evidence path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · trail recovered · g Timeline audit search",
 		]);
@@ -567,7 +567,7 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"trail selected=2/2",
 			"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=timeline evidence trail picos-audit-selected-2026-07-01T030000000Z.log events=1",
-			"trail detail path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
+			"trail detail source=evidence path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T040000000Z.log actions=L open N search",
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · trail recovered · g Timeline audit search",
 		]);
@@ -1263,7 +1263,7 @@ describe("Status activity queue", () => {
 				"STATUS ACTIVITY COPY INTENTS count=0",
 				"trail selected=1/3",
 				"trail target=picos-audit-selected-2026-07-01T040000000Z.log query=palette timeline trail events=1",
-				`trail detail path=${palette.path} actions=L open N search`,
+				`trail detail source=palette path=${palette.path} actions=L open N search`,
 				"no Status activity copy intents yet",
 				"controls=y records intent · </> select · v replay · e export · w Evidence focus · G focus search · z open export · L open trail · N trail search · S trail select · trail recovered · g Timeline audit search",
 			]);
