@@ -361,6 +361,7 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityResultHistory,
 	createStatusActivityEnterPlan,
+	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
 	formatStatusActivityResultCopyPreviewRows,
@@ -4683,6 +4684,13 @@ export function App(): React.ReactElement {
 				log("warn", "no status activity result history to copy");
 				return;
 			}
+			log(
+				"info",
+				formatStatusActivityCopyIntentAuditMessage(preview, {
+					selectedRowIndex: selectedStatusActivityCopyPreviewRowIndex,
+					expanded: statusActivityCopyPreviewExpanded,
+				}),
+			);
 			openClipboardConfirmation(preview);
 			return;
 		}
