@@ -371,6 +371,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
@@ -4759,6 +4760,20 @@ export function App(): React.ReactElement {
 				filtered.length ? "info" : "warn",
 				`${jump.message} matches ${filtered.length}`,
 			);
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "v") {
+			const preview = getSelectedStatusActivityCopyIntentClipboardPreview(
+				statusActivityCopyIntentHistory,
+				selectedStatusActivityCopyIntentIndex,
+			);
+			if (!preview) {
+				log("warn", "no status activity copy intent to replay");
+				return;
+			}
+			log("info", `status activity copy intent replay ${preview.label}`);
+			openClipboardConfirmation(preview);
 			return;
 		}
 
@@ -9979,7 +9994,7 @@ function StatusWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					STATUS ACTIVITY · ,/. source · u/i history · ; preview · = expand · y
-					copy · &lt;/&gt; intents · g Timeline
+					copy · &lt;/&gt; intents · v replay · g Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,

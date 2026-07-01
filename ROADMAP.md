@@ -2734,6 +2734,19 @@ Goal: make Status copy-intent review actionable by selecting older intents and j
 - Tests cover copy-intent shelf movement, empty selection behavior, and Timeline search payload creation.
 - Next: let selected copy-intent rows reopen their matching locked clipboard preview or export a small audit handoff file from Status.
 
+## v0.4.143 - Status Activity Copy Intent Replay
+
+Status: draft PR [#205](https://github.com/uulab-official/picos/pull/205) on `codex/picos-v0.4.143-status-activity-copy-intent-replay`.
+
+Goal: let selected Status copy-intent rows reopen their original payload through the locked clipboard confirmation flow.
+
+- Status Activity copy-intent records now retain the original copy payload alongside audit metadata.
+- `v` from Status replays the selected `STATUS ACTIVITY COPY INTENTS` row into the existing `:clipboard` confirmation dialog.
+- Replayed previews include copy-intent selection metadata, selected row, expanded state, and line count while keeping the confirmation phrase locked to `copy`.
+- The Status activity header and copy-intent controls now document `v replay` beside `<`/`>` selection and `g` Timeline audit search.
+- Tests cover payload retention, selected replay preview shape, and empty replay behavior.
+- Next: export selected copy-intent rows as small audit handoff files from Status for durable review outside the live event buffer.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.
