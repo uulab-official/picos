@@ -85,6 +85,10 @@ describe("Status evidence detail rows", () => {
 				},
 			],
 		},
+		toolExportArchiveIndex: {
+			baseDir: "/tmp/picos/tools/archive",
+			items: [],
+		},
 	};
 
 	const selection = {
@@ -94,6 +98,7 @@ describe("Status evidence detail rows", () => {
 		selectedCleanupExportIndex: 0,
 		selectedCleanupExportArchiveIndex: 0,
 		selectedToolExportIndex: 0,
+		selectedToolExportArchiveIndex: 0,
 	};
 
 	test("summarizes selected evidence source, path, and controls", () => {
@@ -111,7 +116,7 @@ describe("Status evidence detail rows", () => {
 				"  controls=enter=open open V archive X/x retention=-",
 				"  tools selected runs=1 source=- scope=-",
 				"  path=/tmp/picos/tools/picos-tools-selected.md",
-				"  controls=enter=open open K archive=- retention=-",
+				"  controls=enter=open open K archive D/a retention=-",
 			],
 		);
 	});
@@ -199,6 +204,15 @@ describe("Status evidence detail rows", () => {
 			label: "cleanup selected entries=2",
 			path: "/tmp/picos/cleanup/picos-cleanup-selected.md",
 		});
+		expect(
+			createStatusEvidenceEnterPlan(populatedIndexes, selection, "tools"),
+		).toEqual({
+			kind: "tools",
+			action: "open-tools",
+			shortcut: "K",
+			label: "tools selected runs=1",
+			path: "/tmp/picos/tools/picos-tools-selected.md",
+		});
 	});
 
 	test("routes archived evidence enter actions to safe existing controls", () => {
@@ -230,6 +244,18 @@ describe("Status evidence detail rows", () => {
 					},
 				],
 			},
+			toolExportArchiveIndex: {
+				baseDir: "/tmp/picos/tools/archive",
+				items: [
+					{
+						fileName: "picos-tools-all.md",
+						path: "/tmp/picos/tools/archive/picos-tools-all.md",
+						scope: "all" as const,
+						runCount: 3,
+						generatedAt: "2026-07-01T06:00:00.000Z",
+					},
+				],
+			},
 		};
 
 		expect(
@@ -255,6 +281,18 @@ describe("Status evidence detail rows", () => {
 			action: "select-cleanup-archive",
 			shortcut: "{",
 			path: "/tmp/picos/cleanup/archive/picos-cleanup-all.md",
+		});
+		expect(
+			createStatusEvidenceEnterPlan(
+				archivedIndexes,
+				selection,
+				"tools-archive",
+			),
+		).toMatchObject({
+			kind: "tools-archive",
+			action: "open-tools-archive",
+			shortcut: "K",
+			path: "/tmp/picos/tools/archive/picos-tools-all.md",
 		});
 	});
 
@@ -323,9 +361,23 @@ describe("Status evidence detail rows", () => {
 			label: "cleanup selected entries=2",
 			path: "/tmp/picos/cleanup/picos-cleanup-selected.md",
 		});
+		expect(
+			createStatusEvidenceActionPlan(
+				populatedIndexes,
+				selection,
+				"tools",
+				"archive",
+			),
+		).toEqual({
+			kind: "tools",
+			action: "archive-tools",
+			shortcut: "D",
+			label: "tools selected runs=1",
+			path: "/tmp/picos/tools/picos-tools-selected.md",
+		});
 	});
 
-	test("creates retention plans only for archived audit evidence", () => {
+	test("creates retention plans for archived audit and tools evidence", () => {
 		const archivedIndexes = {
 			...populatedIndexes,
 			auditExportArchiveIndex: {
@@ -338,6 +390,18 @@ describe("Status evidence detail rows", () => {
 						scope: "all" as const,
 						entryCount: 7,
 						origin,
+					},
+				],
+			},
+			toolExportArchiveIndex: {
+				baseDir: "/tmp/picos/tools/archive",
+				items: [
+					{
+						fileName: "picos-tools-all.md",
+						path: "/tmp/picos/tools/archive/picos-tools-all.md",
+						scope: "all" as const,
+						runCount: 3,
+						generatedAt: "2026-07-01T06:00:00.000Z",
 					},
 				],
 			},
@@ -355,6 +419,19 @@ describe("Status evidence detail rows", () => {
 			action: "preview-audit-retention",
 			shortcut: "M",
 			path: "/tmp/picos/audit/archive/picos-audit-all.log",
+		});
+		expect(
+			createStatusEvidenceActionPlan(
+				archivedIndexes,
+				selection,
+				"tools-archive",
+				"retention",
+			),
+		).toMatchObject({
+			kind: "tools-archive",
+			action: "preview-tools-retention",
+			shortcut: "M",
+			path: "/tmp/picos/tools/archive/picos-tools-all.md",
 		});
 		expect(
 			createStatusEvidenceActionPlan(
@@ -513,7 +590,7 @@ describe("Status evidence detail rows", () => {
 			" 1 handoff        item=1/1 open=enter/O archive=a/A retention=- itemMove=- handoff route routes/table",
 			">2 audit          item=1/2 open=enter/W archive=a/Z retention=- itemMove=[/] audit selected events=1 query=control",
 			" 3 cleanup        item=1/1 open=enter/V archive=a/X retention=- itemMove=- cleanup selected entries=2",
-			" 4 tools          item=1/1 open=enter/K archive=- retention=- itemMove=- tools selected runs=1",
+			" 4 tools          item=1/1 open=enter/K archive=a/D retention=- itemMove=- tools selected runs=1",
 		]);
 	});
 
@@ -558,18 +635,31 @@ describe("Status evidence detail rows", () => {
 					},
 				],
 			},
+			toolExportArchiveIndex: {
+				baseDir: "/tmp/picos/tools/archive",
+				items: [
+					{
+						fileName: "picos-tools-archive.md",
+						path: "/tmp/picos/tools/archive/picos-tools-archive.md",
+						scope: "all" as const,
+						runCount: 5,
+						generatedAt: "2026-07-01T09:00:00.000Z",
+					},
+				],
+			},
 		};
 
 		expect(
 			formatStatusEvidenceSummaryRows(archivedIndexes, selection, "audit"),
 		).toEqual([
-			"STATUS EVIDENCE SUMMARY active=audit families=6 files=6",
+			"STATUS EVIDENCE SUMMARY active=audit families=7 files=7",
 			"  handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
 			"> audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
 			"  audit-archive   selected=1/1 open=enter/J archive=- retention=m/M move=-",
 			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- move=-",
 			"  cleanup-archive selected=1/1 open=enter/{ archive=- retention=- move=-",
-			"  tools           selected=1/1 open=enter/K archive=- retention=- move=-",
+			"  tools           selected=1/1 open=enter/K archive=a/D retention=- move=-",
+			"  tools-archive   selected=1/1 open=enter/K archive=- retention=m/M move=-",
 		]);
 	});
 
@@ -585,7 +675,7 @@ describe("Status evidence detail rows", () => {
 			"> handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
 			"  audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
 			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- move=-",
-			"  tools           selected=1/1 open=enter/K archive=- retention=- move=-",
+			"  tools           selected=1/1 open=enter/K archive=a/D retention=- move=-",
 		]);
 	});
 
@@ -601,7 +691,7 @@ describe("Status evidence detail rows", () => {
 			"  handoff         selected=1/1 refresh=H select=] open=O archive=A retention=-",
 			"> audit           selected=1/1 refresh=T select=) open=W archive=Z retention=-",
 			"  cleanup         selected=1/1 refresh=Y select=} open=V archive=X retention=-",
-			"  tools           selected=1/1 refresh=- select=] open=K archive=- retention=-",
+			"  tools           selected=1/1 refresh=- select=] open=K archive=D retention=-",
 		]);
 	});
 

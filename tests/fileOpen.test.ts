@@ -19,6 +19,8 @@ const timelineArchiveExportPath =
 	"/Users/me/.config/picos/audit/archive/picos-audit-selected-2026-07-01T030000000Z.log";
 const toolsExportPath =
 	"/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md";
+const archivedToolsExportPath =
+	"/Users/me/.config/picos/tools/archive/picos-tools-selected-2026-07-01T040000000Z.md";
 
 describe("external file open planning", () => {
 	test("builds locked opener plans only for files under the allowed base directory", () => {
@@ -121,6 +123,25 @@ describe("external file open planning", () => {
 			adapter: {
 				command: "open",
 				args: [toolsExportPath],
+			},
+		});
+		expect(
+			buildFileOpenPlan({
+				baseDir,
+				label: "archived tools export selected",
+				path: archivedToolsExportPath,
+				platform: "darwin",
+				source: "tools-export",
+			}),
+		).toMatchObject({
+			source: "tools-export",
+			label: "archived tools export selected",
+			path: archivedToolsExportPath,
+			enabled: false,
+			reason: "type open to launch external file viewer",
+			adapter: {
+				command: "open",
+				args: [archivedToolsExportPath],
 			},
 		});
 	});

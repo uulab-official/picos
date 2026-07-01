@@ -27,6 +27,7 @@ export type StatusEvidenceIndexes = {
 	cleanupExportIndex: CleanupHandoffHistoryExportIndex;
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	toolExportIndex?: ToolHistoryExportIndex;
+	toolExportArchiveIndex?: ToolHistoryExportIndex;
 };
 
 export type StatusEvidenceSelection = {
@@ -36,6 +37,7 @@ export type StatusEvidenceSelection = {
 	selectedCleanupExportIndex: number;
 	selectedCleanupExportArchiveIndex: number;
 	selectedToolExportIndex?: number;
+	selectedToolExportArchiveIndex?: number;
 };
 
 export type StatusEvidenceKind =
@@ -44,7 +46,8 @@ export type StatusEvidenceKind =
 	| "audit-archive"
 	| "cleanup"
 	| "cleanup-archive"
-	| "tools";
+	| "tools"
+	| "tools-archive";
 
 export type StatusEvidenceEnterAction =
 	| "open-handoff"
@@ -52,7 +55,8 @@ export type StatusEvidenceEnterAction =
 	| "open-audit-archive"
 	| "open-cleanup"
 	| "select-cleanup-archive"
-	| "open-tools";
+	| "open-tools"
+	| "open-tools-archive";
 
 export type StatusEvidenceSecondaryIntent = "archive" | "retention";
 
@@ -60,7 +64,9 @@ export type StatusEvidenceSecondaryAction =
 	| "archive-handoff"
 	| "archive-audit"
 	| "archive-cleanup"
-	| "preview-audit-retention";
+	| "archive-tools"
+	| "preview-audit-retention"
+	| "preview-tools-retention";
 
 export type StatusEvidenceEnterPlan = {
 	kind: StatusEvidenceKind;
@@ -523,6 +529,16 @@ function collectStatusEvidenceEntries(
 				getToolExportIndex(indexes),
 				getSelectedToolExportIndex(selection),
 			),
+			"tools",
+			"enter=open open K archive D/a retention=-",
+		),
+		formatToolsEvidence(
+			getSelectedToolHistoryExport(
+				getToolExportArchiveIndex(indexes),
+				getSelectedToolExportArchiveIndex(selection),
+			),
+			"tools-archive",
+			"enter=open open K archive=archived retention=M/m",
 		),
 	].filter((entry): entry is EvidenceEntry => Boolean(entry));
 }
@@ -595,9 +611,28 @@ function collectStatusEvidenceFamilyEntries(
 		case "tools":
 			return {
 				entries: getToolExportIndex(indexes)
-					.items.map(formatToolsEvidence)
+					.items.map((item) =>
+						formatToolsEvidence(
+							item,
+							"tools",
+							"enter=open open K archive D/a retention=-",
+						),
+					)
 					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
 				selectedIndex: getSelectedToolExportIndex(selection),
+			};
+		case "tools-archive":
+			return {
+				entries: getToolExportArchiveIndex(indexes)
+					.items.map((item) =>
+						formatToolsEvidence(
+							item,
+							"tools-archive",
+							"enter=open open K archive=archived retention=M/m",
+						),
+					)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex: getSelectedToolExportArchiveIndex(selection),
 			};
 	}
 }
@@ -609,6 +644,7 @@ const STATUS_EVIDENCE_KIND_ORDER: StatusEvidenceKind[] = [
 	"cleanup",
 	"cleanup-archive",
 	"tools",
+	"tools-archive",
 ];
 
 function createStatusEvidenceSummaryRow(
@@ -715,8 +751,16 @@ function getStatusEvidenceLegacyShortcuts(kind: StatusEvidenceKind): {
 				refresh: "-",
 				select: "]",
 				open: "K",
-				archive: "-",
+				archive: "D",
 				retention: "-",
+			};
+		case "tools-archive":
+			return {
+				refresh: "-",
+				select: "]",
+				open: "K",
+				archive: "-",
+				retention: "M",
 			};
 	}
 }
@@ -773,15 +817,17 @@ function formatCleanupEvidence(
 
 function formatToolsEvidence(
 	item: ToolHistoryExportIndexItem | undefined,
+	label: "tools" | "tools-archive",
+	controls: string,
 ): EvidenceEntry | undefined {
 	if (!item) {
 		return undefined;
 	}
 	return {
-		kind: "tools",
-		label: `tools ${item.scope} runs=${item.runCount}`,
+		kind: label,
+		label: `${label} ${item.scope} runs=${item.runCount}`,
 		path: item.path,
-		controls: "enter=open open K archive=- retention=-",
+		controls,
 	};
 }
 
@@ -814,6 +860,18 @@ function getSelectedToolExportIndex(
 	return selection.selectedToolExportIndex ?? 0;
 }
 
+function getToolExportArchiveIndex(
+	indexes: StatusEvidenceIndexes,
+): ToolHistoryExportIndex {
+	return indexes.toolExportArchiveIndex ?? { baseDir: "", items: [] };
+}
+
+function getSelectedToolExportArchiveIndex(
+	selection: StatusEvidenceSelection,
+): number {
+	return selection.selectedToolExportArchiveIndex ?? 0;
+}
+
 function getActiveStatusEvidenceEntry(
 	entries: EvidenceEntry[],
 	activeKind: StatusEvidenceKind | undefined,
@@ -838,6 +896,8 @@ function getStatusEvidenceEnterAction(kind: StatusEvidenceKind): {
 			return { action: "select-cleanup-archive", shortcut: "{" };
 		case "tools":
 			return { action: "open-tools", shortcut: "K" };
+		case "tools-archive":
+			return { action: "open-tools-archive", shortcut: "K" };
 	}
 }
 
@@ -851,9 +911,13 @@ function getStatusEvidenceSecondaryAction(
 	  }
 	| undefined {
 	if (intent === "retention") {
-		return kind === "audit-archive"
-			? { action: "preview-audit-retention", shortcut: "M" }
-			: undefined;
+		if (kind === "audit-archive") {
+			return { action: "preview-audit-retention", shortcut: "M" };
+		}
+		if (kind === "tools-archive") {
+			return { action: "preview-tools-retention", shortcut: "M" };
+		}
+		return undefined;
 	}
 	switch (kind) {
 		case "handoff":
@@ -862,9 +926,11 @@ function getStatusEvidenceSecondaryAction(
 			return { action: "archive-audit", shortcut: "Z" };
 		case "cleanup":
 			return { action: "archive-cleanup", shortcut: "X" };
+		case "tools":
+			return { action: "archive-tools", shortcut: "D" };
 		case "audit-archive":
 		case "cleanup-archive":
-		case "tools":
+		case "tools-archive":
 			return undefined;
 	}
 }

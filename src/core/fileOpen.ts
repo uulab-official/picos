@@ -194,6 +194,10 @@ function isAllowedHandoffPath(baseDir: string, path: string): boolean {
 		isAllowedHandoffPathIn(resolve(join(baseDir, "endpoints")), target) ||
 		isAllowedHandoffPathIn(resolve(join(baseDir, "cleanup")), target) ||
 		isAllowedToolsExportPath(resolve(join(baseDir, "tools")), target) ||
+		isAllowedToolsExportPath(
+			resolve(join(baseDir, "tools", "archive")),
+			target,
+		) ||
 		isAllowedTimelineAuditExportPath(resolve(join(baseDir, "audit")), target) ||
 		isAllowedTimelineAuditExportPath(
 			resolve(join(baseDir, "audit", "archive")),
