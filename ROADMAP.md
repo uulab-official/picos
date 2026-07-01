@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.189 - Status Stale Warning Shelf Summary
+
+Status: draft PR [#251](https://github.com/uulab-official/picos/pull/251) on `codex/picos-v0.4.189-stale-warning-shelf-summary`.
+
+Goal: show stale replay warning count and latest event time before operators press `K`.
+
+- `STATUS ACTIVITY COPY INTENTS` now shows `stale warnings count=... latest=... K search` when stale replay warning events exist.
+- The summary is derived from the same structured warning events that power `K stale search`, keeping preview and jump behavior aligned.
+- The shelf hides the row when only non-stale replay warnings exist.
+- Tests cover stale warning summary extraction, hidden non-stale state, and the rendered shelf row.
+- Next: add a compact selected Timeline row preview after `K` jumps so operators know which warning is active.
+
 ## v0.4.188 - Status Stale Warning Search Shortcut
 
 Status: draft PR [#250](https://github.com/uulab-official/picos/pull/250) on `codex/picos-v0.4.188-stale-warning-search-shortcut`.
