@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity audit-jump replay messages now distinguish selected cursor replays from latest fallback replays.
 - Status Activity `I` replay now follows the selected audit-jump cursor instead of always replaying the newest reusable jump.
 - Status Activity audit-jump shelf summaries now support a selected audit-jump cursor with `P audit jump`.
 - Status Activity audit-jump shelf summaries now include a compact `target=source:<source> visible:<n>/<total>` scan token.

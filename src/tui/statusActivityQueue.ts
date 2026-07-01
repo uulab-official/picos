@@ -729,6 +729,7 @@ export function createStatusActivityResultTimelineSearchReplay(
 	if (selectedJump) {
 		return selectedJump;
 	}
+	const replaySource = selectedAuditJumpIntent ? "selected" : "latest";
 	const replayIntent = selectedAuditJumpIntent ?? latestAuditJumpIntent;
 	if (!replayIntent?.label.startsWith("status activity result audit jump ")) {
 		return undefined;
@@ -740,7 +741,7 @@ export function createStatusActivityResultTimelineSearchReplay(
 	return {
 		filter: "audit",
 		query,
-		message: `status activity result audit jump replay ${query}`,
+		message: `status activity result audit jump replay ${replaySource} ${query}`,
 	};
 }
 
