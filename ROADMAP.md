@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.203 - Status Result Filter Palette
+
+Status: draft PR [#265](https://github.com/uulab-official/picos/pull/265) on `codex/picos-v0.4.203-status-result-filter-palette`.
+
+Goal: make Status Activity result-history filtering reachable from the command palette as well as the `f` shortcut.
+
+- Command palette now exposes `status.resultHistory.filter` as a read-only Status action.
+- Operators can search `result filter` or `palette result jumps` to find the same Status result-history filter cycle.
+- Palette execution returns focus to Status and uses the same filter/cursor reset path as the keyboard shortcut.
+- Action summary counts now include the new read-only Status operation.
+- Tests cover command-palette discoverability, action metadata, enabled action ordering, and action summary counts.
+- Next: record palette-triggered result-history filter changes as compact Status Activity result rows so filter operations are visible in the same audit surface.
+
 ## v0.4.202 - Status Result History Filter
 
 Status: draft PR [#264](https://github.com/uulab-official/picos/pull/264) on `codex/picos-v0.4.202-status-result-history-filter`.
@@ -12,7 +25,7 @@ Goal: let operators narrow Status Activity result history to palette-triggered S
 - `u`/`i` navigation follows only filtered result rows when the palette result-jump filter is active.
 - Empty filtered states stay explicit when no palette result jump rows exist.
 - Tests cover filter cycling, filtered indexes, filtered cursor movement, visible rows, and empty states.
-- Next: add command-palette access for the result-history filter so keyboard and palette control paths stay symmetrical.
+- Next: command-palette access for the result-history filter moved into v0.4.203.
 
 ## v0.4.201 - Status Result Palette Result History
 

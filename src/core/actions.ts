@@ -404,6 +404,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.resultHistory.filter",
+		title: "Filter Status result history",
+		description:
+			"Result filter shortcut for cycling Status Activity result history across all rows and palette result jumps.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "remote.sftp.connect",
 		title: "Connect SFTP provider",
 		description:

@@ -2950,6 +2950,33 @@ export function App(): React.ReactElement {
 		}
 	}, [log]);
 
+	const cycleStatusActivityResultHistoryFilter = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			if (options.origin === "palette") {
+				setScreen("status");
+				setFocusArea("workspaces");
+			}
+			setStatusActivityResultHistoryFilter((current) => {
+				const next = nextStatusActivityResultHistoryFilter(current);
+				setSelectedStatusActivityResultIndex((selected) =>
+					getStatusActivityResultHistoryFilteredSelection(
+						statusActivityResults,
+						selected,
+						next,
+					),
+				);
+				setSelectedStatusActivityCopyPreviewRowIndex(0);
+				setStatusActivityCopyPreviewExpanded(false);
+				log(
+					"info",
+					`status activity result history filter ${next}${options.origin === "palette" ? " origin=palette" : ""}`,
+				);
+				return next;
+			});
+		},
+		[log, statusActivityResults],
+	);
+
 	const getSelectedTimelineEvidenceTrailResultOptions = useCallback(
 		() => ({
 			selectedIndex: selectedTimelineEvidenceTrailAuditExportIndex,
@@ -3583,6 +3610,10 @@ export function App(): React.ReactElement {
 					openSelectedStatusActivityResultTimelineJump({ origin: "palette" });
 				}
 
+				if (action.id === "status.resultHistory.filter") {
+					cycleStatusActivityResultHistoryFilter({ origin: "palette" });
+				}
+
 				if (
 					action.id === "process.inspect" ||
 					action.id === "remote.sftp.connect"
@@ -3614,6 +3645,7 @@ export function App(): React.ReactElement {
 		},
 		[
 			configShelfLandingTarget,
+			cycleStatusActivityResultHistoryFilter,
 			cycleTimelineEvidenceTrailSourceFilter,
 			events,
 			exportToolHistory,
@@ -5216,20 +5248,7 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "f") {
-			setStatusActivityResultHistoryFilter((current) => {
-				const next = nextStatusActivityResultHistoryFilter(current);
-				setSelectedStatusActivityResultIndex((selected) =>
-					getStatusActivityResultHistoryFilteredSelection(
-						statusActivityResults,
-						selected,
-						next,
-					),
-				);
-				setSelectedStatusActivityCopyPreviewRowIndex(0);
-				setStatusActivityCopyPreviewExpanded(false);
-				log("info", `status activity result history filter ${next}`);
-				return next;
-			});
+			cycleStatusActivityResultHistoryFilter();
 			return;
 		}
 

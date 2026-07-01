@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Command palette now exposes the Status Activity result-history filter via `result filter` and `palette result jumps` searches.
 - Status Activity result history now supports an `f` result filter for narrowing rows to palette-triggered Status result jumps while keeping `u`/`i` navigation inside the filtered list.
 - Palette-triggered Status result jump select/open actions now also append compact `STATUS ACTIVITY RESULT HISTORY` rows with selected cursor, Status row, filter/query, and open match count.
 - Palette-triggered Status result Timeline jump select/open actions now leave searchable Timeline audit rows with selected row, filter, query, and match count.
