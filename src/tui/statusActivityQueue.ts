@@ -12,7 +12,10 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
-import type { TimelineFocusEvidenceTrailPlan } from "./timelinePanel";
+import type {
+	TimelineFilter,
+	TimelineFocusEvidenceTrailPlan,
+} from "./timelinePanel";
 
 export type StatusActivityQueueInput = {
 	releaseRows?: string[];
@@ -60,7 +63,7 @@ export type StatusActivityCopyIntentRecord = {
 };
 
 export type StatusActivityCopyIntentTimelineSearch = {
-	filter: "audit";
+	filter: TimelineFilter;
 	query: string;
 	message: string;
 };
@@ -747,8 +750,18 @@ export function createStatusActivityResultTimelineSearch(
 		selectedIndex,
 	);
 	const result = history[selected];
+	if (!result) {
+		return undefined;
+	}
 	if (
-		result?.source !== "evidence" ||
+		result.source === "timeline" &&
+		(result.action === "timeline-selected-copy" ||
+			result.action === "timeline-selected-export")
+	) {
+		return createTimelineSelectedResultTimelineSearch(result);
+	}
+	if (
+		result.source !== "evidence" ||
 		result.action !== "timeline-evidence-trail"
 	) {
 		return undefined;
@@ -765,6 +778,67 @@ export function createStatusActivityResultTimelineSearch(
 		query: `action=source source=${sourceFilter} visible=${visible}`,
 		message: `status activity result timeline search palette source ${sourceFilter} visible=${visible}`,
 	};
+}
+
+function createTimelineSelectedResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const filter = getTimelineSelectedResultFilter(result.detail);
+	const query =
+		getTimelineSelectedResultDetailValue(result.detail, "search") ??
+		getTimelineSelectedResultLabel(result.message);
+	if (!filter || !query) {
+		return undefined;
+	}
+	const action = result.action === "timeline-selected-copy" ? "copy" : "export";
+	return {
+		filter,
+		query,
+		message: `status activity result timeline search timeline selected ${action} filter=${filter} query=${query}`,
+	};
+}
+
+function getTimelineSelectedResultFilter(
+	detail?: string,
+): TimelineFilter | undefined {
+	const filter = getTimelineSelectedResultDetailValue(detail, "filter");
+	if (
+		filter === "all" ||
+		filter === "network" ||
+		filter === "audit" ||
+		filter === "action" ||
+		filter === "raw"
+	) {
+		return filter;
+	}
+	return undefined;
+}
+
+function getTimelineSelectedResultLabel(message: string): string | undefined {
+	const match = message.match(
+		/^timeline selected (?:copy|export) \d+\/\d+ (.+)$/,
+	);
+	return match?.[1]?.trim() || undefined;
+}
+
+function getTimelineSelectedResultDetailValue(
+	detail: string | undefined,
+	key: "filter" | "search" | "path",
+): string | undefined {
+	if (!detail) {
+		return undefined;
+	}
+	const token = `${key}=`;
+	const start = detail.indexOf(token);
+	if (start < 0) {
+		return undefined;
+	}
+	const valueStart = start + token.length;
+	const stop = [" filter=", " search=", " controls=", " path="]
+		.map((marker) => detail.indexOf(marker, valueStart))
+		.filter((index) => index >= 0)
+		.sort((left, right) => left - right)[0];
+	return detail.slice(valueStart, stop ?? detail.length).trim() || undefined;
 }
 
 export function createStatusActivityResultTimelineSearchReplay(

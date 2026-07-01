@@ -1749,6 +1749,38 @@ describe("Status activity queue", () => {
 		expect(createStatusActivityResultTimelineSearch([], 0)).toBeUndefined();
 	});
 
+	test("creates timeline searches for selected timeline result history rows", () => {
+		const history = [
+			createTimelineSelectedStatusActivityResult("copy", {
+				filter: "audit",
+				label: "timeline audit 12:00:06",
+				query: "control preview",
+				selectedIndex: 0,
+				total: 2,
+			}),
+			createTimelineSelectedStatusActivityResult("export", {
+				filter: "audit",
+				label: "timeline audit 12:00:06",
+				path: "/Users/bonjin/.config/picos/audit/picos-audit-selected.log",
+				selectedIndex: 1,
+				total: 2,
+			}),
+		];
+
+		expect(createStatusActivityResultTimelineSearch(history, 0)).toEqual({
+			filter: "audit",
+			query: "control preview",
+			message:
+				"status activity result timeline search timeline selected copy filter=audit query=control preview",
+		});
+		expect(createStatusActivityResultTimelineSearch(history, 1)).toEqual({
+			filter: "audit",
+			query: "timeline audit 12:00:06",
+			message:
+				"status activity result timeline search timeline selected export filter=audit query=timeline audit 12:00:06",
+		});
+	});
+
 	test("replays the latest result audit jump when the selected result cannot jump", () => {
 		const history = [
 			{
