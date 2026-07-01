@@ -5791,7 +5791,7 @@ export function App(): React.ReactElement {
 			setSelectedAuditExportIndex(plan.selectedIndex);
 			setSelectedStatusEvidenceKind(plan.kind);
 			setScreen("status");
-			log("info", plan.message);
+			log("info", `${plan.message}; ${plan.rows.at(-1) ?? ""}`);
 			return;
 		}
 

@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Timeline Evidence trail plans now preview the matching Status Evidence `W` open, `Z` archive, and `enter` controls before switching screens.
 - Timeline now supports `E` to return from a selected Status Evidence focus audit row to the matching Status Evidence audit export controls.
 - Status Activity now supports `G` to jump from the latest `w` Evidence focus audit event into Timeline audit search.
 - Status Activity `w` Evidence focus jumps now log a compact Timeline audit event, making focus-only jumps searchable without a clipboard action.

@@ -38,6 +38,7 @@ export type TimelineFocusEvidenceTrailPlan = {
 	label: string;
 	path: string;
 	message: string;
+	rows: string[];
 };
 
 const timelineFilters: TimelineFilter[] = [
@@ -232,6 +233,12 @@ export function createTimelineFocusEvidenceTrailPlan(
 		label: item.fileName,
 		path: item.path,
 		message: `timeline evidence trail audit ${selectedIndex + 1}/${options.auditExportIndex.items.length} ${item.fileName}`,
+		rows: [
+			`TIMELINE EVIDENCE TRAIL audit selected=${selectedIndex + 1}/${options.auditExportIndex.items.length}`,
+			`> ${item.fileName}`,
+			`path=${item.path}`,
+			"controls=Status Evidence W=open Z=archive enter=open",
+		],
 	};
 }
 

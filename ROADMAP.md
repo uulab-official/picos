@@ -2889,6 +2889,18 @@ Goal: let selected Timeline focus audit rows return to the matching Status Evide
 - Tests cover focus-row path extraction, index matching, empty search behavior, and the updated Timeline footer.
 - Next: expose a compact Timeline evidence trail result row that previews the matching Status `W` open and `Z` archive controls before switching screens.
 
+## v0.4.155 - Timeline Evidence Trail Preview
+
+Status: draft PR [#217](https://github.com/uulab-official/picos/pull/217) on `codex/picos-v0.4.155-timeline-evidence-trail-preview`.
+
+Goal: make Timeline-to-Status Evidence handoffs explain the next available audit controls before switching screens.
+
+- Timeline focus evidence trail plans now include compact preview rows for the matched audit export.
+- The preview shows the selected audit index position, target file name, path, and Status Evidence `W` open, `Z` archive, and `enter` open controls.
+- Pressing `E` on a matching Timeline focus row logs the preview controls while selecting the matching Status audit export row.
+- Tests cover the preview rows alongside the existing path extraction and index matching behavior.
+- Next: render the latest Timeline evidence trail preview as a Status Activity result/history entry so the operator can copy or export the trail handoff itself.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

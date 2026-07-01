@@ -191,6 +191,12 @@ describe("timeline TUI panel formatting", () => {
 			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
 			message:
 				"timeline evidence trail audit 2/2 picos-audit-selected-2026-07-01T030000000Z.log",
+			rows: [
+				"TIMELINE EVIDENCE TRAIL audit selected=2/2",
+				"> picos-audit-selected-2026-07-01T030000000Z.log",
+				"path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+				"controls=Status Evidence W=open Z=archive enter=open",
+			],
 		});
 		expect(
 			createTimelineFocusEvidenceTrailPlan(focusEvents, {
