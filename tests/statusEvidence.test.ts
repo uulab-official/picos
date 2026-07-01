@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	createStatusEvidenceEnterPlan,
 	formatStatusEvidenceDetailRows,
 	moveStatusEvidenceFocus,
 } from "../src/tui/statusEvidence";
@@ -79,13 +80,13 @@ describe("Status evidence detail rows", () => {
 				"STATUS EVIDENCE selected=3",
 				"> handoff route routes/table source=Config>Logs scope=logs.profiles",
 				"  path=/tmp/picos/handoffs/routes/route.md",
-				"  controls=open O archive A retention=-",
+				"  controls=enter=open open O archive A retention=-",
 				"  audit selected events=1 query=control source=Config>Logs scope=logs.profiles",
 				"  path=/tmp/picos/audit/picos-audit-selected.log",
-				"  controls=open W archive Z retention=-",
+				"  controls=enter=open open W archive Z retention=-",
 				"  cleanup selected entries=2 source=Config>Logs scope=logs.profiles",
 				"  path=/tmp/picos/cleanup/picos-cleanup-selected.md",
-				"  controls=open V archive X retention=-",
+				"  controls=enter=open open V archive X retention=-",
 			],
 		);
 	});
@@ -140,6 +141,115 @@ describe("Status evidence detail rows", () => {
 		expect(moveStatusEvidenceFocus(withoutHandoff, "handoff", "previous")).toBe(
 			"cleanup",
 		);
+	});
+
+	test("creates a unified enter plan for the active evidence family", () => {
+		expect(
+			createStatusEvidenceEnterPlan(populatedIndexes, selection, "handoff"),
+		).toEqual({
+			kind: "handoff",
+			action: "open-handoff",
+			shortcut: "O",
+			label: "handoff route routes/table",
+			path: "/tmp/picos/handoffs/routes/route.md",
+		});
+		expect(
+			createStatusEvidenceEnterPlan(populatedIndexes, selection, "audit"),
+		).toEqual({
+			kind: "audit",
+			action: "open-audit",
+			shortcut: "W",
+			label: "audit selected events=1 query=control",
+			path: "/tmp/picos/audit/picos-audit-selected.log",
+		});
+		expect(
+			createStatusEvidenceEnterPlan(populatedIndexes, selection, "cleanup"),
+		).toEqual({
+			kind: "cleanup",
+			action: "open-cleanup",
+			shortcut: "V",
+			label: "cleanup selected entries=2",
+			path: "/tmp/picos/cleanup/picos-cleanup-selected.md",
+		});
+	});
+
+	test("routes archived evidence enter actions to safe existing controls", () => {
+		const archivedIndexes = {
+			...populatedIndexes,
+			auditExportArchiveIndex: {
+				baseDir: "/tmp/picos/audit/archive",
+				items: [
+					{
+						fileName: "picos-audit-all.log",
+						path: "/tmp/picos/audit/archive/picos-audit-all.log",
+						generatedAt: "2026-07-01T04:00:00.000Z",
+						scope: "all" as const,
+						entryCount: 7,
+						origin,
+					},
+				],
+			},
+			cleanupExportArchiveIndex: {
+				baseDir: "/tmp/picos/cleanup/archive",
+				items: [
+					{
+						fileName: "picos-cleanup-all.md",
+						path: "/tmp/picos/cleanup/archive/picos-cleanup-all.md",
+						scope: "all" as const,
+						entryCount: 4,
+						generatedAt: "2026-07-01T05:00:00.000Z",
+						origin,
+					},
+				],
+			},
+		};
+
+		expect(
+			createStatusEvidenceEnterPlan(
+				archivedIndexes,
+				selection,
+				"audit-archive",
+			),
+		).toMatchObject({
+			kind: "audit-archive",
+			action: "open-audit-archive",
+			shortcut: "J",
+			path: "/tmp/picos/audit/archive/picos-audit-all.log",
+		});
+		expect(
+			createStatusEvidenceEnterPlan(
+				archivedIndexes,
+				selection,
+				"cleanup-archive",
+			),
+		).toMatchObject({
+			kind: "cleanup-archive",
+			action: "select-cleanup-archive",
+			shortcut: "{",
+			path: "/tmp/picos/cleanup/archive/picos-cleanup-all.md",
+		});
+	});
+
+	test("does not create an enter plan when no evidence is indexed", () => {
+		expect(
+			createStatusEvidenceEnterPlan(
+				{
+					handoffIndex: { baseDir: "/tmp/picos/handoffs", items: [] },
+					auditExportIndex: { baseDir: "/tmp/picos/audit", items: [] },
+					auditExportArchiveIndex: {
+						baseDir: "/tmp/picos/audit/archive",
+						items: [],
+					},
+					cleanupExportIndex: { baseDir: "/tmp/picos/cleanup", items: [] },
+					cleanupExportArchiveIndex: {
+						baseDir: "/tmp/picos/cleanup/archive",
+						items: [],
+					},
+				},
+				selection,
+				"handoff",
+			),
+		).toBeUndefined();
 	});
 
 	test("keeps an empty evidence detail pane useful", () => {
