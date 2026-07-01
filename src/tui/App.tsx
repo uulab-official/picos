@@ -369,6 +369,7 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
+	createStatusEvidenceItemMovePlan,
 	createStatusEvidenceNumberJumpPlan,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
@@ -4554,6 +4555,60 @@ export function App(): React.ReactElement {
 			log(
 				"info",
 				`status evidence focus ${evidenceJumpPlan.shortcut} ${evidenceJumpPlan.kind} ${evidenceJumpPlan.label}`,
+			);
+			return;
+		}
+
+		if (
+			screen === "status" &&
+			focusArea === "workspaces" &&
+			(input === "[" || input === "]")
+		) {
+			const evidenceMovePlan = createStatusEvidenceItemMovePlan(
+				{
+					handoffIndex,
+					auditExportIndex,
+					auditExportArchiveIndex,
+					cleanupExportIndex,
+					cleanupExportArchiveIndex,
+				},
+				{
+					selectedHandoffIndex,
+					selectedAuditExportIndex,
+					selectedAuditExportArchiveIndex,
+					selectedCleanupExportIndex,
+					selectedCleanupExportArchiveIndex,
+				},
+				selectedStatusEvidenceKind,
+				input === "]" ? "next" : "previous",
+			);
+			if (!evidenceMovePlan) {
+				log(
+					"warn",
+					`status evidence item unavailable ${selectedStatusEvidenceKind}`,
+				);
+				return;
+			}
+			switch (evidenceMovePlan.kind) {
+				case "handoff":
+					setSelectedHandoffIndex(evidenceMovePlan.selectedIndex);
+					break;
+				case "audit":
+					setSelectedAuditExportIndex(evidenceMovePlan.selectedIndex);
+					break;
+				case "audit-archive":
+					setSelectedAuditExportArchiveIndex(evidenceMovePlan.selectedIndex);
+					break;
+				case "cleanup":
+					setSelectedCleanupExportIndex(evidenceMovePlan.selectedIndex);
+					break;
+				case "cleanup-archive":
+					setSelectedCleanupExportArchiveIndex(evidenceMovePlan.selectedIndex);
+					break;
+			}
+			log(
+				"info",
+				`status evidence item ${evidenceMovePlan.shortcut} ${evidenceMovePlan.kind} ${evidenceMovePlan.selectedIndex + 1}/${evidenceMovePlan.itemCount} ${evidenceMovePlan.label}`,
 			);
 			return;
 		}
