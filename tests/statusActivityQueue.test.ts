@@ -41,6 +41,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityResultTimelineJumpRows,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
@@ -1617,6 +1618,52 @@ describe("Status activity queue", () => {
 		);
 		expect(formatTimelineEvidenceTrailPaletteAuditMessage("open")).toBe(
 			'palette timeline trail audit action=open status=unavailable reason="no recovered Timeline Evidence trail export selected"',
+		);
+	});
+
+	test("formats palette-triggered status result jump audit messages", () => {
+		const jump = createStatusActivityResultTimelineSearch(
+			[
+				createTimelineSelectedStatusActivityResult("copy", {
+					filter: "audit",
+					label: "timeline audit 12:00:06",
+					query: "control preview",
+					selectedIndex: 0,
+					total: 2,
+				}),
+			],
+			0,
+		);
+
+		if (!jump) {
+			throw new Error("expected jump");
+		}
+
+		expect(
+			formatStatusActivityResultTimelineJumpPaletteAuditMessage("select", {
+				jump,
+				selectedIndex: 0,
+				total: 2,
+				historyIndex: 3,
+			}),
+		).toBe(
+			'palette status result jump audit action=select selected=1/2 row=4 filter=audit query="control preview"',
+		);
+		expect(
+			formatStatusActivityResultTimelineJumpPaletteAuditMessage("open", {
+				jump,
+				selectedIndex: 1,
+				total: 2,
+				historyIndex: 3,
+				matches: 5,
+			}),
+		).toBe(
+			'palette status result jump audit action=open selected=2/2 row=4 filter=audit query="control preview" matches=5',
+		);
+		expect(
+			formatStatusActivityResultTimelineJumpPaletteAuditMessage("open"),
+		).toBe(
+			'palette status result jump audit action=open status=unavailable reason="no Status result Timeline jump selected"',
 		);
 	});
 

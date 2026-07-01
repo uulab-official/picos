@@ -392,6 +392,7 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
+	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityResultTimelineJumpRows,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
@@ -3182,18 +3183,54 @@ export function App(): React.ReactElement {
 				);
 				if (next === current && statusActivityResults.length === 0) {
 					log("warn", "no status activity result history");
+					if (options.origin === "palette") {
+						log(
+							"info",
+							formatStatusActivityResultTimelineJumpPaletteAuditMessage(
+								"select",
+							),
+						);
+					}
 					return current;
 				}
-				if (
-					!createStatusActivityResultTimelineSearch(statusActivityResults, next)
-				) {
+				const jump = createStatusActivityResultTimelineSearch(
+					statusActivityResults,
+					next,
+				);
+				if (!jump) {
 					log("warn", "no status activity timeline result jumps");
+					if (options.origin === "palette") {
+						log(
+							"info",
+							formatStatusActivityResultTimelineJumpPaletteAuditMessage(
+								"select",
+							),
+						);
+					}
 					return current;
 				}
 				log(
 					"info",
 					`status activity timeline result jump ${next + 1}${options.origin === "palette" ? " origin=palette" : ""}`,
 				);
+				if (options.origin === "palette") {
+					const selection = getStatusActivityResultTimelineJumpSelection(
+						statusActivityResults,
+						next,
+					);
+					log(
+						"info",
+						formatStatusActivityResultTimelineJumpPaletteAuditMessage(
+							"select",
+							{
+								historyIndex: next,
+								jump,
+								selectedIndex: selection?.selectedIndex,
+								total: selection?.total,
+							},
+						),
+					);
+				}
 				return next;
 			});
 		},
@@ -3224,6 +3261,12 @@ export function App(): React.ReactElement {
 					"warn",
 					formatStatusActivityResultAuditJumpReplayWarningAuditMessage(warning),
 				);
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatStatusActivityResultTimelineJumpPaletteAuditMessage("open"),
+					);
+				}
 				return;
 			}
 			const intent = createStatusActivityResultTimelineSearchIntent(jump);
@@ -3243,6 +3286,22 @@ export function App(): React.ReactElement {
 				filtered.length ? "info" : "warn",
 				`${jump.message} matches ${filtered.length}${options.origin === "palette" ? " origin=palette" : ""}`,
 			);
+			if (options.origin === "palette") {
+				const selection = getStatusActivityResultTimelineJumpSelection(
+					statusActivityResults,
+					selectedStatusActivityResultIndex,
+				);
+				log(
+					"info",
+					formatStatusActivityResultTimelineJumpPaletteAuditMessage("open", {
+						historyIndex: selectedStatusActivityResultIndex,
+						jump,
+						matches: filtered.length,
+						selectedIndex: selection?.selectedIndex,
+						total: selection?.total,
+					}),
+				);
+			}
 		},
 		[
 			events,

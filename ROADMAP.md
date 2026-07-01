@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.200 - Status Result Palette Audit
+
+Status: draft PR [#262](https://github.com/uulab-official/picos/pull/262) on `codex/picos-v0.4.200-status-result-palette-audit`.
+
+Goal: make command-palette Status result jump operations leave searchable Timeline evidence.
+
+- Palette-triggered Status result jump select/open actions now emit `palette status result jump audit ...` rows.
+- Audit rows include action, selected jump cursor, Status result row number, Timeline filter, query, and match count for opens.
+- Unavailable palette result jumps emit a structured unavailable audit row instead of disappearing into a warning only.
+- Timeline audit search now surfaces palette-triggered Status result jump rows.
+- Tests cover audit message formatting, unavailable rows, and Timeline audit search rendering.
+- Next: add a compact Status Activity result row for palette result jump operations so the Status result history mirrors Timeline audit evidence.
+
 ## v0.4.199 - Status Result Palette Hints
 
 Status: draft PR [#261](https://github.com/uulab-official/picos/pull/261) on `codex/picos-v0.4.199-status-result-palette-hints`.
@@ -10,7 +23,7 @@ Goal: make Status result Timeline jump browser controls self-discoverable direct
 - The hint appears for both populated and empty jump browsers so operators can discover the command palette path before any jump exists.
 - TUI rendering treats the palette hint as muted helper text while keeping the browser title and active row visually distinct.
 - Tests cover the populated and empty hint rows in the compact jump browser.
-- Next: add palette-triggered Status result jump audit rows so command-palette usage leaves searchable Timeline evidence.
+- Next: palette-triggered Status result jump audit rows moved into v0.4.200.
 
 ## v0.4.198 - Status Result Palette Jumps
 

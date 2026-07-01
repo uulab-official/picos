@@ -1396,6 +1396,40 @@ export function formatTimelineEvidenceTrailPaletteAuditMessage(
 	].join(" ");
 }
 
+export function formatStatusActivityResultTimelineJumpPaletteAuditMessage(
+	action: "select" | "open",
+	options: {
+		historyIndex?: number;
+		jump?: StatusActivityCopyIntentTimelineSearch;
+		matches?: number;
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	if (!options.jump) {
+		return [
+			"palette status result jump audit",
+			`action=${action}`,
+			"status=unavailable",
+			`reason="${formatTimelineEvidenceTrailAuditValue("no Status result Timeline jump selected")}"`,
+		].join(" ");
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	const row = Math.max(0, Math.floor(options.historyIndex ?? 0)) + 1;
+	return [
+		"palette status result jump audit",
+		`action=${action}`,
+		`selected=${selected + 1}/${total}`,
+		`row=${row}`,
+		`filter=${options.jump.filter}`,
+		`query="${formatTimelineEvidenceTrailAuditValue(options.jump.query)}"`,
+		...(options.matches !== undefined
+			? [`matches=${Math.max(0, Math.floor(options.matches))}`]
+			: []),
+	].join(" ");
+}
+
 export function createTimelineEvidenceTrailAuditExportPlan(
 	plan: TimelineFocusEvidenceTrailPlan,
 	options: {

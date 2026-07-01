@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { ConsoleEvent } from "../src/tui/events";
 import {
 	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
+	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 } from "../src/tui/statusActivityQueue";
 import {
@@ -209,6 +210,43 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/9 network=0 audit=1 action=0 raw=0 filter=audit search=action=source",
 			"TIMELINE",
 			"[12:00:10] INFO audit  palette timeline trail audit action=source source=palette visible=0/3",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
+	test("surfaces palette-triggered status result jumps in audit search", () => {
+		const paletteResultJumpEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-info-palette-result-jump",
+				level: "info",
+				time: "12:00:09",
+				message: formatStatusActivityResultTimelineJumpPaletteAuditMessage(
+					"open",
+					{
+						historyIndex: 3,
+						jump: {
+							filter: "audit",
+							query: "control preview",
+							message:
+								"status activity result timeline search selected timeline audit",
+						},
+						matches: 5,
+						selectedIndex: 1,
+						total: 2,
+					},
+				),
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(paletteResultJumpEvents, 5, "audit", {
+				query: "palette status result jump",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette status result jump",
+			"TIMELINE",
+			'[12:00:09] INFO audit  palette status result jump audit action=open selected=2/2 row=4 filter=audit query="control preview" matches=5',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
