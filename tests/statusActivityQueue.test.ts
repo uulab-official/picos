@@ -27,6 +27,7 @@ import {
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
 	createStatusActivityResultTimelineSearchReplayWarning,
+	createStatusActivityToolsEvidencePaletteResult,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -46,6 +47,7 @@ import {
 	formatStatusActivityResultRows,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityResultTimelineJumpRows,
+	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
@@ -1843,6 +1845,81 @@ describe("Status activity queue", () => {
 			formatStatusActivityResultTimelineJumpPaletteAuditMessage("open"),
 		).toBe(
 			'palette status result jump audit action=open status=unavailable reason="no Status result Timeline jump selected"',
+		);
+	});
+
+	test("creates palette-triggered Tools evidence management results", () => {
+		const archive = createStatusActivityToolsEvidencePaletteResult("archive", {
+			fileName: "picos-tools-selected-2026-07-01T040000000Z.md",
+			selectedIndex: 0,
+			total: 2,
+			path: "/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md",
+		});
+		const retention = createStatusActivityToolsEvidencePaletteResult(
+			"retention",
+			{
+				candidateCount: 3,
+				maxItems: 10,
+			},
+		);
+
+		expect(archive).toEqual({
+			source: "evidence",
+			action: "tools-evidence-archive",
+			message:
+				"palette tools evidence archive 1/2 picos-tools-selected-2026-07-01T040000000Z.md",
+			detail:
+				"path=/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md confirm=archive tools export",
+		});
+		expect(retention).toEqual({
+			source: "evidence",
+			action: "tools-evidence-retention",
+			message: "palette tools evidence retention candidates=3 max=10",
+			detail: "confirm=prune tools archive",
+		});
+		expect(formatStatusActivityResultRows(archive)).toEqual([
+			"STATUS ACTIVITY RESULT source=evidence action=tools-evidence-archive",
+			"> palette tools evidence archive 1/2 picos-tools-selected-2026-07-01T040000000Z.md",
+			"  path=/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md confirm=archive tools export",
+		]);
+		expect(formatStatusActivityResultHistoryRows([retention, archive])).toEqual(
+			[
+				"STATUS ACTIVITY RESULT HISTORY count=2 selected=1/2",
+				"> evidence tools-evidence-retention palette tools evidence retention candidates=3 max=10",
+				"    confirm=prune tools archive",
+				"  evidence tools-evidence-archive palette tools evidence archive 1/2 picos-tools-selected-2026-07-01T040000000Z.md",
+				"    path=/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md confirm=archive tools export",
+			],
+		);
+		expect(createStatusActivityToolsEvidencePaletteResult("archive")).toEqual({
+			source: "evidence",
+			action: "tools-evidence-archive",
+			message: "palette tools evidence archive unavailable",
+			detail: "no Tools evidence export selected",
+		});
+	});
+
+	test("formats palette-triggered Tools evidence audit messages", () => {
+		expect(
+			formatStatusActivityToolsEvidencePaletteAuditMessage("archive", {
+				fileName: "picos-tools-selected-2026-07-01T040000000Z.md",
+				path: "/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md",
+				selectedIndex: 0,
+				total: 2,
+			}),
+		).toBe(
+			'palette tools evidence audit action=archive selected=1/2 label="picos-tools-selected-2026-07-01T040000000Z.md" path="/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md"',
+		);
+		expect(
+			formatStatusActivityToolsEvidencePaletteAuditMessage("retention", {
+				candidateCount: 3,
+				maxItems: 10,
+			}),
+		).toBe("palette tools evidence audit action=retention candidates=3 max=10");
+		expect(
+			formatStatusActivityToolsEvidencePaletteAuditMessage("archive"),
+		).toBe(
+			'palette tools evidence audit action=archive status=unavailable reason="no Tools evidence export selected"',
 		);
 	});
 

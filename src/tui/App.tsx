@@ -402,6 +402,7 @@ import {
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
 	createStatusActivityResultTimelineSearchReplayWarning,
+	createStatusActivityToolsEvidencePaletteResult,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -421,6 +422,7 @@ import {
 	formatStatusActivityResultRows,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityResultTimelineJumpRows,
+	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
@@ -2798,52 +2800,115 @@ export function App(): React.ReactElement {
 		);
 	}, [log, selectedToolExportArchiveIndex, toolExportArchiveIndex]);
 
-	const openSelectedToolExportArchive = useCallback(() => {
-		const item = getSelectedToolHistoryExport(
-			toolExportIndex,
-			selectedToolExportIndex,
-		);
-		if (!item) {
-			log("warn", "no tools evidence export selected");
-			return;
-		}
-		const plan = createToolHistoryExportArchivePlan(
-			dirname(getConfigPath()),
-			item.path,
-		);
-		setToolExportArchivePlan(plan);
-		setExternalOpenPlan(undefined);
-		setFileOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setToolArchiveRetentionPlan(undefined);
-		setCommandLine(openCommandLine("tool-export-archive"));
-		setScreen("status");
-		log(
-			"info",
-			`tools evidence archive confirmation opened for ${item.fileName}`,
-		);
-	}, [log, selectedToolExportIndex, toolExportIndex]);
+	const openSelectedToolExportArchive = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const item = getSelectedToolHistoryExport(
+				toolExportIndex,
+				selectedToolExportIndex,
+			);
+			if (!item) {
+				log("warn", "no tools evidence export selected");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatStatusActivityToolsEvidencePaletteAuditMessage("archive"),
+					);
+					recordStatusActivityResult(
+						createStatusActivityToolsEvidencePaletteResult("archive"),
+					);
+				}
+				return;
+			}
+			const plan = createToolHistoryExportArchivePlan(
+				dirname(getConfigPath()),
+				item.path,
+			);
+			setToolExportArchivePlan(plan);
+			setExternalOpenPlan(undefined);
+			setFileOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setToolArchiveRetentionPlan(undefined);
+			setCommandLine(openCommandLine("tool-export-archive"));
+			setScreen("status");
+			log(
+				"info",
+				`tools evidence archive confirmation opened for ${item.fileName}`,
+			);
+			if (options.origin === "palette") {
+				const resultOptions = {
+					fileName: item.fileName,
+					path: item.path,
+					selectedIndex: selectedToolExportIndex,
+					total: toolExportIndex.items.length,
+				};
+				log(
+					"info",
+					formatStatusActivityToolsEvidencePaletteAuditMessage(
+						"archive",
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createStatusActivityToolsEvidencePaletteResult(
+						"archive",
+						resultOptions,
+					),
+				);
+			}
+		},
+		[log, recordStatusActivityResult, selectedToolExportIndex, toolExportIndex],
+	);
 
-	const openToolArchiveRetentionPreview = useCallback(() => {
-		const plan = createToolHistoryArchiveRetentionPlan(toolExportArchiveIndex, {
-			maxItems: auditArchiveRetentionLimit,
-		});
-		setToolArchiveRetentionPlan(plan);
-		setExternalOpenPlan(undefined);
-		setFileOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setToolExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("tools-archive-retention"));
-		setScreen("status");
-		log(
-			plan.candidateItems.length > 0 ? "warn" : "info",
-			`tools archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
-		);
-	}, [auditArchiveRetentionLimit, log, toolExportArchiveIndex]);
+	const openToolArchiveRetentionPreview = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const plan = createToolHistoryArchiveRetentionPlan(
+				toolExportArchiveIndex,
+				{
+					maxItems: auditArchiveRetentionLimit,
+				},
+			);
+			setToolArchiveRetentionPlan(plan);
+			setExternalOpenPlan(undefined);
+			setFileOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setToolExportArchivePlan(undefined);
+			setCommandLine(openCommandLine("tools-archive-retention"));
+			setScreen("status");
+			log(
+				plan.candidateItems.length > 0 ? "warn" : "info",
+				`tools archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
+			);
+			if (options.origin === "palette") {
+				const resultOptions = {
+					candidateCount: plan.candidateItems.length,
+					maxItems: plan.maxItems,
+				};
+				log(
+					"info",
+					formatStatusActivityToolsEvidencePaletteAuditMessage(
+						"retention",
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createStatusActivityToolsEvidencePaletteResult(
+						"retention",
+						resultOptions,
+					),
+				);
+			}
+		},
+		[
+			auditArchiveRetentionLimit,
+			log,
+			recordStatusActivityResult,
+			toolExportArchiveIndex,
+		],
+	);
 
 	const openSelectedCleanupExportArchive = useCallback(() => {
 		const item = getSelectedCleanupHandoffHistoryExport(
@@ -4009,6 +4074,14 @@ export function App(): React.ReactElement {
 					cycleStatusActivityResultHistoryFilter({ origin: "palette" });
 				}
 
+				if (action.id === "status.toolsEvidence.archive") {
+					openSelectedToolExportArchive({ origin: "palette" });
+				}
+
+				if (action.id === "status.toolsEvidence.retention") {
+					openToolArchiveRetentionPreview({ origin: "palette" });
+				}
+
 				if (
 					action.id === "process.inspect" ||
 					action.id === "remote.sftp.connect"
@@ -4048,7 +4121,9 @@ export function App(): React.ReactElement {
 			jumpSelectedTimelineEvidenceTrailSearch,
 			log,
 			openSelectedStatusActivityResultTimelineJump,
+			openSelectedToolExportArchive,
 			openSelectedTimelineEvidenceTrailExport,
+			openToolArchiveRetentionPreview,
 			refresh,
 			refreshFiles,
 			selectNextStatusActivityResultTimelineJump,
@@ -4649,6 +4724,12 @@ export function App(): React.ReactElement {
 			result.status === "archived" ? "ok" : "warn",
 			`tools evidence archive ${result.message}`,
 		);
+		recordStatusActivityResult({
+			source: "evidence",
+			action: "tools-evidence-archive",
+			message: `tools evidence archive ${result.status} ${plan.fileName}`,
+			detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
+		});
 		if (result.status === "archived") {
 			await refreshToolExportIndex(false);
 			await refreshToolExportArchiveIndex(false);
@@ -4657,6 +4738,7 @@ export function App(): React.ReactElement {
 	}, [
 		commandLine.value,
 		log,
+		recordStatusActivityResult,
 		refreshToolExportArchiveIndex,
 		refreshToolExportIndex,
 		toolExportArchivePlan,
@@ -4741,12 +4823,19 @@ export function App(): React.ReactElement {
 			result.status === "pruned" ? "ok" : "warn",
 			`tools archive retention ${result.message}`,
 		);
+		recordStatusActivityResult({
+			source: "evidence",
+			action: "tools-evidence-retention",
+			message: `tools archive retention ${result.status} removed=${result.removed}`,
+			detail: result.message,
+		});
 		if (result.status === "pruned") {
 			await refreshToolExportArchiveIndex(false);
 		}
 	}, [
 		commandLine.value,
 		log,
+		recordStatusActivityResult,
 		refreshToolExportArchiveIndex,
 		toolArchiveRetentionPlan,
 		toolExportArchiveIndex,

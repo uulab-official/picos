@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Command palette now exposes Tools evidence archive/retention prompts, and palette-opened Tools evidence management plus archive/prune outcomes are recorded in Status Activity result history.
 - Tools evidence exports can now be archived and retention-pruned through locked Status Evidence confirmations, including archived Tools export recovery through `:file-open`.
 - Tools history exports are now indexed as Status Evidence, so selected/all tool raw-output exports can be reopened through the locked file-open flow after refresh or restart.
 - Editor saves now leave an `EDITOR SAVE RESULT` panel with success/blocker/error rows, and successful `editor save` records are classified as searchable Timeline audit evidence.

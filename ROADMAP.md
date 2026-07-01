@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.213 - Tools Evidence Activity And Palette
+
+Status: draft PR [#275](https://github.com/uulab-official/picos/pull/275) on `codex/picos-v0.4.213-tools-evidence-activity-palette`.
+
+Goal: make Tools evidence archive/retention discoverable from the command palette and recoverable from Status Activity history.
+
+- Command palette searches such as `tools evidence`, `tools archive`, and `tools retention` expose locked Tools evidence archive/retention prompt actions.
+- Palette-opened Tools evidence archive and retention prompts append compact Status Activity result rows, including selected export, archive path, candidate count, and retention limit.
+- Confirmed Tools evidence archive and archive-retention submissions append outcome rows to Status Activity result history, including blocked states.
+- Palette-triggered Tools evidence management logs structured audit text so the operation can be searched from Timeline.
+- Tests cover action catalog counts, palette discoverability, Tools evidence result row creation, and audit message formatting.
+- Next: continue lazyifconfig parity by expanding Tools result comparison/detail workflows and archived evidence search filters.
+
 ## v0.4.212 - Tools Evidence Archive And Retention
 
 Status: draft PR [#274](https://github.com/uulab-official/picos/pull/274) on `codex/picos-v0.4.212-tools-evidence-retention`.
@@ -12,7 +25,7 @@ Goal: make Tools Hub raw-output evidence behave like managed OS console evidence
 - Status Evidence now includes `tools-archive`, plus `D/a` archive and `M/m` retention controls for Tools evidence families.
 - Status dialog preview now renders Tools archive and Tools archive retention confirmation rows alongside audit/cleanup dialogs.
 - Tests cover Tools export archive, archived index recovery, retention pruning, Status Evidence action routing, and locked file-open access for archived Tools exports.
-- Next: surface Tools archive/prune outcomes in Status Activity result history and add command-palette entries for Tools evidence management.
+- Next: Tools archive/prune outcome history and palette entries moved into v0.4.213.
 
 ## v0.4.211 - Tools Evidence Index
 
