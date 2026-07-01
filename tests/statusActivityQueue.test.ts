@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+	appendStatusActivityResultHistory,
 	createStatusActivityEnterPlan,
 	formatStatusActivityDetailRows,
 	formatStatusActivityQueueRows,
+	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	moveStatusActivitySource,
 } from "../src/tui/statusActivityQueue";
@@ -184,6 +186,51 @@ describe("Status activity queue", () => {
 		expect(formatStatusActivityResultRows()).toEqual([
 			"STATUS ACTIVITY RESULT source=none action=none",
 			"no Status activity action yet",
+		]);
+	});
+
+	test("keeps bounded activity result history newest first", () => {
+		const first = {
+			source: "release" as const,
+			action: "cycle-release-link" as const,
+			message: "release activity selected; cycling release handoff link",
+			detail: "release handoff link cycled",
+		};
+		const second = {
+			source: "cleanup" as const,
+			action: "jump-cleanup" as const,
+			message: "cleanup activity selected; jumping to selected cleanup shelf",
+			detail: "cleanup handoff Logs: press l then type delete logs",
+		};
+		const third = {
+			source: "dialog" as const,
+			action: "show-dialog" as const,
+			message: "dialog activity selected; type the exact confirmation phrase",
+		};
+
+		const history = appendStatusActivityResultHistory(
+			appendStatusActivityResultHistory(
+				appendStatusActivityResultHistory([], first, 2),
+				second,
+				2,
+			),
+			third,
+			2,
+		);
+
+		expect(history).toEqual([third, second]);
+		expect(formatStatusActivityResultHistoryRows(history)).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=2",
+			"> dialog show-dialog dialog activity selected; type the exact confirmation phrase",
+			"  cleanup jump-cleanup cleanup activity selected; jumping to selected cleanup shelf",
+			"    cleanup handoff Logs: press l then type delete logs",
+		]);
+	});
+
+	test("keeps empty activity result history useful", () => {
+		expect(formatStatusActivityResultHistoryRows([])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=0",
+			"no Status activity result history yet",
 		]);
 	});
 });
