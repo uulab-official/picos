@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.190 - Timeline Jump Preview Row
+
+Status: draft PR [#252](https://github.com/uulab-official/picos/pull/252) on `codex/picos-v0.4.190-timeline-jump-preview`.
+
+Goal: keep the selected Timeline target visible after Status and recovered trail jumps.
+
+- Timeline now renders a compact `selected timeline ...` row before the event list.
+- The preview includes selected position, classified event kind, active search query, timestamp, level, and message.
+- Empty filtered/search results show `selected timeline none filter=... search=...` instead of leaving the operator to infer why no row is active.
+- Tests cover selected audit-search previews and no-match fallback rows.
+- Next: make the preview row width-aware so narrow terminals keep the timestamp, level, and recovery hint while clipping long command payloads.
+
 ## v0.4.189 - Status Stale Warning Shelf Summary
 
 Status: draft PR [#251](https://github.com/uulab-official/picos/pull/251) on `codex/picos-v0.4.189-stale-warning-shelf-summary`.
@@ -10,7 +22,7 @@ Goal: show stale replay warning count and latest event time before operators pre
 - The summary is derived from the same structured warning events that power `K stale search`, keeping preview and jump behavior aligned.
 - The shelf hides the row when only non-stale replay warnings exist.
 - Tests cover stale warning summary extraction, hidden non-stale state, and the rendered shelf row.
-- Next: add a compact selected Timeline row preview after `K` jumps so operators know which warning is active.
+- Next: compact selected Timeline row preview moved into v0.4.190.
 
 ## v0.4.188 - Status Stale Warning Search Shortcut
 

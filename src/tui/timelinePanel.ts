@@ -129,6 +129,53 @@ export function filterTimelineEvents(
 	});
 }
 
+export function formatSelectedTimelinePreviewRow(
+	events: ConsoleEvent[],
+	options: {
+		filter?: TimelineFilter;
+		query?: string;
+		selectedIndex?: number;
+	} = {},
+): string {
+	const filter = options.filter ?? "all";
+	const query = options.query?.trim() ?? "";
+	const filtered = filterTimelineEvents(events, query, filter);
+	const index = getSelectedTimelineIndex(
+		filtered.length,
+		options.selectedIndex,
+	);
+	if (index === undefined) {
+		return [
+			"selected timeline none",
+			`filter=${filter}`,
+			query ? `search=${query}` : "",
+		]
+			.filter(Boolean)
+			.join(" ");
+	}
+	const event = filtered[index];
+	if (!event) {
+		return [
+			"selected timeline none",
+			`filter=${filter}`,
+			query ? `search=${query}` : "",
+		]
+			.filter(Boolean)
+			.join(" ");
+	}
+	const kind = classifyTimelineEvent(event);
+	return [
+		`selected timeline ${index + 1}/${filtered.length}`,
+		kind,
+		query ? `search=${query}` : "",
+		`[${event.time}]`,
+		event.level.toUpperCase(),
+		event.message,
+	]
+		.filter(Boolean)
+		.join(" ");
+}
+
 export function getSelectedTimelineClipboardPreview(
 	events: ConsoleEvent[],
 	options: {

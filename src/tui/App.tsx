@@ -438,6 +438,7 @@ import {
 	createTimelineFocusEvidenceTrailPlan,
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
+	formatSelectedTimelinePreviewRow,
 	formatTimelineWorkspaceRows,
 	getSelectedTimelineAuditExportPlan,
 	getSelectedTimelineClipboardPreview,
@@ -9939,10 +9940,16 @@ function TimelineWorkspace({
 	t: (key: string) => string;
 }): React.ReactElement {
 	const promptRows = formatTimelineSearchPromptRows(commandLine, presets);
+	const selectedPreviewRow = formatSelectedTimelinePreviewRow(events, {
+		filter,
+		query,
+		selectedIndex,
+	});
 	const rows = [
+		selectedPreviewRow,
 		...formatTimelineWorkspaceRows(
 			events,
-			Math.max(1, visibleRows - promptRows.length),
+			Math.max(1, visibleRows - promptRows.length - 1),
 			filter,
 			{
 				presets,
@@ -10001,6 +10008,7 @@ function getTimelineRowColor(row: string): string {
 		row === "TIMELINE" ||
 		row === "SEARCH" ||
 		row === "TIMELINE SEARCH CLEANUP" ||
+		row.startsWith("selected timeline ") ||
 		row.startsWith("SUMMARY")
 	) {
 		return "cyan";

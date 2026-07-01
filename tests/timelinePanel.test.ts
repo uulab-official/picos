@@ -8,6 +8,7 @@ import {
 	createTimelineFocusEvidenceTrailPlan,
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
+	formatSelectedTimelinePreviewRow,
 	formatTimelineWorkspaceRows,
 	getSelectedTimelineAuditExportPlan,
 	getSelectedTimelineClipboardPreview,
@@ -287,6 +288,26 @@ describe("timeline TUI panel formatting", () => {
 			'  [12:00:06] WARN audit  control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
+	});
+
+	test("formats a compact selected timeline preview for jump recovery", () => {
+		expect(
+			formatSelectedTimelinePreviewRow(events, {
+				filter: "audit",
+				query: "control preview",
+				selectedIndex: 0,
+			}),
+		).toBe(
+			'selected timeline 1/1 audit search=control preview [12:00:06] WARN control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
+		);
+
+		expect(
+			formatSelectedTimelinePreviewRow(events, {
+				filter: "network",
+				query: "not-found",
+				selectedIndex: 0,
+			}),
+		).toBe("selected timeline none filter=network search=not-found");
 	});
 
 	test("moves timeline selection with wraparound", () => {
