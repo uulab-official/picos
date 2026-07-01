@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy intent shelf now supports `<`/`>` selection and `g` to jump into Timeline with an audit search for the selected intent.
 - Status Activity now keeps recent copy intents in a `STATUS ACTIVITY COPY INTENTS` review shelf so unconfirmed clipboard attempts can be revisited without filtering Timeline manually.
 - Status Activity copy intent now records a searchable Timeline audit event before opening the locked clipboard confirmation.
 - Status Activity copy preview now supports `;` row selection and `=` expansion for inspecting longer selected history payloads before clipboard confirmation.

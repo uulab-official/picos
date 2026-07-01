@@ -2721,6 +2721,19 @@ Goal: keep recent Status activity copy intents visible in Status after `y` opens
 - Tests cover intent record creation, bounded history append, populated shelf rows, and empty shelf rows.
 - Next: add keyboard selection for the copy-intent shelf and a direct Timeline audit search jump for the selected intent.
 
+## v0.4.142 - Status Activity Copy Intent Timeline Jump
+
+Status: draft PR [#204](https://github.com/uulab-official/picos/pull/204) on `codex/picos-v0.4.142-status-activity-copy-intent-jump`.
+
+Goal: make Status copy-intent review actionable by selecting older intents and jumping directly into matching Timeline audit rows.
+
+- `STATUS ACTIVITY COPY INTENTS` now supports `<` and `>` selection with wraparound movement.
+- `g` from Status creates a Timeline handoff for the selected copy intent, switches Timeline to the audit filter, applies the selected intent label as the search query, and resets the Timeline cursor.
+- New copy intents reset the intent shelf cursor to the newest row so repeated `y` actions stay predictable.
+- The Status activity header and copy-intent controls now document `<`/`>` selection and `g` Timeline audit search.
+- Tests cover copy-intent shelf movement, empty selection behavior, and Timeline search payload creation.
+- Next: let selected copy-intent rows reopen their matching locked clipboard preview or export a small audit handoff file from Status.
+
 ## v0.5.0 - Developer Environment Plugins
 
 Goal: expand beyond local OS inventory into developer operations.

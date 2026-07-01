@@ -3,6 +3,7 @@ import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
 	createStatusActivityCopyIntentRecord,
+	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -12,6 +13,7 @@ import {
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivitySource,
@@ -451,12 +453,49 @@ describe("Status activity queue", () => {
 			"STATUS ACTIVITY COPY INTENTS count=2 selected=2/2",
 			"  status activity dialog show-dialog row=1 expanded=false lines=2 preview=dialog show-dialog",
 			"> status activity cleanup jump-cleanup row=4 expanded=true lines=3 preview=cleanup jump-cleanup",
-			"controls=y records intent · Timeline audit searchable=status-activity · :clipboard confirm=copy locked",
+			"controls=y records intent · </> select · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 		expect(formatStatusActivityCopyIntentRows([])).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"no Status activity copy intents yet",
-			"controls=y records intent · Timeline audit searchable=status-activity",
+			"controls=y records intent · </> select · g Timeline audit search",
 		]);
+	});
+
+	test("selects status activity copy intents and creates timeline search jumps", () => {
+		const history = [
+			{
+				label: "status activity dialog show-dialog",
+				selectedRow: 1,
+				expanded: false,
+				lines: 2,
+				preview: "dialog show-dialog",
+				auditMessage:
+					'clipboard intent status-activity label="status activity dialog show-dialog" selectedRow=1 expanded=false lines=2 preview="dialog show-dialog"',
+			},
+			{
+				label: "status activity cleanup jump-cleanup",
+				selectedRow: 4,
+				expanded: true,
+				lines: 3,
+				preview: "cleanup jump-cleanup",
+				auditMessage:
+					'clipboard intent status-activity label="status activity cleanup jump-cleanup" selectedRow=4 expanded=true lines=3 preview="cleanup jump-cleanup"',
+			},
+		];
+
+		expect(moveStatusActivityCopyIntentSelection(history, 0, "next")).toBe(1);
+		expect(moveStatusActivityCopyIntentSelection(history, 1, "next")).toBe(0);
+		expect(moveStatusActivityCopyIntentSelection(history, 0, "previous")).toBe(
+			1,
+		);
+		expect(moveStatusActivityCopyIntentSelection([], 4, "next")).toBe(0);
+		expect(createStatusActivityCopyIntentTimelineSearch(history, 1)).toEqual({
+			filter: "audit",
+			query: "status activity cleanup jump-cleanup",
+			message:
+				"status activity copy intent timeline search status activity cleanup jump-cleanup",
+		});
+		expect(createStatusActivityCopyIntentTimelineSearch([], 0)).toBeUndefined();
 	});
 });
