@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.215 - Tools Compare Handoffs
+
+Status: draft PR [#277](https://github.com/uulab-official/picos/pull/277) on `codex/picos-v0.4.215-tools-compare-handoffs`.
+
+Goal: make Tools compare output reusable as picos-owned evidence instead of a transient detail pane.
+
+- Tools compare rows can be copied with `o`, using the same locked clipboard confirmation flow as raw output, summaries, TCP sections, and row copies.
+- Tools compare rows can be exported with `O` to a `picos-tools-compare-*.md` file under the picos config `tools/` directory.
+- Compare exports use `scope=compare`, `runs=1`, and the same picos-owned Tools evidence index, so they appear in Status Evidence and can be opened, archived, and retention-managed.
+- The Tools evidence index recognizes `selected`, `all`, and `compare` export scopes while keeping picos-owned filename/path validation.
+- Tests cover compare clipboard previews, compare export plans, indexed compare evidence recovery, and the existing Tools history export/archive path.
+- Next: add archived Tools evidence search/filter controls and command-palette entries for compare handoffs.
+
 ## v0.4.214 - Tools Result Compare
 
 Status: draft PR [#276](https://github.com/uulab-official/picos/pull/276) on `codex/picos-v0.4.214-tools-result-compare`.
@@ -12,7 +25,7 @@ Goal: make repeated Tools Hub checks easier to compare like an operator console,
 - Runs without a previous matching action/target show an explicit `no previous matching tool run` row.
 - `toolHistoryDetailView=compare` is normalized and persisted through the config store.
 - Tests cover detail cycling, compare row formatting, no-match behavior, and config persistence for the compare view.
-- Next: add Tools compare export/copy handoffs and archived Tools evidence search filters.
+- Next: Tools compare copy/export handoffs moved into v0.4.215; archived Tools evidence search filters remain a follow-up.
 
 ## v0.4.213 - Tools Evidence Activity And Palette
 

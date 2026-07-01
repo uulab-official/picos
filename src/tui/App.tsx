@@ -491,6 +491,7 @@ import {
 	archiveToolHistoryExport,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
+	createToolHistoryCompareExportPlan,
 	createToolHistoryExportArchivePlan,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
@@ -501,6 +502,7 @@ import {
 	formatToolHistoryExportArchiveRows,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getSelectedToolCompareClipboardPreview,
 	getSelectedToolHistoryExport,
 	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
@@ -2960,14 +2962,19 @@ export function App(): React.ReactElement {
 				toolHistoryFilter,
 				toolHistorySort,
 			);
-			const plan = createToolHistoryExportPlan(
-				toolHistory,
-				visibleToolHistoryIndex,
-				{
-					baseDir: dirname(getConfigPath()),
-					scope,
-				},
-			);
+			const plan =
+				scope === "compare"
+					? createToolHistoryCompareExportPlan(
+							toolHistory,
+							visibleToolHistoryIndex,
+							{
+								baseDir: dirname(getConfigPath()),
+							},
+						)
+					: createToolHistoryExportPlan(toolHistory, visibleToolHistoryIndex, {
+							baseDir: dirname(getConfigPath()),
+							scope,
+						});
 			if (!plan) {
 				log("warn", "no tool history to export");
 				return;
@@ -7945,6 +7952,26 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces" && input === "o") {
+			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
+				toolHistory,
+				selectedToolHistoryIndex,
+				toolHistoryFilter,
+				toolHistorySort,
+			);
+			const preview = getSelectedToolCompareClipboardPreview(
+				toolHistory,
+				visibleToolHistoryIndex,
+			);
+			if (!preview) {
+				log("warn", "no tool compare selected");
+				return;
+			}
+			setToolCopyPreview("compare");
+			openClipboardConfirmation(preview);
+			return;
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && input === "V") {
 			setToolSectionClipboardSelection((current) => {
 				const next = nextToolSectionClipboardSelection(current);
@@ -8030,6 +8057,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "tools" && focusArea === "workspaces" && input === "E") {
 			void exportToolHistory("all");
+			return;
+		}
+
+		if (screen === "tools" && focusArea === "workspaces" && input === "O") {
+			void exportToolHistory("compare");
 			return;
 		}
 
@@ -10934,25 +10966,30 @@ function ToolsWorkspace({
 	const selectedPreview =
 		copyPreview === "summary"
 			? getSelectedToolSummaryClipboardPreview(history, visibleToolHistoryIndex)
-			: copyPreview === "target" || copyPreview === "status"
-				? getSelectedToolSectionClipboardPreview(
+			: copyPreview === "compare"
+				? getSelectedToolCompareClipboardPreview(
 						history,
 						visibleToolHistoryIndex,
-						copyPreview,
 					)
-				: copyPreview === "row"
-					? getSelectedToolSectionRowClipboardPreview(
+				: copyPreview === "target" || copyPreview === "status"
+					? getSelectedToolSectionClipboardPreview(
 							history,
 							visibleToolHistoryIndex,
-							sectionClipboardSelection,
-							sectionClipboardRowIndex,
+							copyPreview,
 						)
-					: copyPreview === "raw"
-						? getSelectedToolOutputClipboardPreview(
+					: copyPreview === "row"
+						? getSelectedToolSectionRowClipboardPreview(
 								history,
 								visibleToolHistoryIndex,
+								sectionClipboardSelection,
+								sectionClipboardRowIndex,
 							)
-						: undefined;
+						: copyPreview === "raw"
+							? getSelectedToolOutputClipboardPreview(
+									history,
+									visibleToolHistoryIndex,
+								)
+							: undefined;
 	const copyRows = selectedPreview
 		? formatClipboardPreviewRows(selectedPreview, {
 				maxCopyLines: Math.max(1, Math.min(4, visibleRows - 6)),

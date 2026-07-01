@@ -11,6 +11,7 @@ export type ClipboardPreviewSource =
 	| "timeline-event"
 	| "tool-summary"
 	| "tool-output"
+	| "tool-compare"
 	| "tool-target"
 	| "tool-status"
 	| "tool-row"

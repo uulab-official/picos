@@ -105,7 +105,7 @@ export type ToolHistoryItem = {
 	rawOutput: string;
 };
 
-export type ToolHistoryExportScope = "selected" | "all";
+export type ToolHistoryExportScope = "selected" | "all" | "compare";
 
 export type ToolHistorySort = "time" | "tool" | "status";
 
@@ -118,6 +118,7 @@ export type ToolSectionClipboardSelection = "target" | "status";
 export type ToolCopyPreviewMode =
 	| "raw"
 	| "summary"
+	| "compare"
 	| ToolSectionClipboardSelection
 	| "row"
 	| false;
@@ -455,7 +456,7 @@ export function formatToolsWorkspaceRows(
 		...(copyModePreview ? [copyModePreview] : []),
 		...(copySectionPreview ? [copySectionPreview] : []),
 		...(copyTargetPreview ? [copyTargetPreview] : []),
-		`shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · V section=${sectionClipboardSelection}${sectionRowSummary} · v copy section · c raw`,
+		`shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=${sectionClipboardSelection}${sectionRowSummary} · v copy section · c raw`,
 	].slice(0, visibleRows);
 }
 
@@ -976,6 +977,31 @@ export function getSelectedToolSummaryClipboardPreview(
 	});
 }
 
+export function getSelectedToolCompareClipboardPreview(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+): ClipboardPreview | undefined {
+	const item = getSelectedToolHistoryItem(history, selectedIndex);
+	if (!item) {
+		return undefined;
+	}
+	const previous = findPreviousMatchingToolHistoryItem(
+		history,
+		Math.min(Math.max(selectedIndex, 0), history.length - 1),
+		item,
+	);
+	return createClipboardPreview({
+		source: "tool-compare",
+		label: `${item.label} compare`,
+		copyText: formatToolHistoryCompareRows(item, previous).join("\n"),
+		details: formatToolClipboardPreviewDetails(item, "o compare", [
+			previous
+				? `previous ${formatToolHistoryCompareRunLabel(previous)}`
+				: "previous none",
+		]),
+	});
+}
+
 export function getSelectedToolTargetClipboardPreview(
 	history: ToolHistoryItem[],
 	selectedIndex: number,
@@ -1121,6 +1147,47 @@ export function createToolHistoryExportPlan(
 		}),
 		itemCount: items.length,
 		scope: options.scope,
+	};
+}
+
+export function createToolHistoryCompareExportPlan(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+	},
+): ToolHistoryExportPlan | undefined {
+	const item = getSelectedToolHistoryItem(history, selectedIndex);
+	if (!item) {
+		return undefined;
+	}
+	const boundedIndex = Math.min(Math.max(selectedIndex, 0), history.length - 1);
+	const previous = findPreviousMatchingToolHistoryItem(
+		history,
+		boundedIndex,
+		item,
+	);
+	const generatedAt = options.generatedAt ?? new Date();
+	const iso = generatedAt.toISOString();
+	return {
+		path: join(
+			options.baseDir,
+			"tools",
+			`picos-tools-compare-${iso.replaceAll(/[:.]/g, "")}.md`,
+		),
+		content: [
+			"# picos tools compare",
+			`generatedAt=${iso}`,
+			"scope=compare",
+			"runs=1",
+			"",
+			`## ${item.label}`,
+			...formatToolHistoryCompareRows(item, previous),
+			"",
+		].join("\n"),
+		itemCount: 1,
+		scope: "compare",
 	};
 }
 
@@ -1441,7 +1508,7 @@ function parseToolHistoryExportMetadata(
 }
 
 function isPicosToolHistoryExportFilename(fileName: string): boolean {
-	return /^picos-tools-(selected|all)-\d{4}-\d{2}-\d{2}T\d{9}Z\.md$/.test(
+	return /^picos-tools-(selected|all|compare)-\d{4}-\d{2}-\d{2}T\d{9}Z\.md$/.test(
 		fileName,
 	);
 }
@@ -1462,7 +1529,7 @@ function generatedAtFromToolExportFilename(
 	fileName: string,
 ): string | undefined {
 	const match =
-		/^picos-tools-(?:selected|all)-(\d{4}-\d{2}-\d{2}T\d{6}\d{3}Z)\.md$/.exec(
+		/^picos-tools-(?:selected|all|compare)-(\d{4}-\d{2}-\d{2}T\d{6}\d{3}Z)\.md$/.exec(
 			fileName,
 		);
 	if (!match?.[1]) {
@@ -1475,7 +1542,9 @@ function generatedAtFromToolExportFilename(
 function toToolHistoryExportScope(
 	value: string | undefined,
 ): ToolHistoryExportScope | undefined {
-	return value === "selected" || value === "all" ? value : undefined;
+	return value === "selected" || value === "all" || value === "compare"
+		? value
+		: undefined;
 }
 
 function toNonNegativeInt(value: string | undefined): number {
@@ -1771,6 +1840,9 @@ function formatToolCopyModePreview(
 	}
 	if (mode === "summary") {
 		return "copy mode: y summary";
+	}
+	if (mode === "compare") {
+		return "copy mode: o compare";
 	}
 	if (mode === "row") {
 		const count = getToolSectionClipboardRowCountForItem(item, selection);
