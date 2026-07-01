@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity audit jump intent previews now show a compact repeat count for repeated `I` jumps.
 - Status Activity result rows now show the latest `I` audit jump intent as a compact reusable handoff hint.
 - Status Activity `I` audit jumps now append reusable copy-intent rows before moving into Timeline.
 - Status Activity result history rows for palette `trail source` cycles can now jump directly into matching Timeline audit search.

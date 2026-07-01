@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.175 - Status Result Audit Jump Counter
+
+Status: draft PR [#237](https://github.com/uulab-official/picos/pull/237) on `codex/picos-v0.4.175-result-audit-jump-counter`.
+
+Goal: make repeated Status result-row audit jumps easier to scan in compact Status result rows.
+
+- Status Activity result rows now append `count=<n>` to the `audit jump intent=` hint when more than one reusable result audit jump exists.
+- Selected result-history rows show the same counter so `u`/`i` review keeps the latest jump context visible.
+- The count is derived only from `status activity result audit jump ...` copy intents, leaving unrelated copy intents out of the counter.
+- Single-jump previews keep the existing compact row without a redundant count.
+- Tests cover result rows, selected history rows, and filtered audit-jump intent counting.
+- Next: add a copy-intent shelf summary row for result audit jumps so the count is visible even when no Status result is selected.
+
 ## v0.2.0 - OS Inventory and Network Tools
 
 Status: complete on `codex/picos-v0.1-scaffold`.

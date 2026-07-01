@@ -212,6 +212,7 @@ export function createStatusActivityEnterPlan(
 export function formatStatusActivityResultRows(
 	result?: StatusActivityResult,
 	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
+	auditJumpIntentCount = 0,
 ): string[] {
 	if (!result) {
 		return [
@@ -226,6 +227,7 @@ export function formatStatusActivityResultRows(
 		...formatStatusActivityResultAuditJumpIntentRows(
 			latestAuditJumpIntent,
 			"  ",
+			auditJumpIntentCount,
 		),
 	];
 }
@@ -242,6 +244,7 @@ export function formatStatusActivityResultHistoryRows(
 	history: StatusActivityResult[],
 	selectedIndex = 0,
 	latestAuditJumpIntent?: StatusActivityCopyIntentRecord,
+	auditJumpIntentCount = 0,
 ): string[] {
 	if (history.length === 0) {
 		return [
@@ -268,6 +271,7 @@ export function formatStatusActivityResultHistoryRows(
 					...formatStatusActivityResultAuditJumpIntentRows(
 						latestAuditJumpIntent,
 						"    ",
+						auditJumpIntentCount,
 					),
 				);
 			}
@@ -279,11 +283,15 @@ export function formatStatusActivityResultHistoryRows(
 function formatStatusActivityResultAuditJumpIntentRows(
 	intent: StatusActivityCopyIntentRecord | undefined,
 	prefix: string,
+	count = 0,
 ): string[] {
 	if (!intent) {
 		return [];
 	}
-	return [`${prefix}audit jump intent=${intent.preview} lines=${intent.lines}`];
+	const countSuffix = count > 1 ? ` count=${count}` : "";
+	return [
+		`${prefix}audit jump intent=${intent.preview} lines=${intent.lines}${countSuffix}`,
+	];
 }
 
 export function moveStatusActivityResultHistorySelection(
@@ -654,6 +662,14 @@ export function getLatestStatusActivityResultAuditJumpIntent(
 	return history.find((record) =>
 		record.label.startsWith("status activity result audit jump "),
 	);
+}
+
+export function getStatusActivityResultAuditJumpIntentCount(
+	history: StatusActivityCopyIntentRecord[],
+): number {
+	return history.filter((record) =>
+		record.label.startsWith("status activity result audit jump "),
+	).length;
 }
 
 export function createTimelineEvidenceTrailTimelineSearch(
