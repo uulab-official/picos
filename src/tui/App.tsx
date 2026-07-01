@@ -388,6 +388,7 @@ import {
 	formatStatusActivityResultRows,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
+	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
@@ -10535,6 +10536,10 @@ function StatusWorkspace({
 				]
 			: []),
 	];
+	const latestStatusActivityResultAuditJumpIntent =
+		getLatestStatusActivityResultAuditJumpIntent(
+			statusActivityCopyIntentHistory,
+		);
 	const statusReleaseRows = formatStatusReleaseConsoleRows({
 		update: updateCheckResult,
 		github: githubReleaseCheckResult,
@@ -10649,7 +10654,10 @@ function StatusWorkspace({
 						{row}
 					</Text>
 				))}
-				{formatStatusActivityResultRows(statusActivityResults[0]).map((row) => (
+				{formatStatusActivityResultRows(
+					statusActivityResults[0],
+					latestStatusActivityResultAuditJumpIntent,
+				).map((row) => (
 					<Text
 						key={`latest-${row}`}
 						color={
@@ -10659,7 +10667,9 @@ function StatusWorkspace({
 									? "yellow"
 									: row.startsWith("no ")
 										? "gray"
-										: "white"
+										: row.includes("audit jump intent=")
+											? "gray"
+											: "white"
 						}
 					>
 						{row}
@@ -10668,6 +10678,7 @@ function StatusWorkspace({
 				{formatStatusActivityResultHistoryRows(
 					statusActivityResults,
 					selectedStatusActivityResultIndex,
+					latestStatusActivityResultAuditJumpIntent,
 				).map((row) => (
 					<Text
 						key={`history-${row}`}
