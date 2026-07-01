@@ -812,13 +812,26 @@ export function createTimelineEvidenceTrailPaletteStatusActivityResult(
 }
 
 export function formatTimelineEvidenceTrailPaletteAuditMessage(
-	action: "select" | "open" | "search",
+	action: "select" | "open" | "search" | "source",
 	plan?: ConsoleAuditExportPlan,
 	options: {
 		selectedIndex?: number;
+		sourceFilter?: TimelineEvidenceTrailSourceFilter;
 		total?: number;
+		visible?: number;
 	} = {},
 ): string {
+	if (action === "source") {
+		const sourceFilter = options.sourceFilter ?? "all";
+		const visible = Math.max(0, Math.floor(options.visible ?? 0));
+		const total = Math.max(0, Math.floor(options.total ?? 0));
+		return [
+			"palette timeline trail audit",
+			"action=source",
+			`source=${sourceFilter}`,
+			`visible=${visible}/${total}`,
+		].join(" ");
+	}
 	if (!plan) {
 		return [
 			"palette timeline trail audit",

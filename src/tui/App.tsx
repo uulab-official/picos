@@ -2994,6 +2994,14 @@ export function App(): React.ReactElement {
 				`timeline evidence trail source filter ${nextFilter} visible ${visible.length}/${timelineEvidenceTrailAuditExports.length}${options.origin === "palette" ? " origin=palette" : ""}`,
 			);
 			if (options.origin === "palette") {
+				log(
+					"info",
+					formatTimelineEvidenceTrailPaletteAuditMessage("source", undefined, {
+						sourceFilter: nextFilter,
+						visible: visible.length,
+						total: timelineEvidenceTrailAuditExports.length,
+					}),
+				);
 				recordStatusActivityResult(
 					createTimelineEvidenceTrailPaletteStatusActivityResult(
 						"source",
