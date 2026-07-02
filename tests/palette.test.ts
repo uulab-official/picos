@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adapters/macos";
 import { createActionPreviewPlan, getActionCatalog } from "../src/core/actions";
 import type { ConsoleAuditExportPlan } from "../src/core/auditLog";
+import { createConfigWorkspaceItems } from "../src/tui/configPanel";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendCommandPaletteQuery,
@@ -74,6 +75,39 @@ describe("TUI command palette", () => {
 		const actions = getFilteredPaletteActions(getActionCatalog(), state);
 
 		expect(actions.map((action) => action.id)).toContain("network.connect");
+	});
+
+	test("finds Config settings focus actions from the command palette", () => {
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "safety policy config"),
+			).map((action) => action.id),
+		).toContain("config.safetyPolicy.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "editor save config"),
+			).map((action) => action.id),
+		).toContain("config.editorSaveMode.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"audit retention config",
+				),
+			).map((action) => action.id),
+		).toContain("config.auditRetention.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"tools retention config",
+				),
+			).map((action) => action.id),
+		).toContain("config.toolTargetRetention.focus");
 	});
 
 	test("finds recovered timeline trail actions from the command palette", () => {
@@ -294,6 +328,18 @@ describe("TUI command palette", () => {
 	});
 
 	test("previews status result jump class filter before dispatch", () => {
+		const configWorkspaceItems = createConfigWorkspaceItems({
+			language: "en",
+			refreshInterval: 3000,
+			statusResultJumpClassFilter: "process",
+			defaultPingHost: "google.com",
+			controlExecutionMode: "disabled",
+			allowAdminDryRun: false,
+			editorSaveMode: "disabled",
+			auditArchiveRetentionLimit: 10,
+			toolTargetPresetLimit: 8,
+		});
+
 		expect(
 			formatCommandPaletteActionPreviewRows(
 				getActionCatalog().find(
@@ -317,13 +363,65 @@ describe("TUI command palette", () => {
 				getActionCatalog().find(
 					(action) => action.id === "config.statusResultJumpClass.focus",
 				),
-				{ statusResultJumpClassFilter: "process" },
+				{ configWorkspaceItems, statusResultJumpClassFilter: "process" },
 			),
 		).toEqual([
 			"config target=statusResultJumpClassFilter",
 			"current=process",
 			"section=display action=focus Config row",
 			"controls=+/- cycle all/process/timeline/tools/source",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.safetyPolicy.focus",
+				),
+				{ configWorkspaceItems },
+			),
+		).toEqual([
+			"config target=controlExecutionMode",
+			"current mode=disabled adminDryRun=false editorSave=disabled",
+			"section=safety action=focus Config row",
+			"controls=P presets safe/user/admin +/- cycle selected row",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.editorSaveMode.focus",
+				),
+				{ configWorkspaceItems },
+			),
+		).toEqual([
+			"config target=editorSaveMode",
+			"current=disabled",
+			"section=safety action=focus Config row",
+			"controls=+/- cycle disabled/local-write",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.auditRetention.focus",
+				),
+				{ configWorkspaceItems },
+			),
+		).toEqual([
+			"config target=auditArchiveRetentionLimit",
+			"current=10",
+			"section=retention action=focus Config row",
+			"controls=+/- clamp 1..60 archived audit logs",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.toolTargetRetention.focus",
+				),
+				{ configWorkspaceItems },
+			),
+		).toEqual([
+			"config target=toolTargetPresetLimit",
+			"current=8",
+			"section=retention action=focus Config row",
+			"controls=+/- clamp 1..24 saved tool targets",
 		]);
 	});
 

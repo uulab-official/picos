@@ -258,6 +258,7 @@ import {
 	formatConfigWorkspaceRows,
 	getConfigManagedShelfFocusPreset,
 	getConfigManagedShelfHandoff,
+	getConfigWorkspaceActionFocusKey,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
 	getConfigWorkspaceItemIndex,
@@ -4596,20 +4597,22 @@ export function App(): React.ReactElement {
 					);
 				}
 
-				if (action.id === "config.statusResultJumpClass.focus") {
+				const configFocusKey = getConfigWorkspaceActionFocusKey(action.id);
+				if (configFocusKey) {
 					const index = getConfigWorkspaceItemIndex(
 						configWorkspaceItems,
-						"statusResultJumpClassFilter",
+						configFocusKey,
 					);
 					setScreen("config");
 					setFocusArea("workspaces");
 					if (index === undefined) {
-						log("warn", "config row statusResultJumpClassFilter unavailable");
+						log("warn", `config row ${configFocusKey} unavailable`);
 					} else {
+						const item = getConfigWorkspaceItem(configWorkspaceItems, index);
 						setSelectedConfigIndex(index);
 						log(
 							"info",
-							`config focus statusResultJumpClassFilter current=${statusActivityResultTimelineJumpFilter}`,
+							`config focus ${configFocusKey} current=${String(item?.value ?? "-")}`,
 						);
 					}
 				}
@@ -4845,7 +4848,6 @@ export function App(): React.ReactElement {
 			selectNextProcessControlEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
-			statusActivityResultTimelineJumpFilter,
 			timelineFilter,
 			timelineSearchQuery,
 			toolHistory,
@@ -10131,6 +10133,7 @@ function renderWorkspace(
 							selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,
 						totalStatusActivityResultTimelineJumps:
 							selectedStatusActivityResultTimelineJumpSelection?.total,
+						configWorkspaceItems,
 						statusActivityResultTimelineJumpFilter,
 						statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 						nextStatusActivityResultTimelineJumpFilter:

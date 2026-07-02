@@ -141,6 +141,50 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "config.safetyPolicy.focus",
+		title: "Configure safety policy",
+		description:
+			"Safety policy config shortcut for the Config safety row that controls OS mutation execution mode.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.editorSaveMode.focus",
+		title: "Configure editor save mode",
+		description:
+			"Editor save config shortcut for the Config safety row that controls local file write policy.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.auditRetention.focus",
+		title: "Configure audit retention",
+		description:
+			"Audit retention config shortcut for the Config retention row that controls archived Timeline audit logs.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.toolTargetRetention.focus",
+		title: "Configure tools target retention",
+		description:
+			"Tools retention config shortcut for the Config retention row that controls saved Tools target presets.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "files.list",
 		title: "List files",
 		description:

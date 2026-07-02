@@ -1,5 +1,9 @@
 import type { ActionPreviewPlan, PicosAction } from "../core/actions";
 import type { ConsoleAuditExportPlan } from "../core/auditLog";
+import type {
+	ConfigWorkspaceItem,
+	ConfigWorkspaceItemKey,
+} from "./configPanel";
 import type { PortProcessControlPreview } from "./endpointPanel";
 import { getNextIndex } from "./navigation";
 import type {
@@ -137,6 +141,7 @@ export type CommandPalettePreviewContext = {
 	selectedStatusActivityResultTimelineJump?: StatusActivityCopyIntentTimelineSearch;
 	selectedStatusActivityResultTimelineJumpIndex?: number;
 	totalStatusActivityResultTimelineJumps?: number;
+	configWorkspaceItems?: ConfigWorkspaceItem[];
 	statusActivityResultTimelineJumpFilter?: StatusActivityResultTimelineJumpFilter;
 	nextStatusActivityResultTimelineJumpFilter?: StatusActivityResultTimelineJumpFilter;
 	statusResultJumpClassFilter?: StatusActivityResultTimelineJumpFilter;
@@ -163,6 +168,10 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.resultJump.open" &&
 		action.id !== "status.resultJump.filter" &&
 		action.id !== "config.statusResultJumpClass.focus" &&
+		action.id !== "config.safetyPolicy.focus" &&
+		action.id !== "config.editorSaveMode.focus" &&
+		action.id !== "config.auditRetention.focus" &&
+		action.id !== "config.toolTargetRetention.focus" &&
 		!context.portProcessPreview &&
 		!context.controlPreview
 	) {
@@ -210,6 +219,15 @@ export function formatCommandPaletteActionPreviewRows(
 		return formatConfigStatusResultJumpClassPalettePreviewRows(context);
 	}
 
+	if (
+		action.id === "config.safetyPolicy.focus" ||
+		action.id === "config.editorSaveMode.focus" ||
+		action.id === "config.auditRetention.focus" ||
+		action.id === "config.toolTargetRetention.focus"
+	) {
+		return formatConfigWorkspaceFocusPalettePreviewRows(action.id, context);
+	}
+
 	const recovery = context.toolsEvidenceSearchRecovery;
 	if (!recovery || recovery.items.length === 0) {
 		return [
@@ -248,6 +266,11 @@ function formatConfigStatusResultJumpClassPalettePreviewRows(
 	context: CommandPalettePreviewContext,
 ): string[] {
 	const current =
+		getConfigWorkspacePreviewValue(
+			context,
+			"statusResultJumpClassFilter",
+			undefined,
+		) ??
 		context.statusResultJumpClassFilter ??
 		context.statusActivityResultTimelineJumpFilter ??
 		"all";
@@ -257,6 +280,79 @@ function formatConfigStatusResultJumpClassPalettePreviewRows(
 		"section=display action=focus Config row",
 		"controls=+/- cycle all/process/timeline/tools/source",
 	];
+}
+
+function formatConfigWorkspaceFocusPalettePreviewRows(
+	actionId: string,
+	context: CommandPalettePreviewContext,
+): string[] {
+	if (actionId === "config.safetyPolicy.focus") {
+		const mode = getConfigWorkspacePreviewValue(
+			context,
+			"controlExecutionMode",
+			"disabled",
+		);
+		const adminDryRun = getConfigWorkspacePreviewValue(
+			context,
+			"allowAdminDryRun",
+			"false",
+		);
+		const editorSave = getConfigWorkspacePreviewValue(
+			context,
+			"editorSaveMode",
+			"disabled",
+		);
+		return [
+			"config target=controlExecutionMode",
+			`current mode=${mode} adminDryRun=${adminDryRun} editorSave=${editorSave}`,
+			"section=safety action=focus Config row",
+			"controls=P presets safe/user/admin +/- cycle selected row",
+		];
+	}
+
+	if (actionId === "config.editorSaveMode.focus") {
+		return [
+			"config target=editorSaveMode",
+			`current=${getConfigWorkspacePreviewValue(context, "editorSaveMode", "disabled")}`,
+			"section=safety action=focus Config row",
+			"controls=+/- cycle disabled/local-write",
+		];
+	}
+
+	if (actionId === "config.auditRetention.focus") {
+		return [
+			"config target=auditArchiveRetentionLimit",
+			`current=${getConfigWorkspacePreviewValue(
+				context,
+				"auditArchiveRetentionLimit",
+				"10",
+			)}`,
+			"section=retention action=focus Config row",
+			"controls=+/- clamp 1..60 archived audit logs",
+		];
+	}
+
+	return [
+		"config target=toolTargetPresetLimit",
+		`current=${getConfigWorkspacePreviewValue(
+			context,
+			"toolTargetPresetLimit",
+			"8",
+		)}`,
+		"section=retention action=focus Config row",
+		"controls=+/- clamp 1..24 saved tool targets",
+	];
+}
+
+function getConfigWorkspacePreviewValue(
+	context: CommandPalettePreviewContext,
+	key: ConfigWorkspaceItemKey,
+	fallback: string | undefined,
+): string | undefined {
+	const item = context.configWorkspaceItems?.find((candidate) => {
+		return candidate.key === key;
+	});
+	return item ? String(item.value) : fallback;
 }
 
 function formatStatusActivityResultJumpFilterPalettePreviewRows(

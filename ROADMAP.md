@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.244 - Config Settings Palette Focus
+
+Status: draft PR [#306](https://github.com/uulab-official/picos/pull/306) on `codex/picos-v0.4.244-config-settings-palette-focus`.
+
+Goal: make common Config settings reachable from the command palette like an OS settings center.
+
+- Command palette now exposes `config.safetyPolicy.focus`, `config.editorSaveMode.focus`, `config.auditRetention.focus`, and `config.toolTargetRetention.focus`.
+- Search phrases `safety policy config`, `editor save config`, `audit retention config`, and `tools retention config` jump directly to the matching Config workspace row.
+- Palette previews show current safety/editor/retention values plus the relevant `P` or `+/-` controls before dispatch.
+- Config focus dispatch now uses a shared action-id to item-key helper, so future settings shortcuts can be added without screen-specific hardcoding.
+- Tests cover action catalog exposure, palette discovery and previews, Config action routing, and focused type/lint validation.
+- Next: add command-palette focus shortcuts for managed Config shelves such as route filters, connection filters, port filters, log profiles, and remote profiles.
+
 ## v0.4.243 - Config Jump Class Palette Focus
 
 Status: draft PR [#305](https://github.com/uulab-official/picos/pull/305) on `codex/picos-v0.4.243-config-jump-class-palette-focus`.
