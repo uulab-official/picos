@@ -336,6 +336,7 @@ import {
 } from "./fileOperationDialog";
 import {
 	formatFileBreadcrumbRows,
+	formatFileProviderBoundaryRows,
 	formatSelectedFilePathRows,
 	getSelectedFilePathClipboardPreview,
 } from "./fileSelection";
@@ -11259,6 +11260,10 @@ function FilesWorkspace({
 	const hiddenAbove = window.start;
 	const hiddenBelow = entries.length - window.end;
 	const selectedPathRows = formatSelectedFilePathRows(entries, selectedIndex);
+	const providerBoundaryRows = formatFileProviderBoundaryRows({
+		root,
+		remoteContext,
+	});
 	const breadcrumbRows = formatFileBreadcrumbRows(
 		root,
 		entries,
@@ -11275,12 +11280,20 @@ function FilesWorkspace({
 				<Text bold color="cyan">
 					{t("screen.files")} · root {clip(root, 18)}
 				</Text>
-				{remoteContext ? (
-					<Text color="yellow">
-						remote {remoteContext.label} · {remoteContext.status} · writes{" "}
-						{remoteContext.writes}
+				{providerBoundaryRows.slice(0, 3).map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("PROVIDER")
+								? "cyan"
+								: row.includes("locked") || row.includes("pending")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 76)}
 					</Text>
-				) : null}
+				))}
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
 						? "files · j/k · enter · f filter · b/B history · :path"
@@ -11358,14 +11371,22 @@ function FilesWorkspace({
 				{t("screen.files")}
 			</Text>
 			<Text color="gray">current {clip(root, 46)}</Text>
-			{remoteContext ? (
-				<Text color="yellow">
-					remote {remoteContext.label} {clip(remoteContext.root, 34)} ·{" "}
-					{remoteContext.status} · writes {remoteContext.writes}
-				</Text>
-			) : (
-				<Text color="gray">provider local · remote context not selected</Text>
-			)}
+			<Box flexDirection="column">
+				{providerBoundaryRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("PROVIDER")
+								? "cyan"
+								: row.includes("locked") || row.includes("pending")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 100)}
+					</Text>
+				))}
+			</Box>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
 					? "files · j/k · enter · f filter · c/m/x ops · b/B history · :path"

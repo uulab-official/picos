@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { FileEntry } from "../src/core/files";
 import {
 	formatFileBreadcrumbRows,
+	formatFileProviderBoundaryRows,
 	formatSelectedFilePathRows,
 	getSelectedFilePathClipboardPreview,
 } from "../src/tui/fileSelection";
@@ -74,6 +75,40 @@ describe("TUI file selection", () => {
 			"root=/",
 			"selected=none",
 			"controls=: path · u parent · y copy selected",
+		]);
+	});
+
+	test("formats local provider boundary rows", () => {
+		expect(
+			formatFileProviderBoundaryRows({
+				root: "/Users/bonjin/Documents/workspace/uulab/picos",
+			}),
+		).toEqual([
+			"PROVIDER BOUNDARY local",
+			"root=/Users/bonjin/Documents/workspace/uulab/picos",
+			"status=ready writes=locked remote=none",
+			"controls=enter open · y copy path · c/m/x preview-only",
+		]);
+	});
+
+	test("formats SFTP placeholder provider boundary rows", () => {
+		expect(
+			formatFileProviderBoundaryRows({
+				root: "/Users/bonjin/Documents/workspace/uulab/picos",
+				remoteContext: {
+					id: "dev",
+					kind: "sftp",
+					label: "dev",
+					root: "sftp://alice@dev.example.com:22/srv/app",
+					status: "adapter pending",
+					writes: "locked",
+				},
+			}),
+		).toEqual([
+			"PROVIDER BOUNDARY sftp dev",
+			"root=sftp://alice@dev.example.com:22/srv/app",
+			"status=adapter pending writes=locked localRoot=/Users/bonjin/Documents/workspace/uulab/picos",
+			"controls=enter preview · y copy path · remote writes require confirmation",
 		]);
 	});
 });
