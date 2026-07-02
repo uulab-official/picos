@@ -215,6 +215,18 @@ describe("TUI command palette", () => {
 				appendCommandPaletteQuery(openCommandPalette(), "result select"),
 			).map((action) => action.id),
 		).toContain("status.resultJump.select");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "result jump filter"),
+			).map((action) => action.id),
+		).toContain("status.resultJump.filter");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "jump class"),
+			).map((action) => action.id),
+		).toContain("status.resultJump.filter");
 	});
 
 	test("previews status result timeline jumps before dispatch", () => {
@@ -266,6 +278,27 @@ describe("TUI command palette", () => {
 		).toEqual([
 			"selected result jump unavailable",
 			"hint=select a Status Activity result row with a Timeline jump",
+		]);
+	});
+
+	test("previews status result jump class filter before dispatch", () => {
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.resultJump.filter",
+				),
+				{
+					statusActivityResultTimelineJumpFilter: "process",
+					nextStatusActivityResultTimelineJumpFilter: "timeline",
+					visibleStatusActivityResultTimelineJumps: 1,
+					totalStatusActivityResultTimelineJumps: 4,
+				},
+			),
+		).toEqual([
+			"result jump class filter",
+			"current=process next=timeline",
+			"visible=1/4",
+			"dispatch=cycle Status ^ filter",
 		]);
 	});
 
