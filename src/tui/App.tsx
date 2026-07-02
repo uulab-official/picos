@@ -144,6 +144,7 @@ import {
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
+	createRemoteHostKeyScanRequest,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
@@ -159,6 +160,7 @@ import {
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
+	formatRemoteHostKeyScanRequestRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
 	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
@@ -11821,7 +11823,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 87);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 94);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11844,6 +11846,9 @@ function RemotesWorkspace({
 	);
 	const hostKeyEvidenceRows = formatRemoteHostKeyEvidenceRows(
 		createRemoteHostKeyEvidence(selectedProfile),
+	);
+	const hostKeyScanRequestRows = formatRemoteHostKeyScanRequestRows(
+		createRemoteHostKeyScanRequest(selectedProfile),
 	);
 	const knownHostsSourceRows = formatRemoteKnownHostsSourcePreviewRows(
 		createRemoteKnownHostsSourcePreview(selectedProfile),
@@ -12053,6 +12058,28 @@ function RemotesWorkspace({
 										row.includes("unknown") ||
 										row.includes("unverified") ||
 										row.includes("willRead=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">HOST KEY SCAN REQUEST</Text>
+				{hostKeyScanRequestRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") ||
+										row.includes("blocked") ||
+										row.includes("unknown") ||
+										row.includes("willConnect=false") ||
+										row.includes("willScan=false") ||
+										row.includes("willTrust=false")
 									? "yellow"
 									: "gray"
 						}

@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.289 - Remote Host Key Scan Request
+
+Status: draft PR [#356](https://github.com/uulab-official/picos/pull/356) on `codex/picos-v0.4.289-host-key-scan-request`.
+
+Goal: make the future host-key fingerprint scan request visible before picos imports SFTP transport, opens a socket, scans a host key, trusts a host, or mutates anything.
+
+- Remotes now models `REMOTE HOST KEY SCAN REQUEST` rows for selected and empty SFTP profile states.
+- Scan request rows show target URI, host, port, SFTP dependency, read/user risk, planned evidence output placeholder, and exact `scan host key <id>` confirmation.
+- Execution rows keep `willImport=false`, `willConnect=false`, `willScan=false`, `willTrust=false`, and `willMutate=false`.
+- `picos remote <id>` prints the scan request between host-key evidence and known_hosts source.
+- Remotes TUI renders a dedicated `HOST KEY SCAN REQUEST` section and reserves additional vertical budget.
+- Tests cover selected and empty scan request rows, CLI provider status inclusion, and no-import/no-connect/no-scan/no-trust/no-mutation posture.
+- Next: add a scan review confirmation result that records confirmed-blocked/rejected scan intent without opening a socket.
+
 ## v0.4.288 - Remote Host Key Candidate Compare
 
 Status: draft PR [#353](https://github.com/uulab-official/picos/pull/353) on `codex/picos-v0.4.288-host-key-candidate-compare`.
