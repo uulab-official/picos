@@ -3,6 +3,7 @@ import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
+	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
 	formatRemoteConnectConfirmationAuditMessage,
@@ -12,6 +13,7 @@ import {
 	formatRemoteHostReviewRows,
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
+	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
 	normalizeRemoteProfiles,
 	parseRemoteProfileCommand,
@@ -339,6 +341,90 @@ describe("remote profiles", () => {
 				"execution=blocked network=not-opened willImport=false willConnect=false",
 				"next=select remote profile · no socket opened",
 			].join("\n"),
+		);
+	});
+
+	test("formats remote read-only adapter contract rows without importing transport", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteReadOnlyAdapterContract(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			dependency: "@uulab/picos-sftp",
+			adapter: "read-only",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			lifecycle: "planned",
+			methods: {
+				list: "planned",
+				read: "planned",
+				stat: "planned",
+				write: "locked",
+				delete: "locked",
+				exec: "unsupported",
+			},
+			guards: {
+				hostReview: true,
+				exactConfirm: "connect remote prod",
+				writeConfirm: "disabled",
+				destructiveConfirm: "disabled",
+			},
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteReadOnlyAdapterContractRows(
+				createRemoteReadOnlyAdapterContract(profile),
+			),
+		).toEqual([
+			"REMOTE READ ADAPTER CONTRACT prod",
+			"provider=sftp dependency=@uulab/picos-sftp adapter=read-only lifecycle=planned",
+			"target=sftp://deploy@prod.example.com:2222/srv/app",
+			"methods=list planned read planned stat planned write locked delete locked exec unsupported",
+			'guards=hostReview exactConfirm="connect remote prod" writeConfirm=disabled destructiveConfirm=disabled',
+			"execution=willImport=false willConnect=false willMutate=false",
+			"next=implement adapter behind transport probe and host review",
+		]);
+
+		expect(formatRemoteReadOnlyAdapterContractRows().join("\n")).toBe(
+			[
+				"REMOTE READ ADAPTER CONTRACT none",
+				"provider=sftp dependency=@uulab/picos-sftp adapter=read-only lifecycle=planned",
+				"target=none",
+				"methods=list planned read planned stat planned write locked delete locked exec unsupported",
+				'guards=hostReview exactConfirm="select remote profile" writeConfirm=disabled destructiveConfirm=disabled',
+				"execution=willImport=false willConnect=false willMutate=false",
+				"next=select remote profile · no adapter import",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote read-only adapter contract in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE READ ADAPTER CONTRACT dev");
+		expect(output).toContain(
+			"methods=list planned read planned stat planned write locked delete locked exec unsupported",
+		);
+		expect(output).toContain(
+			"execution=willImport=false willConnect=false willMutate=false",
 		);
 	});
 
