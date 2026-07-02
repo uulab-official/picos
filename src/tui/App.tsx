@@ -141,6 +141,7 @@ import {
 import {
 	createRemoteFileContext,
 	formatRemoteHandoffBoundaryRows,
+	formatRemoteHostReviewRows,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 } from "../core/remotes";
@@ -11701,6 +11702,7 @@ function RemotesWorkspace({
 		profile: selectedProfile,
 		context: selectedContext,
 	});
+	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 
 	return (
 		<Box flexDirection="column">
@@ -11764,6 +11766,23 @@ function RemotesWorkspace({
 				<Text color="gray">
 					sessions locked · password persistence disabled by schema
 				</Text>
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">HOST REVIEW</Text>
+				{hostReviewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") || row.includes("confirm=")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>

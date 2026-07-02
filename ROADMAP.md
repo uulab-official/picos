@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.269 - Remote Host Review
+
+Status: draft PR [#331](https://github.com/uulab-official/picos/pull/331) on `codex/picos-v0.4.269-remote-host-review`.
+
+Goal: make live SFTP adapter work safe to introduce later by showing the host review contract before any remote session can open.
+
+- Remotes now formats `REMOTE HOST REVIEW` rows for the selected SFTP profile.
+- Host review rows show the computed target URI, username, host, port, key presence, read-only adapter posture, locked writes, and `network=not opened`.
+- Future connection confirmation is modeled as `connect remote <id>` so the exact-confirm shape is visible before implementation.
+- `picos remote <id>` prints the same host review block after provider and handoff status, keeping CLI and TUI safety language aligned.
+- Tests cover host review rows, secret redaction, no-session posture, and CLI provider status output.
+- Next: wire host-review confirmations into Status Activity and model the read-only SFTP adapter dependency boundary.
+
 ## v0.4.268 - Remote Handoff Boundary Breadcrumbs
 
 Status: draft PR [#330](https://github.com/uulab-official/picos/pull/330) on `codex/picos-v0.4.268-remote-boundary-breadcrumbs`.
