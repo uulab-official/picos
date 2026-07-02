@@ -2,7 +2,7 @@
 
 ## v0.4.283 - Remote Host Key Trust Decision Preview
 
-Status: in progress on `codex/picos-v0.4.283-host-key-trust-preview`.
+Status: draft PR [#345](https://github.com/uulab-official/picos/pull/345) on `codex/picos-v0.4.283-host-key-trust-preview`.
 
 Goal: make the future host-key trust decision boundary visible before picos compares fingerprints, trusts a host, imports SFTP transport, or opens a socket.
 
