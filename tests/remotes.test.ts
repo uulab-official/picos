@@ -5,6 +5,7 @@ import {
 	createRemoteFileContext,
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyEvidence,
+	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
@@ -15,6 +16,7 @@ import {
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
+	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
 	formatRemoteReadOnlyAdapterContractRows,
@@ -588,6 +590,80 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willRead=false willMutate=false",
+		);
+	});
+
+	test("formats remote known_hosts source preview without reading local files", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteKnownHostsSourcePreview(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			lookup: "prod.example.com:2222",
+			status: "not-read",
+			source: "local-files",
+			paths: ["~/.ssh/known_hosts", "~/.ssh/known_hosts2"],
+			match: "unknown",
+			hashed: "unknown",
+			fingerprint: "sha256:unknown",
+			confirm: "connect remote prod",
+			execution: {
+				readsLocal: false,
+				importsTransport: false,
+				opensSocket: false,
+				scansHostKey: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteKnownHostsSourcePreviewRows(
+				createRemoteKnownHostsSourcePreview(profile),
+			),
+		).toEqual([
+			"REMOTE KNOWN_HOSTS SOURCE prod",
+			"lookup=prod.example.com:2222 provider=sftp status=not-read source=local-files",
+			"paths=~/.ssh/known_hosts, ~/.ssh/known_hosts2",
+			"match=unknown hashed=unknown fingerprint=sha256:unknown",
+			'guards=localReadPreview hostReview exactConfirm="connect remote prod"',
+			"execution=willReadLocal=false willImport=false willConnect=false willScan=false willMutate=false",
+			"next=preview local known_hosts lookup before fingerprint collection",
+		]);
+
+		expect(formatRemoteKnownHostsSourcePreviewRows().join("\n")).toBe(
+			[
+				"REMOTE KNOWN_HOSTS SOURCE none",
+				"lookup=none provider=sftp status=not-read source=local-files",
+				"paths=~/.ssh/known_hosts, ~/.ssh/known_hosts2",
+				"match=unknown hashed=unknown fingerprint=sha256:unknown",
+				'guards=localReadPreview hostReview exactConfirm="select remote profile"',
+				"execution=willReadLocal=false willImport=false willConnect=false willScan=false willMutate=false",
+				"next=select remote profile · no local file read",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote known_hosts source preview in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE KNOWN_HOSTS SOURCE dev");
+		expect(output).toContain("paths=~/.ssh/known_hosts, ~/.ssh/known_hosts2");
+		expect(output).toContain(
+			"execution=willReadLocal=false willImport=false willConnect=false willScan=false willMutate=false",
 		);
 	});
 

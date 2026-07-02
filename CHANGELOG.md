@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS SOURCE` rows, previewing local `~/.ssh/known_hosts` and `~/.ssh/known_hosts2` lookup targets before fingerprint collection while `willReadLocal=false`, `willConnect=false`, and `willScan=false` remain explicit.
 - Remotes workspace and `picos remote <id>` now show `REMOTE HOST KEY EVIDENCE` rows before host review, making the future SFTP fingerprint checkpoint visible with `sha256:unknown`, `knownHost=not-checked`, trust blocked, and no import/socket/read/mutation.
 - Remotes workspace and `picos remote <id>` now show `REMOTE FILE REQUEST PREVIEW` rows for future SFTP list/read flows, keeping the request blocked behind host review and the read adapter contract while `willImport=false`/`willConnect=false`/`willRead=false`/`willMutate=false` remain explicit.
 - Remotes workspace and `picos remote <id>` now show `REMOTE READ ADAPTER CONTRACT` rows for the future read-only SFTP adapter, making list/read/stat planned methods explicit while write/delete remain locked, exec unsupported, and `willImport=false`/`willConnect=false`/`willMutate=false` stay visible.

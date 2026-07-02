@@ -140,6 +140,26 @@ export type RemoteHostKeyEvidence = {
 	};
 };
 
+export type RemoteKnownHostsSourcePreview = {
+	id: string;
+	provider: "sftp";
+	lookup: string;
+	status: "not-read";
+	source: "local-files";
+	paths: ["~/.ssh/known_hosts", "~/.ssh/known_hosts2"];
+	match: "unknown";
+	hashed: "unknown";
+	fingerprint: "sha256:unknown";
+	confirm: string;
+	execution: {
+		readsLocal: false;
+		importsTransport: false;
+		opensSocket: false;
+		scansHostKey: false;
+		mutatesRemote: false;
+	};
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -454,6 +474,46 @@ export function formatRemoteHostKeyEvidenceRows(
 	];
 }
 
+export function createRemoteKnownHostsSourcePreview(
+	profile?: SftpRemoteProfile,
+): RemoteKnownHostsSourcePreview {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		lookup: profile ? `${profile.host}:${profile.port}` : "none",
+		status: "not-read",
+		source: "local-files",
+		paths: ["~/.ssh/known_hosts", "~/.ssh/known_hosts2"],
+		match: "unknown",
+		hashed: "unknown",
+		fingerprint: "sha256:unknown",
+		confirm: profile ? `connect remote ${profile.id}` : "select remote profile",
+		execution: {
+			readsLocal: false,
+			importsTransport: false,
+			opensSocket: false,
+			scansHostKey: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteKnownHostsSourcePreviewRows(
+	preview: RemoteKnownHostsSourcePreview = createRemoteKnownHostsSourcePreview(),
+): string[] {
+	return [
+		`REMOTE KNOWN_HOSTS SOURCE ${preview.id}`,
+		`lookup=${preview.lookup} provider=${preview.provider} status=${preview.status} source=${preview.source}`,
+		`paths=${preview.paths.join(", ")}`,
+		`match=${preview.match} hashed=${preview.hashed} fingerprint=${preview.fingerprint}`,
+		`guards=localReadPreview hostReview exactConfirm="${preview.confirm}"`,
+		`execution=willReadLocal=${preview.execution.readsLocal} willImport=${preview.execution.importsTransport} willConnect=${preview.execution.opensSocket} willScan=${preview.execution.scansHostKey} willMutate=${preview.execution.mutatesRemote}`,
+		preview.id === "none"
+			? "next=select remote profile · no local file read"
+			: "next=preview local known_hosts lookup before fingerprint collection",
+	];
+}
+
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
 ): RemoteConnectPreview {
@@ -584,6 +644,10 @@ export async function formatRemoteProviderStatus(
 		),
 		"",
 		...formatRemoteHostKeyEvidenceRows(createRemoteHostKeyEvidence(profile)),
+		"",
+		...formatRemoteKnownHostsSourcePreviewRows(
+			createRemoteKnownHostsSourcePreview(profile),
+		),
 		"",
 		...formatRemoteHostReviewRows(profile),
 		"",
