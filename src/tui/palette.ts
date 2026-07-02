@@ -4,6 +4,11 @@ import type {
 	ConfigWorkspaceItem,
 	ConfigWorkspaceItemKey,
 } from "./configPanel";
+import {
+	formatConfigManagedShelfFocusRows,
+	formatConfigManagedShelfLandingRows,
+	getConfigManagedShelfActionFocusTarget,
+} from "./configPanel";
 import type { PortProcessControlPreview } from "./endpointPanel";
 import { getNextIndex } from "./navigation";
 import type {
@@ -172,6 +177,7 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "config.editorSaveMode.focus" &&
 		action.id !== "config.auditRetention.focus" &&
 		action.id !== "config.toolTargetRetention.focus" &&
+		!getConfigManagedShelfActionFocusTarget(action.id) &&
 		!context.portProcessPreview &&
 		!context.controlPreview
 	) {
@@ -228,6 +234,11 @@ export function formatCommandPaletteActionPreviewRows(
 		return formatConfigWorkspaceFocusPalettePreviewRows(action.id, context);
 	}
 
+	const configShelfTarget = getConfigManagedShelfActionFocusTarget(action.id);
+	if (configShelfTarget) {
+		return formatConfigManagedShelfPalettePreviewRows(configShelfTarget);
+	}
+
 	const recovery = context.toolsEvidenceSearchRecovery;
 	if (!recovery || recovery.items.length === 0) {
 		return [
@@ -260,6 +271,21 @@ export function formatCommandPaletteActionPreviewRows(
 		rows.push(`confirm=${actionVerb} path=${item.path}`);
 	}
 	return rows;
+}
+
+function formatConfigManagedShelfPalettePreviewRows(
+	target: NonNullable<
+		ReturnType<typeof getConfigManagedShelfActionFocusTarget>
+	>,
+): string[] {
+	const landingRows = formatConfigManagedShelfLandingRows(target);
+	const focusRows = formatConfigManagedShelfFocusRows(target);
+	return [
+		landingRows[1].replace("source=config ", "config shelf "),
+		landingRows[2],
+		focusRows[2],
+		focusRows[3],
+	];
 }
 
 function formatConfigStatusResultJumpClassPalettePreviewRows(

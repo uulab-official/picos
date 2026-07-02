@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.245 - Config Shelf Palette Focus
+
+Status: draft PR [#307](https://github.com/uulab-official/picos/pull/307) on `codex/picos-v0.4.245-config-shelf-palette-focus`.
+
+Goal: make managed Config shelves reachable from the command palette.
+
+- Command palette now exposes `config.shelf.routes.focus`, `config.shelf.connections.focus`, `config.shelf.ports.focus`, `config.shelf.logs.focus`, and `config.shelf.remotes.focus`.
+- Search phrases `route filters config`, `connection filters config`, `port filters config`, `log profiles config`, and `remote profiles config` jump into the destination workspace with Config-origin landing rows.
+- Palette previews reuse the existing shelf landing/focus rows, showing target, scope, cursor, detail view, and enter behavior before dispatch.
+- App dispatch now maps Config shelf action ids to existing `ConfigManagedShelfTarget` values instead of creating a separate navigation path.
+- Tests cover action catalog exposure, palette discovery, preview rows, Config shelf target routing, and focused type/lint validation.
+- Next: add Tools managed shelf palette focus, then expand Config-origin shelf previews with live counts for saved filters/profiles/presets.
+
 ## v0.4.244 - Config Settings Palette Focus
 
 Status: draft PR [#306](https://github.com/uulab-official/picos/pull/306) on `codex/picos-v0.4.244-config-settings-palette-focus`.

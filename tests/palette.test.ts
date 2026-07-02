@@ -58,11 +58,11 @@ describe("TUI command palette", () => {
 	test("filters actions by query text and resets selection", () => {
 		let state = openCommandPalette();
 		state = moveCommandPalette(state, 3, "next");
-		state = appendCommandPaletteQuery(state, "route");
+		state = appendCommandPaletteQuery(state, "route table");
 
 		const actions = getFilteredPaletteActions(getActionCatalog(), state);
 
-		expect(state.query).toBe("route");
+		expect(state.query).toBe("route table");
 		expect(state.selectedIndex).toBe(0);
 		expect(actions.map((action) => action.id)).toContain("routes.inspect");
 		expect(getPaletteAction(getActionCatalog(), state)?.id).toBe(
@@ -108,6 +108,72 @@ describe("TUI command palette", () => {
 				),
 			).map((action) => action.id),
 		).toContain("config.toolTargetRetention.focus");
+	});
+
+	test("finds Config managed shelf focus actions from the command palette", () => {
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "route filters config"),
+			).map((action) => action.id),
+		).toContain("config.shelf.routes.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"connection filters config",
+				),
+			).map((action) => action.id),
+		).toContain("config.shelf.connections.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "port filters config"),
+			).map((action) => action.id),
+		).toContain("config.shelf.ports.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "log profiles config"),
+			).map((action) => action.id),
+		).toContain("config.shelf.logs.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"remote profiles config",
+				),
+			).map((action) => action.id),
+		).toContain("config.shelf.remotes.focus");
+	});
+
+	test("previews Config managed shelf focus before dispatch", () => {
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.shelf.routes.focus",
+				),
+			),
+		).toEqual([
+			"config shelf target=routes workspace=Routes",
+			"scope=route filters, raw route evidence, path lookup",
+			"focus=routeFilters cursor=0 detail=table",
+			"enter=cycle route filter presets  esc=clear landing",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.shelf.remotes.focus",
+				),
+			),
+		).toEqual([
+			"config shelf target=remotes workspace=Remotes",
+			"scope=SFTP profiles, provider boundary, locked file context",
+			"focus=remoteProfiles cursor=0",
+			"enter=remote profile focus  esc=clear landing",
+		]);
 	});
 
 	test("finds recovered timeline trail actions from the command palette", () => {

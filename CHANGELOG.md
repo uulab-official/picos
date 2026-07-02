@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Command palette now exposes Config managed shelf shortcuts for `route filters config`, `connection filters config`, `port filters config`, `log profiles config`, and `remote profiles config`, with landing previews before jumping into the target workspace.
 - Command palette now exposes Config settings focus shortcuts for `safety policy config`, `editor save config`, `audit retention config`, and `tools retention config`, each with compact current-value preview rows before jumping to the matching Config row.
 - Command palette now exposes `jump class config` / `status jump config` to focus the Config `statusResultJumpClassFilter` row directly, with preview rows showing the current class and `+/-` cycle behavior before dispatch.
 - Config workspace now exposes `statusResultJumpClassFilter` as a Display choice row, so `+/-` can cycle the saved Status result jump class without entering Status first.

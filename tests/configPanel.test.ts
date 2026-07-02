@@ -16,6 +16,7 @@ import {
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
+	getConfigManagedShelfActionFocusTarget,
 	getConfigManagedShelfFocusPreset,
 	getConfigWorkspaceActionFocusKey,
 	getConfigWorkspaceEditPrompt,
@@ -263,6 +264,25 @@ describe("config TUI panel", () => {
 	});
 
 	test("creates destination focus presets for managed shelf jumps", () => {
+		expect(
+			getConfigManagedShelfActionFocusTarget("config.shelf.routes.focus"),
+		).toBe("routes");
+		expect(
+			getConfigManagedShelfActionFocusTarget("config.shelf.connections.focus"),
+		).toBe("connections");
+		expect(
+			getConfigManagedShelfActionFocusTarget("config.shelf.ports.focus"),
+		).toBe("ports");
+		expect(
+			getConfigManagedShelfActionFocusTarget("config.shelf.logs.focus"),
+		).toBe("logs");
+		expect(
+			getConfigManagedShelfActionFocusTarget("config.shelf.remotes.focus"),
+		).toBe("remotes");
+		expect(
+			getConfigManagedShelfActionFocusTarget("network.inspect"),
+		).toBeUndefined();
+
 		expect(getConfigManagedShelfFocusPreset("tools")).toEqual({
 			target: "tools",
 			workspace: "tools",
