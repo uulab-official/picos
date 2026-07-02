@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes focus now supports locked host-key trust review attempts with `t`, opening `:remote-host-trust` exact confirmation for `review host trust <id>` and recording blocked/rejected audit plus Status Activity history without opening transport, trusting a host, or writing `known_hosts`.
 - Remotes workspace and `picos remote <id>` now show `REMOTE HOST KEY TRUST DECISION` rows, exposing the future fingerprint comparison checkpoint, exact `review host trust <id>` confirmation, compare-only guard, blocked decision, and no-import/no-connect/no-read/no-parse/no-scan/no-trust posture before any remote host is trusted.
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS PARSER PREVIEW` rows, exposing the future plain/hashed/marker/cert-authority parser boundary, exact `parse known_hosts <id>` confirmation, blocked trust decision, and no-local-read/no-parse/no-network/no-scan posture before any host trust rows are parsed.
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS READ PREVIEW` rows, making the local `known_hosts` read boundary, exact `read known_hosts <id>` confirmation, `~/.ssh` allowed base, parser-not-run state, and no-local-read/no-network/no-scan posture visible before any trust file is parsed.

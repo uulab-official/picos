@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.284 - Remote Host Trust Review Activity
+
+Status: in progress on `codex/picos-v0.4.284-host-trust-review-activity`.
+
+Goal: let operators exercise the host-key trust review boundary from Remotes while keeping all trust, local-known-host writes, transport import, and socket opening blocked.
+
+- Remotes focus now opens a locked `:remote-host-trust` prompt with `t` for the exact `review host trust <id>` confirmation.
+- Core records confirmed-blocked and rejected trust-review attempts with `networkOpened=false`, `trustApplied=false`, and `knownHostsWritten=false`.
+- Trust-review audit rows include target, match state, blocked decision, collected and known_hosts fingerprint placeholders, confirmation text, and connect confirmation text.
+- Status Activity now records remote host trust review results and can jump back to `remote host trust review audit id=<id> status=<status>` in Timeline.
+- Remotes `REMOTE ACTIVITY` shelf now includes trust-review attempts beside stage/connect attempts.
+- Tests cover trust-review confirmation/audit shape, Status Activity result rows, Timeline recovery, and Remotes activity shelf rendering.
+- Next: add a compare-result detail view for host-key evidence versus known_hosts candidates while keeping evidence collection/read/parse locked.
+
 ## v0.4.283 - Remote Host Key Trust Decision Preview
 
 Status: draft PR [#345](https://github.com/uulab-official/picos/pull/345) on `codex/picos-v0.4.283-host-key-trust-preview`.
@@ -14,7 +28,7 @@ Goal: make the future host-key trust decision boundary visible before picos comp
 - `picos remote <id>` prints the same trust decision preview between known-hosts parser preview and host review.
 - Remotes TUI renders a dedicated `HOST KEY TRUST DECISION` section before host review.
 - Tests cover selected-profile trust preview shape, empty-state rows, CLI provider status inclusion, and no-import/no-connect/no-read/no-parse/no-scan/no-trust/no-mutation posture.
-- Next: add a locked host-key trust review dialog that records rejected/blocked review attempts into Status Activity without enabling transport.
+- Next: add a compare-result detail view for host-key evidence versus known_hosts candidates while keeping evidence collection/read/parse locked.
 
 ## v0.4.282 - Remote Known Hosts Parser Preview
 

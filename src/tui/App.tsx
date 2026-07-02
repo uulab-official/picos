@@ -156,6 +156,7 @@ import {
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
+	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	formatRemoteKnownHostsParserPreviewRows,
@@ -166,6 +167,7 @@ import {
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 	submitRemoteConnectConfirmation,
+	submitRemoteHostKeyTrustReview,
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
 import {
@@ -439,6 +441,7 @@ import {
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
 	createRemoteConnectStatusActivityResult,
+	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
@@ -3963,6 +3966,32 @@ export function App(): React.ReactElement {
 		selectedRemoteIndex,
 	]);
 
+	const submitRemoteHostTrustReviewCommand = useCallback(() => {
+		const profile = remoteProfiles[selectedRemoteIndex];
+		setCommandLine((current) => closeCommandLine(current));
+		if (!profile) {
+			log("warn", "remote host trust review requires a selected profile");
+			return;
+		}
+
+		const preview = createRemoteHostKeyTrustDecisionPreview(profile);
+		const confirmation = submitRemoteHostKeyTrustReview(
+			preview,
+			commandLine.value,
+		);
+		log("warn", formatRemoteHostKeyTrustReviewAuditMessage(confirmation));
+		recordStatusActivityResult(
+			createRemoteHostKeyTrustReviewStatusActivityResult(confirmation),
+		);
+		log("warn", confirmation.message);
+	}, [
+		commandLine.value,
+		log,
+		recordStatusActivityResult,
+		remoteProfiles,
+		selectedRemoteIndex,
+	]);
+
 	const inspectSelectedEndpointProcess = useCallback(async () => {
 		const request =
 			screen === "connections"
@@ -6150,13 +6179,16 @@ export function App(): React.ReactElement {
 																																									"remote-connect"
 																																								? "remote connect confirmation cancelled"
 																																								: commandLine.prompt ===
-																																										portProcessControlPrompt
-																																									? "port process control cancelled"
-																																									: commandLine.prompt.startsWith(
-																																												toolPromptPrefix,
-																																											)
-																																										? "tool target command cancelled"
-																																										: "path command cancelled",
+																																										"remote-host-trust"
+																																									? "remote host trust review cancelled"
+																																									: commandLine.prompt ===
+																																											portProcessControlPrompt
+																																										? "port process control cancelled"
+																																										: commandLine.prompt.startsWith(
+																																													toolPromptPrefix,
+																																												)
+																																											? "tool target command cancelled"
+																																											: "path command cancelled",
 				);
 				return;
 			}
@@ -6188,6 +6220,8 @@ export function App(): React.ReactElement {
 					void submitRemoteProfileCommand();
 				} else if (commandLine.prompt === "remote-connect") {
 					submitRemoteConnectCommand();
+				} else if (commandLine.prompt === "remote-host-trust") {
+					submitRemoteHostTrustReviewCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (
@@ -9452,6 +9486,18 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "t") {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile) {
+				log("warn", "no remote profile selected");
+				return;
+			}
+			const preview = createRemoteHostKeyTrustDecisionPreview(profile);
+			setCommandLine(openCommandLine("remote-host-trust"));
+			log("info", `remote host trust review opened ${preview.confirm}`);
+			return;
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -11769,7 +11815,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 66);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 67);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11821,7 +11867,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · c connect preview · h/esc"
+					? "remote focus · j/k select · enter stage · t trust review · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (
@@ -12080,6 +12126,15 @@ function RemotesWorkspace({
 						{clip(row, 92)}
 					</Text>
 				))}
+				{commandLine.active && commandLine.prompt === "remote-host-trust" ? (
+					<Text color="yellow">
+						:remote-host-trust {commandLine.value || " "} confirm="
+						{selectedProfile
+							? createRemoteHostKeyTrustDecisionPreview(selectedProfile).confirm
+							: "select remote profile"}
+						" esc cancel
+					</Text>
+				) : null}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">HOST REVIEW</Text>
@@ -12125,7 +12180,10 @@ function RemotesWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>picos remotes · picos remote &lt;id&gt; · c connect preview</Text>
+				<Text>
+					picos remotes · picos remote &lt;id&gt; · t trust review · c connect
+					preview
+				</Text>
 				<Text color="gray">
 					next: live read-only SFTP adapter behind host review
 				</Text>

@@ -234,6 +234,16 @@ export type RemoteHostKeyTrustDecisionPreview = {
 	};
 };
 
+export type RemoteHostKeyTrustReviewConfirmation = {
+	preview: RemoteHostKeyTrustDecisionPreview;
+	status: "confirmed-blocked" | "rejected";
+	input: string;
+	networkOpened: false;
+	trustApplied: false;
+	knownHostsWritten: false;
+	message: string;
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -730,6 +740,25 @@ export function formatRemoteHostKeyTrustDecisionPreviewRows(
 	];
 }
 
+export function submitRemoteHostKeyTrustReview(
+	preview: RemoteHostKeyTrustDecisionPreview,
+	input: string,
+): RemoteHostKeyTrustReviewConfirmation {
+	const normalizedInput = input.trim();
+	const confirmed = normalizedInput === preview.confirm;
+	return {
+		preview,
+		status: confirmed ? "confirmed-blocked" : "rejected",
+		input: normalizedInput,
+		networkOpened: false,
+		trustApplied: false,
+		knownHostsWritten: false,
+		message: confirmed
+			? `remote host trust review blocked ${preview.id} ${preview.target}`
+			: `remote host trust review confirmation rejected ${preview.id}`,
+	};
+}
+
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
 ): RemoteConnectPreview {
@@ -810,6 +839,28 @@ export function formatRemoteConnectConfirmationAuditMessage(
 		`reason=${preview.reason}`,
 		"network=not-opened",
 		`confirm=${quoteAuditField(preview.confirm)}`,
+	].join(" ");
+}
+
+export function formatRemoteHostKeyTrustReviewAuditMessage(
+	confirmation: RemoteHostKeyTrustReviewConfirmation,
+): string {
+	const { preview } = confirmation;
+	return [
+		"remote host trust review audit",
+		"action=review",
+		`id=${preview.id}`,
+		`target=${quoteAuditField(preview.target)}`,
+		`status=${confirmation.status}`,
+		`match=${preview.match}`,
+		`decision=${preview.decision}`,
+		`collected=${preview.collectedFingerprint}`,
+		`knownHosts=${preview.knownHostsFingerprint}`,
+		"network=not-opened",
+		"trust=not-applied",
+		"knownHostsWrite=false",
+		`confirm=${quoteAuditField(preview.confirm)}`,
+		`connectConfirm=${quoteAuditField(preview.connectConfirm)}`,
 	].join(" ");
 }
 

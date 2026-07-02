@@ -6,7 +6,10 @@ import {
 	writeConsoleAuditExport,
 } from "../core/auditLog";
 import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
-import type { RemoteConnectConfirmation } from "../core/remotes";
+import type {
+	RemoteConnectConfirmation,
+	RemoteHostKeyTrustReviewConfirmation,
+} from "../core/remotes";
 import type { SftpRemoteProfile, SupportedPlatform } from "../core/types";
 import {
 	type ClipboardPreview,
@@ -60,6 +63,7 @@ export type StatusActivityEnterAction =
 	| "process-control-preview"
 	| "process-control-evidence"
 	| "remote-host-review"
+	| "remote-host-trust-review"
 	| "remote-connect"
 	| "none";
 
@@ -526,6 +530,26 @@ export function createRemoteConnectStatusActivityResult(
 	};
 }
 
+export function createRemoteHostKeyTrustReviewStatusActivityResult(
+	confirmation: RemoteHostKeyTrustReviewConfirmation,
+): StatusActivityResult {
+	const { preview } = confirmation;
+	return {
+		source: "timeline",
+		action: "remote-host-trust-review",
+		message: `remote host trust review ${confirmation.status} ${preview.id} ${preview.lookup}`,
+		detail: [
+			`target="${preview.target}"`,
+			`match=${preview.match}`,
+			`decision=${preview.decision}`,
+			"network=not-opened",
+			"trust=not-applied",
+			"knownHostsWrite=false",
+			`confirm="${preview.confirm}"`,
+		].join(" "),
+	};
+}
+
 export function formatRemoteActivityShelfRows(
 	history: StatusActivityResult[],
 	options: {
@@ -545,7 +569,7 @@ export function formatRemoteActivityShelfRows(
 		return [
 			`REMOTE ACTIVITY recent=0 selected=${selectedProfileId}`,
 			"no remote activity recorded yet",
-			"controls=enter stage · c connect preview · Status I timeline recovery",
+			"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
 		];
 	}
 
@@ -560,7 +584,7 @@ export function formatRemoteActivityShelfRows(
 		}
 	}
 	rows.push(
-		"controls=enter stage · c connect preview · Status I timeline recovery",
+		"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
 	);
 	return rows;
 }
@@ -569,6 +593,7 @@ function isRemoteActivityResult(result: StatusActivityResult): boolean {
 	return (
 		result.source === "timeline" &&
 		(result.action === "remote-host-review" ||
+			result.action === "remote-host-trust-review" ||
 			result.action === "remote-connect")
 	);
 }
@@ -595,6 +620,9 @@ function formatRemoteActivitySummary(result: StatusActivityResult): string {
 	}
 	if (result.action === "remote-host-review") {
 		return result.message.replace(/^remote host review staged /, "stage ");
+	}
+	if (result.action === "remote-host-trust-review") {
+		return result.message.replace(/^remote host trust review /, "trust ");
 	}
 	return result.message;
 }
@@ -1495,6 +1523,12 @@ export function createStatusActivityResultTimelineSearch(
 	if (result.source === "timeline" && result.action === "remote-host-review") {
 		return createRemoteHostReviewResultTimelineSearch(result);
 	}
+	if (
+		result.source === "timeline" &&
+		result.action === "remote-host-trust-review"
+	) {
+		return createRemoteHostKeyTrustReviewResultTimelineSearch(result);
+	}
 	if (result.source === "timeline" && result.action === "remote-connect") {
 		return createRemoteConnectResultTimelineSearch(result);
 	}
@@ -1533,6 +1567,24 @@ function createRemoteConnectResultTimelineSearch(
 		filter: "audit",
 		query: `remote connect audit id=${id} status=${status}`,
 		message: `status activity result timeline search remote connect ${id} ${status}`,
+	};
+}
+
+function createRemoteHostKeyTrustReviewResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^remote host trust review (confirmed-blocked|rejected) ([A-Za-z0-9._-]{1,64}) /,
+	);
+	const status = match?.[1];
+	const id = match?.[2];
+	if (!id || !status) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: `remote host trust review audit id=${id} status=${status}`,
+		message: `status activity result timeline search remote host trust review ${id} ${status}`,
 	};
 }
 
