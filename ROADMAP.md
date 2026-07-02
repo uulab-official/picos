@@ -2,7 +2,7 @@
 
 ## v0.4.290 - Remote Host Key Evidence Prompt
 
-Status: in progress on `codex/picos-v0.4.290-host-key-evidence-prompt`.
+Status: draft PR [#357](https://github.com/uulab-official/picos/pull/357) on `codex/picos-v0.4.290-host-key-evidence-prompt`.
 
 Goal: let operators enter provided host-key fingerprint evidence from Remotes while preserving the locked no-transport, no-scan, no-trust, no-write posture.
 
