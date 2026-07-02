@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.234 - Process Evidence Search Audit
+
+Status: draft PR [#296](https://github.com/uulab-official/picos/pull/296) on `codex/picos-v0.4.234-process-evidence-search-audit`.
+
+Goal: make Status Evidence process searches leave their own activity and audit trail.
+
+- Status Evidence process `G` searches now record `status evidence process search ...` rows in `STATUS ACTIVITY RESULT`.
+- The same keyboard-origin search writes `status evidence process audit action=search ...` Timeline audit text, separate from command-palette `palette process evidence audit ...` rows.
+- The unavailable process-evidence search path now records a Status Activity result and audit message instead of only logging a warning.
+- Process evidence activity/audit formatting is shared with the palette path so target, selected cursor, label, query, and path stay consistent.
+- Tests cover the new Status Evidence result row, unavailable result, and searchable audit-message format.
+- Next: recover Status Evidence process search audit rows as reusable result Timeline jumps, so keyboard-origin process searches can be replayed from Status Activity history.
+
 ## v0.4.233 - Process Evidence Search
 
 Status: draft PR [#295](https://github.com/uulab-official/picos/pull/295) on `codex/picos-v0.4.233-process-evidence-search`.

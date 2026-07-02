@@ -1854,11 +1854,44 @@ export function createProcessControlEvidencePaletteStatusActivityResult(
 		total?: number;
 	} = {},
 ): StatusActivityResult {
+	return createProcessControlEvidenceStatusActivityResultWithPrefix(
+		"palette process evidence",
+		action,
+		plan,
+		options,
+	);
+}
+
+export function createProcessControlEvidenceStatusActivityResult(
+	action: "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	return createProcessControlEvidenceStatusActivityResultWithPrefix(
+		"status evidence process",
+		action,
+		plan,
+		options,
+	);
+}
+
+function createProcessControlEvidenceStatusActivityResultWithPrefix(
+	prefix: "palette process evidence" | "status evidence process",
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
 	if (!plan) {
 		return {
 			source: "evidence",
 			action: "process-control-evidence",
-			message: `palette process evidence ${action} unavailable`,
+			message: `${prefix} ${action} unavailable`,
 			detail: "no recovered process-control evidence export selected",
 		};
 	}
@@ -1867,7 +1900,7 @@ export function createProcessControlEvidencePaletteStatusActivityResult(
 	return {
 		source: "evidence",
 		action: "process-control-evidence",
-		message: `palette process evidence ${action} ${selected + 1}/${total} ${basename(plan.path)}`,
+		message: `${prefix} ${action} ${selected + 1}/${total} ${basename(plan.path)}`,
 		detail: [
 			`target=${formatProcessControlAuditExportTarget(plan)}`,
 			plan.query ? `query=${plan.query}` : "",
@@ -2114,9 +2147,42 @@ export function formatProcessControlEvidencePaletteAuditMessage(
 		total?: number;
 	} = {},
 ): string {
+	return formatProcessControlEvidenceAuditMessageWithPrefix(
+		"palette process evidence audit",
+		action,
+		plan,
+		options,
+	);
+}
+
+export function formatProcessControlEvidenceStatusAuditMessage(
+	action: "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	return formatProcessControlEvidenceAuditMessageWithPrefix(
+		"status evidence process audit",
+		action,
+		plan,
+		options,
+	);
+}
+
+function formatProcessControlEvidenceAuditMessageWithPrefix(
+	prefix: "palette process evidence audit" | "status evidence process audit",
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
 	if (!plan) {
 		return [
-			"palette process evidence audit",
+			prefix,
 			`action=${action}`,
 			"status=unavailable",
 			`reason="${formatTimelineEvidenceTrailAuditValue("no recovered process-control evidence export selected")}"`,
@@ -2125,7 +2191,7 @@ export function formatProcessControlEvidencePaletteAuditMessage(
 	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
 	const total = Math.max(1, Math.floor(options.total ?? 1));
 	return [
-		"palette process evidence audit",
+		prefix,
 		`action=${action}`,
 		`selected=${selected + 1}/${total}`,
 		`target="${formatTimelineEvidenceTrailAuditValue(formatProcessControlAuditExportTarget(plan))}"`,
