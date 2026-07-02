@@ -116,6 +116,30 @@ export type RemoteFileRequestPreview = {
 	};
 };
 
+export type RemoteHostKeyEvidence = {
+	id: string;
+	provider: "sftp";
+	host: string;
+	port: number | "-";
+	target: string;
+	status: "unverified";
+	trust: "blocked";
+	fingerprint: {
+		algorithm: "sha256";
+		value: "unknown";
+		source: "not-collected";
+	};
+	knownHost: "not-checked";
+	verification: "required";
+	confirm: string;
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		readsRemote: false;
+		mutatesRemote: false;
+	};
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -386,6 +410,50 @@ export function formatRemoteFileRequestPreviewRows(
 	];
 }
 
+export function createRemoteHostKeyEvidence(
+	profile?: SftpRemoteProfile,
+): RemoteHostKeyEvidence {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		host: profile?.host ?? "none",
+		port: profile?.port ?? "-",
+		target: profile ? formatSftpRoot(profile) : "none",
+		status: "unverified",
+		trust: "blocked",
+		fingerprint: {
+			algorithm: "sha256",
+			value: "unknown",
+			source: "not-collected",
+		},
+		knownHost: "not-checked",
+		verification: "required",
+		confirm: profile ? `connect remote ${profile.id}` : "select remote profile",
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			readsRemote: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteHostKeyEvidenceRows(
+	evidence: RemoteHostKeyEvidence = createRemoteHostKeyEvidence(),
+): string[] {
+	return [
+		`REMOTE HOST KEY EVIDENCE ${evidence.id}`,
+		`host=${evidence.host} port=${evidence.port} provider=${evidence.provider} status=${evidence.status} trust=${evidence.trust}`,
+		`fingerprint=${evidence.fingerprint.algorithm}:${evidence.fingerprint.value} source=${evidence.fingerprint.source} knownHost=${evidence.knownHost}`,
+		`target=${evidence.target}`,
+		`guards=hostReview ${evidence.verification} exactConfirm="${evidence.confirm}" readAdapter=${evidence.id === "none" ? "blocked-until-profile" : "blocked-until-fingerprint"}`,
+		`execution=willImport=${evidence.execution.importsTransport} willConnect=${evidence.execution.opensSocket} willRead=${evidence.execution.readsRemote} willMutate=${evidence.execution.mutatesRemote}`,
+		evidence.id === "none"
+			? "next=select remote profile · no fingerprint collection"
+			: "next=collect fingerprint evidence before adapter evaluation",
+	];
+}
+
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
 ): RemoteConnectPreview {
@@ -514,6 +582,8 @@ export async function formatRemoteProviderStatus(
 		...formatRemoteFileRequestPreviewRows(
 			createRemoteFileRequestPreview(profile),
 		),
+		"",
+		...formatRemoteHostKeyEvidenceRows(createRemoteHostKeyEvidence(profile)),
 		"",
 		...formatRemoteHostReviewRows(profile),
 		"",

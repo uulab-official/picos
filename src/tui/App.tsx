@@ -142,6 +142,7 @@ import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
 	createRemoteFileRequestPreview,
+	createRemoteHostKeyEvidence,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
@@ -149,6 +150,7 @@ import {
 	formatRemoteConnectPreviewRows,
 	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
+	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
@@ -11759,7 +11761,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 26);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 34);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11779,6 +11781,9 @@ function RemotesWorkspace({
 	);
 	const fileRequestPreviewRows = formatRemoteFileRequestPreviewRows(
 		createRemoteFileRequestPreview(selectedProfile),
+	);
+	const hostKeyEvidenceRows = formatRemoteHostKeyEvidenceRows(
+		createRemoteHostKeyEvidence(selectedProfile),
 	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 	const connectPreview = selectedProfile
@@ -11945,6 +11950,26 @@ function RemotesWorkspace({
 								: row.includes("blocked") ||
 										row.includes("locked") ||
 										row.includes("unsupported") ||
+										row.includes("willRead=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">HOST KEY EVIDENCE</Text>
+				{hostKeyEvidenceRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("blocked") ||
+										row.includes("unknown") ||
+										row.includes("unverified") ||
 										row.includes("willRead=false")
 									? "yellow"
 									: "gray"
