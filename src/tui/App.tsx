@@ -154,6 +154,7 @@ import {
 	createRemoteKnownHostsReadResult,
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
+	createRemoteSftpTransportReadiness,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
 	formatRemoteConnectConfirmationAuditMessage,
@@ -176,6 +177,7 @@ import {
 	formatRemoteKnownHostsReadResultRows,
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
+	formatRemoteSftpTransportReadinessRows,
 	formatRemoteTransportProbeRows,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
@@ -11873,7 +11875,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 115);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 120);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11903,8 +11905,14 @@ function RemotesWorkspace({
 	const hostKeyScanPolicyRows = formatRemoteHostKeyScanPolicyRows(
 		createRemoteHostKeyScanPolicy(selectedProfile),
 	);
+	const sftpTransportReadiness = createRemoteSftpTransportReadiness();
 	const hostKeyScanReadinessRows = formatRemoteHostKeyScanReadinessRows(
-		createRemoteHostKeyScanReadiness(selectedProfile),
+		createRemoteHostKeyScanReadiness(selectedProfile, {
+			transport: sftpTransportReadiness,
+		}),
+	);
+	const sftpTransportReadinessRows = formatRemoteSftpTransportReadinessRows(
+		sftpTransportReadiness,
 	);
 	const knownHostsSourceRows = formatRemoteKnownHostsSourcePreviewRows(
 		createRemoteKnownHostsSourcePreview(selectedProfile),
@@ -12194,6 +12202,29 @@ function RemotesWorkspace({
 										row.includes("willWriteKnownHosts=false")
 									? "yellow"
 									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">SFTP TRANSPORT READINESS</Text>
+				{sftpTransportReadinessRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("installed")
+									? "green"
+									: row.includes("missing") ||
+											row.includes("not-run") ||
+											row.includes("willResolve=false") ||
+											row.includes("willImport=false") ||
+											row.includes("willConnect=false")
+										? "yellow"
+										: "gray"
 						}
 					>
 						{clip(row, 92)}

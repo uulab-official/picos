@@ -16,6 +16,7 @@ import {
 	createRemoteKnownHostsReadResult,
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
+	createRemoteSftpTransportReadiness,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
 	formatRemoteConnectConfirmationAuditMessage,
@@ -40,6 +41,7 @@ import {
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
 	formatRemoteReadOnlyAdapterContractRows,
+	formatRemoteSftpTransportReadinessRows,
 	formatRemoteTransportProbeRows,
 	normalizeRemoteProfiles,
 	parseRemoteKnownHostsCandidates,
@@ -890,6 +892,99 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
+		);
+	});
+
+	test("formats remote SFTP transport readiness without importing transport", () => {
+		expect(createRemoteSftpTransportReadiness()).toEqual({
+			dependency: "@uulab/picos-sftp",
+			detector: "package-resolution",
+			status: "missing",
+			blocker: "transport-missing",
+			source: "not-run",
+			execution: {
+				resolvesPackage: false,
+				importsTransport: false,
+				opensSocket: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(formatRemoteSftpTransportReadinessRows().join("\n")).toBe(
+			[
+				"REMOTE SFTP TRANSPORT READINESS",
+				"dependency=@uulab/picos-sftp detector=package-resolution status=missing blocker=transport-missing source=not-run",
+				"execution=willResolve=false willImport=false willConnect=false willMutate=false",
+				"next=install @uulab/picos-sftp before enabling host-key scan transport",
+			].join("\n"),
+		);
+
+		const installed = createRemoteSftpTransportReadiness({
+			packagePresent: true,
+		});
+		expect(installed).toEqual({
+			dependency: "@uulab/picos-sftp",
+			detector: "package-resolution",
+			status: "installed",
+			blocker: "none",
+			source: "injected",
+			execution: {
+				resolvesPackage: false,
+				importsTransport: false,
+				opensSocket: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(formatRemoteSftpTransportReadinessRows(installed)).toEqual([
+			"REMOTE SFTP TRANSPORT READINESS",
+			"dependency=@uulab/picos-sftp detector=package-resolution status=installed blocker=none source=injected",
+			"execution=willResolve=false willImport=false willConnect=false willMutate=false",
+			"next=transport prerequisite satisfied · scan policy remains disabled",
+		]);
+	});
+
+	test("feeds SFTP transport readiness into host key scan readiness", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const rows = formatRemoteHostKeyScanReadinessRows(
+			createRemoteHostKeyScanReadiness(profile, {
+				transport: createRemoteSftpTransportReadiness({
+					packagePresent: true,
+				}),
+			}),
+		);
+
+		expect(rows).toContain("checks=5 ready=1 blocked=4");
+		expect(rows).toContain(
+			'check=transportInstalled label="SFTP transport installed" status=ready blocker=none required="transport dependency available"',
+		);
+		expect(rows).toContain(
+			"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
+		);
+	});
+
+	test("includes remote SFTP transport readiness in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE SFTP TRANSPORT READINESS");
+		expect(output).toContain(
+			"dependency=@uulab/picos-sftp detector=package-resolution status=missing blocker=transport-missing source=not-run",
+		);
+		expect(output).toContain(
+			"execution=willResolve=false willImport=false willConnect=false willMutate=false",
 		);
 	});
 

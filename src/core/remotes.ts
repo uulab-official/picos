@@ -204,13 +204,28 @@ export type RemoteHostKeyScanReadinessCheck = {
 		| "knownHostsCompare"
 		| "fingerprintEvidence";
 	label: string;
-	status: "blocked";
+	status: "blocked" | "ready";
 	blocker:
 		| "policy-disabled"
 		| "transport-missing"
 		| "fingerprint-unknown"
-		| "no-remote-profile";
+		| "no-remote-profile"
+		| "none";
 	required: string;
+};
+
+export type RemoteSftpTransportReadiness = {
+	dependency: "@uulab/picos-sftp";
+	detector: "package-resolution";
+	status: "missing" | "installed";
+	blocker: "transport-missing" | "none";
+	source: "not-run" | "injected";
+	execution: {
+		resolvesPackage: false;
+		importsTransport: false;
+		opensSocket: false;
+		mutatesRemote: false;
+	};
 };
 
 export type RemoteHostKeyScanReadiness = {
@@ -832,7 +847,11 @@ export function formatRemoteHostKeyScanPolicyRows(
 
 export function createRemoteHostKeyScanReadiness(
 	profile?: SftpRemoteProfile,
+	options: {
+		transport?: RemoteSftpTransportReadiness;
+	} = {},
 ): RemoteHostKeyScanReadiness {
+	const transportReady = options.transport?.status === "installed";
 	const missingProfileChecks: RemoteHostKeyScanReadinessCheck[] = [
 		"scanReview",
 		"transportInstalled",
@@ -867,9 +886,11 @@ export function createRemoteHostKeyScanReadiness(
 				{
 					id: "transportInstalled",
 					label: "SFTP transport installed",
-					status: "blocked",
-					blocker: "transport-missing",
-					required: "install @uulab/picos-sftp",
+					status: transportReady ? "ready" : "blocked",
+					blocker: transportReady ? "none" : "transport-missing",
+					required: transportReady
+						? "transport dependency available"
+						: "install @uulab/picos-sftp",
 				},
 				{
 					id: "hostReview",
@@ -934,6 +955,38 @@ export function formatRemoteHostKeyScanReadinessRows(
 			: "next=satisfy readiness checks without enabling sockets by default",
 	);
 	return rows;
+}
+
+export function createRemoteSftpTransportReadiness(
+	options: { packagePresent?: boolean } = {},
+): RemoteSftpTransportReadiness {
+	const installed = options.packagePresent === true;
+	return {
+		dependency: "@uulab/picos-sftp",
+		detector: "package-resolution",
+		status: installed ? "installed" : "missing",
+		blocker: installed ? "none" : "transport-missing",
+		source: installed ? "injected" : "not-run",
+		execution: {
+			resolvesPackage: false,
+			importsTransport: false,
+			opensSocket: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteSftpTransportReadinessRows(
+	readiness: RemoteSftpTransportReadiness = createRemoteSftpTransportReadiness(),
+): string[] {
+	return [
+		"REMOTE SFTP TRANSPORT READINESS",
+		`dependency=${readiness.dependency} detector=${readiness.detector} status=${readiness.status} blocker=${readiness.blocker} source=${readiness.source}`,
+		`execution=willResolve=${readiness.execution.resolvesPackage} willImport=${readiness.execution.importsTransport} willConnect=${readiness.execution.opensSocket} willMutate=${readiness.execution.mutatesRemote}`,
+		readiness.status === "installed"
+			? "next=transport prerequisite satisfied · scan policy remains disabled"
+			: "next=install @uulab/picos-sftp before enabling host-key scan transport",
+	];
 }
 
 export function submitRemoteHostKeyScanReview(
@@ -1561,6 +1614,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteHostKeyScanReadinessRows(
 			createRemoteHostKeyScanReadiness(profile),
+		),
+		"",
+		...formatRemoteSftpTransportReadinessRows(
+			createRemoteSftpTransportReadiness(),
 		),
 		"",
 		...formatRemoteKnownHostsSourcePreviewRows(

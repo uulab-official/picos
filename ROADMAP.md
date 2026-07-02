@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.293 - Remote SFTP Transport Readiness
+
+Status: draft PR [#364](https://github.com/uulab-official/picos/pull/364) on `codex/picos-v0.4.293-sftp-transport-readiness`.
+
+Goal: show whether the future SFTP transport dependency appears available without importing it, opening sockets, starting sessions, trusting hosts, writing `known_hosts`, or mutating anything.
+
+- Remotes now models `REMOTE SFTP TRANSPORT READINESS` rows with dependency, detector, status, blocker, source, and execution posture.
+- Default detector output is `missing` with `source=not-run`, keeping package resolution, import, connect, and mutation flags false.
+- Tests can inject `packagePresent=true` to produce `installed` readiness while still keeping import/connect/mutate false.
+- Host-key scan readiness can consume injected transport readiness and mark only the `transportInstalled` check as ready without enabling scan policy.
+- `picos remote <id>` prints SFTP transport readiness rows after host-key scan readiness.
+- Remotes TUI renders a dedicated `SFTP TRANSPORT READINESS` section and reserves vertical budget for it.
+- Next: add a read-only package resolution preview that shows exactly where picos would look for optional transport packages before running any resolver.
+
 ## v0.4.292 - Remote Host Key Scan Readiness
 
 Status: draft PR [#362](https://github.com/uulab-official/picos/pull/362) on `codex/picos-v0.4.292-host-key-scan-readiness`.
