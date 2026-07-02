@@ -108,18 +108,23 @@ describe("Status activity queue", () => {
 					"CLEANUP OPS active=2 items=5 history=1 selected=Routes",
 					"> shelf Routes r count=3 confirm=delete routes",
 				],
+				configRows: [
+					"CONFIG MANAGED SHELVES",
+					"shelf coverage saved=8 empty=0 routeFilters=2 connectionFilters=1 portFilters=1 toolTargets=1 logProfiles=1 logSearches=1 remotes=1",
+				],
 				evidenceRows: [
 					"STATUS EVIDENCE SUMMARY active=audit families=3 files=4",
 					"> audit selected=1 total=2",
 				],
 			}),
 		).toEqual([
-			"STATUS ACTIVITY QUEUE active=4 sources=release,dialog,cleanup,evidence",
+			"STATUS ACTIVITY QUEUE active=5 sources=release,dialog,cleanup,config,evidence",
 			"> release STATUS RELEASE CONSOLE npm=update-available github=up-to-date current=0.2.0 latest=0.3.0",
 			"  dialog STATUS DIALOG PREVIEW active=file-open count=1",
 			"  cleanup CLEANUP OPS active=2 items=5 history=1 selected=Routes",
+			"  config CONFIG MANAGED SHELVES",
 			"  evidence STATUS EVIDENCE SUMMARY active=audit families=3 files=4",
-			"controls=Status queue scans release/dialog/cleanup/evidence; open panels for detail",
+			"controls=Status queue scans release/dialog/cleanup/config/evidence; open panels for detail",
 		]);
 	});
 
@@ -127,8 +132,31 @@ describe("Status activity queue", () => {
 		expect(formatStatusActivityQueueRows({})).toEqual([
 			"STATUS ACTIVITY QUEUE active=0 sources=none",
 			"no Status activity yet",
-			"controls=Status queue scans release/dialog/cleanup/evidence; open panels for detail",
+			"controls=Status queue scans release/dialog/cleanup/config/evidence; open panels for detail",
 		]);
+	});
+
+	test("summarizes Config managed shelf counts as a Status source", () => {
+		const input = {
+			configRows: [
+				"CONFIG MANAGED SHELVES",
+				"shelf coverage saved=0 empty=7 routeFilters=0 connectionFilters=0 portFilters=0 toolTargets=0 logProfiles=0 logSearches=0 remotes=0",
+				"empty shelves routeFilters,connectionFilters,portFilters,toolTargets,logProfiles,logSearches,remotes",
+			],
+		};
+
+		expect(formatStatusActivityDetailRows(input, "config")).toEqual([
+			"STATUS ACTIVITY DETAIL active=config rows=3",
+			"> CONFIG MANAGED SHELVES",
+			"  shelf coverage saved=0 empty=7 routeFilters=0 connectionFilters=0 portFilters=0 toolTargets=0 logProfiles=0 logSearches=0 remotes=0",
+			"  empty shelves routeFilters,connectionFilters,portFilters,toolTargets,logProfiles,logSearches,remotes",
+			"controls=enter action · ,/. activity source · detail mirrors selected Status console",
+		]);
+		expect(createStatusActivityEnterPlan(input, "config")).toEqual({
+			source: "config",
+			action: "none",
+			message: "config activity selected; review managed shelf counts",
+		});
 	});
 
 	test("formats a detail cursor for the selected activity source", () => {
@@ -179,9 +207,11 @@ describe("Status activity queue", () => {
 	test("moves the activity source cursor across available sources", () => {
 		const input = {
 			releaseRows: ["STATUS RELEASE CONSOLE npm=up-to-date"],
+			configRows: ["CONFIG MANAGED SHELVES"],
 			evidenceRows: ["STATUS EVIDENCE SUMMARY active=audit families=1 files=1"],
 		};
-		expect(moveStatusActivitySource(input, "release", 1)).toBe("evidence");
+		expect(moveStatusActivitySource(input, "release", 1)).toBe("config");
+		expect(moveStatusActivitySource(input, "config", 1)).toBe("evidence");
 		expect(moveStatusActivitySource(input, "release", -1)).toBe("evidence");
 		expect(moveStatusActivitySource({}, "release", 1)).toBe("release");
 	});

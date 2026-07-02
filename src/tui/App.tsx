@@ -6680,6 +6680,7 @@ export function App(): React.ReactElement {
 							cleanupHandoffHistory.length > 0
 								? ["CLEANUP OPS"]
 								: [],
+						configRows: configManagedShelfRows,
 						evidenceRows:
 							handoffIndex.items.length > 0 ||
 							auditExportIndex.items.length > 0 ||
@@ -7376,6 +7377,7 @@ export function App(): React.ReactElement {
 						cleanupHandoffHistory.length > 0
 							? ["CLEANUP OPS"]
 							: [],
+					configRows: configManagedShelfRows,
 					evidenceRows:
 						handoffIndex.items.length > 0 ||
 						auditExportIndex.items.length > 0 ||
@@ -10467,6 +10469,7 @@ function renderWorkspace(
 				selectedProcessControlAuditExportIndex={
 					selectedProcessControlAuditExportIndex
 				}
+				configManagedShelfRows={configManagedShelfRows}
 				events={events}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
@@ -12821,6 +12824,7 @@ function StatusWorkspace({
 	timelineEvidenceTrailSourceFilter,
 	processControlAuditExports,
 	selectedProcessControlAuditExportIndex,
+	configManagedShelfRows,
 	events,
 	selectedStatusEvidenceKind,
 	commandLine,
@@ -12876,6 +12880,7 @@ function StatusWorkspace({
 	timelineEvidenceTrailSourceFilter: TimelineEvidenceTrailSourceFilter;
 	processControlAuditExports: ConsoleAuditExportPlan[];
 	selectedProcessControlAuditExportIndex: number;
+	configManagedShelfRows: string[];
 	events: ConsoleEvent[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
@@ -13135,6 +13140,7 @@ function StatusWorkspace({
 					releaseRows: statusActivityReleaseRows,
 					dialogRows: statusDialogRows,
 					cleanupRows: statusActivityCleanupRows,
+					configRows: configManagedShelfRows,
 					evidenceRows: statusActivityEvidenceRows,
 				}).map((row) => (
 					<Text
@@ -13159,6 +13165,7 @@ function StatusWorkspace({
 						releaseRows: statusActivityReleaseRows,
 						dialogRows: statusDialogRows,
 						cleanupRows: statusActivityCleanupRows,
+						configRows: configManagedShelfRows,
 						evidenceRows: statusActivityEvidenceRows,
 					},
 					selectedStatusActivitySource,
