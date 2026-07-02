@@ -2,7 +2,7 @@
 
 ## v0.4.293 - Remote SFTP Transport Readiness
 
-Status: in progress on `codex/picos-v0.4.293-sftp-transport-readiness`.
+Status: draft PR [#364](https://github.com/uulab-official/picos/pull/364) on `codex/picos-v0.4.293-sftp-transport-readiness`.
 
 Goal: show whether the future SFTP transport dependency appears available without importing it, opening sockets, starting sessions, trusting hosts, writing `known_hosts`, or mutating anything.
 
