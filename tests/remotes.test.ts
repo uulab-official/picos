@@ -16,6 +16,7 @@ import {
 	createRemoteKnownHostsReadResult,
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
+	createRemoteSftpPackageResolutionPreview,
 	createRemoteSftpTransportReadiness,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
@@ -41,6 +42,7 @@ import {
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
 	formatRemoteReadOnlyAdapterContractRows,
+	formatRemoteSftpPackageResolutionPreviewRows,
 	formatRemoteSftpTransportReadinessRows,
 	formatRemoteTransportProbeRows,
 	normalizeRemoteProfiles,
@@ -985,6 +987,78 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willResolve=false willImport=false willConnect=false willMutate=false",
+		);
+	});
+
+	test("formats remote SFTP package resolution preview without resolving packages", () => {
+		const preview = createRemoteSftpPackageResolutionPreview({
+			startDir: "/repo/packages/app/src",
+		});
+
+		expect(preview).toEqual({
+			dependency: "@uulab/picos-sftp",
+			detector: "node-module-lookup",
+			status: "preview-only",
+			blocker: "resolver-not-run",
+			source: "computed",
+			startDir: "/repo/packages/app/src",
+			lookupPaths: [
+				"/repo/packages/app/src/node_modules/@uulab/picos-sftp",
+				"/repo/packages/app/node_modules/@uulab/picos-sftp",
+				"/repo/packages/node_modules/@uulab/picos-sftp",
+				"/repo/node_modules/@uulab/picos-sftp",
+				"/node_modules/@uulab/picos-sftp",
+			],
+			execution: {
+				resolvesPackage: false,
+				readsPackageJson: false,
+				importsTransport: false,
+				opensSocket: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(formatRemoteSftpPackageResolutionPreviewRows(preview)).toEqual([
+			"REMOTE SFTP PACKAGE RESOLUTION PREVIEW",
+			"dependency=@uulab/picos-sftp detector=node-module-lookup status=preview-only blocker=resolver-not-run source=computed",
+			"start=/repo/packages/app/src lookups=5",
+			"lookup[0]=/repo/packages/app/src/node_modules/@uulab/picos-sftp",
+			"lookup[1]=/repo/packages/app/node_modules/@uulab/picos-sftp",
+			"lookup[2]=/repo/packages/node_modules/@uulab/picos-sftp",
+			"lookup[3]=/repo/node_modules/@uulab/picos-sftp",
+			"lookup[4]=/node_modules/@uulab/picos-sftp",
+			"execution=willResolve=false willReadPackage=false willImport=false willConnect=false willMutate=false",
+			"next=run explicit resolver only after operator review and transport policy enablement",
+		]);
+
+		const windowsPreview = createRemoteSftpPackageResolutionPreview({
+			startDir: "C:\\repo\\app\\src",
+		});
+		expect(windowsPreview.lookupPaths.slice(0, 3)).toEqual([
+			"C:\\repo\\app\\src\\node_modules\\@uulab\\picos-sftp",
+			"C:\\repo\\app\\node_modules\\@uulab\\picos-sftp",
+			"C:\\repo\\node_modules\\@uulab\\picos-sftp",
+		]);
+		expect(
+			formatRemoteSftpPackageResolutionPreviewRows(windowsPreview),
+		).toContain("lookup[3]=C:\\node_modules\\@uulab\\picos-sftp");
+	});
+
+	test("includes remote SFTP package resolution preview in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE SFTP PACKAGE RESOLUTION PREVIEW");
+		expect(output).toContain(
+			"dependency=@uulab/picos-sftp detector=node-module-lookup status=preview-only blocker=resolver-not-run source=computed",
+		);
+		expect(output).toContain(
+			"execution=willResolve=false willReadPackage=false willImport=false willConnect=false willMutate=false",
 		);
 	});
 

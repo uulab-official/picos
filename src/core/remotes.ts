@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import path from "node:path";
 import { createFileProvider } from "./files";
 import type { SftpRemoteProfile } from "./types";
 
@@ -222,6 +223,23 @@ export type RemoteSftpTransportReadiness = {
 	source: "not-run" | "injected";
 	execution: {
 		resolvesPackage: false;
+		importsTransport: false;
+		opensSocket: false;
+		mutatesRemote: false;
+	};
+};
+
+export type RemoteSftpPackageResolutionPreview = {
+	dependency: "@uulab/picos-sftp";
+	detector: "node-module-lookup";
+	status: "preview-only";
+	blocker: "resolver-not-run";
+	source: "computed";
+	startDir: string;
+	lookupPaths: string[];
+	execution: {
+		resolvesPackage: false;
+		readsPackageJson: false;
 		importsTransport: false;
 		opensSocket: false;
 		mutatesRemote: false;
@@ -989,6 +1007,68 @@ export function formatRemoteSftpTransportReadinessRows(
 	];
 }
 
+function isWindowsLikePath(value: string): boolean {
+	return /^[A-Za-z]:[\\/]/.test(value) || value.includes("\\");
+}
+
+function createPackageLookupPaths(
+	startDir: string,
+	packageName: string,
+): string[] {
+	const pathApi = isWindowsLikePath(startDir) ? path.win32 : path.posix;
+	const packageParts = packageName.split("/");
+	const lookupPaths: string[] = [];
+	let current = pathApi.resolve(startDir);
+
+	while (true) {
+		lookupPaths.push(pathApi.join(current, "node_modules", ...packageParts));
+		const parent = pathApi.dirname(current);
+		if (parent === current) {
+			break;
+		}
+		current = parent;
+	}
+
+	return lookupPaths;
+}
+
+export function createRemoteSftpPackageResolutionPreview(
+	options: { startDir?: string } = {},
+): RemoteSftpPackageResolutionPreview {
+	const startDir = options.startDir ?? process.cwd();
+	return {
+		dependency: "@uulab/picos-sftp",
+		detector: "node-module-lookup",
+		status: "preview-only",
+		blocker: "resolver-not-run",
+		source: "computed",
+		startDir,
+		lookupPaths: createPackageLookupPaths(startDir, "@uulab/picos-sftp"),
+		execution: {
+			resolvesPackage: false,
+			readsPackageJson: false,
+			importsTransport: false,
+			opensSocket: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteSftpPackageResolutionPreviewRows(
+	preview: RemoteSftpPackageResolutionPreview = createRemoteSftpPackageResolutionPreview(),
+): string[] {
+	return [
+		"REMOTE SFTP PACKAGE RESOLUTION PREVIEW",
+		`dependency=${preview.dependency} detector=${preview.detector} status=${preview.status} blocker=${preview.blocker} source=${preview.source}`,
+		`start=${preview.startDir} lookups=${preview.lookupPaths.length}`,
+		...preview.lookupPaths.map((lookupPath, index) => {
+			return `lookup[${index}]=${lookupPath}`;
+		}),
+		`execution=willResolve=${preview.execution.resolvesPackage} willReadPackage=${preview.execution.readsPackageJson} willImport=${preview.execution.importsTransport} willConnect=${preview.execution.opensSocket} willMutate=${preview.execution.mutatesRemote}`,
+		"next=run explicit resolver only after operator review and transport policy enablement",
+	];
+}
+
 export function submitRemoteHostKeyScanReview(
 	request: RemoteHostKeyScanRequest,
 	input: string,
@@ -1618,6 +1698,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteSftpTransportReadinessRows(
 			createRemoteSftpTransportReadiness(),
+		),
+		"",
+		...formatRemoteSftpPackageResolutionPreviewRows(
+			createRemoteSftpPackageResolutionPreview(),
 		),
 		"",
 		...formatRemoteKnownHostsSourcePreviewRows(

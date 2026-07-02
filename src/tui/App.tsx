@@ -154,6 +154,7 @@ import {
 	createRemoteKnownHostsReadResult,
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
+	createRemoteSftpPackageResolutionPreview,
 	createRemoteSftpTransportReadiness,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
@@ -177,6 +178,7 @@ import {
 	formatRemoteKnownHostsReadResultRows,
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
+	formatRemoteSftpPackageResolutionPreviewRows,
 	formatRemoteSftpTransportReadinessRows,
 	formatRemoteTransportProbeRows,
 	parseRemoteProfileCommand,
@@ -11875,7 +11877,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 120);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 130);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11914,6 +11916,10 @@ function RemotesWorkspace({
 	const sftpTransportReadinessRows = formatRemoteSftpTransportReadinessRows(
 		sftpTransportReadiness,
 	);
+	const sftpPackageResolutionPreviewRows =
+		formatRemoteSftpPackageResolutionPreviewRows(
+			createRemoteSftpPackageResolutionPreview(),
+		);
 	const knownHostsSourceRows = formatRemoteKnownHostsSourcePreviewRows(
 		createRemoteKnownHostsSourcePreview(selectedProfile),
 	);
@@ -12225,6 +12231,28 @@ function RemotesWorkspace({
 											row.includes("willConnect=false")
 										? "yellow"
 										: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">SFTP PACKAGE RESOLUTION</Text>
+				{sftpPackageResolutionPreviewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("preview-only") ||
+										row.includes("resolver-not-run") ||
+										row.includes("willResolve=false") ||
+										row.includes("willReadPackage=false") ||
+										row.includes("willImport=false") ||
+										row.includes("willConnect=false")
+									? "yellow"
+									: "gray"
 						}
 					>
 						{clip(row, 92)}
