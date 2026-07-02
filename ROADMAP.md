@@ -2,7 +2,7 @@
 
 ## v0.4.292 - Remote Host Key Scan Readiness
 
-Status: in progress on `codex/picos-v0.4.292-host-key-scan-readiness`.
+Status: draft PR [#362](https://github.com/uulab-official/picos/pull/362) on `codex/picos-v0.4.292-host-key-scan-readiness`.
 
 Goal: split host-key scan policy prerequisites into operator-visible readiness checks without enabling SFTP transport imports, sockets, fingerprint scans, host trust, `known_hosts` writes, or mutation.
 

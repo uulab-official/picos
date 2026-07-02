@@ -69,6 +69,8 @@ Update README, CHANGELOG, and ROADMAP to describe `REMOTE HOST KEY SCAN READINES
 Run: `bun run verify`, `bun run release:check`, and `git diff --check`.
 Expected: PASS.
 
-- [ ] **Step 3: Commit, push, and open draft PR**
+- [x] **Step 3: Commit, push, and open draft PR**
 
 Push `codex/picos-v0.4.292-host-key-scan-readiness`, open a draft PR stacked on `codex/picos-v0.4.291-host-key-scan-policy`, then update ROADMAP and this plan with the PR link.
+
+Result: draft PR [#362](https://github.com/uulab-official/picos/pull/362).
