@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.261 - Tools Live Field Focus
+
+Status: draft PR [#323](https://github.com/uulab-official/picos/pull/323) on `codex/picos-v0.4.261-tools-live-field-focus`.
+
+Goal: close the next lazyifconfig-style Tools gap by making field-form prompts keyboard-editable, not just visible.
+
+- Command-line prompts can now carry optional field-focus metadata without changing ordinary one-line prompts.
+- Tools forms can select a field, update only that field, and serialize the result back into the existing safe `ToolRunPlan` target string.
+- Command-palette Tools runs now open with default serialized field values and focus the first Tool field.
+- While a Tools prompt is active, `Tab` advances the selected field and typed/backspace input edits only that active field.
+- Prompt rows pass the live field index into the form renderer, so the `>` marker follows keyboard focus before `Enter` submits.
+- Tests cover command-line field focus, Tool form selection/serialization, prompt row focus rendering, typecheck, and focused regression suites.
+- Next: add richer field ergonomics such as clear-field/replace-first-typed-character behavior and backward field movement once terminal Shift-Tab handling is verified across platforms.
+
 ## v0.4.260 - Tools Field Form
 
 Status: draft PR [#322](https://github.com/uulab-official/picos/pull/322) on `codex/picos-v0.4.260-tools-field-form`.
@@ -11,7 +25,7 @@ Goal: make Tools prompts feel more like OS console forms by showing structured t
 - Tool form helpers can move selected fields, update the selected value, and convert a form back into a safe `ToolRunPlan`.
 - Prompt rows now show the generated `picos tools ...` CLI command and shared run/cancel controls from the form model.
 - Tests cover form state, field focus movement, value updates, run-plan conversion, prompt rows, typecheck, and lint.
-- Next: wire the command-line prompt state to true field-focused editing so `Tab`/`Shift-Tab` changes the active Tools input field in the live TUI.
+- Next: add live field editing and keyboard focus so visible Tools forms behave like real operator inputs.
 
 ## v0.4.259 - Tools Palette Direct Run
 

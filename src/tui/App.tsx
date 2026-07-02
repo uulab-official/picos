@@ -238,6 +238,7 @@ import {
 	applyCommandLineInput,
 	type CommandLineState,
 	closeCommandLine,
+	moveCommandLineField,
 	openCommandLine,
 } from "./commandLine";
 import {
@@ -520,6 +521,7 @@ import {
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
+	createToolFormState,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
 	createToolHistoryCompareExportPlan,
@@ -530,6 +532,7 @@ import {
 	createToolTargetCleanupPreview,
 	filterToolHistory,
 	filterToolHistoryExportIndex,
+	formatToolFormInputValue,
 	formatToolHistoryArchiveRetentionRows,
 	formatToolHistoryExportArchiveRows,
 	formatToolPromptRows,
@@ -541,6 +544,7 @@ import {
 	getSelectedToolSectionClipboardPreview,
 	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
+	getToolRunActionMetadata,
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
@@ -566,6 +570,7 @@ import {
 	retargetToolTargetPreset,
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
+	selectToolFormField,
 	submitToolHistoryCleanupConfirmation,
 	submitToolTargetCleanupConfirmation,
 	type ToolCopyPreviewMode,
@@ -580,6 +585,7 @@ import {
 	type ToolHistorySort,
 	type ToolSectionClipboardSelection,
 	type ToolTargetPreset,
+	updateToolFormFieldValue,
 	writeToolHistoryExport,
 } from "./toolHistory";
 
@@ -1704,6 +1710,48 @@ export function App(): React.ReactElement {
 			setCommandLine((current) => closeCommandLine(current));
 		}
 	}, [commandLine.prompt, commandLine.value, log, runToolPlan]);
+
+	const applyToolPromptCommandLineInput = useCallback(
+		(
+			current: CommandLineState,
+			event: { input?: string; backspace?: boolean },
+		): CommandLineState => {
+			if (!current.prompt.startsWith(toolPromptPrefix)) {
+				return applyCommandLineInput(current, event);
+			}
+			const actionId = current.prompt.slice(toolPromptPrefix.length);
+			const metadata = getToolRunActionMetadata(actionId);
+			const form = createToolFormState(
+				actionId,
+				metadata?.defaultTarget ?? "",
+				summaryRef.current,
+				current.value,
+				current.fieldIndex ?? 0,
+			);
+			const selectedForm = selectToolFormField(form, current.fieldIndex ?? 0);
+			const selectedField =
+				selectedForm?.fields[selectedForm.selectedFieldIndex];
+			if (!selectedForm || !selectedField) {
+				return applyCommandLineInput(current, event);
+			}
+			if (
+				!event.backspace &&
+				(event.input?.length !== 1 || event.input < " ")
+			) {
+				return current;
+			}
+			const nextFieldValue = event.backspace
+				? selectedField.value.slice(0, -1)
+				: `${selectedField.value}${event.input}`;
+			const nextForm = updateToolFormFieldValue(selectedForm, nextFieldValue);
+			return {
+				...current,
+				value: formatToolFormInputValue(nextForm),
+				fieldIndex: nextForm?.selectedFieldIndex ?? current.fieldIndex,
+			};
+		},
+		[],
+	);
 
 	const submitEditorAppendLineCommand = useCallback(() => {
 		const line = commandLine.value;
@@ -4899,7 +4947,12 @@ export function App(): React.ReactElement {
 				);
 				if (toolPlan) {
 					setScreen("tools");
-					setCommandLine(openCommandLine(`${toolPromptPrefix}${action.id}`));
+					setCommandLine(
+						openCommandLine(`${toolPromptPrefix}${action.id}`, {
+							value: toolPlan.args.join(" "),
+							fieldIndex: 0,
+						}),
+					);
 					log("info", `${toolPlan.label} target prompt opened`);
 				}
 
@@ -6067,11 +6120,40 @@ export function App(): React.ReactElement {
 				return;
 			}
 
+			if (
+				commandLine.prompt.startsWith(toolPromptPrefix) &&
+				(key.tab || input === "\u001B[Z")
+			) {
+				const direction = input === "\u001B[Z" ? "previous" : "next";
+				setCommandLine((current) => {
+					const actionId = current.prompt.slice(toolPromptPrefix.length);
+					const metadata = getToolRunActionMetadata(actionId);
+					const form = createToolFormState(
+						actionId,
+						metadata?.defaultTarget ?? "",
+						summaryRef.current,
+						current.value,
+						current.fieldIndex ?? 0,
+					);
+					return moveCommandLineField(
+						current,
+						form?.fields.length ?? 0,
+						direction,
+					);
+				});
+				return;
+			}
+
 			setCommandLine((current) =>
-				applyCommandLineInput(current, {
-					input,
-					backspace: key.backspace || key.delete,
-				}),
+				commandLine.prompt.startsWith(toolPromptPrefix)
+					? applyToolPromptCommandLineInput(current, {
+							input,
+							backspace: key.backspace || key.delete,
+						})
+					: applyCommandLineInput(current, {
+							input,
+							backspace: key.backspace || key.delete,
+						}),
 			);
 			if (commandLine.prompt === "clipboard") {
 				setClipboardConfirmation((current) =>
@@ -12363,7 +12445,11 @@ function ToolsWorkspace({
 			: undefined;
 	const promptRows =
 		commandLine.active && commandLine.prompt.startsWith(toolPromptPrefix)
-			? formatToolPromptRows(commandLine.prompt, commandLine.value)
+			? formatToolPromptRows(
+					commandLine.prompt,
+					commandLine.value,
+					commandLine.fieldIndex ?? 0,
+				)
 			: commandLine.active && commandLine.prompt === "tool-filter"
 				? [
 						"TOOL HISTORY FILTER",

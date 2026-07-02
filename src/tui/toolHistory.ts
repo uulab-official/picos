@@ -416,6 +416,7 @@ export function createToolFormState(
 	defaultTarget: string,
 	summary?: NetworkSummary,
 	targetInput = "",
+	selectedFieldIndex = 0,
 ): ToolFormState | undefined {
 	const actionId = normalizeToolRunActionId(actionIdInput);
 	if (!actionId) {
@@ -440,11 +441,30 @@ export function createToolFormState(
 		actionId,
 		title: metadata.title,
 		toolId: metadata.toolId,
-		selectedFieldIndex: 0,
+		selectedFieldIndex: Math.min(
+			Math.max(selectedFieldIndex, 0),
+			Math.max(0, definition.fields.length - 1),
+		),
 		fields: definition.fields.map((field) => ({
 			...field,
 			value: values[field.key] ?? field.placeholder,
 		})),
+	};
+}
+
+export function selectToolFormField(
+	form: ToolFormState | undefined,
+	fieldIndex: number,
+): ToolFormState | undefined {
+	if (!form || form.fields.length <= 0) {
+		return form;
+	}
+	return {
+		...form,
+		selectedFieldIndex: Math.min(
+			Math.max(fieldIndex, 0),
+			form.fields.length - 1,
+		),
 	};
 }
 
@@ -484,19 +504,28 @@ export function updateToolFormFieldValue(
 	};
 }
 
+export function formatToolFormInputValue(
+	form: ToolFormState | undefined,
+): string {
+	if (!form) {
+		return "";
+	}
+	if (form.toolId === "telnet" || form.toolId === "port-check") {
+		return [
+			getToolFormFieldValue(form, "host", "example.com"),
+			getToolFormFieldValue(form, "port", "443"),
+		].join(" ");
+	}
+	return getToolFormFieldValue(form, form.fields[0]?.key ?? "target", "");
+}
+
 export function createToolRunPlanFromForm(
 	form: ToolFormState | undefined,
 ): ToolRunPlan | undefined {
 	if (!form) {
 		return undefined;
 	}
-	const target =
-		form.toolId === "telnet" || form.toolId === "port-check"
-			? [
-					getToolFormFieldValue(form, "host", "example.com"),
-					getToolFormFieldValue(form, "port", "443"),
-				].join(" ")
-			: getToolFormFieldValue(form, form.fields[0]?.key ?? "target", "");
+	const target = formatToolFormInputValue(form);
 	const plan = createToolRunPlan(form.actionId, "", undefined, target);
 	if (!plan) {
 		return undefined;
@@ -1136,7 +1165,11 @@ export function nextToolHistoryPreset(
 	return presets[index + 1] ?? "";
 }
 
-export function formatToolPromptRows(prompt: string, value: string): string[] {
+export function formatToolPromptRows(
+	prompt: string,
+	value: string,
+	selectedFieldIndex = 0,
+): string[] {
 	if (!prompt.startsWith("tool:")) {
 		return [];
 	}
@@ -1154,6 +1187,7 @@ export function formatToolPromptRows(prompt: string, value: string): string[] {
 			metadata.defaultTarget,
 			undefined,
 			value.trim() || metadata.defaultTarget,
+			selectedFieldIndex,
 		),
 	);
 }

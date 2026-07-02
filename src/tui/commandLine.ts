@@ -2,6 +2,7 @@ export type CommandLineState = {
 	active: boolean;
 	prompt: string;
 	value: string;
+	fieldIndex?: number;
 };
 
 export type CommandLineInput = {
@@ -9,12 +10,24 @@ export type CommandLineInput = {
 	backspace?: boolean;
 };
 
-export function openCommandLine(prompt: string): CommandLineState {
-	return {
+export type CommandLineOpenOptions = {
+	value?: string;
+	fieldIndex?: number;
+};
+
+export function openCommandLine(
+	prompt: string,
+	options: CommandLineOpenOptions = {},
+): CommandLineState {
+	const state: CommandLineState = {
 		active: true,
 		prompt,
-		value: "",
+		value: options.value ?? "",
 	};
+	if (options.fieldIndex !== undefined) {
+		state.fieldIndex = Math.max(0, options.fieldIndex);
+	}
+	return state;
 }
 
 export function closeCommandLine(state: CommandLineState): CommandLineState {
@@ -22,6 +35,22 @@ export function closeCommandLine(state: CommandLineState): CommandLineState {
 		...state,
 		active: false,
 		value: "",
+	};
+}
+
+export function moveCommandLineField(
+	state: CommandLineState,
+	total: number,
+	direction: "next" | "previous",
+): CommandLineState {
+	if (!state.active || total <= 0) {
+		return state;
+	}
+	const current = Math.min(Math.max(state.fieldIndex ?? 0, 0), total - 1);
+	const offset = direction === "next" ? 1 : -1;
+	return {
+		...state,
+		fieldIndex: (current + offset + total) % total,
 	};
 }
 
