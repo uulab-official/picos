@@ -2,7 +2,7 @@
 
 ## v0.4.288 - Remote Known Hosts Selected Compare
 
-Status: in progress on `codex/picos-v0.4.288-known-hosts-selection`.
+Status: draft PR [#352](https://github.com/uulab-official/picos/pull/352) on `codex/picos-v0.4.288-known-hosts-selection`.
 
 Goal: connect parsed `known_hosts` candidates into host-key compare detail so operators can see which candidate fingerprint would be compared before any remote socket, host-key scan, trust decision, local trust-file write, or mutation is enabled.
 

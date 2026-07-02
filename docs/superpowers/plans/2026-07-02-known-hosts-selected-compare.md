@@ -18,9 +18,9 @@ Connect parsed `known_hosts` candidates to the host-key compare detail so operat
 - [x] **Step 3: Update docs**
   - Update README, CHANGELOG, and ROADMAP for v0.4.288.
 
-- [ ] **Step 4: Verify and ship**
+- [x] **Step 4: Verify and ship**
   - Focused remotes tests passed.
   - `bun run verify` passed.
   - `bun run release:check` passed.
   - `git diff --check` passed.
-  - Push branch and open a draft PR.
+  - Pushed branch and opened draft PR #352.
