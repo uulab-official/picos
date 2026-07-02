@@ -459,6 +459,28 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.toolsEvidence.matchOpen",
+		title: "Open recovered Tools match",
+		description:
+			"Tools match open shortcut for the selected recovered Tools evidence match through the locked file-open prompt.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.toolsEvidence.matchArchive",
+		title: "Archive recovered Tools match",
+		description:
+			"Tools match archive shortcut for the selected active recovered Tools evidence match through the locked archive prompt.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "remote.sftp.connect",
 		title: "Connect SFTP provider",
 		description:

@@ -173,6 +173,8 @@ describe("TUI command palette", () => {
 				"status.toolsEvidence.search",
 				"status.toolsEvidence.archive",
 				"status.toolsEvidence.retention",
+				"status.toolsEvidence.matchOpen",
+				"status.toolsEvidence.matchArchive",
 			]),
 		);
 		expect(
@@ -207,6 +209,29 @@ describe("TUI command palette", () => {
 				),
 			).map((action) => action.id),
 		).toContain("status.toolsEvidence.search");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools match"),
+			).map((action) => action.id),
+		).toEqual(
+			expect.arrayContaining([
+				"status.toolsEvidence.matchOpen",
+				"status.toolsEvidence.matchArchive",
+			]),
+		);
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools match open"),
+			).map((action) => action.id),
+		).toContain("status.toolsEvidence.matchOpen");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools match archive"),
+			).map((action) => action.id),
+		).toContain("status.toolsEvidence.matchArchive");
 	});
 
 	test("edits query with backspace and ignores control input", () => {

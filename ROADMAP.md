@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.223 - Tools Evidence Match Palette Actions
+
+Status: draft PR [#285](https://github.com/uulab-official/picos/pull/285) on `codex/picos-v0.4.223-tools-match-palette-actions`.
+
+Goal: let operators invoke recovered Tools evidence match actions from the command palette, keeping `?` fuzzy search and direct `K`/`D` keyboard flows equivalent.
+
+- Command palette now exposes `status.toolsEvidence.matchOpen` and `status.toolsEvidence.matchArchive`.
+- Queries such as `tools match`, `tools match open`, and `tools match archive` surface the recovered match actions.
+- Palette-triggered recovered match open/archive actions reuse the same locked file-open/archive confirmations as `K`/`D`.
+- Palette-triggered actions also reuse the v0.4.222 Status Activity result rows and Timeline audit messages.
+- Tests cover action discovery and natural query aliases.
+- Next: add a compact recovered Tools match action hint row to the command palette/Status shelf preview so operators can see the selected match before dispatching from `?`.
+
 ## v0.4.222 - Tools Evidence Match Audit Trail
 
 Status: draft PR [#284](https://github.com/uulab-official/picos/pull/284) on `codex/picos-v0.4.222-tools-match-audit-trail`.
