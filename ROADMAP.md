@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.279 - Remote Host Key Evidence
+
+Status: draft PR [#341](https://github.com/uulab-official/picos/pull/341) on `codex/picos-v0.4.279-remote-host-key-evidence`.
+
+Goal: make the future SFTP host-key fingerprint checkpoint visible before picos evaluates any read adapter or opens a remote socket.
+
+- Remotes now models `REMOTE HOST KEY EVIDENCE` rows for selected and empty SFTP profile states.
+- Evidence rows show host, port, provider, unverified status, blocked trust, `sha256:unknown` fingerprint, `source=not-collected`, and `knownHost=not-checked`.
+- Guard rows keep host review and exact `connect remote <id>` confirmation in front of any future adapter evaluation.
+- Execution rows keep `willImport=false`, `willConnect=false`, `willRead=false`, and `willMutate=false`.
+- `picos remote <id>` prints the same host-key evidence between file request preview and host review.
+- Remotes TUI renders a dedicated `HOST KEY EVIDENCE` section before host review.
+- Tests cover selected-profile evidence shape, empty-state rows, CLI provider status inclusion, and no-import/no-connect/no-read/no-mutation posture.
+- Next: add a local `known_hosts` source preview without opening a remote socket.
+
 ## v0.4.278 - Remote File Request Preview
 
 Status: draft PR [#340](https://github.com/uulab-official/picos/pull/340) on `codex/picos-v0.4.278-remote-file-request-preview`.

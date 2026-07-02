@@ -4,6 +4,7 @@ import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
 	createRemoteFileRequestPreview,
+	createRemoteHostKeyEvidence,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
@@ -11,6 +12,7 @@ import {
 	formatRemoteConnectPreviewRows,
 	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
+	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	formatRemoteProfiles,
@@ -505,6 +507,84 @@ describe("remote profiles", () => {
 		expect(output).toContain("REMOTE FILE REQUEST PREVIEW dev");
 		expect(output).toContain(
 			"request=list provider=sftp status=blocked reason=adapter-not-connected",
+		);
+		expect(output).toContain(
+			"execution=willImport=false willConnect=false willRead=false willMutate=false",
+		);
+	});
+
+	test("formats remote host key evidence without opening transport", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteHostKeyEvidence(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			status: "unverified",
+			trust: "blocked",
+			fingerprint: {
+				algorithm: "sha256",
+				value: "unknown",
+				source: "not-collected",
+			},
+			knownHost: "not-checked",
+			verification: "required",
+			confirm: "connect remote prod",
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				readsRemote: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteHostKeyEvidenceRows(createRemoteHostKeyEvidence(profile)),
+		).toEqual([
+			"REMOTE HOST KEY EVIDENCE prod",
+			"host=prod.example.com port=2222 provider=sftp status=unverified trust=blocked",
+			"fingerprint=sha256:unknown source=not-collected knownHost=not-checked",
+			"target=sftp://deploy@prod.example.com:2222/srv/app",
+			'guards=hostReview required exactConfirm="connect remote prod" readAdapter=blocked-until-fingerprint',
+			"execution=willImport=false willConnect=false willRead=false willMutate=false",
+			"next=collect fingerprint evidence before adapter evaluation",
+		]);
+
+		expect(formatRemoteHostKeyEvidenceRows().join("\n")).toBe(
+			[
+				"REMOTE HOST KEY EVIDENCE none",
+				"host=none port=- provider=sftp status=unverified trust=blocked",
+				"fingerprint=sha256:unknown source=not-collected knownHost=not-checked",
+				"target=none",
+				'guards=hostReview required exactConfirm="select remote profile" readAdapter=blocked-until-profile',
+				"execution=willImport=false willConnect=false willRead=false willMutate=false",
+				"next=select remote profile · no fingerprint collection",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote host key evidence in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE HOST KEY EVIDENCE dev");
+		expect(output).toContain(
+			"fingerprint=sha256:unknown source=not-collected knownHost=not-checked",
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willRead=false willMutate=false",
