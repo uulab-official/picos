@@ -12,9 +12,14 @@ import type {
 	NetworkInterfaceMap,
 	NetworkInterfaceStatsMap,
 	NetworkInterfaceSummary,
+	NetworkSourceOutput,
+	NetworkSourceOutputKey,
 	NetworkSummary,
+	SafeExecResult,
 	SupportedPlatform,
 } from "./types";
+
+const DEFAULT_NETWORK_SOURCE_OUTPUT_LINES = 12;
 
 export function summarizeNetworkInterfaces(
 	interfaces: NetworkInterfaceMap,
@@ -25,6 +30,7 @@ export function summarizeNetworkInterfaces(
 		gateway?: string;
 		publicIp?: string;
 		interfaceStats?: NetworkInterfaceStatsMap;
+		sourceOutputs?: NetworkSourceOutput[];
 	} = {},
 ): NetworkSummary {
 	const summaries = Object.entries(interfaces)
@@ -47,6 +53,7 @@ export function summarizeNetworkInterfaces(
 		gateway: options.gateway,
 		dnsServers,
 		publicIp: options.publicIp,
+		sourceOutputs: options.sourceOutputs,
 	};
 }
 
@@ -64,16 +71,23 @@ export function sortNetworkInterfaces(
 }
 
 export async function getNetworkSummary(): Promise<NetworkSummary> {
-	const [gateway, publicIp, interfaceStats] = await Promise.all([
-		getDefaultGateway(),
+	const targetPlatform = process.platform;
+	const interfaces = networkInterfaces();
+	const [gatewayResult, publicIp, statsResult] = await Promise.all([
+		getDefaultGatewayWithSource(targetPlatform),
 		lookupPublicIp(),
-		getInterfaceStats(),
+		getInterfaceStatsWithSource(targetPlatform),
 	]);
 
-	return summarizeNetworkInterfaces(networkInterfaces(), getServers(), {
-		gateway,
+	return summarizeNetworkInterfaces(interfaces, getServers(), {
+		gateway: gatewayResult.gateway,
 		publicIp,
-		interfaceStats,
+		interfaceStats: statsResult.stats,
+		sourceOutputs: [
+			createNetworkInventorySourceOutput(interfaces),
+			statsResult.sourceOutput,
+			gatewayResult.sourceOutput,
+		],
 	});
 }
 
@@ -93,6 +107,15 @@ function interfaceKindRank(kind: NetworkInterfaceKind): number {
 export async function getInterfaceStats(
 	targetPlatform: SupportedPlatform = process.platform,
 ): Promise<NetworkInterfaceStatsMap> {
+	return (await getInterfaceStatsWithSource(targetPlatform)).stats;
+}
+
+async function getInterfaceStatsWithSource(
+	targetPlatform: SupportedPlatform,
+): Promise<{
+	stats: NetworkInterfaceStatsMap;
+	sourceOutput: NetworkSourceOutput;
+}> {
 	const adapter =
 		targetPlatform === "win32"
 			? windows
@@ -101,17 +124,33 @@ export async function getInterfaceStats(
 				: macos;
 	const { command, args } = adapter.interfaceStatsCommand();
 	const result = await safeExec(command, args, { timeoutMs: 5000 });
+	const sourceOutput = createNetworkSourceOutput(
+		"interface-stats",
+		"Interface stats",
+		command,
+		args,
+		result,
+	);
 
 	if (!result.success) {
-		return {};
+		return { stats: {}, sourceOutput };
 	}
 
-	return adapter.parseInterfaceStats(result.stdout);
+	return { stats: adapter.parseInterfaceStats(result.stdout), sourceOutput };
 }
 
 export async function getDefaultGateway(
 	targetPlatform: SupportedPlatform = process.platform,
 ): Promise<string | undefined> {
+	return (await getDefaultGatewayWithSource(targetPlatform)).gateway;
+}
+
+async function getDefaultGatewayWithSource(
+	targetPlatform: SupportedPlatform,
+): Promise<{
+	gateway: string | undefined;
+	sourceOutput: NetworkSourceOutput;
+}> {
 	const adapter =
 		targetPlatform === "win32"
 			? windows
@@ -120,12 +159,96 @@ export async function getDefaultGateway(
 				: macos;
 	const { command, args } = adapter.gatewayCommand();
 	const result = await safeExec(command, args, { timeoutMs: 5000 });
+	const sourceOutput = createNetworkSourceOutput(
+		"gateway",
+		"Default gateway",
+		command,
+		args,
+		result,
+	);
 
 	if (!result.success) {
-		return undefined;
+		return { gateway: undefined, sourceOutput };
 	}
 
-	return adapter.parseGateway(result.stdout);
+	return { gateway: adapter.parseGateway(result.stdout), sourceOutput };
+}
+
+export function createNetworkInventorySourceOutput(
+	interfaces: NetworkInterfaceMap,
+	options: { maxLines?: number } = {},
+): NetworkSourceOutput {
+	const rows = Object.entries(interfaces)
+		.sort(([left], [right]) =>
+			left.localeCompare(right, undefined, {
+				numeric: true,
+				sensitivity: "base",
+			}),
+		)
+		.flatMap(([name, addresses]) =>
+			(addresses ?? []).map((address) =>
+				[
+					name,
+					address.family,
+					address.cidr ?? address.address,
+					address.internal ? "internal" : "external",
+					`mac=${address.mac}`,
+				].join(" "),
+			),
+		);
+
+	return createNetworkSourceOutput(
+		"interface-inventory",
+		"Interface inventory",
+		"node:os",
+		["networkInterfaces()"],
+		{
+			command: "node:os",
+			args: ["networkInterfaces()"],
+			stdout: rows.length > 0 ? rows.join("\n") : "no interfaces",
+			stderr: "",
+			exitCode: 0,
+			success: true,
+		},
+		options,
+	);
+}
+
+export function createNetworkSourceOutput(
+	key: NetworkSourceOutputKey,
+	label: string,
+	command: string,
+	args: string[],
+	result: SafeExecResult,
+	options: { maxLines?: number } = {},
+): NetworkSourceOutput {
+	const maxLines = Math.max(
+		1,
+		options.maxLines ?? DEFAULT_NETWORK_SOURCE_OUTPUT_LINES,
+	);
+	const rawOutput = [
+		result.stdout,
+		result.stderr ? `stderr: ${result.stderr}` : "",
+	]
+		.filter(Boolean)
+		.join("\n");
+	const lines = (rawOutput || "(no output)")
+		.split(/\r?\n/)
+		.filter((line) => line.length > 0);
+	const visible = lines.slice(0, maxLines);
+
+	return {
+		key,
+		label,
+		command,
+		args,
+		output: visible.join("\n"),
+		lineCount: lines.length,
+		shownLines: visible.length,
+		truncated: lines.length > visible.length,
+		success: result.success,
+		exitCode: result.exitCode,
+	};
 }
 
 export async function lookupPublicIp(): Promise<string | undefined> {

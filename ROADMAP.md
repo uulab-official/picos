@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.256 - Interface Raw Source Retention
+
+Status: draft PR [#318](https://github.com/uulab-official/picos/pull/318) on `codex/picos-v0.4.256-interface-raw-source-retention`.
+
+Goal: retain bounded raw interface source evidence so rendered network summaries can be compared with their source output.
+
+- `NetworkSummary` now carries bounded source-output records for `node:os.networkInterfaces`, adapter interface stats, and default gateway commands.
+- Raw evidence records keep command, args, success/exit status, total line count, shown line count, truncation state, and compact output text.
+- The Interfaces source pane renders retained source rows before locked controls, so operators can compare selected adapter summaries with inventory/stat/gateway evidence without leaving the TUI.
+- Existing `getInterfaceStats()` and `getDefaultGateway()` APIs still return parsed values, while `getNetworkSummary()` keeps the richer evidence for TUI inspection.
+- Tests cover bounded raw evidence modeling, summary retention, and Interfaces source-pane rendering.
+- Next: add source evidence copy/export handoffs and continue closing Tools Hub parity gaps such as traceroute/TLS detail polish.
+
 ## v0.4.255 - Interface Palette Control Preview
 
 Status: draft PR [#317](https://github.com/uulab-official/picos/pull/317) on `codex/picos-v0.4.255-interface-palette-control-preview`.
