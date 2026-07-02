@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.291 - Remote Host Key Evidence Session Compare
+
+Status: in progress on `codex/picos-v0.4.291-session-host-key-evidence`.
+
+Goal: make the locked `:remote-host-key-evidence` prompt visibly affect the current Remotes workspace session so operators can see provided evidence move into compare detail immediately.
+
+- Core now models a session evidence map keyed by remote profile id.
+- Recorded evidence confirmations update the session only when status is `recorded-blocked`; rejected submissions leave the previous session evidence unchanged.
+- Remotes now feeds the session fingerprint into `REMOTE HOST KEY EVIDENCE INPUT`, changing rows from missing to provided after prompt submission.
+- Remotes now feeds the same evidence into `REMOTE HOST KEY COMPARE DETAIL`, allowing `evidence-only` state before any known_hosts candidate is parsed.
+- The focus hint now advertises `e evidence` beside stage/trust/connect controls.
+- Tests cover session recording, rejected-input preservation, evidence-input row updates, and compare detail evidence-only state while all network, scan, trust, write, and mutation flags remain disabled.
+- Next: add session candidate selection so parsed known_hosts candidates and provided evidence can show matched/mismatch states in the live Remotes workspace.
+
 ## v0.4.290 - Remote Host Key Evidence Prompt
 
 Status: draft PR [#357](https://github.com/uulab-official/picos/pull/357) on `codex/picos-v0.4.290-host-key-evidence-prompt`.

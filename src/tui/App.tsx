@@ -145,6 +145,7 @@ import {
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
 	createRemoteHostKeyEvidenceInput,
+	createRemoteHostKeyEvidenceInputFromSession,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
@@ -176,6 +177,8 @@ import {
 	formatRemoteTransportProbeRows,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
+	type RemoteHostKeyEvidenceInputSession,
+	recordRemoteHostKeyEvidenceInputSession,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -1032,6 +1035,8 @@ export function App(): React.ReactElement {
 	>([]);
 	const [remoteProfiles, setRemoteProfiles] = useState<SftpRemoteProfile[]>([]);
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
+	const [remoteHostKeyEvidenceSession, setRemoteHostKeyEvidenceSession] =
+		useState<RemoteHostKeyEvidenceInputSession>({});
 	const [remoteFileContext, setRemoteFileContext] =
 		useState<RemoteFileContext>();
 	const t = useMemo(() => createTranslator(language), [language]);
@@ -3992,6 +3997,9 @@ export function App(): React.ReactElement {
 			commandLine.value,
 		);
 		log("warn", formatRemoteHostKeyEvidenceInputAuditMessage(confirmation));
+		setRemoteHostKeyEvidenceSession((current) =>
+			recordRemoteHostKeyEvidenceInputSession(current, confirmation),
+		);
 		recordStatusActivityResult(
 			createRemoteHostKeyEvidenceInputStatusActivityResult(confirmation),
 		);
@@ -9762,6 +9770,7 @@ export function App(): React.ReactElement {
 					selectedEditorLineIndex={selectedEditorLineIndex}
 					remoteProfiles={remoteProfiles}
 					selectedRemoteIndex={selectedRemoteIndex}
+					remoteHostKeyEvidenceSession={remoteHostKeyEvidenceSession}
 					remoteFileContext={remoteFileContext}
 					connections={connections}
 					ports={ports}
@@ -10037,6 +10046,7 @@ function MainWorkspace({
 	selectedEditorLineIndex,
 	remoteProfiles,
 	selectedRemoteIndex,
+	remoteHostKeyEvidenceSession,
 	remoteFileContext,
 	connections,
 	ports,
@@ -10191,6 +10201,7 @@ function MainWorkspace({
 	selectedEditorLineIndex: number;
 	remoteProfiles: SftpRemoteProfile[];
 	selectedRemoteIndex: number;
+	remoteHostKeyEvidenceSession: RemoteHostKeyEvidenceInputSession;
 	remoteFileContext?: RemoteFileContext;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
@@ -10424,6 +10435,7 @@ function MainWorkspace({
 						selectedEditorLineIndex,
 						remoteProfiles,
 						selectedRemoteIndex,
+						remoteHostKeyEvidenceSession,
 						remoteFileContext,
 						connections,
 						ports,
@@ -10583,6 +10595,7 @@ function renderWorkspace(
 	selectedEditorLineIndex: number,
 	remoteProfiles: SftpRemoteProfile[],
 	selectedRemoteIndex: number,
+	remoteHostKeyEvidenceSession: RemoteHostKeyEvidenceInputSession,
 	remoteFileContext: RemoteFileContext | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
@@ -10869,6 +10882,7 @@ function renderWorkspace(
 			<RemotesWorkspace
 				profiles={remoteProfiles}
 				selectedIndex={selectedRemoteIndex}
+				hostKeyEvidenceSession={remoteHostKeyEvidenceSession}
 				selectedContext={remoteFileContext}
 				activityResults={statusActivityResults}
 				focused={focusArea === "remotes"}
@@ -11850,6 +11864,7 @@ function getConfigShelfFocusRowColor(row: string): string {
 function RemotesWorkspace({
 	profiles,
 	selectedIndex,
+	hostKeyEvidenceSession,
 	selectedContext,
 	activityResults,
 	focused,
@@ -11860,6 +11875,7 @@ function RemotesWorkspace({
 }: {
 	profiles: SftpRemoteProfile[];
 	selectedIndex: number;
+	hostKeyEvidenceSession: RemoteHostKeyEvidenceInputSession;
 	selectedContext?: RemoteFileContext;
 	activityResults: StatusActivityResult[];
 	focused: boolean;
@@ -11897,9 +11913,12 @@ function RemotesWorkspace({
 	const hostKeyEvidenceRows = formatRemoteHostKeyEvidenceRows(
 		createRemoteHostKeyEvidence(selectedProfile),
 	);
-	const hostKeyEvidenceInputRows = formatRemoteHostKeyEvidenceInputRows(
-		createRemoteHostKeyEvidenceInput(selectedProfile),
+	const hostKeyEvidenceInput = createRemoteHostKeyEvidenceInputFromSession(
+		selectedProfile,
+		hostKeyEvidenceSession,
 	);
+	const hostKeyEvidenceInputRows =
+		formatRemoteHostKeyEvidenceInputRows(hostKeyEvidenceInput);
 	const knownHostsSourceRows = formatRemoteKnownHostsSourcePreviewRows(
 		createRemoteKnownHostsSourcePreview(selectedProfile),
 	);
@@ -11920,7 +11939,11 @@ function RemotesWorkspace({
 		createRemoteHostKeyTrustDecisionPreview(selectedProfile),
 	);
 	const hostKeyCompareDetailRows = formatRemoteHostKeyCompareDetailRows(
-		createRemoteHostKeyCompareDetail(selectedProfile),
+		createRemoteHostKeyCompareDetail(
+			selectedProfile,
+			undefined,
+			hostKeyEvidenceInput,
+		),
 	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 	const connectPreview = selectedProfile
@@ -11938,7 +11961,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · t trust review · c connect preview · h/esc"
+					? "remote focus · j/k select · enter stage · e evidence · t trust review · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (
