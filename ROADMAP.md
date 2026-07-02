@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.227 - Palette Port Control Preview
+
+Status: draft PR [#289](https://github.com/uulab-official/picos/pull/289) on `codex/picos-v0.4.227-palette-port-control-preview`.
+
+Goal: make destructive process controls inspectable from the command palette with the selected port and process identity visible before `enter`.
+
+- `process.terminate` palette previews now use the selected listening port process-control model when a PID-backed port is selected.
+- Preview rows include locked state, destructive/user risk, exact `kill pid <pid>` confirmation, local port, PID, process command, and user.
+- The preview uses the same filtered/sorted Ports selection as the Ports workspace, keeping palette dispatch aligned with `K` process control.
+- Tests cover selected port/PID/process/user preview rows before dispatch.
+- Next: record palette-triggered process-control preview attempts into Status Activity and Timeline audit search, so refused/destructive intents are recoverable after rapid keyboard sessions.
+
 ## v0.4.226 - Palette Action Control Preview
 
 Status: draft PR [#288](https://github.com/uulab-official/picos/pull/288) on `codex/picos-v0.4.226-palette-action-control-preview`.
@@ -10,7 +22,7 @@ Goal: make locked Action Center commands visible as OS control previews directly
 - Preview rows include risk, privilege, exact confirmation phrase, blocked reason, adapter, and adapter-owned command when available.
 - The palette reuses `createActionPreviewPlan()` and platform `getControlPreviewCommand()`, so command definitions stay inside adapters.
 - Tests cover `dns.flush` as a locked admin write action with macOS adapter command preview.
-- Next: add reusable command-palette preview rows for selected process/port destructive controls, including PID and process metadata, so process actions feel as inspectable as network controls.
+- Next: record palette-triggered process-control preview attempts into Status Activity and Timeline audit search, so refused/destructive intents are recoverable after rapid keyboard sessions.
 
 ## v0.4.225 - Palette Tools Dispatch Preview
 

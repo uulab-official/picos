@@ -9581,6 +9581,12 @@ function renderWorkspace(
 			toolExportFilter,
 			toolExportQuery,
 		);
+		const filteredPorts = portsResult
+			? sortListeningPorts(
+					filterListeningPorts(portsResult.ports, portFilter),
+					portSort,
+				)
+			: [];
 		return (
 			<CommandPaletteWorkspace
 				actions={filteredActions}
@@ -9595,6 +9601,13 @@ function renderWorkspace(
 							selectedPaletteAction,
 							updateCheckResult,
 						),
+						portProcessPreview:
+							selectedPaletteAction?.id === "process.terminate"
+								? createSelectedPortProcessControlPreview(
+										filteredPorts,
+										selectedPortIndex,
+									)
+								: undefined,
 						toolsEvidenceSearchRecovery:
 							statusActivityToolsEvidenceSearchRecovery,
 						selectedToolsEvidenceSearchMatchIndex:
