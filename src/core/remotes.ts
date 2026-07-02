@@ -196,6 +196,40 @@ export type RemoteHostKeyScanPolicy = {
 	};
 };
 
+export type RemoteHostKeyScanReadinessCheck = {
+	id:
+		| "scanReview"
+		| "transportInstalled"
+		| "hostReview"
+		| "knownHostsCompare"
+		| "fingerprintEvidence";
+	label: string;
+	status: "blocked";
+	blocker:
+		| "policy-disabled"
+		| "transport-missing"
+		| "fingerprint-unknown"
+		| "no-remote-profile";
+	required: string;
+};
+
+export type RemoteHostKeyScanReadiness = {
+	id: string;
+	provider: "sftp";
+	target: string;
+	host: string;
+	port: number | "-";
+	checks: RemoteHostKeyScanReadinessCheck[];
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		scansHostKey: false;
+		trustsHost: false;
+		writesKnownHosts: false;
+		mutatesRemote: false;
+	};
+};
+
 export type RemoteHostKeyScanReviewConfirmation = {
 	request: RemoteHostKeyScanRequest;
 	status: "confirmed-blocked" | "rejected";
@@ -794,6 +828,112 @@ export function formatRemoteHostKeyScanPolicyRows(
 			? "next=select remote profile · no scan execution policy"
 			: "next=enable scan execution policy only after transport, review, and compare prerequisites",
 	];
+}
+
+export function createRemoteHostKeyScanReadiness(
+	profile?: SftpRemoteProfile,
+): RemoteHostKeyScanReadiness {
+	const missingProfileChecks: RemoteHostKeyScanReadinessCheck[] = [
+		"scanReview",
+		"transportInstalled",
+		"hostReview",
+		"knownHostsCompare",
+		"fingerprintEvidence",
+	].map((id) => ({
+		id: id as RemoteHostKeyScanReadinessCheck["id"],
+		label:
+			id === "scanReview"
+				? "scan review recorded"
+				: id === "transportInstalled"
+					? "SFTP transport installed"
+					: id === "hostReview"
+						? "host review boundary accepted"
+						: id === "knownHostsCompare"
+							? "known_hosts compare available"
+							: "fingerprint evidence collected",
+		status: "blocked",
+		blocker: "no-remote-profile",
+		required: "select remote profile",
+	}));
+	const checks: RemoteHostKeyScanReadinessCheck[] = profile
+		? [
+				{
+					id: "scanReview",
+					label: "scan review recorded",
+					status: "blocked",
+					blocker: "policy-disabled",
+					required: "record scan review confirmation",
+				},
+				{
+					id: "transportInstalled",
+					label: "SFTP transport installed",
+					status: "blocked",
+					blocker: "transport-missing",
+					required: "install @uulab/picos-sftp",
+				},
+				{
+					id: "hostReview",
+					label: "host review boundary accepted",
+					status: "blocked",
+					blocker: "policy-disabled",
+					required: "complete host review",
+				},
+				{
+					id: "knownHostsCompare",
+					label: "known_hosts compare available",
+					status: "blocked",
+					blocker: "fingerprint-unknown",
+					required: "collect fingerprint evidence before compare",
+				},
+				{
+					id: "fingerprintEvidence",
+					label: "fingerprint evidence collected",
+					status: "blocked",
+					blocker: "fingerprint-unknown",
+					required: "run future scan policy",
+				},
+			]
+		: missingProfileChecks;
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		target: profile ? formatSftpRoot(profile) : "none",
+		host: profile?.host ?? "none",
+		port: profile?.port ?? "-",
+		checks,
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			writesKnownHosts: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteHostKeyScanReadinessRows(
+	readiness: RemoteHostKeyScanReadiness = createRemoteHostKeyScanReadiness(),
+): string[] {
+	const readyCount = readiness.checks.filter(
+		(check) => check.status !== "blocked",
+	).length;
+	const rows = [
+		`REMOTE HOST KEY SCAN READINESS ${readiness.id}`,
+		`target=${readiness.target} host=${readiness.host} port=${readiness.port} provider=${readiness.provider}`,
+		`checks=${readiness.checks.length} ready=${readyCount} blocked=${readiness.checks.length - readyCount}`,
+		...readiness.checks.map(
+			(check) =>
+				`check=${check.id} label="${check.label}" status=${check.status} blocker=${check.blocker} required="${check.required}"`,
+		),
+		`execution=willImport=${readiness.execution.importsTransport} willConnect=${readiness.execution.opensSocket} willScan=${readiness.execution.scansHostKey} willTrust=${readiness.execution.trustsHost} willWriteKnownHosts=${readiness.execution.writesKnownHosts} willMutate=${readiness.execution.mutatesRemote}`,
+	];
+	rows.push(
+		readiness.id === "none"
+			? "next=select remote profile · no scan readiness"
+			: "next=satisfy readiness checks without enabling sockets by default",
+	);
+	return rows;
 }
 
 export function submitRemoteHostKeyScanReview(
@@ -1417,6 +1557,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteHostKeyScanPolicyRows(
 			createRemoteHostKeyScanPolicy(profile),
+		),
+		"",
+		...formatRemoteHostKeyScanReadinessRows(
+			createRemoteHostKeyScanReadiness(profile),
 		),
 		"",
 		...formatRemoteKnownHostsSourcePreviewRows(

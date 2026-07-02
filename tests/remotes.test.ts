@@ -7,6 +7,7 @@ import {
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
 	createRemoteHostKeyScanPolicy,
+	createRemoteHostKeyScanReadiness,
 	createRemoteHostKeyScanRequest,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
@@ -24,6 +25,7 @@ import {
 	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyScanPolicyRows,
+	formatRemoteHostKeyScanReadinessRows,
 	formatRemoteHostKeyScanRequestRows,
 	formatRemoteHostKeyScanReviewAuditMessage,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
@@ -769,6 +771,122 @@ describe("remote profiles", () => {
 		expect(output).toContain("REMOTE HOST KEY SCAN POLICY dev");
 		expect(output).toContain(
 			"prerequisites=scanReview, transportInstalled, hostReview, knownHostsCompare",
+		);
+		expect(output).toContain(
+			"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
+		);
+	});
+
+	test("formats remote host key scan readiness checks without enabling execution", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteHostKeyScanReadiness(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			host: "prod.example.com",
+			port: 2222,
+			checks: [
+				{
+					id: "scanReview",
+					label: "scan review recorded",
+					status: "blocked",
+					blocker: "policy-disabled",
+					required: "record scan review confirmation",
+				},
+				{
+					id: "transportInstalled",
+					label: "SFTP transport installed",
+					status: "blocked",
+					blocker: "transport-missing",
+					required: "install @uulab/picos-sftp",
+				},
+				{
+					id: "hostReview",
+					label: "host review boundary accepted",
+					status: "blocked",
+					blocker: "policy-disabled",
+					required: "complete host review",
+				},
+				{
+					id: "knownHostsCompare",
+					label: "known_hosts compare available",
+					status: "blocked",
+					blocker: "fingerprint-unknown",
+					required: "collect fingerprint evidence before compare",
+				},
+				{
+					id: "fingerprintEvidence",
+					label: "fingerprint evidence collected",
+					status: "blocked",
+					blocker: "fingerprint-unknown",
+					required: "run future scan policy",
+				},
+			],
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				scansHostKey: false,
+				trustsHost: false,
+				writesKnownHosts: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteHostKeyScanReadinessRows(
+				createRemoteHostKeyScanReadiness(profile),
+			),
+		).toEqual([
+			"REMOTE HOST KEY SCAN READINESS prod",
+			"target=sftp://deploy@prod.example.com:2222/srv/app host=prod.example.com port=2222 provider=sftp",
+			"checks=5 ready=0 blocked=5",
+			'check=scanReview label="scan review recorded" status=blocked blocker=policy-disabled required="record scan review confirmation"',
+			'check=transportInstalled label="SFTP transport installed" status=blocked blocker=transport-missing required="install @uulab/picos-sftp"',
+			'check=hostReview label="host review boundary accepted" status=blocked blocker=policy-disabled required="complete host review"',
+			'check=knownHostsCompare label="known_hosts compare available" status=blocked blocker=fingerprint-unknown required="collect fingerprint evidence before compare"',
+			'check=fingerprintEvidence label="fingerprint evidence collected" status=blocked blocker=fingerprint-unknown required="run future scan policy"',
+			"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
+			"next=satisfy readiness checks without enabling sockets by default",
+		]);
+
+		expect(formatRemoteHostKeyScanReadinessRows().join("\n")).toBe(
+			[
+				"REMOTE HOST KEY SCAN READINESS none",
+				"target=none host=none port=- provider=sftp",
+				"checks=5 ready=0 blocked=5",
+				'check=scanReview label="scan review recorded" status=blocked blocker=no-remote-profile required="select remote profile"',
+				'check=transportInstalled label="SFTP transport installed" status=blocked blocker=no-remote-profile required="select remote profile"',
+				'check=hostReview label="host review boundary accepted" status=blocked blocker=no-remote-profile required="select remote profile"',
+				'check=knownHostsCompare label="known_hosts compare available" status=blocked blocker=no-remote-profile required="select remote profile"',
+				'check=fingerprintEvidence label="fingerprint evidence collected" status=blocked blocker=no-remote-profile required="select remote profile"',
+				"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
+				"next=select remote profile · no scan readiness",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote host key scan readiness in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE HOST KEY SCAN READINESS dev");
+		expect(output).toContain("checks=5 ready=0 blocked=5");
+		expect(output).toContain(
+			'check=transportInstalled label="SFTP transport installed" status=blocked blocker=transport-missing',
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
