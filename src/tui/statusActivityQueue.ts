@@ -1120,7 +1120,10 @@ export function formatStatusActivityResultTimelineJumpRows(
 		);
 		const result = history[historyIndex];
 		const marker = historyIndex === selected ? "> " : "  ";
-		return `${marker}#${historyIndex + 1} filter=${jump?.filter ?? "unknown"} query=${jump?.query ?? "unknown"} action=${result?.action ?? "unknown"}`;
+		const target = jump
+			? formatStatusActivityResultTimelineJumpTargetToken(jump.query)
+			: undefined;
+		return `${marker}#${historyIndex + 1} filter=${jump?.filter ?? "unknown"} query=${jump?.query ?? "unknown"}${target ? ` target=${target}` : ""} action=${result?.action ?? "unknown"}`;
 	});
 	return [
 		`STATUS RESULT TIMELINE JUMPS count=${indexes.length} selected=${selectedJumpIndex + 1}/${indexes.length}`,

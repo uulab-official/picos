@@ -1221,13 +1221,29 @@ describe("Status activity queue", () => {
 				selectedIndex: 1,
 				total: 2,
 			}),
+			createProcessControlEvidenceStatusActivityResult(
+				"search",
+				{
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+					content: "",
+					eventCount: 1,
+					query:
+						"status activity result audit jump palette process control audit action=preview pid=12345",
+					scope: "selected",
+				},
+				{
+					selectedIndex: 0,
+					total: 1,
+				},
+			),
 		];
 
-		expect(formatStatusActivityResultTimelineJumpRows(history, 2)).toEqual([
-			"STATUS RESULT TIMELINE JUMPS count=2 selected=2/2",
+		expect(formatStatusActivityResultTimelineJumpRows(history, 3)).toEqual([
+			"STATUS RESULT TIMELINE JUMPS count=3 selected=3/3",
 			"palette=? result jump · timeline result open · result select",
 			"  #2 filter=audit query=control preview action=timeline-selected-copy",
-			"> #3 filter=raw query=timeline raw 12:00:09 action=timeline-selected-export",
+			"  #3 filter=raw query=timeline raw 12:00:09 action=timeline-selected-export",
+			'> #4 filter=audit query=status evidence process audit action=search target="pid:12345" target=process-control pid:12345 action=search action=process-control-evidence',
 			"controls=J select result jump · I open selected Timeline result",
 		]);
 		expect(formatStatusActivityResultTimelineJumpRows([], 0)).toEqual([
