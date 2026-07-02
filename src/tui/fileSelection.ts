@@ -1,4 +1,5 @@
 import type { FileEntry } from "../core/files";
+import type { RemoteFileContext } from "../core/remotes";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -58,6 +59,28 @@ export function formatFileBreadcrumbRows(
 		`root=${formatPathBreadcrumb(root, options.maxSegments)}`,
 		`selected=${selectedPath ? formatPathBreadcrumb(selectedPath, options.maxSegments) : "none"}`,
 		"controls=: path · u parent · y copy selected",
+	];
+}
+
+export function formatFileProviderBoundaryRows(options: {
+	root: string;
+	remoteContext?: RemoteFileContext;
+}): string[] {
+	const remote = options.remoteContext;
+	if (remote) {
+		return [
+			`PROVIDER BOUNDARY ${remote.kind} ${remote.label}`,
+			`root=${remote.root}`,
+			`status=${remote.status} writes=${remote.writes} localRoot=${options.root}`,
+			"controls=enter preview · y copy path · remote writes require confirmation",
+		];
+	}
+
+	return [
+		"PROVIDER BOUNDARY local",
+		`root=${options.root}`,
+		"status=ready writes=locked remote=none",
+		"controls=enter open · y copy path · c/m/x preview-only",
 	];
 }
 

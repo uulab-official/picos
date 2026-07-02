@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.267 - Files Provider Boundary
+
+Status: draft PR [#329](https://github.com/uulab-official/picos/pull/329) on `codex/picos-v0.4.267-files-provider-boundary`.
+
+Goal: make local and SFTP-ready Files contexts visibly safe before operators navigate or preview paths.
+
+- Files now formats `PROVIDER BOUNDARY` rows for both local filesystem roots and selected SFTP placeholder contexts.
+- Local rows show the active root, ready status, locked write posture, no remote context, and preview-only file operation controls.
+- SFTP rows show the selected remote label, `sftp://...` root, adapter-pending status, locked writes, local fallback root, and remote confirmation guidance.
+- Compact and full Files layouts render the same boundary model above selection, breadcrumb, location, and directory rows.
+- Tests cover local and SFTP boundary rows alongside path copy and breadcrumb behavior.
+- Next: add remote path breadcrumb parity and make Remotes handoff rows surface the same provider boundary summary before selecting a profile.
+
 ## v0.4.266 - Files Breadcrumbs
 
 Status: draft PR [#328](https://github.com/uulab-official/picos/pull/328) on `codex/picos-v0.4.266-files-breadcrumbs`.
