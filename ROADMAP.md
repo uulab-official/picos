@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.238 - Result Jump Browser Target
+
+Status: draft PR [#300](https://github.com/uulab-official/picos/pull/300) on `codex/picos-v0.4.238-result-jump-browser-target`.
+
+Goal: show process-control PID/action targets directly in Status result jump browser rows.
+
+- `STATUS RESULT TIMELINE JUMPS` rows now append `target=process-control pid:<pid> action=<action>` for recovered process evidence searches.
+- Generic Timeline selected copy/export result jump rows remain unchanged when no process-control target exists.
+- The browser now exposes the same process identity later shown in command-palette previews and palette dispatch audit rows.
+- Tests cover a mixed generic/process jump browser with preserved generic rows and a PID-targeted process row.
+- Next: make the result jump browser filterable by target class (`process`, `timeline`, `tools`, `source`) so dense Status Activity histories stay navigable as recovery trails grow.
+
 ## v0.4.237 - Result Jump Dispatch Audit Target
 
 Status: draft PR [#299](https://github.com/uulab-official/picos/pull/299) on `codex/picos-v0.4.237-result-jump-audit-target`.
