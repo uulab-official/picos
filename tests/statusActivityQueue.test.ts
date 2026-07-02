@@ -644,16 +644,28 @@ describe("Status activity queue", () => {
 				"remote host trust review confirmed-blocked prod prod.example.com:2222",
 			detail:
 				'target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
+			detailRows: [
+				'review target="sftp://deploy@prod.example.com:2222/srv/app" lookup=prod.example.com:2222 provider=sftp',
+				"fingerprints collected=sha256:unknown knownHosts=sha256:unknown match=unknown",
+				"decision status=confirmed-blocked result=blocked network=not-opened trust=not-applied knownHostsWrite=false",
+				'confirm review="review host trust prod" connect="connect remote prod"',
+			],
 		});
 		expect(formatStatusActivityResultRows(result)).toEqual([
 			"STATUS ACTIVITY RESULT source=timeline action=remote-host-trust-review",
 			"> remote host trust review confirmed-blocked prod prod.example.com:2222",
-			'  target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
+			'  review target="sftp://deploy@prod.example.com:2222/srv/app" lookup=prod.example.com:2222 provider=sftp',
+			"  fingerprints collected=sha256:unknown knownHosts=sha256:unknown match=unknown",
+			"  decision status=confirmed-blocked result=blocked network=not-opened trust=not-applied knownHostsWrite=false",
+			'  confirm review="review host trust prod" connect="connect remote prod"',
 		]);
 		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
 			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
 			"> timeline remote-host-trust-review remote host trust review confirmed-blocked prod prod.example.com:2222",
-			'    target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
+			'    review target="sftp://deploy@prod.example.com:2222/srv/app" lookup=prod.example.com:2222 provider=sftp',
+			"    fingerprints collected=sha256:unknown knownHosts=sha256:unknown match=unknown",
+			"    decision status=confirmed-blocked result=blocked network=not-opened trust=not-applied knownHostsWrite=false",
+			'    confirm review="review host trust prod" connect="connect remote prod"',
 		]);
 		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
 			filter: "audit",

@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.285 - Remote Host Key Compare Detail
+
+Status: in progress on `codex/picos-v0.4.285-host-key-compare-detail`.
+
+Goal: make the host-key comparison path inspectable from Remotes, CLI, and Status before enabling host trust, local `known_hosts` reads/writes, transport import, socket opening, or mutation.
+
+- Status Activity results can now carry structured detail rows while preserving the compact one-line detail used by Remotes activity shelves.
+- Remote host trust review results expand into review target, lookup/provider, collected versus known_hosts fingerprint placeholders, match state, blocked decision status, and separate review/connect confirmation rows.
+- Status Activity history and copy previews reuse the same structured rows, so operators can copy or audit trust-review details without parsing a long single-line payload.
+- Remotes now models `REMOTE HOST KEY COMPARE DETAIL` rows with collected fingerprint, known_hosts candidate count, selected candidate, known_hosts candidate fingerprint, match state, blocked decision, exact confirmation, and all execution flags false.
+- `picos remote <id>` prints the same compare detail rows between trust decision and host review.
+- Remotes TUI renders a dedicated `HOST KEY COMPARE DETAIL` section and reserves additional vertical budget for the extra locked review surface.
+- Tests cover the structured trust-review result rows, selected history rows, compare-detail model, CLI provider status inclusion, and no-import/no-connect/no-local-read/no-parse/no-scan/no-trust/no-mutation posture.
+- Next: add a read-only known_hosts candidate parser once local trust-file reads have their own exact-confirm preview and fixture coverage.
+
 ## v0.4.284 - Remote Host Trust Review Activity
 
 Status: draft PR [#346](https://github.com/uulab-official/picos/pull/346) on `codex/picos-v0.4.284-host-trust-review-activity`.

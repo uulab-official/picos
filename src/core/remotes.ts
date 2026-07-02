@@ -234,6 +234,29 @@ export type RemoteHostKeyTrustDecisionPreview = {
 	};
 };
 
+export type RemoteHostKeyCompareDetail = {
+	id: string;
+	provider: "sftp";
+	target: string;
+	lookup: string;
+	collectedFingerprint: "sha256:unknown";
+	candidateCount: 0;
+	selectedCandidate: "none";
+	knownHostsCandidateFingerprint: "sha256:unknown";
+	match: "unknown";
+	decision: "blocked";
+	confirm: string;
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		readsLocal: false;
+		parsesRows: false;
+		scansHostKey: false;
+		trustsHost: false;
+		mutatesRemote: false;
+	};
+};
+
 export type RemoteHostKeyTrustReviewConfirmation = {
 	preview: RemoteHostKeyTrustDecisionPreview;
 	status: "confirmed-blocked" | "rejected";
@@ -740,6 +763,50 @@ export function formatRemoteHostKeyTrustDecisionPreviewRows(
 	];
 }
 
+export function createRemoteHostKeyCompareDetail(
+	profile?: SftpRemoteProfile,
+): RemoteHostKeyCompareDetail {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		target: profile ? formatSftpRoot(profile) : "none",
+		lookup: profile ? `${profile.host}:${profile.port}` : "none",
+		collectedFingerprint: "sha256:unknown",
+		candidateCount: 0,
+		selectedCandidate: "none",
+		knownHostsCandidateFingerprint: "sha256:unknown",
+		match: "unknown",
+		decision: "blocked",
+		confirm: profile
+			? `review host trust ${profile.id}`
+			: "select remote profile",
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			readsLocal: false,
+			parsesRows: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteHostKeyCompareDetailRows(
+	detail: RemoteHostKeyCompareDetail = createRemoteHostKeyCompareDetail(),
+): string[] {
+	return [
+		`REMOTE HOST KEY COMPARE DETAIL ${detail.id}`,
+		`target=${detail.target} lookup=${detail.lookup} provider=${detail.provider}`,
+		`collected=${detail.collectedFingerprint} candidates=${detail.candidateCount} selected=${detail.selectedCandidate} knownHosts=${detail.knownHostsCandidateFingerprint}`,
+		`match=${detail.match} decision=${detail.decision} confirm="${detail.confirm}"`,
+		`execution=willImport=${detail.execution.importsTransport} willConnect=${detail.execution.opensSocket} willReadLocal=${detail.execution.readsLocal} willParse=${detail.execution.parsesRows} willScan=${detail.execution.scansHostKey} willTrust=${detail.execution.trustsHost} willMutate=${detail.execution.mutatesRemote}`,
+		detail.id === "none"
+			? "next=select remote profile · no compare detail"
+			: "next=collect evidence and parse known_hosts candidates before compare detail",
+	];
+}
+
 export function submitRemoteHostKeyTrustReview(
 	preview: RemoteHostKeyTrustDecisionPreview,
 	input: string,
@@ -926,6 +993,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteHostKeyTrustDecisionPreviewRows(
 			createRemoteHostKeyTrustDecisionPreview(profile),
+		),
+		"",
+		...formatRemoteHostKeyCompareDetailRows(
+			createRemoteHostKeyCompareDetail(profile),
 		),
 		"",
 		...formatRemoteHostReviewRows(profile),
