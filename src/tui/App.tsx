@@ -4635,6 +4635,9 @@ export function App(): React.ReactElement {
 						setSelectedConnectionIndex(focus.index);
 					} else if (focus.cursor === "portFilters") {
 						setSelectedPortIndex(focus.index);
+					} else if (focus.cursor === "toolTargetPresets") {
+						setSelectedToolTargetPresetIndex(focus.index);
+						setToolHistoryDetailView("summary");
 					} else if (focus.cursor === "remoteProfiles") {
 						setSelectedRemoteIndex(focus.index);
 					}

@@ -218,6 +218,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "config.shelf.tools.focus",
+		title: "Open tools target shelf",
+		description:
+			"Tools shelf config and tool target presets config shortcut for jumping into the Tools managed shelf with Config origin.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "config.shelf.logs.focus",
 		title: "Open log profiles shelf",
 		description:

@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 63,
-			enabled: 51,
+			total: 64,
+			enabled: 52,
 			locked: 12,
 			elevated: 4,
 		});
@@ -58,6 +58,7 @@ describe("action catalog", () => {
 			"config.shelf.routes.focus",
 			"config.shelf.connections.focus",
 			"config.shelf.ports.focus",
+			"config.shelf.tools.focus",
 			"config.shelf.logs.focus",
 			"config.shelf.remotes.focus",
 			"files.list",
@@ -373,6 +374,14 @@ describe("action catalog", () => {
 				expect.objectContaining({
 					id: "config.shelf.ports.focus",
 					title: "Open port filters shelf",
+					category: "config",
+					risk: "read",
+					privilege: "none",
+					enabled: true,
+				}),
+				expect.objectContaining({
+					id: "config.shelf.tools.focus",
+					title: "Open tools target shelf",
 					category: "config",
 					risk: "read",
 					privilege: "none",
