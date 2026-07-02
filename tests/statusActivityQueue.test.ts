@@ -8,6 +8,7 @@ import {
 	readConsoleAuditExportIndex,
 	writeConsoleAuditExport,
 } from "../src/core/auditLog";
+import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
@@ -19,6 +20,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createStatusActivityProcessControlPaletteResult,
 	createStatusActivityResultAuditJumpReplayWarningSummary,
 	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
 	createStatusActivityResultHistoryFilterPaletteResult,
@@ -42,6 +44,7 @@ import {
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
+	formatStatusActivityProcessControlPaletteAuditMessage,
 	formatStatusActivityQueueRows,
 	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultCopyPreviewRows,
@@ -484,6 +487,58 @@ describe("Status activity queue", () => {
 				message: "palette status result filter all visible=0/0",
 				detail: "result history filter changed to all",
 			},
+		);
+	});
+
+	test("creates status activity and audit rows for palette process control previews", () => {
+		const preview: PortProcessControlPreview = {
+			actionId: "process.terminate",
+			kind: "terminate",
+			port: {
+				protocol: "tcp",
+				localAddress: "*",
+				localPort: "3000",
+				pid: "12345",
+				command: "node",
+				user: "alice",
+			},
+			confirmationPhrase: "kill pid 12345",
+			risk: "destructive",
+			privilege: "user",
+			enabled: false,
+			rows: [],
+		};
+		const result = createStatusActivityProcessControlPaletteResult(preview);
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "process-control-preview",
+			message: "palette process control preview terminate *:3000 pid=12345",
+			detail:
+				"action=process.terminate state=locked risk=destructive privilege=user process=node user=alice confirm=kill pid 12345",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=process-control-preview",
+			"> palette process control preview terminate *:3000 pid=12345",
+			"  action=process.terminate state=locked risk=destructive privilege=user process=node user=alice confirm=kill pid 12345",
+		]);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query: "palette process control audit action=preview pid=12345",
+			message:
+				"status activity result timeline search palette process control pid=12345",
+		});
+		expect(formatStatusActivityProcessControlPaletteAuditMessage(preview)).toBe(
+			'palette process control audit action=preview status=locked kind=terminate target="*:3000" pid=12345 process="node" user="alice" risk=destructive privilege=user confirm="kill pid 12345"',
+		);
+		expect(createStatusActivityProcessControlPaletteResult()).toEqual({
+			source: "timeline",
+			action: "process-control-preview",
+			message: "palette process control preview unavailable",
+			detail: "no PID-backed port process selected",
+		});
+		expect(formatStatusActivityProcessControlPaletteAuditMessage()).toBe(
+			'palette process control audit action=preview status=unavailable reason="no PID-backed port process selected"',
 		);
 	});
 
