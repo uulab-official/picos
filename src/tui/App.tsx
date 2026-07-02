@@ -141,12 +141,14 @@ import {
 import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
+	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
 	formatRemoteConnectConfirmationAuditMessage,
 	formatRemoteConnectPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
+	formatRemoteTransportProbeRows,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 	submitRemoteConnectConfirmation,
@@ -11765,6 +11767,9 @@ function RemotesWorkspace({
 		context: selectedContext,
 	});
 	const adapterBoundaryRows = formatRemoteAdapterBoundaryRows(selectedProfile);
+	const transportProbeRows = formatRemoteTransportProbeRows(
+		createRemoteTransportProbe(selectedProfile),
+	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 	const connectPreview = selectedProfile
 		? createRemoteConnectPreview(selectedProfile)
@@ -11870,6 +11875,26 @@ function RemotesWorkspace({
 								: row.includes("locked") ||
 										row.includes("not installed") ||
 										row.includes("blocked")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">TRANSPORT PROBE</Text>
+				{transportProbeRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("blocked") ||
+										row.includes("missing") ||
+										row.includes("not-opened") ||
+										row.includes("locked")
 									? "yellow"
 									: "gray"
 						}

@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.276 - Remote Transport Probe
+
+Status: draft PR [#338](https://github.com/uulab-official/picos/pull/338) on `codex/picos-v0.4.276-remotes-transport-probe`.
+
+Goal: make the future SFTP transport readiness visible as a static no-socket probe before picos imports an adapter or opens any remote session.
+
+- Remotes now models `REMOTE TRANSPORT PROBE` rows for selected and empty SFTP profile states.
+- Probe rows show `@uulab/picos-sftp` dependency readiness, missing status, static probe source, target URI, auth/key posture, unverified host key state, planned list/read capability, locked write/destructive posture, and next safe step.
+- The probe explicitly reports `execution=blocked`, `network=not-opened`, `willImport=false`, and `willConnect=false`.
+- `picos remote <id>` prints the same transport probe block between adapter boundary and host review.
+- Remotes TUI renders a dedicated `TRANSPORT PROBE` section before host review so operators can inspect adapter readiness without attempting connect.
+- Tests cover selected-profile probe shape, row formatting, empty-state rows, and CLI provider status inclusion.
+- Next: evaluate a read-only SFTP adapter interface behind host-review exact confirmation without enabling writes.
+
 ## v0.4.275 - Remotes Activity Shelf
 
 Status: draft PR [#337](https://github.com/uulab-official/picos/pull/337) on `codex/picos-v0.4.275-remotes-activity-shelf`.

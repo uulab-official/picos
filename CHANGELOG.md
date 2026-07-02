@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace and `picos remote <id>` now show `REMOTE TRANSPORT PROBE` rows for the future SFTP adapter, including static dependency readiness, target, auth posture, planned read/list capability, locked writes/destructive actions, and explicit `willImport=false`/`willConnect=false` no-socket posture.
 - Remotes workspace now shows a `REMOTE ACTIVITY` shelf derived from Status Activity result history, so recent remote stage/connect attempts stay visible beside profiles without opening transport or switching to Status.
 - Remote connect confirmations now append Status Activity result/history rows and reusable Timeline audit-search jumps for confirmed-blocked or rejected `:remote-connect` submissions, keeping SFTP connection intent recoverable without opening a socket.
 - Remotes workspace and `picos remote <id>` now show `REMOTE CONNECT PREVIEW` rows for future SFTP connects, and Remotes focus `c` opens a locked `:remote-connect` exact-confirm prompt that records blocked audit rows without opening a socket.
