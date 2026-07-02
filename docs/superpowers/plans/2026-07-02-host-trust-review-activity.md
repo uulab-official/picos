@@ -38,4 +38,4 @@ Make the remote host-key trust review boundary keyboard-visible from Remotes wit
   - Run focused tests.
   - Run `bun run verify`.
   - Run `bun run release:check`.
-  - Push branch and open draft PR.
+  - Push branch and open draft PR [#346](https://github.com/uulab-official/picos/pull/346).
