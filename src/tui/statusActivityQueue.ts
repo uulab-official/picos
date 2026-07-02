@@ -8,6 +8,7 @@ import {
 import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
 import type {
 	RemoteConnectConfirmation,
+	RemoteHostKeyEvidenceInputConfirmation,
 	RemoteHostKeyTrustReviewConfirmation,
 } from "../core/remotes";
 import type { SftpRemoteProfile, SupportedPlatform } from "../core/types";
@@ -63,6 +64,7 @@ export type StatusActivityEnterAction =
 	| "process-control-preview"
 	| "process-control-evidence"
 	| "remote-host-review"
+	| "remote-host-key-evidence"
 	| "remote-host-trust-review"
 	| "remote-connect"
 	| "none";
@@ -565,6 +567,37 @@ export function createRemoteHostKeyTrustReviewStatusActivityResult(
 	};
 }
 
+export function createRemoteHostKeyEvidenceInputStatusActivityResult(
+	confirmation: RemoteHostKeyEvidenceInputConfirmation,
+): StatusActivityResult {
+	const { input } = confirmation;
+	const reviewConfirm =
+		input.id === "none"
+			? "select remote profile"
+			: `review host trust ${input.id}`;
+	return {
+		source: "timeline",
+		action: "remote-host-key-evidence",
+		message: `remote host key evidence ${confirmation.status} ${input.id} ${input.lookup}`,
+		detail: [
+			`target="${input.target}"`,
+			`fingerprint=${confirmation.fingerprint}`,
+			`parserInput=${confirmation.parserInput}`,
+			"network=not-opened",
+			`scan=${confirmation.hostKeyScanned}`,
+			"trust=not-applied",
+			`knownHostsWrite=${confirmation.knownHostsWritten}`,
+			`confirm="${input.confirm}"`,
+		].join(" "),
+		detailRows: [
+			`evidence target="${input.target}" lookup=${input.lookup} provider=${input.provider}`,
+			`fingerprint provided=${confirmation.fingerprint} parserInput=${confirmation.parserInput}`,
+			`decision status=${confirmation.status} result=blocked network=not-opened scan=${confirmation.hostKeyScanned} trust=not-applied knownHostsWrite=${confirmation.knownHostsWritten}`,
+			`confirm evidence="${input.confirm}" review="${reviewConfirm}"`,
+		],
+	};
+}
+
 export function formatRemoteActivityShelfRows(
 	history: StatusActivityResult[],
 	options: {
@@ -584,7 +617,7 @@ export function formatRemoteActivityShelfRows(
 		return [
 			`REMOTE ACTIVITY recent=0 selected=${selectedProfileId}`,
 			"no remote activity recorded yet",
-			"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
+			"controls=enter stage · e evidence · t trust review · c connect preview · Status I timeline recovery",
 		];
 	}
 
@@ -599,7 +632,7 @@ export function formatRemoteActivityShelfRows(
 		}
 	}
 	rows.push(
-		"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
+		"controls=enter stage · e evidence · t trust review · c connect preview · Status I timeline recovery",
 	);
 	return rows;
 }
@@ -608,6 +641,7 @@ function isRemoteActivityResult(result: StatusActivityResult): boolean {
 	return (
 		result.source === "timeline" &&
 		(result.action === "remote-host-review" ||
+			result.action === "remote-host-key-evidence" ||
 			result.action === "remote-host-trust-review" ||
 			result.action === "remote-connect")
 	);
@@ -635,6 +669,9 @@ function formatRemoteActivitySummary(result: StatusActivityResult): string {
 	}
 	if (result.action === "remote-host-review") {
 		return result.message.replace(/^remote host review staged /, "stage ");
+	}
+	if (result.action === "remote-host-key-evidence") {
+		return result.message.replace(/^remote host key evidence /, "evidence ");
 	}
 	if (result.action === "remote-host-trust-review") {
 		return result.message.replace(/^remote host trust review /, "trust ");
@@ -1540,6 +1577,12 @@ export function createStatusActivityResultTimelineSearch(
 	}
 	if (
 		result.source === "timeline" &&
+		result.action === "remote-host-key-evidence"
+	) {
+		return createRemoteHostKeyEvidenceResultTimelineSearch(result);
+	}
+	if (
+		result.source === "timeline" &&
 		result.action === "remote-host-trust-review"
 	) {
 		return createRemoteHostKeyTrustReviewResultTimelineSearch(result);
@@ -1600,6 +1643,24 @@ function createRemoteHostKeyTrustReviewResultTimelineSearch(
 		filter: "audit",
 		query: `remote host trust review audit id=${id} status=${status}`,
 		message: `status activity result timeline search remote host trust review ${id} ${status}`,
+	};
+}
+
+function createRemoteHostKeyEvidenceResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^remote host key evidence (recorded-blocked|rejected) ([A-Za-z0-9._-]{1,64}) /,
+	);
+	const status = match?.[1];
+	const id = match?.[2];
+	if (!id || !status) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: `remote host key evidence input audit id=${id} status=${status}`,
+		message: `status activity result timeline search remote host key evidence ${id} ${status}`,
 	};
 }
 

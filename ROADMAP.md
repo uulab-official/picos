@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.290 - Remote Host Key Evidence Prompt
+
+Status: draft PR [#357](https://github.com/uulab-official/picos/pull/357) on `codex/picos-v0.4.290-host-key-evidence-prompt`.
+
+Goal: let operators enter provided host-key fingerprint evidence from Remotes while preserving the locked no-transport, no-scan, no-trust, no-write posture.
+
+- Core now records provided host-key evidence input as `recorded-blocked` or `rejected` confirmations with fingerprint/parser input state and all execution flags disabled.
+- Evidence-input audit rows include target, lookup, status, fingerprint, parser input, no-network/no-scan/no-trust/no-write posture, and exact `compare host key <id>` evidence confirmation.
+- Status Activity now records `remote-host-key-evidence` results with structured evidence, fingerprint, decision, and confirmation detail rows.
+- Remotes `REMOTE ACTIVITY` shelf now includes evidence attempts beside stage/trust/connect attempts and advertises `e evidence`.
+- Remotes focus now opens `:remote-host-key-evidence` with `e`, renders the live fingerprint prompt under `HOST KEY EVIDENCE INPUT`, records audit rows, and keeps Timeline recovery available without opening SFTP transport.
+- Tests cover core submission/audit shape, Status Activity rows/history/search, and Remotes activity shelf rendering.
+- Next: persist the latest evidence fingerprint in session state so compare detail can reflect operator-entered evidence immediately after prompt submission.
+
 ## v0.4.289 - Remote Host Key Evidence Input
 
 Status: draft PR [#354](https://github.com/uulab-official/picos/pull/354) on `codex/picos-v0.4.289-host-key-evidence-input`.
