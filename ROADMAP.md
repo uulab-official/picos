@@ -2,7 +2,7 @@
 
 ## v0.4.289 - Remote Host Key Evidence Result
 
-Status: in progress on `codex/picos-v0.4.289-host-key-evidence-result`.
+Status: draft PR [#355](https://github.com/uulab-official/picos/pull/355) on `codex/picos-v0.4.289-host-key-evidence-result`.
 
 Goal: model provided host-key fingerprint evidence and compare it with selected `known_hosts` candidates without opening sockets, scanning host keys, trusting hosts, writing trust files, or mutating remote state.
 

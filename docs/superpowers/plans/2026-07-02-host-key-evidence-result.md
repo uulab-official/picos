@@ -22,9 +22,9 @@ Model provided host-key evidence results and connect them to selected `known_hos
   - Add provider/TUI rows for evidence result.
   - Update README, CHANGELOG, and ROADMAP.
 
-- [ ] **Step 5: Verify and ship**
+- [x] **Step 5: Verify and ship**
   - Focused remotes tests passed.
   - `bun run verify` passed.
   - `bun run release:check` passed.
   - `git diff --check` passed.
-  - Push branch and open a draft PR.
+  - Pushed branch and opened draft PR #355.
