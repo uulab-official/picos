@@ -141,6 +141,7 @@ import {
 import {
 	createRemoteFileContext,
 	formatRemoteHandoffBoundaryRows,
+	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
@@ -3868,6 +3869,7 @@ export function App(): React.ReactElement {
 		setRemoteFileContext(context);
 		setScreen("files");
 		setFocusArea("workspaces");
+		log("info", formatRemoteHostReviewAuditMessage("stage", profile));
 		log("info", `remote context selected ${context.label}`);
 	}, [log, remoteProfiles, selectedRemoteIndex]);
 

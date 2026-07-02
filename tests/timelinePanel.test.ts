@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { formatRemoteHostReviewAuditMessage } from "../src/core/remotes";
 import type { ConsoleEvent } from "../src/tui/events";
 import {
 	formatProcessControlEvidencePaletteAuditMessage,
@@ -247,6 +248,36 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette process evidence audit action=search",
 			"TIMELINE",
 			'[12:00:09] INFO audit  palette process evidence audit action=search selected=1/1 target="pid:12345" label="picos-audit-selected-2026-07-01T050000000Z.log" query="status activity result audit jump palette process control audit action=preview pid=12345" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log"',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
+	test("surfaces remote host review audit in Timeline search", () => {
+		const remoteHostReviewEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-info-remote-host-review",
+				level: "info",
+				time: "12:00:09",
+				message: formatRemoteHostReviewAuditMessage("stage", {
+					id: "prod",
+					kind: "sftp",
+					host: "prod.example.com",
+					port: 2222,
+					username: "deploy",
+					root: "/srv/app",
+				}),
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(remoteHostReviewEvents, 5, "audit", {
+				query: "remote host review prod",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=remote host review prod",
+			"TIMELINE",
+			'[12:00:09] INFO audit  remote host review audit action=stage id=prod target="sftp://deploy@prod.example.com:2222/srv/app" host=prod.example.com port=2222 user=deploy key=none policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});

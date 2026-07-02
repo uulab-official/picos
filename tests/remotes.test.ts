@@ -3,6 +3,7 @@ import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	createRemoteFileContext,
 	formatRemoteHandoffBoundaryRows,
+	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
@@ -227,6 +228,33 @@ describe("remote profiles", () => {
 				username: "alice",
 				root: ".",
 			}).join("\n"),
+		).not.toContain("password");
+	});
+
+	test("formats remote host review audit messages without opening sessions", () => {
+		expect(
+			formatRemoteHostReviewAuditMessage("stage", {
+				id: "prod",
+				kind: "sftp",
+				host: "prod.example.com",
+				port: 2222,
+				username: "deploy",
+				root: "/srv/app",
+				keyPath: "~/.ssh/id_ed25519",
+			}),
+		).toBe(
+			'remote host review audit action=stage id=prod target="sftp://deploy@prod.example.com:2222/srv/app" host=prod.example.com port=2222 user=deploy key=configured policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
+		);
+
+		expect(
+			formatRemoteHostReviewAuditMessage("view", {
+				id: "dev",
+				kind: "sftp",
+				host: "dev.example.com",
+				port: 22,
+				username: "alice",
+				root: ".",
+			}),
 		).not.toContain("password");
 	});
 });

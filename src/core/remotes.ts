@@ -3,6 +3,8 @@ import type { SftpRemoteProfile } from "./types";
 
 type RemoteProfileInput = Record<string, unknown>;
 
+export type RemoteHostReviewAuditAction = "view" | "stage";
+
 export type RemoteFileContext = {
 	id: string;
 	kind: "sftp";
@@ -118,6 +120,26 @@ export function formatRemoteHostReviewRows(
 	];
 }
 
+export function formatRemoteHostReviewAuditMessage(
+	action: RemoteHostReviewAuditAction,
+	profile: SftpRemoteProfile,
+): string {
+	return [
+		"remote host review audit",
+		`action=${action}`,
+		`id=${profile.id}`,
+		`target=${quoteAuditField(formatSftpRoot(profile))}`,
+		`host=${profile.host}`,
+		`port=${profile.port}`,
+		`user=${profile.username}`,
+		`key=${profile.keyPath ? "configured" : "none"}`,
+		"policy=read-only",
+		"writes=locked",
+		"network=not-opened",
+		`confirm=${quoteAuditField(`connect remote ${profile.id}`)}`,
+	].join(" ");
+}
+
 export async function formatRemoteProviderStatus(
 	profile: SftpRemoteProfile,
 ): Promise<string> {
@@ -208,4 +230,8 @@ function normalizePort(value: unknown): number | undefined {
 function formatSftpRoot(profile: SftpRemoteProfile): string {
 	const root = profile.root.startsWith("/") ? profile.root : `/${profile.root}`;
 	return `sftp://${profile.username}@${profile.host}:${profile.port}${root}`;
+}
+
+function quoteAuditField(value: string): string {
+	return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
