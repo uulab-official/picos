@@ -41,6 +41,7 @@ export type StatusActivityEnterAction =
 	| "timeline-selected-copy"
 	| "timeline-selected-export"
 	| "filter-result-history"
+	| "tools-evidence-search"
 	| "tools-evidence-archive"
 	| "tools-evidence-retention"
 	| "none";
@@ -1020,6 +1021,12 @@ export function createStatusActivityResultTimelineSearch(
 		return createTimelineSelectedResultTimelineSearch(result);
 	}
 	if (
+		result.source === "evidence" &&
+		result.action === "tools-evidence-search"
+	) {
+		return createToolsEvidenceSearchResultTimelineSearch(result);
+	}
+	if (
 		result.source !== "evidence" ||
 		result.action !== "timeline-evidence-trail"
 	) {
@@ -1037,6 +1044,49 @@ export function createStatusActivityResultTimelineSearch(
 		query: `action=source source=${sourceFilter} visible=${visible}`,
 		message: `status activity result timeline search palette source ${sourceFilter} visible=${visible}`,
 	};
+}
+
+function createToolsEvidenceSearchResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const target = getStatusActivityToolsEvidenceSearchDetailValue(
+		result.detail,
+		"target",
+	);
+	if (target !== "active" && target !== "archive") {
+		return undefined;
+	}
+	const query =
+		getStatusActivityToolsEvidenceSearchDetailValue(result.detail, "query") ??
+		"";
+	const queryToken = query
+		? ` query="${formatTimelineEvidenceTrailAuditValue(query)}"`
+		: "";
+	return {
+		filter: "audit",
+		query: `palette tools evidence audit action=search target=${target}${queryToken}`,
+		message: `status activity result timeline search tools evidence search ${target}`,
+	};
+}
+
+function getStatusActivityToolsEvidenceSearchDetailValue(
+	detail: string | undefined,
+	key: "target" | "query",
+): string | undefined {
+	if (!detail) {
+		return undefined;
+	}
+	const token = `${key}=`;
+	const start = detail.indexOf(token);
+	if (start < 0) {
+		return undefined;
+	}
+	const valueStart = start + token.length;
+	const stop = [" target=", " query=", " controls="]
+		.map((marker) => detail.indexOf(marker, valueStart))
+		.filter((index) => index >= 0)
+		.sort((left, right) => left - right)[0];
+	return detail.slice(valueStart, stop ?? detail.length).trim();
 }
 
 function createTimelineSelectedResultTimelineSearch(
@@ -1544,16 +1594,36 @@ export function createStatusActivityResultTimelineJumpPaletteResult(
 }
 
 export function createStatusActivityToolsEvidencePaletteResult(
-	action: "archive" | "retention",
+	action: "archive" | "retention" | "search",
 	options: {
 		candidateCount?: number;
 		fileName?: string;
 		maxItems?: number;
 		path?: string;
+		query?: string;
 		selectedIndex?: number;
+		target?: "active" | "archive";
 		total?: number;
+		visible?: number;
 	} = {},
 ): StatusActivityResult {
+	if (action === "search") {
+		const target = options.target ?? "active";
+		const query = options.query?.trim() ?? "";
+		const visible = Math.max(0, Math.floor(options.visible ?? 0));
+		const total = Math.max(0, Math.floor(options.total ?? 0));
+		return {
+			source: "evidence",
+			action: "tools-evidence-search",
+			message: `palette tools evidence search ${target} ${query ? `query=${query}` : "cleared"} visible=${visible}/${total}`,
+			detail: [
+				`target=${target}`,
+				`query=${query}`,
+				"controls=? tools search K/open D/archive",
+			].join(" "),
+		};
+	}
+
 	if (action === "archive") {
 		if (!options.fileName) {
 			return {
@@ -1666,16 +1736,33 @@ export function formatStatusActivityResultTimelineJumpPaletteAuditMessage(
 }
 
 export function formatStatusActivityToolsEvidencePaletteAuditMessage(
-	action: "archive" | "retention",
+	action: "archive" | "retention" | "search",
 	options: {
 		candidateCount?: number;
 		fileName?: string;
 		maxItems?: number;
 		path?: string;
+		query?: string;
 		selectedIndex?: number;
+		target?: "active" | "archive";
 		total?: number;
+		visible?: number;
 	} = {},
 ): string {
+	if (action === "search") {
+		const target = options.target ?? "active";
+		const query = options.query?.trim() ?? "";
+		const visible = Math.max(0, Math.floor(options.visible ?? 0));
+		const total = Math.max(0, Math.floor(options.total ?? 0));
+		return [
+			"palette tools evidence audit",
+			"action=search",
+			`target=${target}`,
+			`query="${formatTimelineEvidenceTrailAuditValue(query)}"`,
+			`visible=${visible}/${total}`,
+		].join(" ");
+	}
+
 	if (action === "retention") {
 		const candidates = Math.max(0, Math.floor(options.candidateCount ?? 0));
 		const maxItems = Math.max(1, Math.floor(options.maxItems ?? 1));

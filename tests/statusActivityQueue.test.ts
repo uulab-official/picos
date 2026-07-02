@@ -1849,6 +1849,12 @@ describe("Status activity queue", () => {
 	});
 
 	test("creates palette-triggered Tools evidence management results", () => {
+		const search = createStatusActivityToolsEvidencePaletteResult("search", {
+			query: "040100",
+			target: "active",
+			total: 3,
+			visible: 1,
+		});
 		const archive = createStatusActivityToolsEvidencePaletteResult("archive", {
 			fileName: "picos-tools-selected-2026-07-01T040000000Z.md",
 			selectedIndex: 0,
@@ -1863,6 +1869,13 @@ describe("Status activity queue", () => {
 			},
 		);
 
+		expect(search).toEqual({
+			source: "evidence",
+			action: "tools-evidence-search",
+			message: "palette tools evidence search active query=040100 visible=1/3",
+			detail:
+				"target=active query=040100 controls=? tools search K/open D/archive",
+		});
 		expect(archive).toEqual({
 			source: "evidence",
 			action: "tools-evidence-archive",
@@ -1882,24 +1895,43 @@ describe("Status activity queue", () => {
 			"> palette tools evidence archive 1/2 picos-tools-selected-2026-07-01T040000000Z.md",
 			"  path=/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md confirm=archive tools export",
 		]);
-		expect(formatStatusActivityResultHistoryRows([retention, archive])).toEqual(
-			[
-				"STATUS ACTIVITY RESULT HISTORY count=2 selected=1/2",
-				"> evidence tools-evidence-retention palette tools evidence retention candidates=3 max=10",
-				"    confirm=prune tools archive",
-				"  evidence tools-evidence-archive palette tools evidence archive 1/2 picos-tools-selected-2026-07-01T040000000Z.md",
-				"    path=/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md confirm=archive tools export",
-			],
-		);
+		expect(
+			formatStatusActivityResultHistoryRows([search, retention, archive]),
+		).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=3 selected=1/3",
+			"> evidence tools-evidence-search palette tools evidence search active query=040100 visible=1/3",
+			"    target=active query=040100 controls=? tools search K/open D/archive",
+			"  evidence tools-evidence-retention palette tools evidence retention candidates=3 max=10",
+			"    confirm=prune tools archive",
+			"  evidence tools-evidence-archive palette tools evidence archive 1/2 picos-tools-selected-2026-07-01T040000000Z.md",
+			"    path=/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040000000Z.md confirm=archive tools export",
+		]);
 		expect(createStatusActivityToolsEvidencePaletteResult("archive")).toEqual({
 			source: "evidence",
 			action: "tools-evidence-archive",
 			message: "palette tools evidence archive unavailable",
 			detail: "no Tools evidence export selected",
 		});
+		expect(createStatusActivityResultTimelineSearch([search], 0)).toEqual({
+			filter: "audit",
+			query:
+				'palette tools evidence audit action=search target=active query="040100"',
+			message:
+				"status activity result timeline search tools evidence search active",
+		});
 	});
 
 	test("formats palette-triggered Tools evidence audit messages", () => {
+		expect(
+			formatStatusActivityToolsEvidencePaletteAuditMessage("search", {
+				query: "040100",
+				target: "active",
+				total: 3,
+				visible: 1,
+			}),
+		).toBe(
+			'palette tools evidence audit action=search target=active query="040100" visible=1/3',
+		);
 		expect(
 			formatStatusActivityToolsEvidencePaletteAuditMessage("archive", {
 				fileName: "picos-tools-selected-2026-07-01T040000000Z.md",

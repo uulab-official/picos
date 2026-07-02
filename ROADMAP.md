@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.218 - Tools Evidence Search History
+
+Status: draft PR [#280](https://github.com/uulab-official/picos/pull/280) on `codex/picos-v0.4.218-tools-evidence-search-history`.
+
+Goal: make Tools evidence search changes recoverable from Status Activity and Timeline, not only visible in the current Status Evidence filter state.
+
+- Tools evidence search submissions now record compact Status Activity result rows with active/archive target, query/cleared state, and visible/total match counts.
+- Search submissions now emit structured Timeline audit rows so operators can recover the same Tools evidence search through Timeline audit search.
+- Status Activity result Timeline-jump planning can turn Tools evidence search result rows back into a matching Timeline audit search.
+- Tests cover search result rows, audit message formatting, result-to-Timeline search recovery, and Timeline audit search rendering.
+- Next: expose searched Tools evidence result rows in the Status copy-intent shelf so repeated evidence searches can be copied/exported like other recovery handoffs.
+
 ## v0.4.217 - Tools Evidence Search
 
 Status: draft PR [#279](https://github.com/uulab-official/picos/pull/279) on `codex/picos-v0.4.217-tools-evidence-search`.
