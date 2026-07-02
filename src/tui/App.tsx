@@ -142,6 +142,7 @@ import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
 	createRemoteFileRequestPreview,
+	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsParserPreview,
@@ -154,6 +155,7 @@ import {
 	formatRemoteConnectPreviewRows,
 	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
+	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
 	formatRemoteHostKeyTrustReviewAuditMessage,
@@ -11815,7 +11817,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 67);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 74);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11850,6 +11852,9 @@ function RemotesWorkspace({
 	);
 	const hostKeyTrustDecisionRows = formatRemoteHostKeyTrustDecisionPreviewRows(
 		createRemoteHostKeyTrustDecisionPreview(selectedProfile),
+	);
+	const hostKeyCompareDetailRows = formatRemoteHostKeyCompareDetailRows(
+		createRemoteHostKeyCompareDetail(selectedProfile),
 	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 	const connectPreview = selectedProfile
@@ -12135,6 +12140,30 @@ function RemotesWorkspace({
 						" esc cancel
 					</Text>
 				) : null}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">HOST KEY COMPARE DETAIL</Text>
+				{hostKeyCompareDetailRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") ||
+										row.includes("blocked") ||
+										row.includes("unknown") ||
+										row.includes("willTrust=false") ||
+										row.includes("willConnect=false") ||
+										row.includes("willReadLocal=false") ||
+										row.includes("willParse=false") ||
+										row.includes("willScan=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">HOST REVIEW</Text>

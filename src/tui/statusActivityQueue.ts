@@ -75,6 +75,7 @@ export type StatusActivityEnterPlan = {
 
 export type StatusActivityResult = StatusActivityEnterPlan & {
 	detail?: string;
+	detailRows?: string[];
 };
 
 export type StatusActivityResultHistoryFilter = "all" | "palette-result-jumps";
@@ -298,13 +299,25 @@ export function formatStatusActivityResultRows(
 	return [
 		`STATUS ACTIVITY RESULT source=${result.source} action=${result.action}`,
 		`> ${result.message}`,
-		...(result.detail ? [`  ${result.detail}`] : []),
+		...formatStatusActivityResultDetailRows(result, "  "),
 		...formatStatusActivityResultAuditJumpIntentRows(
 			latestAuditJumpIntent,
 			"  ",
 			auditJumpIntentCount,
 		),
 	];
+}
+
+function formatStatusActivityResultDetailRows(
+	result: StatusActivityResult,
+	prefix = "",
+): string[] {
+	const rows = result.detailRows?.length
+		? result.detailRows
+		: result.detail
+			? [result.detail]
+			: [];
+	return rows.map((row) => `${prefix}${row}`);
 }
 
 export function appendStatusActivityResultHistory(
@@ -350,9 +363,7 @@ export function formatStatusActivityResultHistoryRows(
 				const rows = [
 					`${marker}#${historyIndex + 1} ${result.source} ${result.action} ${result.message}`,
 				];
-				if (result.detail) {
-					rows.push(`    ${result.detail}`);
-				}
+				rows.push(...formatStatusActivityResultDetailRows(result, "    "));
 				if (index === selectedFilteredIndex) {
 					rows.push(
 						...formatStatusActivityResultAuditJumpIntentRows(
@@ -378,9 +389,7 @@ export function formatStatusActivityResultHistoryRows(
 			const rows = [
 				`${marker}${result.source} ${result.action} ${result.message}`,
 			];
-			if (result.detail) {
-				rows.push(`    ${result.detail}`);
-			}
+			rows.push(...formatStatusActivityResultDetailRows(result, "    "));
 			if (index === selected) {
 				rows.push(
 					...formatStatusActivityResultAuditJumpIntentRows(
@@ -547,6 +556,12 @@ export function createRemoteHostKeyTrustReviewStatusActivityResult(
 			"knownHostsWrite=false",
 			`confirm="${preview.confirm}"`,
 		].join(" "),
+		detailRows: [
+			`review target="${preview.target}" lookup=${preview.lookup} provider=${preview.provider}`,
+			`fingerprints collected=${preview.collectedFingerprint} knownHosts=${preview.knownHostsFingerprint} match=${preview.match}`,
+			`decision status=${confirmation.status} result=${preview.decision} network=not-opened trust=not-applied knownHostsWrite=${confirmation.knownHostsWritten}`,
+			`confirm review="${preview.confirm}" connect="${preview.connectConfirm}"`,
+		],
 	};
 }
 
@@ -685,7 +700,7 @@ export function getSelectedStatusActivityResultHistoryClipboardPreview(
 		copyText: [
 			`${result.source} ${result.action}`,
 			result.message,
-			result.detail,
+			...formatStatusActivityResultDetailRows(result),
 		]
 			.filter(Boolean)
 			.join("\n"),
