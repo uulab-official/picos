@@ -2,7 +2,7 @@
 
 ## v0.4.288 - Remote Known Hosts Candidate Compare
 
-Status: in progress on `codex/picos-v0.4.288-known-hosts-candidate-compare`.
+Status: draft PR [#351](https://github.com/uulab-official/picos/pull/351) on `codex/picos-v0.4.288-known-hosts-candidate-compare`.
 
 Goal: make a selected `known_hosts` read-result candidate inspectable inside host-key compare detail before any host trust, socket opening, host scan, local trust-file mutation, or remote mutation is enabled.
 
