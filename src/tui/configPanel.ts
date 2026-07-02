@@ -119,6 +119,15 @@ export type ConfigManagedShelfFocusActionPlan = ConfigManagedShelfHandoff & {
 	rows: string[];
 };
 
+type ConfigManagedShelfCoverageKey =
+	| "routeFilters"
+	| "connectionFilters"
+	| "portFilters"
+	| "toolTargets"
+	| "logProfiles"
+	| "logSearches"
+	| "remotes";
+
 const configPolicyPresets: ConfigPolicyPresetPreview[] = [
 	{
 		id: "safe-readonly",
@@ -521,7 +530,7 @@ export function formatConfigWorkspaceDetailRows(
 }
 
 export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
-	const shelfCounts = {
+	const shelfCounts: Record<ConfigManagedShelfCoverageKey, number> = {
 		routeFilters: config.routeFilterPresets.length,
 		connectionFilters: config.connectionFilterPresets.length,
 		portFilters: config.portFilterPresets.length,
@@ -536,7 +545,7 @@ export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
 	);
 	const emptyShelves = Object.entries(shelfCounts)
 		.filter(([, count]) => count === 0)
-		.map(([key]) => key);
+		.map(([key]) => key as ConfigManagedShelfCoverageKey);
 	return [
 		"CONFIG MANAGED SHELVES",
 		`network defaults host=${config.defaultPingHost} routeFilters=${config.routeFilterPresets.length} connectionFilters=${config.connectionFilterPresets.length} portFilters=${config.portFilterPresets.length}`,
@@ -544,6 +553,7 @@ export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
 		`workspace behavior logs=${config.logProfiles.length} searches=${config.logSearchPresets.length} remotes=${config.remoteProfiles.length} publicIp=${config.showPublicIp} experimental=${config.enableExperimentalControls} statusJumpClass=${config.statusResultJumpClassFilter}`,
 		`shelf coverage saved=${saved} empty=${emptyShelves.length} routeFilters=${shelfCounts.routeFilters} connectionFilters=${shelfCounts.connectionFilters} portFilters=${shelfCounts.portFilters} toolTargets=${shelfCounts.toolTargets} logProfiles=${shelfCounts.logProfiles} logSearches=${shelfCounts.logSearches} remotes=${shelfCounts.remotes}`,
 		`empty shelves ${emptyShelves.length > 0 ? emptyShelves.join(",") : "none"}`,
+		...formatConfigManagedShelfRecoveryRows(emptyShelves),
 		"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
 	];
 }
@@ -917,6 +927,40 @@ function formatConfigManagedShelfFocusActionHint(
 		return "enter=cycle log profiles  fallback=open search prompt";
 	}
 	return "enter=remote profile focus  fallback=empty profile list";
+}
+
+function formatConfigManagedShelfRecoveryRows(
+	emptyShelves: ConfigManagedShelfCoverageKey[],
+): string[] {
+	if (emptyShelves.length === 0) {
+		return ["recovery all shelves ready"];
+	}
+	return emptyShelves.map((shelf) => {
+		const target = getConfigManagedShelfRecoveryTarget(shelf);
+		const handoff = getConfigManagedShelfHandoff(target);
+		return `recovery ${shelf} -> ${handoff.label} ${formatConfigManagedShelfFocusActionHint(target).replace("  ", " ")}`;
+	});
+}
+
+function getConfigManagedShelfRecoveryTarget(
+	shelf: ConfigManagedShelfCoverageKey,
+): ConfigManagedShelfTarget {
+	if (shelf === "routeFilters") {
+		return "routes";
+	}
+	if (shelf === "connectionFilters") {
+		return "connections";
+	}
+	if (shelf === "portFilters") {
+		return "ports";
+	}
+	if (shelf === "toolTargets") {
+		return "tools";
+	}
+	if (shelf === "remotes") {
+		return "remotes";
+	}
+	return "logs";
 }
 
 function getConfigManagedShelfPromptScope(

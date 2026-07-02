@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.249 - Config Empty Shelf Recovery Hints
+
+Status: draft PR [#311](https://github.com/uulab-official/picos/pull/311) on `codex/picos-v0.4.249-config-empty-shelf-recovery-hints`.
+
+Goal: turn sparse Config managed shelf summaries into actionable recovery hints.
+
+- Config managed shelf summaries now append `recovery ...` rows for empty route filters, endpoint filters, Tools targets, log profiles/searches, and remote profiles.
+- Fully populated Config shelves show `recovery all shelves ready`, keeping the readiness state explicit.
+- Status Activity detail prioritizes Config coverage, empty shelf names, and the first recovery row instead of burying them behind generic summary rows.
+- Enter on Config activity now opens the Config workspace and records a `focus-config` Status Activity result.
+- Tests cover sparse and populated recovery rows, Config-prioritized Status detail rows, and the new Config enter plan.
+- Next: wire empty-shelf recovery rows to command-palette actions or direct destination prompts so missing presets/profiles can be created from the hint itself.
+
 ## v0.4.248 - Config Status Shelf Count Summaries
 
 Status: draft PR [#310](https://github.com/uulab-official/picos/pull/310) on `codex/picos-v0.4.248-config-status-shelf-count-summaries`.

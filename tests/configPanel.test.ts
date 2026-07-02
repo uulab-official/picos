@@ -229,23 +229,39 @@ describe("config TUI panel", () => {
 			"workspace behavior logs=1 searches=1 remotes=1 publicIp=true experimental=false statusJumpClass=process",
 			"shelf coverage saved=8 empty=0 routeFilters=2 connectionFilters=1 portFilters=1 toolTargets=1 logProfiles=1 logSearches=1 remotes=1",
 			"empty shelves none",
+			"recovery all shelves ready",
 			"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
 		]);
-		expect(
-			formatConfigManagedShelfRows({
-				...defaultConfig,
-				defaultPingHost: "internal.example",
-			}),
-		).toContain(
+		const sparseRows = formatConfigManagedShelfRows({
+			...defaultConfig,
+			defaultPingHost: "internal.example",
+		});
+		expect(sparseRows).toContain(
 			"shelf coverage saved=0 empty=7 routeFilters=0 connectionFilters=0 portFilters=0 toolTargets=0 logProfiles=0 logSearches=0 remotes=0",
 		);
-		expect(
-			formatConfigManagedShelfRows({
-				...defaultConfig,
-				defaultPingHost: "internal.example",
-			}),
-		).toContain(
+		expect(sparseRows).toContain(
 			"empty shelves routeFilters,connectionFilters,portFilters,toolTargets,logProfiles,logSearches,remotes",
+		);
+		expect(sparseRows).toContain(
+			"recovery routeFilters -> Routes enter=cycle route filter presets fallback=open filter prompt",
+		);
+		expect(sparseRows).toContain(
+			"recovery connectionFilters -> Connections enter=cycle connection filter presets fallback=open filter prompt",
+		);
+		expect(sparseRows).toContain(
+			"recovery portFilters -> Ports enter=cycle port filter presets fallback=open filter prompt",
+		);
+		expect(sparseRows).toContain(
+			"recovery toolTargets -> Tools enter=cycle tool target presets fallback=keep first target",
+		);
+		expect(sparseRows).toContain(
+			"recovery logProfiles -> Logs enter=cycle log profiles fallback=open search prompt",
+		);
+		expect(sparseRows).toContain(
+			"recovery logSearches -> Logs enter=cycle log profiles fallback=open search prompt",
+		);
+		expect(sparseRows).toContain(
+			"recovery remotes -> Remotes enter=remote profile focus fallback=empty profile list",
 		);
 	});
 
