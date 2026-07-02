@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import {
 	type ConfigCleanupPreview,
 	createConfigCleanupPreview,
@@ -20,6 +20,7 @@ import {
 	formatRouteTable,
 	sortRouteEntries,
 } from "../core/routes";
+import { joinPathLike } from "../utils/pathStyle";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -353,7 +354,7 @@ export function createRouteRawHandoffPlan(
 	const generatedAt = options.generatedAt ?? new Date();
 	const iso = generatedAt.toISOString();
 	return {
-		path: join(
+		path: joinPathLike(
 			options.baseDir,
 			"routes",
 			`picos-routes-${view}-${iso.replaceAll(/[:.]/g, "")}.md`,

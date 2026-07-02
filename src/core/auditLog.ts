@@ -6,7 +6,14 @@ import {
 	unlink,
 	writeFile,
 } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
+import {
+	basenamePathLike,
+	dirnamePathLike,
+	joinPathLike,
+	resolvePathLike,
+	samePathLike,
+} from "../utils/pathStyle";
 import type { FileOpenOrigin } from "./fileOpen";
 
 export type AuditLogEventLevel = "run" | "ok" | "warn" | "fail" | "info";
@@ -130,7 +137,7 @@ export function createConsoleAuditExportPlan(
 	const fileScope =
 		scope === "filtered" || scope === "selected" ? `${scope}-` : "";
 	return {
-		path: join(
+		path: joinPathLike(
 			options.baseDir,
 			"audit",
 			`picos-audit-${fileScope}${iso.replaceAll(/[:.]/g, "")}.log`,
@@ -322,12 +329,15 @@ export function createConsoleAuditExportArchivePlan(
 	path: string,
 	options: { confirmation?: string } = {},
 ): ConsoleAuditExportArchivePlan {
-	const auditDir = resolve(baseDir, "audit");
-	const sourcePath = resolve(path);
-	const fileName = basename(sourcePath);
+	const auditDir = resolvePathLike(baseDir, "audit");
+	const sourcePath = resolvePathLike(path);
+	const sourceDir = dirnamePathLike(sourcePath);
+	const fileName = basenamePathLike(sourcePath);
 	const allowed =
-		dirname(sourcePath) === auditDir && isPicosAuditExportFilename(fileName);
-	const archivedPath = allowed ? join(auditDir, "archive", fileName) : "";
+		samePathLike(sourceDir, auditDir) && isPicosAuditExportFilename(fileName);
+	const archivedPath = allowed
+		? joinPathLike(sourceDir, "archive", fileName)
+		: "";
 	const confirmed = options.confirmation === "archive audit export";
 	const reason = !allowed
 		? "audit export archive is limited to picos-owned audit export files"
@@ -482,11 +492,11 @@ function isAllowedArchivedAuditExportPath(
 	path: string,
 	fileName: string,
 ): boolean {
-	const archiveDir = resolve(baseDir, "audit", "archive");
-	const target = resolve(path);
+	const archiveDir = resolvePathLike(baseDir, "audit", "archive");
+	const target = resolvePathLike(path);
 	return (
-		dirname(target) === archiveDir &&
-		basename(target) === fileName &&
+		samePathLike(dirnamePathLike(target), archiveDir) &&
+		basenamePathLike(target) === fileName &&
 		isPicosAuditExportFilename(fileName)
 	);
 }

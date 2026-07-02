@@ -6,8 +6,13 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ## [Unreleased]
 
+### Fixed
+
+- Config paths and exported evidence/archive plan paths now preserve the input path style across host OSes, keeping POSIX-style sample paths stable on Windows CI while retaining Windows backslash paths when provided.
+
 ### Added
 
+- Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS READ PREVIEW` rows, making the local `known_hosts` read boundary, exact `read known_hosts <id>` confirmation, `~/.ssh` allowed base, parser-not-run state, and no-local-read/no-network/no-scan posture visible before any trust file is parsed.
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS SOURCE` rows, previewing local `~/.ssh/known_hosts` and `~/.ssh/known_hosts2` lookup targets before fingerprint collection while `willReadLocal=false`, `willConnect=false`, and `willScan=false` remain explicit.
 - Remotes workspace and `picos remote <id>` now show `REMOTE HOST KEY EVIDENCE` rows before host review, making the future SFTP fingerprint checkpoint visible with `sha256:unknown`, `knownHost=not-checked`, trust blocked, and no import/socket/read/mutation.
 - Remotes workspace and `picos remote <id>` now show `REMOTE FILE REQUEST PREVIEW` rows for future SFTP list/read flows, keeping the request blocked behind host review and the read adapter contract while `willImport=false`/`willConnect=false`/`willRead=false`/`willMutate=false` remain explicit.
