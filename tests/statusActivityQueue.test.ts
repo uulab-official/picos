@@ -12,6 +12,8 @@ import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createProcessControlAuditExportOpenPlan,
+	createProcessControlAuditExportTimelineSearch,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -55,9 +57,12 @@ import {
 	formatStatusActivityToolsEvidenceMatchAuditMessage,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
+	getLatestProcessControlAuditExport,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
+	getProcessControlAuditExports,
+	getSelectedProcessControlAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
@@ -66,6 +71,7 @@ import {
 	getStatusActivityCopyIntentAuditExportIndex,
 	getStatusActivityResultAuditJumpIntentCount,
 	getTimelineEvidenceTrailAuditExports,
+	moveProcessControlAuditExportSelection,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultAuditJumpSelection,
@@ -2609,6 +2615,140 @@ describe("Status activity queue", () => {
 			expect(await readFile(newer.path, "utf8")).toContain(
 				'timeline evidence trail kind=audit selected=2/2 label="newer.log"',
 			);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("recovers process control audit exports as status evidence", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-process-control-"));
+		try {
+			const processControlIntent =
+				createStatusActivityResultTimelineSearchIntent({
+					filter: "audit",
+					query: "palette process control audit action=preview pid=12345",
+					message:
+						"status activity result audit jump palette process control audit action=preview pid=12345",
+				});
+			const unrelatedIntent = createStatusActivityResultTimelineSearchIntent({
+				filter: "audit",
+				query: "cleanup jump-cleanup",
+				message: "status activity result audit jump cleanup jump-cleanup",
+			});
+			if (!processControlIntent || !unrelatedIntent) {
+				throw new Error("expected status activity timeline search intents");
+			}
+			const processControlPlan = createStatusActivityCopyIntentAuditExportPlan(
+				[processControlIntent],
+				0,
+				{
+					baseDir: root,
+					generatedAt: new Date("2026-07-01T05:00:00.000Z"),
+				},
+			);
+			const unrelatedPlan = createStatusActivityCopyIntentAuditExportPlan(
+				[unrelatedIntent],
+				0,
+				{
+					baseDir: root,
+					generatedAt: new Date("2026-07-01T04:00:00.000Z"),
+				},
+			);
+			if (!processControlPlan || !unrelatedPlan) {
+				throw new Error("expected audit export plans");
+			}
+
+			await writeStatusActivityCopyIntentAuditExport(unrelatedPlan);
+			await writeStatusActivityCopyIntentAuditExport(processControlPlan);
+
+			const index = await readConsoleAuditExportIndex(root);
+			const processControlExports = getProcessControlAuditExports(index);
+			const latest = getLatestProcessControlAuditExport(index);
+
+			expect(processControlExports).toEqual([
+				{
+					path: processControlPlan.path,
+					content: "",
+					eventCount: 1,
+					query:
+						"status activity result audit jump palette process control audit action=preview pid=12345",
+					scope: "selected",
+				},
+			]);
+			expect(latest).toEqual(processControlExports[0]);
+			expect(
+				getSelectedProcessControlAuditExport(processControlExports, 0),
+			).toEqual(processControlExports[0]);
+			expect(
+				moveProcessControlAuditExportSelection(
+					[processControlExports[0], unrelatedPlan],
+					0,
+					"next",
+				),
+			).toBe(1);
+			expect(
+				createProcessControlAuditExportTimelineSearch(processControlExports[0]),
+			).toEqual({
+				filter: "audit",
+				query:
+					"status activity result audit jump palette process control audit action=preview pid=12345",
+				message:
+					"process control evidence recovered search picos-audit-selected-2026-07-01T050000000Z.log",
+			});
+			expect(
+				formatStatusActivityCopyIntentRows(
+					[],
+					0,
+					undefined,
+					undefined,
+					undefined,
+					[],
+					0,
+					"all",
+					undefined,
+					0,
+					undefined,
+					0,
+					undefined,
+					undefined,
+					0,
+					0,
+					undefined,
+					0,
+					processControlExports,
+					0,
+				),
+			).toEqual([
+				"STATUS ACTIVITY COPY INTENTS count=0",
+				"process evidence selected=1/1",
+				"process evidence target=picos-audit-selected-2026-07-01T050000000Z.log query=status activity result audit jump palette process control audit action=preview pid=12345 events=1",
+				`process evidence detail pid:12345 path=${processControlPlan.path}`,
+				"no Status activity copy intents yet",
+				"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · process evidence · g Timeline audit search",
+			]);
+			expect(
+				createProcessControlAuditExportOpenPlan(processControlExports[0], {
+					baseDir: root,
+					platform: "darwin",
+				}),
+			).toEqual({
+				source: "timeline-export",
+				label:
+					"process control evidence export selected status activity result audit jump palette process control audit action=preview pid=12345",
+				path: processControlPlan.path,
+				risk: "write",
+				privilege: "user",
+				confirmationRequired: true,
+				confirmationPhrase: "open",
+				confirmed: false,
+				enabled: false,
+				reason: "type open to launch external file viewer",
+				adapter: {
+					platform: "darwin",
+					command: "open",
+					args: [processControlPlan.path],
+				},
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
