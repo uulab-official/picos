@@ -207,6 +207,18 @@ const configManagedShelfActionFocusTargets: Record<
 	"config.shelf.remotes.focus": "remotes",
 };
 
+const configRecoveryActionFocusTargets: Record<
+	string,
+	ConfigManagedShelfTarget
+> = {
+	"config.recovery.routes": "routes",
+	"config.recovery.connections": "connections",
+	"config.recovery.ports": "ports",
+	"config.recovery.tools": "tools",
+	"config.recovery.logs": "logs",
+	"config.recovery.remotes": "remotes",
+};
+
 export type ConfigWorkspaceItem = {
 	key: ConfigWorkspaceItemKey;
 	label: string;
@@ -573,6 +585,12 @@ export function getConfigManagedShelfActionFocusTarget(
 	return configManagedShelfActionFocusTargets[actionId];
 }
 
+export function getConfigRecoveryActionFocusTarget(
+	actionId: string,
+): ConfigManagedShelfTarget | undefined {
+	return configRecoveryActionFocusTargets[actionId];
+}
+
 export function getNextConfigManagedShelfTarget(
 	current: ConfigManagedShelfTarget | undefined,
 	direction: "next" | "previous",
@@ -680,6 +698,21 @@ export function createConfigManagedShelfFocusActionPlan(
 			formatConfigManagedShelfFocusActionHint(target),
 		],
 	};
+}
+
+export function formatConfigRecoveryPaletteRows(
+	target: ConfigManagedShelfTarget,
+): string[] {
+	const handoff = getConfigManagedShelfHandoff(target);
+	const landingRows = formatConfigManagedShelfLandingRows(target);
+	const focusRows = formatConfigManagedShelfFocusRows(target);
+	return [
+		`config recovery target=${handoff.target} workspace=${handoff.label}`,
+		`empty=${getConfigManagedShelfRecoveryEmptyLabel(target)} action=restore missing shelf`,
+		landingRows[2],
+		focusRows[2],
+		formatConfigManagedShelfFocusActionHint(target),
+	];
 }
 
 export function formatConfigManagedShelfPromptBreadcrumbRows(
@@ -961,6 +994,30 @@ function getConfigManagedShelfRecoveryTarget(
 		return "remotes";
 	}
 	return "logs";
+}
+
+function getConfigManagedShelfRecoveryEmptyLabel(
+	target: ConfigManagedShelfTarget,
+): string {
+	if (target === "routes") {
+		return "routeFilters";
+	}
+	if (target === "connections") {
+		return "connectionFilters";
+	}
+	if (target === "ports") {
+		return "portFilters";
+	}
+	if (target === "tools") {
+		return "toolTargets";
+	}
+	if (target === "logs") {
+		return "logProfiles";
+	}
+	if (target === "remotes") {
+		return "remoteProfiles";
+	}
+	return "interfaces";
 }
 
 function getConfigManagedShelfPromptScope(

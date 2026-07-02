@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.250 - Config Recovery Palette Actions
+
+Status: draft PR [#312](https://github.com/uulab-official/picos/pull/312) on `codex/picos-v0.4.250-config-recovery-palette-actions`.
+
+Goal: make Config empty-shelf recovery hints searchable and executable from the command palette.
+
+- Command palette now exposes `config.recovery.routes`, `config.recovery.connections`, `config.recovery.ports`, `config.recovery.tools`, `config.recovery.logs`, and `config.recovery.remotes`.
+- Search phrases such as `empty route filters`, `recover connection filters`, `missing port filters`, `recover tools targets`, `missing log profiles`, and `recover remote profiles` open recovery actions directly.
+- Recovery previews show the missing shelf label, owning workspace, scope, focus cursor, and enter/fallback action before dispatch.
+- App dispatch reuses Config managed shelf focus routing while logging `config recovery palette ...`, keeping recovery distinct from ordinary shelf opens.
+- Tests cover catalog availability/counts, palette discovery, recovery previews, and read-only safety posture.
+- Next: make recovery dispatch open the destination prompt directly when a shelf is empty, so missing presets/profiles can be created from the recovery action.
+
 ## v0.4.249 - Config Empty Shelf Recovery Hints
 
 Status: draft PR [#311](https://github.com/uulab-official/picos/pull/311) on `codex/picos-v0.4.249-config-empty-shelf-recovery-hints`.

@@ -8,7 +8,9 @@ import type {
 import {
 	formatConfigManagedShelfFocusRows,
 	formatConfigManagedShelfLandingRows,
+	formatConfigRecoveryPaletteRows,
 	getConfigManagedShelfActionFocusTarget,
+	getConfigRecoveryActionFocusTarget,
 } from "./configPanel";
 import type { PortProcessControlPreview } from "./endpointPanel";
 import { getNextIndex } from "./navigation";
@@ -179,6 +181,7 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "config.editorSaveMode.focus" &&
 		action.id !== "config.auditRetention.focus" &&
 		action.id !== "config.toolTargetRetention.focus" &&
+		!getConfigRecoveryActionFocusTarget(action.id) &&
 		!getConfigManagedShelfActionFocusTarget(action.id) &&
 		!context.portProcessPreview &&
 		!context.controlPreview
@@ -242,6 +245,11 @@ export function formatCommandPaletteActionPreviewRows(
 			configShelfTarget,
 			context.configManagedShelfCounts?.[configShelfTarget],
 		);
+	}
+
+	const configRecoveryTarget = getConfigRecoveryActionFocusTarget(action.id);
+	if (configRecoveryTarget) {
+		return formatConfigRecoveryPaletteRows(configRecoveryTarget);
 	}
 
 	const recovery = context.toolsEvidenceSearchRecovery;

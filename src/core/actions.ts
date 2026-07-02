@@ -251,6 +251,72 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "config.recovery.routes",
+		title: "Recover route filter shelf",
+		description:
+			"Empty route filters and recover route filters shortcut for restoring the missing Routes managed shelf.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.recovery.connections",
+		title: "Recover connection filter shelf",
+		description:
+			"Recover connection filters shortcut for restoring the missing Connections managed shelf.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.recovery.ports",
+		title: "Recover port filter shelf",
+		description:
+			"Missing port filters and recover port filters shortcut for restoring the missing Ports managed shelf.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.recovery.tools",
+		title: "Recover tools target shelf",
+		description:
+			"Recover tools targets shortcut for restoring the missing Tools target presets shelf.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.recovery.logs",
+		title: "Recover log profile shelf",
+		description:
+			"Missing log profiles and recover log searches shortcut for restoring the missing Logs managed shelf.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.recovery.remotes",
+		title: "Recover remote profile shelf",
+		description:
+			"Recover remote profiles shortcut for restoring the missing Remotes managed shelf.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "files.list",
 		title: "List files",
 		description:
