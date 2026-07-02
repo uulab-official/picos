@@ -382,6 +382,39 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.processEvidence.select",
+		title: "Select recovered process evidence",
+		description:
+			"Cycle recovered process-control evidence exports in the Status Activity shelf.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.processEvidence.open",
+		title: "Open recovered process evidence",
+		description:
+			"Open the selected recovered process-control evidence export through the locked file-open prompt.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.processEvidence.search",
+		title: "Process evidence search",
+		description:
+			"Jump to Timeline audit search for the selected recovered process-control evidence query.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.resultJump.select",
 		title: "Select Status result Timeline jump",
 		description:

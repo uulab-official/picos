@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adapters/macos";
 import { createActionPreviewPlan, getActionCatalog } from "../src/core/actions";
+import type { ConsoleAuditExportPlan } from "../src/core/auditLog";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendCommandPaletteQuery,
@@ -103,6 +104,80 @@ describe("TUI command palette", () => {
 				appendCommandPaletteQuery(openCommandPalette(), "trail source"),
 			).map((action) => action.id),
 		).toContain("status.timelineTrail.source");
+	});
+
+	test("finds recovered process evidence actions from the command palette", () => {
+		const state = appendCommandPaletteQuery(
+			openCommandPalette(),
+			"process evidence",
+		);
+		const actions = getFilteredPaletteActions(getActionCatalog(), state);
+
+		expect(actions.map((action) => action.id)).toEqual(
+			expect.arrayContaining([
+				"status.processEvidence.select",
+				"status.processEvidence.open",
+				"status.processEvidence.search",
+			]),
+		);
+		expect(
+			actions.find((action) => action.id === "status.processEvidence.open"),
+		).toEqual(
+			expect.objectContaining({
+				category: "status",
+				risk: "read",
+				enabled: true,
+				confirmationRequired: false,
+			}),
+		);
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"process evidence search",
+				),
+			).map((action) => action.id),
+		).toContain("status.processEvidence.search");
+	});
+
+	test("previews recovered process evidence actions before dispatch", () => {
+		const selectedProcessEvidenceExport: ConsoleAuditExportPlan = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"status activity result audit jump palette process control audit action=preview pid=12345",
+			scope: "selected",
+		};
+
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.processEvidence.open",
+				),
+				{
+					selectedProcessEvidenceExport,
+					selectedProcessEvidenceExportIndex: 0,
+					totalProcessEvidenceExports: 2,
+				},
+			),
+		).toEqual([
+			"selected process evidence 1/2 picos-audit-selected-2026-07-01T050000000Z.log",
+			"target=pid:12345 events=1",
+			"query=status activity result audit jump palette process control audit action=preview pid=12345",
+			"confirm=file-open path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.processEvidence.search",
+				),
+			),
+		).toEqual([
+			"selected process evidence unavailable",
+			"hint=export or recover a process-control audit jump",
+		]);
 	});
 
 	test("finds status result timeline jump actions from the command palette", () => {

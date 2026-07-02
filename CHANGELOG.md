@@ -9,6 +9,8 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Command palette now exposes recovered process-control evidence actions via `process evidence`, `process evidence open`, and `process evidence search`, with previews for selected export, PID/status target, query, path, and locked file-open/Timeline search handoffs.
+- Status Activity process evidence palette actions now append compact result-history rows and searchable Timeline audit messages, while `F` cycles recovered process evidence exports from the Status shelf.
 - Status Activity copy-intent exports for palette process-control audit jumps are now recovered from the audit export index as `process evidence` rows, including PID/status targets, locked file-open plans, and Timeline audit search handoffs after restart.
 - Status Activity copy-intent shelves now render fresh and reusable palette process-control audit jumps as compact `process control target=pid:<pid>` rows, keeping destructive intent review copy/export flows readable without opening Timeline first.
 - Command palette `process.terminate` dispatch now routes to the selected Ports process-control preview, opens the same exact `kill pid <pid>` confirmation prompt as `K`, and records Status Activity plus searchable Timeline audit rows for both selected and unavailable PID targets.

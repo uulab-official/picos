@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ConsoleEvent } from "../src/tui/events";
 import {
+	formatProcessControlEvidencePaletteAuditMessage,
 	formatStatusActivityProcessControlPaletteAuditMessage,
 	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
@@ -212,6 +213,40 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/9 network=0 audit=1 action=0 raw=0 filter=audit search=action=source",
 			"TIMELINE",
 			"[12:00:10] INFO audit  palette timeline trail audit action=source source=palette visible=0/3",
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
+	test("surfaces palette-triggered process evidence actions in audit search", () => {
+		const processEvidenceEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-info-process-evidence",
+				level: "info",
+				time: "12:00:09",
+				message: formatProcessControlEvidencePaletteAuditMessage(
+					"search",
+					{
+						path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+						content: "",
+						eventCount: 1,
+						query:
+							"status activity result audit jump palette process control audit action=preview pid=12345",
+						scope: "selected",
+					},
+					{ selectedIndex: 0, total: 1 },
+				),
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(processEvidenceEvents, 5, "audit", {
+				query: "palette process evidence audit action=search",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette process evidence audit action=search",
+			"TIMELINE",
+			'[12:00:09] INFO audit  palette process evidence audit action=search selected=1/1 target="pid:12345" label="picos-audit-selected-2026-07-01T050000000Z.log" query="status activity result audit jump palette process control audit action=preview pid=12345" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log"',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});

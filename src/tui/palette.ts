@@ -1,4 +1,5 @@
 import type { ActionPreviewPlan, PicosAction } from "../core/actions";
+import type { ConsoleAuditExportPlan } from "../core/auditLog";
 import type { PortProcessControlPreview } from "./endpointPanel";
 import { getNextIndex } from "./navigation";
 import type { StatusActivityToolsEvidenceSearchRecovery } from "./statusActivityQueue";
@@ -126,6 +127,9 @@ export type CommandPalettePreviewContext = {
 	toolExportFilter?: ToolHistoryEvidenceFilter;
 	toolExportQuery?: string;
 	toolArchiveRetentionPlan?: ToolHistoryArchiveRetentionPlan;
+	selectedProcessEvidenceExport?: ConsoleAuditExportPlan;
+	selectedProcessEvidenceExportIndex?: number;
+	totalProcessEvidenceExports?: number;
 };
 
 export function formatCommandPaletteActionPreviewRows(
@@ -140,6 +144,9 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.toolsEvidence.matchArchive" &&
 		action.id !== "status.toolsEvidence.archive" &&
 		action.id !== "status.toolsEvidence.retention" &&
+		action.id !== "status.processEvidence.select" &&
+		action.id !== "status.processEvidence.open" &&
+		action.id !== "status.processEvidence.search" &&
 		!context.portProcessPreview &&
 		!context.controlPreview
 	) {
@@ -162,6 +169,14 @@ export function formatCommandPaletteActionPreviewRows(
 
 	if (action.id === "status.toolsEvidence.retention") {
 		return formatToolEvidenceRetentionPalettePreviewRows(context);
+	}
+
+	if (
+		action.id === "status.processEvidence.select" ||
+		action.id === "status.processEvidence.open" ||
+		action.id === "status.processEvidence.search"
+	) {
+		return formatProcessEvidencePalettePreviewRows(action, context);
 	}
 
 	const recovery = context.toolsEvidenceSearchRecovery;
@@ -196,6 +211,43 @@ export function formatCommandPaletteActionPreviewRows(
 		rows.push(`confirm=${actionVerb} path=${item.path}`);
 	}
 	return rows;
+}
+
+function formatProcessEvidencePalettePreviewRows(
+	action: PicosAction,
+	context: CommandPalettePreviewContext,
+): string[] {
+	const selected = context.selectedProcessEvidenceExport;
+	if (!selected) {
+		return [
+			"selected process evidence unavailable",
+			"hint=export or recover a process-control audit jump",
+		];
+	}
+	const selectedIndex = Math.max(
+		0,
+		Math.floor(context.selectedProcessEvidenceExportIndex ?? 0),
+	);
+	const total = Math.max(1, context.totalProcessEvidenceExports ?? 1);
+	const fileName = selected.path.split(/[\\/]/).pop() ?? selected.path;
+	return [
+		`selected process evidence ${selectedIndex + 1}/${total} ${fileName}`,
+		`target=${formatProcessEvidenceTarget(selected.query)} events=${selected.eventCount}`,
+		`query=${selected.query ?? "-"}`,
+		action.id === "status.processEvidence.select"
+			? "action=select next recovered process evidence"
+			: `${action.id === "status.processEvidence.open" ? "confirm=file-open" : "timeline-search=audit"} path=${selected.path}`,
+	];
+}
+
+function formatProcessEvidenceTarget(query: string | undefined): string {
+	const match = query?.match(
+		/(?:^| )palette process control audit action=(\S+)(?: .*?)?(?:pid=(\S+)|status=(\S+))/,
+	);
+	if (!match) {
+		return "unknown";
+	}
+	return match[2] ? `pid:${match[2]}` : `status:${match[3] ?? "unknown"}`;
 }
 
 function formatPortProcessControlPalettePreviewRows(

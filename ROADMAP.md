@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.231 - Process Evidence Actions
+
+Status: draft PR [#293](https://github.com/uulab-official/picos/pull/293) on `codex/picos-v0.4.231-process-evidence-actions`.
+
+Goal: make recovered process-control evidence actionable from the keyboard and command palette.
+
+- Command palette now exposes `status.processEvidence.select`, `status.processEvidence.open`, and `status.processEvidence.search` through `process evidence` queries.
+- Palette previews show the selected recovered process evidence export, PID/status target, event count, original audit query, path, and whether dispatch opens a locked file-open prompt or Timeline audit search.
+- Palette-triggered process evidence select/open/search actions now append Status Activity result rows and searchable `palette process evidence audit ...` Timeline messages.
+- Status workspace `F` cycles recovered process evidence exports when more than one is available, keeping process-control review keyboard-driven without leaving Status.
+- Tests cover palette discovery/previews, Status Activity result/audit formatting, and Timeline audit-search recovery.
+- Next: promote recovered process evidence into the Status Evidence command strip/table as a first-class evidence family so open/search/archive affordances are visible beside audit/Tools evidence.
+
 ## v0.4.230 - Process Control Evidence Recovery
 
 Status: draft PR [#292](https://github.com/uulab-official/picos/pull/292) on `codex/picos-v0.4.230-process-control-evidence`.
@@ -11,7 +24,7 @@ Goal: make destructive process-control review evidence survive restart through t
 - Process-control evidence exports have pure helpers for selection, cursor movement, locked file-open plans, and Timeline audit search handoffs.
 - The TUI refresh/bootstrap audit-index paths now keep recovered process-control evidence available after boot or manual audit export refresh.
 - Tests cover persisted export recovery, selected cursor lookup, cursor movement, Timeline search handoff, locked file-open plan creation, and shelf row rendering.
-- Next: wire keyboard and command-palette actions for selecting/opening/searching recovered process-control evidence, matching the richer Timeline trail `S`/`L`/`N` flow.
+- Next: process-control evidence actions moved into v0.4.231.
 
 ## v0.4.229 - Process Control Copy-Intent Shelf
 
