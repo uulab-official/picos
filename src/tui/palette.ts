@@ -1,4 +1,4 @@
-import type { PicosAction } from "../core/actions";
+import type { ActionPreviewPlan, PicosAction } from "../core/actions";
 import { getNextIndex } from "./navigation";
 import type { StatusActivityToolsEvidenceSearchRecovery } from "./statusActivityQueue";
 import type {
@@ -115,6 +115,7 @@ export function getPaletteAction(
 }
 
 export type CommandPalettePreviewContext = {
+	controlPreview?: ActionPreviewPlan;
 	toolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery;
 	selectedToolsEvidenceSearchMatchIndex?: number;
 	selectedToolExport?: ToolHistoryExportIndexItem;
@@ -136,9 +137,14 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.toolsEvidence.matchOpen" &&
 		action.id !== "status.toolsEvidence.matchArchive" &&
 		action.id !== "status.toolsEvidence.archive" &&
-		action.id !== "status.toolsEvidence.retention"
+		action.id !== "status.toolsEvidence.retention" &&
+		!context.controlPreview
 	) {
 		return [];
+	}
+
+	if (context.controlPreview) {
+		return formatControlActionPalettePreviewRows(context.controlPreview);
 	}
 
 	if (action.id === "status.toolsEvidence.archive") {
@@ -181,6 +187,28 @@ export function formatCommandPaletteActionPreviewRows(
 		rows.push(`confirm=${actionVerb} path=${item.path}`);
 	}
 	return rows;
+}
+
+function formatControlActionPalettePreviewRows(
+	preview: ActionPreviewPlan,
+): string[] {
+	const state = preview.enabled ? "ready" : "locked";
+	return [
+		`control preview ${preview.actionId} ${state} dryRun=${preview.dryRun}`,
+		`risk=${preview.risk} privilege=${preview.privilege}${preview.confirmationPhrase ? ` confirm=${preview.confirmationPhrase}` : ""}`,
+		...(preview.commandPreview
+			? [
+					`adapter=${preview.commandPreview.adapter} command=${formatPalettePreviewCommand(preview.commandPreview)}`,
+				]
+			: []),
+		...(preview.blockedReason ? [`blocked=${preview.blockedReason}`] : []),
+	];
+}
+
+function formatPalettePreviewCommand(
+	commandPreview: NonNullable<ActionPreviewPlan["commandPreview"]>,
+): string {
+	return [commandPreview.command, ...commandPreview.args].join(" ");
 }
 
 function formatToolEvidenceArchivePalettePreviewRows(

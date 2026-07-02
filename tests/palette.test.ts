@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { getActionCatalog } from "../src/core/actions";
+import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adapters/macos";
+import { createActionPreviewPlan, getActionCatalog } from "../src/core/actions";
 import {
 	appendCommandPaletteQuery,
 	backspaceCommandPaletteQuery,
@@ -360,6 +361,26 @@ describe("TUI command palette", () => {
 			"keep=1 remove=1",
 			"remove picos-tools-selected-2026-07-01T030000000Z.md",
 			"confirm=prune tools archive",
+		]);
+	});
+
+	test("previews locked Action Center controls before dispatch", () => {
+		const action = getActionCatalog().find(
+			(candidate) => candidate.id === "dns.flush",
+		);
+		const controlPreview = createActionPreviewPlan(
+			"dns.flush",
+			"macos",
+			macosControlPreviewCommand("dns.flush"),
+		);
+
+		expect(
+			formatCommandPaletteActionPreviewRows(action, { controlPreview }),
+		).toEqual([
+			"control preview dns.flush locked dryRun=true",
+			"risk=write privilege=admin confirm=flush dns",
+			"adapter=macos command=sudo dscacheutil -flushcache",
+			"blocked=disabled-by-default",
 		]);
 	});
 

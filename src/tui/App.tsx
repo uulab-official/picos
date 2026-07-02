@@ -9575,6 +9575,7 @@ function renderWorkspace(
 
 	if (palette.active) {
 		const filteredActions = getFilteredPaletteActions(actions, palette);
+		const selectedPaletteAction = filteredActions[palette.selectedIndex];
 		const filteredToolExportIndex = filterToolHistoryExportIndex(
 			toolExportIndex,
 			toolExportFilter,
@@ -9588,8 +9589,12 @@ function renderWorkspace(
 				totalActions={actions.length}
 				visibleRows={Math.max(3, height - 8)}
 				previewRows={formatCommandPaletteActionPreviewRows(
-					filteredActions[palette.selectedIndex],
+					selectedPaletteAction,
 					{
+						controlPreview: createCommandPaletteControlPreview(
+							selectedPaletteAction,
+							updateCheckResult,
+						),
 						toolsEvidenceSearchRecovery:
 							statusActivityToolsEvidenceSearchRecovery,
 						selectedToolsEvidenceSearchMatchIndex:
@@ -11949,6 +11954,29 @@ function getActionPreviewRowColor(row: string): string {
 		return "magenta";
 	}
 	return "white";
+}
+
+function createCommandPaletteControlPreview(
+	action: PicosAction | undefined,
+	updateCheckResult: PackageUpdateCheckResult | undefined,
+): ActionPreviewPlan | undefined {
+	if (!action || (action.enabled && !action.confirmationRequired)) {
+		return undefined;
+	}
+	const platform = currentPlatform();
+	if (action.id === "picos.update.apply") {
+		const applyPreview = updateCheckResult
+			? createUpdateApplyPreview(updateCheckResult)
+			: undefined;
+		return applyPreview
+			? createUpdateApplyActionPreviewPlan(applyPreview, platform)
+			: undefined;
+	}
+	return createActionPreviewPlan(
+		action.id,
+		platform,
+		getControlPreviewCommand(action.id, platform),
+	);
 }
 
 function CommandPaletteWorkspace({
