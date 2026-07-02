@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace and `picos remote <id>` now show `REMOTE HOST KEY EVIDENCE RESULT` rows for provided host-key fingerprints, and compare detail can match or mismatch that provided evidence against the selected `known_hosts` candidate while trust remains blocked and no socket/scan/mutation runs.
 - Remotes host-key compare detail can now be built from a selected parsed `known_hosts` candidate, surfacing candidate count, selected index, and candidate fingerprint while keeping collected host-key evidence unknown and local-read/socket/scan/trust/mutation execution disabled.
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS READ RESULT` rows, modeling provided local `known_hosts` read output with hidden raw content, byte/line counts, parser input state, exact confirmation, and no-socket/no-scan/no-trust/no-mutation posture before candidate parsing.
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS CANDIDATES` rows, backed by a pure injected-content parser for plain host rows, bracketed host:port rows, wildcard marker rows, and SHA256 fingerprints while keeping local file reads, sockets, host scans, trust, and mutation disabled.

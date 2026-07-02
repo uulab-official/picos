@@ -141,6 +141,26 @@ export type RemoteHostKeyEvidence = {
 	};
 };
 
+export type RemoteHostKeyEvidenceResult = {
+	id: string;
+	provider: "sftp";
+	host: string;
+	port: number | "-";
+	target: string;
+	status: "missing" | "provided";
+	source: "provided-host-key-evidence-result";
+	fingerprint: string;
+	trust: "blocked";
+	confirm: string;
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		scansHostKey: false;
+		trustsHost: false;
+		mutatesRemote: false;
+	};
+};
+
 export type RemoteKnownHostsSourcePreview = {
 	id: string;
 	provider: "sftp";
@@ -293,11 +313,11 @@ export type RemoteHostKeyCompareDetail = {
 	provider: "sftp";
 	target: string;
 	lookup: string;
-	collectedFingerprint: "sha256:unknown";
+	collectedFingerprint: string;
 	candidateCount: number;
 	selectedCandidate: number | "none";
 	knownHostsCandidateFingerprint: string;
-	match: "unknown" | "candidate-ready";
+	match: "unknown" | "candidate-ready" | "matched" | "mismatched";
 	decision: "blocked";
 	confirm: string;
 	execution: {
@@ -635,6 +655,51 @@ export function formatRemoteHostKeyEvidenceRows(
 	];
 }
 
+export function createRemoteHostKeyEvidenceResult(
+	profile?: SftpRemoteProfile,
+	fingerprint?: string,
+): RemoteHostKeyEvidenceResult {
+	const hasFingerprint =
+		profile && typeof fingerprint === "string" && fingerprint;
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		host: profile?.host ?? "none",
+		port: profile?.port ?? "-",
+		target: profile ? formatSftpRoot(profile) : "none",
+		status: hasFingerprint ? "provided" : "missing",
+		source: "provided-host-key-evidence-result",
+		fingerprint: hasFingerprint ? fingerprint : "sha256:unknown",
+		trust: "blocked",
+		confirm: profile ? `connect remote ${profile.id}` : "select remote profile",
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteHostKeyEvidenceResultRows(
+	result: RemoteHostKeyEvidenceResult = createRemoteHostKeyEvidenceResult(),
+): string[] {
+	return [
+		`REMOTE HOST KEY EVIDENCE RESULT ${result.id}`,
+		`host=${result.host} port=${result.port} provider=${result.provider} status=${result.status} source=${result.source}`,
+		`fingerprint=${result.fingerprint} trust=${result.trust}`,
+		`target=${result.target}`,
+		`guards=providedEvidence exactConfirm="${result.confirm}" trustReview=required`,
+		`execution=willImport=${result.execution.importsTransport} willConnect=${result.execution.opensSocket} willScan=${result.execution.scansHostKey} willTrust=${result.execution.trustsHost} willMutate=${result.execution.mutatesRemote}`,
+		result.id === "none"
+			? "next=select remote profile · no host-key evidence result"
+			: result.status === "provided"
+				? "next=compare provided host-key evidence with selected known_hosts candidate"
+				: "next=collect host-key evidence result before compare detail",
+	];
+}
+
 export function createRemoteKnownHostsSourcePreview(
 	profile?: SftpRemoteProfile,
 ): RemoteKnownHostsSourcePreview {
@@ -726,6 +791,10 @@ function countKnownHostsContentLines(content: string): number {
 
 function countKnownHostsContentBytes(content: string): number {
 	return new TextEncoder().encode(content).length;
+}
+
+function normalizeFingerprintForCompare(fingerprint: string): string {
+	return fingerprint.trim().toLowerCase();
 }
 
 export function createRemoteKnownHostsReadResult(
@@ -982,6 +1051,7 @@ export function formatRemoteHostKeyTrustDecisionPreviewRows(
 export function createRemoteHostKeyCompareDetail(
 	profile?: SftpRemoteProfile,
 	candidatePreview?: RemoteKnownHostsCandidatePreview,
+	evidenceResult?: RemoteHostKeyEvidenceResult,
 ): RemoteHostKeyCompareDetail {
 	const selectedCandidate =
 		profile && candidatePreview && candidatePreview.selected !== "none"
@@ -989,18 +1059,31 @@ export function createRemoteHostKeyCompareDetail(
 					(candidate) => candidate.index === candidatePreview.selected,
 				) ?? candidatePreview.candidates[0])
 			: undefined;
+	const collectedFingerprint =
+		evidenceResult?.status === "provided"
+			? evidenceResult.fingerprint
+			: "sha256:unknown";
+	const match =
+		selectedCandidate && evidenceResult?.status === "provided"
+			? normalizeFingerprintForCompare(collectedFingerprint) ===
+				normalizeFingerprintForCompare(selectedCandidate.fingerprint)
+				? "matched"
+				: "mismatched"
+			: selectedCandidate
+				? "candidate-ready"
+				: "unknown";
 
 	return {
 		id: profile?.id ?? "none",
 		provider: "sftp",
 		target: profile ? formatSftpRoot(profile) : "none",
 		lookup: profile ? `${profile.host}:${profile.port}` : "none",
-		collectedFingerprint: "sha256:unknown",
+		collectedFingerprint,
 		candidateCount: profile ? (candidatePreview?.candidates.length ?? 0) : 0,
 		selectedCandidate: selectedCandidate?.index ?? "none",
 		knownHostsCandidateFingerprint:
 			selectedCandidate?.fingerprint ?? "sha256:unknown",
-		match: selectedCandidate ? "candidate-ready" : "unknown",
+		match,
 		decision: "blocked",
 		confirm: profile
 			? `review host trust ${profile.id}`
@@ -1028,9 +1111,13 @@ export function formatRemoteHostKeyCompareDetailRows(
 		`execution=willImport=${detail.execution.importsTransport} willConnect=${detail.execution.opensSocket} willReadLocal=${detail.execution.readsLocal} willParse=${detail.execution.parsesRows} willScan=${detail.execution.scansHostKey} willTrust=${detail.execution.trustsHost} willMutate=${detail.execution.mutatesRemote}`,
 		detail.id === "none"
 			? "next=select remote profile · no compare detail"
-			: detail.candidateCount > 0
-				? "next=collect host key evidence before trust review compare"
-				: "next=collect evidence and parse known_hosts candidates before compare detail",
+			: detail.match === "matched"
+				? "next=matched fingerprints · trust review remains locked"
+				: detail.match === "mismatched"
+					? "next=fingerprint mismatch · trust review remains locked"
+					: detail.candidateCount > 0
+						? "next=collect host key evidence before trust review compare"
+						: "next=collect evidence and parse known_hosts candidates before compare detail",
 	];
 }
 
@@ -1205,6 +1292,10 @@ export async function formatRemoteProviderStatus(
 		),
 		"",
 		...formatRemoteHostKeyEvidenceRows(createRemoteHostKeyEvidence(profile)),
+		"",
+		...formatRemoteHostKeyEvidenceResultRows(
+			createRemoteHostKeyEvidenceResult(profile),
+		),
 		"",
 		...formatRemoteKnownHostsSourcePreviewRows(
 			createRemoteKnownHostsSourcePreview(profile),
