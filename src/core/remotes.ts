@@ -733,22 +733,24 @@ export function createRemoteKnownHostsReadResult(
 	content?: string,
 ): RemoteKnownHostsReadResult {
 	const hasProvidedContent = typeof content === "string";
+	const hasParserInput = Boolean(profile && hasProvidedContent);
+	const providedContent = content ?? "";
 	return {
 		id: profile?.id ?? "none",
 		provider: "sftp",
 		lookup: profile ? `${profile.host}:${profile.port}` : "none",
-		status: hasProvidedContent ? "provided" : "locked",
+		status: hasParserInput ? "provided" : "locked",
 		source: "local-known-hosts-read-result",
-		path: hasProvidedContent ? "~/.ssh/known_hosts" : "none",
-		bytes: hasProvidedContent ? countKnownHostsContentBytes(content) : 0,
-		lines: hasProvidedContent ? countKnownHostsContentLines(content) : 0,
-		parserInput: hasProvidedContent ? "available" : "missing",
+		path: hasParserInput ? "~/.ssh/known_hosts" : "none",
+		bytes: hasParserInput ? countKnownHostsContentBytes(providedContent) : 0,
+		lines: hasParserInput ? countKnownHostsContentLines(providedContent) : 0,
+		parserInput: hasParserInput ? "available" : "missing",
 		confirm: profile
 			? `read known_hosts ${profile.id}`
 			: "select remote profile",
 		execution: {
 			readsLocal: false,
-			usesProvidedContent: hasProvidedContent,
+			usesProvidedContent: hasParserInput,
 			opensSocket: false,
 			scansHostKey: false,
 			trustsHost: false,
@@ -890,9 +892,10 @@ export function parseRemoteKnownHostsCandidatesFromReadResult(
 	profile?: SftpRemoteProfile,
 	content?: string,
 ): RemoteKnownHostsCandidatePreview {
+	const result = createRemoteKnownHostsReadResult(profile, content);
 	return createRemoteKnownHostsCandidatePreview(
 		profile,
-		content,
+		result.parserInput === "available" ? content : undefined,
 		"local-known-hosts-read-result",
 	);
 }

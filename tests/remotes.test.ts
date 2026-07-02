@@ -861,6 +861,22 @@ describe("remote profiles", () => {
 			match: "matched",
 			trust: "candidate-only",
 		});
+
+		expect(
+			parseRemoteKnownHostsCandidatesFromReadResult(undefined, content),
+		).toMatchObject({
+			id: "none",
+			lookup: "none",
+			status: "not-parsed",
+			source: "local-known-hosts-read-result",
+			candidates: [],
+			selected: "none",
+			match: "unknown",
+			execution: {
+				readsLocal: false,
+				parsesInjectedContent: false,
+			},
+		});
 	});
 
 	test("includes empty remote known_hosts read result in provider status", async () => {
