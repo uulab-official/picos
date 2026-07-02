@@ -281,7 +281,10 @@ export type RemoteKnownHostsCandidatePreview = {
 	provider: "sftp";
 	lookup: string;
 	status: "not-parsed" | "parsed-injected";
-	source: "provided-known-hosts" | "local-known-hosts-read-result";
+	source:
+		| "provided-known-hosts"
+		| "local-known-hosts-read-result"
+		| "provided-known-hosts-paste";
 	candidates: RemoteKnownHostsCandidate[];
 	selected: number | "none";
 	match: "matched" | "unknown";
@@ -299,6 +302,34 @@ export type RemoteKnownHostsCandidatePreview = {
 export type RemoteKnownHostsCandidateSession = Record<
 	string,
 	RemoteKnownHostsCandidatePreview
+>;
+
+export type RemoteKnownHostsPasteReview = {
+	id: string;
+	provider: "sftp";
+	lookup: string;
+	status: "missing" | "parsed-injected";
+	source: "provided-known-hosts-paste";
+	lineCount: number;
+	rawContent: "hidden";
+	candidates: RemoteKnownHostsCandidate[];
+	selected: number | "none";
+	match: "matched" | "unknown";
+	decision: "blocked";
+	confirm: string;
+	execution: {
+		readsLocal: false;
+		parsesInjectedContent: boolean;
+		opensSocket: false;
+		scansHostKey: false;
+		trustsHost: false;
+		mutatesRemote: false;
+	};
+};
+
+export type RemoteKnownHostsPasteReviewSession = Record<
+	string,
+	RemoteKnownHostsPasteReview
 >;
 
 export type RemoteHostKeyTrustDecisionPreview = {
@@ -1063,6 +1094,126 @@ export function recordRemoteKnownHostsCandidateSession(
 		...session,
 		[preview.id]: preview,
 	};
+}
+
+export function createRemoteKnownHostsPasteReview(
+	profile?: SftpRemoteProfile,
+	content?: string,
+	selectedCandidateIndex?: number,
+): RemoteKnownHostsPasteReview {
+	const lookup = profile ? `${profile.host}:${profile.port}` : "none";
+	const hasInjectedContent =
+		profile !== undefined && typeof content === "string";
+	const candidates =
+		profile && hasInjectedContent
+			? parseRemoteKnownHostsCandidates(lookup, content)
+			: [];
+	const selectedCandidate =
+		typeof selectedCandidateIndex === "number" &&
+		candidates.some((candidate) => candidate.index === selectedCandidateIndex)
+			? selectedCandidateIndex
+			: (candidates[0]?.index ?? "none");
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		lookup,
+		status: hasInjectedContent ? "parsed-injected" : "missing",
+		source: "provided-known-hosts-paste",
+		lineCount: hasInjectedContent
+			? countKnownHostsContentLines(content ?? "")
+			: 0,
+		rawContent: "hidden",
+		candidates,
+		selected: selectedCandidate,
+		match: candidates.length > 0 ? "matched" : "unknown",
+		decision: "blocked",
+		confirm: profile
+			? `paste known_hosts ${profile.id}`
+			: "select remote profile",
+		execution: {
+			readsLocal: false,
+			parsesInjectedContent: hasInjectedContent,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function createRemoteKnownHostsCandidatePreviewFromPasteReview(
+	review: RemoteKnownHostsPasteReview,
+): RemoteKnownHostsCandidatePreview {
+	return {
+		id: review.id,
+		provider: review.provider,
+		lookup: review.lookup,
+		status:
+			review.status === "parsed-injected" && review.candidates.length > 0
+				? "parsed-injected"
+				: "not-parsed",
+		source: "provided-known-hosts-paste",
+		candidates: review.candidates,
+		selected: review.selected,
+		match: review.match,
+		decision: review.decision,
+		execution: review.execution,
+	};
+}
+
+export function createRemoteKnownHostsPasteReviewFromSession(
+	profile: SftpRemoteProfile | undefined,
+	session: RemoteKnownHostsPasteReviewSession = {},
+): RemoteKnownHostsPasteReview {
+	return profile
+		? (session[profile.id] ?? createRemoteKnownHostsPasteReview(profile))
+		: createRemoteKnownHostsPasteReview();
+}
+
+export function recordRemoteKnownHostsPasteReviewSession(
+	session: RemoteKnownHostsPasteReviewSession,
+	review: RemoteKnownHostsPasteReview,
+): RemoteKnownHostsPasteReviewSession {
+	if (
+		review.id === "none" ||
+		review.status !== "parsed-injected" ||
+		review.candidates.length === 0 ||
+		review.selected === "none"
+	) {
+		return session;
+	}
+	return {
+		...session,
+		[review.id]: review,
+	};
+}
+
+export function formatRemoteKnownHostsPasteReviewRows(
+	review: RemoteKnownHostsPasteReview = createRemoteKnownHostsPasteReview(),
+): string[] {
+	const rows = [
+		`REMOTE KNOWN_HOSTS PASTE REVIEW ${review.id}`,
+		`lookup=${review.lookup} provider=${review.provider} status=${review.status}`,
+		`source=${review.source} lines=${review.lineCount} candidates=${review.candidates.length} selected=${review.selected} match=${review.match} decision=${review.decision}`,
+		`guards=providedPaste exactConfirm="${review.confirm}" rawContent=${review.rawContent}`,
+	];
+	if (review.candidates.length === 0) {
+		rows.push("no pasted known_hosts candidates for selected lookup");
+	} else {
+		rows.push(
+			...review.candidates.slice(0, 5).map((candidate) => {
+				const marker = candidate.index === review.selected ? ">" : " ";
+				return `${marker} #${candidate.index} line=${candidate.sourceLine} marker=${candidate.marker} host=${candidate.hostPattern} kind=${candidate.hostKind} key=${candidate.keyType} fingerprint=${candidate.fingerprint} trust=${candidate.trust}`;
+			}),
+		);
+	}
+	rows.push(
+		`execution=willReadLocal=${review.execution.readsLocal} parsedInjected=${review.execution.parsesInjectedContent} willConnect=${review.execution.opensSocket} willScan=${review.execution.scansHostKey} willTrust=${review.execution.trustsHost} willMutate=${review.execution.mutatesRemote}`,
+		review.id === "none"
+			? "next=select remote profile · no known_hosts paste review"
+			: "next=review pasted known_hosts candidates before host-key compare",
+	);
+	return rows;
 }
 
 export function parseRemoteKnownHostsCandidatesFromReadResult(

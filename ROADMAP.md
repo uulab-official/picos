@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.293 - Remote Known Hosts Paste Review Buffer
+
+Status: in progress on `codex/picos-v0.4.293-known-hosts-review-buffer`.
+
+Goal: let operators paste multiple known_hosts rows into Remotes, review hidden-content candidate metadata, and feed the selected candidate into live host-key compare detail without local trust-file reads or host trust.
+
+- Core now models a `REMOTE KNOWN_HOSTS PASTE REVIEW` buffer with hidden raw content, line counts, parsed candidate rows, selected candidate, exact confirmation text, and all read/network/scan/trust/mutation flags disabled.
+- Paste review candidates preserve source line, marker, host pattern, key type, SHA256 fingerprint, selected-row marker, and `provided-known-hosts-paste` source.
+- Remotes focus now exposes `P paste` and opens `:remote-known-hosts-paste`; escaped `\n` input is expanded into a multi-row review buffer.
+- Successful paste reviews update both the paste review session and known_hosts candidate session, so `REMOTE HOST KEY COMPARE DETAIL` can immediately show matched or mismatch state when evidence is present.
+- Tests cover multi-row paste parsing, selected candidate forwarding, hidden-content review rows, disabled local read/network/scan/trust/mutation posture, and compare-detail matching.
+- Next: add operator-controlled candidate selection/rotation inside the review buffer before enabling any local known_hosts read.
+
 ## v0.4.292 - Remote Known Hosts Candidate Session Compare
 
 Status: draft PR [#363](https://github.com/uulab-official/picos/pull/363) on `codex/picos-v0.4.292-session-known-hosts-candidate`.
