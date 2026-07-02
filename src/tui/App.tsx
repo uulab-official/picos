@@ -145,6 +145,7 @@ import {
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
 	createRemoteHostKeyTrustDecisionPreview,
+	createRemoteKnownHostsCandidateSelection,
 	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsSourcePreview,
@@ -161,6 +162,7 @@ import {
 	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
+	formatRemoteKnownHostsCandidateSelectionRows,
 	formatRemoteKnownHostsParserPreviewRows,
 	formatRemoteKnownHostsReadPreviewRows,
 	formatRemoteKnownHostsSourcePreviewRows,
@@ -11817,7 +11819,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 74);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 82);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11856,6 +11858,10 @@ function RemotesWorkspace({
 	const hostKeyCompareDetailRows = formatRemoteHostKeyCompareDetailRows(
 		createRemoteHostKeyCompareDetail(selectedProfile),
 	);
+	const knownHostsCandidateSelectionRows =
+		formatRemoteKnownHostsCandidateSelectionRows(
+			createRemoteKnownHostsCandidateSelection(selectedProfile),
+		);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 	const connectPreview = selectedProfile
 		? createRemoteConnectPreview(selectedProfile)
@@ -12157,6 +12163,28 @@ function RemotesWorkspace({
 										row.includes("willReadLocal=false") ||
 										row.includes("willParse=false") ||
 										row.includes("willScan=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">KNOWN_HOSTS CANDIDATE SELECTION</Text>
+				{knownHostsCandidateSelectionRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") ||
+										row.includes("blocked") ||
+										row.includes("unknown") ||
+										row.includes("willSelect=false") ||
+										row.includes("willCompare=false") ||
+										row.includes("willTrust=false")
 									? "yellow"
 									: "gray"
 						}
