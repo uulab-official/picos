@@ -997,15 +997,22 @@ export function formatRemoteHostKeyScanReadinessRows(
 }
 
 export function createRemoteSftpTransportReadiness(
-	options: { packagePresent?: boolean } = {},
+	options: {
+		packagePresent?: boolean;
+		packageReview?: RemoteSftpPackageResolutionReview;
+	} = {},
 ): RemoteSftpTransportReadiness {
-	const installed = options.packagePresent === true;
+	const installed =
+		options.packagePresent === true ||
+		options.packageReview?.status === "found";
+	const injected =
+		options.packagePresent === true || options.packageReview !== undefined;
 	return {
 		dependency: "@uulab/picos-sftp",
 		detector: "package-resolution",
 		status: installed ? "installed" : "missing",
 		blocker: installed ? "none" : "transport-missing",
-		source: installed ? "injected" : "not-run",
+		source: injected ? "injected" : "not-run",
 		execution: {
 			resolvesPackage: false,
 			importsTransport: false,
