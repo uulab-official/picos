@@ -2,7 +2,7 @@
 
 ## v0.4.291 - Remote Host Key Evidence Session
 
-Status: local branch `codex/picos-v0.4.291-host-key-evidence-session`; draft PR pending.
+Status: draft PR [#361](https://github.com/uulab-official/picos/pull/361) on `codex/picos-v0.4.291-host-key-evidence-session`.
 
 Goal: make operator-entered host-key fingerprint evidence visible in the Remotes comparison surface immediately after prompt submission while keeping trust, transport, local trust-file reads, host scans, and mutation disabled.
 

@@ -13,5 +13,5 @@ Make provided host-key fingerprint evidence immediately visible in Remotes compa
 - [x] Update README, CHANGELOG, and ROADMAP for v0.4.291.
 - [x] Run focused tests and static verification.
 - [x] Run full release readiness verification.
-- [ ] Commit, push, and open a draft PR.
+- [x] Commit, push, and open draft PR [#361](https://github.com/uulab-official/picos/pull/361).
 - [ ] Watch GitHub Actions checks and record the result.
