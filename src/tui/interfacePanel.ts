@@ -55,28 +55,52 @@ export function formatInterfaceWorkspaceRows(
 	const header = `SUMMARY interfaces=${summary.interfaces.length} selected=${selected?.name ?? "-"} view=${view}`;
 
 	if (view === "detail") {
-		return [header, ...formatInterfaceDetailRows(summary, selected)].slice(
-			0,
-			visibleRows,
-		);
+		return [
+			header,
+			...formatSelectedInterfaceSummaryRows(summary, selected),
+			...formatInterfaceDetailRows(summary, selected),
+		].slice(0, visibleRows);
 	}
 	if (view === "stats") {
-		return [header, ...formatInterfaceStatsRows(selected)].slice(
-			0,
-			visibleRows,
-		);
+		return [
+			header,
+			...formatSelectedInterfaceSummaryRows(summary, selected),
+			...formatInterfaceStatsRows(selected),
+		].slice(0, visibleRows);
 	}
 	if (view === "platform") {
-		return [header, ...formatInterfacePlatformRows(summary)].slice(
-			0,
-			visibleRows,
-		);
+		return [
+			header,
+			...formatSelectedInterfaceSummaryRows(summary, selected),
+			...formatInterfacePlatformRows(summary),
+		].slice(0, visibleRows);
 	}
 
-	return [header, ...formatInterfaceListRows(summary, selectedIndex)].slice(
-		0,
-		visibleRows,
-	);
+	return [
+		header,
+		...formatSelectedInterfaceSummaryRows(summary, selected),
+		...formatInterfaceListRows(summary, selectedIndex),
+	].slice(0, visibleRows);
+}
+
+export function formatSelectedInterfaceSummaryRows(
+	summary: NetworkSummary,
+	selected: NetworkInterfaceSummary | undefined,
+): string[] {
+	if (!selected) {
+		return ["SELECTED none"];
+	}
+	const group = getSelectedInterfaceGroup(summary.networkGroups, selected.name);
+	const primary =
+		summary.primaryInterface?.name === selected.name ? "yes" : "no";
+	const status = selected.status === "connected" ? "up" : "down";
+	return [
+		`SELECTED ${selected.name} ${status} ${selected.kind} group=${group?.label ?? "-"} primary=${primary}`,
+		`ADDR ipv4=${selected.ipv4Cidr ?? selected.ipv4 ?? "-"} ipv6=${selected.ipv6Cidr ?? selected.ipv6 ?? "-"} mac=${selected.mac ?? "-"} netmask=${selected.netmask ?? "-"}`,
+		`LINK mtu=${selected.mtu ?? "-"} rx=${formatTraffic(selected.rxBytes, selected.rxPackets)} tx=${formatTraffic(selected.txBytes, selected.txPackets)}`,
+		`ROUTE gateway=${summary.gateway ?? "-"} dns=${formatDnsCompact(summary.dnsServers)} public=${summary.publicIp ?? "-"}`,
+		`SOURCE os=${summary.platform} stats=${platformStatsSource(summary.platform)} actions=R refresh Tab panes K locked controls`,
+	];
 }
 
 function getSelectedIndex(
@@ -153,6 +177,13 @@ function formatNetworkGroupRows(group: NetworkGroupSummary): string[] {
 	];
 }
 
+function getSelectedInterfaceGroup(
+	groups: NetworkGroupSummary[],
+	interfaceName: string,
+): NetworkGroupSummary | undefined {
+	return groups.find((group) => group.interfaces.includes(interfaceName));
+}
+
 function formatGroupSummary(groups: NetworkGroupSummary[]): string {
 	if (groups.length === 0) {
 		return "-";
@@ -187,6 +218,14 @@ function formatCompactBytes(value?: number): string {
 		amount /= 1000;
 	}
 	return `${amount.toFixed(unit === "B" ? 0 : 1)}${unit}`;
+}
+
+function formatTraffic(bytes?: number, packets?: number): string {
+	return `${formatCompactBytes(bytes)}/${packets ?? "-"}pk`;
+}
+
+function formatDnsCompact(servers: string[]): string {
+	return servers.join(",") || "-";
 }
 
 function clip(value: string, width: number): string {

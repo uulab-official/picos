@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.253 - Interface Parity Selected Summary
+
+Status: draft PR [#315](https://github.com/uulab-official/picos/pull/315) on `codex/picos-v0.4.253-interface-parity-selected-summary`.
+
+Goal: make the Interfaces workspace scan more like lazyifconfig by keeping selected adapter context visible across panes.
+
+- Interfaces now prepend a selected-interface summary strip to list, detail, stats, and platform panes.
+- The strip shows selected adapter name, up/down state, kind, network group, primary marker, IPv4/IPv6 CIDR, MAC, netmask, MTU, RX/TX bytes and packets, gateway, DNS, public IP, platform stats source, and safe action hints.
+- The formatter keeps visible-row clipping intact, so compact terminals still prioritize the selected adapter context before detailed tables.
+- Tests cover the pure selected summary formatter plus list/detail/stats/platform workspace rows.
+- Next: add interface raw-output/source panes and adapter-owned locked previews for interface controls so picos keeps closing lazyifconfig parity gaps without unsafe mutation.
+
 ## v0.4.252 - Config Recovery Tools Remotes Prompts
 
 Status: draft PR [#314](https://github.com/uulab-official/picos/pull/314) on `codex/picos-v0.4.252-config-recovery-tools-remotes-prompts`.
