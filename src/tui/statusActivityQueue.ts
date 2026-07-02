@@ -859,6 +859,16 @@ function formatFreshStatusActivityResultJumpRows(
 function parseProcessControlAuditQuery(
 	query: string,
 ): { action: string; pid?: string; status?: string } | undefined {
+	const evidenceMatch = query.match(
+		/(?:^| )(?:palette process evidence audit|status evidence process audit) action=(\S+)(?: .*?)?(?:target="?pid:([^" ]+)"?|status=(\S+))/,
+	);
+	if (evidenceMatch) {
+		return {
+			action: evidenceMatch[1] ?? "unknown",
+			...(evidenceMatch[2] ? { pid: evidenceMatch[2] } : {}),
+			...(evidenceMatch[3] ? { status: evidenceMatch[3] } : {}),
+		};
+	}
 	const match = query.match(
 		/(?:^| )palette process control audit action=(\S+)(?: .*?)?(?:pid=(\S+)|status=(\S+))/,
 	);
@@ -1266,6 +1276,12 @@ export function createStatusActivityResultTimelineSearch(
 		return createToolsEvidenceSearchResultTimelineSearch(result);
 	}
 	if (
+		result.source === "evidence" &&
+		result.action === "process-control-evidence"
+	) {
+		return createProcessControlEvidenceResultTimelineSearch(result);
+	}
+	if (
 		result.source === "timeline" &&
 		result.action === "process-control-preview"
 	) {
@@ -1306,6 +1322,47 @@ function createProcessControlPreviewResultTimelineSearch(
 		query,
 		message: `status activity result timeline search palette process control${pid ? ` pid=${pid}` : " unavailable"}`,
 	};
+}
+
+function createProcessControlEvidenceResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^(palette process evidence|status evidence process) (select|open|search)(?:\s|$)/,
+	);
+	if (!match) {
+		return undefined;
+	}
+	const [, prefix, action] = match;
+	const auditPrefix =
+		prefix === "status evidence process"
+			? "status evidence process audit"
+			: "palette process evidence audit";
+	const messagePrefix =
+		prefix === "status evidence process"
+			? "status process evidence"
+			: "palette process evidence";
+	const target = getProcessControlEvidenceResultDetailTarget(result.detail);
+	if (target?.startsWith("pid:")) {
+		const pid = target.slice("pid:".length);
+		return {
+			filter: "audit",
+			query: `${auditPrefix} action=${action} target="pid:${pid}"`,
+			message: `status activity result timeline search ${messagePrefix} pid=${pid}`,
+		};
+	}
+	return {
+		filter: "audit",
+		query: `${auditPrefix} action=${action} status=unavailable`,
+		message: `status activity result timeline search ${messagePrefix} unavailable`,
+	};
+}
+
+function getProcessControlEvidenceResultDetailTarget(
+	detail: string | undefined,
+): string | undefined {
+	const match = detail?.match(/(?:^| )target=(\S+)/);
+	return match?.[1];
 }
 
 function createToolsEvidenceSearchResultTimelineSearch(

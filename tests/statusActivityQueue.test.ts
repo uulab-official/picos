@@ -2274,6 +2274,81 @@ describe("Status activity queue", () => {
 		);
 	});
 
+	test("creates reusable Timeline jumps from Status Evidence process search results", () => {
+		const processEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"status activity result audit jump palette process control audit action=preview pid=12345",
+			scope: "selected" as const,
+		};
+		const result = createProcessControlEvidenceStatusActivityResult(
+			"search",
+			processEvidence,
+			{
+				selectedIndex: 1,
+				total: 3,
+			},
+		);
+
+		const jump = createStatusActivityResultTimelineSearch([result], 0);
+
+		expect(jump).toEqual({
+			filter: "audit",
+			query: 'status evidence process audit action=search target="pid:12345"',
+			message:
+				"status activity result timeline search status process evidence pid=12345",
+		});
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				"fresh",
+				0,
+				undefined,
+				jump,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"process control target=pid:12345 action=search I=fresh",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
+		]);
+		const intent = createStatusActivityResultTimelineSearchIntent(jump);
+		if (!intent) {
+			throw new Error("expected status evidence process audit jump intent");
+		}
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[intent],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				intent,
+				1,
+				"replay",
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=1 selected=1/1",
+			'audit jumps count=1 target=process-control pid:12345 latest=status evidence process audit action=search target="pid:12345" lines=3 I=replay replay=selected valid',
+			'> status activity result audit jump status evidence process audit action=search target="pid:12345" row=1 expanded=false lines=3 preview=status evidence process audit action=search target="pid:12345"',
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+		]);
+	});
+
 	test("creates status activity results for palette-triggered status result jumps", () => {
 		const jump = createStatusActivityResultTimelineSearch(
 			[
