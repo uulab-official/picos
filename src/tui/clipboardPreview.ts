@@ -1,5 +1,6 @@
 export type ClipboardPreviewSource =
 	| "connection"
+	| "file-path"
 	| "interface-source"
 	| "port"
 	| "process-resource"
