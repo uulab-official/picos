@@ -4,6 +4,7 @@ import {
 	createStatusEvidenceEnterPlan,
 	createStatusEvidenceItemMovePlan,
 	createStatusEvidenceNumberJumpPlan,
+	createStatusEvidenceSearchPlan,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
 	formatStatusEvidenceIndexRows,
@@ -139,7 +140,7 @@ describe("Status evidence detail rows", () => {
 			"  controls=enter=open open K archive D/a retention=-",
 			"  process selected events=3 query=process control evidence: kill pid=42 node source=Config>Logs scope=logs.profiles",
 			"  path=/tmp/picos/audit/picos-audit-process-selected.log",
-			"  controls=enter=open open F archive=- retention=-",
+			"  controls=enter=open open F archive=- retention=- search=G",
 		]);
 	});
 
@@ -581,7 +582,7 @@ describe("Status evidence detail rows", () => {
 			),
 		).toEqual([
 			"COMMAND STRIP active=process",
-			"> enter=open/F archive=- retention=- item=[/]",
+			"> enter=open/F archive=- retention=- search=G item=[/]",
 			"target=process selected events=3 query=process control evidence: kill pid=42 node",
 		]);
 	});
@@ -609,7 +610,7 @@ describe("Status evidence detail rows", () => {
 			formatStatusEvidenceCommandStripRows(multiIndexes, selection, "audit"),
 		).toEqual([
 			"COMMAND STRIP active=audit",
-			"> enter=open/W archive=a/Z retention=- item=[/]",
+			"> enter=open/W archive=a/Z retention=- search=- item=[/]",
 			"target=audit selected events=1 query=control",
 		]);
 	});
@@ -640,9 +641,26 @@ describe("Status evidence detail rows", () => {
 			),
 		).toEqual([
 			"COMMAND STRIP active=audit-archive",
-			"> enter=open/J archive=- retention=m/M item=-",
+			"> enter=open/J archive=- retention=m/M search=- item=-",
 			"target=audit-archive all events=7",
 		]);
+	});
+
+	test("creates a timeline search plan for active process evidence", () => {
+		expect(
+			createStatusEvidenceSearchPlan(populatedIndexes, selection, "process"),
+		).toEqual({
+			kind: "process",
+			action: "search-process-evidence",
+			shortcut: "G",
+			label:
+				"process selected events=3 query=process control evidence: kill pid=42 node",
+			path: "/tmp/picos/audit/picos-audit-process-selected.log",
+			query: "process control evidence: kill pid=42 node",
+		});
+		expect(
+			createStatusEvidenceSearchPlan(populatedIndexes, selection, "audit"),
+		).toBeUndefined();
 	});
 
 	test("formats indexed evidence family jump rows", () => {
@@ -681,11 +699,11 @@ describe("Status evidence detail rows", () => {
 			formatStatusEvidenceTableRows(multiIndexes, selection, "audit"),
 		).toEqual([
 			"STATUS EVIDENCE TABLE 1..5 active=audit",
-			" 1 handoff        item=1/1 open=enter/O archive=a/A retention=- itemMove=- handoff route routes/table",
-			">2 audit          item=1/2 open=enter/W archive=a/Z retention=- itemMove=[/] audit selected events=1 query=control",
-			" 3 cleanup        item=1/1 open=enter/V archive=a/X retention=- itemMove=- cleanup selected entries=2",
-			" 4 tools          item=1/1 open=enter/K archive=a/D retention=- itemMove=- tools selected runs=1",
-			" 5 process        item=1/2 open=enter/F archive=- retention=- itemMove=[/] process selected events=3 query=process control evidence: kill pid=42 node",
+			" 1 handoff        item=1/1 open=enter/O archive=a/A retention=- search=- itemMove=- handoff route routes/table",
+			">2 audit          item=1/2 open=enter/W archive=a/Z retention=- search=- itemMove=[/] audit selected events=1 query=control",
+			" 3 cleanup        item=1/1 open=enter/V archive=a/X retention=- search=- itemMove=- cleanup selected entries=2",
+			" 4 tools          item=1/1 open=enter/K archive=a/D retention=- search=- itemMove=- tools selected runs=1",
+			" 5 process        item=1/2 open=enter/F archive=- retention=- search=G itemMove=[/] process selected events=3 query=process control evidence: kill pid=42 node",
 		]);
 	});
 
@@ -699,6 +717,13 @@ describe("Status evidence detail rows", () => {
 			"path=/tmp/picos/audit/picos-audit-selected.log",
 			"controls=enter=open open W archive Z/a retention=-",
 		]);
+		expect(
+			formatStatusEvidenceTableDetailRows(
+				populatedIndexes,
+				selection,
+				"process",
+			),
+		).toContain("controls=enter=open open F archive=- retention=- search=G");
 	});
 
 	test("formats compact evidence summary rows for remaining status browsers", () => {
@@ -748,14 +773,14 @@ describe("Status evidence detail rows", () => {
 			formatStatusEvidenceSummaryRows(archivedIndexes, selection, "audit"),
 		).toEqual([
 			"STATUS EVIDENCE SUMMARY active=audit families=8 files=9",
-			"  handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
-			"> audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
-			"  audit-archive   selected=1/1 open=enter/J archive=- retention=m/M move=-",
-			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- move=-",
-			"  cleanup-archive selected=1/1 open=enter/{ archive=- retention=- move=-",
-			"  tools           selected=1/1 open=enter/K archive=a/D retention=- move=-",
-			"  tools-archive   selected=1/1 open=enter/K archive=- retention=m/M move=-",
-			"  process         selected=1/2 open=enter/F archive=- retention=- move=[/]",
+			"  handoff         selected=1/1 open=enter/O archive=a/A retention=- search=- move=-",
+			"> audit           selected=1/1 open=enter/W archive=a/Z retention=- search=- move=-",
+			"  audit-archive   selected=1/1 open=enter/J archive=- retention=m/M search=- move=-",
+			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- search=- move=-",
+			"  cleanup-archive selected=1/1 open=enter/{ archive=- retention=- search=- move=-",
+			"  tools           selected=1/1 open=enter/K archive=a/D retention=- search=- move=-",
+			"  tools-archive   selected=1/1 open=enter/K archive=- retention=m/M search=- move=-",
+			"  process         selected=1/2 open=enter/F archive=- retention=- search=G move=[/]",
 		]);
 	});
 
@@ -768,11 +793,11 @@ describe("Status evidence detail rows", () => {
 			),
 		).toEqual([
 			"STATUS EVIDENCE SUMMARY active=handoff families=5 files=6",
-			"> handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
-			"  audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
-			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- move=-",
-			"  tools           selected=1/1 open=enter/K archive=a/D retention=- move=-",
-			"  process         selected=1/2 open=enter/F archive=- retention=- move=[/]",
+			"> handoff         selected=1/1 open=enter/O archive=a/A retention=- search=- move=-",
+			"  audit           selected=1/1 open=enter/W archive=a/Z retention=- search=- move=-",
+			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- search=- move=-",
+			"  tools           selected=1/1 open=enter/K archive=a/D retention=- search=- move=-",
+			"  process         selected=1/2 open=enter/F archive=- retention=- search=G move=[/]",
 		]);
 	});
 

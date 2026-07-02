@@ -479,6 +479,7 @@ import {
 	createStatusEvidenceEnterPlan,
 	createStatusEvidenceItemMovePlan,
 	createStatusEvidenceNumberJumpPlan,
+	createStatusEvidenceSearchPlan,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceLegacyBridgeRows,
 	formatStatusEvidenceSummaryRows,
@@ -6717,6 +6718,45 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "G") {
+			if (selectedStatusEvidenceKind === "process") {
+				const evidenceSearchPlan = createStatusEvidenceSearchPlan(
+					{
+						handoffIndex,
+						auditExportIndex,
+						auditExportArchiveIndex,
+						cleanupExportIndex,
+						cleanupExportArchiveIndex,
+						toolExportIndex,
+						toolExportArchiveIndex,
+						processControlAuditExports,
+					},
+					{
+						selectedHandoffIndex,
+						selectedAuditExportIndex,
+						selectedAuditExportArchiveIndex,
+						selectedCleanupExportIndex,
+						selectedCleanupExportArchiveIndex,
+						selectedToolExportIndex,
+						selectedToolExportArchiveIndex,
+						selectedProcessControlAuditExportIndex,
+						toolExportFilter,
+						toolExportArchiveFilter,
+						toolExportQuery,
+						toolExportArchiveQuery,
+					},
+					selectedStatusEvidenceKind,
+				);
+				if (!evidenceSearchPlan) {
+					log("warn", "no process evidence search target");
+					return;
+				}
+				jumpSelectedProcessControlEvidenceSearch();
+				log(
+					"info",
+					`status evidence search ${evidenceSearchPlan.shortcut} ${evidenceSearchPlan.label}`,
+				);
+				return;
+			}
 			const jump = createStatusActivityCopyIntentEvidenceFocusTimelineSearch(
 				lastStatusActivityEvidenceFocusPlan,
 			);
@@ -13137,7 +13177,7 @@ function StatusWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					STATUS EVIDENCE · tab/1..9 family · [/] item · q tools filter · ?
-					tools search · enter/a/m action
+					tools search · G process search · enter/a/m action
 				</Text>
 				{statusEvidenceSummaryRows.map((row) => (
 					<Text

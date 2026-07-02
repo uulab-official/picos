@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.233 - Process Evidence Search
+
+Status: draft PR [#295](https://github.com/uulab-official/picos/pull/295) on `codex/picos-v0.4.233-process-evidence-search`.
+
+Goal: let recovered process-control evidence jump into Timeline audit search directly from the Status Evidence family row.
+
+- Status Evidence now exposes `search=G` for the `process` family in the compact summary band, dense table, active command strip, and detail controls.
+- Non-process evidence families explicitly render `search=-`, so the current target's available actions remain visible in the same OS-console row.
+- Status `G` now routes to process evidence Timeline audit search when the active Status Evidence family is `process`, while preserving the existing Status Activity Evidence focus search for other families.
+- The pure Status Evidence model now has a `createStatusEvidenceSearchPlan()` helper for process evidence search affordances.
+- Tests cover process search plan creation, command strip/table/detail/summary rendering, and non-process search unavailability.
+- Next: make the Status Evidence process search action append its own Status Activity result row and searchable audit message, matching the command palette process evidence search trail.
+
 ## v0.4.232 - Process Evidence Family
 
 Status: draft PR [#294](https://github.com/uulab-official/picos/pull/294) on `codex/picos-v0.4.232-process-evidence-family`.
