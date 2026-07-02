@@ -81,6 +81,8 @@ export type StatusEvidenceSecondaryAction =
 	| "preview-audit-retention"
 	| "preview-tools-retention";
 
+export type StatusEvidenceSearchAction = "search-process-evidence";
+
 export type StatusEvidenceEnterPlan = {
 	kind: StatusEvidenceKind;
 	action: StatusEvidenceEnterAction;
@@ -95,6 +97,15 @@ export type StatusEvidenceActionPlan = {
 	shortcut: string;
 	label: string;
 	path: string;
+};
+
+export type StatusEvidenceSearchPlan = {
+	kind: StatusEvidenceKind;
+	action: StatusEvidenceSearchAction;
+	shortcut: string;
+	label: string;
+	path: string;
+	query: string;
 };
 
 export type StatusEvidenceNumberJumpPlan = {
@@ -276,6 +287,7 @@ export function formatStatusEvidenceTableRows(
 				entry.kind,
 				"retention",
 			);
+			const searchAction = getStatusEvidenceSearchAction(entry.kind);
 			const itemMovement = family.entries.length > 1 ? "[/]" : "-";
 			const cursor = entry.kind === activeEntry?.kind ? ">" : " ";
 			const shortcut = String(index + 1);
@@ -287,7 +299,7 @@ export function formatStatusEvidenceTableRows(
 				archiveAction ? `a/${archiveAction.shortcut}` : "-"
 			} retention=${
 				retentionAction ? `m/${retentionAction.shortcut}` : "-"
-			} itemMove=${itemMovement} ${entry.label}`;
+			} search=${searchAction?.shortcut ?? "-"} itemMove=${itemMovement} ${entry.label}`;
 		}),
 	];
 }
@@ -346,6 +358,7 @@ export function formatStatusEvidenceCommandStripRows(
 		activeEntry.kind,
 		"retention",
 	);
+	const searchAction = getStatusEvidenceSearchAction(activeEntry.kind);
 	const itemMovement =
 		collectStatusEvidenceFamilyEntries(indexes, selection, activeEntry.kind)
 			.entries.length > 1
@@ -361,7 +374,7 @@ export function formatStatusEvidenceCommandStripRows(
 			retentionAction
 				? formatCommandStripAction("m", retentionAction.shortcut)
 				: "-"
-		} item=${itemMovement}`,
+		} search=${searchAction?.shortcut ?? "-"} item=${itemMovement}`,
 		`target=${activeEntry.label}`,
 	];
 }
@@ -459,6 +472,36 @@ export function createStatusEvidenceActionPlan(
 		shortcut: action.shortcut,
 		label: activeEntry.label,
 		path: activeEntry.path,
+	};
+}
+
+export function createStatusEvidenceSearchPlan(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	activeKind: StatusEvidenceKind,
+): StatusEvidenceSearchPlan | undefined {
+	const activeEntry = getActiveStatusEvidenceEntry(
+		collectStatusEvidenceEntries(indexes, selection),
+		activeKind,
+	);
+	if (activeEntry?.kind !== "process") {
+		return undefined;
+	}
+	const action = getStatusEvidenceSearchAction(activeEntry.kind);
+	const exportPlan = getSelectedProcessControlAuditExport(
+		getProcessControlAuditExports(indexes),
+		getSelectedProcessControlAuditExportIndex(selection),
+	);
+	if (!action || !exportPlan?.query) {
+		return undefined;
+	}
+	return {
+		kind: activeEntry.kind,
+		action: action.action,
+		shortcut: action.shortcut,
+		label: activeEntry.label,
+		path: activeEntry.path,
+		query: exportPlan.query,
 	};
 }
 
@@ -703,6 +746,7 @@ function createStatusEvidenceSummaryRow(
 	const enterAction = getStatusEvidenceEnterAction(kind);
 	const archiveAction = getStatusEvidenceSecondaryAction(kind, "archive");
 	const retentionAction = getStatusEvidenceSecondaryAction(kind, "retention");
+	const searchAction = getStatusEvidenceSearchAction(kind);
 	const cursor = kind === activeKind ? ">" : " ";
 	const movement = family.entries.length > 1 ? "[/]" : "-";
 	return `${cursor} ${kind.padEnd(15)} selected=${selectedIndex + 1}/${
@@ -711,7 +755,7 @@ function createStatusEvidenceSummaryRow(
 		archiveAction ? `a/${archiveAction.shortcut}` : "-"
 	} retention=${
 		retentionAction ? `m/${retentionAction.shortcut}` : "-"
-	} move=${movement}`;
+	} search=${searchAction?.shortcut ?? "-"} move=${movement}`;
 }
 
 function createStatusEvidenceLegacyBridgeRow(
@@ -890,7 +934,7 @@ function formatProcessEvidence(
 		label: `process ${scope} events=${item.eventCount}${item.query ? ` query=${item.query}` : ""}`,
 		path: item.path,
 		origin: item.origin,
-		controls: "enter=open open F archive=- retention=-",
+		controls: "enter=open open F archive=- retention=- search=G",
 	};
 }
 
@@ -1041,4 +1085,16 @@ function getStatusEvidenceSecondaryAction(
 		case "process":
 			return undefined;
 	}
+}
+
+function getStatusEvidenceSearchAction(kind: StatusEvidenceKind):
+	| {
+			action: StatusEvidenceSearchAction;
+			shortcut: string;
+	  }
+	| undefined {
+	if (kind !== "process") {
+		return undefined;
+	}
+	return { action: "search-process-evidence", shortcut: "G" };
 }
