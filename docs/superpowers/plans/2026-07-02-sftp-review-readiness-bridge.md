@@ -57,6 +57,8 @@ Expected: PASS.
 
 Result: PASS on 2026-07-02 with `bun run verify` (`651 pass`, `0 fail`, plus typecheck/build/smoke), `bun run release:check`, and `git diff --check`.
 
-- [ ] **Step 3: Commit, push, and open draft PR**
+- [x] **Step 3: Commit, push, and open draft PR**
 
 Push `codex/picos-v0.4.296-sftp-review-readiness-bridge`, open a draft PR stacked on `codex/picos-v0.4.295-sftp-package-resolution-review`, then update ROADMAP and this plan with the PR link.
+
+Result: Draft PR [#369](https://github.com/uulab-official/picos/pull/369) opened on 2026-07-02, stacked on `codex/picos-v0.4.295-sftp-package-resolution-review`.

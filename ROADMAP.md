@@ -2,7 +2,7 @@
 
 ## v0.4.296 - Remote SFTP Review Readiness Bridge
 
-Status: in progress on `codex/picos-v0.4.296-sftp-review-readiness-bridge`.
+Status: draft PR [#369](https://github.com/uulab-official/picos/pull/369) on `codex/picos-v0.4.296-sftp-review-readiness-bridge`.
 
 Goal: let injected found optional SFTP package review metadata satisfy the transport readiness prerequisite while keeping package resolver execution, package reads, transport imports, sockets, sessions, host trust, `known_hosts` writes, and mutation disabled.
 
