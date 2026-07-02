@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remote connect confirmations now append Status Activity result/history rows and reusable Timeline audit-search jumps for confirmed-blocked or rejected `:remote-connect` submissions, keeping SFTP connection intent recoverable without opening a socket.
 - Remotes workspace and `picos remote <id>` now show `REMOTE CONNECT PREVIEW` rows for future SFTP connects, and Remotes focus `c` opens a locked `:remote-connect` exact-confirm prompt that records blocked audit rows without opening a socket.
 - Remotes workspace and `picos remote <id>` now show `REMOTE ADAPTER BOUNDARY` rows for the future SFTP transport, including dependency status, target URI, auth/key posture, unverified host key state, planned read capability, locked writes/destructive actions, and blocked network confirmation.
 - Remotes profile staging now also appends a Status Activity result/history row with host-review target details and a Timeline jump back to the matching `remote host review audit`.

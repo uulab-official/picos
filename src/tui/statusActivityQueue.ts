@@ -6,6 +6,7 @@ import {
 	writeConsoleAuditExport,
 } from "../core/auditLog";
 import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
+import type { RemoteConnectConfirmation } from "../core/remotes";
 import type { SftpRemoteProfile, SupportedPlatform } from "../core/types";
 import {
 	type ClipboardPreview,
@@ -59,6 +60,7 @@ export type StatusActivityEnterAction =
 	| "process-control-preview"
 	| "process-control-evidence"
 	| "remote-host-review"
+	| "remote-connect"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -501,6 +503,25 @@ export function createRemoteHostReviewStatusActivityResult(
 			"writes=locked",
 			"network=not-opened",
 			`confirm="connect remote ${profile.id}"`,
+		].join(" "),
+	};
+}
+
+export function createRemoteConnectStatusActivityResult(
+	confirmation: RemoteConnectConfirmation,
+): StatusActivityResult {
+	const { preview } = confirmation;
+	return {
+		source: "timeline",
+		action: "remote-connect",
+		message: `remote connect ${confirmation.status} ${preview.id} ${preview.host}:${preview.port}`,
+		detail: [
+			`target="${preview.target}"`,
+			`dependency=${preview.dependency}`,
+			`reason=${preview.reason}`,
+			"network=not-opened",
+			"willExecute=false",
+			`confirm="${preview.confirm}"`,
 		].join(" "),
 	};
 }
@@ -1401,6 +1422,9 @@ export function createStatusActivityResultTimelineSearch(
 	if (result.source === "timeline" && result.action === "remote-host-review") {
 		return createRemoteHostReviewResultTimelineSearch(result);
 	}
+	if (result.source === "timeline" && result.action === "remote-connect") {
+		return createRemoteConnectResultTimelineSearch(result);
+	}
 	if (
 		result.source !== "evidence" ||
 		result.action !== "timeline-evidence-trail"
@@ -1418,6 +1442,24 @@ export function createStatusActivityResultTimelineSearch(
 		filter: "audit",
 		query: `action=source source=${sourceFilter} visible=${visible}`,
 		message: `status activity result timeline search palette source ${sourceFilter} visible=${visible}`,
+	};
+}
+
+function createRemoteConnectResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^remote connect (confirmed-blocked|rejected) ([A-Za-z0-9._-]{1,64}) /,
+	);
+	const status = match?.[1];
+	const id = match?.[2];
+	if (!id || !status) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: `remote connect audit id=${id} status=${status}`,
+		message: `status activity result timeline search remote connect ${id} ${status}`,
 	};
 }
 

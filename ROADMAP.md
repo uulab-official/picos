@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.274 - Remote Connect Activity
+
+Status: draft PR [#336](https://github.com/uulab-official/picos/pull/336) on `codex/picos-v0.4.274-remote-connect-activity`.
+
+Goal: make locked remote connect confirmation attempts visible from Status Activity and recoverable through Timeline audit search.
+
+- Remote connect confirmations now create `remote-connect` Status Activity results for confirmed-blocked and rejected attempts.
+- Result rows include target URI, dependency, blocked reason, no-network posture, `willExecute=false`, and exact confirmation phrase.
+- Status Activity result history can jump back to `remote connect audit id=<profile> status=<status>` in Timeline.
+- Remotes `:remote-connect` submissions record the result immediately after the audit log, without importing transport or opening a socket.
+- Tests cover Status Activity result rows, history rows, Timeline jump creation, and Timeline audit search visibility.
+- Next: add a reusable Remotes status shelf for recent remote connect and stage attempts before evaluating read-only SFTP transport.
+
 ## v0.4.273 - Remote Connect Preview
 
 Status: draft PR [#335](https://github.com/uulab-official/picos/pull/335) on `codex/picos-v0.4.273-remote-connect-preview`.

@@ -422,6 +422,7 @@ import {
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
+	createRemoteConnectStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
@@ -3933,8 +3934,17 @@ export function App(): React.ReactElement {
 			commandLine.value,
 		);
 		log("warn", formatRemoteConnectConfirmationAuditMessage(confirmation));
+		recordStatusActivityResult(
+			createRemoteConnectStatusActivityResult(confirmation),
+		);
 		log("warn", confirmation.message);
-	}, [commandLine.value, log, remoteProfiles, selectedRemoteIndex]);
+	}, [
+		commandLine.value,
+		log,
+		recordStatusActivityResult,
+		remoteProfiles,
+		selectedRemoteIndex,
+	]);
 
 	const inspectSelectedEndpointProcess = useCallback(async () => {
 		const request =
