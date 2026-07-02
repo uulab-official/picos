@@ -6913,6 +6913,7 @@ export function App(): React.ReactElement {
 					cleanupExportArchiveIndex,
 					toolExportIndex,
 					toolExportArchiveIndex,
+					processControlAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -6922,6 +6923,7 @@ export function App(): React.ReactElement {
 					selectedCleanupExportArchiveIndex,
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
+					selectedProcessControlAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -6977,6 +6979,7 @@ export function App(): React.ReactElement {
 					cleanupExportArchiveIndex,
 					toolExportIndex,
 					toolExportArchiveIndex,
+					processControlAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -6986,6 +6989,7 @@ export function App(): React.ReactElement {
 					selectedCleanupExportArchiveIndex,
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
+					selectedProcessControlAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -7023,6 +7027,11 @@ export function App(): React.ReactElement {
 				case "tools-archive":
 					setSelectedToolExportArchiveIndex(evidenceMovePlan.selectedIndex);
 					break;
+				case "process":
+					setSelectedProcessControlAuditExportIndex(
+						evidenceMovePlan.selectedIndex,
+					);
+					break;
 			}
 			log(
 				"info",
@@ -7039,7 +7048,8 @@ export function App(): React.ReactElement {
 				cleanupExportIndex.items.length +
 				cleanupExportArchiveIndex.items.length +
 				toolExportIndex.items.length +
-				toolExportArchiveIndex.items.length;
+				toolExportArchiveIndex.items.length +
+				processControlAuditExports.length;
 			if (evidenceCount === 0) {
 				log("warn", "no status evidence indexed");
 				return;
@@ -7054,6 +7064,7 @@ export function App(): React.ReactElement {
 						cleanupExportArchiveIndex,
 						toolExportIndex,
 						toolExportArchiveIndex,
+						processControlAuditExports,
 					},
 					current,
 					"next",
@@ -7238,6 +7249,7 @@ export function App(): React.ReactElement {
 					cleanupExportArchiveIndex,
 					toolExportIndex,
 					toolExportArchiveIndex,
+					processControlAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -7247,6 +7259,7 @@ export function App(): React.ReactElement {
 					selectedCleanupExportArchiveIndex,
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
+					selectedProcessControlAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -7273,6 +7286,9 @@ export function App(): React.ReactElement {
 						break;
 					case "open-tools-archive":
 						openSelectedToolExportArchiveFile();
+						break;
+					case "open-process-evidence":
+						openSelectedProcessControlEvidenceExport();
 						break;
 					case "select-cleanup-archive":
 						log(
@@ -7326,6 +7342,7 @@ export function App(): React.ReactElement {
 					cleanupExportArchiveIndex,
 					toolExportIndex,
 					toolExportArchiveIndex,
+					processControlAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -7335,6 +7352,7 @@ export function App(): React.ReactElement {
 					selectedCleanupExportArchiveIndex,
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
+					selectedProcessControlAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -7384,6 +7402,7 @@ export function App(): React.ReactElement {
 					cleanupExportArchiveIndex,
 					toolExportIndex,
 					toolExportArchiveIndex,
+					processControlAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -7393,6 +7412,7 @@ export function App(): React.ReactElement {
 					selectedCleanupExportArchiveIndex,
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
+					selectedProcessControlAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -12799,6 +12819,7 @@ function StatusWorkspace({
 			cleanupExportArchiveIndex,
 			toolExportIndex,
 			toolExportArchiveIndex,
+			processControlAuditExports,
 		},
 		{
 			selectedHandoffIndex,
@@ -12808,6 +12829,7 @@ function StatusWorkspace({
 			selectedCleanupExportArchiveIndex,
 			selectedToolExportIndex,
 			selectedToolExportArchiveIndex,
+			selectedProcessControlAuditExportIndex,
 			toolExportFilter,
 			toolExportArchiveFilter,
 			toolExportQuery,
@@ -12828,7 +12850,8 @@ function StatusWorkspace({
 		cleanupExportIndex.items.length > 0 ||
 		cleanupExportArchiveIndex.items.length > 0 ||
 		toolExportIndex.items.length > 0 ||
-		toolExportArchiveIndex.items.length > 0
+		toolExportArchiveIndex.items.length > 0 ||
+		processControlAuditExports.length > 0
 			? statusEvidenceSummaryRows
 			: [];
 	const statusActivityCopyPreview =
@@ -13141,6 +13164,7 @@ function StatusWorkspace({
 						cleanupExportArchiveIndex,
 						toolExportIndex,
 						toolExportArchiveIndex,
+						processControlAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -13150,6 +13174,7 @@ function StatusWorkspace({
 						selectedCleanupExportArchiveIndex,
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
+						selectedProcessControlAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -13179,6 +13204,7 @@ function StatusWorkspace({
 						cleanupExportArchiveIndex,
 						toolExportIndex,
 						toolExportArchiveIndex,
+						processControlAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -13188,6 +13214,7 @@ function StatusWorkspace({
 						selectedCleanupExportArchiveIndex,
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
+						selectedProcessControlAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -13219,6 +13246,7 @@ function StatusWorkspace({
 						cleanupExportArchiveIndex,
 						toolExportIndex,
 						toolExportArchiveIndex,
+						processControlAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -13228,6 +13256,7 @@ function StatusWorkspace({
 						selectedCleanupExportArchiveIndex,
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
+						selectedProcessControlAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -13264,6 +13293,7 @@ function StatusWorkspace({
 						cleanupExportArchiveIndex,
 						toolExportIndex,
 						toolExportArchiveIndex,
+						processControlAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -13273,6 +13303,7 @@ function StatusWorkspace({
 						selectedCleanupExportArchiveIndex,
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
+						selectedProcessControlAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,

@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.232 - Process Evidence Family
+
+Status: draft PR [#294](https://github.com/uulab-official/picos/pull/294) on `codex/picos-v0.4.232-process-evidence-family`.
+
+Goal: promote recovered process-control evidence into the Status Evidence command strip/table as a first-class evidence family.
+
+- Status Evidence now includes a `process` family for recovered process-control audit exports.
+- The compact summary band, dense table, table detail rows, number jump index, and legacy bridge all show process evidence counts, selected cursor, target label, source metadata, path, and controls.
+- `Tab` can focus process evidence, `1..9` can jump to it, and `[`/`]` moves across multiple recovered process evidence exports with wraparound.
+- `enter`/`F` opens the selected recovered process evidence export through the existing locked `:file-open` confirmation flow.
+- Status Activity only hides the Status Evidence band when no handoff, audit, cleanup, Tools, or process evidence exists.
+- Tests cover Status Evidence rendering, focus movement, enter plans, command strip rows, table rows, legacy bridge rows, number jumps, and item movement for process evidence.
+- Next: add direct Status Evidence Timeline-search affordances for process evidence so recovered process-control audit queries can be searched from the same family row without relying on the Status Activity shelf.
+
 ## v0.4.231 - Process Evidence Actions
 
 Status: draft PR [#293](https://github.com/uulab-official/picos/pull/293) on `codex/picos-v0.4.231-process-evidence-actions`.
