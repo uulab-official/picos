@@ -54,6 +54,7 @@ export type StatusActivityEnterAction =
 	| "tools-evidence-archive"
 	| "tools-evidence-retention"
 	| "process-control-preview"
+	| "process-control-evidence"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -784,7 +785,7 @@ export function formatStatusActivityCopyIntentRows(
 		? `${toolsEvidenceSearchRecovery.items.length > 1 ? " · [/] tools select" : ""} · tools recovered`
 		: "";
 	const processControlAuditExportControls = selectedProcessControlAuditExport
-		? " · process evidence"
+		? `${processControlAuditExports.length > 1 ? " · F process select" : ""} · process evidence`
 		: "";
 	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${processControlAuditExportControls}${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	if (history.length === 0) {
@@ -1845,6 +1846,38 @@ export function createTimelineEvidenceTrailPaletteStatusActivityResult(
 	};
 }
 
+export function createProcessControlEvidencePaletteStatusActivityResult(
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	if (!plan) {
+		return {
+			source: "evidence",
+			action: "process-control-evidence",
+			message: `palette process evidence ${action} unavailable`,
+			detail: "no recovered process-control evidence export selected",
+		};
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	return {
+		source: "evidence",
+		action: "process-control-evidence",
+		message: `palette process evidence ${action} ${selected + 1}/${total} ${basename(plan.path)}`,
+		detail: [
+			`target=${formatProcessControlAuditExportTarget(plan)}`,
+			plan.query ? `query=${plan.query}` : "",
+			`path=${plan.path}`,
+		]
+			.filter(Boolean)
+			.join(" "),
+	};
+}
+
 export function createStatusActivityResultTimelineJumpPaletteResult(
 	action: "select" | "open",
 	options: {
@@ -2065,6 +2098,37 @@ export function formatTimelineEvidenceTrailPaletteAuditMessage(
 		"palette timeline trail audit",
 		`action=${action}`,
 		`selected=${selected + 1}/${total}`,
+		`label="${formatTimelineEvidenceTrailAuditValue(basename(plan.path))}"`,
+		...(plan.query
+			? [`query="${formatTimelineEvidenceTrailAuditValue(plan.query)}"`]
+			: []),
+		`path="${formatTimelineEvidenceTrailAuditValue(plan.path)}"`,
+	].join(" ");
+}
+
+export function formatProcessControlEvidencePaletteAuditMessage(
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	if (!plan) {
+		return [
+			"palette process evidence audit",
+			`action=${action}`,
+			"status=unavailable",
+			`reason="${formatTimelineEvidenceTrailAuditValue("no recovered process-control evidence export selected")}"`,
+		].join(" ");
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	return [
+		"palette process evidence audit",
+		`action=${action}`,
+		`selected=${selected + 1}/${total}`,
+		`target="${formatTimelineEvidenceTrailAuditValue(formatProcessControlAuditExportTarget(plan))}"`,
 		`label="${formatTimelineEvidenceTrailAuditValue(basename(plan.path))}"`,
 		...(plan.query
 			? [`query="${formatTimelineEvidenceTrailAuditValue(plan.query)}"`]

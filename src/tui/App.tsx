@@ -387,6 +387,9 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createProcessControlAuditExportOpenPlan,
+	createProcessControlAuditExportTimelineSearch,
+	createProcessControlEvidencePaletteStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -415,6 +418,7 @@ import {
 	createTimelineSelectedStatusActivityResult,
 	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
+	formatProcessControlEvidencePaletteAuditMessage,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -434,6 +438,7 @@ import {
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getProcessControlAuditExports,
+	getSelectedProcessControlAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
@@ -444,6 +449,7 @@ import {
 	getStatusActivityResultHistoryFilteredSelection,
 	getStatusActivityResultTimelineJumpSelection,
 	getTimelineEvidenceTrailAuditExports,
+	moveProcessControlAuditExportSelection,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultAuditJumpSelection,
@@ -765,6 +771,11 @@ export function App(): React.ReactElement {
 		selectedProcessControlAuditExportIndex,
 		setSelectedProcessControlAuditExportIndex,
 	] = useState(0);
+	const selectedProcessControlAuditExport =
+		getSelectedProcessControlAuditExport(
+			processControlAuditExports,
+			selectedProcessControlAuditExportIndex,
+		);
 	const filteredTimelineEvidenceTrailAuditExports = useMemo(
 		() =>
 			filterTimelineEvidenceTrailAuditExports(
@@ -4024,6 +4035,192 @@ export function App(): React.ReactElement {
 		],
 	);
 
+	const getSelectedProcessControlEvidenceResultOptions = useCallback(
+		() => ({
+			selectedIndex: selectedProcessControlAuditExportIndex,
+			total: processControlAuditExports.length || 1,
+		}),
+		[processControlAuditExports.length, selectedProcessControlAuditExportIndex],
+	);
+
+	const selectNextProcessControlEvidenceExport = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			setScreen("status");
+			if (processControlAuditExports.length <= 1) {
+				log("warn", "no alternate process control evidence exports");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatProcessControlEvidencePaletteAuditMessage("select"),
+					);
+					recordStatusActivityResult(
+						createProcessControlEvidencePaletteStatusActivityResult("select"),
+					);
+				}
+				return;
+			}
+			setSelectedProcessControlAuditExportIndex((current) => {
+				const next = moveProcessControlAuditExportSelection(
+					processControlAuditExports,
+					current,
+					"next",
+				);
+				const evidence = processControlAuditExports[next];
+				log(
+					"info",
+					`process control evidence selected ${next + 1}/${processControlAuditExports.length} ${evidence ? basename(evidence.path) : "none"}`,
+				);
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatProcessControlEvidencePaletteAuditMessage(
+							"select",
+							evidence,
+							{
+								selectedIndex: next,
+								total: processControlAuditExports.length,
+							},
+						),
+					);
+					recordStatusActivityResult(
+						createProcessControlEvidencePaletteStatusActivityResult(
+							"select",
+							evidence,
+							{
+								selectedIndex: next,
+								total: processControlAuditExports.length,
+							},
+						),
+					);
+				}
+				return next;
+			});
+		},
+		[log, processControlAuditExports, recordStatusActivityResult],
+	);
+
+	const jumpSelectedProcessControlEvidenceSearch = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const jump = createProcessControlAuditExportTimelineSearch(
+				selectedProcessControlAuditExport,
+			);
+			if (!jump) {
+				log("warn", "no process control evidence export for timeline");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatProcessControlEvidencePaletteAuditMessage("search"),
+					);
+					recordStatusActivityResult(
+						createProcessControlEvidencePaletteStatusActivityResult("search"),
+					);
+				}
+				return;
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}`,
+			);
+			if (options.origin === "palette") {
+				const resultOptions = getSelectedProcessControlEvidenceResultOptions();
+				log(
+					"info",
+					formatProcessControlEvidencePaletteAuditMessage(
+						"search",
+						selectedProcessControlAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createProcessControlEvidencePaletteStatusActivityResult(
+						"search",
+						selectedProcessControlAuditExport,
+						resultOptions,
+					),
+				);
+			}
+		},
+		[
+			events,
+			getSelectedProcessControlEvidenceResultOptions,
+			log,
+			recordStatusActivityResult,
+			selectedProcessControlAuditExport,
+		],
+	);
+
+	const openSelectedProcessControlEvidenceExport = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			if (!selectedProcessControlAuditExport) {
+				log("warn", "no process control evidence export to open");
+				setScreen("status");
+				if (options.origin === "palette") {
+					log("info", formatProcessControlEvidencePaletteAuditMessage("open"));
+					recordStatusActivityResult(
+						createProcessControlEvidencePaletteStatusActivityResult("open"),
+					);
+				}
+				return;
+			}
+			const plan = createProcessControlAuditExportOpenPlan(
+				selectedProcessControlAuditExport,
+				{
+					baseDir: dirname(getConfigPath()),
+					platform: currentPlatform(),
+				},
+			);
+			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+				auditExportIndex,
+				selectedProcessControlAuditExport,
+			);
+			if (evidenceIndex !== undefined) {
+				setSelectedAuditExportIndex(evidenceIndex);
+				setSelectedStatusEvidenceKind("audit");
+			}
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
+			log(
+				"info",
+				`process control evidence export open confirmation opened for ${selectedProcessControlAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
+			);
+			if (options.origin === "palette") {
+				const resultOptions = getSelectedProcessControlEvidenceResultOptions();
+				log(
+					"info",
+					formatProcessControlEvidencePaletteAuditMessage(
+						"open",
+						selectedProcessControlAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createProcessControlEvidencePaletteStatusActivityResult(
+						"open",
+						selectedProcessControlAuditExport,
+						resultOptions,
+					),
+				);
+			}
+		},
+		[
+			auditExportIndex,
+			getSelectedProcessControlEvidenceResultOptions,
+			log,
+			recordStatusActivityResult,
+			selectedProcessControlAuditExport,
+		],
+	);
+
 	const selectNextStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			if (options.origin === "palette") {
@@ -4422,6 +4619,18 @@ export function App(): React.ReactElement {
 					cycleTimelineEvidenceTrailSourceFilter({ origin: "palette" });
 				}
 
+				if (action.id === "status.processEvidence.select") {
+					selectNextProcessControlEvidenceExport({ origin: "palette" });
+				}
+
+				if (action.id === "status.processEvidence.open") {
+					openSelectedProcessControlEvidenceExport({ origin: "palette" });
+				}
+
+				if (action.id === "status.processEvidence.search") {
+					jumpSelectedProcessControlEvidenceSearch({ origin: "palette" });
+				}
+
 				if (action.id === "status.resultJump.select") {
 					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
 				}
@@ -4495,9 +4704,11 @@ export function App(): React.ReactElement {
 			events,
 			exportToolHistory,
 			fileRoot,
+			jumpSelectedProcessControlEvidenceSearch,
 			jumpSelectedTimelineEvidenceTrailSearch,
 			log,
 			openToolEvidenceSearchPrompt,
+			openSelectedProcessControlEvidenceExport,
 			openSelectedStatusActivityResultTimelineJump,
 			openSelectedStatusActivityToolsEvidenceSearchMatchArchive,
 			openSelectedStatusActivityToolsEvidenceSearchMatchFile,
@@ -4506,6 +4717,7 @@ export function App(): React.ReactElement {
 			openToolArchiveRetentionPreview,
 			refresh,
 			refreshFiles,
+			selectNextProcessControlEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
 			timelineFilter,
@@ -6567,6 +6779,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "Q") {
 			cycleTimelineEvidenceTrailSourceFilter();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "F") {
+			selectNextProcessControlEvidenceExport();
 			return;
 		}
 
@@ -9641,6 +9858,11 @@ function renderWorkspace(
 			toolExportFilter,
 			toolExportQuery,
 		);
+		const selectedProcessControlAuditExport =
+			getSelectedProcessControlAuditExport(
+				processControlAuditExports,
+				selectedProcessControlAuditExportIndex,
+			);
 		const filteredPorts = portsResult
 			? sortListeningPorts(
 					filterListeningPorts(portsResult.ports, portFilter),
@@ -9683,6 +9905,10 @@ function renderWorkspace(
 						toolExportFilter,
 						toolExportQuery,
 						toolArchiveRetentionPlan: toolArchiveRetentionPreviewPlan,
+						selectedProcessEvidenceExport: selectedProcessControlAuditExport,
+						selectedProcessEvidenceExportIndex:
+							selectedProcessControlAuditExportIndex,
+						totalProcessEvidenceExports: processControlAuditExports.length,
 					},
 				)}
 			/>
