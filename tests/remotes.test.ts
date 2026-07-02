@@ -973,6 +973,76 @@ describe("remote profiles", () => {
 		);
 	});
 
+	test("feeds found SFTP package review into transport readiness", () => {
+		const preview = createRemoteSftpPackageResolutionPreview({
+			startDir: "/repo/packages/app/src",
+		});
+		const missingReview = createRemoteSftpPackageResolutionReview({ preview });
+		expect(
+			createRemoteSftpTransportReadiness({
+				packageReview: missingReview,
+			}),
+		).toEqual({
+			dependency: "@uulab/picos-sftp",
+			detector: "package-resolution",
+			status: "missing",
+			blocker: "transport-missing",
+			source: "injected",
+			execution: {
+				resolvesPackage: false,
+				importsTransport: false,
+				opensSocket: false,
+				mutatesRemote: false,
+			},
+		});
+
+		const foundReview = createRemoteSftpPackageResolutionReview({
+			preview,
+			resolvedPath: "/repo/node_modules/@uulab/picos-sftp",
+			packageJsonPath: "/repo/node_modules/@uulab/picos-sftp/package.json",
+			version: "0.1.0",
+		});
+		const transport = createRemoteSftpTransportReadiness({
+			packageReview: foundReview,
+		});
+		expect(transport).toEqual({
+			dependency: "@uulab/picos-sftp",
+			detector: "package-resolution",
+			status: "installed",
+			blocker: "none",
+			source: "injected",
+			execution: {
+				resolvesPackage: false,
+				importsTransport: false,
+				opensSocket: false,
+				mutatesRemote: false,
+			},
+		});
+
+		const rows = formatRemoteHostKeyScanReadinessRows(
+			createRemoteHostKeyScanReadiness(
+				{
+					id: "prod",
+					kind: "sftp" as const,
+					host: "prod.example.com",
+					port: 2222,
+					username: "deploy",
+					root: "/srv/app",
+					keyPath: "~/.ssh/id_ed25519",
+				},
+				{ transport },
+			),
+		);
+
+		expect(rows).toContain("checks=5 ready=1 blocked=4");
+		expect(rows).toContain(
+			'check=transportInstalled label="SFTP transport installed" status=ready blocker=none required="transport dependency available"',
+		);
+		expect(rows).toContain(
+			"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
+		);
+	});
+
 	test("includes remote SFTP transport readiness in provider status", async () => {
 		const output = await formatRemoteProviderStatus({
 			id: "dev",

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.296 - Remote SFTP Review Readiness Bridge
+
+Status: in progress on `codex/picos-v0.4.296-sftp-review-readiness-bridge`.
+
+Goal: let injected found optional SFTP package review metadata satisfy the transport readiness prerequisite while keeping package resolver execution, package reads, transport imports, sockets, sessions, host trust, `known_hosts` writes, and mutation disabled.
+
+- `createRemoteSftpTransportReadiness()` now accepts injected `RemoteSftpPackageResolutionReview` metadata.
+- A found review marks transport readiness as `installed` with blocker `none` and source `injected`.
+- A missing review stays blocked as `transport-missing` while still showing that the source was injected review metadata.
+- Host-key scan readiness can consume that derived transport readiness and mark only `transportInstalled` ready.
+- Tests cover missing/found review bridging plus no-import/no-connect/no-scan/no-trust/no-known_hosts-write/no-mutation posture.
+- Next: expose a locked resolver review prompt so operators can request resolver metadata capture without importing transport or opening sockets.
+
 ## v0.4.295 - Remote SFTP Package Resolution Review
 
 Status: draft PR [#368](https://github.com/uulab-official/picos/pull/368) on `codex/picos-v0.4.295-sftp-package-resolution-review`.
