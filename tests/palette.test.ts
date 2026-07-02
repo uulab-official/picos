@@ -164,6 +164,54 @@ describe("TUI command palette", () => {
 		).toContain("config.shelf.remotes.focus");
 	});
 
+	test("finds Config recovery actions from the command palette", () => {
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "empty route filters"),
+			).map((action) => action.id),
+		).toContain("config.recovery.routes");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"recover connection filters",
+				),
+			).map((action) => action.id),
+		).toContain("config.recovery.connections");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "missing port filters"),
+			).map((action) => action.id),
+		).toContain("config.recovery.ports");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"recover tools targets",
+				),
+			).map((action) => action.id),
+		).toContain("config.recovery.tools");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "missing log profiles"),
+			).map((action) => action.id),
+		).toContain("config.recovery.logs");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"recover remote profiles",
+				),
+			).map((action) => action.id),
+		).toContain("config.recovery.remotes");
+	});
+
 	test("previews Config managed shelf focus before dispatch", () => {
 		const previewContext = {
 			configManagedShelfCounts: {
@@ -214,6 +262,35 @@ describe("TUI command palette", () => {
 			"counts=remoteProfiles 1",
 			"focus=remoteProfiles cursor=0",
 			"enter=remote profile focus  esc=clear landing",
+		]);
+	});
+
+	test("previews Config recovery actions before dispatch", () => {
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.recovery.routes",
+				),
+			),
+		).toEqual([
+			"config recovery target=routes workspace=Routes",
+			"empty=routeFilters action=restore missing shelf",
+			"scope=route filters, raw route evidence, path lookup",
+			"focus=routeFilters cursor=0 detail=table",
+			"enter=cycle route filter presets  fallback=open filter prompt",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.recovery.remotes",
+				),
+			),
+		).toEqual([
+			"config recovery target=remotes workspace=Remotes",
+			"empty=remoteProfiles action=restore missing shelf",
+			"scope=SFTP profiles, provider boundary, locked file context",
+			"focus=remoteProfiles cursor=0",
+			"enter=remote profile focus  fallback=empty profile list",
 		]);
 	});
 

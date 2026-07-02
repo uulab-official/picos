@@ -259,6 +259,7 @@ import {
 	getConfigManagedShelfActionFocusTarget,
 	getConfigManagedShelfFocusPreset,
 	getConfigManagedShelfHandoff,
+	getConfigRecoveryActionFocusTarget,
 	getConfigWorkspaceActionFocusKey,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
@@ -4618,9 +4619,12 @@ export function App(): React.ReactElement {
 					}
 				}
 
-				const configShelfFocusTarget = getConfigManagedShelfActionFocusTarget(
+				const configRecoveryFocusTarget = getConfigRecoveryActionFocusTarget(
 					action.id,
 				);
+				const configShelfFocusTarget =
+					configRecoveryFocusTarget ??
+					getConfigManagedShelfActionFocusTarget(action.id);
 				if (configShelfFocusTarget) {
 					const focus = getConfigManagedShelfFocusPreset(
 						configShelfFocusTarget,
@@ -4643,7 +4647,9 @@ export function App(): React.ReactElement {
 					}
 					log(
 						"info",
-						`config shelf palette ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
+						configRecoveryFocusTarget
+							? `config recovery palette ${focus.target} -> ${focus.label} focus=${focus.cursor}`
+							: `config shelf palette ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
 					);
 				}
 
