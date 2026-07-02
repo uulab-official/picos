@@ -10,8 +10,10 @@ import {
 	createRemoteHostKeyEvidenceInputFromSession,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
+	createRemoteKnownHostsCandidatePreviewFromPasteReview,
 	createRemoteKnownHostsCandidatePreviewFromSession,
 	createRemoteKnownHostsParserPreview,
+	createRemoteKnownHostsPasteReview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsReadResult,
 	createRemoteKnownHostsSourcePreview,
@@ -33,6 +35,7 @@ import {
 	formatRemoteHostReviewRows,
 	formatRemoteKnownHostsCandidatePreviewRows,
 	formatRemoteKnownHostsParserPreviewRows,
+	formatRemoteKnownHostsPasteReviewRows,
 	formatRemoteKnownHostsReadPreviewRows,
 	formatRemoteKnownHostsReadResultRows,
 	formatRemoteKnownHostsSourcePreviewRows,
@@ -1233,6 +1236,64 @@ describe("remote profiles", () => {
 			createRemoteKnownHostsCandidatePreviewFromSession(
 				{ ...profile, id: "stage" },
 				session,
+			).status,
+		).toBe("not-parsed");
+	});
+
+	test("keeps multi-row known_hosts paste review candidates for compare detail", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const content = [
+			"# copied from ~/.ssh/known_hosts",
+			"prod.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIWrongPortCandidate plain",
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfake prod-port",
+			"[prod.example.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecondCandidate second",
+		].join("\n");
+
+		const review = createRemoteKnownHostsPasteReview(profile, content, 2);
+
+		expect(review.lineCount).toBe(4);
+		expect(review.candidates).toHaveLength(2);
+		expect(review.selected).toBe(2);
+		expect(review.execution).toEqual({
+			readsLocal: false,
+			parsesInjectedContent: true,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		});
+		expect(formatRemoteKnownHostsPasteReviewRows(review)).toEqual(
+			expect.arrayContaining([
+				"REMOTE KNOWN_HOSTS PASTE REVIEW prod",
+				"source=provided-known-hosts-paste lines=4 candidates=2 selected=2 match=matched decision=blocked",
+				expect.stringMatching(/^> #2 line=4 /),
+				"execution=willReadLocal=false parsedInjected=true willConnect=false willScan=false willTrust=false willMutate=false",
+			]),
+		);
+
+		const preview =
+			createRemoteKnownHostsCandidatePreviewFromPasteReview(review);
+		const selectedFingerprint = preview.candidates[1]?.fingerprint;
+
+		expect(preview.selected).toBe(2);
+		expect(
+			createRemoteHostKeyCompareDetail(
+				profile,
+				preview,
+				createRemoteHostKeyEvidenceInput(profile, selectedFingerprint),
+			).match,
+		).toBe("matched");
+		expect(
+			createRemoteKnownHostsCandidatePreviewFromPasteReview(
+				createRemoteKnownHostsPasteReview(profile, "not-a-candidate"),
 			).status,
 		).toBe("not-parsed");
 	});
