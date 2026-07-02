@@ -2,7 +2,7 @@
 
 ## v0.4.293 - Remote Known Hosts Paste Review Buffer
 
-Status: in progress on `codex/picos-v0.4.293-known-hosts-review-buffer`.
+Status: draft PR [#365](https://github.com/uulab-official/picos/pull/365) on `codex/picos-v0.4.293-known-hosts-review-buffer`.
 
 Goal: let operators paste multiple known_hosts rows into Remotes, review hidden-content candidate metadata, and feed the selected candidate into live host-key compare detail without local trust-file reads or host trust.
 
