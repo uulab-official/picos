@@ -3,6 +3,7 @@ import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	createRemoteFileContext,
 	formatRemoteHandoffBoundaryRows,
+	formatRemoteHostReviewRows,
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
 	normalizeRemoteProfiles,
@@ -136,6 +137,8 @@ describe("remote profiles", () => {
 		expect(output).toContain("Status: adapter pending");
 		expect(output).toContain("REMOTE HANDOFF dev");
 		expect(output).toContain("session=staged");
+		expect(output).toContain("REMOTE HOST REVIEW dev");
+		expect(output).toContain("network=not opened");
 	});
 
 	test("creates a locked remote file context for selected profiles", async () => {
@@ -193,5 +196,37 @@ describe("remote profiles", () => {
 			"status=adapter pending writes=locked session=staged",
 			"controls=enter restage · files opens locked SFTP boundary · no network session",
 		]);
+	});
+
+	test("formats remote host review rows without secrets or sessions", () => {
+		expect(
+			formatRemoteHostReviewRows({
+				id: "prod",
+				kind: "sftp",
+				host: "prod.example.com",
+				port: 2222,
+				username: "deploy",
+				root: "/srv/app",
+				keyPath: "~/.ssh/id_ed25519",
+			}),
+		).toEqual([
+			"REMOTE HOST REVIEW prod",
+			"target=sftp://deploy@prod.example.com:2222/srv/app",
+			"identity user=deploy host=prod.example.com port=2222 key=configured",
+			"policy=read-only adapter=pending writes=locked network=not opened",
+			"confirm=connect remote prod",
+			"controls=review host · enter stage context · future connect requires exact confirmation",
+		]);
+
+		expect(
+			formatRemoteHostReviewRows({
+				id: "dev",
+				kind: "sftp",
+				host: "dev.example.com",
+				port: 22,
+				username: "alice",
+				root: ".",
+			}).join("\n"),
+		).not.toContain("password");
 	});
 });

@@ -94,6 +94,30 @@ export function formatRemoteHandoffBoundaryRows(options: {
 	];
 }
 
+export function formatRemoteHostReviewRows(
+	profile?: SftpRemoteProfile,
+): string[] {
+	if (!profile) {
+		return [
+			"REMOTE HOST REVIEW none",
+			"target=none",
+			"identity user=- host=- port=- key=none",
+			"policy=read-only adapter=pending writes=locked network=not opened",
+			"confirm=select remote profile",
+			"controls=j/k select · enter stage context · config remotes create profile",
+		];
+	}
+
+	return [
+		`REMOTE HOST REVIEW ${profile.id}`,
+		`target=${formatSftpRoot(profile)}`,
+		`identity user=${profile.username} host=${profile.host} port=${profile.port} key=${profile.keyPath ? "configured" : "none"}`,
+		"policy=read-only adapter=pending writes=locked network=not opened",
+		`confirm=connect remote ${profile.id}`,
+		"controls=review host · enter stage context · future connect requires exact confirmation",
+	];
+}
+
 export async function formatRemoteProviderStatus(
 	profile: SftpRemoteProfile,
 ): Promise<string> {
@@ -107,6 +131,8 @@ export async function formatRemoteProviderStatus(
 		"Writes: locked until host and path confirmation",
 		"",
 		...formatRemoteHandoffBoundaryRows({ profile, context }),
+		"",
+		...formatRemoteHostReviewRows(profile),
 	].join("\n");
 }
 
