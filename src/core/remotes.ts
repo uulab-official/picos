@@ -1212,6 +1212,23 @@ export function moveRemoteKnownHostsPasteReviewSelection(
 	};
 }
 
+export function selectRemoteKnownHostsPasteReviewCandidate(
+	review: RemoteKnownHostsPasteReview,
+	candidateIndex: number,
+): RemoteKnownHostsPasteReview {
+	const normalizedIndex = Math.floor(candidateIndex);
+	if (
+		review.candidates.length === 0 ||
+		!review.candidates.some((candidate) => candidate.index === normalizedIndex)
+	) {
+		return review;
+	}
+	return {
+		...review,
+		selected: normalizedIndex,
+	};
+}
+
 export function formatRemoteKnownHostsPasteReviewRows(
 	review: RemoteKnownHostsPasteReview = createRemoteKnownHostsPasteReview(),
 ): string[] {

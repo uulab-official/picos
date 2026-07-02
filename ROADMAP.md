@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.295 - Remote Known Hosts Selection Activity
+
+Status: draft PR [#370](https://github.com/uulab-official/picos/pull/370) on `codex/picos-v0.4.295-known-hosts-selection-activity`.
+
+Goal: make pasted known_hosts candidate selection durable and recoverable from Status/Timeline while adding direct numeric candidate selection for longer paste buffers.
+
+- Core now supports selecting a pasted known_hosts candidate by candidate number, preserving hidden raw content, selected candidate metadata, blocked decision, and all read/network/scan/trust/mutation disabled flags.
+- Remotes focus now maps `1-9` to direct pasted candidate selection while `[`/`]` continue to rotate candidates.
+- Candidate rotation and numeric selection now append Status Activity result rows with selected candidate, source line, host pattern, key type, fingerprint, hidden raw-content posture, and blocked trust/write state.
+- Status Activity Timeline recovery can search candidate selection audit rows by remote id, candidate number, and method.
+- The Remotes activity shelf now includes known_hosts selection results beside stage/evidence/trust/connect activity.
+- Tests cover numeric selection, empty/invalid no-op behavior, selection Activity formatting, Remotes shelf summaries, and Timeline recovery rows.
+- Next: add candidate selection by typed command for indexes beyond 9 and expose selection history as a copy/export source.
+
 ## v0.4.294 - Remote Known Hosts Candidate Selection
 
 Status: draft PR [#367](https://github.com/uulab-official/picos/pull/367) on `codex/picos-v0.4.294-known-hosts-candidate-selection`.
