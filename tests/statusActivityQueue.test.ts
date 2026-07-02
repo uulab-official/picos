@@ -784,6 +784,53 @@ describe("Status activity queue", () => {
 		]);
 	});
 
+	test("shows fresh Tools evidence search result targets in the copy intent shelf", () => {
+		const toolsSearchResult = createStatusActivityToolsEvidencePaletteResult(
+			"search",
+			{
+				query: "040100",
+				target: "active",
+				total: 3,
+				visible: 1,
+			},
+		);
+		const toolsSearchJump = createStatusActivityResultTimelineSearch(
+			[toolsSearchResult],
+			0,
+		);
+
+		expect(toolsSearchJump).toEqual({
+			filter: "audit",
+			query:
+				'palette tools evidence audit action=search target=active query="040100"',
+			message:
+				"status activity result timeline search tools evidence search active",
+		});
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				"fresh",
+				0,
+				undefined,
+				toolsSearchJump,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"tools search target=active query=040100 I=fresh",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
+		]);
+	});
+
 	test("moves between timeline result jump rows without stopping on non-jump results", () => {
 		const history = [
 			{
@@ -1019,6 +1066,40 @@ describe("Status activity queue", () => {
 			"> status activity result audit jump action=source source=palette visible=2/5 row=1 expanded=false lines=3 preview=action=source source=palette visible=2/5",
 			"  status activity cleanup jump-cleanup row=1 expanded=false lines=2 preview=cleanup jump-cleanup",
 			"  status activity result audit jump action=source source=evidence visible=1/3 row=1 expanded=false lines=3 preview=action=source source=evidence visible=1/3",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+		]);
+	});
+
+	test("summarizes reusable Tools evidence search audit jumps in the copy intent shelf", () => {
+		const toolsSearchIntent = createStatusActivityResultTimelineSearchIntent({
+			filter: "audit",
+			query:
+				'palette tools evidence audit action=search target=active query="040100"',
+			message:
+				"status activity result timeline search tools evidence search active",
+		});
+		if (!toolsSearchIntent) {
+			throw new Error("expected Tools evidence search audit jump intent");
+		}
+
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[toolsSearchIntent],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				toolsSearchIntent,
+				1,
+				"replay",
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=1 selected=1/1",
+			'audit jumps count=1 target=tools:active query:040100 latest=palette tools evidence audit action=search target=active query="040100" lines=3 I=replay replay=selected valid',
+			'> status activity result audit jump palette tools evidence audit action=search target=active query="040100" row=1 expanded=false lines=3 preview=palette tools evidence audit action=search target=active query="040100"',
 			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 	});

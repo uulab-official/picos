@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.219 - Tools Evidence Search Intents
+
+Status: draft PR [#281](https://github.com/uulab-official/picos/pull/281) on `codex/picos-v0.4.219-tools-evidence-search-intents`.
+
+Goal: make Tools evidence search recovery visible in the Status copy-intent shelf so repeated searches can be copied, exported, and replayed like other OS-console handoffs.
+
+- Fresh Tools evidence search result jumps now render as dedicated `tools search target=... query=... I=fresh` rows instead of a generic Timeline result jump string.
+- Reusable Tools evidence search audit jumps now summarize compact `target=tools:<active|archive>` and `query:<token>` scan fields in the copy-intent shelf.
+- The generic result-jump row remains unchanged for Timeline selected copy/export and palette source result jumps.
+- Tests cover fresh Tools search shelf rows and reusable Tools search audit-jump summaries.
+- Next: add a searched Tools evidence export mini-list to the shelf so matching files can be opened or archived directly from the recovery row.
+
 ## v0.4.218 - Tools Evidence Search History
 
 Status: draft PR [#280](https://github.com/uulab-official/picos/pull/280) on `codex/picos-v0.4.218-tools-evidence-search-history`.
