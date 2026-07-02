@@ -294,10 +294,14 @@ export type RemoteHostKeyCompareDetail = {
 	target: string;
 	lookup: string;
 	collectedFingerprint: "sha256:unknown";
-	candidateCount: 0;
-	selectedCandidate: "none";
-	knownHostsCandidateFingerprint: "sha256:unknown";
-	match: "unknown";
+	candidateCount: number;
+	selectedCandidate: number | "none";
+	knownHostsCandidateFingerprint: string;
+	candidateSource: RemoteKnownHostsCandidatePreview["source"] | "none";
+	selectedCandidateLine: number | "none";
+	selectedCandidateHost: string | "none";
+	selectedCandidateKeyType: string | "none";
+	match: "candidate-only" | "unknown";
 	decision: "blocked";
 	confirm: string;
 	execution: {
@@ -978,17 +982,31 @@ export function formatRemoteHostKeyTrustDecisionPreviewRows(
 
 export function createRemoteHostKeyCompareDetail(
 	profile?: SftpRemoteProfile,
+	candidatePreview?: RemoteKnownHostsCandidatePreview,
 ): RemoteHostKeyCompareDetail {
+	const selectedCandidate =
+		typeof candidatePreview?.selected === "number"
+			? candidatePreview.candidates.find(
+					(candidate) => candidate.index === candidatePreview.selected,
+				)
+			: undefined;
 	return {
 		id: profile?.id ?? "none",
 		provider: "sftp",
 		target: profile ? formatSftpRoot(profile) : "none",
 		lookup: profile ? `${profile.host}:${profile.port}` : "none",
 		collectedFingerprint: "sha256:unknown",
-		candidateCount: 0,
-		selectedCandidate: "none",
-		knownHostsCandidateFingerprint: "sha256:unknown",
-		match: "unknown",
+		candidateCount: candidatePreview?.candidates.length ?? 0,
+		selectedCandidate: selectedCandidate?.index ?? "none",
+		knownHostsCandidateFingerprint:
+			selectedCandidate?.fingerprint ?? "sha256:unknown",
+		candidateSource: selectedCandidate
+			? (candidatePreview?.source ?? "none")
+			: "none",
+		selectedCandidateLine: selectedCandidate?.sourceLine ?? "none",
+		selectedCandidateHost: selectedCandidate?.hostPattern ?? "none",
+		selectedCandidateKeyType: selectedCandidate?.keyType ?? "none",
+		match: selectedCandidate ? "candidate-only" : "unknown",
 		decision: "blocked",
 		confirm: profile
 			? `review host trust ${profile.id}`
@@ -1012,11 +1030,14 @@ export function formatRemoteHostKeyCompareDetailRows(
 		`REMOTE HOST KEY COMPARE DETAIL ${detail.id}`,
 		`target=${detail.target} lookup=${detail.lookup} provider=${detail.provider}`,
 		`collected=${detail.collectedFingerprint} candidates=${detail.candidateCount} selected=${detail.selectedCandidate} knownHosts=${detail.knownHostsCandidateFingerprint}`,
+		`candidateSource=${detail.candidateSource} line=${detail.selectedCandidateLine} host=${detail.selectedCandidateHost} key=${detail.selectedCandidateKeyType}`,
 		`match=${detail.match} decision=${detail.decision} confirm="${detail.confirm}"`,
 		`execution=willImport=${detail.execution.importsTransport} willConnect=${detail.execution.opensSocket} willReadLocal=${detail.execution.readsLocal} willParse=${detail.execution.parsesRows} willScan=${detail.execution.scansHostKey} willTrust=${detail.execution.trustsHost} willMutate=${detail.execution.mutatesRemote}`,
 		detail.id === "none"
 			? "next=select remote profile · no compare detail"
-			: "next=collect evidence and parse known_hosts candidates before compare detail",
+			: detail.match === "candidate-only"
+				? "next=collect host key evidence before trust review; candidate comparison is read-only"
+				: "next=collect evidence and parse known_hosts candidates before compare detail",
 	];
 }
 
