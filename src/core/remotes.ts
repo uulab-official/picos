@@ -296,6 +296,11 @@ export type RemoteKnownHostsCandidatePreview = {
 	};
 };
 
+export type RemoteKnownHostsCandidateSession = Record<
+	string,
+	RemoteKnownHostsCandidatePreview
+>;
+
 export type RemoteHostKeyTrustDecisionPreview = {
 	id: string;
 	provider: "sftp";
@@ -1033,6 +1038,33 @@ export function createRemoteKnownHostsCandidatePreview(
 	};
 }
 
+export function createRemoteKnownHostsCandidatePreviewFromSession(
+	profile: SftpRemoteProfile | undefined,
+	session: RemoteKnownHostsCandidateSession = {},
+): RemoteKnownHostsCandidatePreview {
+	return profile
+		? (session[profile.id] ?? createRemoteKnownHostsCandidatePreview(profile))
+		: createRemoteKnownHostsCandidatePreview();
+}
+
+export function recordRemoteKnownHostsCandidateSession(
+	session: RemoteKnownHostsCandidateSession,
+	preview: RemoteKnownHostsCandidatePreview,
+): RemoteKnownHostsCandidateSession {
+	if (
+		preview.id === "none" ||
+		preview.status !== "parsed-injected" ||
+		preview.candidates.length === 0 ||
+		preview.selected === "none"
+	) {
+		return session;
+	}
+	return {
+		...session,
+		[preview.id]: preview,
+	};
+}
+
 export function parseRemoteKnownHostsCandidatesFromReadResult(
 	profile?: SftpRemoteProfile,
 	content?: string,
@@ -1056,8 +1088,8 @@ export function formatRemoteKnownHostsCandidatePreviewRows(
 		rows.push("no known_hosts candidates for selected lookup");
 	} else {
 		rows.push(
-			...preview.candidates.slice(0, 3).map((candidate, index) => {
-				const marker = index === 0 ? ">" : " ";
+			...preview.candidates.slice(0, 3).map((candidate) => {
+				const marker = candidate.index === preview.selected ? ">" : " ";
 				return `${marker} #${candidate.index} line=${candidate.sourceLine} marker=${candidate.marker} host=${candidate.hostPattern} kind=${candidate.hostKind} key=${candidate.keyType} fingerprint=${candidate.fingerprint} trust=${candidate.trust}`;
 			}),
 		);

@@ -148,6 +148,7 @@ import {
 	createRemoteHostKeyEvidenceInputFromSession,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
+	createRemoteKnownHostsCandidatePreviewFromSession,
 	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsReadResult,
@@ -178,7 +179,9 @@ import {
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 	type RemoteHostKeyEvidenceInputSession,
+	type RemoteKnownHostsCandidateSession,
 	recordRemoteHostKeyEvidenceInputSession,
+	recordRemoteKnownHostsCandidateSession,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -1037,6 +1040,10 @@ export function App(): React.ReactElement {
 	const [selectedRemoteIndex, setSelectedRemoteIndex] = useState(0);
 	const [remoteHostKeyEvidenceSession, setRemoteHostKeyEvidenceSession] =
 		useState<RemoteHostKeyEvidenceInputSession>({});
+	const [
+		remoteKnownHostsCandidateSession,
+		setRemoteKnownHostsCandidateSession,
+	] = useState<RemoteKnownHostsCandidateSession>({});
 	const [remoteFileContext, setRemoteFileContext] =
 		useState<RemoteFileContext>();
 	const t = useMemo(() => createTranslator(language), [language]);
@@ -4012,6 +4019,31 @@ export function App(): React.ReactElement {
 		selectedRemoteIndex,
 	]);
 
+	const submitRemoteKnownHostsCandidateCommand = useCallback(() => {
+		const profile = remoteProfiles[selectedRemoteIndex];
+		setCommandLine((current) => closeCommandLine(current));
+		if (!profile) {
+			log(
+				"warn",
+				"remote known_hosts candidate input requires a selected profile",
+			);
+			return;
+		}
+
+		const preview = createRemoteKnownHostsCandidatePreview(
+			profile,
+			commandLine.value,
+			"provided-known-hosts",
+		);
+		setRemoteKnownHostsCandidateSession((current) =>
+			recordRemoteKnownHostsCandidateSession(current, preview),
+		);
+		log(
+			preview.candidates.length ? "info" : "warn",
+			`remote known_hosts candidate ${preview.status} ${preview.id} candidates=${preview.candidates.length} selected=${preview.selected}`,
+		);
+	}, [commandLine.value, log, remoteProfiles, selectedRemoteIndex]);
+
 	const submitRemoteHostTrustReviewCommand = useCallback(() => {
 		const profile = remoteProfiles[selectedRemoteIndex];
 		setCommandLine((current) => closeCommandLine(current));
@@ -6231,13 +6263,16 @@ export function App(): React.ReactElement {
 																																											"remote-host-key-evidence"
 																																										? "remote host key evidence input cancelled"
 																																										: commandLine.prompt ===
-																																												portProcessControlPrompt
-																																											? "port process control cancelled"
-																																											: commandLine.prompt.startsWith(
-																																														toolPromptPrefix,
-																																													)
-																																												? "tool target command cancelled"
-																																												: "path command cancelled",
+																																												"remote-known-hosts-candidate"
+																																											? "remote known_hosts candidate input cancelled"
+																																											: commandLine.prompt ===
+																																													portProcessControlPrompt
+																																												? "port process control cancelled"
+																																												: commandLine.prompt.startsWith(
+																																															toolPromptPrefix,
+																																														)
+																																													? "tool target command cancelled"
+																																													: "path command cancelled",
 				);
 				return;
 			}
@@ -6273,6 +6308,8 @@ export function App(): React.ReactElement {
 					submitRemoteHostTrustReviewCommand();
 				} else if (commandLine.prompt === "remote-host-key-evidence") {
 					submitRemoteHostKeyEvidenceInputCommand();
+				} else if (commandLine.prompt === "remote-known-hosts-candidate") {
+					submitRemoteKnownHostsCandidateCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (
@@ -9552,6 +9589,17 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "K") {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile) {
+				log("warn", "no remote profile selected");
+				return;
+			}
+			setCommandLine(openCommandLine("remote-known-hosts-candidate"));
+			log("info", `remote known_hosts candidate input opened ${profile.id}`);
+			return;
+		}
+
 		if (focusArea === "remotes" && input === "t") {
 			const profile = remoteProfiles[selectedRemoteIndex];
 			if (!profile) {
@@ -9771,6 +9819,7 @@ export function App(): React.ReactElement {
 					remoteProfiles={remoteProfiles}
 					selectedRemoteIndex={selectedRemoteIndex}
 					remoteHostKeyEvidenceSession={remoteHostKeyEvidenceSession}
+					remoteKnownHostsCandidateSession={remoteKnownHostsCandidateSession}
 					remoteFileContext={remoteFileContext}
 					connections={connections}
 					ports={ports}
@@ -10047,6 +10096,7 @@ function MainWorkspace({
 	remoteProfiles,
 	selectedRemoteIndex,
 	remoteHostKeyEvidenceSession,
+	remoteKnownHostsCandidateSession,
 	remoteFileContext,
 	connections,
 	ports,
@@ -10202,6 +10252,7 @@ function MainWorkspace({
 	remoteProfiles: SftpRemoteProfile[];
 	selectedRemoteIndex: number;
 	remoteHostKeyEvidenceSession: RemoteHostKeyEvidenceInputSession;
+	remoteKnownHostsCandidateSession: RemoteKnownHostsCandidateSession;
 	remoteFileContext?: RemoteFileContext;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
@@ -10436,6 +10487,7 @@ function MainWorkspace({
 						remoteProfiles,
 						selectedRemoteIndex,
 						remoteHostKeyEvidenceSession,
+						remoteKnownHostsCandidateSession,
 						remoteFileContext,
 						connections,
 						ports,
@@ -10596,6 +10648,7 @@ function renderWorkspace(
 	remoteProfiles: SftpRemoteProfile[],
 	selectedRemoteIndex: number,
 	remoteHostKeyEvidenceSession: RemoteHostKeyEvidenceInputSession,
+	remoteKnownHostsCandidateSession: RemoteKnownHostsCandidateSession,
 	remoteFileContext: RemoteFileContext | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
@@ -10883,6 +10936,7 @@ function renderWorkspace(
 				profiles={remoteProfiles}
 				selectedIndex={selectedRemoteIndex}
 				hostKeyEvidenceSession={remoteHostKeyEvidenceSession}
+				knownHostsCandidateSession={remoteKnownHostsCandidateSession}
 				selectedContext={remoteFileContext}
 				activityResults={statusActivityResults}
 				focused={focusArea === "remotes"}
@@ -11865,6 +11919,7 @@ function RemotesWorkspace({
 	profiles,
 	selectedIndex,
 	hostKeyEvidenceSession,
+	knownHostsCandidateSession,
 	selectedContext,
 	activityResults,
 	focused,
@@ -11876,6 +11931,7 @@ function RemotesWorkspace({
 	profiles: SftpRemoteProfile[];
 	selectedIndex: number;
 	hostKeyEvidenceSession: RemoteHostKeyEvidenceInputSession;
+	knownHostsCandidateSession: RemoteKnownHostsCandidateSession;
 	selectedContext?: RemoteFileContext;
 	activityResults: StatusActivityResult[];
 	focused: boolean;
@@ -11931,17 +11987,20 @@ function RemotesWorkspace({
 	const knownHostsParserPreviewRows = formatRemoteKnownHostsParserPreviewRows(
 		createRemoteKnownHostsParserPreview(selectedProfile),
 	);
-	const knownHostsCandidatePreviewRows =
-		formatRemoteKnownHostsCandidatePreviewRows(
-			createRemoteKnownHostsCandidatePreview(selectedProfile),
+	const knownHostsCandidatePreview =
+		createRemoteKnownHostsCandidatePreviewFromSession(
+			selectedProfile,
+			knownHostsCandidateSession,
 		);
+	const knownHostsCandidatePreviewRows =
+		formatRemoteKnownHostsCandidatePreviewRows(knownHostsCandidatePreview);
 	const hostKeyTrustDecisionRows = formatRemoteHostKeyTrustDecisionPreviewRows(
 		createRemoteHostKeyTrustDecisionPreview(selectedProfile),
 	);
 	const hostKeyCompareDetailRows = formatRemoteHostKeyCompareDetailRows(
 		createRemoteHostKeyCompareDetail(
 			selectedProfile,
-			undefined,
+			knownHostsCandidatePreview,
 			hostKeyEvidenceInput,
 		),
 	);
@@ -11961,7 +12020,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · e evidence · t trust review · c connect preview · h/esc"
+					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · t trust review · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (
@@ -12278,6 +12337,15 @@ function RemotesWorkspace({
 						{clip(row, 92)}
 					</Text>
 				))}
+				{commandLine.active &&
+				commandLine.prompt === "remote-known-hosts-candidate" ? (
+					<Text color="yellow">
+						{clip(
+							`:remote-known-hosts-candidate ${commandLine.value || " "} enter=parse esc=cancel`,
+							92,
+						)}
+					</Text>
+				) : null}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">HOST KEY TRUST DECISION</Text>

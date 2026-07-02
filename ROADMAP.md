@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.292 - Remote Known Hosts Candidate Session Compare
+
+Status: draft PR [#363](https://github.com/uulab-official/picos/pull/363) on `codex/picos-v0.4.292-session-known-hosts-candidate`.
+
+Goal: make provided known_hosts candidates visible in the live Remotes compare flow so recorded host-key evidence can immediately show matched or mismatch state without reading local files or trusting hosts.
+
+- Core now models a known_hosts candidate session map keyed by remote profile id.
+- Candidate sessions preserve parsed preview metadata, source, selected candidate, line, host pattern, key type, fingerprint, and blocked decision.
+- Invalid or empty candidate input leaves the existing session preview unchanged.
+- Candidate preview rows now mark the actual selected candidate, not merely the first visible row.
+- Remotes focus now exposes `K known_hosts` and opens `:remote-known-hosts-candidate` for one-line provided known_hosts content.
+- Remotes feeds session candidates into `REMOTE KNOWN_HOSTS CANDIDATES` and `REMOTE HOST KEY COMPARE DETAIL`, allowing live matched/mismatch transitions when combined with session host-key evidence.
+- Tests cover selected candidate session recording, empty-input preservation, selected-row rendering, matched compare, mismatch compare, and all disabled network, read, scan, trust, write, and mutation flags.
+- Next: add a multi-row known_hosts paste/import review buffer so operators can compare several candidates without compressing input into one line.
+
 ## v0.4.291 - Remote Host Key Evidence Session Compare
 
 Status: draft PR [#360](https://github.com/uulab-official/picos/pull/360) on `codex/picos-v0.4.291-session-host-key-evidence`.
