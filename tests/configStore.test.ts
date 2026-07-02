@@ -280,4 +280,19 @@ describe("config store", () => {
 		const raw = await readFile(path, "utf8");
 		expect(JSON.parse(raw).auditArchiveRetentionLimit).toBe(20);
 	});
+
+	test("persists status result jump class filters without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(path, JSON.stringify({ theme: "light" }));
+
+		await setConfigValue("statusResultJumpClassFilter", "source", path);
+
+		const config = await readConfig(path);
+		expect(config.statusResultJumpClassFilter).toBe("source");
+		expect(config.theme).toBe("light");
+
+		const raw = await readFile(path, "utf8");
+		expect(JSON.parse(raw).statusResultJumpClassFilter).toBe("source");
+	});
 });

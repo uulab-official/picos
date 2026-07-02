@@ -173,6 +173,7 @@ describe("config TUI panel", () => {
 				toolHistorySort: "status",
 				toolHistoryGroup: "tool",
 				toolHistoryDetailView: "summary",
+				statusResultJumpClassFilter: "process",
 				toolTargetPresets: [
 					{
 						id: "custom-google-dns",
@@ -197,7 +198,7 @@ describe("config TUI panel", () => {
 			"CONFIG MANAGED SHELVES",
 			"network defaults host=internal.example routeFilters=2 connectionFilters=1 portFilters=1",
 			"tools defaults targets=1 filters=1 sort=status group=tool detail=summary",
-			"workspace behavior logs=1 searches=1 remotes=1 publicIp=true experimental=false",
+			"workspace behavior logs=1 searches=1 remotes=1 publicIp=true experimental=false statusJumpClass=process",
 			"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
 		]);
 	});

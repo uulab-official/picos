@@ -30,6 +30,7 @@ export const defaultConfig: PicosConfig = {
 	controlExecutionMode: "disabled",
 	allowAdminDryRun: false,
 	editorSaveMode: "disabled",
+	statusResultJumpClassFilter: "all",
 	remoteProfiles: [],
 	logProfiles: [],
 	logSearchPresets: [],
@@ -136,6 +137,16 @@ export function mergeConfig(
 		merged.editorSaveMode = input.editorSaveMode;
 	}
 
+	if (
+		input.statusResultJumpClassFilter === "all" ||
+		input.statusResultJumpClassFilter === "process" ||
+		input.statusResultJumpClassFilter === "timeline" ||
+		input.statusResultJumpClassFilter === "tools" ||
+		input.statusResultJumpClassFilter === "source"
+	) {
+		merged.statusResultJumpClassFilter = input.statusResultJumpClassFilter;
+	}
+
 	merged.remoteProfiles = normalizeRemoteProfiles(input.remoteProfiles);
 	merged.logProfiles = normalizeLogProfiles(input.logProfiles);
 	merged.logSearchPresets = normalizeLogSearchPresets(input.logSearchPresets);
@@ -213,6 +224,21 @@ export function coerceConfigValue(
 	if (key === "editorSaveMode") {
 		if (value !== "disabled" && value !== "local-write") {
 			throw new Error("editorSaveMode must be disabled or local-write");
+		}
+		return value;
+	}
+
+	if (key === "statusResultJumpClassFilter") {
+		if (
+			value !== "all" &&
+			value !== "process" &&
+			value !== "timeline" &&
+			value !== "tools" &&
+			value !== "source"
+		) {
+			throw new Error(
+				"statusResultJumpClassFilter must be one of all, process, timeline, tools, source",
+			);
 		}
 		return value;
 	}

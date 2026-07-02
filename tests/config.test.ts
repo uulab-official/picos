@@ -33,6 +33,7 @@ describe("config schema", () => {
 			toolTargetPresets: [],
 			toolTargetPresetLimit: 8,
 			auditArchiveRetentionLimit: 10,
+			statusResultJumpClassFilter: "all",
 		});
 	});
 
@@ -330,6 +331,29 @@ describe("config schema", () => {
 		);
 		expect(() => coerceConfigValue("editorSaveMode", "unsafe")).toThrow(
 			"editorSaveMode must be disabled or local-write",
+		);
+	});
+
+	test("normalizes persisted status result jump class filters", () => {
+		expect(
+			mergeConfig({ statusResultJumpClassFilter: "process" })
+				.statusResultJumpClassFilter,
+		).toBe("process");
+		expect(
+			mergeConfig({ statusResultJumpClassFilter: "tools" })
+				.statusResultJumpClassFilter,
+		).toBe("tools");
+		expect(
+			mergeConfig({ statusResultJumpClassFilter: "unsafe" })
+				.statusResultJumpClassFilter,
+		).toBe("all");
+		expect(coerceConfigValue("statusResultJumpClassFilter", "source")).toBe(
+			"source",
+		);
+		expect(() =>
+			coerceConfigValue("statusResultJumpClassFilter", "unsafe"),
+		).toThrow(
+			"statusResultJumpClassFilter must be one of all, process, timeline, tools, source",
 		);
 	});
 });
