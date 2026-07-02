@@ -2,7 +2,7 @@
 
 ## v0.4.285 - Remote Host Key Compare Detail
 
-Status: in progress on `codex/picos-v0.4.285-host-key-compare-detail`.
+Status: draft PR [#347](https://github.com/uulab-official/picos/pull/347) on `codex/picos-v0.4.285-host-key-compare-detail`.
 
 Goal: make the host-key comparison path inspectable from Remotes, CLI, and Status before enabling host trust, local `known_hosts` reads/writes, transport import, socket opening, or mutation.
 

@@ -70,6 +70,6 @@ Update README, CHANGELOG, and ROADMAP to describe the locked compare detail surf
 Run: `bun run verify`, `bun run release:check`, and `git diff --check`.
 Result: PASS. `bun run verify` passed 628 tests, lint, typecheck, build, and smoke. `bun run release:check` and `git diff --check` also passed.
 
-- [ ] **Step 3: Commit, push, and open draft PR**
+- [x] **Step 3: Commit, push, and open draft PR**
 
-Commit feature/docs, push `codex/picos-v0.4.285-host-key-compare-detail`, open a draft PR stacked on `codex/picos-v0.4.284-host-trust-review-activity`, then update this plan and ROADMAP with the PR link.
+Commit feature/docs, push `codex/picos-v0.4.285-host-key-compare-detail`, open draft PR [#347](https://github.com/uulab-official/picos/pull/347) stacked on `codex/picos-v0.4.284-host-trust-review-activity`, then update this plan and ROADMAP with the PR link.
