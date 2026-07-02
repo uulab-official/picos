@@ -3,6 +3,7 @@ import { safeExec } from "../utils/safeExec";
 import type { SafeExecResult, SupportedPlatform } from "./types";
 
 export type FileOpenSource =
+	| "interface-handoff"
 	| "route-handoff"
 	| "endpoint-handoff"
 	| "cleanup-export"
@@ -191,6 +192,7 @@ function isAllowedHandoffPath(baseDir: string, path: string): boolean {
 	const target = resolve(path);
 	return (
 		isAllowedHandoffPathIn(resolve(join(baseDir, "routes")), target) ||
+		isAllowedHandoffPathIn(resolve(join(baseDir, "interfaces")), target) ||
 		isAllowedHandoffPathIn(resolve(join(baseDir, "endpoints")), target) ||
 		isAllowedHandoffPathIn(resolve(join(baseDir, "cleanup")), target) ||
 		isAllowedToolsExportPath(resolve(join(baseDir, "tools")), target) ||

@@ -79,8 +79,25 @@ describe("handoff index", () => {
 	test("lists route and endpoint handoff files newest first", async () => {
 		const root = await mkdtemp(join(tmpdir(), "picos-handoff-index-"));
 		try {
+			await mkdir(join(root, "interfaces"), { recursive: true });
 			await mkdir(join(root, "routes"), { recursive: true });
 			await mkdir(join(root, "endpoints"), { recursive: true });
+			await writeFile(
+				join(
+					root,
+					"interfaces",
+					"picos-interfaces-source-2026-07-02T060000000Z.md",
+				),
+				[
+					"# picos interface source handoff",
+					"generatedAt=2026-07-02T06:00:00.000Z",
+					"kind=interfaces",
+					"view=source",
+					"label=interface source evidence en0",
+					"command=node:os networkInterfaces(); netstat -ibn; route -n get default",
+					"",
+				].join("\n"),
+			);
 			await writeFile(
 				join(root, "routes", "picos-routes-raw-2026-06-30T120000000Z.md"),
 				[
@@ -117,16 +134,24 @@ describe("handoff index", () => {
 			const index = await readHandoffIndex(root);
 
 			expect(index.items.map((item) => item.label)).toEqual([
+				"interface source evidence en0",
 				"connections summary",
 				"route raw output",
 			]);
 			expect(index.items[0]).toMatchObject({
+				source: "interface-handoff",
+				kind: "interfaces",
+				view: "source",
+				command:
+					"node:os networkInterfaces(); netstat -ibn; route -n get default",
+			});
+			expect(index.items[1]).toMatchObject({
 				source: "endpoint-handoff",
 				kind: "connections",
 				view: "detail",
 				command: "netstat -an",
 			});
-			expect(index.items[1]).toMatchObject({
+			expect(index.items[2]).toMatchObject({
 				source: "route-handoff",
 				kind: "routes",
 				view: "raw",
@@ -148,6 +173,15 @@ describe("handoff index", () => {
 			{
 				baseDir: "/tmp/picos",
 				items: [
+					{
+						source: "interface-handoff",
+						kind: "interfaces",
+						view: "source",
+						label: "interface source evidence en0",
+						command: "node:os networkInterfaces()",
+						generatedAt: "2026-07-02T06:00:00.000Z",
+						path: "/tmp/picos/interfaces/picos-interfaces-source.md",
+					},
 					{
 						source: "endpoint-handoff",
 						kind: "ports",
@@ -174,12 +208,13 @@ describe("handoff index", () => {
 					},
 				],
 			},
-			1,
-			5,
+			2,
+			6,
 		);
 
 		expect(rows).toEqual([
-			"HANDOFFS 2 base=/tmp/picos",
+			"HANDOFFS 3 base=/tmp/picos",
+			"  interface interfaces source 2026-07-02T06:00:00.000Z interface source evidence en0",
 			"  endpoint ports raw 2026-06-30T13:00:00.000Z ports raw output origin=Config>Ports scope=ports.filters",
 			"> route routes diagnostics 2026-06-30T12:00:00.000Z route diagnostics",
 			"open target=/tmp/picos/routes/picos-routes-diagnostics.md",

@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Interfaces source pane can now copy retained source evidence through the locked clipboard flow, export it as `interfaces/*.md` handoff files, reopen it through locked file-open confirmation, and recover it in the Status handoff index.
 - Interfaces source pane now retains bounded raw source evidence for interface inventory, adapter stats, and default gateway commands so rendered summaries can be compared with their source output.
 - Command palette locked interface controls now preview the selected adapter target, address, traffic counters, platform source, and generic locked Action Center rows before dispatch.
 - Interfaces workspace now has a `source` pane that lists raw OS inventory/stat/gateway/DNS sources and the adapter-owned locked `interface.disable` preview without executing mutation.

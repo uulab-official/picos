@@ -11,6 +11,8 @@ const handoffPath =
 	"/Users/me/.config/picos/routes/picos-routes-raw-2026-06-30T120000000Z.md";
 const endpointHandoffPath =
 	"/Users/me/.config/picos/endpoints/picos-ports-raw-2026-06-30T120000000Z.md";
+const interfaceHandoffPath =
+	"/Users/me/.config/picos/interfaces/picos-interfaces-source-2026-07-02T060000000Z.md";
 const cleanupExportPath =
 	"/Users/me/.config/picos/cleanup/picos-cleanup-all-2026-07-01T010000000Z.md";
 const timelineExportPath =
@@ -103,6 +105,31 @@ describe("external file open planning", () => {
 			},
 		});
 		expect(formatFileOpenPlanRows(plan)[0]).toBe("FILE OPEN cleanup-export");
+	});
+
+	test("builds locked opener plans for interface source handoffs", () => {
+		const plan = buildFileOpenPlan({
+			baseDir,
+			label: "interface source evidence en0",
+			path: interfaceHandoffPath,
+			platform: "darwin",
+			source: "interface-handoff",
+		});
+
+		expect(plan).toMatchObject({
+			source: "interface-handoff",
+			label: "interface source evidence en0",
+			path: interfaceHandoffPath,
+			confirmed: false,
+			enabled: false,
+			reason: "type open to launch external file viewer",
+			adapter: {
+				platform: "darwin",
+				command: "open",
+				args: [interfaceHandoffPath],
+			},
+		});
+		expect(formatFileOpenPlanRows(plan)[0]).toBe("FILE OPEN interface-handoff");
 	});
 
 	test("builds locked opener plans for tools evidence export files", () => {

@@ -1,11 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { NetworkSummary } from "../src/core/types";
 import {
+	createInterfaceSourceHandoffPlan,
 	formatInterfaceSourceRows,
 	formatInterfaceWorkspaceRows,
 	formatSelectedInterfaceSummaryRows,
+	getInterfaceSourceClipboardPreview,
 	getNextInterfaceIndex,
 	nextInterfaceDetailView,
+	writeInterfaceSourceHandoffPlan,
 } from "../src/tui/interfacePanel";
 
 const fixture: NetworkSummary = {
@@ -266,6 +272,125 @@ describe("interface TUI panel formatting", () => {
 			"CONTROL interface.disable risk=write privilege=admin status=locked confirmation=disable interface",
 			'adapter=macos command="sudo networksetup -setnetworkserviceenabled <service> off"',
 			"note=disable a network service",
+		]);
+	});
+
+	test("creates interface source clipboard previews and handoff plans", async () => {
+		expect(
+			getInterfaceSourceClipboardPreview(fixture, fixture.interfaces[0]),
+		).toEqual({
+			source: "interface-source",
+			label: "interface source evidence en0",
+			copyText:
+				"picos interfaces source\n\n" +
+				"[Summary]\n" +
+				"Selected: en0\n" +
+				"Platform: darwin\n" +
+				"Gateway: 192.168.0.1\n\n" +
+				"[interface-inventory] node:os networkInterfaces() ok lines=2 shown=2\n" +
+				"en0 IPv4 192.168.0.20/24 external mac=aa:bb:cc:dd:ee:ff\n" +
+				"utun4 IPv6 fe80::2/64 external mac=00:00:00:00:00:00\n\n" +
+				"[interface-stats] netstat -ibn ok lines=3 shown=2 truncated=yes\n" +
+				"Name Mtu Network Address Ipkts Ierrs Ibytes Opkts\n" +
+				" en0 1500 <Link#4> aa:bb:cc:dd:ee:ff 9000 0 125000000 7100\n\n" +
+				"[gateway] route -n get default ok lines=2 shown=2\n" +
+				"gateway: 192.168.0.1\n" +
+				"interface: en0",
+			details: [
+				"selected=en0 platform=darwin",
+				"sources=3 gateway=192.168.0.1",
+			],
+			confirmation: "copy",
+			enabled: false,
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+		});
+		expect(
+			getInterfaceSourceClipboardPreview({ ...fixture, sourceOutputs: [] }),
+		).toBeUndefined();
+
+		const plan = createInterfaceSourceHandoffPlan(fixture, {
+			baseDir: "/tmp/picos",
+			generatedAt: new Date("2026-07-02T06:00:00.000Z"),
+			selected: fixture.interfaces[0],
+		});
+
+		expect(plan).toEqual({
+			path: "/tmp/picos/interfaces/picos-interfaces-source-2026-07-02T060000000Z.md",
+			label: "interface source evidence en0",
+			view: "source",
+			content:
+				"# picos interface source handoff\n" +
+				"generatedAt=2026-07-02T06:00:00.000Z\n" +
+				"kind=interfaces\n" +
+				"view=source\n" +
+				"label=interface source evidence en0\n" +
+				"command=node:os networkInterfaces(); netstat -ibn; route -n get default\n" +
+				"selected=en0\n" +
+				"platform=darwin\n" +
+				"\n" +
+				"```txt\n" +
+				"picos interfaces source\n\n" +
+				"[Summary]\n" +
+				"Selected: en0\n" +
+				"Platform: darwin\n" +
+				"Gateway: 192.168.0.1\n\n" +
+				"[interface-inventory] node:os networkInterfaces() ok lines=2 shown=2\n" +
+				"en0 IPv4 192.168.0.20/24 external mac=aa:bb:cc:dd:ee:ff\n" +
+				"utun4 IPv6 fe80::2/64 external mac=00:00:00:00:00:00\n\n" +
+				"[interface-stats] netstat -ibn ok lines=3 shown=2 truncated=yes\n" +
+				"Name Mtu Network Address Ipkts Ierrs Ibytes Opkts\n" +
+				" en0 1500 <Link#4> aa:bb:cc:dd:ee:ff 9000 0 125000000 7100\n\n" +
+				"[gateway] route -n get default ok lines=2 shown=2\n" +
+				"gateway: 192.168.0.1\n" +
+				"interface: en0\n" +
+				"```\n",
+		});
+
+		const root = await mkdtemp(join(tmpdir(), "picos-interface-handoff-"));
+		try {
+			const writable = createInterfaceSourceHandoffPlan(fixture, {
+				baseDir: root,
+				generatedAt: new Date("2026-07-02T06:00:00.000Z"),
+				selected: fixture.interfaces[0],
+			});
+			if (!writable) {
+				throw new Error("expected interface handoff plan");
+			}
+			const written = await writeInterfaceSourceHandoffPlan(writable);
+
+			expect(written.path).toBe(
+				join(
+					root,
+					"interfaces",
+					"picos-interfaces-source-2026-07-02T060000000Z.md",
+				),
+			);
+			expect(await readFile(written.path, "utf8")).toBe(writable.content);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("formats interface source clipboard preview rows", () => {
+		expect(
+			formatInterfaceWorkspaceRows(fixture, 40, {
+				copyPreview: true,
+				selectedIndex: 0,
+				view: "source",
+			}).slice(-12),
+		).toEqual([
+			"CLIPBOARD PREVIEW interface-source",
+			"label interface source evidence en0",
+			"detail selected=en0 platform=darwin",
+			"detail sources=3 gateway=192.168.0.1",
+			"copy picos interfaces source",
+			"copy ",
+			"copy [Summary]",
+			"copy Selected: en0",
+			"copy Platform: darwin",
+			"copy Gateway: 192.168.0.1",
+			"copy ... 12 more lines",
+			"confirm copy locked",
 		]);
 	});
 });

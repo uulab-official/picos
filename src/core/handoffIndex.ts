@@ -2,7 +2,11 @@ import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { FileOpenOrigin, FileOpenSource } from "./fileOpen";
 
-export type HandoffIndexKind = "routes" | "connections" | "ports";
+export type HandoffIndexKind =
+	| "interfaces"
+	| "routes"
+	| "connections"
+	| "ports";
 
 export type HandoffIndexItem = {
 	source: FileOpenSource;
@@ -28,11 +32,12 @@ export type HandoffArchiveResult = {
 };
 
 type HandoffDirectory = {
-	dir: "routes" | "endpoints";
+	dir: "interfaces" | "routes" | "endpoints";
 	source: FileOpenSource;
 };
 
 const handoffDirectories: HandoffDirectory[] = [
+	{ dir: "interfaces", source: "interface-handoff" },
 	{ dir: "routes", source: "route-handoff" },
 	{ dir: "endpoints", source: "endpoint-handoff" },
 ];
@@ -72,7 +77,7 @@ export function formatHandoffIndexRows(
 			.map((item, itemIndex) =>
 				[
 					itemIndex === selectedIndex ? ">" : " ",
-					item.source === "route-handoff" ? "route" : "endpoint",
+					formatHandoffIndexSourceLabel(item.source),
 					item.kind,
 					item.view,
 					item.generatedAt,
@@ -159,6 +164,9 @@ function isPicosHandoffFilename(
 	if (dir === "routes") {
 		return /^picos-routes-[a-z-]+-\d{4}-\d{2}-\d{2}T/.test(filename);
 	}
+	if (dir === "interfaces") {
+		return /^picos-interfaces-source-\d{4}-\d{2}-\d{2}T/.test(filename);
+	}
 	return /^picos-(connections|ports)-[a-z-]+-\d{4}-\d{2}-\d{2}T/.test(filename);
 }
 
@@ -221,7 +229,20 @@ function parseKind(
 	if (source === "route-handoff") {
 		return "routes";
 	}
+	if (source === "interface-handoff") {
+		return "interfaces";
+	}
 	return value === "ports" ? "ports" : "connections";
+}
+
+function formatHandoffIndexSourceLabel(source: FileOpenSource): string {
+	if (source === "route-handoff") {
+		return "route";
+	}
+	if (source === "interface-handoff") {
+		return "interface";
+	}
+	return "endpoint";
 }
 
 function parseOrigin(

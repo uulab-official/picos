@@ -327,10 +327,13 @@ import {
 	openFileOperationDialog,
 } from "./fileOperationDialog";
 import {
+	createInterfaceSourceHandoffPlan,
 	formatInterfaceWorkspaceRows,
+	getInterfaceSourceClipboardPreview,
 	getNextInterfaceIndex,
 	type InterfaceDetailView,
 	nextInterfaceDetailView,
+	writeInterfaceSourceHandoffPlan,
 } from "./interfacePanel";
 import {
 	createLogCleanupPreview,
@@ -871,6 +874,8 @@ export function App(): React.ReactElement {
 	const [selectedInterfaceIndex, setSelectedInterfaceIndex] = useState(0);
 	const [interfaceDetailView, setInterfaceDetailView] =
 		useState<InterfaceDetailView>("list");
+	const [interfaceSourceCopyPreview, setInterfaceSourceCopyPreview] =
+		useState(false);
 	const [connectionDetailView, setConnectionDetailView] =
 		useState<EndpointDetailView>("detail");
 	const [portDetailView, setPortDetailView] =
@@ -2498,6 +2503,7 @@ export function App(): React.ReactElement {
 				setPortCopyPreview(false);
 				setProcessClipboardPreview(false);
 				setRouteCopyPreview(false);
+				setInterfaceSourceCopyPreview(false);
 				setToolCopyPreview(false);
 			}
 		} catch (caught) {
@@ -3477,6 +3483,99 @@ export function App(): React.ReactElement {
 		routePath,
 		routeSort,
 		routeTable,
+	]);
+
+	const exportInterfaceSourceHandoff = useCallback(async () => {
+		if (!summary) {
+			log("warn", "no interface summary loaded");
+			return;
+		}
+		if (interfaceDetailView !== "source") {
+			log("warn", "interface source export is available from source pane");
+			return;
+		}
+		const selected =
+			summary.interfaces[
+				Math.min(
+					Math.max(selectedInterfaceIndex, 0),
+					Math.max(0, summary.interfaces.length - 1),
+				)
+			];
+		const plan = createInterfaceSourceHandoffPlan(summary, {
+			baseDir: dirname(getConfigPath()),
+			selected,
+		});
+		if (!plan) {
+			log("warn", "no interface source evidence to export");
+			return;
+		}
+
+		try {
+			const written = await writeInterfaceSourceHandoffPlan(plan);
+			await refreshHandoffIndex(false);
+			setScreen("interfaces");
+			log("ok", `interfaces exported source ${written.path}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [
+		interfaceDetailView,
+		log,
+		refreshHandoffIndex,
+		selectedInterfaceIndex,
+		summary,
+	]);
+
+	const openInterfaceSourceHandoff = useCallback(async () => {
+		if (!summary) {
+			log("warn", "no interface summary loaded");
+			return;
+		}
+		if (interfaceDetailView !== "source") {
+			log("warn", "interface source open is available from source pane");
+			return;
+		}
+		const selected =
+			summary.interfaces[
+				Math.min(
+					Math.max(selectedInterfaceIndex, 0),
+					Math.max(0, summary.interfaces.length - 1),
+				)
+			];
+		const baseDir = dirname(getConfigPath());
+		const handoff = createInterfaceSourceHandoffPlan(summary, {
+			baseDir,
+			selected,
+		});
+		if (!handoff) {
+			log("warn", "no interface source evidence to open");
+			return;
+		}
+
+		try {
+			const written = await writeInterfaceSourceHandoffPlan(handoff);
+			await refreshHandoffIndex(false);
+			const plan = buildFileOpenPlan({
+				baseDir,
+				source: "interface-handoff",
+				label: written.label,
+				path: written.path,
+				platform: currentPlatform(),
+			});
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
+			log("info", `file open confirmation opened for ${written.label}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [
+		interfaceDetailView,
+		log,
+		refreshHandoffIndex,
+		selectedInterfaceIndex,
+		summary,
 	]);
 
 	const openRouteHandoff = useCallback(async () => {
@@ -6372,6 +6471,51 @@ export function App(): React.ReactElement {
 				log("info", `interfaces detail ${next}`);
 				return next;
 			});
+			setInterfaceSourceCopyPreview(false);
+			return;
+		}
+
+		if (
+			screen === "interfaces" &&
+			focusArea === "workspaces" &&
+			input === "c"
+		) {
+			if (!summary || interfaceDetailView !== "source") {
+				log("warn", "interface source copy is available from source pane");
+				return;
+			}
+			const selected =
+				summary.interfaces[
+					Math.min(
+						Math.max(selectedInterfaceIndex, 0),
+						Math.max(0, summary.interfaces.length - 1),
+					)
+				];
+			const preview = getInterfaceSourceClipboardPreview(summary, selected);
+			if (!preview) {
+				log("warn", "no interface source evidence selected");
+				return;
+			}
+			setInterfaceSourceCopyPreview(true);
+			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (
+			screen === "interfaces" &&
+			focusArea === "workspaces" &&
+			input === "e"
+		) {
+			void exportInterfaceSourceHandoff();
+			return;
+		}
+
+		if (
+			screen === "interfaces" &&
+			focusArea === "workspaces" &&
+			input === "o"
+		) {
+			void openInterfaceSourceHandoff();
 			return;
 		}
 
@@ -9128,6 +9272,7 @@ export function App(): React.ReactElement {
 				setSelectedInterfaceIndex((index) =>
 					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "down"),
 				);
+				setInterfaceSourceCopyPreview(false);
 			} else if (screen === "processes") {
 				setSelectedProcessFileIndex((index) =>
 					getNextIndex(
@@ -9188,6 +9333,7 @@ export function App(): React.ReactElement {
 				setSelectedInterfaceIndex((index) =>
 					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "up"),
 				);
+				setInterfaceSourceCopyPreview(false);
 			} else if (screen === "processes") {
 				setSelectedProcessFileIndex((index) =>
 					getNextIndex(
@@ -9288,6 +9434,7 @@ export function App(): React.ReactElement {
 					portFilterPresets={portFilterPresets}
 					selectedInterfaceIndex={selectedInterfaceIndex}
 					interfaceDetailView={interfaceDetailView}
+					interfaceSourceCopyPreview={interfaceSourceCopyPreview}
 					selectedConnectionIndex={selectedConnectionIndex}
 					selectedPortIndex={selectedPortIndex}
 					connectionDetailView={connectionDetailView}
@@ -9559,6 +9706,7 @@ function MainWorkspace({
 	portFilterPresets,
 	selectedInterfaceIndex,
 	interfaceDetailView,
+	interfaceSourceCopyPreview,
 	selectedConnectionIndex,
 	selectedPortIndex,
 	connectionDetailView,
@@ -9709,6 +9857,7 @@ function MainWorkspace({
 	portFilterPresets: string[];
 	selectedInterfaceIndex: number;
 	interfaceDetailView: InterfaceDetailView;
+	interfaceSourceCopyPreview: boolean;
 	selectedConnectionIndex: number;
 	selectedPortIndex: number;
 	connectionDetailView: EndpointDetailView;
@@ -9938,6 +10087,7 @@ function MainWorkspace({
 						portFilterPresets,
 						selectedInterfaceIndex,
 						interfaceDetailView,
+						interfaceSourceCopyPreview,
 						selectedConnectionIndex,
 						selectedPortIndex,
 						connectionDetailView,
@@ -10093,6 +10243,7 @@ function renderWorkspace(
 	portFilterPresets: string[],
 	selectedInterfaceIndex: number,
 	interfaceDetailView: InterfaceDetailView,
+	interfaceSourceCopyPreview: boolean,
 	selectedConnectionIndex: number,
 	selectedPortIndex: number,
 	connectionDetailView: EndpointDetailView,
@@ -10408,6 +10559,7 @@ function renderWorkspace(
 				summary={summary}
 				selectedIndex={selectedInterfaceIndex}
 				view={interfaceDetailView}
+				copyPreview={interfaceSourceCopyPreview}
 				visibleRows={Math.max(6, height - 8)}
 				t={t}
 			/>
@@ -11571,17 +11723,20 @@ function InterfacesWorkspace({
 	summary,
 	selectedIndex,
 	view,
+	copyPreview,
 	visibleRows,
 	t,
 }: {
 	summary?: NetworkSummary;
 	selectedIndex: number;
 	view: InterfaceDetailView;
+	copyPreview: boolean;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
 	const rows = summary
 		? formatInterfaceWorkspaceRows(summary, visibleRows - 3, {
+				copyPreview,
 				selectedIndex,
 				view,
 			})
@@ -11591,7 +11746,8 @@ function InterfacesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.interfaces")}</Text>
 			<Text color="gray">
-				interface console · j/k select · tab list/detail/stats/platform
+				interface console · j/k select · tab panes · source: c copy e export o
+				open
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
@@ -11601,11 +11757,14 @@ function InterfacesWorkspace({
 							row.startsWith("SUMMARY") ||
 							row.startsWith("DETAIL") ||
 							row.startsWith("STATS") ||
-							row.startsWith("PLATFORM")
+							row.startsWith("PLATFORM") ||
+							row.startsWith("CLIPBOARD")
 								? "cyan"
 								: row.startsWith(">")
 									? "green"
-									: "white"
+									: row.startsWith("confirm")
+										? "yellow"
+										: "white"
 						}
 					>
 						{row}
