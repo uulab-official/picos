@@ -186,6 +186,17 @@ const configWorkspaceActionFocusKeys: Record<string, ConfigWorkspaceItemKey> = {
 	"config.toolTargetRetention.focus": "toolTargetPresetLimit",
 };
 
+const configManagedShelfActionFocusTargets: Record<
+	string,
+	ConfigManagedShelfTarget
+> = {
+	"config.shelf.routes.focus": "routes",
+	"config.shelf.connections.focus": "connections",
+	"config.shelf.ports.focus": "ports",
+	"config.shelf.logs.focus": "logs",
+	"config.shelf.remotes.focus": "remotes",
+};
+
 export type ConfigWorkspaceItem = {
 	key: ConfigWorkspaceItemKey;
 	label: string;
@@ -525,6 +536,12 @@ export function getConfigManagedShelfHandoff(
 		configManagedShelfHandoffs.find((handoff) => handoff.target === target) ??
 		configManagedShelfHandoffs[0]
 	);
+}
+
+export function getConfigManagedShelfActionFocusTarget(
+	actionId: string,
+): ConfigManagedShelfTarget | undefined {
+	return configManagedShelfActionFocusTargets[actionId];
 }
 
 export function getNextConfigManagedShelfTarget(

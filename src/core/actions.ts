@@ -185,6 +185,61 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "config.shelf.routes.focus",
+		title: "Open route filters shelf",
+		description:
+			"Route filters config shortcut for jumping into the Routes managed shelf with Config origin.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.shelf.connections.focus",
+		title: "Open connection filters shelf",
+		description:
+			"Connection filters config shortcut for jumping into the Connections managed shelf with Config origin.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.shelf.ports.focus",
+		title: "Open port filters shelf",
+		description:
+			"Port filters config shortcut for jumping into the Ports managed shelf with Config origin.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.shelf.logs.focus",
+		title: "Open log profiles shelf",
+		description:
+			"Log profiles config shortcut for jumping into the Logs managed shelf with Config origin.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "config.shelf.remotes.focus",
+		title: "Open remote profiles shelf",
+		description:
+			"Remote profiles config shortcut for jumping into the Remotes managed shelf with Config origin.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "files.list",
 		title: "List files",
 		description:

@@ -256,6 +256,7 @@ import {
 	formatConfigManagedShelfRows,
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
+	getConfigManagedShelfActionFocusTarget,
 	getConfigManagedShelfFocusPreset,
 	getConfigManagedShelfHandoff,
 	getConfigWorkspaceActionFocusKey,
@@ -4615,6 +4616,32 @@ export function App(): React.ReactElement {
 							`config focus ${configFocusKey} current=${String(item?.value ?? "-")}`,
 						);
 					}
+				}
+
+				const configShelfFocusTarget = getConfigManagedShelfActionFocusTarget(
+					action.id,
+				);
+				if (configShelfFocusTarget) {
+					const focus = getConfigManagedShelfFocusPreset(
+						configShelfFocusTarget,
+					);
+					setScreen(focus.workspace);
+					setFocusArea(focus.focusArea);
+					setConfigShelfLandingTarget(focus.target);
+					if (focus.cursor === "routeFilters") {
+						setRouteDetailView("table");
+						setRouteCopyPreview(false);
+					} else if (focus.cursor === "connectionFilters") {
+						setSelectedConnectionIndex(focus.index);
+					} else if (focus.cursor === "portFilters") {
+						setSelectedPortIndex(focus.index);
+					} else if (focus.cursor === "remoteProfiles") {
+						setSelectedRemoteIndex(focus.index);
+					}
+					log(
+						"info",
+						`config shelf palette ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
+					);
 				}
 
 				if (action.id === "remote.profiles") {
