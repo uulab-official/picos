@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.286 - Remote Known Hosts Candidate Selection
+
+Status: draft PR [#348](https://github.com/uulab-official/picos/pull/348) on `codex/picos-v0.4.286-known-hosts-candidate-selection`.
+
+Goal: make future `known_hosts` candidate selection visible before picos reads local trust files, parses rows, compares fingerprints, trusts a host, imports SFTP transport, opens a socket, or mutates anything.
+
+- Remotes now models `REMOTE KNOWN_HOSTS CANDIDATE SELECTION` rows for selected and empty SFTP profile states.
+- Candidate selection rows show lookup target, source, zero candidate count, selected candidate, selected host pattern, key type, fingerprint placeholder, match state, and blocked decision.
+- Guard rows require parser completion and exact `select known_hosts candidate <id>` confirmation before a future candidate can be selected.
+- Execution rows keep `willReadLocal=false`, `willParse=false`, `willSelect=false`, `willCompare=false`, `willTrust=false`, `willMutateLocal=false`, `willImport=false`, and `willConnect=false`.
+- `picos remote <id>` prints the same candidate selection preview between host-key compare detail and host review.
+- Remotes TUI renders a dedicated `KNOWN_HOSTS CANDIDATE SELECTION` section and reserves additional vertical budget for the extra locked review surface.
+- Tests cover selected-profile candidate selection shape, empty-state rows, CLI provider status inclusion, and no-local-read/no-parse/no-select/no-compare/no-trust/no-local-mutation/no-import/no-connect posture.
+- Next: add exact-confirm local `known_hosts` fixture parsing boundaries before enabling real candidate selection.
+
 ## v0.4.285 - Remote Host Key Compare Detail
 
 Status: draft PR [#347](https://github.com/uulab-official/picos/pull/347) on `codex/picos-v0.4.285-host-key-compare-detail`.

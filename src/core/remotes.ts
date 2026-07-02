@@ -257,6 +257,32 @@ export type RemoteHostKeyCompareDetail = {
 	};
 };
 
+export type RemoteKnownHostsCandidateSelection = {
+	id: string;
+	provider: "sftp";
+	lookup: string;
+	status: "locked";
+	source: "known-hosts-parser-preview";
+	candidateCount: 0;
+	selectedCandidate: "none";
+	selectedHostPattern: "none";
+	selectedKeyType: "unknown";
+	selectedFingerprint: "sha256:unknown";
+	match: "unknown";
+	decision: "blocked";
+	confirm: string;
+	execution: {
+		readsLocal: false;
+		parsesRows: false;
+		selectsCandidate: false;
+		comparesFingerprints: false;
+		trustsHost: false;
+		mutatesLocal: false;
+		importsTransport: false;
+		opensSocket: false;
+	};
+};
+
 export type RemoteHostKeyTrustReviewConfirmation = {
 	preview: RemoteHostKeyTrustDecisionPreview;
 	status: "confirmed-blocked" | "rejected";
@@ -807,6 +833,54 @@ export function formatRemoteHostKeyCompareDetailRows(
 	];
 }
 
+export function createRemoteKnownHostsCandidateSelection(
+	profile?: SftpRemoteProfile,
+): RemoteKnownHostsCandidateSelection {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		lookup: profile ? `${profile.host}:${profile.port}` : "none",
+		status: "locked",
+		source: "known-hosts-parser-preview",
+		candidateCount: 0,
+		selectedCandidate: "none",
+		selectedHostPattern: "none",
+		selectedKeyType: "unknown",
+		selectedFingerprint: "sha256:unknown",
+		match: "unknown",
+		decision: "blocked",
+		confirm: profile
+			? `select known_hosts candidate ${profile.id}`
+			: "select remote profile",
+		execution: {
+			readsLocal: false,
+			parsesRows: false,
+			selectsCandidate: false,
+			comparesFingerprints: false,
+			trustsHost: false,
+			mutatesLocal: false,
+			importsTransport: false,
+			opensSocket: false,
+		},
+	};
+}
+
+export function formatRemoteKnownHostsCandidateSelectionRows(
+	selection: RemoteKnownHostsCandidateSelection = createRemoteKnownHostsCandidateSelection(),
+): string[] {
+	return [
+		`REMOTE KNOWN_HOSTS CANDIDATE SELECTION ${selection.id}`,
+		`lookup=${selection.lookup} provider=${selection.provider} status=${selection.status} source=${selection.source}`,
+		`candidates=${selection.candidateCount} selected=${selection.selectedCandidate} hostPattern=${selection.selectedHostPattern} keyType=${selection.selectedKeyType} fingerprint=${selection.selectedFingerprint}`,
+		`match=${selection.match} decision=${selection.decision}`,
+		`guards=parserRequired exactConfirm="${selection.confirm}"`,
+		`execution=willReadLocal=${selection.execution.readsLocal} willParse=${selection.execution.parsesRows} willSelect=${selection.execution.selectsCandidate} willCompare=${selection.execution.comparesFingerprints} willTrust=${selection.execution.trustsHost} willMutateLocal=${selection.execution.mutatesLocal} willImport=${selection.execution.importsTransport} willConnect=${selection.execution.opensSocket}`,
+		selection.id === "none"
+			? "next=select remote profile · no candidate selection"
+			: "next=parse known_hosts rows before candidate selection",
+	];
+}
+
 export function submitRemoteHostKeyTrustReview(
 	preview: RemoteHostKeyTrustDecisionPreview,
 	input: string,
@@ -997,6 +1071,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteHostKeyCompareDetailRows(
 			createRemoteHostKeyCompareDetail(profile),
+		),
+		"",
+		...formatRemoteKnownHostsCandidateSelectionRows(
+			createRemoteKnownHostsCandidateSelection(profile),
 		),
 		"",
 		...formatRemoteHostReviewRows(profile),
