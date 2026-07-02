@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes focus now supports locked known_hosts paste candidate selection with `1-9`, and `[`/`]` or number selections now record Status Activity and Timeline recovery rows without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports locked known_hosts paste candidate rotation with `[` and `]`, updating the hidden paste review selection and live compare candidate without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports locked multi-row known_hosts paste review with `P`, parsing pasted `\n`-separated candidates into a hidden-content review buffer and feeding the selected candidate into live host-key compare detail without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports locked known_hosts candidate entry with `K`, parsing provided one-line known_hosts content into session candidates so `REMOTE HOST KEY COMPARE DETAIL` can move from evidence-only to matched or mismatch without reading local files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.

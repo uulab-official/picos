@@ -50,6 +50,7 @@ import {
 	parseRemoteProfileCommand,
 	recordRemoteHostKeyEvidenceInputSession,
 	recordRemoteKnownHostsCandidateSession,
+	selectRemoteKnownHostsPasteReviewCandidate,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -1352,6 +1353,51 @@ describe("remote profiles", () => {
 		expect(empty).toEqual(
 			createRemoteKnownHostsPasteReview(profile, "not-a-candidate"),
 		);
+	});
+
+	test("selects a pasted known_hosts candidate by number for compare detail", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const content = [
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfirst first",
+			"[prod.example.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecond second",
+			"[prod.example.com]:2222 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYthird third",
+		].join("\n");
+		const review = createRemoteKnownHostsPasteReview(profile, content);
+
+		const selected = selectRemoteKnownHostsPasteReviewCandidate(review, 3);
+		const unchanged = selectRemoteKnownHostsPasteReviewCandidate(selected, 8);
+		const empty = selectRemoteKnownHostsPasteReviewCandidate(
+			createRemoteKnownHostsPasteReview(profile, "not-a-candidate"),
+			1,
+		);
+
+		expect(selected.selected).toBe(3);
+		expect(formatRemoteKnownHostsPasteReviewRows(selected)).toEqual(
+			expect.arrayContaining([expect.stringMatching(/^> #3 line=3 /)]),
+		);
+		expect(
+			createRemoteKnownHostsCandidatePreviewFromPasteReview(selected).selected,
+		).toBe(3);
+		expect(
+			createRemoteHostKeyCompareDetail(
+				profile,
+				createRemoteKnownHostsCandidatePreviewFromPasteReview(selected),
+				createRemoteHostKeyEvidenceInput(
+					profile,
+					selected.candidates[2]?.fingerprint,
+				),
+			).match,
+		).toBe("matched");
+		expect(unchanged).toBe(selected);
+		expect(empty.selected).toBe("none");
 	});
 
 	test("includes empty remote known_hosts candidate preview in provider status", async () => {

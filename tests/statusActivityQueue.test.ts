@@ -12,6 +12,8 @@ import {
 	createRemoteConnectPreview,
 	createRemoteHostKeyEvidenceInput,
 	createRemoteHostKeyTrustDecisionPreview,
+	createRemoteKnownHostsPasteReview,
+	selectRemoteKnownHostsPasteReviewCandidate,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -28,6 +30,8 @@ import {
 	createRemoteHostKeyEvidenceInputStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
+	createRemoteKnownHostsPasteSelectionStatusActivityResult,
+	createRemoteKnownHostsSelectionStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -734,6 +738,57 @@ describe("Status activity queue", () => {
 		});
 	});
 
+	test("creates status activity results for remote known_hosts selection moves", () => {
+		const result = createRemoteKnownHostsSelectionStatusActivityResult({
+			id: "prod",
+			host: "prod.example.com",
+			port: 2222,
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			direction: "next",
+			selected: 2,
+			candidateCount: 3,
+			sourceLine: 4,
+			hostPattern: "[prod.example.com]:2222",
+			keyType: "ssh-ed25519",
+			fingerprint: "SHA256:selectedFingerprint",
+			match: "matched",
+		});
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "remote-known-hosts-selection",
+			message:
+				"remote known_hosts selection next prod prod.example.com:2222 selected=2/3",
+			detail:
+				'target="sftp://deploy@prod.example.com:2222/srv/app" line=4 hostPattern=[prod.example.com]:2222 keyType=ssh-ed25519 fingerprint=SHA256:selectedFingerprint match=matched network=not-opened scan=false trust=not-applied knownHostsWrite=false',
+			detailRows: [
+				'selection target="sftp://deploy@prod.example.com:2222/srv/app" lookup=prod.example.com:2222 direction=next selected=2/3',
+				"candidate line=4 hostPattern=[prod.example.com]:2222 keyType=ssh-ed25519 fingerprint=SHA256:selectedFingerprint",
+				"decision match=matched network=not-opened scan=false trust=not-applied knownHostsWrite=false",
+			],
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=remote-known-hosts-selection",
+			"> remote known_hosts selection next prod prod.example.com:2222 selected=2/3",
+			'  selection target="sftp://deploy@prod.example.com:2222/srv/app" lookup=prod.example.com:2222 direction=next selected=2/3',
+			"  candidate line=4 hostPattern=[prod.example.com]:2222 keyType=ssh-ed25519 fingerprint=SHA256:selectedFingerprint",
+			"  decision match=matched network=not-opened scan=false trust=not-applied knownHostsWrite=false",
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> timeline remote-known-hosts-selection remote known_hosts selection next prod prod.example.com:2222 selected=2/3",
+			'    selection target="sftp://deploy@prod.example.com:2222/srv/app" lookup=prod.example.com:2222 direction=next selected=2/3',
+			"    candidate line=4 hostPattern=[prod.example.com]:2222 keyType=ssh-ed25519 fingerprint=SHA256:selectedFingerprint",
+			"    decision match=matched network=not-opened scan=false trust=not-applied knownHostsWrite=false",
+		]);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query: "remote known_hosts selection audit id=prod selected=2",
+			message:
+				"status activity result timeline search remote known_hosts selection prod selected=2",
+		});
+	});
+
 	test("formats recent remote activity shelf rows for Remotes workspace", () => {
 		expect(formatRemoteActivityShelfRows([])).toEqual([
 			"REMOTE ACTIVITY recent=0 selected=none",
@@ -767,6 +822,20 @@ describe("Status activity queue", () => {
 		const connect = createRemoteConnectStatusActivityResult(
 			submitRemoteConnectConfirmation(preview, "connect remote prod"),
 		);
+		const selection = createRemoteKnownHostsSelectionStatusActivityResult({
+			id: "prod",
+			host: "prod.example.com",
+			port: 2222,
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			direction: "previous",
+			selected: 1,
+			candidateCount: 2,
+			sourceLine: 1,
+			hostPattern: "[prod.example.com]:2222",
+			keyType: "ssh-rsa",
+			fingerprint: "SHA256:first",
+			match: "candidate-only",
+		});
 
 		expect(
 			formatRemoteActivityShelfRows(
@@ -776,6 +845,7 @@ describe("Status activity queue", () => {
 						action: "timeline-selected-copy",
 						message: "selected timeline copy ignored",
 					},
+					selection,
 					connect,
 					evidence,
 					trust,
@@ -785,12 +855,94 @@ describe("Status activity queue", () => {
 			),
 		).toEqual([
 			"REMOTE ACTIVITY recent=3 selected=prod",
-			"> connect confirmed-blocked prod prod.example.com:2222",
+			"> known_hosts previous prod prod.example.com:2222 selected=1/2",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" line=1 hostPattern=[prod.example.com]:2222 keyType=ssh-rsa fingerprint=SHA256:first match=candidate-only network=not-opened scan=false trust=not-applied knownHostsWrite=false',
+			"  connect confirmed-blocked prod prod.example.com:2222",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
 			"  evidence recorded-blocked prod prod.example.com:2222",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" fingerprint=SHA256:providedFingerprint parserInput=available network=not-opened scan=false trust=not-applied knownHostsWrite=false confirm="compare host key prod"',
-			"  trust confirmed-blocked prod prod.example.com:2222",
-			'  target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
+			"controls=enter stage · e evidence · t trust review · c connect preview · Status I timeline recovery",
+		]);
+		expect(
+			formatRemoteActivityShelfRows([connect, selection], {
+				selectedProfileId: "dev",
+			}),
+		).toEqual([
+			"REMOTE ACTIVITY recent=2 selected=dev",
+			"> connect confirmed-blocked prod prod.example.com:2222",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+			"  known_hosts previous prod prod.example.com:2222 selected=1/2",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" line=1 hostPattern=[prod.example.com]:2222 keyType=ssh-rsa fingerprint=SHA256:first match=candidate-only network=not-opened scan=false trust=not-applied knownHostsWrite=false',
+			"controls=enter stage · e evidence · t trust review · c connect preview · Status I timeline recovery",
+		]);
+	});
+
+	test("creates status activity results for known_hosts paste candidate selection", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const review = selectRemoteKnownHostsPasteReviewCandidate(
+			createRemoteKnownHostsPasteReview(
+				profile,
+				[
+					"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfirst first",
+					"[prod.example.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecond second",
+				].join("\n"),
+			),
+			2,
+		);
+		const result = createRemoteKnownHostsPasteSelectionStatusActivityResult(
+			review,
+			"number",
+		);
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "remote-known-hosts-selection",
+			message:
+				"remote known_hosts paste selection selected prod prod.example.com:2222 candidate=2/2 method=number",
+			detail:
+				"source=provided-known-hosts-paste line=2 key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false",
+			detailRows: [
+				"selection lookup=prod.example.com:2222 provider=sftp method=number candidate=2/2 line=2",
+				"candidate host=[prod.example.com]:2222 marker=none kind=plain key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY",
+				"decision result=blocked rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false",
+				'confirm compare="compare host key prod" review="review host trust prod"',
+			],
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=remote-known-hosts-selection",
+			"> remote known_hosts paste selection selected prod prod.example.com:2222 candidate=2/2 method=number",
+			"  selection lookup=prod.example.com:2222 provider=sftp method=number candidate=2/2 line=2",
+			"  candidate host=[prod.example.com]:2222 marker=none kind=plain key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY",
+			"  decision result=blocked rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false",
+			'  confirm compare="compare host key prod" review="review host trust prod"',
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> timeline remote-known-hosts-selection remote known_hosts paste selection selected prod prod.example.com:2222 candidate=2/2 method=number",
+			"    selection lookup=prod.example.com:2222 provider=sftp method=number candidate=2/2 line=2",
+			"    candidate host=[prod.example.com]:2222 marker=none kind=plain key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY",
+			"    decision result=blocked rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false",
+			'    confirm compare="compare host key prod" review="review host trust prod"',
+		]);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query:
+				"remote known_hosts paste selection audit id=prod candidate=2 method=number",
+			message:
+				"status activity result timeline search remote known_hosts selection prod candidate=2",
+		});
+		expect(formatRemoteActivityShelfRows([result])).toEqual([
+			"REMOTE ACTIVITY recent=1 selected=none",
+			"> known_hosts selected prod prod.example.com:2222 candidate=2/2 method=number",
+			"  source=provided-known-hosts-paste line=2 key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false",
 			"controls=enter stage · e evidence · t trust review · c connect preview · Status I timeline recovery",
 		]);
 	});

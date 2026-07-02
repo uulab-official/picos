@@ -10,6 +10,7 @@ import type {
 	RemoteConnectConfirmation,
 	RemoteHostKeyEvidenceInputConfirmation,
 	RemoteHostKeyTrustReviewConfirmation,
+	RemoteKnownHostsPasteReview,
 } from "../core/remotes";
 import type { SftpRemoteProfile, SupportedPlatform } from "../core/types";
 import {
@@ -66,6 +67,7 @@ export type StatusActivityEnterAction =
 	| "remote-host-review"
 	| "remote-host-key-evidence"
 	| "remote-host-trust-review"
+	| "remote-known-hosts-selection"
 	| "remote-connect"
 	| "none";
 
@@ -109,6 +111,21 @@ export type StatusActivityToolsEvidenceSearchRecovery = {
 	query: string;
 	total: number;
 	items: ToolHistoryExportIndexItem[];
+};
+
+export type RemoteKnownHostsSelectionStatusActivityInput = {
+	id: string;
+	host: string;
+	port: number;
+	target: string;
+	direction: "next" | "previous";
+	selected: number;
+	candidateCount: number;
+	sourceLine: number;
+	hostPattern: string;
+	keyType: string;
+	fingerprint: string;
+	match: "candidate-only" | "matched" | "mismatch" | "unknown";
 };
 
 type StatusActivityTimelineMessageSource = {
@@ -598,6 +615,73 @@ export function createRemoteHostKeyEvidenceInputStatusActivityResult(
 	};
 }
 
+export function createRemoteKnownHostsSelectionStatusActivityResult(
+	input: RemoteKnownHostsSelectionStatusActivityInput,
+): StatusActivityResult {
+	return {
+		source: "timeline",
+		action: "remote-known-hosts-selection",
+		message: `remote known_hosts selection ${input.direction} ${input.id} ${input.host}:${input.port} selected=${input.selected}/${input.candidateCount}`,
+		detail: [
+			`target="${input.target}"`,
+			`line=${input.sourceLine}`,
+			`hostPattern=${input.hostPattern}`,
+			`keyType=${input.keyType}`,
+			`fingerprint=${input.fingerprint}`,
+			`match=${input.match}`,
+			"network=not-opened",
+			"scan=false",
+			"trust=not-applied",
+			"knownHostsWrite=false",
+		].join(" "),
+		detailRows: [
+			`selection target="${input.target}" lookup=${input.host}:${input.port} direction=${input.direction} selected=${input.selected}/${input.candidateCount}`,
+			`candidate line=${input.sourceLine} hostPattern=${input.hostPattern} keyType=${input.keyType} fingerprint=${input.fingerprint}`,
+			`decision match=${input.match} network=not-opened scan=false trust=not-applied knownHostsWrite=false`,
+		],
+	};
+}
+
+export function createRemoteKnownHostsPasteSelectionStatusActivityResult(
+	review: RemoteKnownHostsPasteReview,
+	method: "next" | "previous" | "number",
+): StatusActivityResult {
+	const candidate =
+		review.selected === "none"
+			? undefined
+			: review.candidates.find((item) => item.index === review.selected);
+	const selected = candidate?.index ?? "none";
+	const reviewConfirm =
+		review.id === "none"
+			? "select remote profile"
+			: `review host trust ${review.id}`;
+	const compareConfirm =
+		review.id === "none"
+			? "select remote profile"
+			: `compare host key ${review.id}`;
+	return {
+		source: "timeline",
+		action: "remote-known-hosts-selection",
+		message: `remote known_hosts paste selection ${candidate ? "selected" : "missing"} ${review.id} ${review.lookup} candidate=${selected}/${review.candidates.length} method=${method}`,
+		detail: [
+			`source=${review.source}`,
+			`line=${candidate?.sourceLine ?? "none"}`,
+			`key=${candidate?.keyType ?? "none"}`,
+			`fingerprint=${candidate?.fingerprint ?? "sha256:unknown"}`,
+			`rawContent=${review.rawContent}`,
+			"network=not-opened",
+			"trust=not-applied",
+			"knownHostsWrite=false",
+		].join(" "),
+		detailRows: [
+			`selection lookup=${review.lookup} provider=${review.provider} method=${method} candidate=${selected}/${review.candidates.length} line=${candidate?.sourceLine ?? "none"}`,
+			`candidate host=${candidate?.hostPattern ?? "none"} marker=${candidate?.marker ?? "none"} kind=${candidate?.hostKind ?? "none"} key=${candidate?.keyType ?? "none"} fingerprint=${candidate?.fingerprint ?? "sha256:unknown"}`,
+			`decision result=${review.decision} rawContent=${review.rawContent} network=not-opened trust=not-applied knownHostsWrite=false`,
+			`confirm compare="${compareConfirm}" review="${reviewConfirm}"`,
+		],
+	};
+}
+
 export function formatRemoteActivityShelfRows(
 	history: StatusActivityResult[],
 	options: {
@@ -643,6 +727,7 @@ function isRemoteActivityResult(result: StatusActivityResult): boolean {
 		(result.action === "remote-host-review" ||
 			result.action === "remote-host-key-evidence" ||
 			result.action === "remote-host-trust-review" ||
+			result.action === "remote-known-hosts-selection" ||
 			result.action === "remote-connect")
 	);
 }
@@ -675,6 +760,11 @@ function formatRemoteActivitySummary(result: StatusActivityResult): string {
 	}
 	if (result.action === "remote-host-trust-review") {
 		return result.message.replace(/^remote host trust review /, "trust ");
+	}
+	if (result.action === "remote-known-hosts-selection") {
+		return result.message
+			.replace(/^remote known_hosts paste selection /, "known_hosts ")
+			.replace(/^remote known_hosts selection /, "known_hosts ");
 	}
 	return result.message;
 }
@@ -1587,6 +1677,12 @@ export function createStatusActivityResultTimelineSearch(
 	) {
 		return createRemoteHostKeyTrustReviewResultTimelineSearch(result);
 	}
+	if (
+		result.source === "timeline" &&
+		result.action === "remote-known-hosts-selection"
+	) {
+		return createRemoteKnownHostsSelectionResultTimelineSearch(result);
+	}
 	if (result.source === "timeline" && result.action === "remote-connect") {
 		return createRemoteConnectResultTimelineSearch(result);
 	}
@@ -1678,6 +1774,40 @@ function createRemoteHostReviewResultTimelineSearch(
 		filter: "audit",
 		query: `remote host review audit action=stage id=${id}`,
 		message: `status activity result timeline search remote host review ${id}`,
+	};
+}
+
+function createRemoteKnownHostsSelectionResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const pasteMatch = result.message.match(
+		/^remote known_hosts paste selection (selected|missing) ([A-Za-z0-9._-]{1,64}) .* candidate=(\d+|none)\/\d+ method=([a-z]+)$/,
+	);
+	if (pasteMatch) {
+		const [, , id, candidate, method] = pasteMatch;
+		if (!id || !candidate || !method) {
+			return undefined;
+		}
+		return {
+			filter: "audit",
+			query: `remote known_hosts paste selection audit id=${id} candidate=${candidate} method=${method}`,
+			message: `status activity result timeline search remote known_hosts selection ${id} candidate=${candidate}`,
+		};
+	}
+	const moveMatch = result.message.match(
+		/^remote known_hosts selection (next|previous) ([A-Za-z0-9._-]{1,64}) .* selected=(\d+)\/\d+$/,
+	);
+	if (!moveMatch) {
+		return undefined;
+	}
+	const [, , id, selected] = moveMatch;
+	if (!id || !selected) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: `remote known_hosts selection audit id=${id} selected=${selected}`,
+		message: `status activity result timeline search remote known_hosts selection ${id} selected=${selected}`,
 	};
 }
 

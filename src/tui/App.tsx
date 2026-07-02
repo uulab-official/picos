@@ -189,6 +189,7 @@ import {
 	recordRemoteHostKeyEvidenceInputSession,
 	recordRemoteKnownHostsCandidateSession,
 	recordRemoteKnownHostsPasteReviewSession,
+	selectRemoteKnownHostsPasteReviewCandidate,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -468,6 +469,7 @@ import {
 	createRemoteHostKeyEvidenceInputStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
+	createRemoteKnownHostsPasteSelectionStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -4116,6 +4118,12 @@ export function App(): React.ReactElement {
 			setRemoteKnownHostsCandidateSession((current) =>
 				recordRemoteKnownHostsCandidateSession(current, preview),
 			);
+			recordStatusActivityResult(
+				createRemoteKnownHostsPasteSelectionStatusActivityResult(
+					nextReview,
+					direction,
+				),
+			);
 			log(
 				"info",
 				`remote known_hosts paste candidate ${direction} ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length}`,
@@ -4123,6 +4131,59 @@ export function App(): React.ReactElement {
 		},
 		[
 			log,
+			recordStatusActivityResult,
+			remoteKnownHostsPasteReviewSession,
+			remoteProfiles,
+			selectedRemoteIndex,
+		],
+	);
+
+	const selectRemoteKnownHostsPasteReviewCandidateCommand = useCallback(
+		(candidateIndex: number) => {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile) {
+				log("warn", "remote known_hosts paste selection requires a profile");
+				return;
+			}
+
+			const review = createRemoteKnownHostsPasteReviewFromSession(
+				profile,
+				remoteKnownHostsPasteReviewSession,
+			);
+			const nextReview = selectRemoteKnownHostsPasteReviewCandidate(
+				review,
+				candidateIndex,
+			);
+			if (nextReview === review) {
+				log(
+					"warn",
+					`remote known_hosts paste candidate ${candidateIndex} unavailable ${profile.id}`,
+				);
+				return;
+			}
+
+			const preview =
+				createRemoteKnownHostsCandidatePreviewFromPasteReview(nextReview);
+			setRemoteKnownHostsPasteReviewSession((current) =>
+				recordRemoteKnownHostsPasteReviewSession(current, nextReview),
+			);
+			setRemoteKnownHostsCandidateSession((current) =>
+				recordRemoteKnownHostsCandidateSession(current, preview),
+			);
+			recordStatusActivityResult(
+				createRemoteKnownHostsPasteSelectionStatusActivityResult(
+					nextReview,
+					"number",
+				),
+			);
+			log(
+				"info",
+				`remote known_hosts paste candidate selected ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length}`,
+			);
+		},
+		[
+			log,
+			recordStatusActivityResult,
 			remoteKnownHostsPasteReviewSession,
 			remoteProfiles,
 			selectedRemoteIndex,
@@ -9711,6 +9772,11 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && /^[1-9]$/.test(input)) {
+			selectRemoteKnownHostsPasteReviewCandidateCommand(Number(input));
+			return;
+		}
+
 		if (focusArea === "remotes" && input === "t") {
 			const profile = remoteProfiles[selectedRemoteIndex];
 			if (!profile) {
@@ -12152,7 +12218,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · [ ] candidate · t trust review · c connect preview · h/esc"
+					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · [ ]/1-9 candidate · t trust review · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (
