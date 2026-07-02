@@ -395,6 +395,7 @@ import {
 	createStatusActivityCopyIntentRecord,
 	createStatusActivityCopyIntentTimelineSearch,
 	createStatusActivityEnterPlan,
+	createStatusActivityProcessControlPaletteResult,
 	createStatusActivityResultAuditJumpReplayWarningSummary,
 	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
 	createStatusActivityResultHistoryFilterPaletteResult,
@@ -418,6 +419,7 @@ import {
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
+	formatStatusActivityProcessControlPaletteAuditMessage,
 	formatStatusActivityQueueRows,
 	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultCopyPreviewRows,
@@ -2215,6 +2217,30 @@ export function App(): React.ReactElement {
 		selectedPortIndex,
 		sortedPorts,
 	]);
+
+	const openPalettePortProcessControlPreview = useCallback(() => {
+		const preview = createSelectedPortProcessControlPreview(
+			sortedPorts,
+			selectedPortIndex,
+		);
+		setScreen("ports");
+		setFocusArea("workspaces");
+		setPortCopyPreview(false);
+		setPortProcessControlPreview(Boolean(preview));
+		log("info", formatStatusActivityProcessControlPaletteAuditMessage(preview));
+		recordStatusActivityResult(
+			createStatusActivityProcessControlPaletteResult(preview),
+		);
+		if (!preview) {
+			log("warn", "palette process control preview unavailable");
+			return;
+		}
+		setCommandLine(openCommandLine(portProcessControlPrompt));
+		log(
+			"warn",
+			`ports process control confirm ${preview.confirmationPhrase} via palette`,
+		);
+	}, [log, recordStatusActivityResult, selectedPortIndex, sortedPorts]);
 
 	const submitTimelineSearchCommand = useCallback(() => {
 		const query = commandLine.value.trim();
@@ -5468,6 +5494,10 @@ export function App(): React.ReactElement {
 				const action = getPaletteAction(actions, palette);
 				setPalette((current) => closeCommandPalette(current));
 				if (action) {
+					if (action.id === "process.terminate") {
+						openPalettePortProcessControlPreview();
+						return;
+					}
 					runAction(action);
 				}
 				return;

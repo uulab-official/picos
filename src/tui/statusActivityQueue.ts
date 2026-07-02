@@ -12,6 +12,7 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
+import type { PortProcessControlPreview } from "./endpointPanel";
 import type {
 	TimelineFilter,
 	TimelineFocusEvidenceTrailPlan,
@@ -52,6 +53,7 @@ export type StatusActivityEnterAction =
 	| "tools-evidence-search"
 	| "tools-evidence-archive"
 	| "tools-evidence-retention"
+	| "process-control-preview"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -1178,6 +1180,12 @@ export function createStatusActivityResultTimelineSearch(
 		return createToolsEvidenceSearchResultTimelineSearch(result);
 	}
 	if (
+		result.source === "timeline" &&
+		result.action === "process-control-preview"
+	) {
+		return createProcessControlPreviewResultTimelineSearch(result);
+	}
+	if (
 		result.source !== "evidence" ||
 		result.action !== "timeline-evidence-trail"
 	) {
@@ -1194,6 +1202,23 @@ export function createStatusActivityResultTimelineSearch(
 		filter: "audit",
 		query: `action=source source=${sourceFilter} visible=${visible}`,
 		message: `status activity result timeline search palette source ${sourceFilter} visible=${visible}`,
+	};
+}
+
+function createProcessControlPreviewResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^palette process control preview (?:terminate|unavailable)(?: .* pid=(\S+))?/,
+	);
+	const pid = match?.[1];
+	const query = pid
+		? `palette process control audit action=preview pid=${pid}`
+		: "palette process control audit action=preview status=unavailable";
+	return {
+		filter: "audit",
+		query,
+		message: `status activity result timeline search palette process control${pid ? ` pid=${pid}` : " unavailable"}`,
 	};
 }
 
@@ -1863,6 +1888,34 @@ export function createStatusActivityToolsEvidenceMatchResult(
 	};
 }
 
+export function createStatusActivityProcessControlPaletteResult(
+	preview?: PortProcessControlPreview,
+): StatusActivityResult {
+	if (!preview) {
+		return {
+			source: "timeline",
+			action: "process-control-preview",
+			message: "palette process control preview unavailable",
+			detail: "no PID-backed port process selected",
+		};
+	}
+	const state = preview.enabled ? "ready" : "locked";
+	return {
+		source: "timeline",
+		action: "process-control-preview",
+		message: `palette process control preview ${preview.kind} ${preview.port.localAddress}:${preview.port.localPort} pid=${preview.port.pid}`,
+		detail: [
+			`action=${preview.actionId}`,
+			`state=${state}`,
+			`risk=${preview.risk}`,
+			`privilege=${preview.privilege}`,
+			`process=${preview.port.command}`,
+			`user=${preview.port.user}`,
+			`confirm=${preview.confirmationPhrase}`,
+		].join(" "),
+	};
+}
+
 export function formatTimelineEvidenceTrailPaletteAuditMessage(
 	action: "select" | "open" | "search" | "source",
 	plan?: ConsoleAuditExportPlan,
@@ -1937,6 +1990,33 @@ export function formatStatusActivityResultTimelineJumpPaletteAuditMessage(
 		...(options.matches !== undefined
 			? [`matches=${Math.max(0, Math.floor(options.matches))}`]
 			: []),
+	].join(" ");
+}
+
+export function formatStatusActivityProcessControlPaletteAuditMessage(
+	preview?: PortProcessControlPreview,
+): string {
+	if (!preview) {
+		return [
+			"palette process control audit",
+			"action=preview",
+			"status=unavailable",
+			`reason="${formatTimelineEvidenceTrailAuditValue("no PID-backed port process selected")}"`,
+		].join(" ");
+	}
+	const state = preview.enabled ? "ready" : "locked";
+	return [
+		"palette process control audit",
+		"action=preview",
+		`status=${state}`,
+		`kind=${preview.kind}`,
+		`target="${formatTimelineEvidenceTrailAuditValue(`${preview.port.localAddress}:${preview.port.localPort}`)}"`,
+		`pid=${preview.port.pid}`,
+		`process="${formatTimelineEvidenceTrailAuditValue(preview.port.command)}"`,
+		`user="${formatTimelineEvidenceTrailAuditValue(preview.port.user)}"`,
+		`risk=${preview.risk}`,
+		`privilege=${preview.privilege}`,
+		`confirm="${formatTimelineEvidenceTrailAuditValue(preview.confirmationPhrase)}"`,
 	].join(" ");
 }
 

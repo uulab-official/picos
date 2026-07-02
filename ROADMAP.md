@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.228 - Palette Process Control Audit
+
+Status: draft PR [#290](https://github.com/uulab-official/picos/pull/290) on `codex/picos-v0.4.228-palette-process-control-audit`.
+
+Goal: make palette-triggered process-control attempts recoverable after rapid keyboard sessions.
+
+- `process.terminate` dispatch from the command palette now routes to the selected Ports process-control preview instead of falling back to the generic Action Center preview.
+- Palette dispatch opens the same locked `:port-control` confirmation prompt as Ports `K`, preserving exact `kill pid <pid>` confirmation and mutation-disabled policy.
+- Selected and unavailable PID targets now append compact Status Activity result rows.
+- Timeline audit messages now include action, locked/unavailable status, port, PID, process, user, risk, privilege, and exact confirmation phrase.
+- Status Activity result rows can jump back into the matching Timeline audit search for the selected PID.
+- Tests cover Status Activity rows, audit formatting, result-to-Timeline search recovery, and Timeline audit search rendering.
+- Next: add a compact Status copy-intent shelf row for recent process-control audit jumps so destructive intent reviews can be copied/exported without manually opening Timeline.
+
 ## v0.4.227 - Palette Port Control Preview
 
 Status: draft PR [#289](https://github.com/uulab-official/picos/pull/289) on `codex/picos-v0.4.227-palette-port-control-preview`.
@@ -10,7 +24,7 @@ Goal: make destructive process controls inspectable from the command palette wit
 - Preview rows include locked state, destructive/user risk, exact `kill pid <pid>` confirmation, local port, PID, process command, and user.
 - The preview uses the same filtered/sorted Ports selection as the Ports workspace, keeping palette dispatch aligned with `K` process control.
 - Tests cover selected port/PID/process/user preview rows before dispatch.
-- Next: record palette-triggered process-control preview attempts into Status Activity and Timeline audit search, so refused/destructive intents are recoverable after rapid keyboard sessions.
+- Next: palette-triggered process-control audit recovery moved into v0.4.228.
 
 ## v0.4.226 - Palette Action Control Preview
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ConsoleEvent } from "../src/tui/events";
 import {
+	formatStatusActivityProcessControlPaletteAuditMessage,
 	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityToolsEvidenceMatchAuditMessage,
@@ -248,6 +249,45 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette status result jump",
 			"TIMELINE",
 			'[12:00:09] INFO audit  palette status result jump audit action=open selected=2/2 row=4 filter=audit query="control preview" matches=5',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
+	test("surfaces palette-triggered process control previews in audit search", () => {
+		const processControlEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-info-palette-process-control",
+				level: "info",
+				time: "12:00:09",
+				message: formatStatusActivityProcessControlPaletteAuditMessage({
+					actionId: "process.terminate",
+					kind: "terminate",
+					port: {
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "12345",
+						command: "node",
+						user: "alice",
+					},
+					confirmationPhrase: "kill pid 12345",
+					risk: "destructive",
+					privilege: "user",
+					enabled: false,
+					rows: [],
+				}),
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(processControlEvents, 5, "audit", {
+				query: "palette process control audit action=preview pid=12345",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette process control audit action=preview pid=12345",
+			"TIMELINE",
+			'[12:00:09] INFO audit  palette process control audit action=preview status=locked kind=terminate target="*:3000" pid=12345 process="node" user="alice" risk=destructive privilege=user confirm="kill pid 12345"',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
