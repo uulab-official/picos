@@ -182,6 +182,30 @@ export type RemoteKnownHostsReadPreview = {
 	};
 };
 
+export type RemoteKnownHostsParserPreview = {
+	id: string;
+	provider: "sftp";
+	lookup: string;
+	status: "locked";
+	source: "local-known-hosts";
+	parser: "planned";
+	formats: ["plain", "hashed", "marker", "cert-authority"];
+	match: "unknown";
+	candidates: 0;
+	selected: "none";
+	fingerprint: "sha256:unknown";
+	trustDecision: "blocked";
+	confirm: string;
+	execution: {
+		readsLocal: false;
+		parsesRows: false;
+		opensSocket: false;
+		scansHostKey: false;
+		trustsHost: false;
+		mutatesRemote: false;
+	};
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -580,6 +604,52 @@ export function formatRemoteKnownHostsReadPreviewRows(
 	];
 }
 
+export function createRemoteKnownHostsParserPreview(
+	profile?: SftpRemoteProfile,
+): RemoteKnownHostsParserPreview {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		lookup: profile ? `${profile.host}:${profile.port}` : "none",
+		status: "locked",
+		source: "local-known-hosts",
+		parser: "planned",
+		formats: ["plain", "hashed", "marker", "cert-authority"],
+		match: "unknown",
+		candidates: 0,
+		selected: "none",
+		fingerprint: "sha256:unknown",
+		trustDecision: "blocked",
+		confirm: profile
+			? `parse known_hosts ${profile.id}`
+			: "select remote profile",
+		execution: {
+			readsLocal: false,
+			parsesRows: false,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteKnownHostsParserPreviewRows(
+	preview: RemoteKnownHostsParserPreview = createRemoteKnownHostsParserPreview(),
+): string[] {
+	return [
+		`REMOTE KNOWN_HOSTS PARSER PREVIEW ${preview.id}`,
+		`lookup=${preview.lookup} provider=${preview.provider} status=${preview.status} source=${preview.source}`,
+		`parser=${preview.parser} formats=${preview.formats.join(",")} match=${preview.match}`,
+		`candidates=${preview.candidates} selected=${preview.selected} fingerprint=${preview.fingerprint} trustDecision=${preview.trustDecision}`,
+		`guards=localReadRequired exactConfirm="${preview.confirm}" hostReview=required`,
+		`execution=willReadLocal=${preview.execution.readsLocal} willParse=${preview.execution.parsesRows} willConnect=${preview.execution.opensSocket} willScan=${preview.execution.scansHostKey} willTrust=${preview.execution.trustsHost} willMutate=${preview.execution.mutatesRemote}`,
+		preview.id === "none"
+			? "next=select remote profile · no parser run"
+			: "next=confirm parser preview after local known_hosts read boundary",
+	];
+}
+
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
 ): RemoteConnectPreview {
@@ -717,6 +787,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteKnownHostsReadPreviewRows(
 			createRemoteKnownHostsReadPreview(profile),
+		),
+		"",
+		...formatRemoteKnownHostsParserPreviewRows(
+			createRemoteKnownHostsParserPreview(profile),
 		),
 		"",
 		...formatRemoteHostReviewRows(profile),

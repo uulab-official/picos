@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.282 - Remote Known Hosts Parser Preview
+
+Status: draft PR [#344](https://github.com/uulab-official/picos/pull/344) on `codex/picos-v0.4.282-known-hosts-parser-preview`.
+
+Goal: make the future `known_hosts` parser boundary visible before picos reads local trust files, parses host rows, imports SFTP transport, opens a socket, scans host keys, trusts a host, or mutates anything.
+
+- Remotes now models `REMOTE KNOWN_HOSTS PARSER PREVIEW` rows for selected and empty SFTP profile states.
+- Parser preview rows show lookup target, local-known-hosts source, planned plain/hashed/marker/cert-authority formats, unknown match state, zero candidates, selected none, `sha256:unknown`, and blocked trust decision.
+- Guard rows require a prior local read boundary and exact `parse known_hosts <id>` confirmation while host review remains required.
+- Execution rows keep `willReadLocal=false`, `willParse=false`, `willConnect=false`, `willScan=false`, `willTrust=false`, and `willMutate=false`.
+- `picos remote <id>` prints the same known-hosts parser preview between known-hosts read preview and host review.
+- Remotes TUI renders a dedicated `KNOWN_HOSTS PARSER PREVIEW` section before host review.
+- Tests cover selected-profile parser preview shape, empty-state rows, CLI provider status inclusion, and no-local-read/no-parse/no-connect/no-scan/no-trust/no-mutation posture.
+- Next: add a locked host-key trust decision preview that can compare collected and known-hosts fingerprints without enabling transport.
+
 ## v0.4.281 - Remote Known Hosts Read Preview
 
 Status: draft PR [#343](https://github.com/uulab-official/picos/pull/343) on `codex/picos-v0.4.281-known-hosts-read-preview`.

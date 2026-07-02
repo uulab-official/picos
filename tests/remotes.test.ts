@@ -5,6 +5,7 @@ import {
 	createRemoteFileContext,
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyEvidence,
+	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
@@ -17,6 +18,7 @@ import {
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
+	formatRemoteKnownHostsParserPreviewRows,
 	formatRemoteKnownHostsReadPreviewRows,
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteProfiles,
@@ -744,6 +746,86 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willReadLocal=false willImport=false willConnect=false willScan=false willMutate=false",
+		);
+	});
+
+	test("formats remote known_hosts parser preview without parsing trust rows", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteKnownHostsParserPreview(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			lookup: "prod.example.com:2222",
+			status: "locked",
+			source: "local-known-hosts",
+			parser: "planned",
+			formats: ["plain", "hashed", "marker", "cert-authority"],
+			match: "unknown",
+			candidates: 0,
+			selected: "none",
+			fingerprint: "sha256:unknown",
+			trustDecision: "blocked",
+			confirm: "parse known_hosts prod",
+			execution: {
+				readsLocal: false,
+				parsesRows: false,
+				opensSocket: false,
+				scansHostKey: false,
+				trustsHost: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteKnownHostsParserPreviewRows(
+				createRemoteKnownHostsParserPreview(profile),
+			),
+		).toEqual([
+			"REMOTE KNOWN_HOSTS PARSER PREVIEW prod",
+			"lookup=prod.example.com:2222 provider=sftp status=locked source=local-known-hosts",
+			"parser=planned formats=plain,hashed,marker,cert-authority match=unknown",
+			"candidates=0 selected=none fingerprint=sha256:unknown trustDecision=blocked",
+			'guards=localReadRequired exactConfirm="parse known_hosts prod" hostReview=required',
+			"execution=willReadLocal=false willParse=false willConnect=false willScan=false willTrust=false willMutate=false",
+			"next=confirm parser preview after local known_hosts read boundary",
+		]);
+
+		expect(formatRemoteKnownHostsParserPreviewRows().join("\n")).toBe(
+			[
+				"REMOTE KNOWN_HOSTS PARSER PREVIEW none",
+				"lookup=none provider=sftp status=locked source=local-known-hosts",
+				"parser=planned formats=plain,hashed,marker,cert-authority match=unknown",
+				"candidates=0 selected=none fingerprint=sha256:unknown trustDecision=blocked",
+				'guards=localReadRequired exactConfirm="select remote profile" hostReview=required',
+				"execution=willReadLocal=false willParse=false willConnect=false willScan=false willTrust=false willMutate=false",
+				"next=select remote profile · no parser run",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote known_hosts parser preview in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE KNOWN_HOSTS PARSER PREVIEW dev");
+		expect(output).toContain(
+			"parser=planned formats=plain,hashed,marker,cert-authority match=unknown",
+		);
+		expect(output).toContain(
+			"execution=willReadLocal=false willParse=false willConnect=false willScan=false willTrust=false willMutate=false",
 		);
 	});
 
