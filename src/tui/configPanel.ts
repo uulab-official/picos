@@ -178,6 +178,14 @@ const configManagedShelfHandoffs: ConfigManagedShelfHandoff[] = [
 	{ target: "remotes", workspace: "remotes", label: "Remotes" },
 ];
 
+const configWorkspaceActionFocusKeys: Record<string, ConfigWorkspaceItemKey> = {
+	"config.statusResultJumpClass.focus": "statusResultJumpClassFilter",
+	"config.safetyPolicy.focus": "controlExecutionMode",
+	"config.editorSaveMode.focus": "editorSaveMode",
+	"config.auditRetention.focus": "auditArchiveRetentionLimit",
+	"config.toolTargetRetention.focus": "toolTargetPresetLimit",
+};
+
 export type ConfigWorkspaceItem = {
 	key: ConfigWorkspaceItemKey;
 	label: string;
@@ -398,6 +406,12 @@ export function getConfigWorkspaceItemIndex(
 ): number | undefined {
 	const index = items.findIndex((item) => item.key === key);
 	return index >= 0 ? index : undefined;
+}
+
+export function getConfigWorkspaceActionFocusKey(
+	actionId: string,
+): ConfigWorkspaceItemKey | undefined {
+	return configWorkspaceActionFocusKeys[actionId];
 }
 
 export function getConfigWorkspaceSectionJumpIndex(

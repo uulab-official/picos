@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 54,
-			enabled: 42,
+			total: 58,
+			enabled: 46,
 			locked: 12,
 			elevated: 4,
 		});
@@ -51,6 +51,10 @@ describe("action catalog", () => {
 			"ping.default",
 			"config.show",
 			"config.statusResultJumpClass.focus",
+			"config.safetyPolicy.focus",
+			"config.editorSaveMode.focus",
+			"config.auditRetention.focus",
+			"config.toolTargetRetention.focus",
 			"files.list",
 			"files.read",
 			"routes.inspect",
@@ -310,6 +314,42 @@ describe("action catalog", () => {
 				privilege: "none",
 				enabled: true,
 			}),
+		);
+		expect(getActionCatalog()).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: "config.safetyPolicy.focus",
+					title: "Configure safety policy",
+					category: "config",
+					risk: "read",
+					privilege: "none",
+					enabled: true,
+				}),
+				expect.objectContaining({
+					id: "config.editorSaveMode.focus",
+					title: "Configure editor save mode",
+					category: "config",
+					risk: "read",
+					privilege: "none",
+					enabled: true,
+				}),
+				expect.objectContaining({
+					id: "config.auditRetention.focus",
+					title: "Configure audit retention",
+					category: "config",
+					risk: "read",
+					privilege: "none",
+					enabled: true,
+				}),
+				expect.objectContaining({
+					id: "config.toolTargetRetention.focus",
+					title: "Configure tools target retention",
+					category: "config",
+					risk: "read",
+					privilege: "none",
+					enabled: true,
+				}),
+			]),
 		);
 		expect(getActionCatalog()).toContainEqual(
 			expect.objectContaining({

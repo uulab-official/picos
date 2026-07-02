@@ -17,6 +17,7 @@ import {
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
 	getConfigManagedShelfFocusPreset,
+	getConfigWorkspaceActionFocusKey,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItemIndex,
 	getConfigWorkspaceSectionJumpIndex,
@@ -87,6 +88,22 @@ describe("config TUI panel", () => {
 		expect(
 			getConfigWorkspaceItemIndex(items, "statusResultJumpClassFilter"),
 		).toBe(4);
+		expect(getConfigWorkspaceActionFocusKey("config.safetyPolicy.focus")).toBe(
+			"controlExecutionMode",
+		);
+		expect(
+			getConfigWorkspaceActionFocusKey("config.editorSaveMode.focus"),
+		).toBe("editorSaveMode");
+		expect(
+			getConfigWorkspaceActionFocusKey("config.auditRetention.focus"),
+		).toBe("auditArchiveRetentionLimit");
+		expect(
+			getConfigWorkspaceActionFocusKey("config.toolTargetRetention.focus"),
+		).toBe("toolTargetPresetLimit");
+		expect(
+			getConfigWorkspaceActionFocusKey("config.statusResultJumpClass.focus"),
+		).toBe("statusResultJumpClassFilter");
+		expect(getConfigWorkspaceActionFocusKey("network.inspect")).toBeUndefined();
 		expect(
 			getConfigWorkspaceSectionJumpIndex(items, "missing"),
 		).toBeUndefined();
