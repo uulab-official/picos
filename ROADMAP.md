@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.264 - Files Forward History
+
+Status: draft PR [#326](https://github.com/uulab-official/picos/pull/326) on `codex/picos-v0.4.264-files-forward-history`.
+
+Goal: make Files navigation feel closer to an OS file manager with bidirectional history.
+
+- Files history now has a forward stack in addition to the existing back stack.
+- Pressing `b` in Files focus moves back and records the current root as a forward target.
+- Pressing `B` moves forward and records the current root back into the back stack.
+- New manual navigation through directories, parents, system locations, path input, or process file handoff clears forward history like a normal file manager.
+- Files UI rows now show `history back=... forward=...` plus `b/B` shortcuts in compact and full layouts.
+- Tests cover back/forward stack movement and empty forward history.
+- Next: add selected-entry breadcrumb/path copy affordances and tighten SFTP-ready file provider boundaries.
+
 ## v0.4.263 - Tools Field Help Strip
 
 Status: draft PR [#325](https://github.com/uulab-official/picos/pull/325) on `codex/picos-v0.4.263-tools-field-help-strip`.
@@ -10,7 +24,7 @@ Goal: make live Tools forms self-explanatory while operators edit fields from th
 - Help rows use command-line touched-field metadata, so untouched defaults show `input=replace` and edited fields show `input=append`.
 - The TUI passes live `fieldTouchedIndexes` into Tools prompt rendering, keeping the visible help row aligned with actual input behavior.
 - Tests cover untouched and touched help rows for single-field and multi-field Tools prompts.
-- Next: verify reverse field movement across terminals and expose a stable previous-field key once the escape sequence is reliable in Ink.
+- Next: continue Files/Editor OS-console depth while revisiting reverse Tool field movement once the escape sequence is reliable in Ink.
 
 ## v0.4.262 - Tools Field Replace Clear
 

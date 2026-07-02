@@ -322,7 +322,12 @@ import {
 	filterFileEntries,
 	openFileFilter,
 } from "./fileFilter";
-import { popFileHistory, pushFileHistory } from "./fileHistory";
+import {
+	popFileForwardHistory,
+	popFileHistory,
+	pushFileForwardHistory,
+	pushFileHistory,
+} from "./fileHistory";
 import {
 	clearFileOperationDialog,
 	type FileOperationDialogState,
@@ -838,6 +843,7 @@ export function App(): React.ReactElement {
 	const [fileRoot, setFileRoot] = useState(systemFileRoot);
 	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 	const [fileHistory, setFileHistory] = useState<string[]>([]);
+	const [fileForwardHistory, setFileForwardHistory] = useState<string[]>([]);
 	const [fileFilter, setFileFilter] = useState<FileFilterState>({
 		active: false,
 		query: "",
@@ -1544,6 +1550,7 @@ export function App(): React.ReactElement {
 			try {
 				if (entry.path !== fileRoot) {
 					setFileHistory((history) => pushFileHistory(history, fileRoot));
+					setFileForwardHistory([]);
 				}
 				await loadFiles(entry.path);
 				log("info", `entered ${entry.path}`);
@@ -1578,6 +1585,7 @@ export function App(): React.ReactElement {
 		}
 		try {
 			setFileHistory((history) => pushFileHistory(history, fileRoot));
+			setFileForwardHistory([]);
 			await loadFiles(parent);
 			log("info", `entered ${parent}`);
 		} catch (caught) {
@@ -1595,6 +1603,7 @@ export function App(): React.ReactElement {
 			try {
 				if (location.path !== fileRoot) {
 					setFileHistory((history) => pushFileHistory(history, fileRoot));
+					setFileForwardHistory([]);
 				}
 				await loadFiles(location.path);
 				setSelectedLocationIndex(locationIndex);
@@ -1631,6 +1640,7 @@ export function App(): React.ReactElement {
 			const targetPath = resolve(fileRoot, path);
 			if (targetPath !== fileRoot) {
 				setFileHistory((history) => pushFileHistory(history, fileRoot));
+				setFileForwardHistory([]);
 			}
 			await loadFiles(targetPath);
 			log("info", `entered ${targetPath}`);
@@ -2595,12 +2605,32 @@ export function App(): React.ReactElement {
 		}
 
 		try {
+			setFileForwardHistory((history) =>
+				pushFileForwardHistory(history, fileRoot),
+			);
 			await loadFiles(next.previousRoot);
 			log("info", `back to ${next.previousRoot}`);
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
-	}, [fileHistory, loadFiles, log]);
+	}, [fileHistory, fileRoot, loadFiles, log]);
+
+	const goForwardFileHistory = useCallback(async () => {
+		const next = popFileForwardHistory(fileForwardHistory);
+		setFileForwardHistory(next.history);
+		if (!next.nextRoot) {
+			log("info", "no forward file location");
+			return;
+		}
+
+		try {
+			setFileHistory((history) => pushFileHistory(history, fileRoot));
+			await loadFiles(next.nextRoot);
+			log("info", `forward to ${next.nextRoot}`);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}, [fileForwardHistory, fileRoot, loadFiles, log]);
 
 	const openSelectedFileOperation = useCallback(
 		(kind: FileOperationKind) => {
@@ -3934,6 +3964,7 @@ export function App(): React.ReactElement {
 			if (entry.type === "directory" || entry.type === "symlink") {
 				if (entry.path !== fileRoot) {
 					setFileHistory((history) => pushFileHistory(history, fileRoot));
+					setFileForwardHistory([]);
 				}
 				await loadFiles(entry.path);
 				setScreen("files");
@@ -6393,6 +6424,10 @@ export function App(): React.ReactElement {
 
 		if (focusArea === "files" && input === "b") {
 			void goBackFileHistory();
+		}
+
+		if (focusArea === "files" && input === "B") {
+			void goForwardFileHistory();
 		}
 
 		if (focusArea === "files" && input === "f") {
@@ -9516,6 +9551,8 @@ export function App(): React.ReactElement {
 					doctorChecks={doctorChecks}
 					fileRoot={fileRoot}
 					fileEntries={fileEntries}
+					fileHistoryCount={fileHistory.length}
+					fileForwardHistoryCount={fileForwardHistory.length}
 					fileLocations={fileLocations}
 					selectedFileIndex={selectedFileIndex}
 					selectedLocationIndex={selectedLocationIndex}
@@ -9789,6 +9826,8 @@ function MainWorkspace({
 	doctorChecks,
 	fileRoot,
 	fileEntries,
+	fileHistoryCount,
+	fileForwardHistoryCount,
 	fileLocations,
 	selectedFileIndex,
 	selectedLocationIndex,
@@ -9941,6 +9980,8 @@ function MainWorkspace({
 	doctorChecks: DoctorCheck[];
 	fileRoot: string;
 	fileEntries: FileEntry[];
+	fileHistoryCount: number;
+	fileForwardHistoryCount: number;
 	fileLocations: FileLocation[];
 	selectedFileIndex: number;
 	selectedLocationIndex: number;
@@ -10172,6 +10213,8 @@ function MainWorkspace({
 						doctorChecks,
 						fileRoot,
 						fileEntries,
+						fileHistoryCount,
+						fileForwardHistoryCount,
 						fileLocations,
 						selectedFileIndex,
 						selectedLocationIndex,
@@ -10329,6 +10372,8 @@ function renderWorkspace(
 	doctorChecks: DoctorCheck[],
 	fileRoot: string,
 	fileEntries: FileEntry[],
+	fileHistoryCount: number,
+	fileForwardHistoryCount: number,
 	fileLocations: FileLocation[],
 	selectedFileIndex: number,
 	selectedLocationIndex: number,
@@ -10592,6 +10637,8 @@ function renderWorkspace(
 			<FilesWorkspace
 				root={fileRoot}
 				entries={filteredEntries}
+				backHistoryCount={fileHistoryCount}
+				forwardHistoryCount={fileForwardHistoryCount}
 				totalEntryCount={entriesWithParent.length}
 				locations={fileLocations}
 				selectedIndex={selectedFileIndex}
@@ -11157,6 +11204,8 @@ function DashboardWorkspace({
 function FilesWorkspace({
 	root,
 	entries,
+	backHistoryCount,
+	forwardHistoryCount,
 	totalEntryCount,
 	locations,
 	selectedIndex,
@@ -11171,6 +11220,8 @@ function FilesWorkspace({
 }: {
 	root: string;
 	entries: FileEntry[];
+	backHistoryCount: number;
+	forwardHistoryCount: number;
 	totalEntryCount: number;
 	locations: FileLocation[];
 	selectedIndex: number;
@@ -11205,8 +11256,12 @@ function FilesWorkspace({
 				) : null}
 				<Text color={focused ? "cyan" : "gray"}>
 					{focused
-						? "files · j/k · enter · f filter · c/m/x ops · :path"
+						? "files · j/k · enter · f filter · b/B history · :path"
 						: "enter opens file focus"}
+				</Text>
+				<Text color="gray">
+					history back={backHistoryCount} forward={forwardHistoryCount} · ..
+					parent · u up
 				</Text>
 				{fileFilter.active || fileFilter.query ? (
 					<Text color={fileFilter.active ? "yellow" : "gray"}>
@@ -11250,7 +11305,9 @@ function FilesWorkspace({
 				) : (
 					<Text color="gray">loading root...</Text>
 				)}
-				<Text color="gray">.. parent · b back · picos dir / · picos dir ~</Text>
+				<Text color="gray">
+					.. parent · b back · B forward · picos dir / · picos dir ~
+				</Text>
 			</Box>
 		);
 	}
@@ -11271,8 +11328,12 @@ function FilesWorkspace({
 			)}
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "files · j/k · enter · f filter · c/m/x ops · :path"
+					? "files · j/k · enter · f filter · c/m/x ops · b/B history · :path"
 					: "enter opens file focus · read-only navigation · .. available"}
+			</Text>
+			<Text color="gray">
+				history back={backHistoryCount} forward={forwardHistoryCount} · ..
+				parent · u up
 			</Text>
 			{fileFilter.active || fileFilter.query ? (
 				<Text color={fileFilter.active ? "yellow" : "gray"}>
@@ -11344,7 +11405,8 @@ function FilesWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
 				<Text>
-					1-9 locations · f filter · c copy · m move · x delete · : path
+					1-9 locations · f filter · b back · B forward · c copy · m move · x
+					delete · : path
 				</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
