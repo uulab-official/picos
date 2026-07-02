@@ -93,6 +93,29 @@ export type RemoteReadOnlyAdapterContract = {
 	};
 };
 
+export type RemoteFileRequestPreview = {
+	id: string;
+	provider: "sftp";
+	request: "list";
+	path: string;
+	target: string;
+	status: "blocked";
+	reason: "adapter-not-connected" | "no-remote-profile";
+	risk: "read";
+	privilege: "user";
+	confirm: string;
+	contract: "read-adapter-required";
+	writes: "locked";
+	destructive: "locked";
+	exec: "unsupported";
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		readsRemote: false;
+		mutatesRemote: false;
+	};
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -319,6 +342,50 @@ export function formatRemoteReadOnlyAdapterContractRows(
 	];
 }
 
+export function createRemoteFileRequestPreview(
+	profile?: SftpRemoteProfile,
+): RemoteFileRequestPreview {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		request: "list",
+		path: profile?.root ?? "none",
+		target: profile ? formatSftpRoot(profile) : "none",
+		status: "blocked",
+		reason: profile ? "adapter-not-connected" : "no-remote-profile",
+		risk: "read",
+		privilege: "user",
+		confirm: profile ? `connect remote ${profile.id}` : "select remote profile",
+		contract: "read-adapter-required",
+		writes: "locked",
+		destructive: "locked",
+		exec: "unsupported",
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			readsRemote: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteFileRequestPreviewRows(
+	preview: RemoteFileRequestPreview = createRemoteFileRequestPreview(),
+): string[] {
+	return [
+		`REMOTE FILE REQUEST PREVIEW ${preview.id}`,
+		`request=${preview.request} provider=${preview.provider} status=${preview.status} reason=${preview.reason}`,
+		`path=${preview.path}`,
+		`target=${preview.target}`,
+		`risk=${preview.risk} privilege=${preview.privilege} contract=${preview.contract}`,
+		`guards=hostReview exactConfirm="${preview.confirm}" writes=${preview.writes} destructive=${preview.destructive} exec=${preview.exec}`,
+		`execution=willImport=${preview.execution.importsTransport} willConnect=${preview.execution.opensSocket} willRead=${preview.execution.readsRemote} willMutate=${preview.execution.mutatesRemote}`,
+		preview.id === "none"
+			? "next=select remote profile · no adapter import"
+			: "next=host review and adapter install before remote list/read",
+	];
+}
+
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
 ): RemoteConnectPreview {
@@ -442,6 +509,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteReadOnlyAdapterContractRows(
 			createRemoteReadOnlyAdapterContract(profile),
+		),
+		"",
+		...formatRemoteFileRequestPreviewRows(
+			createRemoteFileRequestPreview(profile),
 		),
 		"",
 		...formatRemoteHostReviewRows(profile),

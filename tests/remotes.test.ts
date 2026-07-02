@@ -3,11 +3,13 @@ import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
+	createRemoteFileRequestPreview,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
 	formatRemoteConnectConfirmationAuditMessage,
 	formatRemoteConnectPreviewRows,
+	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
@@ -425,6 +427,87 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willMutate=false",
+		);
+	});
+
+	test("formats remote file request preview rows without reading remote files", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteFileRequestPreview(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			request: "list",
+			path: "/srv/app",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			status: "blocked",
+			reason: "adapter-not-connected",
+			risk: "read",
+			privilege: "user",
+			confirm: "connect remote prod",
+			contract: "read-adapter-required",
+			writes: "locked",
+			destructive: "locked",
+			exec: "unsupported",
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				readsRemote: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteFileRequestPreviewRows(
+				createRemoteFileRequestPreview(profile),
+			),
+		).toEqual([
+			"REMOTE FILE REQUEST PREVIEW prod",
+			"request=list provider=sftp status=blocked reason=adapter-not-connected",
+			"path=/srv/app",
+			"target=sftp://deploy@prod.example.com:2222/srv/app",
+			"risk=read privilege=user contract=read-adapter-required",
+			'guards=hostReview exactConfirm="connect remote prod" writes=locked destructive=locked exec=unsupported',
+			"execution=willImport=false willConnect=false willRead=false willMutate=false",
+			"next=host review and adapter install before remote list/read",
+		]);
+
+		expect(formatRemoteFileRequestPreviewRows().join("\n")).toBe(
+			[
+				"REMOTE FILE REQUEST PREVIEW none",
+				"request=list provider=sftp status=blocked reason=no-remote-profile",
+				"path=none",
+				"target=none",
+				"risk=read privilege=user contract=read-adapter-required",
+				'guards=hostReview exactConfirm="select remote profile" writes=locked destructive=locked exec=unsupported',
+				"execution=willImport=false willConnect=false willRead=false willMutate=false",
+				"next=select remote profile · no adapter import",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote file request preview in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE FILE REQUEST PREVIEW dev");
+		expect(output).toContain(
+			"request=list provider=sftp status=blocked reason=adapter-not-connected",
+		);
+		expect(output).toContain(
+			"execution=willImport=false willConnect=false willRead=false willMutate=false",
 		);
 	});
 

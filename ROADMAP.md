@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.278 - Remote File Request Preview
+
+Status: draft PR [#340](https://github.com/uulab-official/picos/pull/340) on `codex/picos-v0.4.278-remote-file-request-preview`.
+
+Goal: make future SFTP list/read requests visible before picos imports transport, opens a socket, or reads remote file content.
+
+- Remotes now models `REMOTE FILE REQUEST PREVIEW` rows for selected and empty SFTP profile states.
+- Preview rows show the planned list request, provider, path, target URI, blocked reason, read/user risk, and read-adapter contract dependency.
+- Guard rows keep host review and exact `connect remote <id>` confirmation in front of future list/read flows.
+- Execution rows keep `willImport=false`, `willConnect=false`, `willRead=false`, and `willMutate=false`.
+- `picos remote <id>` prints the same request preview between the read adapter contract and host review.
+- Remotes TUI renders a dedicated `FILE REQUEST PREVIEW` section before host review.
+- Tests cover selected-profile preview shape, empty-state rows, CLI provider status inclusion, and no-import/no-connect/no-read/no-mutation posture.
+- Next: add host-key fingerprint review evidence before allowing any read adapter evaluation.
+
 ## v0.4.277 - Remotes Read-only Adapter Contract
 
 Status: draft PR [#339](https://github.com/uulab-official/picos/pull/339) on `codex/picos-v0.4.277-remote-read-adapter-contract`.
