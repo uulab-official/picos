@@ -2,7 +2,7 @@
 
 ## v0.4.295 - Remote SFTP Package Resolution Review
 
-Status: in progress on `codex/picos-v0.4.295-sftp-package-resolution-review`.
+Status: draft PR [#368](https://github.com/uulab-official/picos/pull/368) on `codex/picos-v0.4.295-sftp-package-resolution-review`.
 
 Goal: make optional SFTP package resolver results inspectable from Remotes without running a resolver, reading package files, importing transport code, opening sockets, starting sessions, trusting hosts, writing `known_hosts`, or mutating anything.
 
