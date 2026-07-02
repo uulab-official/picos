@@ -12474,6 +12474,7 @@ function ToolsWorkspace({
 					commandLine.prompt,
 					commandLine.value,
 					commandLine.fieldIndex ?? 0,
+					commandLine.fieldTouchedIndexes ?? [],
 				)
 			: commandLine.active && commandLine.prompt === "tool-filter"
 				? [

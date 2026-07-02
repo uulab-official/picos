@@ -1181,6 +1181,7 @@ export function formatToolPromptRows(
 	prompt: string,
 	value: string,
 	selectedFieldIndex = 0,
+	touchedFieldIndexes: number[] = [],
 ): string[] {
 	if (!prompt.startsWith("tool:")) {
 		return [];
@@ -1193,19 +1194,39 @@ export function formatToolPromptRows(
 			`:tool ${value || " "}  enter=run esc=cancel`,
 		];
 	}
-	return formatToolFormRows(
-		createToolFormState(
-			actionId,
-			metadata.defaultTarget,
-			undefined,
-			value.trim() || metadata.defaultTarget,
-			selectedFieldIndex,
-		),
+	const form = createToolFormState(
+		actionId,
+		metadata.defaultTarget,
+		undefined,
+		value.trim() || metadata.defaultTarget,
+		selectedFieldIndex,
 	);
+	const rows = formatToolFormRows(form);
+	const helpRow = formatToolFieldHelpRow(form, touchedFieldIndexes);
+	return helpRow ? [...rows.slice(0, -2), helpRow, ...rows.slice(-2)] : rows;
 }
 
 function formatToolRunCliCommand(plan: ToolRunPlan): string {
 	return `picos tools ${plan.toolId} ${plan.args.join(" ")}`.trim();
+}
+
+function formatToolFieldHelpRow(
+	form: ToolFormState | undefined,
+	touchedFieldIndexes: number[],
+): string | undefined {
+	if (!form?.fields.length) {
+		return undefined;
+	}
+	const selectedFieldIndex = Math.min(
+		Math.max(form.selectedFieldIndex, 0),
+		form.fields.length - 1,
+	);
+	const field = form.fields[selectedFieldIndex];
+	if (!field) {
+		return undefined;
+	}
+	const touched = touchedFieldIndexes.includes(selectedFieldIndex);
+	return `field help active=${field.label} touched=${touched ? "yes" : "no"} input=${touched ? "append" : "replace"} tab=next ctrl-u=clear`;
 }
 
 function getToolDefinition(toolId: ToolId): ToolDefinition | undefined {
