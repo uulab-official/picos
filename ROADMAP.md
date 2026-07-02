@@ -2,7 +2,7 @@
 
 ## v0.4.291 - Remote Host Key Scan Policy
 
-Status: in progress on `codex/picos-v0.4.291-host-key-scan-policy`.
+Status: draft PR [#359](https://github.com/uulab-official/picos/pull/359) on `codex/picos-v0.4.291-host-key-scan-policy`.
 
 Goal: make the future host-key scan execution policy visible before picos can import SFTP transport, open sockets, scan fingerprints, trust hosts, write `known_hosts`, or mutate anything.
 
