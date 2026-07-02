@@ -1137,6 +1137,13 @@ export function App(): React.ReactElement {
 				archiveIndex: toolExportArchiveIndex,
 			},
 		);
+	const toolArchiveRetentionPreviewPlan = useMemo(
+		() =>
+			createToolHistoryArchiveRetentionPlan(toolExportArchiveIndex, {
+				maxItems: auditArchiveRetentionLimit,
+			}),
+		[auditArchiveRetentionLimit, toolExportArchiveIndex],
+	);
 	useEffect(() => {
 		setSelectedTimelineIndex((index) =>
 			Math.min(
@@ -8756,6 +8763,7 @@ export function App(): React.ReactElement {
 					statusActivityToolsEvidenceSearchRecovery={
 						statusActivityToolsEvidenceSearchRecovery
 					}
+					toolArchiveRetentionPreviewPlan={toolArchiveRetentionPreviewPlan}
 					lastStatusActivityCopyIntentAuditExport={
 						lastStatusActivityCopyIntentAuditExport
 					}
@@ -9007,6 +9015,7 @@ function MainWorkspace({
 	selectedStatusActivityResultAuditJumpIndex,
 	selectedStatusActivityToolsEvidenceSearchMatchIndex,
 	statusActivityToolsEvidenceSearchRecovery,
+	toolArchiveRetentionPreviewPlan,
 	lastStatusActivityCopyIntentAuditExport,
 	lastTimelineEvidenceTrailAuditExport,
 	timelineEvidenceTrailAuditExports,
@@ -9153,6 +9162,7 @@ function MainWorkspace({
 	selectedStatusActivityResultAuditJumpIndex: number;
 	selectedStatusActivityToolsEvidenceSearchMatchIndex: number;
 	statusActivityToolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery;
+	toolArchiveRetentionPreviewPlan: ToolHistoryArchiveRetentionPlan;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
@@ -9377,6 +9387,7 @@ function MainWorkspace({
 						selectedStatusActivityResultAuditJumpIndex,
 						selectedStatusActivityToolsEvidenceSearchMatchIndex,
 						statusActivityToolsEvidenceSearchRecovery,
+						toolArchiveRetentionPreviewPlan,
 						lastStatusActivityCopyIntentAuditExport,
 						lastTimelineEvidenceTrailAuditExport,
 						timelineEvidenceTrailAuditExports,
@@ -9530,6 +9541,7 @@ function renderWorkspace(
 	statusActivityToolsEvidenceSearchRecovery:
 		| StatusActivityToolsEvidenceSearchRecovery
 		| undefined,
+	toolArchiveRetentionPreviewPlan: ToolHistoryArchiveRetentionPlan,
 	lastStatusActivityCopyIntentAuditExport: ConsoleAuditExportPlan | undefined,
 	lastTimelineEvidenceTrailAuditExport: ConsoleAuditExportPlan | undefined,
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[],
@@ -9563,6 +9575,11 @@ function renderWorkspace(
 
 	if (palette.active) {
 		const filteredActions = getFilteredPaletteActions(actions, palette);
+		const filteredToolExportIndex = filterToolHistoryExportIndex(
+			toolExportIndex,
+			toolExportFilter,
+			toolExportQuery,
+		);
 		return (
 			<CommandPaletteWorkspace
 				actions={filteredActions}
@@ -9577,6 +9594,17 @@ function renderWorkspace(
 							statusActivityToolsEvidenceSearchRecovery,
 						selectedToolsEvidenceSearchMatchIndex:
 							selectedStatusActivityToolsEvidenceSearchMatchIndex,
+						selectedToolExport: getSelectedToolHistoryExport(
+							toolExportIndex,
+							selectedToolExportIndex,
+							toolExportFilter,
+							toolExportQuery,
+						),
+						selectedToolExportIndex,
+						totalToolExports: filteredToolExportIndex.items.length,
+						toolExportFilter,
+						toolExportQuery,
+						toolArchiveRetentionPlan: toolArchiveRetentionPreviewPlan,
 					},
 				)}
 			/>

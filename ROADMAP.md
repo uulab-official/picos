@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.225 - Palette Tools Dispatch Preview
+
+Status: draft PR [#287](https://github.com/uulab-official/picos/pull/287) on `codex/picos-v0.4.225-palette-tools-dispatch-preview`.
+
+Goal: make every Tools evidence management command-palette action advertise its target and locked confirmation before `enter`.
+
+- `tools archive` palette actions now preview the selected active Tools export, selected cursor, filter/query, scope, run count, and exact `archive tools export` confirmation.
+- `tools retention` palette actions now preview archived Tools retention max, keep/remove counts, first prune candidate, and exact `prune tools archive` confirmation.
+- The palette preview uses a separate retention preview plan, so Status confirmation panels still appear only after dispatch.
+- Tests cover archive dispatch previews and retention prune previews.
+- Next: extend dispatch previews to Action Center write/admin controls so OS-changing actions show adapter-owned dry-run commands directly in the command palette.
+
 ## v0.4.224 - Palette Tools Match Preview
 
 Status: draft PR [#286](https://github.com/uulab-official/picos/pull/286) on `codex/picos-v0.4.224-palette-match-preview`.
@@ -10,7 +22,7 @@ Goal: make command-palette recovered Tools match actions feel like an OS console
 - Archived Tools evidence match archive actions show a blocked preview instead of implying another archive can run.
 - The preview reuses the same Status Activity Tools search recovery state as the Status shelf, keeping `? tools match` aligned with `[`/`]`, `K`, and `D`.
 - Tests cover active open/archive previews and the archived-target archive blocker.
-- Next: add compact previews for the broader Tools evidence archive/retention palette prompts, so every Tools management action advertises its exact target before dispatch.
+- Next: extend dispatch previews to Action Center write/admin controls so OS-changing actions show adapter-owned dry-run commands directly in the command palette.
 
 ## v0.4.223 - Tools Evidence Match Palette Actions
 

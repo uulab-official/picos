@@ -11,6 +11,10 @@ import {
 	openCommandPalette,
 } from "../src/tui/palette";
 import type { StatusActivityToolsEvidenceSearchRecovery } from "../src/tui/statusActivityQueue";
+import type {
+	ToolHistoryArchiveRetentionPlan,
+	ToolHistoryExportIndexItem,
+} from "../src/tui/toolHistory";
 
 describe("TUI command palette", () => {
 	test("opens and closes around the first action", () => {
@@ -288,6 +292,75 @@ describe("TUI command palette", () => {
 				},
 			),
 		).toContain("blocked=archived Tools evidence matches are already archived");
+	});
+
+	test("previews Tools evidence archive and retention prompts before dispatch", () => {
+		const selectedExport: ToolHistoryExportIndexItem = {
+			fileName: "picos-tools-all-2026-07-01T050000000Z.md",
+			path: "/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T050000000Z.md",
+			generatedAt: "2026-07-01T05:00:00.000Z",
+			scope: "all",
+			runCount: 4,
+		};
+		const candidateExport: ToolHistoryExportIndexItem = {
+			fileName: "picos-tools-selected-2026-07-01T030000000Z.md",
+			path: "/Users/me/.config/picos/tools/archive/picos-tools-selected-2026-07-01T030000000Z.md",
+			generatedAt: "2026-07-01T03:00:00.000Z",
+			scope: "selected",
+			runCount: 1,
+		};
+		const retention: ToolHistoryArchiveRetentionPlan = {
+			baseDir: "/Users/me/.config/picos/tools/archive",
+			maxItems: 1,
+			retainedItems: [
+				{
+					fileName: "picos-tools-all-2026-07-01T060000000Z.md",
+					path: "/Users/me/.config/picos/tools/archive/picos-tools-all-2026-07-01T060000000Z.md",
+					generatedAt: "2026-07-01T06:00:00.000Z",
+					scope: "all",
+					runCount: 5,
+				},
+			],
+			candidateItems: [candidateExport],
+			risk: "destructive",
+			privilege: "user",
+			confirmationRequired: true,
+			confirmationPhrase: "prune tools archive",
+			confirmed: false,
+			enabled: false,
+			reason: "type prune tools archive to remove 1 archived tools exports",
+		};
+		const actions = getActionCatalog();
+
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				actions.find((action) => action.id === "status.toolsEvidence.archive"),
+				{
+					selectedToolExport: selectedExport,
+					selectedToolExportIndex: 1,
+					totalToolExports: 3,
+					toolExportFilter: "all",
+					toolExportQuery: "050000",
+				},
+			),
+		).toEqual([
+			"selected tools export 2/3 picos-tools-all-2026-07-01T050000000Z.md",
+			"filter=all query=050000 scope=all runs=4",
+			"confirm=archive tools export path=/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T050000000Z.md",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				actions.find(
+					(action) => action.id === "status.toolsEvidence.retention",
+				),
+				{ toolArchiveRetentionPlan: retention },
+			),
+		).toEqual([
+			"tools archive retention max=1 candidates=1",
+			"keep=1 remove=1",
+			"remove picos-tools-selected-2026-07-01T030000000Z.md",
+			"confirm=prune tools archive",
+		]);
 	});
 
 	test("edits query with backspace and ignores control input", () => {
