@@ -449,6 +449,7 @@ import {
 	getStatusActivityCopyIntentAuditExportIndex,
 	getStatusActivityResultAuditJumpIntentCount,
 	getStatusActivityResultHistoryFilteredSelection,
+	getStatusActivityResultTimelineJumpIndexes,
 	getStatusActivityResultTimelineJumpSelection,
 	getTimelineEvidenceTrailAuditExports,
 	moveProcessControlAuditExportSelection,
@@ -4706,6 +4707,10 @@ export function App(): React.ReactElement {
 					openSelectedStatusActivityResultTimelineJump({ origin: "palette" });
 				}
 
+				if (action.id === "status.resultJump.filter") {
+					cycleStatusActivityResultTimelineJumpFilter({ origin: "palette" });
+				}
+
 				if (action.id === "status.resultHistory.filter") {
 					cycleStatusActivityResultHistoryFilter({ origin: "palette" });
 				}
@@ -4766,6 +4771,7 @@ export function App(): React.ReactElement {
 		[
 			configShelfLandingTarget,
 			cycleStatusActivityResultHistoryFilter,
+			cycleStatusActivityResultTimelineJumpFilter,
 			cycleToolEvidenceFilter,
 			cycleTimelineEvidenceTrailSourceFilter,
 			events,
@@ -10014,6 +10020,13 @@ function renderWorkspace(
 				selectedStatusActivityResultIndex,
 				statusActivityResultTimelineJumpFilter,
 			);
+		const visibleStatusActivityResultTimelineJumps =
+			getStatusActivityResultTimelineJumpIndexes(
+				statusActivityResults,
+				statusActivityResultTimelineJumpFilter,
+			).length;
+		const totalStatusActivityResultTimelineJumps =
+			getStatusActivityResultTimelineJumpIndexes(statusActivityResults).length;
 		const filteredPorts = portsResult
 			? sortListeningPorts(
 					filterListeningPorts(portsResult.ports, portFilter),
@@ -10065,6 +10078,14 @@ function renderWorkspace(
 							selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,
 						totalStatusActivityResultTimelineJumps:
 							selectedStatusActivityResultTimelineJumpSelection?.total,
+						statusActivityResultTimelineJumpFilter,
+						nextStatusActivityResultTimelineJumpFilter:
+							nextStatusActivityResultTimelineJumpFilter(
+								statusActivityResultTimelineJumpFilter,
+							),
+						visibleStatusActivityResultTimelineJumps,
+						allStatusActivityResultTimelineJumps:
+							totalStatusActivityResultTimelineJumps,
 					},
 				)}
 			/>

@@ -437,6 +437,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.resultJump.filter",
+		title: "Filter Status result jump class",
+		description:
+			"Result jump filter shortcut for cycling the Status result jump class across all, process, timeline, tools, and source targets.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.resultHistory.filter",
 		title: "Filter Status result history",
 		description:

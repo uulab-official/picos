@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.240 - Result Jump Class Palette
+
+Status: draft PR [#302](https://github.com/uulab-official/picos/pull/302) on `codex/picos-v0.4.240-result-jump-class-palette`.
+
+Goal: make the result jump class filter discoverable from the command palette.
+
+- Command palette now exposes `status.resultJump.filter` through `result jump filter` and `jump class` searches.
+- The preview shows `current=<class>`, `next=<class>`, and `visible=<filtered>/<all>` before dispatch.
+- Palette dispatch reuses the same Status `^` filter cycle, so keyboard and palette paths stay equivalent.
+- Tests cover the action catalog, palette filtering, preview rows, and action summary count.
+- Next: persist the selected result jump class across TUI sessions or restore it from config when operators prefer process/tool/source-heavy workflows.
+
 ## v0.4.239 - Result Jump Class Filter
 
 Status: draft PR [#301](https://github.com/uulab-official/picos/pull/301) on `codex/picos-v0.4.239-result-jump-class-filter`.

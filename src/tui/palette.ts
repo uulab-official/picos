@@ -4,6 +4,7 @@ import type { PortProcessControlPreview } from "./endpointPanel";
 import { getNextIndex } from "./navigation";
 import type {
 	StatusActivityCopyIntentTimelineSearch,
+	StatusActivityResultTimelineJumpFilter,
 	StatusActivityToolsEvidenceSearchRecovery,
 } from "./statusActivityQueue";
 import type {
@@ -136,6 +137,10 @@ export type CommandPalettePreviewContext = {
 	selectedStatusActivityResultTimelineJump?: StatusActivityCopyIntentTimelineSearch;
 	selectedStatusActivityResultTimelineJumpIndex?: number;
 	totalStatusActivityResultTimelineJumps?: number;
+	statusActivityResultTimelineJumpFilter?: StatusActivityResultTimelineJumpFilter;
+	nextStatusActivityResultTimelineJumpFilter?: StatusActivityResultTimelineJumpFilter;
+	visibleStatusActivityResultTimelineJumps?: number;
+	allStatusActivityResultTimelineJumps?: number;
 };
 
 export function formatCommandPaletteActionPreviewRows(
@@ -155,6 +160,7 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.processEvidence.search" &&
 		action.id !== "status.resultJump.select" &&
 		action.id !== "status.resultJump.open" &&
+		action.id !== "status.resultJump.filter" &&
 		!context.portProcessPreview &&
 		!context.controlPreview
 	) {
@@ -194,6 +200,10 @@ export function formatCommandPaletteActionPreviewRows(
 		return formatStatusActivityResultJumpPalettePreviewRows(action, context);
 	}
 
+	if (action.id === "status.resultJump.filter") {
+		return formatStatusActivityResultJumpFilterPalettePreviewRows(context);
+	}
+
 	const recovery = context.toolsEvidenceSearchRecovery;
 	if (!recovery || recovery.items.length === 0) {
 		return [
@@ -226,6 +236,31 @@ export function formatCommandPaletteActionPreviewRows(
 		rows.push(`confirm=${actionVerb} path=${item.path}`);
 	}
 	return rows;
+}
+
+function formatStatusActivityResultJumpFilterPalettePreviewRows(
+	context: CommandPalettePreviewContext,
+): string[] {
+	const current = context.statusActivityResultTimelineJumpFilter ?? "all";
+	const next = context.nextStatusActivityResultTimelineJumpFilter ?? "process";
+	const visible = Math.max(
+		0,
+		Math.floor(context.visibleStatusActivityResultTimelineJumps ?? 0),
+	);
+	const total = Math.max(
+		visible,
+		Math.floor(
+			context.allStatusActivityResultTimelineJumps ??
+				context.totalStatusActivityResultTimelineJumps ??
+				visible,
+		),
+	);
+	return [
+		"result jump class filter",
+		`current=${current} next=${next}`,
+		`visible=${visible}/${total}`,
+		"dispatch=cycle Status ^ filter",
+	];
 }
 
 function formatStatusActivityResultJumpPalettePreviewRows(
