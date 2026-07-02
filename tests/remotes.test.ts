@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	createRemoteFileContext,
+	formatRemoteAdapterBoundaryRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
@@ -138,6 +139,10 @@ describe("remote profiles", () => {
 		expect(output).toContain("Status: adapter pending");
 		expect(output).toContain("REMOTE HANDOFF dev");
 		expect(output).toContain("session=staged");
+		expect(output).toContain("REMOTE ADAPTER BOUNDARY dev");
+		expect(output).toContain(
+			"dependency=@uulab/picos-sftp status=not installed",
+		);
 		expect(output).toContain("REMOTE HOST REVIEW dev");
 		expect(output).toContain("network=not opened");
 	});
@@ -229,6 +234,40 @@ describe("remote profiles", () => {
 				root: ".",
 			}).join("\n"),
 		).not.toContain("password");
+	});
+
+	test("formats remote adapter boundary rows before transport exists", () => {
+		expect(
+			formatRemoteAdapterBoundaryRows({
+				id: "prod",
+				kind: "sftp",
+				host: "prod.example.com",
+				port: 2222,
+				username: "deploy",
+				root: "/srv/app",
+				keyPath: "~/.ssh/id_ed25519",
+			}),
+		).toEqual([
+			"REMOTE ADAPTER BOUNDARY prod",
+			"transport=sftp dependency=@uulab/picos-sftp status=not installed session=not opened",
+			"target=sftp://deploy@prod.example.com:2222/srv/app",
+			"auth=user=deploy key=configured hostKey=unverified",
+			"capabilities=list/read planned write locked destructive locked",
+			"policy=read-only network=blocked-until-confirm confirm=connect remote prod",
+			"controls=enter stage context · future connect opens host review dialog first",
+		]);
+
+		expect(formatRemoteAdapterBoundaryRows().join("\n")).toBe(
+			[
+				"REMOTE ADAPTER BOUNDARY none",
+				"transport=sftp dependency=@uulab/picos-sftp status=not installed session=not opened",
+				"target=none",
+				"auth=user=- key=none hostKey=unverified",
+				"capabilities=list/read planned write locked destructive locked",
+				"policy=read-only network=blocked-until-profile confirm=select remote profile",
+				"controls=j/k select · enter stage context · config remotes create profile",
+			].join("\n"),
+		);
 	});
 
 	test("formats remote host review audit messages without opening sessions", () => {

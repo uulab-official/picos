@@ -120,6 +120,33 @@ export function formatRemoteHostReviewRows(
 	];
 }
 
+export function formatRemoteAdapterBoundaryRows(
+	profile?: SftpRemoteProfile,
+): string[] {
+	const dependency = "@uulab/picos-sftp";
+	if (!profile) {
+		return [
+			"REMOTE ADAPTER BOUNDARY none",
+			`transport=sftp dependency=${dependency} status=not installed session=not opened`,
+			"target=none",
+			"auth=user=- key=none hostKey=unverified",
+			"capabilities=list/read planned write locked destructive locked",
+			"policy=read-only network=blocked-until-profile confirm=select remote profile",
+			"controls=j/k select · enter stage context · config remotes create profile",
+		];
+	}
+
+	return [
+		`REMOTE ADAPTER BOUNDARY ${profile.id}`,
+		`transport=sftp dependency=${dependency} status=not installed session=not opened`,
+		`target=${formatSftpRoot(profile)}`,
+		`auth=user=${profile.username} key=${profile.keyPath ? "configured" : "none"} hostKey=unverified`,
+		"capabilities=list/read planned write locked destructive locked",
+		`policy=read-only network=blocked-until-confirm confirm=connect remote ${profile.id}`,
+		"controls=enter stage context · future connect opens host review dialog first",
+	];
+}
+
 export function formatRemoteHostReviewAuditMessage(
 	action: RemoteHostReviewAuditAction,
 	profile: SftpRemoteProfile,
@@ -153,6 +180,8 @@ export async function formatRemoteProviderStatus(
 		"Writes: locked until host and path confirmation",
 		"",
 		...formatRemoteHandoffBoundaryRows({ profile, context }),
+		"",
+		...formatRemoteAdapterBoundaryRows(profile),
 		"",
 		...formatRemoteHostReviewRows(profile),
 	].join("\n");
