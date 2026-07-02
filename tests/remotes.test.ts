@@ -43,6 +43,7 @@ import {
 	formatRemoteProviderStatus,
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
+	moveRemoteKnownHostsPasteReviewSelection,
 	normalizeRemoteProfiles,
 	parseRemoteKnownHostsCandidates,
 	parseRemoteKnownHostsCandidatesFromReadResult,
@@ -1296,6 +1297,61 @@ describe("remote profiles", () => {
 				createRemoteKnownHostsPasteReview(profile, "not-a-candidate"),
 			).status,
 		).toBe("not-parsed");
+	});
+
+	test("cycles selected known_hosts paste review candidates for compare detail", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const content = [
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfirst first",
+			"[prod.example.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecond second",
+		].join("\n");
+		const review = createRemoteKnownHostsPasteReview(profile, content);
+
+		const second = moveRemoteKnownHostsPasteReviewSelection(review, "next");
+		const wrapped = moveRemoteKnownHostsPasteReviewSelection(second, "next");
+		const previous = moveRemoteKnownHostsPasteReviewSelection(
+			wrapped,
+			"previous",
+		);
+		const empty = moveRemoteKnownHostsPasteReviewSelection(
+			createRemoteKnownHostsPasteReview(profile, "not-a-candidate"),
+			"next",
+		);
+
+		expect(second.selected).toBe(2);
+		expect(formatRemoteKnownHostsPasteReviewRows(second)).toEqual(
+			expect.arrayContaining([
+				expect.stringMatching(/^> #2 line=2 /),
+				"next=review pasted known_hosts candidates before host-key compare",
+			]),
+		);
+		expect(
+			createRemoteKnownHostsCandidatePreviewFromPasteReview(second).selected,
+		).toBe(2);
+		expect(
+			createRemoteHostKeyCompareDetail(
+				profile,
+				createRemoteKnownHostsCandidatePreviewFromPasteReview(second),
+				createRemoteHostKeyEvidenceInput(
+					profile,
+					second.candidates[1]?.fingerprint,
+				),
+			).match,
+		).toBe("matched");
+		expect(wrapped.selected).toBe(1);
+		expect(previous.selected).toBe(2);
+		expect(empty.selected).toBe("none");
+		expect(empty).toEqual(
+			createRemoteKnownHostsPasteReview(profile, "not-a-candidate"),
+		);
 	});
 
 	test("includes empty remote known_hosts candidate preview in provider status", async () => {
