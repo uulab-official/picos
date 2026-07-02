@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.239 - Result Jump Class Filter
+
+Status: draft PR [#301](https://github.com/uulab-official/picos/pull/301) on `codex/picos-v0.4.239-result-jump-class-filter`.
+
+Goal: make dense Status result jump histories navigable by target class.
+
+- `STATUS RESULT TIMELINE JUMPS` can now cycle `filter=all/process/timeline/tools/source` with `^`.
+- Filtered jump rows show `count=visible/total` and keep the selected cursor within the active class.
+- `J` result-select and `I` result-open use the same active class filter, so process/tool/source recovery trails no longer require scanning unrelated rows first.
+- Command-palette result-jump preview metadata now reflects the active filtered selection count.
+- Tests cover class cycling, process/tool/source row filtering, and filtered jump selection.
+- Next: expose the jump class filter in the command palette and persist the last selected class per session.
+
 ## v0.4.238 - Result Jump Browser Target
 
 Status: draft PR [#300](https://github.com/uulab-official/picos/pull/300) on `codex/picos-v0.4.238-result-jump-browser-target`.

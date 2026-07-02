@@ -68,6 +68,12 @@ export type StatusActivityResult = StatusActivityEnterPlan & {
 };
 
 export type StatusActivityResultHistoryFilter = "all" | "palette-result-jumps";
+export type StatusActivityResultTimelineJumpFilter =
+	| "all"
+	| "process"
+	| "timeline"
+	| "tools"
+	| "source";
 
 export type StatusActivityCopyIntentRecord = {
 	label: string;
@@ -1060,29 +1066,59 @@ export function moveStatusActivityResultAuditJumpSelection(
 
 export function getStatusActivityResultTimelineJumpIndexes(
 	history: StatusActivityResult[],
+	filter: StatusActivityResultTimelineJumpFilter = "all",
 ): number[] {
 	return history
 		.map((_, index) => index)
 		.filter((index) =>
 			Boolean(createStatusActivityResultTimelineSearch(history, index)),
-		);
+		)
+		.filter((index) => {
+			if (filter === "all") {
+				return true;
+			}
+			return (
+				getStatusActivityResultTimelineJumpClass(history, index) === filter
+			);
+		});
+}
+
+function getStatusActivityResultTimelineJumpClass(
+	history: StatusActivityResult[],
+	index: number,
+): Exclude<StatusActivityResultTimelineJumpFilter, "all"> | undefined {
+	const jump = createStatusActivityResultTimelineSearch(history, index);
+	if (!jump) {
+		return undefined;
+	}
+	if (parseProcessControlAuditQuery(jump.query)) {
+		return "process";
+	}
+	if (parseToolsEvidenceSearchAuditQuery(jump.query)) {
+		return "tools";
+	}
+	if (/^action=source source=\S+ visible=\S+$/.test(jump.query)) {
+		return "source";
+	}
+	return "timeline";
 }
 
 export function getStatusActivityResultTimelineJumpSelection(
 	history: StatusActivityResult[],
 	selectedIndex: number,
+	filter: StatusActivityResultTimelineJumpFilter = "all",
 ): { selectedIndex: number; total: number } | undefined {
-	const indexes = getStatusActivityResultTimelineJumpIndexes(history);
+	const indexes = getStatusActivityResultTimelineJumpIndexes(history, filter);
 	const selected = getSelectedStatusActivityResultHistoryIndex(
 		history.length,
 		selectedIndex,
 	);
 	const selectedJumpIndex = indexes.indexOf(selected);
-	if (selectedJumpIndex < 0) {
+	if (selectedJumpIndex < 0 && indexes.length === 0) {
 		return undefined;
 	}
 	return {
-		selectedIndex: selectedJumpIndex,
+		selectedIndex: Math.max(0, selectedJumpIndex),
 		total: indexes.length,
 	};
 }
@@ -1091,13 +1127,17 @@ export function formatStatusActivityResultTimelineJumpRows(
 	history: StatusActivityResult[],
 	selectedIndex: number,
 	visibleRows = 3,
+	filter: StatusActivityResultTimelineJumpFilter = "all",
 ): string[] {
 	const paletteHint =
 		"palette=? result jump · timeline result open · result select";
-	const indexes = getStatusActivityResultTimelineJumpIndexes(history);
+	const allIndexes = getStatusActivityResultTimelineJumpIndexes(history);
+	const indexes = getStatusActivityResultTimelineJumpIndexes(history, filter);
 	if (indexes.length === 0) {
 		return [
-			"STATUS RESULT TIMELINE JUMPS count=0",
+			filter === "all"
+				? "STATUS RESULT TIMELINE JUMPS count=0"
+				: `STATUS RESULT TIMELINE JUMPS filter=${filter} count=0/${allIndexes.length}`,
 			paletteHint,
 			"no Timeline result jumps yet",
 		];
@@ -1107,6 +1147,7 @@ export function formatStatusActivityResultTimelineJumpRows(
 		selectedIndex,
 	);
 	const selectedJumpIndex = Math.max(0, indexes.indexOf(selected));
+	const selectedVisibleHistoryIndex = indexes[selectedJumpIndex];
 	const safeVisibleRows = Math.max(1, Math.floor(visibleRows));
 	const start = Math.min(
 		Math.max(0, selectedJumpIndex - safeVisibleRows + 1),
@@ -1119,17 +1160,19 @@ export function formatStatusActivityResultTimelineJumpRows(
 			historyIndex,
 		);
 		const result = history[historyIndex];
-		const marker = historyIndex === selected ? "> " : "  ";
+		const marker = historyIndex === selectedVisibleHistoryIndex ? "> " : "  ";
 		const target = jump
 			? formatStatusActivityResultTimelineJumpTargetToken(jump.query)
 			: undefined;
 		return `${marker}#${historyIndex + 1} filter=${jump?.filter ?? "unknown"} query=${jump?.query ?? "unknown"}${target ? ` target=${target}` : ""} action=${result?.action ?? "unknown"}`;
 	});
 	return [
-		`STATUS RESULT TIMELINE JUMPS count=${indexes.length} selected=${selectedJumpIndex + 1}/${indexes.length}`,
+		filter === "all"
+			? `STATUS RESULT TIMELINE JUMPS count=${indexes.length} selected=${selectedJumpIndex + 1}/${indexes.length}`
+			: `STATUS RESULT TIMELINE JUMPS filter=${filter} count=${indexes.length}/${allIndexes.length} selected=${selectedJumpIndex + 1}/${indexes.length}`,
 		paletteHint,
 		...rows,
-		"controls=J select result jump · I open selected Timeline result",
+		`controls=J select result jump · I open selected Timeline result${filter === "all" ? "" : " · ^=class filter"}`,
 	];
 }
 
@@ -1137,8 +1180,9 @@ export function moveStatusActivityResultTimelineJumpSelection(
 	history: StatusActivityResult[],
 	selectedIndex: number,
 	direction: "next" | "previous",
+	filter: StatusActivityResultTimelineJumpFilter = "all",
 ): number {
-	const indexes = getStatusActivityResultTimelineJumpIndexes(history);
+	const indexes = getStatusActivityResultTimelineJumpIndexes(history, filter);
 	if (indexes.length === 0) {
 		return getSelectedStatusActivityResultHistoryIndex(
 			history.length,
@@ -1156,6 +1200,23 @@ export function moveStatusActivityResultTimelineJumpSelection(
 	return indexes[
 		(normalizedCurrent + delta + indexes.length) % indexes.length
 	] as number;
+}
+
+export function nextStatusActivityResultTimelineJumpFilter(
+	filter: StatusActivityResultTimelineJumpFilter,
+): StatusActivityResultTimelineJumpFilter {
+	switch (filter) {
+		case "all":
+			return "process";
+		case "process":
+			return "timeline";
+		case "timeline":
+			return "tools";
+		case "tools":
+			return "source";
+		case "source":
+			return "all";
+	}
 }
 
 export function moveStatusActivityCopyIntentSelection(

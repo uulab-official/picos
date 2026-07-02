@@ -86,6 +86,7 @@ import {
 	moveStatusActivityToolsEvidenceSearchMatchSelection,
 	moveTimelineEvidenceTrailSelection,
 	nextStatusActivityResultHistoryFilter,
+	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
@@ -1251,6 +1252,83 @@ describe("Status activity queue", () => {
 			"palette=? result jump · timeline result open · result select",
 			"no Timeline result jumps yet",
 		]);
+	});
+
+	test("filters timeline result jump browser rows by target class", () => {
+		const history = [
+			createTimelineSelectedStatusActivityResult("copy", {
+				filter: "audit",
+				label: "timeline audit 12:00:06",
+				query: "control preview",
+				selectedIndex: 0,
+				total: 2,
+			}),
+			createProcessControlEvidenceStatusActivityResult(
+				"search",
+				{
+					path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+					content: "",
+					eventCount: 1,
+					query:
+						"status activity result audit jump palette process control audit action=preview pid=12345",
+					scope: "selected",
+				},
+				{
+					selectedIndex: 0,
+					total: 1,
+				},
+			),
+			createStatusActivityToolsEvidencePaletteResult("search", {
+				query: "040100",
+				target: "active",
+				total: 3,
+				visible: 1,
+			}),
+			createTimelineEvidenceTrailPaletteStatusActivityResult(
+				"source",
+				undefined,
+				{
+					sourceFilter: "palette",
+					total: 5,
+					visible: 2,
+				},
+			),
+		];
+
+		expect(nextStatusActivityResultTimelineJumpFilter("all")).toBe("process");
+		expect(nextStatusActivityResultTimelineJumpFilter("source")).toBe("all");
+		expect(
+			formatStatusActivityResultTimelineJumpRows(history, 0, 3, "process"),
+		).toEqual([
+			"STATUS RESULT TIMELINE JUMPS filter=process count=1/4 selected=1/1",
+			"palette=? result jump · timeline result open · result select",
+			'> #2 filter=audit query=status evidence process audit action=search target="pid:12345" target=process-control pid:12345 action=search action=process-control-evidence',
+			"controls=J select result jump · I open selected Timeline result · ^=class filter",
+		]);
+		expect(
+			formatStatusActivityResultTimelineJumpRows(history, 0, 3, "tools"),
+		).toEqual([
+			"STATUS RESULT TIMELINE JUMPS filter=tools count=1/4 selected=1/1",
+			"palette=? result jump · timeline result open · result select",
+			'> #3 filter=audit query=palette tools evidence audit action=search target=active query="040100" action=tools-evidence-search',
+			"controls=J select result jump · I open selected Timeline result · ^=class filter",
+		]);
+		expect(
+			formatStatusActivityResultTimelineJumpRows(history, 0, 3, "source"),
+		).toEqual([
+			"STATUS RESULT TIMELINE JUMPS filter=source count=1/4 selected=1/1",
+			"palette=? result jump · timeline result open · result select",
+			"> #4 filter=audit query=action=source source=palette visible=2/5 action=timeline-evidence-trail",
+			"controls=J select result jump · I open selected Timeline result · ^=class filter",
+		]);
+		expect(
+			moveStatusActivityResultTimelineJumpSelection(
+				history,
+				0,
+				"next",
+				"process",
+			),
+		).toBe(1);
 	});
 
 	test("marks stale audit jump replay payloads in the copy intent shelf", () => {

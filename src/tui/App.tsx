@@ -461,11 +461,13 @@ import {
 	moveStatusActivityToolsEvidenceSearchMatchSelection,
 	moveTimelineEvidenceTrailSelection,
 	nextStatusActivityResultHistoryFilter,
+	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
 	type StatusActivityCopyIntentEvidenceFocusPlan,
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
 	type StatusActivityResultHistoryFilter,
+	type StatusActivityResultTimelineJumpFilter,
 	type StatusActivitySource,
 	type StatusActivityToolsEvidenceSearchRecovery,
 	type TimelineEvidenceTrailSourceFilter,
@@ -725,6 +727,10 @@ export function App(): React.ReactElement {
 		statusActivityResultHistoryFilter,
 		setStatusActivityResultHistoryFilter,
 	] = useState<StatusActivityResultHistoryFilter>("all");
+	const [
+		statusActivityResultTimelineJumpFilter,
+		setStatusActivityResultTimelineJumpFilter,
+	] = useState<StatusActivityResultTimelineJumpFilter>("all");
 	const [
 		selectedStatusActivityCopyPreviewRowIndex,
 		setSelectedStatusActivityCopyPreviewRowIndex,
@@ -3811,6 +3817,32 @@ export function App(): React.ReactElement {
 		[log, statusActivityResults],
 	);
 
+	const cycleStatusActivityResultTimelineJumpFilter = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			if (options.origin === "palette") {
+				setScreen("status");
+				setFocusArea("workspaces");
+			}
+			setStatusActivityResultTimelineJumpFilter((current) => {
+				const next = nextStatusActivityResultTimelineJumpFilter(current);
+				setSelectedStatusActivityResultIndex((selected) =>
+					moveStatusActivityResultTimelineJumpSelection(
+						statusActivityResults,
+						selected,
+						"next",
+						next,
+					),
+				);
+				log(
+					"info",
+					`status activity timeline result jump filter ${next}${options.origin === "palette" ? " origin=palette" : ""}`,
+				);
+				return next;
+			});
+		},
+		[log, statusActivityResults],
+	);
+
 	const getSelectedTimelineEvidenceTrailResultOptions = useCallback(
 		() => ({
 			selectedIndex: selectedTimelineEvidenceTrailAuditExportIndex,
@@ -4258,6 +4290,7 @@ export function App(): React.ReactElement {
 					statusActivityResults,
 					current,
 					"next",
+					statusActivityResultTimelineJumpFilter,
 				);
 				if (next === current && statusActivityResults.length === 0) {
 					log("warn", "no status activity result history");
@@ -4301,6 +4334,7 @@ export function App(): React.ReactElement {
 					const selection = getStatusActivityResultTimelineJumpSelection(
 						statusActivityResults,
 						next,
+						statusActivityResultTimelineJumpFilter,
 					);
 					log(
 						"info",
@@ -4326,7 +4360,12 @@ export function App(): React.ReactElement {
 				return next;
 			});
 		},
-		[log, recordStatusActivityResult, statusActivityResults],
+		[
+			log,
+			recordStatusActivityResult,
+			statusActivityResultTimelineJumpFilter,
+			statusActivityResults,
+		],
 	);
 
 	const openSelectedStatusActivityResultTimelineJump = useCallback(
@@ -4385,6 +4424,7 @@ export function App(): React.ReactElement {
 				const selection = getStatusActivityResultTimelineJumpSelection(
 					statusActivityResults,
 					selectedStatusActivityResultIndex,
+					statusActivityResultTimelineJumpFilter,
 				);
 				log(
 					"info",
@@ -4414,6 +4454,7 @@ export function App(): React.ReactElement {
 			recordStatusActivityResult,
 			selectedStatusActivityResultAuditJumpIndex,
 			selectedStatusActivityResultIndex,
+			statusActivityResultTimelineJumpFilter,
 			statusActivityCopyIntentHistory,
 			statusActivityResults,
 		],
@@ -6596,6 +6637,11 @@ export function App(): React.ReactElement {
 
 		if (screen === "status" && focusArea === "workspaces" && input === "f") {
 			cycleStatusActivityResultHistoryFilter();
+			return;
+		}
+
+		if (screen === "status" && focusArea === "workspaces" && input === "^") {
+			cycleStatusActivityResultTimelineJumpFilter();
 			return;
 		}
 
@@ -9098,6 +9144,9 @@ export function App(): React.ReactElement {
 					statusActivityResults={statusActivityResults}
 					selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
 					statusActivityResultHistoryFilter={statusActivityResultHistoryFilter}
+					statusActivityResultTimelineJumpFilter={
+						statusActivityResultTimelineJumpFilter
+					}
 					selectedStatusActivityCopyPreviewRowIndex={
 						selectedStatusActivityCopyPreviewRowIndex
 					}
@@ -9364,6 +9413,7 @@ function MainWorkspace({
 	statusActivityResults,
 	selectedStatusActivityResultIndex,
 	statusActivityResultHistoryFilter,
+	statusActivityResultTimelineJumpFilter,
 	selectedStatusActivityCopyPreviewRowIndex,
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
@@ -9513,6 +9563,7 @@ function MainWorkspace({
 	statusActivityResults: StatusActivityResult[];
 	selectedStatusActivityResultIndex: number;
 	statusActivityResultHistoryFilter: StatusActivityResultHistoryFilter;
+	statusActivityResultTimelineJumpFilter: StatusActivityResultTimelineJumpFilter;
 	selectedStatusActivityCopyPreviewRowIndex: number;
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
@@ -9740,6 +9791,7 @@ function MainWorkspace({
 						statusActivityResults,
 						selectedStatusActivityResultIndex,
 						statusActivityResultHistoryFilter,
+						statusActivityResultTimelineJumpFilter,
 						selectedStatusActivityCopyPreviewRowIndex,
 						statusActivityCopyPreviewExpanded,
 						statusActivityCopyIntentHistory,
@@ -9894,6 +9946,7 @@ function renderWorkspace(
 	statusActivityResults: StatusActivityResult[],
 	selectedStatusActivityResultIndex: number,
 	statusActivityResultHistoryFilter: StatusActivityResultHistoryFilter,
+	statusActivityResultTimelineJumpFilter: StatusActivityResultTimelineJumpFilter,
 	selectedStatusActivityCopyPreviewRowIndex: number,
 	statusActivityCopyPreviewExpanded: boolean,
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[],
@@ -9959,6 +10012,7 @@ function renderWorkspace(
 			getStatusActivityResultTimelineJumpSelection(
 				statusActivityResults,
 				selectedStatusActivityResultIndex,
+				statusActivityResultTimelineJumpFilter,
 			);
 		const filteredPorts = portsResult
 			? sortListeningPorts(
@@ -10265,6 +10319,9 @@ function renderWorkspace(
 				statusActivityResults={statusActivityResults}
 				selectedStatusActivityResultIndex={selectedStatusActivityResultIndex}
 				statusActivityResultHistoryFilter={statusActivityResultHistoryFilter}
+				statusActivityResultTimelineJumpFilter={
+					statusActivityResultTimelineJumpFilter
+				}
 				selectedStatusActivityCopyPreviewRowIndex={
 					selectedStatusActivityCopyPreviewRowIndex
 				}
@@ -12634,6 +12691,7 @@ function StatusWorkspace({
 	statusActivityResults,
 	selectedStatusActivityResultIndex,
 	statusActivityResultHistoryFilter,
+	statusActivityResultTimelineJumpFilter,
 	selectedStatusActivityCopyPreviewRowIndex,
 	statusActivityCopyPreviewExpanded,
 	statusActivityCopyIntentHistory,
@@ -12688,6 +12746,7 @@ function StatusWorkspace({
 	statusActivityResults: StatusActivityResult[];
 	selectedStatusActivityResultIndex: number;
 	statusActivityResultHistoryFilter: StatusActivityResultHistoryFilter;
+	statusActivityResultTimelineJumpFilter: StatusActivityResultTimelineJumpFilter;
 	selectedStatusActivityCopyPreviewRowIndex: number;
 	statusActivityCopyPreviewExpanded: boolean;
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
@@ -12851,6 +12910,7 @@ function StatusWorkspace({
 		getStatusActivityResultTimelineJumpSelection(
 			statusActivityResults,
 			selectedStatusActivityResultIndex,
+			statusActivityResultTimelineJumpFilter,
 		);
 	const statusActivityResultTimelineSearchRecovery =
 		createStatusActivityResultTimelineSearchReplay(
@@ -12950,7 +13010,8 @@ function StatusWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
 					STATUS ACTIVITY · ,/. source · f result filter=
-					{statusActivityResultHistoryFilter} · u/i history · ; preview · =
+					{statusActivityResultHistoryFilter} · ^ jump class=
+					{statusActivityResultTimelineJumpFilter} · u/i history · ; preview · =
 					expand · y copy · &lt;/&gt; intents · v replay · e export · z open · L
 					trail · N trail search · S trail select · g Timeline
 				</Text>
@@ -13054,6 +13115,8 @@ function StatusWorkspace({
 				{formatStatusActivityResultTimelineJumpRows(
 					statusActivityResults,
 					selectedStatusActivityResultIndex,
+					3,
+					statusActivityResultTimelineJumpFilter,
 				).map((row) => (
 					<Text
 						key={`timeline-jump-${row}`}

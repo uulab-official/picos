@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Status result jump browser now supports a `^` target-class filter cycle across `all`, `process`, `timeline`, `tools`, and `source`, and keeps `J`/`I` navigation scoped to the active class.
 - Project logo SVG and README brand header.
 - Status result jump browser rows now show process-control PID/action target tokens for recovered process evidence searches before the operator opens the command palette or dispatches the jump.
 - Palette-triggered Status result jump select/open rows now include process-control PID/action target tokens in Status Activity detail and Timeline audit messages when replaying recovered process evidence searches.
