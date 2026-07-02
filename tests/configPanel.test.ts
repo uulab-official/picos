@@ -227,8 +227,26 @@ describe("config TUI panel", () => {
 			"network defaults host=internal.example routeFilters=2 connectionFilters=1 portFilters=1",
 			"tools defaults targets=1 filters=1 sort=status group=tool detail=summary",
 			"workspace behavior logs=1 searches=1 remotes=1 publicIp=true experimental=false statusJumpClass=process",
+			"shelf coverage saved=8 empty=0 routeFilters=2 connectionFilters=1 portFilters=1 toolTargets=1 logProfiles=1 logSearches=1 remotes=1",
+			"empty shelves none",
 			"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
 		]);
+		expect(
+			formatConfigManagedShelfRows({
+				...defaultConfig,
+				defaultPingHost: "internal.example",
+			}),
+		).toContain(
+			"shelf coverage saved=0 empty=7 routeFilters=0 connectionFilters=0 portFilters=0 toolTargets=0 logProfiles=0 logSearches=0 remotes=0",
+		);
+		expect(
+			formatConfigManagedShelfRows({
+				...defaultConfig,
+				defaultPingHost: "internal.example",
+			}),
+		).toContain(
+			"empty shelves routeFilters,connectionFilters,portFilters,toolTargets,logProfiles,logSearches,remotes",
+		);
 	});
 
 	test("cycles managed shelf handoff targets for workspace jumps", () => {

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.248 - Config Status Shelf Count Summaries
+
+Status: draft PR [#310](https://github.com/uulab-official/picos/pull/310) on `codex/picos-v0.4.248-config-status-shelf-count-summaries`.
+
+Goal: make saved/empty Config shelf coverage visible from both Config and Status.
+
+- Config managed shelf summaries now include `shelf coverage saved=... empty=...` and exact empty shelf names.
+- Status Activity Queue now treats Config managed shelf rows as a first-class `config` source between cleanup and evidence.
+- Status detail rows can focus Config shelf coverage, while Enter remains read-only and returns a safe review message.
+- Keyboard source cycling now includes Config when managed shelf rows are available.
+- Tests cover populated and sparse Config coverage rows, Status queue ordering, Config detail rows, source movement, and safe enter behavior.
+- Next: add setup/recovery hints for empty shelves so operators can jump from sparse Config/Status summaries directly to the workspace action that creates the missing preset/profile.
+
 ## v0.4.247 - Config Shelf Live Count Previews
 
 Status: draft PR [#309](https://github.com/uulab-official/picos/pull/309) on `codex/picos-v0.4.247-config-shelf-live-count-previews`.

@@ -28,6 +28,7 @@ export type StatusActivityQueueInput = {
 	releaseRows?: string[];
 	dialogRows?: string[];
 	cleanupRows?: string[];
+	configRows?: string[];
 	evidenceRows?: string[];
 };
 
@@ -35,6 +36,7 @@ export type StatusActivitySource =
 	| "release"
 	| "dialog"
 	| "cleanup"
+	| "config"
 	| "evidence"
 	| "timeline";
 
@@ -141,13 +143,17 @@ const STATUS_ACTIVITY_QUEUE_SOURCES: StatusActivityQueueSource[] = [
 		prefix: "CLEANUP OPS",
 	},
 	{
+		key: "config",
+		prefix: "CONFIG MANAGED SHELVES",
+	},
+	{
 		key: "evidence",
 		prefix: "STATUS EVIDENCE SUMMARY",
 	},
 ];
 
 const STATUS_ACTIVITY_QUEUE_CONTROLS =
-	"controls=Status queue scans release/dialog/cleanup/evidence; open panels for detail";
+	"controls=Status queue scans release/dialog/cleanup/config/evidence; open panels for detail";
 const STATUS_ACTIVITY_DETAIL_CONTROLS =
 	"controls=enter action · ,/. activity source · detail mirrors selected Status console";
 
@@ -246,6 +252,12 @@ export function createStatusActivityEnterPlan(
 				source,
 				action: "jump-cleanup",
 				message: "cleanup activity selected; jumping to selected cleanup shelf",
+			};
+		case "config":
+			return {
+				source,
+				action: "none",
+				message: "config activity selected; review managed shelf counts",
 			};
 		case "evidence":
 			return {
@@ -2705,6 +2717,8 @@ function getSourceRows(
 			return input.dialogRows ?? [];
 		case "cleanup":
 			return input.cleanupRows ?? [];
+		case "config":
+			return input.configRows ?? [];
 		case "evidence":
 			return input.evidenceRows ?? [];
 		case "timeline":

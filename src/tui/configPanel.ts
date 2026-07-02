@@ -521,11 +521,29 @@ export function formatConfigWorkspaceDetailRows(
 }
 
 export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
+	const shelfCounts = {
+		routeFilters: config.routeFilterPresets.length,
+		connectionFilters: config.connectionFilterPresets.length,
+		portFilters: config.portFilterPresets.length,
+		toolTargets: config.toolTargetPresets.length,
+		logProfiles: config.logProfiles.length,
+		logSearches: config.logSearchPresets.length,
+		remotes: config.remoteProfiles.length,
+	};
+	const saved = Object.values(shelfCounts).reduce(
+		(total, count) => total + count,
+		0,
+	);
+	const emptyShelves = Object.entries(shelfCounts)
+		.filter(([, count]) => count === 0)
+		.map(([key]) => key);
 	return [
 		"CONFIG MANAGED SHELVES",
 		`network defaults host=${config.defaultPingHost} routeFilters=${config.routeFilterPresets.length} connectionFilters=${config.connectionFilterPresets.length} portFilters=${config.portFilterPresets.length}`,
 		`tools defaults targets=${config.toolTargetPresets.length} filters=${config.toolHistoryFilterPresets.length} sort=${config.toolHistorySort} group=${config.toolHistoryGroup} detail=${config.toolHistoryDetailView}`,
 		`workspace behavior logs=${config.logProfiles.length} searches=${config.logSearchPresets.length} remotes=${config.remoteProfiles.length} publicIp=${config.showPublicIp} experimental=${config.enableExperimentalControls} statusJumpClass=${config.statusResultJumpClassFilter}`,
+		`shelf coverage saved=${saved} empty=${emptyShelves.length} routeFilters=${shelfCounts.routeFilters} connectionFilters=${shelfCounts.connectionFilters} portFilters=${shelfCounts.portFilters} toolTargets=${shelfCounts.toolTargets} logProfiles=${shelfCounts.logProfiles} logSearches=${shelfCounts.logSearches} remotes=${shelfCounts.remotes}`,
+		`empty shelves ${emptyShelves.length > 0 ? emptyShelves.join(",") : "none"}`,
 		"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
 	];
 }
