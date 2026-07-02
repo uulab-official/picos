@@ -141,6 +141,27 @@ export type RemoteHostKeyEvidence = {
 	};
 };
 
+export type RemoteHostKeyScanRequest = {
+	id: string;
+	provider: "sftp";
+	target: string;
+	host: string;
+	port: number | "-";
+	status: "locked";
+	risk: "read";
+	privilege: "user";
+	dependency: "@uulab/picos-sftp";
+	evidenceOutput: "sha256:unknown";
+	confirm: string;
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		scansHostKey: false;
+		trustsHost: false;
+		mutatesRemote: false;
+	};
+};
+
 export type RemoteKnownHostsSourcePreview = {
 	id: string;
 	provider: "sftp";
@@ -635,6 +656,46 @@ export function formatRemoteHostKeyEvidenceRows(
 		evidence.id === "none"
 			? "next=select remote profile · no fingerprint collection"
 			: "next=collect fingerprint evidence before adapter evaluation",
+	];
+}
+
+export function createRemoteHostKeyScanRequest(
+	profile?: SftpRemoteProfile,
+): RemoteHostKeyScanRequest {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		target: profile ? formatSftpRoot(profile) : "none",
+		host: profile?.host ?? "none",
+		port: profile?.port ?? "-",
+		status: "locked",
+		risk: "read",
+		privilege: "user",
+		dependency: "@uulab/picos-sftp",
+		evidenceOutput: "sha256:unknown",
+		confirm: profile ? `scan host key ${profile.id}` : "select remote profile",
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteHostKeyScanRequestRows(
+	request: RemoteHostKeyScanRequest = createRemoteHostKeyScanRequest(),
+): string[] {
+	return [
+		`REMOTE HOST KEY SCAN REQUEST ${request.id}`,
+		`target=${request.target} host=${request.host} port=${request.port} provider=${request.provider} status=${request.status}`,
+		`risk=${request.risk} privilege=${request.privilege} dependency=${request.dependency} evidenceOutput=${request.evidenceOutput}`,
+		`guards=hostReview exactConfirm="${request.confirm}" trust=blocked`,
+		`execution=willImport=${request.execution.importsTransport} willConnect=${request.execution.opensSocket} willScan=${request.execution.scansHostKey} willTrust=${request.execution.trustsHost} willMutate=${request.execution.mutatesRemote}`,
+		request.id === "none"
+			? "next=select remote profile · no host-key scan request"
+			: "next=explicit scan review required before fingerprint evidence collection",
 	];
 }
 
@@ -1213,6 +1274,10 @@ export async function formatRemoteProviderStatus(
 		),
 		"",
 		...formatRemoteHostKeyEvidenceRows(createRemoteHostKeyEvidence(profile)),
+		"",
+		...formatRemoteHostKeyScanRequestRows(
+			createRemoteHostKeyScanRequest(profile),
+		),
 		"",
 		...formatRemoteKnownHostsSourcePreviewRows(
 			createRemoteKnownHostsSourcePreview(profile),

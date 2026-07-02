@@ -6,6 +6,7 @@ import {
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
+	createRemoteHostKeyScanRequest,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
@@ -21,6 +22,7 @@ import {
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
+	formatRemoteHostKeyScanRequestRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
 	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
@@ -606,6 +608,81 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willRead=false willMutate=false",
+		);
+	});
+
+	test("formats remote host key scan request without opening transport", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteHostKeyScanRequest(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			host: "prod.example.com",
+			port: 2222,
+			status: "locked",
+			risk: "read",
+			privilege: "user",
+			dependency: "@uulab/picos-sftp",
+			evidenceOutput: "sha256:unknown",
+			confirm: "scan host key prod",
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				scansHostKey: false,
+				trustsHost: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteHostKeyScanRequestRows(
+				createRemoteHostKeyScanRequest(profile),
+			),
+		).toEqual([
+			"REMOTE HOST KEY SCAN REQUEST prod",
+			"target=sftp://deploy@prod.example.com:2222/srv/app host=prod.example.com port=2222 provider=sftp status=locked",
+			"risk=read privilege=user dependency=@uulab/picos-sftp evidenceOutput=sha256:unknown",
+			'guards=hostReview exactConfirm="scan host key prod" trust=blocked',
+			"execution=willImport=false willConnect=false willScan=false willTrust=false willMutate=false",
+			"next=explicit scan review required before fingerprint evidence collection",
+		]);
+
+		expect(formatRemoteHostKeyScanRequestRows().join("\n")).toBe(
+			[
+				"REMOTE HOST KEY SCAN REQUEST none",
+				"target=none host=none port=- provider=sftp status=locked",
+				"risk=read privilege=user dependency=@uulab/picos-sftp evidenceOutput=sha256:unknown",
+				'guards=hostReview exactConfirm="select remote profile" trust=blocked',
+				"execution=willImport=false willConnect=false willScan=false willTrust=false willMutate=false",
+				"next=select remote profile · no host-key scan request",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote host key scan request in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE HOST KEY SCAN REQUEST dev");
+		expect(output).toContain(
+			"risk=read privilege=user dependency=@uulab/picos-sftp evidenceOutput=sha256:unknown",
+		);
+		expect(output).toContain(
+			"execution=willImport=false willConnect=false willScan=false willTrust=false willMutate=false",
 		);
 	});
 
