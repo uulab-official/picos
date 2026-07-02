@@ -15,6 +15,7 @@ import {
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
+	createProcessControlEvidenceStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -44,6 +45,7 @@ import {
 	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
 	formatProcessControlEvidencePaletteAuditMessage,
+	formatProcessControlEvidenceStatusAuditMessage,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -2212,6 +2214,63 @@ describe("Status activity queue", () => {
 		);
 		expect(formatProcessControlEvidencePaletteAuditMessage("open")).toBe(
 			'palette process evidence audit action=open status=unavailable reason="no recovered process-control evidence export selected"',
+		);
+	});
+
+	test("creates status activity results for Status Evidence process search actions", () => {
+		const processEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"status activity result audit jump palette process control audit action=preview pid=12345",
+			scope: "selected" as const,
+		};
+
+		const result = createProcessControlEvidenceStatusActivityResult(
+			"search",
+			processEvidence,
+			{
+				selectedIndex: 1,
+				total: 3,
+			},
+		);
+
+		expect(result).toEqual({
+			source: "evidence",
+			action: "process-control-evidence",
+			message:
+				"status evidence process search 2/3 picos-audit-selected-2026-07-01T050000000Z.log",
+			detail:
+				"target=pid:12345 query=status activity result audit jump palette process control audit action=preview pid=12345 path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=evidence action=process-control-evidence",
+			"> status evidence process search 2/3 picos-audit-selected-2026-07-01T050000000Z.log",
+			"  target=pid:12345 query=status activity result audit jump palette process control audit action=preview pid=12345 path=/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log",
+		]);
+		expect(
+			createProcessControlEvidenceStatusActivityResult("search", undefined),
+		).toEqual({
+			source: "evidence",
+			action: "process-control-evidence",
+			message: "status evidence process search unavailable",
+			detail: "no recovered process-control evidence export selected",
+		});
+		expect(
+			formatProcessControlEvidenceStatusAuditMessage(
+				"search",
+				processEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toBe(
+			'status evidence process audit action=search selected=2/3 target="pid:12345" label="picos-audit-selected-2026-07-01T050000000Z.log" query="status activity result audit jump palette process control audit action=preview pid=12345" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log"',
+		);
+		expect(formatProcessControlEvidenceStatusAuditMessage("search")).toBe(
+			'status evidence process audit action=search status=unavailable reason="no recovered process-control evidence export selected"',
 		);
 	});
 

@@ -390,6 +390,7 @@ import {
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
+	createProcessControlEvidenceStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -419,6 +420,7 @@ import {
 	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
 	formatProcessControlEvidencePaletteAuditMessage,
+	formatProcessControlEvidenceStatusAuditMessage,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -4101,7 +4103,8 @@ export function App(): React.ReactElement {
 	);
 
 	const jumpSelectedProcessControlEvidenceSearch = useCallback(
-		(options: { origin?: "keyboard" | "palette" } = {}) => {
+		(options: { origin?: "keyboard" | "palette" | "status-evidence" } = {}) => {
+			const resultOptions = getSelectedProcessControlEvidenceResultOptions();
 			const jump = createProcessControlAuditExportTimelineSearch(
 				selectedProcessControlAuditExport,
 			);
@@ -4116,6 +4119,12 @@ export function App(): React.ReactElement {
 						createProcessControlEvidencePaletteStatusActivityResult("search"),
 					);
 				}
+				if (options.origin === "status-evidence") {
+					log("info", formatProcessControlEvidenceStatusAuditMessage("search"));
+					recordStatusActivityResult(
+						createProcessControlEvidenceStatusActivityResult("search"),
+					);
+				}
 				return;
 			}
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
@@ -4128,7 +4137,6 @@ export function App(): React.ReactElement {
 				`${jump.message} matches ${filtered.length}`,
 			);
 			if (options.origin === "palette") {
-				const resultOptions = getSelectedProcessControlEvidenceResultOptions();
 				log(
 					"info",
 					formatProcessControlEvidencePaletteAuditMessage(
@@ -4139,6 +4147,23 @@ export function App(): React.ReactElement {
 				);
 				recordStatusActivityResult(
 					createProcessControlEvidencePaletteStatusActivityResult(
+						"search",
+						selectedProcessControlAuditExport,
+						resultOptions,
+					),
+				);
+			}
+			if (options.origin === "status-evidence") {
+				log(
+					"info",
+					formatProcessControlEvidenceStatusAuditMessage(
+						"search",
+						selectedProcessControlAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createProcessControlEvidenceStatusActivityResult(
 						"search",
 						selectedProcessControlAuditExport,
 						resultOptions,
@@ -6750,7 +6775,9 @@ export function App(): React.ReactElement {
 					log("warn", "no process evidence search target");
 					return;
 				}
-				jumpSelectedProcessControlEvidenceSearch();
+				jumpSelectedProcessControlEvidenceSearch({
+					origin: "status-evidence",
+				});
 				log(
 					"info",
 					`status evidence search ${evidenceSearchPlan.shortcut} ${evidenceSearchPlan.label}`,
