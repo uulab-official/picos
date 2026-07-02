@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createFileProvider } from "./files";
 import type { SftpRemoteProfile } from "./types";
 
@@ -199,6 +200,38 @@ export type RemoteKnownHostsParserPreview = {
 	execution: {
 		readsLocal: false;
 		parsesRows: false;
+		opensSocket: false;
+		scansHostKey: false;
+		trustsHost: false;
+		mutatesRemote: false;
+	};
+};
+
+export type RemoteKnownHostsCandidate = {
+	index: number;
+	sourceLine: number;
+	marker: "none" | "@cert-authority" | "@revoked" | "other";
+	hostPattern: string;
+	hostKind: "plain" | "hashed" | "pattern";
+	keyType: string;
+	fingerprint: string;
+	match: "matched";
+	trust: "candidate-only";
+};
+
+export type RemoteKnownHostsCandidatePreview = {
+	id: string;
+	provider: "sftp";
+	lookup: string;
+	status: "not-parsed" | "parsed-injected";
+	source: "provided-known-hosts";
+	candidates: RemoteKnownHostsCandidate[];
+	selected: number | "none";
+	match: "matched" | "unknown";
+	decision: "blocked";
+	execution: {
+		readsLocal: false;
+		parsesInjectedContent: boolean;
 		opensSocket: false;
 		scansHostKey: false;
 		trustsHost: false;
@@ -711,6 +744,98 @@ export function formatRemoteKnownHostsParserPreviewRows(
 	];
 }
 
+export function parseRemoteKnownHostsCandidates(
+	lookup: string,
+	content: string,
+): RemoteKnownHostsCandidate[] {
+	const normalizedLookup = normalizeKnownHostsLookup(lookup);
+	if (!normalizedLookup) {
+		return [];
+	}
+	const candidates: RemoteKnownHostsCandidate[] = [];
+	for (const [lineIndex, rawLine] of content.split(/\r?\n/).entries()) {
+		const parsed = parseKnownHostsLine(rawLine, lineIndex + 1);
+		if (!parsed) {
+			continue;
+		}
+		for (const hostPattern of parsed.hostPatterns) {
+			if (!knownHostsPatternMatchesLookup(hostPattern, normalizedLookup)) {
+				continue;
+			}
+			candidates.push({
+				index: candidates.length + 1,
+				sourceLine: parsed.sourceLine,
+				marker: parsed.marker,
+				hostPattern,
+				hostKind: getKnownHostsPatternKind(hostPattern),
+				keyType: parsed.keyType,
+				fingerprint: createKnownHostsFingerprint(parsed.keyBlob),
+				match: "matched",
+				trust: "candidate-only",
+			});
+		}
+	}
+	return candidates;
+}
+
+export function createRemoteKnownHostsCandidatePreview(
+	profile?: SftpRemoteProfile,
+	content?: string,
+): RemoteKnownHostsCandidatePreview {
+	const lookup = profile ? `${profile.host}:${profile.port}` : "none";
+	const hasInjectedContent = typeof content === "string";
+	const candidates =
+		profile && hasInjectedContent
+			? parseRemoteKnownHostsCandidates(lookup, content)
+			: [];
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		lookup,
+		status: hasInjectedContent ? "parsed-injected" : "not-parsed",
+		source: "provided-known-hosts",
+		candidates,
+		selected: candidates[0]?.index ?? "none",
+		match: candidates.length > 0 ? "matched" : "unknown",
+		decision: "blocked",
+		execution: {
+			readsLocal: false,
+			parsesInjectedContent: hasInjectedContent,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteKnownHostsCandidatePreviewRows(
+	preview: RemoteKnownHostsCandidatePreview = createRemoteKnownHostsCandidatePreview(),
+): string[] {
+	const rows = [
+		`REMOTE KNOWN_HOSTS CANDIDATES ${preview.id}`,
+		`lookup=${preview.lookup} provider=${preview.provider} status=${preview.status} source=${preview.source}`,
+		`candidates=${preview.candidates.length} selected=${preview.selected} match=${preview.match} decision=${preview.decision}`,
+	];
+	if (preview.candidates.length === 0) {
+		rows.push("no known_hosts candidates for selected lookup");
+	} else {
+		rows.push(
+			...preview.candidates.slice(0, 3).map((candidate, index) => {
+				const marker = index === 0 ? ">" : " ";
+				return `${marker} #${candidate.index} line=${candidate.sourceLine} marker=${candidate.marker} host=${candidate.hostPattern} kind=${candidate.hostKind} key=${candidate.keyType} fingerprint=${candidate.fingerprint} trust=${candidate.trust}`;
+			}),
+		);
+	}
+	rows.push(
+		`execution=willReadLocal=${preview.execution.readsLocal} parsedInjected=${preview.execution.parsesInjectedContent} willConnect=${preview.execution.opensSocket} willScan=${preview.execution.scansHostKey} willTrust=${preview.execution.trustsHost} willMutate=${preview.execution.mutatesRemote}`,
+		preview.id === "none"
+			? "next=select remote profile · no candidate parsing"
+			: "next=compare selected candidate with collected host key evidence before trust review",
+	);
+	return rows;
+}
+
 export function createRemoteHostKeyTrustDecisionPreview(
 	profile?: SftpRemoteProfile,
 ): RemoteHostKeyTrustDecisionPreview {
@@ -991,6 +1116,10 @@ export async function formatRemoteProviderStatus(
 			createRemoteKnownHostsParserPreview(profile),
 		),
 		"",
+		...formatRemoteKnownHostsCandidatePreviewRows(
+			createRemoteKnownHostsCandidatePreview(profile),
+		),
+		"",
 		...formatRemoteHostKeyTrustDecisionPreviewRows(
 			createRemoteHostKeyTrustDecisionPreview(profile),
 		),
@@ -1077,6 +1206,127 @@ function normalizePort(value: unknown): number | undefined {
 function formatSftpRoot(profile: SftpRemoteProfile): string {
 	const root = profile.root.startsWith("/") ? profile.root : `/${profile.root}`;
 	return `sftp://${profile.username}@${profile.host}:${profile.port}${root}`;
+}
+
+type ParsedKnownHostsLine = {
+	sourceLine: number;
+	marker: RemoteKnownHostsCandidate["marker"];
+	hostPatterns: string[];
+	keyType: string;
+	keyBlob: string;
+};
+
+function parseKnownHostsLine(
+	rawLine: string,
+	sourceLine: number,
+): ParsedKnownHostsLine | undefined {
+	const line = rawLine.trim();
+	if (!line || line.startsWith("#")) {
+		return undefined;
+	}
+	const parts = line.split(/\s+/);
+	const first = parts[0];
+	const hasMarker = first?.startsWith("@") ?? false;
+	const marker = normalizeKnownHostsMarker(hasMarker ? first : undefined);
+	const hostField = hasMarker ? parts[1] : first;
+	const keyType = hasMarker ? parts[2] : parts[1];
+	const keyBlob = hasMarker ? parts[3] : parts[2];
+	if (!hostField || !keyType || !keyBlob) {
+		return undefined;
+	}
+	return {
+		sourceLine,
+		marker,
+		hostPatterns: hostField.split(",").filter(Boolean),
+		keyType,
+		keyBlob,
+	};
+}
+
+function normalizeKnownHostsMarker(
+	marker?: string,
+): RemoteKnownHostsCandidate["marker"] {
+	if (marker === "@cert-authority" || marker === "@revoked") {
+		return marker;
+	}
+	return marker ? "other" : "none";
+}
+
+function normalizeKnownHostsLookup(
+	lookup: string,
+): { host: string; port: number } | undefined {
+	const trimmed = lookup.trim();
+	const bracketMatch = trimmed.match(/^\[([^\]]+)\]:(\d+)$/);
+	if (bracketMatch) {
+		const port = Number(bracketMatch[2]);
+		return port >= 1 && port <= 65535
+			? { host: bracketMatch[1] as string, port }
+			: undefined;
+	}
+	const lastColon = trimmed.lastIndexOf(":");
+	if (lastColon <= 0) {
+		return trimmed ? { host: trimmed, port: 22 } : undefined;
+	}
+	const host = trimmed.slice(0, lastColon);
+	const port = Number(trimmed.slice(lastColon + 1));
+	if (!host || !Number.isInteger(port) || port < 1 || port > 65535) {
+		return undefined;
+	}
+	return { host, port };
+}
+
+function knownHostsPatternMatchesLookup(
+	pattern: string,
+	lookup: { host: string; port: number },
+): boolean {
+	const bracketMatch = pattern.match(/^\[([^\]]+)\]:(\d+)$/);
+	if (bracketMatch) {
+		return (
+			bracketMatch[1] === lookup.host && Number(bracketMatch[2]) === lookup.port
+		);
+	}
+	if (pattern.startsWith("|")) {
+		return false;
+	}
+	if (lookup.port !== 22) {
+		return false;
+	}
+	if (pattern.includes("*") || pattern.includes("?")) {
+		return knownHostsWildcardMatches(pattern, lookup.host);
+	}
+	return pattern === lookup.host;
+}
+
+function knownHostsWildcardMatches(pattern: string, host: string): boolean {
+	const wildcard = Array.from(pattern)
+		.map((character) => {
+			if (character === "*") {
+				return ".*";
+			}
+			if (character === "?") {
+				return ".";
+			}
+			return character.replace(/[\\^$+?.()|[\]{}]/g, "\\$&");
+		})
+		.join("");
+	return new RegExp(`^${wildcard}$`).test(host);
+}
+
+function getKnownHostsPatternKind(
+	pattern: string,
+): RemoteKnownHostsCandidate["hostKind"] {
+	if (pattern.startsWith("|")) {
+		return "hashed";
+	}
+	return pattern.includes("*") || pattern.includes("?") ? "pattern" : "plain";
+}
+
+function createKnownHostsFingerprint(keyBlob: string): string {
+	const digest = createHash("sha256")
+		.update(Buffer.from(keyBlob, "base64"))
+		.digest("base64")
+		.replace(/=+$/g, "");
+	return `SHA256:${digest}`;
 }
 
 function quoteAuditField(value: string): string {

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.286 - Remote Known Hosts Candidate Parser
+
+Status: in progress on `codex/picos-v0.4.286-known-hosts-candidates`.
+
+Goal: make `known_hosts` candidate parsing real enough for future host-key comparison while still avoiding local trust-file reads, sockets, host-key scans, host trust, and mutation.
+
+- Core now parses injected `known_hosts` content into candidate rows for exact hosts, bracketed host:port entries, wildcard marker entries, key type, source line, marker, and SHA256 fingerprint.
+- Hashed host entries remain non-matching until a safe hashed-host verification path exists.
+- Remotes and `picos remote <id>` now show `REMOTE KNOWN_HOSTS CANDIDATES` rows between parser preview and trust decision.
+- Candidate preview rows keep `willReadLocal=false`, `willConnect=false`, `willScan=false`, `willTrust=false`, and `willMutate=false`; only injected-content parsing is marked.
+- Tests cover plain, bracketed-port, marker/wildcard, hashed-skip, empty preview, provider status inclusion, and no-trust/no-mutation posture.
+- Next: feed confirmed local read previews into this parser through a locked file-read result model, then add candidate selection to compare detail.
+
 ## v0.4.285 - Remote Host Key Compare Detail
 
 Status: draft PR [#347](https://github.com/uulab-official/picos/pull/347) on `codex/picos-v0.4.285-host-key-compare-detail`.
