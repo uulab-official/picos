@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace and `picos remote <id>` now show `REMOTE HOST KEY TRUST DECISION` rows, exposing the future fingerprint comparison checkpoint, exact `review host trust <id>` confirmation, compare-only guard, blocked decision, and no-import/no-connect/no-read/no-parse/no-scan/no-trust posture before any remote host is trusted.
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS PARSER PREVIEW` rows, exposing the future plain/hashed/marker/cert-authority parser boundary, exact `parse known_hosts <id>` confirmation, blocked trust decision, and no-local-read/no-parse/no-network/no-scan posture before any host trust rows are parsed.
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS READ PREVIEW` rows, making the local `known_hosts` read boundary, exact `read known_hosts <id>` confirmation, `~/.ssh` allowed base, parser-not-run state, and no-local-read/no-network/no-scan posture visible before any trust file is parsed.
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS SOURCE` rows, previewing local `~/.ssh/known_hosts` and `~/.ssh/known_hosts2` lookup targets before fingerprint collection while `willReadLocal=false`, `willConnect=false`, and `willScan=false` remain explicit.

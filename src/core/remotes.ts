@@ -206,6 +206,34 @@ export type RemoteKnownHostsParserPreview = {
 	};
 };
 
+export type RemoteHostKeyTrustDecisionPreview = {
+	id: string;
+	provider: "sftp";
+	target: string;
+	lookup: string;
+	status: "locked";
+	collectedFingerprint: "sha256:unknown";
+	knownHostsFingerprint: "sha256:unknown";
+	match: "unknown";
+	decision: "blocked";
+	inputs: {
+		hostKeyEvidence: "required";
+		knownHostsParser: "required";
+		hostReview: "required";
+	};
+	confirm: string;
+	connectConfirm: string;
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		readsLocal: false;
+		parsesRows: false;
+		scansHostKey: false;
+		trustsHost: false;
+		mutatesRemote: false;
+	};
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -650,6 +678,58 @@ export function formatRemoteKnownHostsParserPreviewRows(
 	];
 }
 
+export function createRemoteHostKeyTrustDecisionPreview(
+	profile?: SftpRemoteProfile,
+): RemoteHostKeyTrustDecisionPreview {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		target: profile ? formatSftpRoot(profile) : "none",
+		lookup: profile ? `${profile.host}:${profile.port}` : "none",
+		status: "locked",
+		collectedFingerprint: "sha256:unknown",
+		knownHostsFingerprint: "sha256:unknown",
+		match: "unknown",
+		decision: "blocked",
+		inputs: {
+			hostKeyEvidence: "required",
+			knownHostsParser: "required",
+			hostReview: "required",
+		},
+		confirm: profile
+			? `review host trust ${profile.id}`
+			: "select remote profile",
+		connectConfirm: profile
+			? `connect remote ${profile.id}`
+			: "select remote profile",
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			readsLocal: false,
+			parsesRows: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteHostKeyTrustDecisionPreviewRows(
+	preview: RemoteHostKeyTrustDecisionPreview = createRemoteHostKeyTrustDecisionPreview(),
+): string[] {
+	return [
+		`REMOTE HOST KEY TRUST DECISION ${preview.id}`,
+		`target=${preview.target} lookup=${preview.lookup} provider=${preview.provider} status=${preview.status}`,
+		`collected=${preview.collectedFingerprint} knownHosts=${preview.knownHostsFingerprint} match=${preview.match} decision=${preview.decision}`,
+		`inputs=hostKeyEvidence:${preview.inputs.hostKeyEvidence} knownHostsParser:${preview.inputs.knownHostsParser} hostReview:${preview.inputs.hostReview}`,
+		`guards=compareOnly exactConfirm="${preview.confirm}" connectConfirm="${preview.connectConfirm}"`,
+		`execution=willImport=${preview.execution.importsTransport} willConnect=${preview.execution.opensSocket} willReadLocal=${preview.execution.readsLocal} willParse=${preview.execution.parsesRows} willScan=${preview.execution.scansHostKey} willTrust=${preview.execution.trustsHost} willMutate=${preview.execution.mutatesRemote}`,
+		preview.id === "none"
+			? "next=select remote profile · no trust decision"
+			: "next=collect host key evidence and parse known_hosts before trust decision",
+	];
+}
+
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
 ): RemoteConnectPreview {
@@ -791,6 +871,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteKnownHostsParserPreviewRows(
 			createRemoteKnownHostsParserPreview(profile),
+		),
+		"",
+		...formatRemoteHostKeyTrustDecisionPreviewRows(
+			createRemoteHostKeyTrustDecisionPreview(profile),
 		),
 		"",
 		...formatRemoteHostReviewRows(profile),
