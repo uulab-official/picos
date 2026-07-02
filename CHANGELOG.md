@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Command palette now exposes `jump class config` / `status jump config` to focus the Config `statusResultJumpClassFilter` row directly, with preview rows showing the current class and `+/-` cycle behavior before dispatch.
 - Config workspace now exposes `statusResultJumpClassFilter` as a Display choice row, so `+/-` can cycle the saved Status result jump class without entering Status first.
 - Status result jump class filter preference now persists as `statusResultJumpClassFilter`, is restored on TUI boot, and appears in the Config managed shelf summary.
 - Command palette now exposes the Status result jump class filter via `result jump filter` and `jump class`, with a preview of current/next class and visible/total jump counts before cycling the same `^` filter.

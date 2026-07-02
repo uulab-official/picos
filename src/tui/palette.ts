@@ -139,6 +139,7 @@ export type CommandPalettePreviewContext = {
 	totalStatusActivityResultTimelineJumps?: number;
 	statusActivityResultTimelineJumpFilter?: StatusActivityResultTimelineJumpFilter;
 	nextStatusActivityResultTimelineJumpFilter?: StatusActivityResultTimelineJumpFilter;
+	statusResultJumpClassFilter?: StatusActivityResultTimelineJumpFilter;
 	visibleStatusActivityResultTimelineJumps?: number;
 	allStatusActivityResultTimelineJumps?: number;
 };
@@ -161,6 +162,7 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.resultJump.select" &&
 		action.id !== "status.resultJump.open" &&
 		action.id !== "status.resultJump.filter" &&
+		action.id !== "config.statusResultJumpClass.focus" &&
 		!context.portProcessPreview &&
 		!context.controlPreview
 	) {
@@ -204,6 +206,10 @@ export function formatCommandPaletteActionPreviewRows(
 		return formatStatusActivityResultJumpFilterPalettePreviewRows(context);
 	}
 
+	if (action.id === "config.statusResultJumpClass.focus") {
+		return formatConfigStatusResultJumpClassPalettePreviewRows(context);
+	}
+
 	const recovery = context.toolsEvidenceSearchRecovery;
 	if (!recovery || recovery.items.length === 0) {
 		return [
@@ -236,6 +242,21 @@ export function formatCommandPaletteActionPreviewRows(
 		rows.push(`confirm=${actionVerb} path=${item.path}`);
 	}
 	return rows;
+}
+
+function formatConfigStatusResultJumpClassPalettePreviewRows(
+	context: CommandPalettePreviewContext,
+): string[] {
+	const current =
+		context.statusResultJumpClassFilter ??
+		context.statusActivityResultTimelineJumpFilter ??
+		"all";
+	return [
+		"config target=statusResultJumpClassFilter",
+		`current=${current}`,
+		"section=display action=focus Config row",
+		"controls=+/- cycle all/process/timeline/tools/source",
+	];
 }
 
 function formatStatusActivityResultJumpFilterPalettePreviewRows(
