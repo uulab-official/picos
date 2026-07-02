@@ -2,7 +2,7 @@
 
 ## v0.4.287 - Remote Known Hosts Read Result
 
-Status: in progress on `codex/picos-v0.4.287-known-hosts-read-result`.
+Status: draft PR [#350](https://github.com/uulab-official/picos/pull/350) on `codex/picos-v0.4.287-known-hosts-read-result`.
 
 Goal: bridge the locked local `known_hosts` read preview into candidate parsing without exposing raw trust-file content or enabling host trust, sockets, scans, writes, or mutation.
 
