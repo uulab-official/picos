@@ -139,13 +139,17 @@ import {
 	type ProcessFileSnapshot,
 } from "../core/processes";
 import {
+	createRemoteConnectPreview,
 	createRemoteFileContext,
 	formatRemoteAdapterBoundaryRows,
+	formatRemoteConnectConfirmationAuditMessage,
+	formatRemoteConnectPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
+	submitRemoteConnectConfirmation,
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
 import {
@@ -3915,6 +3919,23 @@ export function App(): React.ReactElement {
 		}
 	}, [commandLine.value, log, syncConfigSessionState]);
 
+	const submitRemoteConnectCommand = useCallback(() => {
+		const profile = remoteProfiles[selectedRemoteIndex];
+		setCommandLine((current) => closeCommandLine(current));
+		if (!profile) {
+			log("warn", "remote connect requires a selected profile");
+			return;
+		}
+
+		const preview = createRemoteConnectPreview(profile);
+		const confirmation = submitRemoteConnectConfirmation(
+			preview,
+			commandLine.value,
+		);
+		log("warn", formatRemoteConnectConfirmationAuditMessage(confirmation));
+		log("warn", confirmation.message);
+	}, [commandLine.value, log, remoteProfiles, selectedRemoteIndex]);
+
 	const inspectSelectedEndpointProcess = useCallback(async () => {
 		const request =
 			screen === "connections"
@@ -6099,13 +6120,16 @@ export function App(): React.ReactElement {
 																																								"remote-profile"
 																																							? "remote profile cancelled"
 																																							: commandLine.prompt ===
-																																									portProcessControlPrompt
-																																								? "port process control cancelled"
-																																								: commandLine.prompt.startsWith(
-																																											toolPromptPrefix,
-																																										)
-																																									? "tool target command cancelled"
-																																									: "path command cancelled",
+																																									"remote-connect"
+																																								? "remote connect confirmation cancelled"
+																																								: commandLine.prompt ===
+																																										portProcessControlPrompt
+																																									? "port process control cancelled"
+																																									: commandLine.prompt.startsWith(
+																																												toolPromptPrefix,
+																																											)
+																																										? "tool target command cancelled"
+																																										: "path command cancelled",
 				);
 				return;
 			}
@@ -6135,6 +6159,8 @@ export function App(): React.ReactElement {
 					submitToolTargetPresetCommand();
 				} else if (commandLine.prompt === "remote-profile") {
 					void submitRemoteProfileCommand();
+				} else if (commandLine.prompt === "remote-connect") {
+					submitRemoteConnectCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (
@@ -9387,6 +9413,18 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "c") {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile) {
+				log("warn", "no remote profile selected");
+				return;
+			}
+			const preview = createRemoteConnectPreview(profile);
+			setCommandLine(openCommandLine("remote-connect"));
+			log("info", `remote connect preview opened ${preview.confirm}`);
+			return;
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -10702,6 +10740,7 @@ function renderWorkspace(
 				selectedIndex={selectedRemoteIndex}
 				selectedContext={remoteFileContext}
 				focused={focusArea === "remotes"}
+				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 8)}
 				configShelfFocusTarget={configShelfFocusTarget}
 				t={t}
@@ -11681,6 +11720,7 @@ function RemotesWorkspace({
 	selectedIndex,
 	selectedContext,
 	focused,
+	commandLine,
 	visibleRows,
 	configShelfFocusTarget,
 	t,
@@ -11689,6 +11729,7 @@ function RemotesWorkspace({
 	selectedIndex: number;
 	selectedContext?: RemoteFileContext;
 	focused: boolean;
+	commandLine: CommandLineState;
 	visibleRows: number;
 	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
@@ -11711,6 +11752,10 @@ function RemotesWorkspace({
 	});
 	const adapterBoundaryRows = formatRemoteAdapterBoundaryRows(selectedProfile);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
+	const connectPreview = selectedProfile
+		? createRemoteConnectPreview(selectedProfile)
+		: undefined;
+	const connectPreviewRows = formatRemoteConnectPreviewRows(connectPreview);
 
 	return (
 		<Box flexDirection="column">
@@ -11719,7 +11764,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · h/esc"
+					? "remote focus · j/k select · enter stage · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (
@@ -11812,8 +11857,33 @@ function RemotesWorkspace({
 				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">CONNECT PREVIEW</Text>
+				{connectPreviewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("blocked") ||
+										row.includes("willExecute=false") ||
+										row.includes("not-opened")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+				{commandLine.active && commandLine.prompt === "remote-connect" ? (
+					<Text color="yellow">
+						:remote-connect {commandLine.value || " "} confirm="
+						{connectPreview?.confirm ?? "select remote profile"}" esc cancel
+					</Text>
+				) : null}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
-				<Text>picos remotes · picos remote &lt;id&gt;</Text>
+				<Text>picos remotes · picos remote &lt;id&gt; · c connect preview</Text>
 				<Text color="gray">
 					next: live read-only SFTP adapter behind host review
 				</Text>

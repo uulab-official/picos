@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.273 - Remote Connect Preview
+
+Status: draft PR [#335](https://github.com/uulab-official/picos/pull/335) on `codex/picos-v0.4.273-remote-connect-preview`.
+
+Goal: make future SFTP connect attempts visible as an exact-confirm host-review preview before transport exists.
+
+- Remotes now models `REMOTE CONNECT PREVIEW` rows for selected and empty SFTP profile states.
+- Connect preview rows show host-review dialog state, target URI, identity, host key posture, read/user risk, locked write/destructive posture, exact confirmation phrase, blocked execution reason, and `network=not-opened`.
+- `picos remote <id>` prints the same connect preview block after handoff, adapter boundary, and host-review rows.
+- Remotes focus `c` opens a locked `:remote-connect` prompt; exact phrase submission records a blocked audit message and keeps `networkOpened=false`.
+- Tests cover preview objects, row formatting, exact-confirm submission, rejection, audit message formatting, and CLI provider status inclusion.
+- Next: route remote connect audit rows into Status Activity history and Timeline search recovery.
+
 ## v0.4.272 - Remote Adapter Boundary
 
 Status: draft PR [#334](https://github.com/uulab-official/picos/pull/334) on `codex/picos-v0.4.272-remote-adapter-boundary`.
