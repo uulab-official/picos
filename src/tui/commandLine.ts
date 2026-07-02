@@ -3,6 +3,7 @@ export type CommandLineState = {
 	prompt: string;
 	value: string;
 	fieldIndex?: number;
+	fieldTouchedIndexes?: number[];
 };
 
 export type CommandLineInput = {
@@ -13,6 +14,7 @@ export type CommandLineInput = {
 export type CommandLineOpenOptions = {
 	value?: string;
 	fieldIndex?: number;
+	fieldTouchedIndexes?: number[];
 };
 
 export function openCommandLine(
@@ -26,6 +28,12 @@ export function openCommandLine(
 	};
 	if (options.fieldIndex !== undefined) {
 		state.fieldIndex = Math.max(0, options.fieldIndex);
+	}
+	const touchedIndexes = normalizeFieldIndexes(
+		options.fieldTouchedIndexes ?? [],
+	);
+	if (touchedIndexes.length) {
+		state.fieldTouchedIndexes = touchedIndexes;
 	}
 	return state;
 }
@@ -54,6 +62,23 @@ export function moveCommandLineField(
 	};
 }
 
+export function isCommandLineFieldTouched(state: CommandLineState): boolean {
+	return (state.fieldTouchedIndexes ?? []).includes(state.fieldIndex ?? 0);
+}
+
+export function markCommandLineFieldTouched(
+	state: CommandLineState,
+): CommandLineState {
+	const fieldIndex = Math.max(0, state.fieldIndex ?? 0);
+	return {
+		...state,
+		fieldTouchedIndexes: normalizeFieldIndexes([
+			...(state.fieldTouchedIndexes ?? []),
+			fieldIndex,
+		]),
+	};
+}
+
 export function applyCommandLineInput(
 	state: CommandLineState,
 	event: CommandLineInput,
@@ -77,4 +102,14 @@ export function applyCommandLineInput(
 		...state,
 		value: `${state.value}${event.input}`,
 	};
+}
+
+function normalizeFieldIndexes(indexes: number[]): number[] {
+	return Array.from(
+		new Set(
+			indexes
+				.filter((index) => Number.isInteger(index) && index >= 0)
+				.map((index) => Math.floor(index)),
+		),
+	).sort((left, right) => left - right);
 }

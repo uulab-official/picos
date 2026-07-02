@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
 	applyCommandLineInput,
 	closeCommandLine,
+	isCommandLineFieldTouched,
+	markCommandLineFieldTouched,
 	moveCommandLineField,
 	openCommandLine,
 } from "../src/tui/commandLine";
@@ -62,5 +64,21 @@ describe("TUI command line", () => {
 		expect(moveCommandLineField(openCommandLine("path"), 0, "next")).toEqual(
 			openCommandLine("path"),
 		);
+	});
+
+	test("tracks touched fields for form prompts", () => {
+		const opened = openCommandLine("tool:network.connect", {
+			fieldIndex: 1,
+			fieldTouchedIndexes: [0, 0],
+		});
+		expect(opened.fieldTouchedIndexes).toEqual([0]);
+		expect(isCommandLineFieldTouched(opened)).toBe(false);
+		const touched = markCommandLineFieldTouched(opened);
+		expect(touched.fieldTouchedIndexes).toEqual([0, 1]);
+		expect(isCommandLineFieldTouched(touched)).toBe(true);
+		expect(markCommandLineFieldTouched(touched).fieldTouchedIndexes).toEqual([
+			0, 1,
+		]);
+		expect(isCommandLineFieldTouched(openCommandLine("path"))).toBe(false);
 	});
 });

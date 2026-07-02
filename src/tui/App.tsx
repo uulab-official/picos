@@ -238,6 +238,8 @@ import {
 	applyCommandLineInput,
 	type CommandLineState,
 	closeCommandLine,
+	isCommandLineFieldTouched,
+	markCommandLineFieldTouched,
 	moveCommandLineField,
 	openCommandLine,
 } from "./commandLine";
@@ -528,6 +530,7 @@ import {
 	createToolHistoryExportArchivePlan,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
+	createToolRunPlanFromForm,
 	createToolRunPlanFromPreset,
 	createToolTargetCleanupPreview,
 	filterToolHistory,
@@ -1691,12 +1694,21 @@ export function App(): React.ReactElement {
 		const actionId = commandLine.prompt.slice(toolPromptPrefix.length);
 		try {
 			const config = await readConfig();
-			const plan = createToolRunPlan(
+			const form = createToolFormState(
 				actionId,
 				config.defaultPingHost,
 				summaryRef.current,
 				commandLine.value,
+				commandLine.fieldIndex ?? 0,
 			);
+			const plan =
+				createToolRunPlanFromForm(form) ??
+				createToolRunPlan(
+					actionId,
+					config.defaultPingHost,
+					summaryRef.current,
+					commandLine.value,
+				);
 			if (!plan) {
 				log("warn", `unknown tool action ${actionId}`);
 				return;
@@ -1709,7 +1721,13 @@ export function App(): React.ReactElement {
 		} finally {
 			setCommandLine((current) => closeCommandLine(current));
 		}
-	}, [commandLine.prompt, commandLine.value, log, runToolPlan]);
+	}, [
+		commandLine.fieldIndex,
+		commandLine.prompt,
+		commandLine.value,
+		log,
+		runToolPlan,
+	]);
 
 	const applyToolPromptCommandLineInput = useCallback(
 		(
@@ -1734,21 +1752,28 @@ export function App(): React.ReactElement {
 			if (!selectedForm || !selectedField) {
 				return applyCommandLineInput(current, event);
 			}
+			const clearField = event.input === "\u0015";
 			if (
 				!event.backspace &&
+				!clearField &&
 				(event.input?.length !== 1 || event.input < " ")
 			) {
 				return current;
 			}
-			const nextFieldValue = event.backspace
-				? selectedField.value.slice(0, -1)
-				: `${selectedField.value}${event.input}`;
+			const touched = isCommandLineFieldTouched(current);
+			const nextFieldValue = clearField
+				? ""
+				: event.backspace
+					? selectedField.value.slice(0, -1)
+					: touched
+						? `${selectedField.value}${event.input}`
+						: (event.input ?? "");
 			const nextForm = updateToolFormFieldValue(selectedForm, nextFieldValue);
-			return {
+			return markCommandLineFieldTouched({
 				...current,
-				value: formatToolFormInputValue(nextForm),
+				value: formatToolFormInputValue(nextForm, { preserveEmpty: true }),
 				fieldIndex: nextForm?.selectedFieldIndex ?? current.fieldIndex,
-			};
+			});
 		},
 		[],
 	);
