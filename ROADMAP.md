@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.265 - Files Path Copy
+
+Status: draft PR [#327](https://github.com/uulab-official/picos/pull/327) on `codex/picos-v0.4.265-files-path-copy`.
+
+Goal: make selected filesystem targets inspectable and reusable without leaving the keyboard console.
+
+- Files now formats a `SELECTED PATH` detail block with name, type, size, readonly state, full path, and copy/open/operation hints.
+- Pressing `y` in Files focus opens the existing locked `:clipboard` confirmation for the selected file, directory, symlink, or parent entry path.
+- The clipboard preview uses a dedicated `file-path` source with type/size/readonly details, so path copies are auditable like endpoint, route, Timeline, and Tools copies.
+- Compact Files layouts include the selected path summary while full layouts show the complete path detail block before command hints.
+- Tests cover selected path rows, locked clipboard preview payloads, empty selections, typecheck, and lint.
+- Next: add selected-entry breadcrumb slicing and SFTP-ready provider boundary previews.
+
 ## v0.4.264 - Files Forward History
 
 Status: draft PR [#326](https://github.com/uulab-official/picos/pull/326) on `codex/picos-v0.4.264-files-forward-history`.

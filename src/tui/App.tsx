@@ -335,6 +335,10 @@ import {
 	openFileOperationDialog,
 } from "./fileOperationDialog";
 import {
+	formatSelectedFilePathRows,
+	getSelectedFilePathClipboardPreview,
+} from "./fileSelection";
+import {
 	createInterfaceSourceHandoffPlan,
 	formatInterfaceWorkspaceRows,
 	getInterfaceSourceClipboardPreview,
@@ -6430,6 +6434,19 @@ export function App(): React.ReactElement {
 			void goForwardFileHistory();
 		}
 
+		if (focusArea === "files" && input === "y") {
+			const preview = getSelectedFilePathClipboardPreview(
+				displayedFileEntries,
+				selectedFileIndex,
+			);
+			if (!preview) {
+				log("warn", "no file path selected");
+				return;
+			}
+			openClipboardConfirmation(preview);
+			return;
+		}
+
 		if (focusArea === "files" && input === "f") {
 			setFileFilter((current) => openFileFilter(current.query));
 			setSelectedFileIndex(0);
@@ -11240,6 +11257,7 @@ function FilesWorkspace({
 	const visibleEntries = entries.slice(window.start, window.end);
 	const hiddenAbove = window.start;
 	const hiddenBelow = entries.length - window.end;
+	const selectedPathRows = formatSelectedFilePathRows(entries, selectedIndex);
 
 	if (visibleRows < 12) {
 		const compactEntries = entries.slice(0, Math.max(2, visibleRows - 5));
@@ -11280,6 +11298,11 @@ function FilesWorkspace({
 						{clip(fileOperationDialog.preview.path, 34)}
 					</Text>
 				) : null}
+				{selectedPathRows.slice(0, 2).map((row) => (
+					<Text key={row} color={row.startsWith("SELECTED") ? "cyan" : "gray"}>
+						{clip(row, 76)}
+					</Text>
+				))}
 				{locations.slice(0, 3).map((location, index) => (
 					<Text
 						key={`${location.kind}:${location.path}`}
@@ -11403,10 +11426,26 @@ function FilesWorkspace({
 				) : null}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
+				{selectedPathRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("SELECTED")
+								? "cyan"
+								: row.startsWith("controls=")
+									? "gray"
+									: "white"
+						}
+					>
+						{clip(row, 100)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
 				<Text>
-					1-9 locations · f filter · b back · B forward · c copy · m move · x
-					delete · : path
+					1-9 locations · f filter · y path · b back · B forward · c copy · m
+					move · x delete · : path
 				</Text>
 				<Text>picos type /path/to/file</Text>
 				<Text color="gray">
