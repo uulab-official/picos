@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Tools evidence search changes now append Status Activity result rows and searchable Timeline audit messages, including active/archive target, query, and visible/total match counts.
 - Tools evidence can now be searched by filename, generated timestamp, scope, run count, or path from the command palette `tools evidence search` prompt, and search results drive Status Evidence open/archive selection.
 - Tools evidence can now be scope-filtered across `any`, `selected`, `all`, and `compare` from Status Evidence with `q` or the command palette `tools compare` action, and filtered selections drive open/archive behavior.
 - Tools compare results can now be copied through a locked `o` clipboard preview and exported with `O` as indexed `scope=compare` Tools evidence.

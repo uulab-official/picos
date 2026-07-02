@@ -251,6 +251,30 @@ describe("timeline TUI panel formatting", () => {
 		]);
 	});
 
+	test("surfaces palette-triggered Tools evidence searches in audit search", () => {
+		const toolSearchEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-info-tools-evidence-search",
+				level: "info",
+				time: "12:00:09",
+				message:
+					'palette tools evidence audit action=search target=active query="040100" visible=1/3',
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(toolSearchEvents, 5, "audit", {
+				query: "tools evidence action=search",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=tools evidence action=search",
+			"TIMELINE",
+			'[12:00:09] INFO audit  palette tools evidence audit action=search target=active query="040100" visible=1/3',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
 	test("creates evidence trail plans from selected status focus audit rows", () => {
 		const focusEvents: ConsoleEvent[] = [
 			{

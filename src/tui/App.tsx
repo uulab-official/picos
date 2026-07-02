@@ -498,6 +498,7 @@ import {
 	createToolRunPlanFromPreset,
 	createToolTargetCleanupPreview,
 	filterToolHistory,
+	filterToolHistoryExportIndex,
 	formatToolHistoryArchiveRetentionRows,
 	formatToolHistoryExportArchiveRows,
 	formatToolPromptRows,
@@ -2996,6 +2997,28 @@ export function App(): React.ReactElement {
 		const query = normalizeToolHistoryEvidenceQuery(commandLine.value);
 		const target =
 			selectedStatusEvidenceKind === "tools-archive" ? "archive" : "active";
+		const resultOptions =
+			target === "archive"
+				? {
+						query,
+						target: "archive" as const,
+						total: toolExportArchiveIndex.items.length,
+						visible: filterToolHistoryExportIndex(
+							toolExportArchiveIndex,
+							toolExportArchiveFilter,
+							query,
+						).items.length,
+					}
+				: {
+						query,
+						target: "active" as const,
+						total: toolExportIndex.items.length,
+						visible: filterToolHistoryExportIndex(
+							toolExportIndex,
+							toolExportFilter,
+							query,
+						).items.length,
+					};
 		if (target === "archive") {
 			setToolExportArchiveQuery(query);
 			setSelectedToolExportArchiveIndex(0);
@@ -3010,7 +3033,26 @@ export function App(): React.ReactElement {
 			"info",
 			`tools ${target} evidence search ${query ? `query=${query}` : "cleared"}`,
 		);
-	}, [commandLine.value, log, selectedStatusEvidenceKind]);
+		log(
+			"info",
+			formatStatusActivityToolsEvidencePaletteAuditMessage(
+				"search",
+				resultOptions,
+			),
+		);
+		recordStatusActivityResult(
+			createStatusActivityToolsEvidencePaletteResult("search", resultOptions),
+		);
+	}, [
+		commandLine.value,
+		log,
+		recordStatusActivityResult,
+		selectedStatusEvidenceKind,
+		toolExportArchiveFilter,
+		toolExportArchiveIndex,
+		toolExportFilter,
+		toolExportIndex,
+	]);
 
 	const openSelectedCleanupExportArchive = useCallback(() => {
 		const item = getSelectedCleanupHandoffHistoryExport(
