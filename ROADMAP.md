@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.292 - Remote Host Key Scan Readiness
+
+Status: draft PR [#362](https://github.com/uulab-official/picos/pull/362) on `codex/picos-v0.4.292-host-key-scan-readiness`.
+
+Goal: split host-key scan policy prerequisites into operator-visible readiness checks without enabling SFTP transport imports, sockets, fingerprint scans, host trust, `known_hosts` writes, or mutation.
+
+- Remotes now models `REMOTE HOST KEY SCAN READINESS` rows for selected and empty SFTP profile states.
+- Readiness rows expose individual `scanReview`, `transportInstalled`, `hostReview`, `knownHostsCompare`, and `fingerprintEvidence` checks.
+- Each check shows label, blocked status, blocker reason, and required next action.
+- `picos remote <id>` prints readiness rows immediately after scan policy rows.
+- Remotes TUI renders a dedicated `HOST KEY SCAN READINESS` section and reserves vertical budget for it.
+- Tests cover selected/empty readiness rows, provider status inclusion, transport-missing and fingerprint-unknown blockers, and no-import/no-connect/no-scan/no-trust/no-known_hosts-write/no-mutation posture.
+- Next: add a transport dependency readiness detector that can report installed/missing without importing or opening an SFTP session.
+
 ## v0.4.291 - Remote Host Key Scan Policy
 
 Status: draft PR [#359](https://github.com/uulab-official/picos/pull/359) on `codex/picos-v0.4.291-host-key-scan-policy`.

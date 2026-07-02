@@ -145,6 +145,7 @@ import {
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
 	createRemoteHostKeyScanPolicy,
+	createRemoteHostKeyScanReadiness,
 	createRemoteHostKeyScanRequest,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
@@ -162,6 +163,7 @@ import {
 	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyScanPolicyRows,
+	formatRemoteHostKeyScanReadinessRows,
 	formatRemoteHostKeyScanRequestRows,
 	formatRemoteHostKeyScanReviewAuditMessage,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
@@ -11871,7 +11873,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 103);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 115);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11900,6 +11902,9 @@ function RemotesWorkspace({
 	);
 	const hostKeyScanPolicyRows = formatRemoteHostKeyScanPolicyRows(
 		createRemoteHostKeyScanPolicy(selectedProfile),
+	);
+	const hostKeyScanReadinessRows = formatRemoteHostKeyScanReadinessRows(
+		createRemoteHostKeyScanReadiness(selectedProfile),
 	);
 	const knownHostsSourceRows = formatRemoteKnownHostsSourcePreviewRows(
 		createRemoteKnownHostsSourcePreview(selectedProfile),
@@ -12158,6 +12163,29 @@ function RemotesWorkspace({
 								? "cyan"
 								: row.includes("disabled") ||
 										row.includes("blocked") ||
+										row.includes("missing") ||
+										row.includes("unknown") ||
+										row.includes("willConnect=false") ||
+										row.includes("willScan=false") ||
+										row.includes("willTrust=false") ||
+										row.includes("willWriteKnownHosts=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">HOST KEY SCAN READINESS</Text>
+				{hostKeyScanReadinessRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("blocked") ||
 										row.includes("missing") ||
 										row.includes("unknown") ||
 										row.includes("willConnect=false") ||
