@@ -56,6 +56,7 @@ import {
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	getSelectedStatusActivityToolsEvidenceSearchMatch,
 	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
 	getStatusActivityResultAuditJumpIntentCount,
@@ -67,6 +68,7 @@ import {
 	moveStatusActivityResultHistorySelection,
 	moveStatusActivityResultTimelineJumpSelection,
 	moveStatusActivitySource,
+	moveStatusActivityToolsEvidenceSearchMatchSelection,
 	moveTimelineEvidenceTrailSelection,
 	nextStatusActivityResultHistoryFilter,
 	nextTimelineEvidenceTrailSourceFilter,
@@ -924,11 +926,93 @@ describe("Status activity queue", () => {
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"tools search target=active query=040100 I=fresh",
-			"tools matches target=active visible=2/3 query=040100",
+			"tools matches target=active visible=2/3 selected=1/2 query=040100",
 			"> picos-tools-selected-20260701T040100000Z.md scope=selected runs=1 actions=K open D archive",
 			"  picos-tools-all-20260701T040100000Z.md scope=all runs=3 actions=K open D archive",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · tools recovered · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · [/] tools select · tools recovered · g Timeline audit search",
+		]);
+	});
+
+	test("selects searched Tools evidence export matches in the copy intent shelf", () => {
+		const toolsSearchJump = createStatusActivityResultTimelineSearch(
+			[
+				createStatusActivityToolsEvidencePaletteResult("search", {
+					query: "040100",
+					target: "active",
+					total: 3,
+					visible: 2,
+				}),
+			],
+			0,
+		);
+		const recovery = createStatusActivityToolsEvidenceSearchRecovery(
+			toolsSearchJump,
+			{
+				activeIndex: {
+					baseDir: "/tmp/picos/tools",
+					items: [
+						{
+							fileName: "picos-tools-selected-20260701T040100000Z.md",
+							path: "/tmp/picos/tools/picos-tools-selected-20260701T040100000Z.md",
+							scope: "selected",
+							runCount: 1,
+							generatedAt: "2026-07-01T04:01:00.000Z",
+						},
+						{
+							fileName: "picos-tools-all-20260701T040100000Z.md",
+							path: "/tmp/picos/tools/picos-tools-all-20260701T040100000Z.md",
+							scope: "all",
+							runCount: 3,
+							generatedAt: "2026-07-01T04:01:00.000Z",
+						},
+					],
+				},
+				archiveIndex: {
+					baseDir: "/tmp/picos/tools/archive",
+					items: [],
+				},
+			},
+		);
+
+		expect(
+			moveStatusActivityToolsEvidenceSearchMatchSelection(recovery, 0, "next"),
+		).toBe(1);
+		expect(
+			moveStatusActivityToolsEvidenceSearchMatchSelection(recovery, 1, "next"),
+		).toBe(0);
+		expect(
+			getSelectedStatusActivityToolsEvidenceSearchMatch(recovery, 1)?.fileName,
+		).toBe("picos-tools-all-20260701T040100000Z.md");
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				"fresh",
+				0,
+				undefined,
+				toolsSearchJump,
+				0,
+				1,
+				recovery,
+				1,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"tools search target=active query=040100 I=fresh",
+			"tools matches target=active visible=2/2 selected=2/2 query=040100",
+			"  picos-tools-selected-20260701T040100000Z.md scope=selected runs=1 actions=K open D archive",
+			"> picos-tools-all-20260701T040100000Z.md scope=all runs=3 actions=K open D archive",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · [/] tools select · tools recovered · g Timeline audit search",
 		]);
 	});
 

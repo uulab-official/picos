@@ -431,6 +431,7 @@ import {
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
+	getSelectedStatusActivityToolsEvidenceSearchMatch,
 	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
 	getStatusActivityResultAuditJumpIntentCount,
@@ -443,6 +444,7 @@ import {
 	moveStatusActivityResultHistoryFilteredSelection,
 	moveStatusActivityResultTimelineJumpSelection,
 	moveStatusActivitySource,
+	moveStatusActivityToolsEvidenceSearchMatchSelection,
 	moveTimelineEvidenceTrailSelection,
 	nextStatusActivityResultHistoryFilter,
 	nextTimelineEvidenceTrailSourceFilter,
@@ -724,6 +726,10 @@ export function App(): React.ReactElement {
 	const [
 		selectedStatusActivityResultAuditJumpIndex,
 		setSelectedStatusActivityResultAuditJumpIndex,
+	] = useState(0);
+	const [
+		selectedStatusActivityToolsEvidenceSearchMatchIndex,
+		setSelectedStatusActivityToolsEvidenceSearchMatchIndex,
 	] = useState(0);
 	const [
 		lastStatusActivityCopyIntentAuditExport,
@@ -1101,9 +1107,31 @@ export function App(): React.ReactElement {
 		getLatestStatusActivityResultAuditJumpIntent(
 			statusActivityCopyIntentHistory,
 		);
+	const selectedStatusActivityResultAuditJumpIntent =
+		getSelectedStatusActivityResultAuditJumpIntent(
+			statusActivityCopyIntentHistory,
+			selectedStatusActivityResultAuditJumpIndex,
+		);
 	const statusActivityResultAuditJumpIntentCount =
 		getStatusActivityResultAuditJumpIntentCount(
 			statusActivityCopyIntentHistory,
+		);
+	const statusActivityResultTimelineSearchRecovery =
+		createStatusActivityResultTimelineSearchReplay(
+			statusActivityResults,
+			selectedStatusActivityResultIndex,
+			latestStatusActivityResultAuditJumpIntent,
+			selectedStatusActivityResultAuditJumpIntent,
+		);
+	const statusActivityToolsEvidenceSearchRecovery =
+		createStatusActivityToolsEvidenceSearchRecovery(
+			statusActivityResultTimelineSearchRecovery,
+			{
+				activeFilter: toolExportFilter,
+				activeIndex: toolExportIndex,
+				archiveFilter: toolExportArchiveFilter,
+				archiveIndex: toolExportArchiveIndex,
+			},
 		);
 	useEffect(() => {
 		setSelectedTimelineIndex((index) =>
@@ -2828,6 +2856,80 @@ export function App(): React.ReactElement {
 		toolExportArchiveIndex,
 		toolExportArchiveQuery,
 	]);
+
+	const openSelectedStatusActivityToolsEvidenceSearchMatchFile =
+		useCallback(() => {
+			const item = getSelectedStatusActivityToolsEvidenceSearchMatch(
+				statusActivityToolsEvidenceSearchRecovery,
+				selectedStatusActivityToolsEvidenceSearchMatchIndex,
+			);
+			if (!item) {
+				log("warn", "no recovered tools evidence match selected");
+				return;
+			}
+			const archived =
+				statusActivityToolsEvidenceSearchRecovery?.target === "archive";
+			const plan = buildFileOpenPlan({
+				baseDir: dirname(getConfigPath()),
+				source: "tools-export",
+				label: `${archived ? "archived " : ""}tools export ${item.scope} ${item.generatedAt}`,
+				path: item.path,
+				platform: currentPlatform(),
+			});
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setToolExportArchivePlan(undefined);
+			setToolArchiveRetentionPlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
+			log(
+				"info",
+				`recovered tools evidence open confirmation opened for ${item.fileName}`,
+			);
+		}, [
+			log,
+			selectedStatusActivityToolsEvidenceSearchMatchIndex,
+			statusActivityToolsEvidenceSearchRecovery,
+		]);
+
+	const openSelectedStatusActivityToolsEvidenceSearchMatchArchive =
+		useCallback(() => {
+			const item = getSelectedStatusActivityToolsEvidenceSearchMatch(
+				statusActivityToolsEvidenceSearchRecovery,
+				selectedStatusActivityToolsEvidenceSearchMatchIndex,
+			);
+			if (!item) {
+				log("warn", "no recovered tools evidence match selected");
+				return;
+			}
+			if (statusActivityToolsEvidenceSearchRecovery?.target !== "active") {
+				log("warn", "archived tools evidence matches are already archived");
+				return;
+			}
+			const plan = createToolHistoryExportArchivePlan(
+				dirname(getConfigPath()),
+				item.path,
+			);
+			setToolExportArchivePlan(plan);
+			setExternalOpenPlan(undefined);
+			setFileOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setToolArchiveRetentionPlan(undefined);
+			setCommandLine(openCommandLine("tool-export-archive"));
+			setScreen("status");
+			log(
+				"info",
+				`recovered tools evidence archive confirmation opened for ${item.fileName}`,
+			);
+		}, [
+			log,
+			selectedStatusActivityToolsEvidenceSearchMatchIndex,
+			statusActivityToolsEvidenceSearchRecovery,
+		]);
 
 	const openSelectedToolExportArchive = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
@@ -6296,6 +6398,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "K") {
+			if (statusActivityToolsEvidenceSearchRecovery?.items.length) {
+				openSelectedStatusActivityToolsEvidenceSearchMatchFile();
+				return;
+			}
 			if (selectedStatusEvidenceKind === "tools") {
 				openSelectedToolExportFile();
 				return;
@@ -6496,6 +6602,28 @@ export function App(): React.ReactElement {
 			focusArea === "workspaces" &&
 			(input === "[" || input === "]")
 		) {
+			if (
+				statusActivityToolsEvidenceSearchRecovery &&
+				statusActivityToolsEvidenceSearchRecovery.items.length > 1
+			) {
+				setSelectedStatusActivityToolsEvidenceSearchMatchIndex((current) => {
+					const next = moveStatusActivityToolsEvidenceSearchMatchSelection(
+						statusActivityToolsEvidenceSearchRecovery,
+						current,
+						input === "]" ? "next" : "previous",
+					);
+					const item = getSelectedStatusActivityToolsEvidenceSearchMatch(
+						statusActivityToolsEvidenceSearchRecovery,
+						next,
+					);
+					log(
+						"info",
+						`tools evidence match selected ${next + 1}/${statusActivityToolsEvidenceSearchRecovery.items.length} ${item?.fileName ?? ""}`.trim(),
+					);
+					return next;
+				});
+				return;
+			}
 			const evidenceMovePlan = createStatusEvidenceItemMovePlan(
 				{
 					handoffIndex,
@@ -6974,6 +7102,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "D") {
+			if (statusActivityToolsEvidenceSearchRecovery?.items.length) {
+				openSelectedStatusActivityToolsEvidenceSearchMatchArchive();
+				return;
+			}
 			openSelectedToolExportArchive();
 			return;
 		}
@@ -8546,6 +8678,9 @@ export function App(): React.ReactElement {
 					selectedStatusActivityResultAuditJumpIndex={
 						selectedStatusActivityResultAuditJumpIndex
 					}
+					selectedStatusActivityToolsEvidenceSearchMatchIndex={
+						selectedStatusActivityToolsEvidenceSearchMatchIndex
+					}
 					lastStatusActivityCopyIntentAuditExport={
 						lastStatusActivityCopyIntentAuditExport
 					}
@@ -8795,6 +8930,7 @@ function MainWorkspace({
 	statusActivityCopyIntentHistory,
 	selectedStatusActivityCopyIntentIndex,
 	selectedStatusActivityResultAuditJumpIndex,
+	selectedStatusActivityToolsEvidenceSearchMatchIndex,
 	lastStatusActivityCopyIntentAuditExport,
 	lastTimelineEvidenceTrailAuditExport,
 	timelineEvidenceTrailAuditExports,
@@ -8939,6 +9075,7 @@ function MainWorkspace({
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusActivityCopyIntentIndex: number;
 	selectedStatusActivityResultAuditJumpIndex: number;
+	selectedStatusActivityToolsEvidenceSearchMatchIndex: number;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
@@ -9161,6 +9298,7 @@ function MainWorkspace({
 						statusActivityCopyIntentHistory,
 						selectedStatusActivityCopyIntentIndex,
 						selectedStatusActivityResultAuditJumpIndex,
+						selectedStatusActivityToolsEvidenceSearchMatchIndex,
 						lastStatusActivityCopyIntentAuditExport,
 						lastTimelineEvidenceTrailAuditExport,
 						timelineEvidenceTrailAuditExports,
@@ -9310,6 +9448,7 @@ function renderWorkspace(
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[],
 	selectedStatusActivityCopyIntentIndex: number,
 	selectedStatusActivityResultAuditJumpIndex: number,
+	selectedStatusActivityToolsEvidenceSearchMatchIndex: number,
 	lastStatusActivityCopyIntentAuditExport: ConsoleAuditExportPlan | undefined,
 	lastTimelineEvidenceTrailAuditExport: ConsoleAuditExportPlan | undefined,
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[],
@@ -9612,6 +9751,9 @@ function renderWorkspace(
 				}
 				selectedStatusActivityResultAuditJumpIndex={
 					selectedStatusActivityResultAuditJumpIndex
+				}
+				selectedStatusActivityToolsEvidenceSearchMatchIndex={
+					selectedStatusActivityToolsEvidenceSearchMatchIndex
 				}
 				lastStatusActivityCopyIntentAuditExport={
 					lastStatusActivityCopyIntentAuditExport
@@ -11930,6 +12072,7 @@ function StatusWorkspace({
 	statusActivityCopyIntentHistory,
 	selectedStatusActivityCopyIntentIndex,
 	selectedStatusActivityResultAuditJumpIndex,
+	selectedStatusActivityToolsEvidenceSearchMatchIndex,
 	lastStatusActivityCopyIntentAuditExport,
 	lastTimelineEvidenceTrailAuditExport,
 	timelineEvidenceTrailAuditExports,
@@ -11981,6 +12124,7 @@ function StatusWorkspace({
 	statusActivityCopyIntentHistory: StatusActivityCopyIntentRecord[];
 	selectedStatusActivityCopyIntentIndex: number;
 	selectedStatusActivityResultAuditJumpIndex: number;
+	selectedStatusActivityToolsEvidenceSearchMatchIndex: number;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
@@ -12398,6 +12542,7 @@ function StatusWorkspace({
 					selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,
 					selectedStatusActivityResultTimelineJumpSelection?.total,
 					statusActivityToolsEvidenceSearchRecovery,
+					selectedStatusActivityToolsEvidenceSearchMatchIndex,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
