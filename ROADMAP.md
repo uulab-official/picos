@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.247 - Config Shelf Live Count Previews
+
+Status: draft PR [#309](https://github.com/uulab-official/picos/pull/309) on `codex/picos-v0.4.247-config-shelf-live-count-previews`.
+
+Goal: make Config-origin shelf palette previews show saved item density before dispatch.
+
+- Command palette previews for Config-origin managed shelves now include `counts=...` rows when live TUI/config counts are available.
+- Routes, Connections, Ports, Tools, Logs, and Remotes previews show saved route filters, endpoint filters, Tools target presets, log profiles, and remote profile counts.
+- The TUI passes current in-memory counts into the palette preview context, so the preview reflects unsaved-session state already loaded by the console.
+- Tests cover count-aware route, Tools, and Remotes shelf previews while keeping count rows optional for preview callers.
+- Next: use these shelf counts in Config and Status action summaries so operators can see sparse or missing OS-console presets without opening each workspace.
+
 ## v0.4.246 - Config Tools Shelf Palette Focus
 
 Status: draft PR [#308](https://github.com/uulab-official/picos/pull/308) on `codex/picos-v0.4.246-config-tools-shelf-palette-focus`.
