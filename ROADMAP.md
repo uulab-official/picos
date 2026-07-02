@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.270 - Remote Host Review Audit
+
+Status: draft PR [#332](https://github.com/uulab-official/picos/pull/332) on `codex/picos-v0.4.270-remote-host-audit`.
+
+Goal: make remote profile staging leave searchable Timeline evidence before live SFTP sessions exist.
+
+- Remote host review audit messages now use a structured `remote host review audit` format with action, profile id, target URI, host, port, user, key presence, read-only policy, locked writes, no-network posture, and exact future confirmation text.
+- Remotes profile staging records the host review audit message before switching into Files.
+- Timeline audit filtering and search surface remote host review events, so operators can find staged remote intent by profile id, host, or target.
+- Tests cover audit message redaction, no-session posture, Timeline audit classification, and search rendering.
+- Next: turn remote host-review audit rows into Status Activity result rows and model the read-only SFTP adapter dependency boundary.
+
 ## v0.4.269 - Remote Host Review
 
 Status: draft PR [#331](https://github.com/uulab-official/picos/pull/331) on `codex/picos-v0.4.269-remote-host-review`.

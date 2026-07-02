@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes profile staging now records a searchable `remote host review audit` Timeline event with target URI, host, port, user, key presence, read-only policy, locked writes, no-network posture, and future exact confirmation text.
 - Remotes workspace and `picos remote <id>` now show `REMOTE HOST REVIEW` rows with target URI, host identity, key presence, read-only policy, locked writes, no-network-session posture, and the future exact confirmation phrase before any live SFTP adapter can connect.
 - Remotes workspace now shows `REMOTE HANDOFF` boundary rows for the selected SFTP profile before and after staging, and SFTP breadcrumbs preserve the `sftp://user@host:port` authority while slicing deep remote paths.
 - Files workspace now renders a provider boundary strip for local and selected SFTP contexts, showing root, adapter status, locked write posture, and safe controls before directory rows.
