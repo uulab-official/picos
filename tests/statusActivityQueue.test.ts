@@ -16,6 +16,7 @@ import {
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
+	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -532,6 +533,41 @@ describe("Status activity queue", () => {
 				detail: "result history filter changed to all",
 			},
 		);
+	});
+
+	test("creates status activity results for remote host review staging", () => {
+		const result = createRemoteHostReviewStatusActivityResult({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "remote-host-review",
+			message: "remote host review staged prod prod.example.com:2222",
+			detail:
+				'target="sftp://deploy@prod.example.com:2222/srv/app" user=deploy key=configured policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=remote-host-review",
+			"> remote host review staged prod prod.example.com:2222",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" user=deploy key=configured policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> timeline remote-host-review remote host review staged prod prod.example.com:2222",
+			'    target="sftp://deploy@prod.example.com:2222/srv/app" user=deploy key=configured policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
+		]);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query: "remote host review audit action=stage id=prod",
+			message: "status activity result timeline search remote host review prod",
+		});
 	});
 
 	test("creates status activity and audit rows for palette process control previews", () => {

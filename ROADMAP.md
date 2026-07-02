@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.271 - Remote Status Activity
+
+Status: draft PR [#333](https://github.com/uulab-official/picos/pull/333) on `codex/picos-v0.4.271-remote-status-activity`.
+
+Goal: make staged remote intent visible from Status Activity without opening Remotes or Timeline first.
+
+- Remotes profile staging now records a `remote-host-review` Status Activity result.
+- Status result rows show profile id, host, port, target URI, username, key presence, read-only policy, locked writes, no-network posture, and exact future confirmation text.
+- Status Activity result history keeps the latest remote stage entry selectable and copyable through existing Status controls.
+- Status result Timeline jumps now route remote-host-review rows back to `remote host review audit action=stage id=<profile>`.
+- Tests cover Status result formatting, history rendering, and Timeline search handoff.
+- Next: model the read-only SFTP adapter dependency boundary and add host-review confirmation previews before transport selection.
+
 ## v0.4.270 - Remote Host Review Audit
 
 Status: draft PR [#332](https://github.com/uulab-official/picos/pull/332) on `codex/picos-v0.4.270-remote-host-audit`.
