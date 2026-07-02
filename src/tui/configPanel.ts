@@ -392,6 +392,14 @@ export function getConfigWorkspaceItem(
 	return items[Math.min(Math.max(selectedIndex, 0), items.length - 1)];
 }
 
+export function getConfigWorkspaceItemIndex(
+	items: ConfigWorkspaceItem[],
+	key: ConfigWorkspaceItemKey,
+): number | undefined {
+	const index = items.findIndex((item) => item.key === key);
+	return index >= 0 ? index : undefined;
+}
+
 export function getConfigWorkspaceSectionJumpIndex(
 	items: ConfigWorkspaceItem[],
 	section: string,

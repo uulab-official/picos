@@ -18,6 +18,7 @@ import {
 	formatConfigWorkspaceRows,
 	getConfigManagedShelfFocusPreset,
 	getConfigWorkspaceEditPrompt,
+	getConfigWorkspaceItemIndex,
 	getConfigWorkspaceSectionJumpIndex,
 	getNextConfigManagedShelfTarget,
 	getNextConfigPolicyPreset,
@@ -83,6 +84,9 @@ describe("config TUI panel", () => {
 		expect(getConfigWorkspaceSectionJumpIndex(items, "safety")).toBe(6);
 		expect(getConfigWorkspaceSectionJumpIndex(items, "retention")).toBe(0);
 		expect(getConfigWorkspaceSectionJumpIndex(items, "connectivity")).toBe(5);
+		expect(
+			getConfigWorkspaceItemIndex(items, "statusResultJumpClassFilter"),
+		).toBe(4);
 		expect(
 			getConfigWorkspaceSectionJumpIndex(items, "missing"),
 		).toBeUndefined();

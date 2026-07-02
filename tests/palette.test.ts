@@ -227,6 +227,18 @@ describe("TUI command palette", () => {
 				appendCommandPaletteQuery(openCommandPalette(), "jump class"),
 			).map((action) => action.id),
 		).toContain("status.resultJump.filter");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "jump class config"),
+			).map((action) => action.id),
+		).toContain("config.statusResultJumpClass.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "status jump config"),
+			).map((action) => action.id),
+		).toContain("config.statusResultJumpClass.focus");
 	});
 
 	test("previews status result timeline jumps before dispatch", () => {
@@ -299,6 +311,19 @@ describe("TUI command palette", () => {
 			"current=process next=timeline",
 			"visible=1/4",
 			"dispatch=cycle Status ^ filter",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.statusResultJumpClass.focus",
+				),
+				{ statusResultJumpClassFilter: "process" },
+			),
+		).toEqual([
+			"config target=statusResultJumpClassFilter",
+			"current=process",
+			"section=display action=focus Config row",
+			"controls=+/- cycle all/process/timeline/tools/source",
 		]);
 	});
 

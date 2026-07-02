@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.243 - Config Jump Class Palette Focus
+
+Status: draft PR [#305](https://github.com/uulab-official/picos/pull/305) on `codex/picos-v0.4.243-config-jump-class-palette-focus`.
+
+Goal: make the saved Status result jump class Config row reachable from the command palette.
+
+- Command palette now exposes `config.statusResultJumpClass.focus` via `jump class config` and `status jump config` searches.
+- Palette preview shows `current=<class>`, the Config target key, display section, and `+/-` cycle controls before dispatch.
+- Dispatching the action moves the TUI to Config, focuses the workspace pane, and selects `statusResultJumpClassFilter`.
+- Config panel now has a pure item-key index helper so future settings shortcuts can target exact rows without duplicating selection logic.
+- Tests cover action catalog exposure, palette search/preview rows, Config row index stability, and App dispatch wiring through typed dependencies.
+- Next: add more Config command-palette shortcuts for safety policy, editor save mode, and retention rows so the Settings center feels more OS-like.
+
 ## v0.4.242 - Config Result Jump Class Control
 
 Status: draft PR [#304](https://github.com/uulab-official/picos/pull/304) on `codex/picos-v0.4.242-config-result-jump-class-control`.

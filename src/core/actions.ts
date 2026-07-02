@@ -130,6 +130,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "config.statusResultJumpClass.focus",
+		title: "Configure result jump class",
+		description:
+			"Jump class config and status jump config shortcut for the Config display row that controls Status result jump classes.",
+		category: "config",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "files.list",
 		title: "List files",
 		description:

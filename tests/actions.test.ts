@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 53,
-			enabled: 41,
+			total: 54,
+			enabled: 42,
 			locked: 12,
 			elevated: 4,
 		});
@@ -50,6 +50,7 @@ describe("action catalog", () => {
 			"doctor.run",
 			"ping.default",
 			"config.show",
+			"config.statusResultJumpClass.focus",
 			"files.list",
 			"files.read",
 			"routes.inspect",
@@ -295,6 +296,16 @@ describe("action catalog", () => {
 				id: "status.resultJump.filter",
 				title: "Filter Status result jump class",
 				category: "status",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
+			}),
+		);
+		expect(getActionCatalog()).toContainEqual(
+			expect.objectContaining({
+				id: "config.statusResultJumpClass.focus",
+				title: "Configure result jump class",
+				category: "config",
 				risk: "read",
 				privilege: "none",
 				enabled: true,

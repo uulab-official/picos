@@ -260,6 +260,7 @@ import {
 	getConfigManagedShelfHandoff,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
+	getConfigWorkspaceItemIndex,
 	getConfigWorkspaceSectionJumpIndex,
 	getNextConfigManagedShelfTarget,
 	getNextConfigPolicyPreset,
@@ -4595,6 +4596,24 @@ export function App(): React.ReactElement {
 					);
 				}
 
+				if (action.id === "config.statusResultJumpClass.focus") {
+					const index = getConfigWorkspaceItemIndex(
+						configWorkspaceItems,
+						"statusResultJumpClassFilter",
+					);
+					setScreen("config");
+					setFocusArea("workspaces");
+					if (index === undefined) {
+						log("warn", "config row statusResultJumpClassFilter unavailable");
+					} else {
+						setSelectedConfigIndex(index);
+						log(
+							"info",
+							`config focus statusResultJumpClassFilter current=${statusActivityResultTimelineJumpFilter}`,
+						);
+					}
+				}
+
 				if (action.id === "remote.profiles") {
 					const config = await readConfig();
 					log("info", `remote profiles ${config.remoteProfiles.length}`);
@@ -4801,6 +4820,7 @@ export function App(): React.ReactElement {
 			}
 		},
 		[
+			configWorkspaceItems,
 			configShelfLandingTarget,
 			cycleStatusActivityResultHistoryFilter,
 			cycleStatusActivityResultTimelineJumpFilter,
@@ -4825,6 +4845,7 @@ export function App(): React.ReactElement {
 			selectNextProcessControlEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
+			statusActivityResultTimelineJumpFilter,
 			timelineFilter,
 			timelineSearchQuery,
 			toolHistory,
@@ -10111,6 +10132,7 @@ function renderWorkspace(
 						totalStatusActivityResultTimelineJumps:
 							selectedStatusActivityResultTimelineJumpSelection?.total,
 						statusActivityResultTimelineJumpFilter,
+						statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 						nextStatusActivityResultTimelineJumpFilter:
 							nextStatusActivityResultTimelineJumpFilter(
 								statusActivityResultTimelineJumpFilter,
