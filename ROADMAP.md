@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.289 - Remote Host Key Evidence Input
+
+Status: draft PR [#354](https://github.com/uulab-official/picos/pull/354) on `codex/picos-v0.4.289-host-key-evidence-input`.
+
+Goal: make provided host-key fingerprint evidence inspectable and comparable against selected `known_hosts` candidates before enabling any SFTP transport import, socket opening, host scan, host trust, local trust-file mutation, or remote mutation.
+
+- Core now models `REMOTE HOST KEY EVIDENCE INPUT` rows with provided/missing fingerprint state, exact `compare host key <id>` confirmation, parser input state, and raw transport not opened.
+- Remotes and `picos remote <id>` show the empty evidence input surface after host-key evidence and before `known_hosts` lookup/read surfaces.
+- `createRemoteHostKeyCompareDetail()` now accepts evidence input plus parsed `known_hosts` candidates and reports `matched`, `mismatch`, `candidate-only`, `evidence-only`, or `unknown` while keeping the trust decision blocked.
+- Remotes TUI renders a dedicated `HOST KEY EVIDENCE INPUT` section and budgets vertical space for the new safety checkpoint.
+- Tests cover provided/missing evidence input rows, provider status inclusion, matched and mismatch compare states, and all disabled execution flags.
+- Next: wire locked operator prompts for entering provided fingerprint evidence from Remotes without opening a live SFTP session.
+
 ## v0.4.288 - Remote Known Hosts Candidate Compare
 
 Status: draft PR [#351](https://github.com/uulab-official/picos/pull/351) on `codex/picos-v0.4.288-known-hosts-candidate-compare`.

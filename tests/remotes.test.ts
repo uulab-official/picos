@@ -6,6 +6,7 @@ import {
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
+	createRemoteHostKeyEvidenceInput,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
@@ -20,6 +21,7 @@ import {
 	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyCompareDetailRows,
+	formatRemoteHostKeyEvidenceInputRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
 	formatRemoteHostKeyTrustReviewAuditMessage,
@@ -606,6 +608,81 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willRead=false willMutate=false",
+		);
+	});
+
+	test("formats remote host key evidence input without scanning hosts", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(
+			createRemoteHostKeyEvidenceInput(profile, "SHA256:providedFingerprint"),
+		).toEqual({
+			id: "prod",
+			provider: "sftp",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			lookup: "prod.example.com:2222",
+			status: "provided",
+			source: "provided-host-key-fingerprint",
+			fingerprint: "SHA256:providedFingerprint",
+			parserInput: "available",
+			confirm: "compare host key prod",
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				readsLocal: false,
+				parsesKnownHosts: false,
+				scansHostKey: false,
+				trustsHost: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteHostKeyEvidenceInputRows(
+				createRemoteHostKeyEvidenceInput(profile, "SHA256:providedFingerprint"),
+			),
+		).toEqual([
+			"REMOTE HOST KEY EVIDENCE INPUT prod",
+			"target=sftp://deploy@prod.example.com:2222/srv/app lookup=prod.example.com:2222 provider=sftp status=provided source=provided-host-key-fingerprint",
+			"fingerprint=SHA256:providedFingerprint parserInput=available",
+			'guards=providedFingerprint exactConfirm="compare host key prod" trust=blocked rawTransport=not-opened',
+			"execution=willImport=false willConnect=false willReadLocal=false willParseKnownHosts=false willScan=false willTrust=false willMutate=false",
+			"next=compare provided host-key evidence with selected known_hosts candidate",
+		]);
+
+		expect(formatRemoteHostKeyEvidenceInputRows().join("\n")).toBe(
+			[
+				"REMOTE HOST KEY EVIDENCE INPUT none",
+				"target=none lookup=none provider=sftp status=missing source=provided-host-key-fingerprint",
+				"fingerprint=sha256:unknown parserInput=missing",
+				'guards=providedFingerprint exactConfirm="select remote profile" trust=blocked rawTransport=not-opened',
+				"execution=willImport=false willConnect=false willReadLocal=false willParseKnownHosts=false willScan=false willTrust=false willMutate=false",
+				"next=select remote profile · no host-key evidence input",
+			].join("\n"),
+		);
+	});
+
+	test("includes empty remote host key evidence input in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE HOST KEY EVIDENCE INPUT dev");
+		expect(output).toContain("fingerprint=sha256:unknown parserInput=missing");
+		expect(output).toContain(
+			"execution=willImport=false willConnect=false willReadLocal=false willParseKnownHosts=false willScan=false willTrust=false willMutate=false",
 		);
 	});
 
@@ -1310,6 +1387,78 @@ describe("remote profiles", () => {
 			"execution=willImport=false willConnect=false willReadLocal=false willParse=false willScan=false willTrust=false willMutate=false",
 			"next=collect host key evidence before trust review; candidate comparison is read-only",
 		]);
+	});
+
+	test("compares provided host key evidence with read-result candidates without trusting", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const content =
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfake prod-port";
+		const candidates = parseRemoteKnownHostsCandidatesFromReadResult(
+			profile,
+			content,
+		);
+		const candidateFingerprint = candidates.candidates[0]?.fingerprint;
+		const evidence = createRemoteHostKeyEvidenceInput(
+			profile,
+			candidateFingerprint,
+		);
+		const detail = createRemoteHostKeyCompareDetail(
+			profile,
+			candidates,
+			evidence,
+		);
+
+		expect(detail).toEqual({
+			id: "prod",
+			provider: "sftp",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			lookup: "prod.example.com:2222",
+			collectedFingerprint: candidateFingerprint,
+			candidateCount: 1,
+			selectedCandidate: 1,
+			knownHostsCandidateFingerprint: candidateFingerprint,
+			candidateSource: "local-known-hosts-read-result",
+			selectedCandidateLine: 1,
+			selectedCandidateHost: "[prod.example.com]:2222",
+			selectedCandidateKeyType: "ssh-rsa",
+			match: "matched",
+			decision: "blocked",
+			confirm: "review host trust prod",
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				readsLocal: false,
+				parsesRows: false,
+				scansHostKey: false,
+				trustsHost: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(formatRemoteHostKeyCompareDetailRows(detail)).toEqual([
+			"REMOTE HOST KEY COMPARE DETAIL prod",
+			"target=sftp://deploy@prod.example.com:2222/srv/app lookup=prod.example.com:2222 provider=sftp",
+			`collected=${candidateFingerprint} candidates=1 selected=1 knownHosts=${candidateFingerprint}`,
+			"candidateSource=local-known-hosts-read-result line=1 host=[prod.example.com]:2222 key=ssh-rsa",
+			'match=matched decision=blocked confirm="review host trust prod"',
+			"execution=willImport=false willConnect=false willReadLocal=false willParse=false willScan=false willTrust=false willMutate=false",
+			"next=review blocked trust decision; matched evidence remains read-only",
+		]);
+
+		expect(
+			createRemoteHostKeyCompareDetail(
+				profile,
+				candidates,
+				createRemoteHostKeyEvidenceInput(profile, "SHA256:different"),
+			).match,
+		).toBe("mismatch");
 	});
 
 	test("includes remote host key compare detail in provider status", async () => {
