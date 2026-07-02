@@ -2,7 +2,7 @@
 
 ## v0.4.294 - Remote SFTP Package Resolution Preview
 
-Status: in progress on `codex/picos-v0.4.294-sftp-package-resolution-preview`.
+Status: draft PR [#366](https://github.com/uulab-official/picos/pull/366) on `codex/picos-v0.4.294-sftp-package-resolution-preview`.
 
 Goal: show exactly where picos would look for the future optional SFTP transport package before it runs a resolver, imports transport code, opens sockets, starts sessions, trusts hosts, writes `known_hosts`, or mutates anything.
 
