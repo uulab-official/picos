@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Config-origin managed shelf palette previews now show live saved counts for route filters, endpoint filters, Tools target presets, log profiles, and remote profiles before dispatch.
 - Command palette now exposes the Config Tools managed shelf through `tools shelf config` and `tool target presets config`, with preview rows before focusing saved Tools target presets.
 - Command palette now exposes Config managed shelf shortcuts for `route filters config`, `connection filters config`, `port filters config`, `log profiles config`, and `remote profiles config`, with landing previews before jumping into the target workspace.
 - Command palette now exposes Config settings focus shortcuts for `safety policy config`, `editor save config`, `audit retention config`, and `tools retention config`, each with compact current-value preview rows before jumping to the matching Config row.

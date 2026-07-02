@@ -1,6 +1,7 @@
 import type { ActionPreviewPlan, PicosAction } from "../core/actions";
 import type { ConsoleAuditExportPlan } from "../core/auditLog";
 import type {
+	ConfigManagedShelfTarget,
 	ConfigWorkspaceItem,
 	ConfigWorkspaceItemKey,
 } from "./configPanel";
@@ -147,6 +148,7 @@ export type CommandPalettePreviewContext = {
 	selectedStatusActivityResultTimelineJumpIndex?: number;
 	totalStatusActivityResultTimelineJumps?: number;
 	configWorkspaceItems?: ConfigWorkspaceItem[];
+	configManagedShelfCounts?: Partial<Record<ConfigManagedShelfTarget, number>>;
 	statusActivityResultTimelineJumpFilter?: StatusActivityResultTimelineJumpFilter;
 	nextStatusActivityResultTimelineJumpFilter?: StatusActivityResultTimelineJumpFilter;
 	statusResultJumpClassFilter?: StatusActivityResultTimelineJumpFilter;
@@ -236,7 +238,10 @@ export function formatCommandPaletteActionPreviewRows(
 
 	const configShelfTarget = getConfigManagedShelfActionFocusTarget(action.id);
 	if (configShelfTarget) {
-		return formatConfigManagedShelfPalettePreviewRows(configShelfTarget);
+		return formatConfigManagedShelfPalettePreviewRows(
+			configShelfTarget,
+			context.configManagedShelfCounts?.[configShelfTarget],
+		);
 	}
 
 	const recovery = context.toolsEvidenceSearchRecovery;
@@ -274,18 +279,38 @@ export function formatCommandPaletteActionPreviewRows(
 }
 
 function formatConfigManagedShelfPalettePreviewRows(
-	target: NonNullable<
-		ReturnType<typeof getConfigManagedShelfActionFocusTarget>
-	>,
+	target: ConfigManagedShelfTarget,
+	count: number | undefined,
 ): string[] {
 	const landingRows = formatConfigManagedShelfLandingRows(target);
 	const focusRows = formatConfigManagedShelfFocusRows(target);
+	const countRow = formatConfigManagedShelfPaletteCountRow(target, count);
 	return [
 		landingRows[1].replace("source=config ", "config shelf "),
 		landingRows[2],
+		...(countRow ? [countRow] : []),
 		focusRows[2],
 		focusRows[3],
 	];
+}
+
+function formatConfigManagedShelfPaletteCountRow(
+	target: ConfigManagedShelfTarget,
+	count: number | undefined,
+): string | undefined {
+	if (count === undefined) {
+		return undefined;
+	}
+	const labels: Record<ConfigManagedShelfTarget, string> = {
+		network: "interfaces",
+		routes: "routeFilters",
+		connections: "connectionFilters",
+		ports: "portFilters",
+		tools: "toolTargetPresets",
+		logs: "logProfiles",
+		remotes: "remoteProfiles",
+	};
+	return `counts=${labels[target]} ${count}`;
 }
 
 function formatConfigStatusResultJumpClassPalettePreviewRows(

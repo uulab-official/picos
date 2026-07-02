@@ -165,15 +165,25 @@ describe("TUI command palette", () => {
 	});
 
 	test("previews Config managed shelf focus before dispatch", () => {
+		const previewContext = {
+			configManagedShelfCounts: {
+				routes: 2,
+				tools: 3,
+				remotes: 1,
+			},
+		};
+
 		expect(
 			formatCommandPaletteActionPreviewRows(
 				getActionCatalog().find(
 					(action) => action.id === "config.shelf.routes.focus",
 				),
+				previewContext,
 			),
 		).toEqual([
 			"config shelf target=routes workspace=Routes",
 			"scope=route filters, raw route evidence, path lookup",
+			"counts=routeFilters 2",
 			"focus=routeFilters cursor=0 detail=table",
 			"enter=cycle route filter presets  esc=clear landing",
 		]);
@@ -182,10 +192,12 @@ describe("TUI command palette", () => {
 				getActionCatalog().find(
 					(action) => action.id === "config.shelf.tools.focus",
 				),
+				previewContext,
 			),
 		).toEqual([
 			"config shelf target=tools workspace=Tools",
 			"scope=saved targets, history filters, grouping, detail view",
+			"counts=toolTargetPresets 3",
 			"focus=toolTargetPresets cursor=0 detail=summary",
 			"enter=cycle tool target presets  esc=clear landing",
 		]);
@@ -194,10 +206,12 @@ describe("TUI command palette", () => {
 				getActionCatalog().find(
 					(action) => action.id === "config.shelf.remotes.focus",
 				),
+				previewContext,
 			),
 		).toEqual([
 			"config shelf target=remotes workspace=Remotes",
 			"scope=SFTP profiles, provider boundary, locked file context",
+			"counts=remoteProfiles 1",
 			"focus=remoteProfiles cursor=0",
 			"enter=remote profile focus  esc=clear landing",
 		]);

@@ -10164,6 +10164,14 @@ function renderWorkspace(
 						totalStatusActivityResultTimelineJumps:
 							selectedStatusActivityResultTimelineJumpSelection?.total,
 						configWorkspaceItems,
+						configManagedShelfCounts: {
+							routes: routeFilterPresets.length,
+							connections: connectionFilterPresets.length,
+							ports: portFilterPresets.length,
+							tools: customToolTargetPresets.length,
+							logs: logProfiles.length,
+							remotes: remoteProfiles.length,
+						},
 						statusActivityResultTimelineJumpFilter,
 						statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 						nextStatusActivityResultTimelineJumpFilter:
