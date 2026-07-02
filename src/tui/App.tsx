@@ -140,6 +140,7 @@ import {
 } from "../core/processes";
 import {
 	createRemoteFileContext,
+	formatRemoteAdapterBoundaryRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
@@ -11708,6 +11709,7 @@ function RemotesWorkspace({
 		profile: selectedProfile,
 		context: selectedContext,
 	});
+	const adapterBoundaryRows = formatRemoteAdapterBoundaryRows(selectedProfile);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 
 	return (
@@ -11772,6 +11774,25 @@ function RemotesWorkspace({
 				<Text color="gray">
 					sessions locked · password persistence disabled by schema
 				</Text>
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">ADAPTER BOUNDARY</Text>
+				{adapterBoundaryRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") ||
+										row.includes("not installed") ||
+										row.includes("blocked")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">HOST REVIEW</Text>

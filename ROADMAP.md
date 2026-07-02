@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.272 - Remote Adapter Boundary
+
+Status: draft PR [#334](https://github.com/uulab-official/picos/pull/334) on `codex/picos-v0.4.272-remote-adapter-boundary`.
+
+Goal: make the future SFTP transport dependency boundary visible before picos opens any remote network session.
+
+- Remotes now formats `REMOTE ADAPTER BOUNDARY` rows for selected and empty SFTP profile states.
+- Adapter boundary rows show the future `@uulab/picos-sftp` dependency, not-installed status, no-open-session posture, target URI, auth/key presence, unverified host key state, planned list/read capability, locked write/destructive capability, and exact future confirmation.
+- `picos remote <id>` prints the same adapter boundary block alongside handoff and host-review rows.
+- Remotes TUI shows the adapter boundary as its own section so operators can inspect the transport lock before staging a remote context.
+- Tests cover selected-profile and empty-profile adapter boundary rows plus CLI provider status inclusion.
+- Next: add an exact-confirm host review dialog preview for future read-only SFTP connect attempts without enabling transport.
+
 ## v0.4.271 - Remote Status Activity
 
 Status: draft PR [#333](https://github.com/uulab-official/picos/pull/333) on `codex/picos-v0.4.271-remote-status-activity`.
