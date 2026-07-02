@@ -2,7 +2,7 @@
 
 ## v0.4.288 - Remote Host Key Candidate Compare
 
-Status: in progress on `codex/picos-v0.4.288-host-key-candidate-compare`.
+Status: draft PR [#353](https://github.com/uulab-official/picos/pull/353) on `codex/picos-v0.4.288-host-key-candidate-compare`.
 
 Goal: surface selected `known_hosts` read-result candidates inside host-key compare detail while keeping collected host-key evidence, transport scans, host trust, and mutation disabled.
 
