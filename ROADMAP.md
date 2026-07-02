@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.294 - Remote Known Hosts Candidate Selection
+
+Status: in progress on `codex/picos-v0.4.294-known-hosts-candidate-selection`.
+
+Goal: let operators rotate the selected candidate inside a pasted known_hosts review buffer so compare detail can be driven entirely from the keyboard before any host trust or local trust-file read is enabled.
+
+- Core now models next/previous selection movement for `REMOTE KNOWN_HOSTS PASTE REVIEW` candidates with wraparound behavior.
+- Selection movement preserves hidden raw paste content, candidate metadata, blocked decision, and all read/network/scan/trust/mutation disabled flags.
+- Remotes focus now maps `]` to next candidate and `[` to previous candidate for the active pasted review buffer.
+- Moving selection updates both the paste review session and the known_hosts candidate session, so `REMOTE HOST KEY COMPARE DETAIL` follows the highlighted candidate immediately.
+- Tests cover next, previous, wraparound, empty-review no-op, selected-row rendering, and compare-detail matching against the rotated candidate.
+- Next: surface selection movement as Status Activity rows and add candidate selection by number for longer known_hosts paste buffers.
+
 ## v0.4.293 - Remote Known Hosts Paste Review Buffer
 
 Status: draft PR [#365](https://github.com/uulab-official/picos/pull/365) on `codex/picos-v0.4.293-known-hosts-review-buffer`.

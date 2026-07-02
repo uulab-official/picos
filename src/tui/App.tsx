@@ -180,6 +180,7 @@ import {
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
+	moveRemoteKnownHostsPasteReviewSelection,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 	type RemoteHostKeyEvidenceInputSession,
@@ -4082,6 +4083,51 @@ export function App(): React.ReactElement {
 			`remote known_hosts paste review ${review.status} ${review.id} lines=${review.lineCount} candidates=${review.candidates.length} selected=${review.selected}`,
 		);
 	}, [commandLine.value, log, remoteProfiles, selectedRemoteIndex]);
+
+	const moveRemoteKnownHostsPasteReviewSelectionCommand = useCallback(
+		(direction: "next" | "previous") => {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile) {
+				log("warn", "remote known_hosts paste selection requires a profile");
+				return;
+			}
+
+			const review = createRemoteKnownHostsPasteReviewFromSession(
+				profile,
+				remoteKnownHostsPasteReviewSession,
+			);
+			if (review.candidates.length === 0) {
+				log(
+					"warn",
+					`remote known_hosts paste review has no candidates ${profile.id}`,
+				);
+				return;
+			}
+
+			const nextReview = moveRemoteKnownHostsPasteReviewSelection(
+				review,
+				direction,
+			);
+			const preview =
+				createRemoteKnownHostsCandidatePreviewFromPasteReview(nextReview);
+			setRemoteKnownHostsPasteReviewSession((current) =>
+				recordRemoteKnownHostsPasteReviewSession(current, nextReview),
+			);
+			setRemoteKnownHostsCandidateSession((current) =>
+				recordRemoteKnownHostsCandidateSession(current, preview),
+			);
+			log(
+				"info",
+				`remote known_hosts paste candidate ${direction} ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length}`,
+			);
+		},
+		[
+			log,
+			remoteKnownHostsPasteReviewSession,
+			remoteProfiles,
+			selectedRemoteIndex,
+		],
+	);
 
 	const submitRemoteHostTrustReviewCommand = useCallback(() => {
 		const profile = remoteProfiles[selectedRemoteIndex];
@@ -9655,6 +9701,16 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "]") {
+			moveRemoteKnownHostsPasteReviewSelectionCommand("next");
+			return;
+		}
+
+		if (focusArea === "remotes" && input === "[") {
+			moveRemoteKnownHostsPasteReviewSelectionCommand("previous");
+			return;
+		}
+
 		if (focusArea === "remotes" && input === "t") {
 			const profile = remoteProfiles[selectedRemoteIndex];
 			if (!profile) {
@@ -12096,7 +12152,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · t trust review · c connect preview · h/esc"
+					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · [ ] candidate · t trust review · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (

@@ -332,6 +332,8 @@ export type RemoteKnownHostsPasteReviewSession = Record<
 	RemoteKnownHostsPasteReview
 >;
 
+export type RemoteKnownHostsPasteReviewSelectionDirection = "next" | "previous";
+
 export type RemoteHostKeyTrustDecisionPreview = {
 	id: string;
 	provider: "sftp";
@@ -1185,6 +1187,28 @@ export function recordRemoteKnownHostsPasteReviewSession(
 	return {
 		...session,
 		[review.id]: review,
+	};
+}
+
+export function moveRemoteKnownHostsPasteReviewSelection(
+	review: RemoteKnownHostsPasteReview,
+	direction: RemoteKnownHostsPasteReviewSelectionDirection,
+): RemoteKnownHostsPasteReview {
+	if (review.candidates.length === 0 || review.selected === "none") {
+		return review;
+	}
+	const selectedIndex = review.candidates.findIndex(
+		(candidate) => candidate.index === review.selected,
+	);
+	const currentIndex = selectedIndex >= 0 ? selectedIndex : 0;
+	const nextIndex =
+		direction === "next"
+			? (currentIndex + 1) % review.candidates.length
+			: (currentIndex - 1 + review.candidates.length) %
+				review.candidates.length;
+	return {
+		...review,
+		selected: review.candidates[nextIndex]?.index ?? review.selected,
 	};
 }
 
