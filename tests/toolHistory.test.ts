@@ -19,6 +19,7 @@ import {
 	createToolTargetCleanupPreview,
 	filterToolHistory,
 	filterToolHistoryExportIndex,
+	formatToolFormInputValue,
 	formatToolFormRows,
 	formatToolHistoryArchiveRetentionRows,
 	formatToolHistoryExport,
@@ -62,6 +63,7 @@ import {
 	retargetToolTargetPreset,
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
+	selectToolFormField,
 	sortToolHistory,
 	submitToolHistoryCleanupConfirmation,
 	submitToolTargetCleanupConfirmation,
@@ -1518,6 +1520,37 @@ describe("TUI tool history", () => {
 			label: "Telnet-style TCP check api.github.com:8443",
 		});
 		expect(formatToolFormRows(updated)).toEqual([
+			"TOOLS FORM Telnet-style TCP check",
+			"action=network.connect tool=telnet fields=2 selected=2/2",
+			"  Host api.github.com placeholder=github.com",
+			"> Port 8443 placeholder=443",
+			"cli=picos tools telnet api.github.com 8443",
+			"controls=tab/shift-tab field enter=run esc=cancel",
+		]);
+	});
+
+	test("selects and serializes active tool form fields for live prompts", () => {
+		const form = selectToolFormField(
+			createToolFormState(
+				"network.connect",
+				"google.com 443",
+				summary,
+				"api.github.com 443",
+			),
+			1,
+		);
+		expect(form?.selectedFieldIndex).toBe(1);
+		const updated = updateToolFormFieldValue(form, "8443");
+		expect(formatToolFormInputValue(updated)).toBe("api.github.com 8443");
+		expect(formatToolFormRows(updated).slice(0, 4)).toEqual([
+			"TOOLS FORM Telnet-style TCP check",
+			"action=network.connect tool=telnet fields=2 selected=2/2",
+			"  Host api.github.com placeholder=github.com",
+			"> Port 8443 placeholder=443",
+		]);
+		expect(
+			formatToolPromptRows("tool:network.connect", "api.github.com 8443", 1),
+		).toEqual([
 			"TOOLS FORM Telnet-style TCP check",
 			"action=network.connect tool=telnet fields=2 selected=2/2",
 			"  Host api.github.com placeholder=github.com",
