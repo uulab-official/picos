@@ -1,5 +1,6 @@
 import type { PicosAction } from "../core/actions";
 import { getNextIndex } from "./navigation";
+import type { StatusActivityToolsEvidenceSearchRecovery } from "./statusActivityQueue";
 
 export type CommandPaletteState = {
 	active: boolean;
@@ -106,4 +107,57 @@ export function getPaletteAction(
 	}
 
 	return getFilteredPaletteActions(actions, state)[state.selectedIndex];
+}
+
+export type CommandPalettePreviewContext = {
+	toolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery;
+	selectedToolsEvidenceSearchMatchIndex?: number;
+};
+
+export function formatCommandPaletteActionPreviewRows(
+	action: PicosAction | undefined,
+	context: CommandPalettePreviewContext = {},
+): string[] {
+	if (!action) {
+		return [];
+	}
+	if (
+		action.id !== "status.toolsEvidence.matchOpen" &&
+		action.id !== "status.toolsEvidence.matchArchive"
+	) {
+		return [];
+	}
+
+	const recovery = context.toolsEvidenceSearchRecovery;
+	if (!recovery || recovery.items.length === 0) {
+		return [
+			"selected tools match unavailable",
+			"hint=run tools evidence search",
+		];
+	}
+
+	const selected =
+		Math.max(
+			0,
+			Math.floor(context.selectedToolsEvidenceSearchMatchIndex ?? 0),
+		) % recovery.items.length;
+	const item = recovery.items[selected];
+	const actionVerb =
+		action.id === "status.toolsEvidence.matchOpen"
+			? "file-open"
+			: "archive tools export";
+	const rows = [
+		`selected tools match ${recovery.target} ${selected + 1}/${recovery.items.length} ${item.fileName}`,
+		`query=${recovery.query || "-"} scope=${item.scope} runs=${item.runCount}`,
+	];
+
+	if (
+		action.id === "status.toolsEvidence.matchArchive" &&
+		recovery.target === "archive"
+	) {
+		rows.push("blocked=archived Tools evidence matches are already archived");
+	} else {
+		rows.push(`confirm=${actionVerb} path=${item.path}`);
+	}
+	return rows;
 }

@@ -4,11 +4,13 @@ import {
 	appendCommandPaletteQuery,
 	backspaceCommandPaletteQuery,
 	closeCommandPalette,
+	formatCommandPaletteActionPreviewRows,
 	getFilteredPaletteActions,
 	getPaletteAction,
 	moveCommandPalette,
 	openCommandPalette,
 } from "../src/tui/palette";
+import type { StatusActivityToolsEvidenceSearchRecovery } from "../src/tui/statusActivityQueue";
 
 describe("TUI command palette", () => {
 	test("opens and closes around the first action", () => {
@@ -232,6 +234,60 @@ describe("TUI command palette", () => {
 				appendCommandPaletteQuery(openCommandPalette(), "tools match archive"),
 			).map((action) => action.id),
 		).toContain("status.toolsEvidence.matchArchive");
+	});
+
+	test("previews selected Tools evidence match actions before dispatch", () => {
+		const recovery: StatusActivityToolsEvidenceSearchRecovery = {
+			target: "active",
+			query: "040100",
+			total: 3,
+			items: [
+				{
+					fileName: "picos-tools-selected-2026-07-01T040100000Z.md",
+					path: "/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040100000Z.md",
+					generatedAt: "2026-07-01T04:01:00.000Z",
+					scope: "selected",
+					runCount: 2,
+				},
+			],
+		};
+		const actions = getActionCatalog();
+
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				actions.find(
+					(action) => action.id === "status.toolsEvidence.matchOpen",
+				),
+				{ toolsEvidenceSearchRecovery: recovery },
+			),
+		).toEqual([
+			"selected tools match active 1/1 picos-tools-selected-2026-07-01T040100000Z.md",
+			"query=040100 scope=selected runs=2",
+			"confirm=file-open path=/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040100000Z.md",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				actions.find(
+					(action) => action.id === "status.toolsEvidence.matchArchive",
+				),
+				{ toolsEvidenceSearchRecovery: recovery },
+			),
+		).toContain(
+			"confirm=archive tools export path=/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040100000Z.md",
+		);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				actions.find(
+					(action) => action.id === "status.toolsEvidence.matchArchive",
+				),
+				{
+					toolsEvidenceSearchRecovery: {
+						...recovery,
+						target: "archive",
+					},
+				},
+			),
+		).toContain("blocked=archived Tools evidence matches are already archived");
 	});
 
 	test("edits query with backspace and ignores control input", () => {
