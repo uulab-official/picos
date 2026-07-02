@@ -247,6 +247,7 @@ import {
 	type ConfigWorkspaceResetPreview,
 	createConfigManagedShelfFileOpenOrigin,
 	createConfigManagedShelfFocusActionPlan,
+	createConfigRecoveryDirectPromptPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfCleanupBreadcrumbRows,
@@ -4645,6 +4646,26 @@ export function App(): React.ReactElement {
 					} else if (focus.cursor === "remoteProfiles") {
 						setSelectedRemoteIndex(focus.index);
 					}
+					if (configRecoveryFocusTarget) {
+						const promptPlan = createConfigRecoveryDirectPromptPlan(
+							configRecoveryFocusTarget,
+							{
+								routes: routeFilterPresets.length,
+								connections: connectionFilterPresets.length,
+								ports: portFilterPresets.length,
+								logs: logProfiles.length,
+								tools: customToolTargetPresets.length,
+								remotes: remoteProfiles.length,
+							},
+						);
+						if (promptPlan) {
+							setCommandLine(openCommandLine(promptPlan.prompt));
+							log(
+								"info",
+								`config recovery prompt ${promptPlan.target} ${promptPlan.prompt}`,
+							);
+						}
+					}
 					log(
 						"info",
 						configRecoveryFocusTarget
@@ -4859,6 +4880,7 @@ export function App(): React.ReactElement {
 			}
 		},
 		[
+			connectionFilterPresets.length,
 			configWorkspaceItems,
 			configShelfLandingTarget,
 			cycleStatusActivityResultHistoryFilter,
@@ -4871,6 +4893,7 @@ export function App(): React.ReactElement {
 			jumpSelectedProcessControlEvidenceSearch,
 			jumpSelectedTimelineEvidenceTrailSearch,
 			log,
+			logProfiles.length,
 			openToolEvidenceSearchPrompt,
 			openSelectedProcessControlEvidenceExport,
 			openSelectedStatusActivityResultTimelineJump,
@@ -4879,14 +4902,18 @@ export function App(): React.ReactElement {
 			openSelectedToolExportArchive,
 			openSelectedTimelineEvidenceTrailExport,
 			openToolArchiveRetentionPreview,
+			portFilterPresets.length,
 			refresh,
 			refreshFiles,
+			remoteProfiles.length,
+			routeFilterPresets.length,
 			selectNextProcessControlEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
 			timelineFilter,
 			timelineSearchQuery,
 			toolHistory,
+			customToolTargetPresets.length,
 			updateCheckResult,
 		],
 	);

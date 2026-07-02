@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.251 - Config Recovery Direct Prompts
+
+Status: draft PR [#313](https://github.com/uulab-official/picos/pull/313) on `codex/picos-v0.4.251-config-recovery-direct-prompts`.
+
+Goal: make empty Config recovery palette actions open the destination creation prompt directly.
+
+- Config recovery actions now compute direct prompt plans for empty Routes, Connections, Ports, and Logs shelves.
+- Empty `routes`, `connections`, `ports`, and `logs` recovery actions open `route-filter`, endpoint filter, or `log-search` prompts after dispatching into the owning workspace.
+- Non-empty shelves keep the existing recovery shelf focus behavior, and unsupported Tools/Remotes recovery actions stay read-only navigation until their creation prompts are modeled.
+- Tests cover direct prompt plans for empty, non-empty, and unsupported shelves plus existing palette previews.
+- Next: model Tools target and Remotes profile creation prompts so every Config recovery action can create missing presets/profiles directly.
+
 ## v0.4.250 - Config Recovery Palette Actions
 
 Status: draft PR [#312](https://github.com/uulab-official/picos/pull/312) on `codex/picos-v0.4.250-config-recovery-palette-actions`.

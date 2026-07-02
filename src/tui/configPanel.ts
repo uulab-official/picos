@@ -119,6 +119,20 @@ export type ConfigManagedShelfFocusActionPlan = ConfigManagedShelfHandoff & {
 	rows: string[];
 };
 
+export type ConfigRecoveryShelfCounts = Partial<
+	Record<ConfigManagedShelfTarget, number>
+>;
+
+export type ConfigRecoveryDirectPromptPlan = ConfigManagedShelfHandoff & {
+	prompt:
+		| "route-filter"
+		| "endpoint-filter:connections"
+		| "endpoint-filter:ports"
+		| "log-search";
+	reason: string;
+	rows: string[];
+};
+
 type ConfigManagedShelfCoverageKey =
 	| "routeFilters"
 	| "connectionFilters"
@@ -715,6 +729,33 @@ export function formatConfigRecoveryPaletteRows(
 	];
 }
 
+export function createConfigRecoveryDirectPromptPlan(
+	target: ConfigManagedShelfTarget,
+	counts: ConfigRecoveryShelfCounts,
+): ConfigRecoveryDirectPromptPlan | undefined {
+	const prompt = getConfigRecoveryDirectPrompt(target);
+	if (!prompt) {
+		return undefined;
+	}
+	const count = Math.max(0, Math.floor(counts[target] ?? 0));
+	if (count > 0) {
+		return undefined;
+	}
+	const handoff = getConfigManagedShelfHandoff(target);
+	const reason = `empty ${getConfigManagedShelfRecoveryEmptyLabel(target)}`;
+	return {
+		...handoff,
+		prompt,
+		reason,
+		rows: [
+			"CONFIG RECOVERY PROMPT",
+			`target=${handoff.target} workspace=${handoff.label}`,
+			`prompt=${prompt} reason=${reason}`,
+			"next=type filter and press enter",
+		],
+	};
+}
+
 export function formatConfigManagedShelfPromptBreadcrumbRows(
 	target: ConfigManagedShelfTarget,
 ): string[] {
@@ -1018,6 +1059,24 @@ function getConfigManagedShelfRecoveryEmptyLabel(
 		return "remoteProfiles";
 	}
 	return "interfaces";
+}
+
+function getConfigRecoveryDirectPrompt(
+	target: ConfigManagedShelfTarget,
+): ConfigRecoveryDirectPromptPlan["prompt"] | undefined {
+	if (target === "routes") {
+		return "route-filter";
+	}
+	if (target === "connections") {
+		return "endpoint-filter:connections";
+	}
+	if (target === "ports") {
+		return "endpoint-filter:ports";
+	}
+	if (target === "logs") {
+		return "log-search";
+	}
+	return undefined;
 }
 
 function getConfigManagedShelfPromptScope(
