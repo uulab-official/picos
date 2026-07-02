@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace and `picos remote <id>` now show `REMOTE SFTP PACKAGE RESOLUTION REVIEW` rows after package resolution preview, recording injected found/missing optional transport metadata, matched lookup index, resolved path, package JSON path, and version while keeping resolver execution, package reads, transport import, sockets, sessions, and mutation disabled.
 - Remotes workspace and `picos remote <id>` now show `REMOTE SFTP PACKAGE RESOLUTION PREVIEW` rows after SFTP transport readiness, listing deterministic Node-style `node_modules/@uulab/picos-sftp` lookup candidates while keeping package resolution, package reads, transport import, sockets, sessions, and mutation disabled.
 - Remotes workspace and `picos remote <id>` now show `REMOTE SFTP TRANSPORT READINESS` rows after host-key scan readiness, reporting the future `@uulab/picos-sftp` dependency as missing/not-run by default or installed through injected metadata while keeping package resolution, transport import, sockets, sessions, and mutation disabled.
 - Remotes workspace and `picos remote <id>` now show `REMOTE HOST KEY SCAN READINESS` rows after scan policy, splitting future host-key scan prerequisites into blocked `scanReview`, `transportInstalled`, `hostReview`, `knownHostsCompare`, and `fingerprintEvidence` checks with blocker and required-action text while keeping transport import, sockets, scans, trust, `known_hosts` writes, and mutation disabled.

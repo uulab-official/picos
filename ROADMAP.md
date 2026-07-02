@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.295 - Remote SFTP Package Resolution Review
+
+Status: draft PR [#368](https://github.com/uulab-official/picos/pull/368) on `codex/picos-v0.4.295-sftp-package-resolution-review`.
+
+Goal: make optional SFTP package resolver results inspectable from Remotes without running a resolver, reading package files, importing transport code, opening sockets, starting sessions, trusting hosts, writing `known_hosts`, or mutating anything.
+
+- Remotes now models `REMOTE SFTP PACKAGE RESOLUTION REVIEW` rows with dependency, injected-result detector, found/missing status, blocker, preview start directory, lookup count, matched lookup index, resolved path, package JSON path, and version.
+- Default review output is `missing` with `package-not-found`; tests can inject a found path/version and see the matched lookup index from the preview candidates.
+- Execution posture keeps resolver execution, package reads, transport import, sockets, sessions, and mutation false.
+- `picos remote <id>` prints package resolution review rows after package resolution preview.
+- Remotes TUI renders a dedicated `SFTP PACKAGE REVIEW` section and reserves vertical budget for it.
+- Next: feed an injected found review into SFTP transport readiness so package metadata can satisfy the transport prerequisite while import/socket policy remains disabled.
+
 ## v0.4.294 - Remote SFTP Package Resolution Preview
 
 Status: draft PR [#366](https://github.com/uulab-official/picos/pull/366) on `codex/picos-v0.4.294-sftp-package-resolution-preview`.

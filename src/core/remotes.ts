@@ -246,6 +246,27 @@ export type RemoteSftpPackageResolutionPreview = {
 	};
 };
 
+export type RemoteSftpPackageResolutionReview = {
+	dependency: "@uulab/picos-sftp";
+	detector: "injected-resolution-result";
+	status: "missing" | "found";
+	blocker: "package-not-found" | "none";
+	source: "injected";
+	previewStartDir: string;
+	lookupCount: number;
+	matchedLookup: number | "-";
+	resolvedPath: string | "-";
+	packageJsonPath: string | "-";
+	version: string | "-";
+	execution: {
+		resolverRan: false;
+		readsPackageJson: false;
+		importsTransport: false;
+		opensSocket: false;
+		mutatesRemote: false;
+	};
+};
+
 export type RemoteHostKeyScanReadiness = {
 	id: string;
 	provider: "sftp";
@@ -1069,6 +1090,58 @@ export function formatRemoteSftpPackageResolutionPreviewRows(
 	];
 }
 
+export function createRemoteSftpPackageResolutionReview(
+	options: {
+		preview?: RemoteSftpPackageResolutionPreview;
+		resolvedPath?: string;
+		packageJsonPath?: string;
+		version?: string;
+	} = {},
+): RemoteSftpPackageResolutionReview {
+	const preview = options.preview ?? createRemoteSftpPackageResolutionPreview();
+	const matchedLookup =
+		options.resolvedPath !== undefined
+			? preview.lookupPaths.indexOf(options.resolvedPath)
+			: -1;
+	const found = matchedLookup >= 0;
+
+	return {
+		dependency: "@uulab/picos-sftp",
+		detector: "injected-resolution-result",
+		status: found ? "found" : "missing",
+		blocker: found ? "none" : "package-not-found",
+		source: "injected",
+		previewStartDir: preview.startDir,
+		lookupCount: preview.lookupPaths.length,
+		matchedLookup: found ? matchedLookup : "-",
+		resolvedPath: found ? (options.resolvedPath ?? "-") : "-",
+		packageJsonPath: found ? (options.packageJsonPath ?? "-") : "-",
+		version: found ? (options.version ?? "-") : "-",
+		execution: {
+			resolverRan: false,
+			readsPackageJson: false,
+			importsTransport: false,
+			opensSocket: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteSftpPackageResolutionReviewRows(
+	review: RemoteSftpPackageResolutionReview = createRemoteSftpPackageResolutionReview(),
+): string[] {
+	return [
+		"REMOTE SFTP PACKAGE RESOLUTION REVIEW",
+		`dependency=${review.dependency} detector=${review.detector} status=${review.status} blocker=${review.blocker} source=${review.source}`,
+		`previewStart=${review.previewStartDir} lookups=${review.lookupCount} matchedLookup=${review.matchedLookup}`,
+		`resolved=${review.resolvedPath} packageJson=${review.packageJsonPath} version=${review.version}`,
+		`execution=resolverRan=${review.execution.resolverRan} packageRead=${review.execution.readsPackageJson} willImport=${review.execution.importsTransport} willConnect=${review.execution.opensSocket} willMutate=${review.execution.mutatesRemote}`,
+		review.status === "found"
+			? "next=transport package metadata found · import and socket policy remain disabled"
+			: "next=install @uulab/picos-sftp or provide injected resolver metadata before enabling transport readiness",
+	];
+}
+
 export function submitRemoteHostKeyScanReview(
 	request: RemoteHostKeyScanRequest,
 	input: string,
@@ -1702,6 +1775,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteSftpPackageResolutionPreviewRows(
 			createRemoteSftpPackageResolutionPreview(),
+		),
+		"",
+		...formatRemoteSftpPackageResolutionReviewRows(
+			createRemoteSftpPackageResolutionReview(),
 		),
 		"",
 		...formatRemoteKnownHostsSourcePreviewRows(
