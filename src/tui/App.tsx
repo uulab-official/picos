@@ -997,6 +997,7 @@ export function App(): React.ReactElement {
 				editorSaveMode,
 				language,
 				refreshInterval,
+				statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 				toolTargetPresetLimit,
 			}),
 		[
@@ -1007,6 +1008,7 @@ export function App(): React.ReactElement {
 			editorSaveMode,
 			language,
 			refreshInterval,
+			statusActivityResultTimelineJumpFilter,
 			toolTargetPresetLimit,
 		],
 	);
@@ -1248,6 +1250,18 @@ export function App(): React.ReactElement {
 			if (item.key === "refreshInterval") {
 				setRefreshInterval(Number(nextValue));
 			}
+			if (item.key === "statusResultJumpClassFilter") {
+				const nextText = String(nextValue);
+				if (
+					nextText === "all" ||
+					nextText === "process" ||
+					nextText === "timeline" ||
+					nextText === "tools" ||
+					nextText === "source"
+				) {
+					setStatusActivityResultTimelineJumpFilter(nextText);
+				}
+			}
 			if (item.key === "controlExecutionMode") {
 				setControlExecutionPolicy((current) => ({
 					...current,
@@ -1366,6 +1380,7 @@ export function App(): React.ReactElement {
 			allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
 			enableExperimentalControls,
 			editorSaveMode,
+			statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 		});
 		setConfigResetPreview(preview);
 		setCommandLine(openCommandLine("config-reset"));
@@ -1383,6 +1398,7 @@ export function App(): React.ReactElement {
 		language,
 		log,
 		refreshInterval,
+		statusActivityResultTimelineJumpFilter,
 		toolTargetPresetLimit,
 	]);
 
@@ -1399,6 +1415,7 @@ export function App(): React.ReactElement {
 				allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
 				enableExperimentalControls,
 				editorSaveMode,
+				statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 			});
 		const confirmation = submitConfigWorkspaceResetConfirmation(
 			preview,
@@ -1444,6 +1461,7 @@ export function App(): React.ReactElement {
 		language,
 		log,
 		refreshInterval,
+		statusActivityResultTimelineJumpFilter,
 		syncConfigSessionState,
 		toolTargetPresetLimit,
 	]);

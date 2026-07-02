@@ -33,13 +33,14 @@ describe("config TUI panel", () => {
 			toolTargetPresetLimit: 8,
 			language: "en",
 			refreshInterval: 3000,
+			statusResultJumpClassFilter: "all",
 			defaultPingHost: "google.com",
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
 			editorSaveMode: "disabled",
 		});
 
-		expect(formatConfigWorkspaceRows(items, 1, 10)).toEqual([
+		expect(formatConfigWorkspaceRows(items, 1, 11)).toEqual([
 			"CONFIG WORKSPACE",
 			"1 display  2 safety  3 retention  4 connectivity",
 			"j/k select  +/- save  enter edit/jump  g/G shelf  P policy  R reset",
@@ -49,6 +50,7 @@ describe("config TUI panel", () => {
 			"[1] DISPLAY",
 			"  language                    en       interface language",
 			"  refreshInterval             3000     refresh cadence in ms",
+			"  statusResultJumpClassFilter all      Status result jump browser class",
 			"[4] CONNECTIVITY",
 		]);
 	});
@@ -57,6 +59,7 @@ describe("config TUI panel", () => {
 		const items = createConfigWorkspaceItems({
 			language: "en",
 			refreshInterval: 3000,
+			statusResultJumpClassFilter: "process",
 			defaultPingHost: "google.com",
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
@@ -70,19 +73,20 @@ describe("config TUI panel", () => {
 			"retention:toolTargetPresetLimit",
 			"display:language",
 			"display:refreshInterval",
+			"display:statusResultJumpClassFilter",
 			"connectivity:defaultPingHost",
 			"safety:controlExecutionMode",
 			"safety:allowAdminDryRun",
 			"safety:editorSaveMode",
 		]);
 		expect(getConfigWorkspaceSectionJumpIndex(items, "display")).toBe(2);
-		expect(getConfigWorkspaceSectionJumpIndex(items, "safety")).toBe(5);
+		expect(getConfigWorkspaceSectionJumpIndex(items, "safety")).toBe(6);
 		expect(getConfigWorkspaceSectionJumpIndex(items, "retention")).toBe(0);
-		expect(getConfigWorkspaceSectionJumpIndex(items, "connectivity")).toBe(4);
+		expect(getConfigWorkspaceSectionJumpIndex(items, "connectivity")).toBe(5);
 		expect(
 			getConfigWorkspaceSectionJumpIndex(items, "missing"),
 		).toBeUndefined();
-		expect(formatConfigWorkspaceRows(items, 6, 18)).toEqual([
+		expect(formatConfigWorkspaceRows(items, 7, 18)).toEqual([
 			"CONFIG WORKSPACE",
 			"1 display  2 safety  3 retention  4 connectivity",
 			"j/k select  +/- save  enter edit/jump  g/G shelf  P policy  R reset",
@@ -92,6 +96,7 @@ describe("config TUI panel", () => {
 			"[1] DISPLAY",
 			"  language                    en       interface language",
 			"  refreshInterval             3000     refresh cadence in ms",
+			"  statusResultJumpClassFilter process  Status result jump browser class",
 			"[4] CONNECTIVITY",
 			"  defaultPingHost             google.com default host for picos ping",
 			"[2] SAFETY",
@@ -106,6 +111,7 @@ describe("config TUI panel", () => {
 		const items = createConfigWorkspaceItems({
 			language: "ko",
 			refreshInterval: 5000,
+			statusResultJumpClassFilter: "tools",
 			defaultPingHost: "internal.example",
 			controlExecutionMode: "dry-run",
 			allowAdminDryRun: true,
@@ -120,16 +126,16 @@ describe("config TUI panel", () => {
 			}),
 		).toEqual([
 			"CONFIG SECTION DETAIL",
-			"section=DISPLAY items=2 shortcut=1",
+			"section=DISPLAY items=3 shortcut=1",
 			"config=/tmp/picos/config.json",
 			"selected=language value=ko",
 			"posture=local editor writes enabled",
-			"persist=+/- writes language or refreshInterval",
-			"actions=+/- adjust language/refresh, R exact reset",
+			"persist=+/- writes language, refreshInterval, or jump class",
+			"actions=+/- adjust language/refresh/jump class, R exact reset",
 		]);
 
 		expect(
-			formatConfigWorkspaceDetailRows(items, 5, {
+			formatConfigWorkspaceDetailRows(items, 6, {
 				configPath: "/tmp/picos/config.json",
 			}),
 		).toEqual([
@@ -143,7 +149,7 @@ describe("config TUI panel", () => {
 		]);
 
 		expect(
-			formatConfigWorkspaceDetailRows(items, 4, {
+			formatConfigWorkspaceDetailRows(items, 5, {
 				configPath: "/tmp/picos/config.json",
 			}),
 		).toEqual([
@@ -366,6 +372,7 @@ describe("config TUI panel", () => {
 			toolTargetPresetLimit: 1,
 			language: "en",
 			refreshInterval: 3000,
+			statusResultJumpClassFilter: "process",
 			defaultPingHost: "google.com",
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
@@ -373,7 +380,7 @@ describe("config TUI panel", () => {
 		});
 
 		expect(moveConfigWorkspaceSelection(0, items.length, "next")).toBe(1);
-		expect(moveConfigWorkspaceSelection(0, items.length, "previous")).toBe(7);
+		expect(moveConfigWorkspaceSelection(0, items.length, "previous")).toBe(8);
 		expect(adjustConfigWorkspaceItem(items[0], "increase")).toBe(60);
 		expect(adjustConfigWorkspaceItem(items[0], "decrease")).toBe(59);
 		expect(adjustConfigWorkspaceItem(items[1], "decrease")).toBe(1);
@@ -382,12 +389,14 @@ describe("config TUI panel", () => {
 		expect(adjustConfigWorkspaceItem(items[2], "decrease")).toBe("zh");
 		expect(adjustConfigWorkspaceItem(items[3], "increase")).toBe(4000);
 		expect(adjustConfigWorkspaceItem(items[3], "decrease")).toBe(2000);
-		expect(adjustConfigWorkspaceItem(items[5], "increase")).toBe("dry-run");
-		expect(adjustConfigWorkspaceItem(items[5], "decrease")).toBe("dry-run");
-		expect(adjustConfigWorkspaceItem(items[6], "increase")).toBe(true);
-		expect(adjustConfigWorkspaceItem(items[6], "decrease")).toBe(true);
-		expect(adjustConfigWorkspaceItem(items[7], "increase")).toBe("local-write");
-		expect(adjustConfigWorkspaceItem(items[7], "decrease")).toBe("local-write");
+		expect(adjustConfigWorkspaceItem(items[4], "increase")).toBe("timeline");
+		expect(adjustConfigWorkspaceItem(items[4], "decrease")).toBe("all");
+		expect(adjustConfigWorkspaceItem(items[6], "increase")).toBe("dry-run");
+		expect(adjustConfigWorkspaceItem(items[6], "decrease")).toBe("dry-run");
+		expect(adjustConfigWorkspaceItem(items[7], "increase")).toBe(true);
+		expect(adjustConfigWorkspaceItem(items[7], "decrease")).toBe(true);
+		expect(adjustConfigWorkspaceItem(items[8], "increase")).toBe("local-write");
+		expect(adjustConfigWorkspaceItem(items[8], "decrease")).toBe("local-write");
 	});
 
 	test("marks text config rows as editable with enter", () => {
@@ -400,9 +409,10 @@ describe("config TUI panel", () => {
 			controlExecutionMode: "disabled",
 			allowAdminDryRun: false,
 			editorSaveMode: "disabled",
+			statusResultJumpClassFilter: "all",
 		});
 
-		expect(getConfigWorkspaceEditPrompt(items[4])).toBe(
+		expect(getConfigWorkspaceEditPrompt(items[5])).toBe(
 			"config-defaultPingHost",
 		);
 		expect(getConfigWorkspaceEditPrompt(items[0])).toBeUndefined();
@@ -473,6 +483,7 @@ describe("config TUI panel", () => {
 			allowAdminDryRun: true,
 			enableExperimentalControls: true,
 			editorSaveMode: "local-write",
+			statusResultJumpClassFilter: "tools",
 		});
 
 		expect(preview.confirmationPhrase).toBe("reset config");
@@ -486,10 +497,11 @@ describe("config TUI panel", () => {
 			allowAdminDryRun: false,
 			enableExperimentalControls: false,
 			editorSaveMode: "disabled",
+			statusResultJumpClassFilter: "all",
 		});
 		expect(preview.rows).toEqual([
 			"CONFIG RESET",
-			"scope=core controls changed=9",
+			"scope=core controls changed=10",
 			"confirm reset config locked",
 			"auditArchiveRetentionLimit 7 -> 10",
 			"toolTargetPresetLimit 4 -> 8",
@@ -500,6 +512,7 @@ describe("config TUI panel", () => {
 			"allowAdminDryRun true -> false",
 			"enableExperimentalControls true -> false",
 			"editorSaveMode local-write -> disabled",
+			"statusResultJumpClassFilter tools -> all",
 		]);
 		expect(submitConfigWorkspaceResetConfirmation(preview, "reset")).toEqual({
 			confirmed: false,
@@ -510,7 +523,7 @@ describe("config TUI panel", () => {
 			submitConfigWorkspaceResetConfirmation(preview, " reset config "),
 		).toEqual({
 			confirmed: true,
-			message: "config reset confirmed core controls (9 values)",
+			message: "config reset confirmed core controls (10 values)",
 			preview,
 		});
 	});
