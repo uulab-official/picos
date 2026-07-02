@@ -2,7 +2,7 @@
 
 ## v0.4.295 - Remote Known Hosts Selection Activity
 
-Status: in progress on `codex/picos-v0.4.295-known-hosts-selection-activity`.
+Status: draft PR [#370](https://github.com/uulab-official/picos/pull/370) on `codex/picos-v0.4.295-known-hosts-selection-activity`.
 
 Goal: make pasted known_hosts candidate selection durable and recoverable from Status/Timeline while adding direct numeric candidate selection for longer paste buffers.
 
