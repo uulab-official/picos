@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Config managed shelf summaries now include recovery hints for empty route filter, endpoint filter, Tools target, log profile/search, and remote profile shelves, and Status Enter on Config activity opens the Config recovery view.
 - Status Activity now includes Config managed shelf coverage as a source, and Config shelf summaries show saved/empty counts for route filters, endpoint filters, Tools targets, log profiles/searches, and remote profiles.
 - Config-origin managed shelf palette previews now show live saved counts for route filters, endpoint filters, Tools target presets, log profiles, and remote profiles before dispatch.
 - Command palette now exposes the Config Tools managed shelf through `tools shelf config` and `tool target presets config`, with preview rows before focusing saved Tools target presets.

@@ -7439,6 +7439,15 @@ export function App(): React.ReactElement {
 					);
 					return;
 				}
+				case "focus-config":
+					setScreen("config");
+					setFocusArea("workspaces");
+					recordStatusActivityResult({
+						...activityEnterPlan,
+						detail: "Config recovery hints opened",
+					});
+					log("info", activityEnterPlan.message);
+					return;
 				case "none":
 					recordStatusActivityResult(activityEnterPlan);
 					log("warn", activityEnterPlan.message);

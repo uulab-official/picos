@@ -140,22 +140,25 @@ describe("Status activity queue", () => {
 		const input = {
 			configRows: [
 				"CONFIG MANAGED SHELVES",
-				"shelf coverage saved=0 empty=7 routeFilters=0 connectionFilters=0 portFilters=0 toolTargets=0 logProfiles=0 logSearches=0 remotes=0",
-				"empty shelves routeFilters,connectionFilters,portFilters,toolTargets,logProfiles,logSearches,remotes",
+				"network defaults host=internal.example routeFilters=0 connectionFilters=0 portFilters=1",
+				"shelf coverage saved=5 empty=2 routeFilters=0 connectionFilters=0 portFilters=1 toolTargets=1 logProfiles=1 logSearches=1 remotes=1",
+				"empty shelves routeFilters,connectionFilters",
+				"recovery routeFilters -> Routes enter=cycle route filter presets fallback=open filter prompt",
+				"recovery connectionFilters -> Connections enter=cycle connection filter presets fallback=open filter prompt",
 			],
 		};
 
 		expect(formatStatusActivityDetailRows(input, "config")).toEqual([
-			"STATUS ACTIVITY DETAIL active=config rows=3",
-			"> CONFIG MANAGED SHELVES",
-			"  shelf coverage saved=0 empty=7 routeFilters=0 connectionFilters=0 portFilters=0 toolTargets=0 logProfiles=0 logSearches=0 remotes=0",
-			"  empty shelves routeFilters,connectionFilters,portFilters,toolTargets,logProfiles,logSearches,remotes",
+			"STATUS ACTIVITY DETAIL active=config rows=6",
+			"> shelf coverage saved=5 empty=2 routeFilters=0 connectionFilters=0 portFilters=1 toolTargets=1 logProfiles=1 logSearches=1 remotes=1",
+			"  empty shelves routeFilters,connectionFilters",
+			"  recovery routeFilters -> Routes enter=cycle route filter presets fallback=open filter prompt",
 			"controls=enter action · ,/. activity source · detail mirrors selected Status console",
 		]);
 		expect(createStatusActivityEnterPlan(input, "config")).toEqual({
 			source: "config",
-			action: "none",
-			message: "config activity selected; review managed shelf counts",
+			action: "focus-config",
+			message: "config activity selected; opening Config recovery hints",
 		});
 	});
 

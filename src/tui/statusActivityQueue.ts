@@ -44,6 +44,7 @@ export type StatusActivityEnterAction =
 	| "cycle-release-link"
 	| "show-dialog"
 	| "jump-cleanup"
+	| "focus-config"
 	| "enter-evidence"
 	| "focus-evidence"
 	| "timeline-evidence-trail"
@@ -193,9 +194,11 @@ export function formatStatusActivityDetailRows(
 		];
 	}
 	const rows = getSourceRows(input, activeSource);
+	const detailRows =
+		activeSource === "config" ? getConfigActivityDetailRows(rows) : rows;
 	return [
 		`STATUS ACTIVITY DETAIL active=${activeSource} rows=${rows.length}`,
-		...rows.slice(0, 3).map((row, index) => {
+		...detailRows.slice(0, 3).map((row, index) => {
 			const marker = index === 0 ? "> " : "  ";
 			return `${marker}${normalizeActivityDetailRow(row)}`;
 		}),
@@ -256,8 +259,8 @@ export function createStatusActivityEnterPlan(
 		case "config":
 			return {
 				source,
-				action: "none",
-				message: "config activity selected; review managed shelf counts",
+				action: "focus-config",
+				message: "config activity selected; opening Config recovery hints",
 			};
 		case "evidence":
 			return {
@@ -2728,6 +2731,15 @@ function getSourceRows(
 
 function normalizeActivityDetailRow(row: string): string {
 	return row.replace(/^>\s*/, "");
+}
+
+function getConfigActivityDetailRows(rows: string[]): string[] {
+	const priorityRows = [
+		rows.find((row) => row.startsWith("shelf coverage ")),
+		rows.find((row) => row.startsWith("empty shelves ")),
+		rows.find((row) => row.startsWith("recovery ")),
+	].filter((row): row is string => Boolean(row));
+	return priorityRows.length > 0 ? priorityRows : rows;
 }
 
 function getSelectedStatusActivityResultHistoryIndex(
