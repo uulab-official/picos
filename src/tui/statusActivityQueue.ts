@@ -714,9 +714,11 @@ export function formatStatusActivityCopyIntentRows(
 	const rowsBeforeHistory = [
 		...exportRows,
 		...(freshResultJump && auditJumpActionHint === "fresh"
-			? [
-					`result jump target=filter:${freshResultJump.filter} query=${freshResultJump.query}${freshResultJumpCount > 1 ? ` selected=${getNormalizedSelectionIndex(freshResultJumpCount, freshResultJumpSelectedIndex) + 1}/${freshResultJumpCount}` : ""} I=fresh`,
-				]
+			? formatFreshStatusActivityResultJumpRows(
+					freshResultJump,
+					freshResultJumpSelectedIndex,
+					freshResultJumpCount,
+				)
 			: []),
 		...auditJumpRows,
 		...formatStatusActivityResultAuditJumpReplayWarningSummaryRows(
@@ -763,6 +765,10 @@ export function formatStatusActivityCopyIntentRows(
 function formatStatusActivityResultAuditJumpTargetToken(
 	intent: StatusActivityCopyIntentRecord,
 ): string {
+	const toolsSearchTarget = parseToolsEvidenceSearchAuditQuery(intent.preview);
+	if (toolsSearchTarget) {
+		return ` target=tools:${toolsSearchTarget.target} query:${toolsSearchTarget.query || "-"}`;
+	}
 	const match = intent.preview.match(
 		/^action=source source=(\S+) visible=(\S+)$/,
 	);
@@ -771,6 +777,37 @@ function formatStatusActivityResultAuditJumpTargetToken(
 	}
 	const [, source, visible] = match;
 	return ` target=source:${source} visible:${visible}`;
+}
+
+function formatFreshStatusActivityResultJumpRows(
+	jump: StatusActivityCopyIntentTimelineSearch,
+	selectedIndex: number,
+	count: number,
+): string[] {
+	const toolsSearchTarget = parseToolsEvidenceSearchAuditQuery(jump.query);
+	if (toolsSearchTarget) {
+		return [
+			`tools search target=${toolsSearchTarget.target} query=${toolsSearchTarget.query || "-"} I=fresh`,
+		];
+	}
+	return [
+		`result jump target=filter:${jump.filter} query=${jump.query}${count > 1 ? ` selected=${getNormalizedSelectionIndex(count, selectedIndex) + 1}/${count}` : ""} I=fresh`,
+	];
+}
+
+function parseToolsEvidenceSearchAuditQuery(
+	query: string,
+): { target: "active" | "archive"; query: string } | undefined {
+	const match = query.match(
+		/^palette tools evidence audit action=search target=(active|archive)(?: query="([^"]*)")?/,
+	);
+	if (!match) {
+		return undefined;
+	}
+	return {
+		target: match[1] as "active" | "archive",
+		query: match[2] ?? "",
+	};
 }
 
 function getStatusActivityResultAuditJumpReplayValidity(
