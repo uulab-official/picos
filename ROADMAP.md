@@ -1,5 +1,21 @@
 # picos Roadmap
 
+## v0.4.283 - Remote Host Key Trust Decision Preview
+
+Status: in progress on `codex/picos-v0.4.283-host-key-trust-preview`.
+
+Goal: make the future host-key trust decision boundary visible before picos compares fingerprints, trusts a host, imports SFTP transport, or opens a socket.
+
+- Remotes now models `REMOTE HOST KEY TRUST DECISION` rows for selected and empty SFTP profile states.
+- Trust decision rows show target, lookup key, collected fingerprint placeholder, known_hosts fingerprint placeholder, match state, and blocked decision.
+- Guard rows require compare-only review with exact `review host trust <id>` confirmation and preserve the separate `connect remote <id>` confirmation.
+- Input rows keep host-key evidence, known_hosts parser, and host review requirements visible before any future trust decision can proceed.
+- Execution rows keep `willImport=false`, `willConnect=false`, `willReadLocal=false`, `willParse=false`, `willScan=false`, `willTrust=false`, and `willMutate=false`.
+- `picos remote <id>` prints the same trust decision preview between known-hosts parser preview and host review.
+- Remotes TUI renders a dedicated `HOST KEY TRUST DECISION` section before host review.
+- Tests cover selected-profile trust preview shape, empty-state rows, CLI provider status inclusion, and no-import/no-connect/no-read/no-parse/no-scan/no-trust/no-mutation posture.
+- Next: add a locked host-key trust review dialog that records rejected/blocked review attempts into Status Activity without enabling transport.
+
 ## v0.4.282 - Remote Known Hosts Parser Preview
 
 Status: draft PR [#344](https://github.com/uulab-official/picos/pull/344) on `codex/picos-v0.4.282-known-hosts-parser-preview`.

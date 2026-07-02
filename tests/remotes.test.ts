@@ -5,6 +5,7 @@ import {
 	createRemoteFileContext,
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyEvidence,
+	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsSourcePreview,
@@ -16,6 +17,7 @@ import {
 	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyEvidenceRows,
+	formatRemoteHostKeyTrustDecisionPreviewRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	formatRemoteKnownHostsParserPreviewRows,
@@ -826,6 +828,90 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willReadLocal=false willParse=false willConnect=false willScan=false willTrust=false willMutate=false",
+		);
+	});
+
+	test("formats remote host key trust decision preview without trusting hosts", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteHostKeyTrustDecisionPreview(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			lookup: "prod.example.com:2222",
+			status: "locked",
+			collectedFingerprint: "sha256:unknown",
+			knownHostsFingerprint: "sha256:unknown",
+			match: "unknown",
+			decision: "blocked",
+			inputs: {
+				hostKeyEvidence: "required",
+				knownHostsParser: "required",
+				hostReview: "required",
+			},
+			confirm: "review host trust prod",
+			connectConfirm: "connect remote prod",
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				readsLocal: false,
+				parsesRows: false,
+				scansHostKey: false,
+				trustsHost: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteHostKeyTrustDecisionPreviewRows(
+				createRemoteHostKeyTrustDecisionPreview(profile),
+			),
+		).toEqual([
+			"REMOTE HOST KEY TRUST DECISION prod",
+			"target=sftp://deploy@prod.example.com:2222/srv/app lookup=prod.example.com:2222 provider=sftp status=locked",
+			"collected=sha256:unknown knownHosts=sha256:unknown match=unknown decision=blocked",
+			"inputs=hostKeyEvidence:required knownHostsParser:required hostReview:required",
+			'guards=compareOnly exactConfirm="review host trust prod" connectConfirm="connect remote prod"',
+			"execution=willImport=false willConnect=false willReadLocal=false willParse=false willScan=false willTrust=false willMutate=false",
+			"next=collect host key evidence and parse known_hosts before trust decision",
+		]);
+
+		expect(formatRemoteHostKeyTrustDecisionPreviewRows().join("\n")).toBe(
+			[
+				"REMOTE HOST KEY TRUST DECISION none",
+				"target=none lookup=none provider=sftp status=locked",
+				"collected=sha256:unknown knownHosts=sha256:unknown match=unknown decision=blocked",
+				"inputs=hostKeyEvidence:required knownHostsParser:required hostReview:required",
+				'guards=compareOnly exactConfirm="select remote profile" connectConfirm="select remote profile"',
+				"execution=willImport=false willConnect=false willReadLocal=false willParse=false willScan=false willTrust=false willMutate=false",
+				"next=select remote profile · no trust decision",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote host key trust decision preview in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE HOST KEY TRUST DECISION dev");
+		expect(output).toContain(
+			"collected=sha256:unknown knownHosts=sha256:unknown match=unknown decision=blocked",
+		);
+		expect(output).toContain(
+			"execution=willImport=false willConnect=false willReadLocal=false willParse=false willScan=false willTrust=false willMutate=false",
 		);
 	});
 
