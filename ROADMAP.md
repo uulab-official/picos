@@ -2,7 +2,7 @@
 
 ## v0.4.290 - Remote Host Key Scan Review
 
-Status: in progress on `codex/picos-v0.4.290-host-key-scan-review`.
+Status: draft PR [#358](https://github.com/uulab-official/picos/pull/358) on `codex/picos-v0.4.290-host-key-scan-review`.
 
 Goal: make host-key scan intent auditable before picos is allowed to import SFTP transport or open any network socket.
 
