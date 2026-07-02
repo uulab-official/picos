@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.221 - Tools Evidence Match Actions
+
+Status: draft PR [#283](https://github.com/uulab-official/picos/pull/283) on `codex/picos-v0.4.221-tools-evidence-match-actions`.
+
+Goal: make recovered Tools evidence search matches act like a real keyboard sub-menu, so the operator can select and act on matching files without manually syncing the broader Status Evidence cursor.
+
+- Status Activity Tools evidence recovery shelves now keep a selected match cursor and show `selected=<n>/<total>` when multiple matches are visible.
+- `[`/`]` cycles the recovered Tools evidence match cursor before falling back to the broader Status Evidence family item cursor.
+- `K` opens the selected recovered Tools evidence match through the existing locked `:file-open` confirmation.
+- `D` opens the selected active recovered Tools evidence match through the existing exact `archive tools export` confirmation; archived matches remain read-only.
+- Tests cover match cursor wraparound, selected-match lookup, and shelf row rendering.
+- Next: record recovered Tools match open/archive attempts as Status Activity result rows and Timeline audit events so these sub-menu actions are searchable after rapid keyboard sessions.
+
 ## v0.4.220 - Tools Evidence Search Match List
 
 Status: draft PR [#282](https://github.com/uulab-official/picos/pull/282) on `codex/picos-v0.4.220-tools-evidence-search-list`.

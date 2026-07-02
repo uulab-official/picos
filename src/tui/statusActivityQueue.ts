@@ -646,6 +646,7 @@ export function formatStatusActivityCopyIntentRows(
 	freshResultJumpSelectedIndex = 0,
 	freshResultJumpCount = freshResultJump ? 1 : 0,
 	toolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery,
+	selectedToolsEvidenceSearchMatchIndex = 0,
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -737,6 +738,7 @@ export function formatStatusActivityCopyIntentRows(
 		...auditJumpRows,
 		...formatStatusActivityToolsEvidenceSearchRecoveryRows(
 			toolsEvidenceSearchRecovery,
+			selectedToolsEvidenceSearchMatchIndex,
 		),
 		...formatStatusActivityResultAuditJumpReplayWarningSummaryRows(
 			staleReplayWarningSummary,
@@ -756,7 +758,7 @@ export function formatStatusActivityCopyIntentRows(
 	const resultJumpControls =
 		freshResultJumpCount > 1 ? " · J result select" : "";
 	const toolsRecoveryControls = toolsEvidenceSearchRecovery
-		? " · tools recovered"
+		? `${toolsEvidenceSearchRecovery.items.length > 1 ? " · [/] tools select" : ""} · tools recovered`
 		: "";
 	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	if (history.length === 0) {
@@ -847,18 +849,23 @@ export function createStatusActivityToolsEvidenceSearchRecovery(
 
 function formatStatusActivityToolsEvidenceSearchRecoveryRows(
 	recovery?: StatusActivityToolsEvidenceSearchRecovery,
+	selectedIndex = 0,
 ): string[] {
 	if (!recovery) {
 		return [];
 	}
+	const selected = getNormalizedSelectionIndex(
+		recovery.items.length,
+		selectedIndex,
+	);
 	const actionHint =
 		recovery.target === "active"
 			? "actions=K open D archive"
 			: "actions=K open";
 	const rows = [
-		`tools matches target=${recovery.target} visible=${recovery.items.length}/${recovery.total} query=${recovery.query || "-"}`,
+		`tools matches target=${recovery.target} visible=${recovery.items.length}/${recovery.total}${recovery.items.length > 1 ? ` selected=${selected + 1}/${recovery.items.length}` : ""} query=${recovery.query || "-"}`,
 		...recovery.items.slice(0, 2).map((item, index) => {
-			const marker = index === 0 ? "> " : "  ";
+			const marker = index === selected ? "> " : "  ";
 			return `${marker}${item.fileName} scope=${item.scope} runs=${item.runCount} ${actionHint}`;
 		}),
 	];
@@ -870,6 +877,34 @@ function formatStatusActivityToolsEvidenceSearchRecoveryRows(
 		rows.push("  no matching Tools evidence exports");
 	}
 	return rows;
+}
+
+export function getSelectedStatusActivityToolsEvidenceSearchMatch(
+	recovery: StatusActivityToolsEvidenceSearchRecovery | undefined,
+	selectedIndex: number,
+): ToolHistoryExportIndexItem | undefined {
+	if (!recovery || recovery.items.length === 0) {
+		return undefined;
+	}
+	return recovery.items[
+		getNormalizedSelectionIndex(recovery.items.length, selectedIndex)
+	];
+}
+
+export function moveStatusActivityToolsEvidenceSearchMatchSelection(
+	recovery: StatusActivityToolsEvidenceSearchRecovery | undefined,
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (!recovery || recovery.items.length === 0) {
+		return 0;
+	}
+	const current = getNormalizedSelectionIndex(
+		recovery.items.length,
+		selectedIndex,
+	);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + recovery.items.length) % recovery.items.length;
 }
 
 function parseToolsEvidenceSearchAuditQuery(
