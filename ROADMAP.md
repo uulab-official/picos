@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.241 - Result Jump Class Persistence
+
+Status: draft PR [#303](https://github.com/uulab-official/picos/pull/303) on `codex/picos-v0.4.241-result-jump-class-persistence`.
+
+Goal: persist the Status result jump class filter across TUI sessions.
+
+- Config now includes `statusResultJumpClassFilter` with safe enum values `all`, `process`, `timeline`, `tools`, and `source`.
+- TUI boot/config sync restores the saved Status result jump class filter.
+- Status `^` and command-palette result jump filter dispatch persist the next class through the existing config store.
+- Config managed shelf rows expose `statusJumpClass=<class>` so the saved recovery workflow preference is visible from the OS settings center.
+- Tests cover schema merge/coerce behavior, config store persistence, and Config shelf visibility.
+- Next: expose a compact Config workspace control for cycling this filter without entering Status, keeping OS settings and Status navigation fully symmetric.
+
 ## v0.4.240 - Result Jump Class Palette
 
 Status: draft PR [#302](https://github.com/uulab-official/picos/pull/302) on `codex/picos-v0.4.240-result-jump-class-palette`.

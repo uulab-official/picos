@@ -1030,6 +1030,7 @@ export function App(): React.ReactElement {
 				remoteProfiles,
 				routeFilterPresets,
 				showPublicIp,
+				statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 				theme: "dark",
 				toolHistoryDetailView,
 				toolHistoryFilterPresets,
@@ -1057,6 +1058,7 @@ export function App(): React.ReactElement {
 			remoteProfiles,
 			routeFilterPresets,
 			showPublicIp,
+			statusActivityResultTimelineJumpFilter,
 			toolHistoryDetailView,
 			toolHistoryFilterPresets,
 			toolHistoryGroup,
@@ -1209,6 +1211,9 @@ export function App(): React.ReactElement {
 		setEditorSaveMode(config.editorSaveMode);
 		setShowPublicIp(config.showPublicIp);
 		setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
+		setStatusActivityResultTimelineJumpFilter(
+			config.statusResultJumpClassFilter,
+		);
 		setCustomToolTargetPresets(config.toolTargetPresets as ToolTargetPreset[]);
 	}, []);
 
@@ -3837,6 +3842,15 @@ export function App(): React.ReactElement {
 				log(
 					"info",
 					`status activity timeline result jump filter ${next}${options.origin === "palette" ? " origin=palette" : ""}`,
+				);
+				void setConfigValue("statusResultJumpClassFilter", next).catch(
+					(caught) =>
+						log(
+							"warn",
+							caught instanceof Error
+								? `status result jump filter persistence failed ${caught.message}`
+								: `status result jump filter persistence failed ${String(caught)}`,
+						),
 				);
 				return next;
 			});

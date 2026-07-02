@@ -208,6 +208,12 @@ export type PicosConfig = {
 	controlExecutionMode: "disabled" | "dry-run";
 	allowAdminDryRun: boolean;
 	editorSaveMode: "disabled" | "local-write";
+	statusResultJumpClassFilter:
+		| "all"
+		| "process"
+		| "timeline"
+		| "tools"
+		| "source";
 	remoteProfiles: SftpRemoteProfile[];
 	logProfiles: LogProfile[];
 	logSearchPresets: string[];

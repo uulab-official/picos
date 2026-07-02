@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Status result jump class filter preference now persists as `statusResultJumpClassFilter`, is restored on TUI boot, and appears in the Config managed shelf summary.
 - Command palette now exposes the Status result jump class filter via `result jump filter` and `jump class`, with a preview of current/next class and visible/total jump counts before cycling the same `^` filter.
 - Status result jump browser now supports a `^` target-class filter cycle across `all`, `process`, `timeline`, `tools`, and `source`, and keeps `J`/`I` navigation scoped to the active class.
 - Project logo SVG and README brand header.
