@@ -69,6 +69,8 @@ Update README, CHANGELOG, and ROADMAP to describe candidate selection and next s
 Run: `bun run verify`, `bun run release:check`, and `git diff --check`.
 Expected: PASS.
 
-- [ ] **Step 3: Commit, push, and open draft PR**
+- [x] **Step 3: Commit, push, and open draft PR**
 
 Push `codex/picos-v0.4.286-known-hosts-candidate-selection`, open a draft PR stacked on `codex/picos-v0.4.285-host-key-compare-detail`, then update ROADMAP and this plan with the PR link.
+
+Result: draft PR [#348](https://github.com/uulab-official/picos/pull/348).

@@ -2,7 +2,7 @@
 
 ## v0.4.286 - Remote Known Hosts Candidate Selection
 
-Status: in progress on `codex/picos-v0.4.286-known-hosts-candidate-selection`.
+Status: draft PR [#348](https://github.com/uulab-official/picos/pull/348) on `codex/picos-v0.4.286-known-hosts-candidate-selection`.
 
 Goal: make future `known_hosts` candidate selection visible before picos reads local trust files, parses rows, compares fingerprints, trusts a host, imports SFTP transport, opens a socket, or mutates anything.
 
