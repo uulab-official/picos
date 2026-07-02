@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy-intent shelves now show a compact mini-list of Tools evidence files matching the selected Tools search recovery jump, including scope, run count, and open/archive action hints.
 - Status Activity copy-intent shelves now render Tools evidence search result jumps as dedicated `tools search target=... query=...` rows and summarize reusable Tools search audit jumps with target/query tokens.
 - Tools evidence search changes now append Status Activity result rows and searchable Timeline audit messages, including active/archive target, query, and visible/total match counts.
 - Tools evidence can now be searched by filename, generated timestamp, scope, run count, or path from the command palette `tools evidence search` prompt, and search results drive Status Evidence open/archive selection.

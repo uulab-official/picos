@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.220 - Tools Evidence Search Match List
+
+Status: draft PR [#282](https://github.com/uulab-official/picos/pull/282) on `codex/picos-v0.4.220-tools-evidence-search-list`.
+
+Goal: show the actual Tools evidence files behind a recovered search jump so operators can inspect matching raw-output exports without leaving the Status shelf context.
+
+- Status Activity copy-intent shelves now accept a Tools evidence search recovery model built from the selected fresh/replay Timeline audit jump.
+- The recovery shelf shows `tools matches target=<active|archive> visible=<n>/<total> query=<query>` before listing up to two matching export files.
+- Matching file rows include filename, scope, run count, and active/archive action hints so the Status Evidence open/archive controls remain discoverable.
+- The recovery model reuses the same Tools evidence index scope/query filtering as Status Evidence, keeping search counts and visible files aligned.
+- Tests cover recovery model construction and shelf mini-list rendering.
+- Next: add keyboard selection for recovered Tools evidence matches so `K`/`D` can act directly from the mini-list instead of relying on the Status Evidence active family.
+
 ## v0.4.219 - Tools Evidence Search Intents
 
 Status: draft PR [#281](https://github.com/uulab-official/picos/pull/281) on `codex/picos-v0.4.219-tools-evidence-search-intents`.
