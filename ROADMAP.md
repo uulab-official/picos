@@ -2,7 +2,7 @@
 
 ## v0.4.289 - Remote Host Key Scan Request
 
-Status: in progress on `codex/picos-v0.4.289-host-key-scan-request`.
+Status: draft PR [#356](https://github.com/uulab-official/picos/pull/356) on `codex/picos-v0.4.289-host-key-scan-request`.
 
 Goal: make the future host-key fingerprint scan request visible before picos imports SFTP transport, opens a socket, scans a host key, trusts a host, or mutates anything.
 

@@ -69,6 +69,8 @@ Update README, CHANGELOG, and ROADMAP to describe the locked host-key scan reque
 Run: `bun run verify`, `bun run release:check`, and `git diff --check`.
 Expected: PASS.
 
-- [ ] **Step 3: Commit, push, and open draft PR**
+- [x] **Step 3: Commit, push, and open draft PR**
 
 Push `codex/picos-v0.4.289-host-key-scan-request`, open a draft PR stacked on `codex/picos-v0.4.288-host-key-candidate-compare`, then update ROADMAP and this plan with the PR link.
+
+Result: draft PR [#356](https://github.com/uulab-official/picos/pull/356).
