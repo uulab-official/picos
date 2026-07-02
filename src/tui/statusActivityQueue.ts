@@ -8,6 +8,7 @@ import {
 import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
 import type {
 	RemoteConnectConfirmation,
+	RemoteHostKeyScanReviewConfirmation,
 	RemoteHostKeyTrustReviewConfirmation,
 } from "../core/remotes";
 import type { SftpRemoteProfile, SupportedPlatform } from "../core/types";
@@ -63,6 +64,7 @@ export type StatusActivityEnterAction =
 	| "process-control-preview"
 	| "process-control-evidence"
 	| "remote-host-review"
+	| "remote-host-key-scan-review"
 	| "remote-host-trust-review"
 	| "remote-connect"
 	| "none";
@@ -565,6 +567,33 @@ export function createRemoteHostKeyTrustReviewStatusActivityResult(
 	};
 }
 
+export function createRemoteHostKeyScanReviewStatusActivityResult(
+	confirmation: RemoteHostKeyScanReviewConfirmation,
+): StatusActivityResult {
+	const { request } = confirmation;
+	return {
+		source: "timeline",
+		action: "remote-host-key-scan-review",
+		message: `remote host key scan review ${confirmation.status} ${request.id} ${request.host}:${request.port}`,
+		detail: [
+			`target="${request.target}"`,
+			`dependency=${request.dependency}`,
+			`evidenceOutput=${request.evidenceOutput}`,
+			"network=not-opened",
+			"scan=not-run",
+			"trust=not-applied",
+			"knownHostsWrite=false",
+			`confirm="${request.confirm}"`,
+		].join(" "),
+		detailRows: [
+			`scan target="${request.target}" host=${request.host} port=${request.port} provider=${request.provider}`,
+			`evidence output=${request.evidenceOutput} dependency=${request.dependency}`,
+			`decision status=${confirmation.status} network=not-opened scan=not-run trust=not-applied knownHostsWrite=${confirmation.knownHostsWritten}`,
+			`confirm scan="${request.confirm}"`,
+		],
+	};
+}
+
 export function formatRemoteActivityShelfRows(
 	history: StatusActivityResult[],
 	options: {
@@ -584,7 +613,7 @@ export function formatRemoteActivityShelfRows(
 		return [
 			`REMOTE ACTIVITY recent=0 selected=${selectedProfileId}`,
 			"no remote activity recorded yet",
-			"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
+			"controls=enter stage · s scan review · t trust review · c connect preview · Status I timeline recovery",
 		];
 	}
 
@@ -599,7 +628,7 @@ export function formatRemoteActivityShelfRows(
 		}
 	}
 	rows.push(
-		"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
+		"controls=enter stage · s scan review · t trust review · c connect preview · Status I timeline recovery",
 	);
 	return rows;
 }
@@ -608,6 +637,7 @@ function isRemoteActivityResult(result: StatusActivityResult): boolean {
 	return (
 		result.source === "timeline" &&
 		(result.action === "remote-host-review" ||
+			result.action === "remote-host-key-scan-review" ||
 			result.action === "remote-host-trust-review" ||
 			result.action === "remote-connect")
 	);
@@ -635,6 +665,9 @@ function formatRemoteActivitySummary(result: StatusActivityResult): string {
 	}
 	if (result.action === "remote-host-review") {
 		return result.message.replace(/^remote host review staged /, "stage ");
+	}
+	if (result.action === "remote-host-key-scan-review") {
+		return result.message.replace(/^remote host key scan review /, "scan ");
 	}
 	if (result.action === "remote-host-trust-review") {
 		return result.message.replace(/^remote host trust review /, "trust ");
@@ -1540,6 +1573,12 @@ export function createStatusActivityResultTimelineSearch(
 	}
 	if (
 		result.source === "timeline" &&
+		result.action === "remote-host-key-scan-review"
+	) {
+		return createRemoteHostKeyScanReviewResultTimelineSearch(result);
+	}
+	if (
+		result.source === "timeline" &&
 		result.action === "remote-host-trust-review"
 	) {
 		return createRemoteHostKeyTrustReviewResultTimelineSearch(result);
@@ -1582,6 +1621,24 @@ function createRemoteConnectResultTimelineSearch(
 		filter: "audit",
 		query: `remote connect audit id=${id} status=${status}`,
 		message: `status activity result timeline search remote connect ${id} ${status}`,
+	};
+}
+
+function createRemoteHostKeyScanReviewResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^remote host key scan review (confirmed-blocked|rejected) ([A-Za-z0-9._-]{1,64}) /,
+	);
+	const status = match?.[1];
+	const id = match?.[2];
+	if (!id || !status) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: `remote host key scan review audit id=${id} status=${status}`,
+		message: `status activity result timeline search remote host key scan review ${id} ${status}`,
 	};
 }
 

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.290 - Remote Host Key Scan Review
+
+Status: draft PR [#358](https://github.com/uulab-official/picos/pull/358) on `codex/picos-v0.4.290-host-key-scan-review`.
+
+Goal: make host-key scan intent auditable before picos is allowed to import SFTP transport or open any network socket.
+
+- Remotes focus adds `s scan review`, opening a locked `:remote-host-scan` confirmation prompt for the selected SFTP profile.
+- Exact `scan host key <id>` input records `confirmed-blocked`; any other input records `rejected`.
+- Audit rows include target, dependency, planned evidence output, confirmation phrase, `network=not-opened`, `scan=not-run`, `trust=not-applied`, and `knownHostsWrite=false`.
+- Status Activity shows scan review results beside stage/trust/connect activity and can jump back to matching Timeline audit rows.
+- Tests cover core scan review confirmations, audit rows, Status Activity detail/history rows, remote activity shelf rows, and Timeline recovery query creation.
+- Next: add an explicit scan execution policy object that can stay disabled by default while describing future transport prerequisites.
+
 ## v0.4.289 - Remote Host Key Scan Request
 
 Status: draft PR [#356](https://github.com/uulab-official/picos/pull/356) on `codex/picos-v0.4.289-host-key-scan-request`.

@@ -10,8 +10,10 @@ import {
 } from "../src/core/auditLog";
 import {
 	createRemoteConnectPreview,
+	createRemoteHostKeyScanRequest,
 	createRemoteHostKeyTrustDecisionPreview,
 	submitRemoteConnectConfirmation,
+	submitRemoteHostKeyScanReview,
 	submitRemoteHostKeyTrustReview,
 } from "../src/core/remotes";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
@@ -23,6 +25,7 @@ import {
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
 	createRemoteConnectStatusActivityResult,
+	createRemoteHostKeyScanReviewStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
@@ -675,11 +678,59 @@ describe("Status activity queue", () => {
 		});
 	});
 
+	test("creates status activity results for blocked remote host key scan review confirmations", () => {
+		const request = createRemoteHostKeyScanRequest({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+		const confirmation = submitRemoteHostKeyScanReview(
+			request,
+			"scan host key prod",
+		);
+		const result =
+			createRemoteHostKeyScanReviewStatusActivityResult(confirmation);
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "remote-host-key-scan-review",
+			message:
+				"remote host key scan review confirmed-blocked prod prod.example.com:2222",
+			detail:
+				'target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp evidenceOutput=sha256:unknown network=not-opened scan=not-run trust=not-applied knownHostsWrite=false confirm="scan host key prod"',
+			detailRows: [
+				'scan target="sftp://deploy@prod.example.com:2222/srv/app" host=prod.example.com port=2222 provider=sftp',
+				"evidence output=sha256:unknown dependency=@uulab/picos-sftp",
+				"decision status=confirmed-blocked network=not-opened scan=not-run trust=not-applied knownHostsWrite=false",
+				'confirm scan="scan host key prod"',
+			],
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=remote-host-key-scan-review",
+			"> remote host key scan review confirmed-blocked prod prod.example.com:2222",
+			'  scan target="sftp://deploy@prod.example.com:2222/srv/app" host=prod.example.com port=2222 provider=sftp',
+			"  evidence output=sha256:unknown dependency=@uulab/picos-sftp",
+			"  decision status=confirmed-blocked network=not-opened scan=not-run trust=not-applied knownHostsWrite=false",
+			'  confirm scan="scan host key prod"',
+		]);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query:
+				"remote host key scan review audit id=prod status=confirmed-blocked",
+			message:
+				"status activity result timeline search remote host key scan review prod confirmed-blocked",
+		});
+	});
+
 	test("formats recent remote activity shelf rows for Remotes workspace", () => {
 		expect(formatRemoteActivityShelfRows([])).toEqual([
 			"REMOTE ACTIVITY recent=0 selected=none",
 			"no remote activity recorded yet",
-			"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
+			"controls=enter stage · s scan review · t trust review · c connect preview · Status I timeline recovery",
 		]);
 
 		const profile = {
@@ -699,6 +750,12 @@ describe("Status activity queue", () => {
 				"review host trust prod",
 			),
 		);
+		const scan = createRemoteHostKeyScanReviewStatusActivityResult(
+			submitRemoteHostKeyScanReview(
+				createRemoteHostKeyScanRequest(profile),
+				"scan host key prod",
+			),
+		);
 		const connect = createRemoteConnectStatusActivityResult(
 			submitRemoteConnectConfirmation(preview, "connect remote prod"),
 		);
@@ -712,20 +769,23 @@ describe("Status activity queue", () => {
 						message: "selected timeline copy ignored",
 					},
 					connect,
+					scan,
 					trust,
 					stage,
 				],
-				{ selectedProfileId: "prod" },
+				{ selectedProfileId: "prod", limit: 4 },
 			),
 		).toEqual([
-			"REMOTE ACTIVITY recent=3 selected=prod",
+			"REMOTE ACTIVITY recent=4 selected=prod",
 			"> connect confirmed-blocked prod prod.example.com:2222",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+			"  scan confirmed-blocked prod prod.example.com:2222",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp evidenceOutput=sha256:unknown network=not-opened scan=not-run trust=not-applied knownHostsWrite=false confirm="scan host key prod"',
 			"  trust confirmed-blocked prod prod.example.com:2222",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
 			"  stage prod prod.example.com:2222",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" user=deploy key=configured policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
-			"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
+			"controls=enter stage · s scan review · t trust review · c connect preview · Status I timeline recovery",
 		]);
 	});
 
