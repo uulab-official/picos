@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.287 - Remote Known Hosts Read Result
+
+Status: draft PR [#350](https://github.com/uulab-official/picos/pull/350) on `codex/picos-v0.4.287-known-hosts-read-result`.
+
+Goal: bridge the locked local `known_hosts` read preview into candidate parsing without exposing raw trust-file content or enabling host trust, sockets, scans, writes, or mutation.
+
+- Core now models `REMOTE KNOWN_HOSTS READ RESULT` rows with provided-content byte/line counts, parser input state, exact `read known_hosts <id>` confirmation, and raw content hidden.
+- Read-result rows feed candidate parsing through `parseRemoteKnownHostsCandidatesFromReadResult()` while preserving the blocked trust posture.
+- `picos remote <id>` prints the empty read-result surface between read preview and parser preview.
+- Remotes TUI renders a dedicated `KNOWN_HOSTS READ RESULT` section with additional vertical budget.
+- Tests cover read-result rows, hidden raw content, provider status inclusion, candidate parsing from read results, and no-socket/no-scan/no-trust/no-mutation flags.
+- Next: add selected-candidate compare detail so host-key evidence can be compared with a read-result candidate before trust review.
+
 ## v0.4.286 - Remote Known Hosts Candidate Parser
 
 Status: draft PR [#349](https://github.com/uulab-official/picos/pull/349) on `codex/picos-v0.4.286-known-hosts-candidates`.

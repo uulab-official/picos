@@ -183,6 +183,27 @@ export type RemoteKnownHostsReadPreview = {
 	};
 };
 
+export type RemoteKnownHostsReadResult = {
+	id: string;
+	provider: "sftp";
+	lookup: string;
+	status: "locked" | "provided";
+	source: "local-known-hosts-read-result";
+	path: "~/.ssh/known_hosts" | "none";
+	bytes: number;
+	lines: number;
+	parserInput: "available" | "missing";
+	confirm: string;
+	execution: {
+		readsLocal: false;
+		usesProvidedContent: boolean;
+		opensSocket: false;
+		scansHostKey: false;
+		trustsHost: false;
+		mutatesRemote: false;
+	};
+};
+
 export type RemoteKnownHostsParserPreview = {
 	id: string;
 	provider: "sftp";
@@ -224,7 +245,7 @@ export type RemoteKnownHostsCandidatePreview = {
 	provider: "sftp";
 	lookup: string;
 	status: "not-parsed" | "parsed-injected";
-	source: "provided-known-hosts";
+	source: "provided-known-hosts" | "local-known-hosts-read-result";
 	candidates: RemoteKnownHostsCandidate[];
 	selected: number | "none";
 	match: "matched" | "unknown";
@@ -698,6 +719,63 @@ export function formatRemoteKnownHostsReadPreviewRows(
 	];
 }
 
+function countKnownHostsContentLines(content: string): number {
+	const trimmed = content.trimEnd();
+	return trimmed ? trimmed.split(/\r\n|\n|\r/).length : 0;
+}
+
+function countKnownHostsContentBytes(content: string): number {
+	return new TextEncoder().encode(content).length;
+}
+
+export function createRemoteKnownHostsReadResult(
+	profile?: SftpRemoteProfile,
+	content?: string,
+): RemoteKnownHostsReadResult {
+	const hasProvidedContent = typeof content === "string";
+	const hasParserInput = Boolean(profile && hasProvidedContent);
+	const providedContent = content ?? "";
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		lookup: profile ? `${profile.host}:${profile.port}` : "none",
+		status: hasParserInput ? "provided" : "locked",
+		source: "local-known-hosts-read-result",
+		path: hasParserInput ? "~/.ssh/known_hosts" : "none",
+		bytes: hasParserInput ? countKnownHostsContentBytes(providedContent) : 0,
+		lines: hasParserInput ? countKnownHostsContentLines(providedContent) : 0,
+		parserInput: hasParserInput ? "available" : "missing",
+		confirm: profile
+			? `read known_hosts ${profile.id}`
+			: "select remote profile",
+		execution: {
+			readsLocal: false,
+			usesProvidedContent: hasParserInput,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteKnownHostsReadResultRows(
+	result: RemoteKnownHostsReadResult = createRemoteKnownHostsReadResult(),
+): string[] {
+	return [
+		`REMOTE KNOWN_HOSTS READ RESULT ${result.id}`,
+		`lookup=${result.lookup} provider=${result.provider} status=${result.status} source=${result.source}`,
+		`path=${result.path} bytes=${result.bytes} lines=${result.lines} parserInput=${result.parserInput}`,
+		`guards=localReadPreview exactConfirm="${result.confirm}" rawContent=hidden`,
+		`execution=willReadLocal=${result.execution.readsLocal} usedProvidedContent=${result.execution.usesProvidedContent} willConnect=${result.execution.opensSocket} willScan=${result.execution.scansHostKey} willTrust=${result.execution.trustsHost} willMutate=${result.execution.mutatesRemote}`,
+		result.id === "none"
+			? "next=select remote profile · no known_hosts read result"
+			: result.parserInput === "available"
+				? "next=parse provided read result into known_hosts candidates"
+				: "next=confirm local read preview before parser input",
+	];
+}
+
 export function createRemoteKnownHostsParserPreview(
 	profile?: SftpRemoteProfile,
 ): RemoteKnownHostsParserPreview {
@@ -781,6 +859,7 @@ export function parseRemoteKnownHostsCandidates(
 export function createRemoteKnownHostsCandidatePreview(
 	profile?: SftpRemoteProfile,
 	content?: string,
+	source: RemoteKnownHostsCandidatePreview["source"] = "provided-known-hosts",
 ): RemoteKnownHostsCandidatePreview {
 	const lookup = profile ? `${profile.host}:${profile.port}` : "none";
 	const hasInjectedContent = typeof content === "string";
@@ -793,7 +872,7 @@ export function createRemoteKnownHostsCandidatePreview(
 		provider: "sftp",
 		lookup,
 		status: hasInjectedContent ? "parsed-injected" : "not-parsed",
-		source: "provided-known-hosts",
+		source,
 		candidates,
 		selected: candidates[0]?.index ?? "none",
 		match: candidates.length > 0 ? "matched" : "unknown",
@@ -807,6 +886,18 @@ export function createRemoteKnownHostsCandidatePreview(
 			mutatesRemote: false,
 		},
 	};
+}
+
+export function parseRemoteKnownHostsCandidatesFromReadResult(
+	profile?: SftpRemoteProfile,
+	content?: string,
+): RemoteKnownHostsCandidatePreview {
+	const result = createRemoteKnownHostsReadResult(profile, content);
+	return createRemoteKnownHostsCandidatePreview(
+		profile,
+		result.parserInput === "available" ? content : undefined,
+		"local-known-hosts-read-result",
+	);
 }
 
 export function formatRemoteKnownHostsCandidatePreviewRows(
@@ -1110,6 +1201,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteKnownHostsReadPreviewRows(
 			createRemoteKnownHostsReadPreview(profile),
+		),
+		"",
+		...formatRemoteKnownHostsReadResultRows(
+			createRemoteKnownHostsReadResult(profile),
 		),
 		"",
 		...formatRemoteKnownHostsParserPreviewRows(

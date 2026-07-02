@@ -10,6 +10,7 @@ import {
 	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
+	createRemoteKnownHostsReadResult,
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
@@ -27,6 +28,7 @@ import {
 	formatRemoteKnownHostsCandidatePreviewRows,
 	formatRemoteKnownHostsParserPreviewRows,
 	formatRemoteKnownHostsReadPreviewRows,
+	formatRemoteKnownHostsReadResultRows,
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
@@ -34,6 +36,7 @@ import {
 	formatRemoteTransportProbeRows,
 	normalizeRemoteProfiles,
 	parseRemoteKnownHostsCandidates,
+	parseRemoteKnownHostsCandidatesFromReadResult,
 	parseRemoteProfileCommand,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyTrustReview,
@@ -755,6 +758,141 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willReadLocal=false willImport=false willConnect=false willScan=false willMutate=false",
+		);
+	});
+
+	test("formats remote known_hosts read results without reading local files", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const content =
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfake prod-port\n";
+
+		const result = createRemoteKnownHostsReadResult(profile, content);
+
+		expect(result).toEqual({
+			id: "prod",
+			provider: "sftp",
+			lookup: "prod.example.com:2222",
+			status: "provided",
+			source: "local-known-hosts-read-result",
+			path: "~/.ssh/known_hosts",
+			bytes: 78,
+			lines: 1,
+			parserInput: "available",
+			confirm: "read known_hosts prod",
+			execution: {
+				readsLocal: false,
+				usesProvidedContent: true,
+				opensSocket: false,
+				scansHostKey: false,
+				trustsHost: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(formatRemoteKnownHostsReadResultRows(result)).toEqual([
+			"REMOTE KNOWN_HOSTS READ RESULT prod",
+			"lookup=prod.example.com:2222 provider=sftp status=provided source=local-known-hosts-read-result",
+			"path=~/.ssh/known_hosts bytes=78 lines=1 parserInput=available",
+			'guards=localReadPreview exactConfirm="read known_hosts prod" rawContent=hidden',
+			"execution=willReadLocal=false usedProvidedContent=true willConnect=false willScan=false willTrust=false willMutate=false",
+			"next=parse provided read result into known_hosts candidates",
+		]);
+
+		expect(formatRemoteKnownHostsReadResultRows().join("\n")).toBe(
+			[
+				"REMOTE KNOWN_HOSTS READ RESULT none",
+				"lookup=none provider=sftp status=locked source=local-known-hosts-read-result",
+				"path=none bytes=0 lines=0 parserInput=missing",
+				'guards=localReadPreview exactConfirm="select remote profile" rawContent=hidden',
+				"execution=willReadLocal=false usedProvidedContent=false willConnect=false willScan=false willTrust=false willMutate=false",
+				"next=select remote profile · no known_hosts read result",
+			].join("\n"),
+		);
+	});
+
+	test("feeds remote known_hosts read results into candidate parsing", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const content =
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfake prod-port";
+
+		const preview = parseRemoteKnownHostsCandidatesFromReadResult(
+			profile,
+			content,
+		);
+
+		expect(preview).toMatchObject({
+			id: "prod",
+			lookup: "prod.example.com:2222",
+			status: "parsed-injected",
+			source: "local-known-hosts-read-result",
+			selected: 1,
+			match: "matched",
+			decision: "blocked",
+			execution: {
+				readsLocal: false,
+				parsesInjectedContent: true,
+				opensSocket: false,
+				scansHostKey: false,
+				trustsHost: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(preview.candidates).toHaveLength(1);
+		expect(preview.candidates[0]).toMatchObject({
+			index: 1,
+			sourceLine: 1,
+			hostPattern: "[prod.example.com]:2222",
+			keyType: "ssh-rsa",
+			match: "matched",
+			trust: "candidate-only",
+		});
+
+		expect(
+			parseRemoteKnownHostsCandidatesFromReadResult(undefined, content),
+		).toMatchObject({
+			id: "none",
+			lookup: "none",
+			status: "not-parsed",
+			source: "local-known-hosts-read-result",
+			candidates: [],
+			selected: "none",
+			match: "unknown",
+			execution: {
+				readsLocal: false,
+				parsesInjectedContent: false,
+			},
+		});
+	});
+
+	test("includes empty remote known_hosts read result in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE KNOWN_HOSTS READ RESULT dev");
+		expect(output).toContain("path=none bytes=0 lines=0 parserInput=missing");
+		expect(output).toContain(
+			"execution=willReadLocal=false usedProvidedContent=false willConnect=false willScan=false willTrust=false willMutate=false",
 		);
 	});
 

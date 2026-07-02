@@ -148,6 +148,7 @@ import {
 	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
+	createRemoteKnownHostsReadResult,
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
@@ -165,6 +166,7 @@ import {
 	formatRemoteKnownHostsCandidatePreviewRows,
 	formatRemoteKnownHostsParserPreviewRows,
 	formatRemoteKnownHostsReadPreviewRows,
+	formatRemoteKnownHostsReadResultRows,
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
@@ -11819,7 +11821,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 81);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 87);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11848,6 +11850,9 @@ function RemotesWorkspace({
 	);
 	const knownHostsReadPreviewRows = formatRemoteKnownHostsReadPreviewRows(
 		createRemoteKnownHostsReadPreview(selectedProfile),
+	);
+	const knownHostsReadResultRows = formatRemoteKnownHostsReadResultRows(
+		createRemoteKnownHostsReadResult(selectedProfile),
 	);
 	const knownHostsParserPreviewRows = formatRemoteKnownHostsParserPreviewRows(
 		createRemoteKnownHostsParserPreview(selectedProfile),
@@ -12088,6 +12093,27 @@ function RemotesWorkspace({
 										row.includes("not-run") ||
 										row.includes("willReadLocal=false") ||
 										row.includes("willScan=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">KNOWN_HOSTS READ RESULT</Text>
+				{knownHostsReadResultRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") ||
+										row.includes("missing") ||
+										row.includes("rawContent=hidden") ||
+										row.includes("willReadLocal=false") ||
+										row.includes("willTrust=false")
 									? "yellow"
 									: "gray"
 						}
