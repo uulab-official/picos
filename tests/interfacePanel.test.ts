@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { NetworkSummary } from "../src/core/types";
 import {
+	formatInterfaceSourceRows,
 	formatInterfaceWorkspaceRows,
 	formatSelectedInterfaceSummaryRows,
 	getNextInterfaceIndex,
@@ -86,7 +87,8 @@ describe("interface TUI panel formatting", () => {
 		expect(nextInterfaceDetailView("list")).toBe("detail");
 		expect(nextInterfaceDetailView("detail")).toBe("stats");
 		expect(nextInterfaceDetailView("stats")).toBe("platform");
-		expect(nextInterfaceDetailView("platform")).toBe("list");
+		expect(nextInterfaceDetailView("platform")).toBe("source");
+		expect(nextInterfaceDetailView("source")).toBe("list");
 		expect(getNextInterfaceIndex(0, 2, "down")).toBe(1);
 		expect(getNextInterfaceIndex(1, 2, "down")).toBe(0);
 		expect(getNextInterfaceIndex(0, 2, "up")).toBe(1);
@@ -176,6 +178,40 @@ describe("interface TUI panel formatting", () => {
 			"PRIMARY en0",
 			"GROUP LAN scope=private interfaces=en0 addresses=192.168.0.20",
 			"  hint=RFC1918 private network for local devices",
+		]);
+	});
+
+	test("formats source and locked control preview rows for selected interface", () => {
+		expect(formatInterfaceSourceRows(fixture, fixture.interfaces[0])).toEqual([
+			"SOURCE RAW en0",
+			"inventory=node:os.networkInterfaces interface=en0",
+			'stats=netstat -ib command="netstat -ibn"',
+			'gateway=route/get command="route -n get default"',
+			"dns=node:dns.getServers servers=1.1.1.1,8.8.8.8",
+			"CONTROL interface.disable risk=write privilege=admin status=locked confirmation=disable interface",
+			'adapter=macos command="sudo networksetup -setnetworkserviceenabled <service> off"',
+			"note=disable a network service",
+		]);
+		expect(
+			formatInterfaceWorkspaceRows(fixture, 14, {
+				selectedIndex: 0,
+				view: "source",
+			}),
+		).toEqual([
+			"SUMMARY interfaces=2 selected=en0 view=source",
+			"SELECTED en0 up wifiOrEthernet group=LAN primary=yes",
+			"ADDR ipv4=192.168.0.20/24 ipv6=fe80::1/64 mac=aa:bb:cc:dd:ee:ff netmask=255.255.255.0",
+			"LINK mtu=1500 rx=125.0MB/9000pk tx=42.0MB/7100pk",
+			"ROUTE gateway=192.168.0.1 dns=1.1.1.1,8.8.8.8 public=203.0.113.10",
+			"SOURCE os=darwin stats=netstat -ib actions=R refresh Tab panes K locked controls",
+			"SOURCE RAW en0",
+			"inventory=node:os.networkInterfaces interface=en0",
+			'stats=netstat -ib command="netstat -ibn"',
+			'gateway=route/get command="route -n get default"',
+			"dns=node:dns.getServers servers=1.1.1.1,8.8.8.8",
+			"CONTROL interface.disable risk=write privilege=admin status=locked confirmation=disable interface",
+			'adapter=macos command="sudo networksetup -setnetworkserviceenabled <service> off"',
+			"note=disable a network service",
 		]);
 	});
 });

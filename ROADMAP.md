@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.254 - Interface Source Control Preview
+
+Status: draft PR [#316](https://github.com/uulab-official/picos/pull/316) on `codex/picos-v0.4.254-interface-source-control-preview`.
+
+Goal: make Interfaces reveal its OS data sources and locked interface-control preview before any mutation is possible.
+
+- Interfaces now has a `source` pane after `platform` in the Tab cycle.
+- The source pane lists the selected adapter inventory source, platform stats command, gateway command, DNS source, and configured DNS servers.
+- The pane renders the adapter-owned `interface.disable` preview with write/admin risk, locked status, confirmation phrase, platform adapter, command candidate, and note.
+- The preview is read-only formatting only; picos still does not execute interface mutation from the Interfaces workspace.
+- Tests cover source tab cycling, source rows, workspace source rendering, and existing control execution behavior.
+- Next: route interface control previews through the command palette/Action Center and consider retaining bounded raw adapter output for inspection.
+
 ## v0.4.253 - Interface Parity Selected Summary
 
 Status: draft PR [#315](https://github.com/uulab-official/picos/pull/315) on `codex/picos-v0.4.253-interface-parity-selected-summary`.

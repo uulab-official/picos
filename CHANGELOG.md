@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Interfaces workspace now has a `source` pane that lists raw OS inventory/stat/gateway/DNS sources and the adapter-owned locked `interface.disable` preview without executing mutation.
 - Interfaces workspace now keeps a selected-interface summary strip visible across list, detail, stats, and platform panes with group, primary, address, traffic, route, DNS, source, and safe-action hints.
 - Config recovery palette actions now open and persist missing Tools target presets and Remotes SFTP profiles through safe one-line prompts.
 - Config recovery palette actions now open route, endpoint, port, and log creation prompts directly when the target shelf is empty.

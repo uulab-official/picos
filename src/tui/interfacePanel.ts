@@ -1,3 +1,4 @@
+import { getControlPreviewCommand } from "../core/controlPreview";
 import type {
 	NetworkGroupSummary,
 	NetworkInterfaceSummary,
@@ -5,7 +6,12 @@ import type {
 	SupportedPlatform,
 } from "../core/types";
 
-export type InterfaceDetailView = "list" | "detail" | "stats" | "platform";
+export type InterfaceDetailView =
+	| "list"
+	| "detail"
+	| "stats"
+	| "platform"
+	| "source";
 
 export function nextInterfaceDetailView(
 	view: InterfaceDetailView,
@@ -18,6 +24,9 @@ export function nextInterfaceDetailView(
 	}
 	if (view === "stats") {
 		return "platform";
+	}
+	if (view === "platform") {
+		return "source";
 	}
 	return "list";
 }
@@ -75,6 +84,13 @@ export function formatInterfaceWorkspaceRows(
 			...formatInterfacePlatformRows(summary),
 		].slice(0, visibleRows);
 	}
+	if (view === "source") {
+		return [
+			header,
+			...formatSelectedInterfaceSummaryRows(summary, selected),
+			...formatInterfaceSourceRows(summary, selected),
+		].slice(0, visibleRows);
+	}
 
 	return [
 		header,
@@ -100,6 +116,25 @@ export function formatSelectedInterfaceSummaryRows(
 		`LINK mtu=${selected.mtu ?? "-"} rx=${formatTraffic(selected.rxBytes, selected.rxPackets)} tx=${formatTraffic(selected.txBytes, selected.txPackets)}`,
 		`ROUTE gateway=${summary.gateway ?? "-"} dns=${formatDnsCompact(summary.dnsServers)} public=${summary.publicIp ?? "-"}`,
 		`SOURCE os=${summary.platform} stats=${platformStatsSource(summary.platform)} actions=R refresh Tab panes K locked controls`,
+	];
+}
+
+export function formatInterfaceSourceRows(
+	summary: NetworkSummary,
+	selected: NetworkInterfaceSummary | undefined,
+): string[] {
+	const name = selected?.name ?? "-";
+	return [
+		`SOURCE RAW ${name}`,
+		`inventory=node:os.networkInterfaces interface=${name}`,
+		formatSourceCommandRow("stats", platformStatsSource(summary.platform), {
+			command: platformStatsCommand(summary.platform),
+		}),
+		formatSourceCommandRow("gateway", platformGatewaySource(summary.platform), {
+			command: platformGatewayCommand(summary.platform),
+		}),
+		`dns=node:dns.getServers servers=${formatDnsCompact(summary.dnsServers)}`,
+		...formatInterfaceControlPreviewRows(summary.platform),
 	];
 }
 
@@ -201,6 +236,71 @@ function platformStatsSource(platform: SupportedPlatform): string {
 		return "Get-NetAdapterStatistics";
 	}
 	return "netstat -ib";
+}
+
+function platformStatsCommand(platform: SupportedPlatform): string[] {
+	if (platform === "linux") {
+		return ["ip", "-s", "link"];
+	}
+	if (platform === "win32") {
+		return [
+			"powershell",
+			"-NoProfile",
+			"-Command",
+			"Get-NetAdapterStatistics | ConvertTo-Json",
+		];
+	}
+	return ["netstat", "-ibn"];
+}
+
+function platformGatewaySource(platform: SupportedPlatform): string {
+	if (platform === "linux") {
+		return "ip-route";
+	}
+	if (platform === "win32") {
+		return "Get-NetRoute";
+	}
+	return "route/get";
+}
+
+function platformGatewayCommand(platform: SupportedPlatform): string[] {
+	if (platform === "linux") {
+		return ["ip", "route", "show", "default"];
+	}
+	if (platform === "win32") {
+		return [
+			"powershell",
+			"-NoProfile",
+			"-Command",
+			"Get-NetRoute -DestinationPrefix 0.0.0.0/0 | ConvertTo-Json",
+		];
+	}
+	return ["route", "-n", "get", "default"];
+}
+
+function formatSourceCommandRow(
+	label: string,
+	source: string,
+	preview: { command: string[] },
+): string {
+	return `${label}=${source} command="${preview.command.join(" ")}"`;
+}
+
+function formatInterfaceControlPreviewRows(
+	platform: SupportedPlatform,
+): string[] {
+	const preview = getControlPreviewCommand("interface.disable", platform);
+	if (!preview) {
+		return [
+			"CONTROL interface.disable risk=write privilege=admin status=locked confirmation=disable interface",
+			"adapter=- command=-",
+		];
+	}
+	return [
+		"CONTROL interface.disable risk=write privilege=admin status=locked confirmation=disable interface",
+		`adapter=${preview.adapter} command="${preview.command} ${preview.args.join(" ")}"`,
+		`note=${preview.note}`,
+	];
 }
 
 function formatCompactBytes(value?: number): string {
