@@ -28,6 +28,7 @@ Parse injected `known_hosts` content into safe candidate rows for future host-ke
   - Run `bun run release:check`.
   - Result: PASS. `bun run verify` passed 631 tests, lint, typecheck, build, and smoke. `bun run release:check` and `git diff --check` also passed.
 
-- [ ] **Step 6: Commit, push, and open draft PR**
+- [x] **Step 6: Commit, push, and open draft PR**
   - Commit and push `codex/picos-v0.4.286-known-hosts-candidates`.
   - Open a draft PR stacked on `codex/picos-v0.4.285-host-key-compare-detail`.
+  - Result: draft PR [#349](https://github.com/uulab-official/picos/pull/349) opened against `codex/picos-v0.4.285-host-key-compare-detail`.

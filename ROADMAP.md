@@ -2,7 +2,7 @@
 
 ## v0.4.286 - Remote Known Hosts Candidate Parser
 
-Status: in progress on `codex/picos-v0.4.286-known-hosts-candidates`.
+Status: draft PR [#349](https://github.com/uulab-official/picos/pull/349) on `codex/picos-v0.4.286-known-hosts-candidates`.
 
 Goal: make `known_hosts` candidate parsing real enough for future host-key comparison while still avoiding local trust-file reads, sockets, host-key scans, host trust, and mutation.
 
