@@ -162,6 +162,40 @@ export type RemoteHostKeyScanRequest = {
 	};
 };
 
+export type RemoteHostKeyScanPolicy = {
+	id: string;
+	provider: "sftp";
+	target: string;
+	host: string;
+	port: number | "-";
+	policy: "disabled";
+	mode: "preview-only";
+	dependency: "@uulab/picos-sftp";
+	risk: "read";
+	privilege: "user";
+	confirm: string;
+	prerequisites: [
+		"scanReview",
+		"transportInstalled",
+		"hostReview",
+		"knownHostsCompare",
+	];
+	blockers: (
+		| "policy-disabled"
+		| "transport-missing"
+		| "no-remote-profile"
+		| "fingerprint-unknown"
+	)[];
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		scansHostKey: false;
+		trustsHost: false;
+		writesKnownHosts: false;
+		mutatesRemote: false;
+	};
+};
+
 export type RemoteHostKeyScanReviewConfirmation = {
 	request: RemoteHostKeyScanRequest;
 	status: "confirmed-blocked" | "rejected";
@@ -707,6 +741,58 @@ export function formatRemoteHostKeyScanRequestRows(
 		request.id === "none"
 			? "next=select remote profile · no host-key scan request"
 			: "next=explicit scan review required before fingerprint evidence collection",
+	];
+}
+
+export function createRemoteHostKeyScanPolicy(
+	profile?: SftpRemoteProfile,
+): RemoteHostKeyScanPolicy {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		target: profile ? formatSftpRoot(profile) : "none",
+		host: profile?.host ?? "none",
+		port: profile?.port ?? "-",
+		policy: "disabled",
+		mode: "preview-only",
+		dependency: "@uulab/picos-sftp",
+		risk: "read",
+		privilege: "user",
+		confirm: profile ? `scan host key ${profile.id}` : "select remote profile",
+		prerequisites: [
+			"scanReview",
+			"transportInstalled",
+			"hostReview",
+			"knownHostsCompare",
+		],
+		blockers: profile
+			? ["policy-disabled", "transport-missing", "fingerprint-unknown"]
+			: ["policy-disabled", "no-remote-profile", "fingerprint-unknown"],
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			scansHostKey: false,
+			trustsHost: false,
+			writesKnownHosts: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteHostKeyScanPolicyRows(
+	policy: RemoteHostKeyScanPolicy = createRemoteHostKeyScanPolicy(),
+): string[] {
+	return [
+		`REMOTE HOST KEY SCAN POLICY ${policy.id}`,
+		`target=${policy.target} host=${policy.host} port=${policy.port} provider=${policy.provider} policy=${policy.policy} mode=${policy.mode}`,
+		`risk=${policy.risk} privilege=${policy.privilege} dependency=${policy.dependency}`,
+		`prerequisites=${policy.prerequisites.join(", ")}`,
+		`blockers=${policy.blockers.join(", ")}`,
+		`guards=exactConfirm="${policy.confirm}" trust=blocked knownHostsWrite=blocked`,
+		`execution=willImport=${policy.execution.importsTransport} willConnect=${policy.execution.opensSocket} willScan=${policy.execution.scansHostKey} willTrust=${policy.execution.trustsHost} willWriteKnownHosts=${policy.execution.writesKnownHosts} willMutate=${policy.execution.mutatesRemote}`,
+		policy.id === "none"
+			? "next=select remote profile · no scan execution policy"
+			: "next=enable scan execution policy only after transport, review, and compare prerequisites",
 	];
 }
 
@@ -1327,6 +1413,10 @@ export async function formatRemoteProviderStatus(
 		"",
 		...formatRemoteHostKeyScanRequestRows(
 			createRemoteHostKeyScanRequest(profile),
+		),
+		"",
+		...formatRemoteHostKeyScanPolicyRows(
+			createRemoteHostKeyScanPolicy(profile),
 		),
 		"",
 		...formatRemoteKnownHostsSourcePreviewRows(
