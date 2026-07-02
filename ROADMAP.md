@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.280 - Remote Known Hosts Source Preview
+
+Status: draft PR [#342](https://github.com/uulab-official/picos/pull/342) on `codex/picos-v0.4.280-remote-known-hosts-preview`.
+
+Goal: preview local `known_hosts` lookup sources before picos reads local trust files, collects fingerprints, imports SFTP transport, or opens a remote socket.
+
+- Remotes now models `REMOTE KNOWN_HOSTS SOURCE` rows for selected and empty SFTP profile states.
+- Source rows show lookup target, `~/.ssh/known_hosts`, `~/.ssh/known_hosts2`, match state, hashed state, `sha256:unknown`, and local-files source posture.
+- Guard rows keep local read preview, host review, and exact `connect remote <id>` confirmation visible before any future trust-source read.
+- Execution rows keep `willReadLocal=false`, `willImport=false`, `willConnect=false`, `willScan=false`, and `willMutate=false`.
+- `picos remote <id>` prints the same known-hosts source preview between host-key evidence and host review.
+- Remotes TUI renders a dedicated `KNOWN_HOSTS SOURCE` section before host review.
+- Tests cover selected-profile source shape, empty-state rows, CLI provider status inclusion, and no-local-read/no-import/no-connect/no-scan/no-mutation posture.
+- Next: add a locked local `known_hosts` read preview that stays inside safe local file boundaries.
+
 ## v0.4.279 - Remote Host Key Evidence
 
 Status: draft PR [#341](https://github.com/uulab-official/picos/pull/341) on `codex/picos-v0.4.279-remote-host-key-evidence`.
