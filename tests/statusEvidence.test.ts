@@ -89,6 +89,24 @@ describe("Status evidence detail rows", () => {
 			baseDir: "/tmp/picos/tools/archive",
 			items: [],
 		},
+		processControlAuditExports: [
+			{
+				path: "/tmp/picos/audit/picos-audit-process-selected.log",
+				content: "",
+				eventCount: 3,
+				scope: "selected" as const,
+				query: "process control evidence: kill pid=42 node",
+				origin,
+			},
+			{
+				path: "/tmp/picos/audit/picos-audit-process-all.log",
+				content: "",
+				eventCount: 6,
+				scope: "filtered" as const,
+				query: "process control evidence: restart pid=99 worker",
+				origin,
+			},
+		],
 	};
 
 	const selection = {
@@ -99,26 +117,30 @@ describe("Status evidence detail rows", () => {
 		selectedCleanupExportArchiveIndex: 0,
 		selectedToolExportIndex: 0,
 		selectedToolExportArchiveIndex: 0,
+		selectedProcessControlAuditExportIndex: 0,
 	};
 
 	test("summarizes selected evidence source, path, and controls", () => {
-		expect(formatStatusEvidenceDetailRows(populatedIndexes, selection)).toEqual(
-			[
-				"STATUS EVIDENCE selected=4",
-				"> handoff route routes/table source=Config>Logs scope=logs.profiles",
-				"  path=/tmp/picos/handoffs/routes/route.md",
-				"  controls=enter=open open O archive A/a retention=-",
-				"  audit selected events=1 query=control source=Config>Logs scope=logs.profiles",
-				"  path=/tmp/picos/audit/picos-audit-selected.log",
-				"  controls=enter=open open W archive Z/a retention=-",
-				"  cleanup selected entries=2 source=Config>Logs scope=logs.profiles",
-				"  path=/tmp/picos/cleanup/picos-cleanup-selected.md",
-				"  controls=enter=open open V archive X/x retention=-",
-				"  tools selected runs=1 source=- scope=-",
-				"  path=/tmp/picos/tools/picos-tools-selected.md",
-				"  controls=enter=open open K archive D/a retention=-",
-			],
-		);
+		expect(
+			formatStatusEvidenceDetailRows(populatedIndexes, selection, 20),
+		).toEqual([
+			"STATUS EVIDENCE selected=5",
+			"> handoff route routes/table source=Config>Logs scope=logs.profiles",
+			"  path=/tmp/picos/handoffs/routes/route.md",
+			"  controls=enter=open open O archive A/a retention=-",
+			"  audit selected events=1 query=control source=Config>Logs scope=logs.profiles",
+			"  path=/tmp/picos/audit/picos-audit-selected.log",
+			"  controls=enter=open open W archive Z/a retention=-",
+			"  cleanup selected entries=2 source=Config>Logs scope=logs.profiles",
+			"  path=/tmp/picos/cleanup/picos-cleanup-selected.md",
+			"  controls=enter=open open V archive X/x retention=-",
+			"  tools selected runs=1 source=- scope=-",
+			"  path=/tmp/picos/tools/picos-tools-selected.md",
+			"  controls=enter=open open K archive D/a retention=-",
+			"  process selected events=3 query=process control evidence: kill pid=42 node source=Config>Logs scope=logs.profiles",
+			"  path=/tmp/picos/audit/picos-audit-process-selected.log",
+			"  controls=enter=open open F archive=- retention=-",
+		]);
 	});
 
 	test("marks the active evidence entry when focus changes", () => {
@@ -155,11 +177,14 @@ describe("Status evidence detail rows", () => {
 			"tools",
 		);
 		expect(moveStatusEvidenceFocus(populatedIndexes, "tools", "next")).toBe(
+			"process",
+		);
+		expect(moveStatusEvidenceFocus(populatedIndexes, "process", "next")).toBe(
 			"handoff",
 		);
 		expect(
 			moveStatusEvidenceFocus(populatedIndexes, "handoff", "previous"),
-		).toBe("tools");
+		).toBe("process");
 	});
 
 	test("starts focus on the first available evidence when the current family is unavailable", () => {
@@ -172,7 +197,7 @@ describe("Status evidence detail rows", () => {
 			"audit",
 		);
 		expect(moveStatusEvidenceFocus(withoutHandoff, "handoff", "previous")).toBe(
-			"tools",
+			"process",
 		);
 	});
 
@@ -212,6 +237,16 @@ describe("Status evidence detail rows", () => {
 			shortcut: "K",
 			label: "tools selected runs=1",
 			path: "/tmp/picos/tools/picos-tools-selected.md",
+		});
+		expect(
+			createStatusEvidenceEnterPlan(populatedIndexes, selection, "process"),
+		).toEqual({
+			kind: "process",
+			action: "open-process-evidence",
+			shortcut: "F",
+			label:
+				"process selected events=3 query=process control evidence: kill pid=42 node",
+			path: "/tmp/picos/audit/picos-audit-process-selected.log",
 		});
 	});
 
@@ -542,12 +577,12 @@ describe("Status evidence detail rows", () => {
 			formatStatusEvidenceCommandStripRows(
 				populatedIndexes,
 				selection,
-				"audit",
+				"process",
 			),
 		).toEqual([
-			"COMMAND STRIP active=audit",
-			"> enter=open/W archive=a/Z retention=- item=-",
-			"target=audit selected events=1 query=control",
+			"COMMAND STRIP active=process",
+			"> enter=open/F archive=- retention=- item=[/]",
+			"target=process selected events=3 query=process control evidence: kill pid=42 node",
 		]);
 	});
 
@@ -614,11 +649,12 @@ describe("Status evidence detail rows", () => {
 		expect(
 			formatStatusEvidenceIndexRows(populatedIndexes, selection, "audit"),
 		).toEqual([
-			"EVIDENCE INDEX 1..4",
+			"EVIDENCE INDEX 1..5",
 			"1 handoff route routes/table",
 			">2 audit selected events=1 query=control",
 			"3 cleanup selected entries=2",
 			"4 tools selected runs=1",
+			"5 process selected events=3 query=process control evidence: kill pid=42 node",
 		]);
 	});
 
@@ -644,11 +680,12 @@ describe("Status evidence detail rows", () => {
 		expect(
 			formatStatusEvidenceTableRows(multiIndexes, selection, "audit"),
 		).toEqual([
-			"STATUS EVIDENCE TABLE 1..4 active=audit",
+			"STATUS EVIDENCE TABLE 1..5 active=audit",
 			" 1 handoff        item=1/1 open=enter/O archive=a/A retention=- itemMove=- handoff route routes/table",
 			">2 audit          item=1/2 open=enter/W archive=a/Z retention=- itemMove=[/] audit selected events=1 query=control",
 			" 3 cleanup        item=1/1 open=enter/V archive=a/X retention=- itemMove=- cleanup selected entries=2",
 			" 4 tools          item=1/1 open=enter/K archive=a/D retention=- itemMove=- tools selected runs=1",
+			" 5 process        item=1/2 open=enter/F archive=- retention=- itemMove=[/] process selected events=3 query=process control evidence: kill pid=42 node",
 		]);
 	});
 
@@ -710,7 +747,7 @@ describe("Status evidence detail rows", () => {
 		expect(
 			formatStatusEvidenceSummaryRows(archivedIndexes, selection, "audit"),
 		).toEqual([
-			"STATUS EVIDENCE SUMMARY active=audit families=7 files=7",
+			"STATUS EVIDENCE SUMMARY active=audit families=8 files=9",
 			"  handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
 			"> audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
 			"  audit-archive   selected=1/1 open=enter/J archive=- retention=m/M move=-",
@@ -718,6 +755,7 @@ describe("Status evidence detail rows", () => {
 			"  cleanup-archive selected=1/1 open=enter/{ archive=- retention=- move=-",
 			"  tools           selected=1/1 open=enter/K archive=a/D retention=- move=-",
 			"  tools-archive   selected=1/1 open=enter/K archive=- retention=m/M move=-",
+			"  process         selected=1/2 open=enter/F archive=- retention=- move=[/]",
 		]);
 	});
 
@@ -729,11 +767,12 @@ describe("Status evidence detail rows", () => {
 				"audit-archive",
 			),
 		).toEqual([
-			"STATUS EVIDENCE SUMMARY active=handoff families=4 files=4",
+			"STATUS EVIDENCE SUMMARY active=handoff families=5 files=6",
 			"> handoff         selected=1/1 open=enter/O archive=a/A retention=- move=-",
 			"  audit           selected=1/1 open=enter/W archive=a/Z retention=- move=-",
 			"  cleanup         selected=1/1 open=enter/V archive=a/X retention=- move=-",
 			"  tools           selected=1/1 open=enter/K archive=a/D retention=- move=-",
+			"  process         selected=1/2 open=enter/F archive=- retention=- move=[/]",
 		]);
 	});
 
@@ -745,11 +784,12 @@ describe("Status evidence detail rows", () => {
 				"audit",
 			),
 		).toEqual([
-			"LEGACY EVIDENCE BRIDGE active=audit families=4 files=4",
+			"LEGACY EVIDENCE BRIDGE active=audit families=5 files=6",
 			"  handoff         selected=1/1 refresh=H select=] open=O archive=A retention=-",
 			"> audit           selected=1/1 refresh=T select=) open=W archive=Z retention=-",
 			"  cleanup         selected=1/1 refresh=Y select=} open=V archive=X retention=-",
 			"  tools           selected=1/1 refresh=- select=] open=K archive=D retention=-",
+			"  process         selected=1/2 refresh=- select=F open=F archive=- retention=-",
 		]);
 	});
 
@@ -804,7 +844,7 @@ describe("Status evidence detail rows", () => {
 
 	test("ignores number jumps outside the available evidence index", () => {
 		expect(
-			createStatusEvidenceNumberJumpPlan(populatedIndexes, selection, "5"),
+			createStatusEvidenceNumberJumpPlan(populatedIndexes, selection, "6"),
 		).toBeUndefined();
 		expect(
 			createStatusEvidenceNumberJumpPlan(populatedIndexes, selection, "0"),

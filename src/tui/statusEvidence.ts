@@ -1,6 +1,7 @@
 import type {
 	ConsoleAuditExportIndex,
 	ConsoleAuditExportIndexItem,
+	ConsoleAuditExportPlan,
 } from "../core/auditLog";
 import { getSelectedConsoleAuditExport } from "../core/auditLog";
 import type { FileOpenOrigin } from "../core/fileOpen";
@@ -32,6 +33,7 @@ export type StatusEvidenceIndexes = {
 	cleanupExportArchiveIndex: CleanupHandoffHistoryExportIndex;
 	toolExportIndex?: ToolHistoryExportIndex;
 	toolExportArchiveIndex?: ToolHistoryExportIndex;
+	processControlAuditExports?: ConsoleAuditExportPlan[];
 };
 
 export type StatusEvidenceSelection = {
@@ -42,6 +44,7 @@ export type StatusEvidenceSelection = {
 	selectedCleanupExportArchiveIndex: number;
 	selectedToolExportIndex?: number;
 	selectedToolExportArchiveIndex?: number;
+	selectedProcessControlAuditExportIndex?: number;
 	toolExportFilter?: ToolHistoryEvidenceFilter;
 	toolExportArchiveFilter?: ToolHistoryEvidenceFilter;
 	toolExportQuery?: string;
@@ -55,7 +58,8 @@ export type StatusEvidenceKind =
 	| "cleanup"
 	| "cleanup-archive"
 	| "tools"
-	| "tools-archive";
+	| "tools-archive"
+	| "process";
 
 export type StatusEvidenceEnterAction =
 	| "open-handoff"
@@ -64,7 +68,8 @@ export type StatusEvidenceEnterAction =
 	| "open-cleanup"
 	| "select-cleanup-archive"
 	| "open-tools"
-	| "open-tools-archive";
+	| "open-tools-archive"
+	| "open-process-evidence";
 
 export type StatusEvidenceSecondaryIntent = "archive" | "retention";
 
@@ -552,6 +557,12 @@ function collectStatusEvidenceEntries(
 			"tools-archive",
 			"enter=open open K archive=archived retention=M/m",
 		),
+		formatProcessEvidence(
+			getSelectedProcessControlAuditExport(
+				getProcessControlAuditExports(indexes),
+				getSelectedProcessControlAuditExportIndex(selection),
+			),
+		),
 	].filter((entry): entry is EvidenceEntry => Boolean(entry));
 }
 
@@ -654,6 +665,13 @@ function collectStatusEvidenceFamilyEntries(
 					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
 				selectedIndex: getSelectedToolExportArchiveIndex(selection),
 			};
+		case "process":
+			return {
+				entries: getProcessControlAuditExports(indexes)
+					.map(formatProcessEvidence)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex: getSelectedProcessControlAuditExportIndex(selection),
+			};
 	}
 }
 
@@ -665,6 +683,7 @@ const STATUS_EVIDENCE_KIND_ORDER: StatusEvidenceKind[] = [
 	"cleanup-archive",
 	"tools",
 	"tools-archive",
+	"process",
 ];
 
 function createStatusEvidenceSummaryRow(
@@ -782,6 +801,14 @@ function getStatusEvidenceLegacyShortcuts(kind: StatusEvidenceKind): {
 				archive: "-",
 				retention: "M",
 			};
+		case "process":
+			return {
+				refresh: "-",
+				select: "F",
+				open: "F",
+				archive: "-",
+				retention: "-",
+			};
 	}
 }
 
@@ -851,6 +878,22 @@ function formatToolsEvidence(
 	};
 }
 
+function formatProcessEvidence(
+	item: ConsoleAuditExportPlan | undefined,
+): EvidenceEntry | undefined {
+	if (!item) {
+		return undefined;
+	}
+	const scope = item.scope ?? "selected";
+	return {
+		kind: "process",
+		label: `process ${scope} events=${item.eventCount}${item.query ? ` query=${item.query}` : ""}`,
+		path: item.path,
+		origin: item.origin,
+		controls: "enter=open open F archive=- retention=-",
+	};
+}
+
 function formatEvidenceOrigin(origin: FileOpenOrigin | undefined): string {
 	return origin
 		? `source=Config>${origin.label} scope=${origin.scope}`
@@ -912,6 +955,28 @@ function getToolExportArchiveQuery(selection: StatusEvidenceSelection): string {
 	return selection.toolExportArchiveQuery ?? "";
 }
 
+function getProcessControlAuditExports(
+	indexes: StatusEvidenceIndexes,
+): ConsoleAuditExportPlan[] {
+	return indexes.processControlAuditExports ?? [];
+}
+
+function getSelectedProcessControlAuditExportIndex(
+	selection: StatusEvidenceSelection,
+): number {
+	return selection.selectedProcessControlAuditExportIndex ?? 0;
+}
+
+function getSelectedProcessControlAuditExport(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+): ConsoleAuditExportPlan | undefined {
+	if (exports.length === 0) {
+		return undefined;
+	}
+	return exports[clampEvidenceSelectionIndex(selectedIndex, exports.length)];
+}
+
 function getActiveStatusEvidenceEntry(
 	entries: EvidenceEntry[],
 	activeKind: StatusEvidenceKind | undefined,
@@ -938,6 +1003,8 @@ function getStatusEvidenceEnterAction(kind: StatusEvidenceKind): {
 			return { action: "open-tools", shortcut: "K" };
 		case "tools-archive":
 			return { action: "open-tools-archive", shortcut: "K" };
+		case "process":
+			return { action: "open-process-evidence", shortcut: "F" };
 	}
 }
 
@@ -971,6 +1038,7 @@ function getStatusEvidenceSecondaryAction(
 		case "audit-archive":
 		case "cleanup-archive":
 		case "tools-archive":
+		case "process":
 			return undefined;
 	}
 }
