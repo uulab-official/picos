@@ -1549,12 +1549,18 @@ describe("TUI tool history", () => {
 			"> Port 8443 placeholder=443",
 		]);
 		expect(
-			formatToolPromptRows("tool:network.connect", "api.github.com 8443", 1),
+			formatToolPromptRows(
+				"tool:network.connect",
+				"api.github.com 8443",
+				1,
+				[1],
+			),
 		).toEqual([
 			"TOOLS FORM Telnet-style TCP check",
 			"action=network.connect tool=telnet fields=2 selected=2/2",
 			"  Host api.github.com placeholder=github.com",
 			"> Port 8443 placeholder=443",
+			"field help active=Port touched=yes input=append tab=next ctrl-u=clear",
 			"cli=picos tools telnet api.github.com 8443",
 			"controls=tab/shift-tab field enter=run esc=cancel",
 		]);
@@ -1612,6 +1618,7 @@ describe("TUI tool history", () => {
 			"action=network.connect tool=telnet fields=2 selected=1/2",
 			"> Host api.github.com placeholder=github.com",
 			"  Port 443 placeholder=443",
+			"field help active=Host touched=no input=replace tab=next ctrl-u=clear",
 			"cli=picos tools telnet api.github.com 443",
 			"controls=tab/shift-tab field enter=run esc=cancel",
 		]);
@@ -1619,6 +1626,7 @@ describe("TUI tool history", () => {
 			"TOOLS FORM TLS inspector",
 			"action=tools.tls tool=tls fields=1 selected=1/1",
 			"> Target example.com:443 placeholder=github.com:443",
+			"field help active=Target touched=no input=replace tab=next ctrl-u=clear",
 			"cli=picos tools tls example.com:443",
 			"controls=tab/shift-tab field enter=run esc=cancel",
 		]);

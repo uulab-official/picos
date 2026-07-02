@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.263 - Tools Field Help Strip
+
+Status: draft PR [#325](https://github.com/uulab-official/picos/pull/325) on `codex/picos-v0.4.263-tools-field-help-strip`.
+
+Goal: make live Tools forms self-explanatory while operators edit fields from the keyboard.
+
+- Tools prompt rows now include `field help` with the active field label, touched state, replace/append input mode, `Tab` next-field hint, and `Ctrl+U` clear hint.
+- Help rows use command-line touched-field metadata, so untouched defaults show `input=replace` and edited fields show `input=append`.
+- The TUI passes live `fieldTouchedIndexes` into Tools prompt rendering, keeping the visible help row aligned with actual input behavior.
+- Tests cover untouched and touched help rows for single-field and multi-field Tools prompts.
+- Next: verify reverse field movement across terminals and expose a stable previous-field key once the escape sequence is reliable in Ink.
+
 ## v0.4.262 - Tools Field Replace Clear
 
 Status: draft PR [#324](https://github.com/uulab-official/picos/pull/324) on `codex/picos-v0.4.262-tools-field-replace-clear`.
@@ -12,7 +24,7 @@ Goal: make live Tools fields feel like real operator inputs instead of default t
 - Cleared Tool form values preserve empty field state during editing but still fall back to safe defaults when converted into a run plan.
 - Tools prompt submission now builds the run plan from the structured form first, avoiding host/port parsing surprises after field-level clear.
 - Tests cover touched-field metadata, empty-field rendering/serialization, safe fallback run planning, typecheck, and focused regression suites.
-- Next: add a compact field help row and verify reverse field movement behavior across terminals before promoting Shift-Tab as a documented shortcut.
+- Next: add a compact field help row so the active input mode is visible during editing.
 
 ## v0.4.261 - Tools Live Field Focus
 
