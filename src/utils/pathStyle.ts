@@ -4,6 +4,10 @@ function usesWindowsSeparators(path: string): boolean {
 	return path.includes("\\") || path.startsWith("//");
 }
 
+function isRootRelativeBackslashPath(path: string): boolean {
+	return /^\\(?!\\)/.test(path);
+}
+
 function pathApiFor(path: string): typeof posix | typeof win32 {
 	return usesWindowsSeparators(path) ? win32 : posix;
 }
@@ -13,6 +17,9 @@ export function joinPathLike(basePath: string, ...parts: string[]): string {
 }
 
 export function resolvePathLike(basePath: string, ...parts: string[]): string {
+	if (parts.length === 0 && isRootRelativeBackslashPath(basePath)) {
+		return win32.normalize(basePath);
+	}
 	return pathApiFor(basePath).resolve(basePath, ...parts);
 }
 

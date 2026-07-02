@@ -45,6 +45,9 @@ describe("path style helpers", () => {
 	});
 
 	test("compares root-relative POSIX and backslash paths as the same logical path", () => {
+		expect(resolvePathLike("\\Users\\alice\\.config\\picos")).toBe(
+			"\\Users\\alice\\.config\\picos",
+		);
 		expect(
 			samePathLike(
 				"\\Users\\alice\\.config\\picos\\audit",
