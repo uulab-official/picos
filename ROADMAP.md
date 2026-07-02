@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.288 - Remote Host Key Candidate Compare
+
+Status: in progress on `codex/picos-v0.4.288-host-key-candidate-compare`.
+
+Goal: surface selected `known_hosts` read-result candidates inside host-key compare detail while keeping collected host-key evidence, transport scans, host trust, and mutation disabled.
+
+- Host-key compare detail can now accept a parsed `known_hosts` candidate preview.
+- Compare rows show selected candidate count, selected candidate id, source, host pattern, key type, and candidate fingerprint.
+- Collected host-key evidence remains `sha256:unknown`, `match=unknown`, and `decision=blocked` until a future explicit scan/review flow exists.
+- Default `picos remote <id>` and Remotes TUI output remain locked and empty unless a candidate preview is explicitly supplied by a pure core caller.
+- Tests cover default empty compare detail, selected read-result candidate compare detail, provider status inclusion, and no-import/no-connect/no-local-read/no-parse/no-scan/no-trust/no-mutation posture.
+- Next: add a locked host-key evidence scan request preview that can produce collected fingerprint metadata without trusting or connecting by default.
+
 ## v0.4.287 - Remote Known Hosts Read Result
 
 Status: draft PR [#350](https://github.com/uulab-official/picos/pull/350) on `codex/picos-v0.4.287-known-hosts-read-result`.

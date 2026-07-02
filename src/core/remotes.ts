@@ -294,9 +294,12 @@ export type RemoteHostKeyCompareDetail = {
 	target: string;
 	lookup: string;
 	collectedFingerprint: "sha256:unknown";
-	candidateCount: 0;
-	selectedCandidate: "none";
-	knownHostsCandidateFingerprint: "sha256:unknown";
+	candidateCount: number;
+	selectedCandidate: string;
+	knownHostsCandidateFingerprint: string;
+	candidateSource: RemoteKnownHostsCandidatePreview["source"] | "none";
+	selectedHostPattern: string;
+	selectedKeyType: string;
 	match: "unknown";
 	decision: "blocked";
 	confirm: string;
@@ -981,16 +984,29 @@ export function formatRemoteHostKeyTrustDecisionPreviewRows(
 
 export function createRemoteHostKeyCompareDetail(
 	profile?: SftpRemoteProfile,
+	candidatePreview?: RemoteKnownHostsCandidatePreview,
 ): RemoteHostKeyCompareDetail {
+	const selectedCandidate =
+		candidatePreview?.candidates.find(
+			(candidate) => candidate.index === candidatePreview.selected,
+		) ?? candidatePreview?.candidates[0];
 	return {
 		id: profile?.id ?? "none",
 		provider: "sftp",
 		target: profile ? formatSftpRoot(profile) : "none",
 		lookup: profile ? `${profile.host}:${profile.port}` : "none",
 		collectedFingerprint: "sha256:unknown",
-		candidateCount: 0,
-		selectedCandidate: "none",
-		knownHostsCandidateFingerprint: "sha256:unknown",
+		candidateCount: candidatePreview?.candidates.length ?? 0,
+		selectedCandidate: selectedCandidate
+			? `#${selectedCandidate.index}`
+			: "none",
+		knownHostsCandidateFingerprint:
+			selectedCandidate?.fingerprint ?? "sha256:unknown",
+		candidateSource: selectedCandidate
+			? (candidatePreview?.source ?? "none")
+			: "none",
+		selectedHostPattern: selectedCandidate?.hostPattern ?? "none",
+		selectedKeyType: selectedCandidate?.keyType ?? "unknown",
 		match: "unknown",
 		decision: "blocked",
 		confirm: profile
@@ -1015,11 +1031,14 @@ export function formatRemoteHostKeyCompareDetailRows(
 		`REMOTE HOST KEY COMPARE DETAIL ${detail.id}`,
 		`target=${detail.target} lookup=${detail.lookup} provider=${detail.provider}`,
 		`collected=${detail.collectedFingerprint} candidates=${detail.candidateCount} selected=${detail.selectedCandidate} knownHosts=${detail.knownHostsCandidateFingerprint}`,
+		`candidateSource=${detail.candidateSource} hostPattern=${detail.selectedHostPattern} keyType=${detail.selectedKeyType}`,
 		`match=${detail.match} decision=${detail.decision} confirm="${detail.confirm}"`,
 		`execution=willImport=${detail.execution.importsTransport} willConnect=${detail.execution.opensSocket} willReadLocal=${detail.execution.readsLocal} willParse=${detail.execution.parsesRows} willScan=${detail.execution.scansHostKey} willTrust=${detail.execution.trustsHost} willMutate=${detail.execution.mutatesRemote}`,
 		detail.id === "none"
 			? "next=select remote profile · no compare detail"
-			: "next=collect evidence and parse known_hosts candidates before compare detail",
+			: detail.selectedCandidate === "none"
+				? "next=collect evidence and parse known_hosts candidates before compare detail"
+				: "next=collect host key evidence before comparing selected candidate",
 	];
 }
 
