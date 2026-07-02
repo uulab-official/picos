@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.236 - Result Jump Palette Preview
+
+Status: draft PR [#298](https://github.com/uulab-official/picos/pull/298) on `codex/picos-v0.4.236-result-jump-preview`.
+
+Goal: make command-palette `result jump` actions show the selected Status Activity Timeline jump before dispatch.
+
+- Command palette `result jump`, `timeline result open`, and `result select` actions now preview the selected jump filter, query, dispatch mode, and message.
+- Recovered Status Evidence process search jumps are summarized as `target=process-control pid:<pid> action=search`, matching the direct `I` recovery shelf.
+- The palette preview handles unavailable result jumps with an operator hint instead of silently showing no context.
+- App now passes the selected Status Activity result jump and jump-browser cursor metadata into the palette preview context.
+- Tests cover process PID result-jump preview rows, select/open modes, and unavailable preview rows.
+- Next: add palette dispatch audit rows for result-jump preview open/select attempts, so palette-driven recovery leaves the same Status Activity and Timeline trace as direct keyboard recovery.
+
 ## v0.4.235 - Process Evidence Jump Recovery
 
 Status: draft PR [#297](https://github.com/uulab-official/picos/pull/297) on `codex/picos-v0.4.235-process-evidence-jump-recovery`.
