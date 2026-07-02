@@ -135,6 +135,21 @@ describe("TUI command palette", () => {
 		expect(
 			getFilteredPaletteActions(
 				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools shelf config"),
+			).map((action) => action.id),
+		).toContain("config.shelf.tools.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"tool target presets config",
+				),
+			).map((action) => action.id),
+		).toContain("config.shelf.tools.focus");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
 				appendCommandPaletteQuery(openCommandPalette(), "log profiles config"),
 			).map((action) => action.id),
 		).toContain("config.shelf.logs.focus");
@@ -161,6 +176,18 @@ describe("TUI command palette", () => {
 			"scope=route filters, raw route evidence, path lookup",
 			"focus=routeFilters cursor=0 detail=table",
 			"enter=cycle route filter presets  esc=clear landing",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "config.shelf.tools.focus",
+				),
+			),
+		).toEqual([
+			"config shelf target=tools workspace=Tools",
+			"scope=saved targets, history filters, grouping, detail view",
+			"focus=toolTargetPresets cursor=0 detail=summary",
+			"enter=cycle tool target presets  esc=clear landing",
 		]);
 		expect(
 			formatCommandPaletteActionPreviewRows(

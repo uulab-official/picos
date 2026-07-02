@@ -274,6 +274,9 @@ describe("config TUI panel", () => {
 			getConfigManagedShelfActionFocusTarget("config.shelf.ports.focus"),
 		).toBe("ports");
 		expect(
+			getConfigManagedShelfActionFocusTarget("config.shelf.tools.focus"),
+		).toBe("tools");
+		expect(
 			getConfigManagedShelfActionFocusTarget("config.shelf.logs.focus"),
 		).toBe("logs");
 		expect(

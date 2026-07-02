@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.246 - Config Tools Shelf Palette Focus
+
+Status: draft PR [#308](https://github.com/uulab-official/picos/pull/308) on `codex/picos-v0.4.246-config-tools-shelf-palette-focus`.
+
+Goal: make the Tools managed Config shelf reachable from the command palette.
+
+- Command palette now exposes `config.shelf.tools.focus`.
+- Search phrases `tools shelf config` and `tool target presets config` jump into the Tools workspace with Config-origin landing rows.
+- Palette previews show the Tools shelf target, scope, `toolTargetPresets` cursor, summary detail view, and enter behavior before dispatch.
+- App dispatch now aligns palette-origin Tools shelf focus with keyboard-origin managed shelf jumps by selecting the saved target preset cursor and summary detail view.
+- Tests cover action catalog exposure, palette discovery, preview rows, and Config shelf target routing.
+- Next: expand Config-origin shelf palette previews with live counts for saved filters/profiles/presets, including Tools target preset counts.
+
 ## v0.4.245 - Config Shelf Palette Focus
 
 Status: draft PR [#307](https://github.com/uulab-official/picos/pull/307) on `codex/picos-v0.4.245-config-shelf-palette-focus`.

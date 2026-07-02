@@ -193,6 +193,7 @@ const configManagedShelfActionFocusTargets: Record<
 	"config.shelf.routes.focus": "routes",
 	"config.shelf.connections.focus": "connections",
 	"config.shelf.ports.focus": "ports",
+	"config.shelf.tools.focus": "tools",
 	"config.shelf.logs.focus": "logs",
 	"config.shelf.remotes.focus": "remotes",
 };
