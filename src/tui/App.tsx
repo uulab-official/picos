@@ -143,6 +143,7 @@ import {
 	createRemoteFileContext,
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyEvidence,
+	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
@@ -155,6 +156,7 @@ import {
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
+	formatRemoteKnownHostsParserPreviewRows,
 	formatRemoteKnownHostsReadPreviewRows,
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
@@ -11765,7 +11767,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 50);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 58);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11794,6 +11796,9 @@ function RemotesWorkspace({
 	);
 	const knownHostsReadPreviewRows = formatRemoteKnownHostsReadPreviewRows(
 		createRemoteKnownHostsReadPreview(selectedProfile),
+	);
+	const knownHostsParserPreviewRows = formatRemoteKnownHostsParserPreviewRows(
+		createRemoteKnownHostsParserPreview(selectedProfile),
 	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 	const connectPreview = selectedProfile
@@ -12021,6 +12026,27 @@ function RemotesWorkspace({
 										row.includes("not-run") ||
 										row.includes("willReadLocal=false") ||
 										row.includes("willScan=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">KNOWN_HOSTS PARSER PREVIEW</Text>
+				{knownHostsParserPreviewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") ||
+										row.includes("blocked") ||
+										row.includes("unknown") ||
+										row.includes("willParse=false") ||
+										row.includes("willTrust=false")
 									? "yellow"
 									: "gray"
 						}
