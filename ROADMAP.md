@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.289 - Remote Host Key Evidence Result
+
+Status: in progress on `codex/picos-v0.4.289-host-key-evidence-result`.
+
+Goal: model provided host-key fingerprint evidence and compare it with selected `known_hosts` candidates without opening sockets, scanning host keys, trusting hosts, writing trust files, or mutating remote state.
+
+- Core now models `REMOTE HOST KEY EVIDENCE RESULT` rows with missing/provided status, target, fingerprint, exact connect confirmation, trust blocked state, and no-import/no-connect/no-scan/no-trust/no-mutation flags.
+- Remotes and `picos remote <id>` show host-key evidence result rows between evidence preview and known_hosts source preview.
+- Host-key compare detail can accept both a selected known_hosts candidate and provided host-key evidence result.
+- Compare detail reports `matched` or `mismatched` from provided data only; trust review remains blocked either way.
+- Tests cover evidence-result formatting, provider-status inclusion, matched comparison, and disabled execution posture.
+- Next: add a locked host-key evidence collection preview/result handoff so a future adapter can produce this evidence through a confirmable read-only path.
+
 ## v0.4.288 - Remote Known Hosts Selected Compare
 
 Status: draft PR [#352](https://github.com/uulab-official/picos/pull/352) on `codex/picos-v0.4.288-known-hosts-selection`.
