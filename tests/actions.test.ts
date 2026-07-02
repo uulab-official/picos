@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 47,
-			enabled: 35,
+			total: 49,
+			enabled: 37,
 			locked: 12,
 			elevated: 4,
 		});
@@ -80,6 +80,8 @@ describe("action catalog", () => {
 			"status.toolsEvidence.search",
 			"status.toolsEvidence.archive",
 			"status.toolsEvidence.retention",
+			"status.toolsEvidence.matchOpen",
+			"status.toolsEvidence.matchArchive",
 		]);
 	});
 

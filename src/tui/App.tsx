@@ -4402,6 +4402,14 @@ export function App(): React.ReactElement {
 					openToolArchiveRetentionPreview({ origin: "palette" });
 				}
 
+				if (action.id === "status.toolsEvidence.matchOpen") {
+					openSelectedStatusActivityToolsEvidenceSearchMatchFile();
+				}
+
+				if (action.id === "status.toolsEvidence.matchArchive") {
+					openSelectedStatusActivityToolsEvidenceSearchMatchArchive();
+				}
+
 				if (
 					action.id === "process.inspect" ||
 					action.id === "remote.sftp.connect"
@@ -4443,6 +4451,8 @@ export function App(): React.ReactElement {
 			log,
 			openToolEvidenceSearchPrompt,
 			openSelectedStatusActivityResultTimelineJump,
+			openSelectedStatusActivityToolsEvidenceSearchMatchArchive,
+			openSelectedStatusActivityToolsEvidenceSearchMatchFile,
 			openSelectedToolExportArchive,
 			openSelectedTimelineEvidenceTrailExport,
 			openToolArchiveRetentionPreview,
