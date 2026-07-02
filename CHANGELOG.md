@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace now shows `REMOTE HANDOFF` boundary rows for the selected SFTP profile before and after staging, and SFTP breadcrumbs preserve the `sftp://user@host:port` authority while slicing deep remote paths.
 - Files workspace now renders a provider boundary strip for local and selected SFTP contexts, showing root, adapter status, locked write posture, and safe controls before directory rows.
 - Files workspace now shows compact root and selected-entry breadcrumbs, slicing long paths so operators can keep filesystem context visible in narrow and full terminal layouts.
 - Files workspace now shows selected path details and supports `y` to open the existing locked clipboard confirmation for copying the selected file or directory path.

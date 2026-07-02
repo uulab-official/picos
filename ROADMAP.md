@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.268 - Remote Handoff Boundary Breadcrumbs
+
+Status: draft PR [#330](https://github.com/uulab-official/picos/pull/330) on `codex/picos-v0.4.268-remote-boundary-breadcrumbs`.
+
+Goal: make remote provider handoff context visible before staging SFTP profiles and preserve remote authority context in Files breadcrumbs.
+
+- Remotes now formats `REMOTE HANDOFF` rows for the selected SFTP profile, including the computed `sftp://user@host:port/root`, locked write posture, staged/not-staged session state, and no-network-session guidance.
+- Staged remote contexts reuse the same handoff rows with adapter-pending status so operators can see exactly what will be handed to Files.
+- Files breadcrumbs now treat `sftp://...` authority as the breadcrumb prefix instead of hiding it inside local-style path segments.
+- Remote breadcrumb depth now counts only path segments after the provider authority, keeping SFTP paths comparable with local breadcrumbs.
+- Tests cover pre-stage and staged remote handoff rows plus SFTP URL breadcrumb slicing.
+- Next: wire Remotes-to-Files handoff rows into Status Activity and add read-only SFTP adapter host-review planning without opening sessions by default.
+
 ## v0.4.267 - Files Provider Boundary
 
 Status: draft PR [#329](https://github.com/uulab-official/picos/pull/329) on `codex/picos-v0.4.267-files-provider-boundary`.

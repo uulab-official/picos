@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	createRemoteFileContext,
+	formatRemoteHandoffBoundaryRows,
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
 	normalizeRemoteProfiles,
@@ -133,6 +134,8 @@ describe("remote profiles", () => {
 		expect(output).toContain("Provider: sftp");
 		expect(output).toContain("Root: sftp://alice@dev.example.com:22/srv/app");
 		expect(output).toContain("Status: adapter pending");
+		expect(output).toContain("REMOTE HANDOFF dev");
+		expect(output).toContain("session=staged");
 	});
 
 	test("creates a locked remote file context for selected profiles", async () => {
@@ -153,5 +156,42 @@ describe("remote profiles", () => {
 			status: "adapter pending",
 			writes: "locked",
 		});
+	});
+
+	test("formats remote handoff boundary rows before and after staging", () => {
+		const profile = {
+			id: "dev",
+			kind: "sftp" as const,
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		};
+
+		expect(formatRemoteHandoffBoundaryRows({ profile })).toEqual([
+			"REMOTE HANDOFF dev",
+			"provider=sftp root=sftp://alice@dev.example.com:22/srv/app",
+			"status=profile ready writes=locked session=not staged",
+			"controls=enter stage · files opens locked SFTP boundary · no network session",
+		]);
+
+		expect(
+			formatRemoteHandoffBoundaryRows({
+				profile,
+				context: {
+					id: "dev",
+					kind: "sftp",
+					label: "dev",
+					root: "sftp://alice@dev.example.com:22/srv/app",
+					status: "adapter pending",
+					writes: "locked",
+				},
+			}),
+		).toEqual([
+			"REMOTE HANDOFF dev",
+			"provider=sftp root=sftp://alice@dev.example.com:22/srv/app",
+			"status=adapter pending writes=locked session=staged",
+			"controls=enter restage · files opens locked SFTP boundary · no network session",
+		]);
 	});
 });
