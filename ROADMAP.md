@@ -2,7 +2,7 @@
 
 ## v0.4.291 - Remote Host Key Evidence Session Compare
 
-Status: in progress on `codex/picos-v0.4.291-session-host-key-evidence`.
+Status: draft PR [#360](https://github.com/uulab-official/picos/pull/360) on `codex/picos-v0.4.291-session-host-key-evidence`.
 
 Goal: make the locked `:remote-host-key-evidence` prompt visibly affect the current Remotes workspace session so operators can see provided evidence move into compare detail immediately.
 
