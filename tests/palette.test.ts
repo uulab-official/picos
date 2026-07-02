@@ -78,6 +78,63 @@ describe("TUI command palette", () => {
 		expect(actions.map((action) => action.id)).toContain("network.connect");
 	});
 
+	test("finds Tools direct-run actions with operator-style queries", () => {
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools tls"),
+			).map((action) => action.id),
+		).toContain("tools.tls");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools traceroute"),
+			).map((action) => action.id),
+		).toContain("tools.traceroute");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "tools dns"),
+			).map((action) => action.id),
+		).toContain("tools.dns");
+	});
+
+	test("previews Tools direct-run prompts before dispatch", () => {
+		const actions = getActionCatalog();
+
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				actions.find((action) => action.id === "tools.tls"),
+				{
+					defaultToolTarget: "api.example.com",
+					publicIp: "203.0.113.10",
+					selectedInterfacePlatform: "darwin",
+				},
+			),
+		).toEqual([
+			"tools direct run TLS inspector",
+			"action=tools.tls tool=tls risk=read privilege=none",
+			"target default=api.example.com:443 placeholder=example.com:443",
+			"cli=picos tools tls api.example.com:443",
+			"dispatch=enter opens Tools target prompt",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				actions.find((action) => action.id === "network.connect"),
+				{
+					defaultToolTarget: "api.example.com",
+					selectedInterfacePlatform: "darwin",
+				},
+			),
+		).toEqual([
+			"tools direct run Telnet-style TCP check",
+			"action=network.connect tool=telnet risk=read privilege=none",
+			"target default=api.example.com 443 placeholder=example.com 443",
+			"cli=picos tools telnet api.example.com 443",
+			"dispatch=enter opens Tools target prompt",
+		]);
+	});
+
 	test("finds Config settings focus actions from the command palette", () => {
 		expect(
 			getFilteredPaletteActions(

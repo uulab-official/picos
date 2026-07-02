@@ -25,6 +25,7 @@ import type {
 	ToolHistoryEvidenceFilter,
 	ToolHistoryExportIndexItem,
 } from "./toolHistory";
+import { createToolRunPlan, getToolRunActionMetadata } from "./toolHistory";
 
 export type CommandPaletteState = {
 	active: boolean;
@@ -102,24 +103,26 @@ export function getFilteredPaletteActions(
 	actions: PicosAction[],
 	state: CommandPaletteState,
 ): PicosAction[] {
-	const query = state.query.trim().toLowerCase();
-	if (query.length === 0) {
+	const queryTokens = normalizePaletteSearchText(state.query)
+		.split(" ")
+		.filter(Boolean);
+	if (queryTokens.length === 0) {
 		return actions;
 	}
 
-	return actions.filter((action) =>
-		[
-			action.id,
-			action.title,
-			action.description,
-			action.category,
-			action.risk,
-			action.privilege,
-		]
-			.join(" ")
-			.toLowerCase()
-			.includes(query),
-	);
+	return actions.filter((action) => {
+		const haystack = normalizePaletteSearchText(
+			[
+				action.id,
+				action.title,
+				action.description,
+				action.category,
+				action.risk,
+				action.privilege,
+			].join(" "),
+		);
+		return queryTokens.every((token) => haystack.includes(token));
+	});
 }
 
 export function getPaletteAction(
@@ -159,6 +162,8 @@ export type CommandPalettePreviewContext = {
 	allStatusActivityResultTimelineJumps?: number;
 	selectedInterface?: NetworkInterfaceSummary;
 	selectedInterfacePlatform?: SupportedPlatform;
+	defaultToolTarget?: string;
+	publicIp?: string;
 };
 
 export function formatCommandPaletteActionPreviewRows(
@@ -184,6 +189,7 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "config.editorSaveMode.focus" &&
 		action.id !== "config.auditRetention.focus" &&
 		action.id !== "config.toolTargetRetention.focus" &&
+		!getToolRunActionMetadata(action.id) &&
 		!getConfigRecoveryActionFocusTarget(action.id) &&
 		!getConfigManagedShelfActionFocusTarget(action.id) &&
 		!context.portProcessPreview &&
@@ -203,6 +209,10 @@ export function formatCommandPaletteActionPreviewRows(
 			return formatInterfaceControlPalettePreviewRows(action, context);
 		}
 		return formatControlActionPalettePreviewRows(context.controlPreview);
+	}
+
+	if (getToolRunActionMetadata(action.id)) {
+		return formatToolDirectRunPalettePreviewRows(action, context);
 	}
 
 	if (action.id === "status.toolsEvidence.archive") {
@@ -290,6 +300,65 @@ export function formatCommandPaletteActionPreviewRows(
 		rows.push(`confirm=${actionVerb} path=${item.path}`);
 	}
 	return rows;
+}
+
+function normalizePaletteSearchText(value: string): string {
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, " ")
+		.replace(/\s+/g, " ");
+}
+
+function formatToolDirectRunPalettePreviewRows(
+	action: PicosAction,
+	context: CommandPalettePreviewContext,
+): string[] {
+	const metadata = getToolRunActionMetadata(action.id);
+	if (!metadata) {
+		return [];
+	}
+	const target = getPaletteToolDefaultTarget(metadata.actionId, context);
+	const plan = createToolRunPlan(
+		metadata.actionId,
+		metadata.defaultTarget,
+		undefined,
+		target,
+	);
+	return [
+		`tools direct run ${metadata.title}`,
+		`action=${metadata.actionId} tool=${metadata.toolId} risk=${action.risk} privilege=${action.privilege}`,
+		`target default=${plan ? plan.args.join(" ") : target} placeholder=${metadata.placeholder}`,
+		`cli=${plan ? formatPaletteToolCli(plan.toolId, plan.args) : metadata.cli}`,
+		"dispatch=enter opens Tools target prompt",
+	];
+}
+
+function getPaletteToolDefaultTarget(
+	actionId: string,
+	context: CommandPalettePreviewContext,
+): string {
+	const fallback =
+		getToolRunActionMetadata(actionId)?.defaultTarget ?? "example.com";
+	if (actionId === "tools.ipInfo") {
+		return context.publicIp ?? fallback;
+	}
+	if (actionId === "network.connect") {
+		const target = context.defaultToolTarget?.trim();
+		return target ? `${target} 443` : fallback;
+	}
+	if (actionId === "tools.tls") {
+		const target = context.defaultToolTarget?.trim();
+		if (!target) {
+			return fallback;
+		}
+		return target.includes(":") ? target : `${target}:443`;
+	}
+	return context.defaultToolTarget?.trim() || fallback;
+}
+
+function formatPaletteToolCli(toolId: string, args: string[]): string {
+	return `picos tools ${toolId} ${args.join(" ")}`.trim();
 }
 
 function formatConfigManagedShelfPalettePreviewRows(

@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.259 - Tools Palette Direct Run
+
+Status: draft PR [#321](https://github.com/uulab-official/picos/pull/321) on `codex/picos-v0.4.259-tools-palette-direct-run`.
+
+Goal: make Tools Hub direct runs discoverable and reviewable from the command palette before opening the target prompt.
+
+- Command palette search now normalizes punctuation, so operator queries such as `tools tls`, `tools traceroute`, and `tools dns` match `tools.tls`, `tools.traceroute`, and `tools.dns`.
+- Tools run actions now share metadata for title, tool id, placeholder, example, default target, CLI shape, and operator hint.
+- Tools target prompts now render action-specific title, hint, placeholder/example, CLI command, and default input instead of a generic `TOOL TARGET <action>` row.
+- Command palette previews for read-only Tools runs show target defaults, placeholder, CLI command, risk/privilege, and `enter` dispatch into the Tools prompt.
+- App preview context now passes the configured default ping host, public IP, and platform into command-palette Tools previews.
+- Tests cover prompt metadata, operator-style palette search, direct-run preview rows, typecheck, and lint.
+- Next: add a richer Tools modal/input-field loop so the TUI can run every Tool without relying on a single command-line prompt.
+
 ## v0.4.258 - Tools Trace TLS Detail
 
 Status: draft PR [#320](https://github.com/uulab-official/picos/pull/320) on `codex/picos-v0.4.258-tools-trace-tls-detail`.
@@ -11,7 +25,7 @@ Goal: make Tools Hub TLS and traceroute runs inspectable as structured console e
 - Traceroute execution accepts an injected runner for deterministic tests while production still goes through `safeExec()`.
 - Raw output keeps the original command output after the structured sections, so TUI raw history, compare, copy, and evidence exports retain source command context.
 - Tools history now verifies TLS/traceroute Target/Status sections activate structured section and row copy affordances beyond TCP checks.
-- Next: expose richer Tools direct-run discovery in the command palette and continue lazyifconfig parity around tool presets and result inspection.
+- Next: add a richer Tools modal/input-field loop so the TUI can run every Tool without relying on a single command-line prompt.
 
 ## v0.4.257 - Interface Source Handoffs
 

@@ -9465,6 +9465,7 @@ export function App(): React.ReactElement {
 					logFollowRefreshCount={logFollowRefreshCount}
 					logFollowLastStatus={logFollowLastStatus}
 					logFollowHistory={logFollowHistory}
+					defaultPingHost={defaultPingHost}
 					toolHistory={toolHistory}
 					selectedToolHistoryIndex={selectedToolHistoryIndex}
 					toolTargetPresets={toolTargetPresets}
@@ -9737,6 +9738,7 @@ function MainWorkspace({
 	logFollowRefreshCount,
 	logFollowLastStatus,
 	logFollowHistory,
+	defaultPingHost,
 	toolHistory,
 	selectedToolHistoryIndex,
 	toolTargetPresets,
@@ -9888,6 +9890,7 @@ function MainWorkspace({
 	logFollowRefreshCount: number;
 	logFollowLastStatus: "idle" | "ok" | "warn" | "fail";
 	logFollowHistory: LogFollowHistoryItem[];
+	defaultPingHost: string;
 	toolHistory: ToolHistoryItem[];
 	selectedToolHistoryIndex: number;
 	toolTargetPresets: ToolTargetPreset[];
@@ -10118,6 +10121,7 @@ function MainWorkspace({
 						logFollowRefreshCount,
 						logFollowLastStatus,
 						logFollowHistory,
+						defaultPingHost,
 						toolHistory,
 						selectedToolHistoryIndex,
 						toolTargetPresets,
@@ -10274,6 +10278,7 @@ function renderWorkspace(
 	logFollowRefreshCount: number,
 	logFollowLastStatus: "idle" | "ok" | "warn" | "fail",
 	logFollowHistory: LogFollowHistoryItem[],
+	defaultPingHost: string,
 	toolHistory: ToolHistoryItem[],
 	selectedToolHistoryIndex: number,
 	toolTargetPresets: ToolTargetPreset[],
@@ -10465,6 +10470,8 @@ function renderWorkspace(
 								)
 							],
 						selectedInterfacePlatform: summary?.platform,
+						defaultToolTarget: defaultPingHost,
+						publicIp: summary?.publicIp,
 					},
 				)}
 			/>
