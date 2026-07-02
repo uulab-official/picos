@@ -1,5 +1,6 @@
 import type { ActionPreviewPlan, PicosAction } from "../core/actions";
 import type { ConsoleAuditExportPlan } from "../core/auditLog";
+import type { NetworkInterfaceSummary, SupportedPlatform } from "../core/types";
 import type {
 	ConfigManagedShelfTarget,
 	ConfigWorkspaceItem,
@@ -156,6 +157,8 @@ export type CommandPalettePreviewContext = {
 	statusResultJumpClassFilter?: StatusActivityResultTimelineJumpFilter;
 	visibleStatusActivityResultTimelineJumps?: number;
 	allStatusActivityResultTimelineJumps?: number;
+	selectedInterface?: NetworkInterfaceSummary;
+	selectedInterfacePlatform?: SupportedPlatform;
 };
 
 export function formatCommandPaletteActionPreviewRows(
@@ -196,6 +199,9 @@ export function formatCommandPaletteActionPreviewRows(
 	}
 
 	if (context.controlPreview) {
+		if (action.id === "interface.disable") {
+			return formatInterfaceControlPalettePreviewRows(action, context);
+		}
 		return formatControlActionPalettePreviewRows(context.controlPreview);
 	}
 
@@ -319,6 +325,48 @@ function formatConfigManagedShelfPaletteCountRow(
 		remotes: "remoteProfiles",
 	};
 	return `counts=${labels[target]} ${count}`;
+}
+
+function formatInterfaceControlPalettePreviewRows(
+	action: PicosAction,
+	context: CommandPalettePreviewContext,
+): string[] {
+	const controlPreview = context.controlPreview;
+	if (!controlPreview) {
+		return [];
+	}
+	const selected = context.selectedInterface;
+	const targetRows = selected
+		? [
+				`interface control target=${selected.name} ${selected.status} ${selected.kind}`,
+				`address=${selected.ipv4Cidr ?? selected.ipv4 ?? selected.ipv6Cidr ?? selected.ipv6 ?? "-"} mtu=${selected.mtu ?? "-"} rx=${formatPaletteBytes(selected.rxBytes)} tx=${formatPaletteBytes(selected.txBytes)}`,
+				`source=${context.selectedInterfacePlatform ?? "-"} action=${action.id} locked`,
+			]
+		: [
+				"interface control target=- unavailable",
+				`source=${context.selectedInterfacePlatform ?? "-"} action=${action.id} locked`,
+			];
+	return [
+		...targetRows,
+		...formatControlActionPalettePreviewRows(controlPreview),
+	];
+}
+
+function formatPaletteBytes(value?: number): string {
+	if (value === undefined) {
+		return "-";
+	}
+	const units = ["B", "KB", "MB", "GB", "TB"];
+	let amount = value;
+	let unit = units[0];
+	for (const nextUnit of units) {
+		unit = nextUnit;
+		if (amount < 1000 || nextUnit === units[units.length - 1]) {
+			break;
+		}
+		amount /= 1000;
+	}
+	return `${amount.toFixed(unit === "B" ? 0 : 1)}${unit}`;
 }
 
 function formatConfigStatusResultJumpClassPalettePreviewRows(

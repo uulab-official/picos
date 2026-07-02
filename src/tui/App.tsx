@@ -10306,6 +10306,14 @@ function renderWorkspace(
 						visibleStatusActivityResultTimelineJumps,
 						allStatusActivityResultTimelineJumps:
 							totalStatusActivityResultTimelineJumps,
+						selectedInterface:
+							summary?.interfaces[
+								Math.min(
+									Math.max(selectedInterfaceIndex, 0),
+									Math.max(0, (summary?.interfaces.length ?? 0) - 1),
+								)
+							],
+						selectedInterfacePlatform: summary?.platform,
 					},
 				)}
 			/>

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adapters/macos";
 import { createActionPreviewPlan, getActionCatalog } from "../src/core/actions";
 import type { ConsoleAuditExportPlan } from "../src/core/auditLog";
+import type { NetworkInterfaceSummary } from "../src/core/types";
 import { createConfigWorkspaceItems } from "../src/tui/configPanel";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
@@ -848,6 +849,49 @@ describe("TUI command palette", () => {
 			"control preview dns.flush locked dryRun=true",
 			"risk=write privilege=admin confirm=flush dns",
 			"adapter=macos command=sudo dscacheutil -flushcache",
+			"blocked=disabled-by-default",
+		]);
+	});
+
+	test("previews selected interface controls before dispatch", () => {
+		const action = getActionCatalog().find(
+			(candidate) => candidate.id === "interface.disable",
+		);
+		const controlPreview = createActionPreviewPlan(
+			"interface.disable",
+			"macos",
+			macosControlPreviewCommand("interface.disable"),
+		);
+		const selectedInterface: NetworkInterfaceSummary = {
+			name: "en0",
+			status: "connected",
+			kind: "wifiOrEthernet",
+			ipv4: "192.168.0.20",
+			ipv6: "fe80::1",
+			ipv4Cidr: "192.168.0.20/24",
+			ipv6Cidr: "fe80::1/64",
+			netmask: "255.255.255.0",
+			mac: "aa:bb:cc:dd:ee:ff",
+			mtu: 1500,
+			rxBytes: 125000000,
+			txBytes: 42000000,
+			rxPackets: 9000,
+			txPackets: 7100,
+		};
+
+		expect(
+			formatCommandPaletteActionPreviewRows(action, {
+				controlPreview,
+				selectedInterface,
+				selectedInterfacePlatform: "darwin",
+			}),
+		).toEqual([
+			"interface control target=en0 connected wifiOrEthernet",
+			"address=192.168.0.20/24 mtu=1500 rx=125.0MB tx=42.0MB",
+			"source=darwin action=interface.disable locked",
+			"control preview interface.disable locked dryRun=true",
+			"risk=destructive privilege=admin confirm=disable interface",
+			"adapter=macos command=sudo networksetup -setnetworkserviceenabled <service> off",
 			"blocked=disabled-by-default",
 		]);
 	});

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.255 - Interface Palette Control Preview
+
+Status: draft PR [#317](https://github.com/uulab-official/picos/pull/317) on `codex/picos-v0.4.255-interface-palette-control-preview`.
+
+Goal: make command-palette interface controls show selected adapter context before locked Action Center dispatch.
+
+- Command palette `interface.disable` previews now prepend selected interface target rows before the generic locked control preview.
+- Preview rows show selected adapter name, connected/disconnected status, kind, primary address, MTU, RX/TX byte counters, platform source, and locked action id.
+- App passes the current Interfaces selection and platform into palette preview context, so palette review stays aligned with the TUI cursor.
+- Generic locked Action Center preview rows remain unchanged for other controls and still preserve disabled-by-default mutation posture.
+- Tests cover selected interface palette preview rows plus existing interface source and locked control preview behavior.
+- Next: add bounded raw adapter-output retention for interface inventory/stat/gateway sources so operators can inspect source output after refresh.
+
 ## v0.4.254 - Interface Source Control Preview
 
 Status: draft PR [#316](https://github.com/uulab-official/picos/pull/316) on `codex/picos-v0.4.254-interface-source-control-preview`.
