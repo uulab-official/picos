@@ -155,6 +155,7 @@ import {
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteSftpPackageResolutionPreview,
+	createRemoteSftpPackageResolutionReview,
 	createRemoteSftpTransportReadiness,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
@@ -179,6 +180,7 @@ import {
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteSftpPackageResolutionPreviewRows,
+	formatRemoteSftpPackageResolutionReviewRows,
 	formatRemoteSftpTransportReadinessRows,
 	formatRemoteTransportProbeRows,
 	parseRemoteProfileCommand,
@@ -11877,7 +11879,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 130);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 138);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11916,9 +11918,15 @@ function RemotesWorkspace({
 	const sftpTransportReadinessRows = formatRemoteSftpTransportReadinessRows(
 		sftpTransportReadiness,
 	);
+	const sftpPackageResolutionPreview =
+		createRemoteSftpPackageResolutionPreview();
 	const sftpPackageResolutionPreviewRows =
-		formatRemoteSftpPackageResolutionPreviewRows(
-			createRemoteSftpPackageResolutionPreview(),
+		formatRemoteSftpPackageResolutionPreviewRows(sftpPackageResolutionPreview);
+	const sftpPackageResolutionReviewRows =
+		formatRemoteSftpPackageResolutionReviewRows(
+			createRemoteSftpPackageResolutionReview({
+				preview: sftpPackageResolutionPreview,
+			}),
 		);
 	const knownHostsSourceRows = formatRemoteKnownHostsSourcePreviewRows(
 		createRemoteKnownHostsSourcePreview(selectedProfile),
@@ -12253,6 +12261,30 @@ function RemotesWorkspace({
 										row.includes("willConnect=false")
 									? "yellow"
 									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">SFTP PACKAGE REVIEW</Text>
+				{sftpPackageResolutionReviewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("found")
+									? "green"
+									: row.includes("missing") ||
+											row.includes("package-not-found") ||
+											row.includes("resolverRan=false") ||
+											row.includes("packageRead=false") ||
+											row.includes("willImport=false") ||
+											row.includes("willConnect=false")
+										? "yellow"
+										: "gray"
 						}
 					>
 						{clip(row, 92)}

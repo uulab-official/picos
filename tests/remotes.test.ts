@@ -17,6 +17,7 @@ import {
 	createRemoteKnownHostsSourcePreview,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteSftpPackageResolutionPreview,
+	createRemoteSftpPackageResolutionReview,
 	createRemoteSftpTransportReadiness,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
@@ -43,6 +44,7 @@ import {
 	formatRemoteProviderStatus,
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteSftpPackageResolutionPreviewRows,
+	formatRemoteSftpPackageResolutionReviewRows,
 	formatRemoteSftpTransportReadinessRows,
 	formatRemoteTransportProbeRows,
 	normalizeRemoteProfiles,
@@ -1059,6 +1061,97 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willResolve=false willReadPackage=false willImport=false willConnect=false willMutate=false",
+		);
+	});
+
+	test("formats remote SFTP package resolution review without resolving packages", () => {
+		const preview = createRemoteSftpPackageResolutionPreview({
+			startDir: "/repo/packages/app/src",
+		});
+		const missing = createRemoteSftpPackageResolutionReview({ preview });
+
+		expect(missing).toEqual({
+			dependency: "@uulab/picos-sftp",
+			detector: "injected-resolution-result",
+			status: "missing",
+			blocker: "package-not-found",
+			source: "injected",
+			previewStartDir: "/repo/packages/app/src",
+			lookupCount: 5,
+			matchedLookup: "-",
+			resolvedPath: "-",
+			packageJsonPath: "-",
+			version: "-",
+			execution: {
+				resolverRan: false,
+				readsPackageJson: false,
+				importsTransport: false,
+				opensSocket: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(formatRemoteSftpPackageResolutionReviewRows(missing)).toEqual([
+			"REMOTE SFTP PACKAGE RESOLUTION REVIEW",
+			"dependency=@uulab/picos-sftp detector=injected-resolution-result status=missing blocker=package-not-found source=injected",
+			"previewStart=/repo/packages/app/src lookups=5 matchedLookup=-",
+			"resolved=- packageJson=- version=-",
+			"execution=resolverRan=false packageRead=false willImport=false willConnect=false willMutate=false",
+			"next=install @uulab/picos-sftp or provide injected resolver metadata before enabling transport readiness",
+		]);
+
+		const found = createRemoteSftpPackageResolutionReview({
+			preview,
+			resolvedPath: "/repo/node_modules/@uulab/picos-sftp",
+			packageJsonPath: "/repo/node_modules/@uulab/picos-sftp/package.json",
+			version: "0.1.0",
+		});
+
+		expect(found).toEqual({
+			dependency: "@uulab/picos-sftp",
+			detector: "injected-resolution-result",
+			status: "found",
+			blocker: "none",
+			source: "injected",
+			previewStartDir: "/repo/packages/app/src",
+			lookupCount: 5,
+			matchedLookup: 3,
+			resolvedPath: "/repo/node_modules/@uulab/picos-sftp",
+			packageJsonPath: "/repo/node_modules/@uulab/picos-sftp/package.json",
+			version: "0.1.0",
+			execution: {
+				resolverRan: false,
+				readsPackageJson: false,
+				importsTransport: false,
+				opensSocket: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(formatRemoteSftpPackageResolutionReviewRows(found)).toEqual([
+			"REMOTE SFTP PACKAGE RESOLUTION REVIEW",
+			"dependency=@uulab/picos-sftp detector=injected-resolution-result status=found blocker=none source=injected",
+			"previewStart=/repo/packages/app/src lookups=5 matchedLookup=3",
+			"resolved=/repo/node_modules/@uulab/picos-sftp packageJson=/repo/node_modules/@uulab/picos-sftp/package.json version=0.1.0",
+			"execution=resolverRan=false packageRead=false willImport=false willConnect=false willMutate=false",
+			"next=transport package metadata found · import and socket policy remain disabled",
+		]);
+	});
+
+	test("includes remote SFTP package resolution review in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE SFTP PACKAGE RESOLUTION REVIEW");
+		expect(output).toContain(
+			"dependency=@uulab/picos-sftp detector=injected-resolution-result status=missing blocker=package-not-found source=injected",
+		);
+		expect(output).toContain(
+			"execution=resolverRan=false packageRead=false willImport=false willConnect=false willMutate=false",
 		);
 	});
 
