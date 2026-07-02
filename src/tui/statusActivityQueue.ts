@@ -16,6 +16,12 @@ import type {
 	TimelineFilter,
 	TimelineFocusEvidenceTrailPlan,
 } from "./timelinePanel";
+import {
+	filterToolHistoryExportIndex,
+	type ToolHistoryEvidenceFilter,
+	type ToolHistoryExportIndex,
+	type ToolHistoryExportIndexItem,
+} from "./toolHistory";
 
 export type StatusActivityQueueInput = {
 	releaseRows?: string[];
@@ -72,6 +78,13 @@ export type StatusActivityCopyIntentTimelineSearch = {
 	filter: TimelineFilter;
 	query: string;
 	message: string;
+};
+
+export type StatusActivityToolsEvidenceSearchRecovery = {
+	target: "active" | "archive";
+	query: string;
+	total: number;
+	items: ToolHistoryExportIndexItem[];
 };
 
 type StatusActivityTimelineMessageSource = {
@@ -632,6 +645,7 @@ export function formatStatusActivityCopyIntentRows(
 	freshResultJump?: StatusActivityCopyIntentTimelineSearch,
 	freshResultJumpSelectedIndex = 0,
 	freshResultJumpCount = freshResultJump ? 1 : 0,
+	toolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery,
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -721,6 +735,9 @@ export function formatStatusActivityCopyIntentRows(
 				)
 			: []),
 		...auditJumpRows,
+		...formatStatusActivityToolsEvidenceSearchRecoveryRows(
+			toolsEvidenceSearchRecovery,
+		),
 		...formatStatusActivityResultAuditJumpReplayWarningSummaryRows(
 			staleReplayWarningSummary,
 		),
@@ -738,7 +755,10 @@ export function formatStatusActivityCopyIntentRows(
 		trailControlParts.length > 0 ? ` · ${trailControlParts.join(" · ")}` : "";
 	const resultJumpControls =
 		freshResultJumpCount > 1 ? " · J result select" : "";
-	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${trailControls}${resultJumpControls} · g Timeline audit search`;
+	const toolsRecoveryControls = toolsEvidenceSearchRecovery
+		? " · tools recovered"
+		: "";
+	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
@@ -793,6 +813,63 @@ function formatFreshStatusActivityResultJumpRows(
 	return [
 		`result jump target=filter:${jump.filter} query=${jump.query}${count > 1 ? ` selected=${getNormalizedSelectionIndex(count, selectedIndex) + 1}/${count}` : ""} I=fresh`,
 	];
+}
+
+export function createStatusActivityToolsEvidenceSearchRecovery(
+	jump: StatusActivityCopyIntentTimelineSearch | undefined,
+	options: {
+		activeFilter?: ToolHistoryEvidenceFilter;
+		activeIndex: ToolHistoryExportIndex;
+		archiveFilter?: ToolHistoryEvidenceFilter;
+		archiveIndex: ToolHistoryExportIndex;
+	},
+): StatusActivityToolsEvidenceSearchRecovery | undefined {
+	const search = jump
+		? parseToolsEvidenceSearchAuditQuery(jump.query)
+		: undefined;
+	if (!search) {
+		return undefined;
+	}
+	const index =
+		search.target === "archive" ? options.archiveIndex : options.activeIndex;
+	const filter =
+		search.target === "archive"
+			? (options.archiveFilter ?? "any")
+			: (options.activeFilter ?? "any");
+	const filtered = filterToolHistoryExportIndex(index, filter, search.query);
+	return {
+		target: search.target,
+		query: search.query,
+		total: index.items.length,
+		items: filtered.items,
+	};
+}
+
+function formatStatusActivityToolsEvidenceSearchRecoveryRows(
+	recovery?: StatusActivityToolsEvidenceSearchRecovery,
+): string[] {
+	if (!recovery) {
+		return [];
+	}
+	const actionHint =
+		recovery.target === "active"
+			? "actions=K open D archive"
+			: "actions=K open";
+	const rows = [
+		`tools matches target=${recovery.target} visible=${recovery.items.length}/${recovery.total} query=${recovery.query || "-"}`,
+		...recovery.items.slice(0, 2).map((item, index) => {
+			const marker = index === 0 ? "> " : "  ";
+			return `${marker}${item.fileName} scope=${item.scope} runs=${item.runCount} ${actionHint}`;
+		}),
+	];
+	const hidden = recovery.items.length - 2;
+	if (hidden > 0) {
+		rows.push(`  +${hidden} more tools evidence matches`);
+	}
+	if (recovery.items.length === 0) {
+		rows.push("  no matching Tools evidence exports");
+	}
+	return rows;
 }
 
 function parseToolsEvidenceSearchAuditQuery(

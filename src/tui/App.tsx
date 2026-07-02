@@ -403,6 +403,7 @@ import {
 	createStatusActivityResultTimelineSearchReplay,
 	createStatusActivityResultTimelineSearchReplayWarning,
 	createStatusActivityToolsEvidencePaletteResult,
+	createStatusActivityToolsEvidenceSearchRecovery,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
@@ -12117,6 +12118,11 @@ function StatusWorkspace({
 		getLatestStatusActivityResultAuditJumpIntent(
 			statusActivityCopyIntentHistory,
 		);
+	const selectedStatusActivityResultAuditJumpIntent =
+		getSelectedStatusActivityResultAuditJumpIntent(
+			statusActivityCopyIntentHistory,
+			selectedStatusActivityResultAuditJumpIndex,
+		);
 	const statusActivityResultAuditJumpIntentCount =
 		getStatusActivityResultAuditJumpIntentCount(
 			statusActivityCopyIntentHistory,
@@ -12130,6 +12136,23 @@ function StatusWorkspace({
 		getStatusActivityResultTimelineJumpSelection(
 			statusActivityResults,
 			selectedStatusActivityResultIndex,
+		);
+	const statusActivityResultTimelineSearchRecovery =
+		createStatusActivityResultTimelineSearchReplay(
+			statusActivityResults,
+			selectedStatusActivityResultIndex,
+			latestStatusActivityResultAuditJumpIntent,
+			selectedStatusActivityResultAuditJumpIntent,
+		);
+	const statusActivityToolsEvidenceSearchRecovery =
+		createStatusActivityToolsEvidenceSearchRecovery(
+			statusActivityResultTimelineSearchRecovery,
+			{
+				activeFilter: toolExportFilter,
+				activeIndex: toolExportIndex,
+				archiveFilter: toolExportArchiveFilter,
+				archiveIndex: toolExportArchiveIndex,
+			},
 		);
 	const statusActivityResultAuditJumpActionHint =
 		selectedStatusActivityResultTimelineSearch
@@ -12374,6 +12397,7 @@ function StatusWorkspace({
 					selectedStatusActivityResultTimelineSearch,
 					selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,
 					selectedStatusActivityResultTimelineJumpSelection?.total,
+					statusActivityToolsEvidenceSearchRecovery,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
