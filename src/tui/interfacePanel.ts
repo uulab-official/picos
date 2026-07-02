@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { getControlPreviewCommand } from "../core/controlPreview";
 import type {
 	NetworkGroupSummary,
@@ -6,6 +8,11 @@ import type {
 	NetworkSummary,
 	SupportedPlatform,
 } from "../core/types";
+import {
+	type ClipboardPreview,
+	createClipboardPreview,
+	formatClipboardPreviewRows,
+} from "./clipboardPreview";
 
 export type InterfaceDetailView =
 	| "list"
@@ -13,6 +20,13 @@ export type InterfaceDetailView =
 	| "stats"
 	| "platform"
 	| "source";
+
+export type InterfaceSourceHandoffPlan = {
+	path: string;
+	content: string;
+	label: string;
+	view: "source";
+};
 
 export function nextInterfaceDetailView(
 	view: InterfaceDetailView,
@@ -51,6 +65,7 @@ export function formatInterfaceWorkspaceRows(
 	summary: NetworkSummary,
 	visibleRows: number,
 	options: {
+		copyPreview?: boolean;
 		selectedIndex?: number;
 		view?: InterfaceDetailView;
 	} = {},
@@ -90,6 +105,9 @@ export function formatInterfaceWorkspaceRows(
 			header,
 			...formatSelectedInterfaceSummaryRows(summary, selected),
 			...formatInterfaceSourceRows(summary, selected),
+			...(options.copyPreview
+				? formatInterfaceSourceClipboardPreviewRows(summary, selected)
+				: []),
 		].slice(0, visibleRows);
 	}
 
@@ -138,6 +156,79 @@ export function formatInterfaceSourceRows(
 		...formatInterfaceRawSourceRows(summary.sourceOutputs ?? [], name),
 		...formatInterfaceControlPreviewRows(summary.platform),
 	];
+}
+
+export function getInterfaceSourceClipboardPreview(
+	summary: NetworkSummary,
+	selected?: NetworkInterfaceSummary,
+): ClipboardPreview | undefined {
+	const copyText = formatInterfaceSourceEvidenceText(summary, selected);
+	if (!copyText) {
+		return undefined;
+	}
+	const selectedName = selected?.name ?? "-";
+	return createClipboardPreview({
+		source: "interface-source",
+		label: `interface source evidence ${selectedName}`,
+		copyText,
+		details: [
+			`selected=${selectedName} platform=${summary.platform}`,
+			`sources=${summary.sourceOutputs?.length ?? 0} gateway=${summary.gateway ?? "-"}`,
+		],
+	});
+}
+
+export function createInterfaceSourceHandoffPlan(
+	summary: NetworkSummary,
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+		selected?: NetworkInterfaceSummary;
+	},
+): InterfaceSourceHandoffPlan | undefined {
+	const copyText = formatInterfaceSourceEvidenceText(summary, options.selected);
+	if (!copyText) {
+		return undefined;
+	}
+	const generatedAt = options.generatedAt ?? new Date();
+	const iso = generatedAt.toISOString();
+	const selectedName = options.selected?.name ?? "-";
+	const commands =
+		summary.sourceOutputs
+			?.map((source) => [source.command, ...source.args].join(" "))
+			.join("; ") ?? "-";
+	return {
+		path: join(
+			options.baseDir,
+			"interfaces",
+			`picos-interfaces-source-${iso.replaceAll(/[:.]/g, "")}.md`,
+		),
+		label: `interface source evidence ${selectedName}`,
+		view: "source",
+		content: [
+			"# picos interface source handoff",
+			`generatedAt=${iso}`,
+			"kind=interfaces",
+			"view=source",
+			`label=interface source evidence ${selectedName}`,
+			`command=${commands}`,
+			`selected=${selectedName}`,
+			`platform=${summary.platform}`,
+			"",
+			"```txt",
+			copyText,
+			"```",
+			"",
+		].join("\n"),
+	};
+}
+
+export async function writeInterfaceSourceHandoffPlan(
+	plan: InterfaceSourceHandoffPlan,
+): Promise<InterfaceSourceHandoffPlan> {
+	await mkdir(dirname(plan.path), { recursive: true });
+	await writeFile(plan.path, plan.content, "utf8");
+	return plan;
 }
 
 function getSelectedIndex(
@@ -310,6 +401,45 @@ function formatInterfaceRawSourceRows(
 			];
 		}),
 	];
+}
+
+function formatInterfaceSourceClipboardPreviewRows(
+	summary: NetworkSummary,
+	selected: NetworkInterfaceSummary | undefined,
+): string[] {
+	const preview = getInterfaceSourceClipboardPreview(summary, selected);
+	return preview
+		? formatClipboardPreviewRows(preview, {
+				maxCopyLineLength: 76,
+				maxCopyLines: 6,
+			})
+		: [];
+}
+
+function formatInterfaceSourceEvidenceText(
+	summary: NetworkSummary,
+	selected: NetworkInterfaceSummary | undefined,
+): string | undefined {
+	const sources = summary.sourceOutputs ?? [];
+	if (sources.length === 0) {
+		return undefined;
+	}
+	const selectedName = selected?.name ?? "-";
+	return [
+		"picos interfaces source",
+		"",
+		"[Summary]",
+		`Selected: ${selectedName}`,
+		`Platform: ${summary.platform}`,
+		`Gateway: ${summary.gateway ?? "-"}`,
+		"",
+		...sources.flatMap((source, index) => [
+			`${index === 0 ? "" : "\n"}[${source.key}] ${[source.command, ...source.args].join(" ")} ${source.success ? "ok" : "fail"} lines=${source.lineCount} shown=${source.shownLines}${source.truncated ? " truncated=yes" : ""}`,
+			source.output,
+		]),
+	]
+		.join("\n")
+		.trim();
 }
 
 function formatInterfaceControlPreviewRows(

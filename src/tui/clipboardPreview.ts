@@ -1,5 +1,6 @@
 export type ClipboardPreviewSource =
 	| "connection"
+	| "interface-source"
 	| "port"
 	| "process-resource"
 	| "route-diagnostics"

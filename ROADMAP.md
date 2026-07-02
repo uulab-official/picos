@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.257 - Interface Source Handoffs
+
+Status: draft PR [#319](https://github.com/uulab-official/picos/pull/319) on `codex/picos-v0.4.257-interface-source-handoffs`.
+
+Goal: make retained Interfaces source evidence reusable through copy, export, file-open, and Status recovery flows.
+
+- Interfaces source pane `c` opens a locked clipboard preview for retained inventory/stat/gateway evidence.
+- Interfaces source pane `e` writes `interfaces/picos-interfaces-source-*.md` handoff files under the picos config directory.
+- Interfaces source pane `o` writes the same handoff and opens the existing locked file-open confirmation before launching an OS viewer.
+- Status handoff index now recognizes `interface-handoff` files, lists them as `kind=interfaces`, and archives only picos-owned interface handoffs.
+- File-open allow-list now accepts picos-owned `interfaces/*.md` handoffs while keeping external paths blocked.
+- Tests cover source clipboard/export formatting, handoff writing, file-open allow-listing, Status index recovery, and existing safety gates.
+- Next: continue Tools Hub parity by tightening traceroute/TLS direct-run detail rows and command-palette discovery.
+
 ## v0.4.256 - Interface Raw Source Retention
 
 Status: draft PR [#318](https://github.com/uulab-official/picos/pull/318) on `codex/picos-v0.4.256-interface-raw-source-retention`.
