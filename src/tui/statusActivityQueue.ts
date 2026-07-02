@@ -526,6 +526,79 @@ export function createRemoteConnectStatusActivityResult(
 	};
 }
 
+export function formatRemoteActivityShelfRows(
+	history: StatusActivityResult[],
+	options: {
+		selectedProfileId?: string;
+		limit?: number;
+	} = {},
+): string[] {
+	const limit = Math.max(1, Math.floor(options.limit ?? 3));
+	const remoteResults = history.filter(isRemoteActivityResult).slice(0, limit);
+	const selectedProfileId = options.selectedProfileId ?? "none";
+	const selectedIndex = getSelectedRemoteActivityIndex(
+		remoteResults,
+		options.selectedProfileId,
+	);
+
+	if (!remoteResults.length) {
+		return [
+			`REMOTE ACTIVITY recent=0 selected=${selectedProfileId}`,
+			"no remote activity recorded yet",
+			"controls=enter stage · c connect preview · Status I timeline recovery",
+		];
+	}
+
+	const rows = [
+		`REMOTE ACTIVITY recent=${remoteResults.length} selected=${selectedProfileId}`,
+	];
+	for (const [index, result] of remoteResults.entries()) {
+		const marker = index === selectedIndex ? ">" : " ";
+		rows.push(`${marker} ${formatRemoteActivitySummary(result)}`);
+		if (result.detail) {
+			rows.push(`  ${result.detail}`);
+		}
+	}
+	rows.push(
+		"controls=enter stage · c connect preview · Status I timeline recovery",
+	);
+	return rows;
+}
+
+function isRemoteActivityResult(result: StatusActivityResult): boolean {
+	return (
+		result.source === "timeline" &&
+		(result.action === "remote-host-review" ||
+			result.action === "remote-connect")
+	);
+}
+
+function getSelectedRemoteActivityIndex(
+	results: StatusActivityResult[],
+	selectedProfileId?: string,
+): number {
+	if (!results.length) {
+		return -1;
+	}
+	if (!selectedProfileId) {
+		return 0;
+	}
+	const selectedIndex = results.findIndex((result) =>
+		result.message.includes(` ${selectedProfileId} `),
+	);
+	return selectedIndex >= 0 ? selectedIndex : 0;
+}
+
+function formatRemoteActivitySummary(result: StatusActivityResult): string {
+	if (result.action === "remote-connect") {
+		return result.message.replace(/^remote connect /, "connect ");
+	}
+	if (result.action === "remote-host-review") {
+		return result.message.replace(/^remote host review staged /, "stage ");
+	}
+	return result.message;
+}
+
 function isPaletteStatusActivityResultJump(
 	result: StatusActivityResult,
 ): boolean {

@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.275 - Remotes Activity Shelf
+
+Status: draft PR [#337](https://github.com/uulab-official/picos/pull/337) on `codex/picos-v0.4.275-remotes-activity-shelf`.
+
+Goal: make recent remote stage/connect intent visible directly in the Remotes workspace while keeping Status Activity and Timeline as the shared audit source.
+
+- Remotes now renders a `RECENT ACTIVITY` section backed by `REMOTE ACTIVITY` rows derived from Status Activity result history.
+- The shelf filters `remote-host-review` and `remote-connect` result rows, keeps only recent remote activity, and ignores unrelated Timeline/Status results.
+- The selected profile's matching remote activity is marked when available, with fallback marking on the newest remote result.
+- Shelf detail rows preserve target URI, dependency, policy, locked write posture, `network=not-opened`, `willExecute=false`, and exact confirmation text.
+- No remote transport is imported and no network socket is opened; the shelf only reuses existing local audit/result state.
+- Tests cover empty state, mixed-history filtering, selected-profile marking, and focused Remotes activity shelf formatting.
+- Next: add a read-only SFTP transport capability probe behind the same host-review boundary.
+
 ## v0.4.274 - Remote Connect Activity
 
 Status: draft PR [#336](https://github.com/uulab-official/picos/pull/336) on `codex/picos-v0.4.274-remote-connect-activity`.
