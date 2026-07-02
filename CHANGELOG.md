@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS CANDIDATES` rows, backed by a pure injected-content parser for plain host rows, bracketed host:port rows, wildcard marker rows, and SHA256 fingerprints while keeping local file reads, sockets, host scans, trust, and mutation disabled.
 - Remotes workspace and `picos remote <id>` now show `REMOTE HOST KEY COMPARE DETAIL` rows between trust decision and host review, exposing collected fingerprint, known_hosts candidate count, selected candidate, match state, blocked decision, exact confirmation, and no-import/no-connect/no-local-read/no-parse/no-scan/no-trust posture before comparison is enabled.
 - Status Activity remote host trust review results now expand into structured review, fingerprint, decision, and confirmation detail rows, so blocked/rejected trust attempts can be inspected and copied without parsing a single long detail line.
 - Remotes focus now supports locked host-key trust review attempts with `t`, opening `:remote-host-trust` exact confirmation for `review host trust <id>` and recording blocked/rejected audit plus Status Activity history without opening transport, trusting a host, or writing `known_hosts`.

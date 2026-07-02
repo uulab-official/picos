@@ -7,6 +7,7 @@ import {
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
 	createRemoteHostKeyTrustDecisionPreview,
+	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsSourcePreview,
@@ -23,6 +24,7 @@ import {
 	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
+	formatRemoteKnownHostsCandidatePreviewRows,
 	formatRemoteKnownHostsParserPreviewRows,
 	formatRemoteKnownHostsReadPreviewRows,
 	formatRemoteKnownHostsSourcePreviewRows,
@@ -31,6 +33,7 @@ import {
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
 	normalizeRemoteProfiles,
+	parseRemoteKnownHostsCandidates,
 	parseRemoteProfileCommand,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyTrustReview,
@@ -832,6 +835,151 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willReadLocal=false willParse=false willConnect=false willScan=false willTrust=false willMutate=false",
+		);
+	});
+
+	test("parses injected known_hosts candidates without local reads or trust", () => {
+		const content = [
+			"# comment",
+			"prod.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEpJbGNlLXRlc3Qta2V5LWJsb2ItMDAx deploy@prod",
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfake prod-port",
+			"@cert-authority *.example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICertAuthorityBlob ca",
+			"|1|salt|hash ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHashedHostBlob hashed",
+			"malformed",
+		].join("\n");
+
+		expect(
+			parseRemoteKnownHostsCandidates("prod.example.com:2222", content),
+		).toEqual([
+			{
+				index: 1,
+				sourceLine: 3,
+				marker: "none",
+				hostPattern: "[prod.example.com]:2222",
+				hostKind: "plain",
+				keyType: "ssh-rsa",
+				fingerprint: expect.stringMatching(/^SHA256:[A-Za-z0-9+/]+$/),
+				match: "matched",
+				trust: "candidate-only",
+			},
+		]);
+
+		expect(
+			parseRemoteKnownHostsCandidates("prod.example.com:22", content),
+		).toEqual([
+			{
+				index: 1,
+				sourceLine: 2,
+				marker: "none",
+				hostPattern: "prod.example.com",
+				hostKind: "plain",
+				keyType: "ssh-ed25519",
+				fingerprint: expect.stringMatching(/^SHA256:[A-Za-z0-9+/]+$/),
+				match: "matched",
+				trust: "candidate-only",
+			},
+			{
+				index: 2,
+				sourceLine: 4,
+				marker: "@cert-authority",
+				hostPattern: "*.example.com",
+				hostKind: "pattern",
+				keyType: "ssh-ed25519",
+				fingerprint: expect.stringMatching(/^SHA256:[A-Za-z0-9+/]+$/),
+				match: "matched",
+				trust: "candidate-only",
+			},
+		]);
+
+		expect(
+			parseRemoteKnownHostsCandidates("unknown.internal:22", content),
+		).toEqual([]);
+	});
+
+	test("formats remote known_hosts candidate previews without mutating trust", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const content =
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfake prod-port";
+		const preview = createRemoteKnownHostsCandidatePreview(profile, content);
+
+		expect(preview).toEqual({
+			id: "prod",
+			provider: "sftp",
+			lookup: "prod.example.com:2222",
+			status: "parsed-injected",
+			source: "provided-known-hosts",
+			candidates: [
+				{
+					index: 1,
+					sourceLine: 1,
+					marker: "none",
+					hostPattern: "[prod.example.com]:2222",
+					hostKind: "plain",
+					keyType: "ssh-rsa",
+					fingerprint: expect.stringMatching(/^SHA256:[A-Za-z0-9+/]+$/),
+					match: "matched",
+					trust: "candidate-only",
+				},
+			],
+			selected: 1,
+			match: "matched",
+			decision: "blocked",
+			execution: {
+				readsLocal: false,
+				parsesInjectedContent: true,
+				opensSocket: false,
+				scansHostKey: false,
+				trustsHost: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(formatRemoteKnownHostsCandidatePreviewRows(preview)).toEqual([
+			"REMOTE KNOWN_HOSTS CANDIDATES prod",
+			"lookup=prod.example.com:2222 provider=sftp status=parsed-injected source=provided-known-hosts",
+			"candidates=1 selected=1 match=matched decision=blocked",
+			expect.stringMatching(
+				/^> #1 line=1 marker=none host=\[prod\.example\.com\]:2222 kind=plain key=ssh-rsa fingerprint=SHA256:[A-Za-z0-9+/]+ trust=candidate-only$/,
+			),
+			"execution=willReadLocal=false parsedInjected=true willConnect=false willScan=false willTrust=false willMutate=false",
+			"next=compare selected candidate with collected host key evidence before trust review",
+		]);
+
+		expect(formatRemoteKnownHostsCandidatePreviewRows().join("\n")).toBe(
+			[
+				"REMOTE KNOWN_HOSTS CANDIDATES none",
+				"lookup=none provider=sftp status=not-parsed source=provided-known-hosts",
+				"candidates=0 selected=none match=unknown decision=blocked",
+				"no known_hosts candidates for selected lookup",
+				"execution=willReadLocal=false parsedInjected=false willConnect=false willScan=false willTrust=false willMutate=false",
+				"next=select remote profile · no candidate parsing",
+			].join("\n"),
+		);
+	});
+
+	test("includes empty remote known_hosts candidate preview in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE KNOWN_HOSTS CANDIDATES dev");
+		expect(output).toContain(
+			"candidates=0 selected=none match=unknown decision=blocked",
+		);
+		expect(output).toContain(
+			"execution=willReadLocal=false parsedInjected=false willConnect=false willScan=false willTrust=false willMutate=false",
 		);
 	});
 

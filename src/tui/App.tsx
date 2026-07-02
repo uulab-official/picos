@@ -145,6 +145,7 @@ import {
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
 	createRemoteHostKeyTrustDecisionPreview,
+	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsSourcePreview,
@@ -161,6 +162,7 @@ import {
 	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
+	formatRemoteKnownHostsCandidatePreviewRows,
 	formatRemoteKnownHostsParserPreviewRows,
 	formatRemoteKnownHostsReadPreviewRows,
 	formatRemoteKnownHostsSourcePreviewRows,
@@ -11817,7 +11819,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 74);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 81);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11850,6 +11852,10 @@ function RemotesWorkspace({
 	const knownHostsParserPreviewRows = formatRemoteKnownHostsParserPreviewRows(
 		createRemoteKnownHostsParserPreview(selectedProfile),
 	);
+	const knownHostsCandidatePreviewRows =
+		formatRemoteKnownHostsCandidatePreviewRows(
+			createRemoteKnownHostsCandidatePreview(selectedProfile),
+		);
 	const hostKeyTrustDecisionRows = formatRemoteHostKeyTrustDecisionPreviewRows(
 		createRemoteHostKeyTrustDecisionPreview(selectedProfile),
 	);
@@ -12105,6 +12111,29 @@ function RemotesWorkspace({
 										row.includes("willTrust=false")
 									? "yellow"
 									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">KNOWN_HOSTS CANDIDATES</Text>
+				{knownHostsCandidatePreviewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("not-parsed") ||
+										row.includes("blocked") ||
+										row.includes("unknown") ||
+										row.includes("willReadLocal=false") ||
+										row.includes("willTrust=false")
+									? "yellow"
+									: row.startsWith(">")
+										? "cyan"
+										: "gray"
 						}
 					>
 						{clip(row, 92)}
