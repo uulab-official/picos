@@ -1158,6 +1158,134 @@ describe("TUI tool history", () => {
 		]);
 	});
 
+	test("surfaces structured TLS and traceroute evidence in tool history", () => {
+		const tlsResult: ToolResult = {
+			title: "TLS Inspector",
+			sections: [
+				{
+					label: "Target",
+					lines: [
+						"Host: example.com",
+						"Port: 443",
+						"Command: picos tools tls example.com:443",
+						"Timeout: 1200ms",
+					],
+				},
+				{
+					label: "Status",
+					lines: [
+						"Authorized: yes",
+						"Protocol: TLSv1.3",
+						"Cipher: TLS_AES_256_GCM_SHA384",
+					],
+				},
+				{
+					label: "Certificate",
+					lines: ["Subject: *.example.com", "Issuer: Example CA"],
+				},
+			],
+			rawOutput:
+				"$ picos tools tls example.com:443\n[Target]\nHost: example.com\nPort: 443\nCommand: picos tools tls example.com:443\nTimeout: 1200ms\n[Status]\nAuthorized: yes\nProtocol: TLSv1.3\nCipher: TLS_AES_256_GCM_SHA384\n[Certificate]\nSubject: *.example.com\nIssuer: Example CA",
+		};
+		const traceResult: ToolResult = {
+			title: "Traceroute",
+			sections: [
+				{
+					label: "Target",
+					lines: [
+						"Host: 8.8.8.8",
+						"Command: traceroute 8.8.8.8",
+						"Platform: darwin",
+						"Timeout: 1500ms",
+					],
+				},
+				{
+					label: "Status",
+					lines: ["Exit: 0", "Result: ok", "Output Lines: 3"],
+				},
+				{
+					label: "Hops",
+					lines: [
+						"1 192.168.0.1 1.123 ms 1.221 ms 1.300 ms",
+						"2 10.0.0.1 8.100 ms 8.200 ms 8.300 ms",
+					],
+				},
+			],
+			rawOutput:
+				"$ traceroute 8.8.8.8\n[Target]\nHost: 8.8.8.8\nCommand: traceroute 8.8.8.8\nPlatform: darwin\nTimeout: 1500ms\n[Status]\nExit: 0\nResult: ok\nOutput Lines: 3\n[Hops]\n1 192.168.0.1 1.123 ms 1.221 ms 1.300 ms\n2 10.0.0.1 8.100 ms 8.200 ms 8.300 ms",
+		};
+		const history = appendToolHistory(
+			appendToolHistory(
+				[],
+				{
+					plan: {
+						actionId: "tools.tls",
+						toolId: "tls",
+						args: ["example.com:443"],
+						label: "tools.tls example.com:443",
+					},
+					result: tlsResult,
+				},
+				"12:00:00",
+			),
+			{
+				plan: {
+					actionId: "tools.traceroute",
+					toolId: "traceroute",
+					args: ["8.8.8.8"],
+					label: "tools.traceroute 8.8.8.8",
+				},
+				result: traceResult,
+			},
+			"12:00:01",
+		);
+
+		expect(
+			formatToolsWorkspaceRows(
+				history,
+				16,
+				0,
+				"",
+				"time",
+				"none",
+				[],
+				"summary",
+			),
+		).toContain("summary=Target: Host: example.com | Port: 443");
+		expect(
+			formatToolsWorkspaceRows(
+				history,
+				30,
+				1,
+				"",
+				"time",
+				"none",
+				[],
+				"raw",
+				[],
+				0,
+				"status",
+			),
+		).toEqual(
+			expect.arrayContaining([
+				"[Hops]",
+				"1 192.168.0.1 1.123 ms 1.221 ms 1.300 ms",
+				"copy help: b row=ok · v section=ok · c raw=ok · y summary=ok",
+				"copy section: section=status rows=3 first=Exit: 0",
+			]),
+		);
+		expect(
+			getSelectedToolSectionClipboardPreview(history, 0, "status"),
+		).toEqual(
+			expect.objectContaining({
+				source: "tool-status",
+				label: "tools.tls example.com:443 status fields",
+				copyText:
+					"Authorized: yes\nProtocol: TLSv1.3\nCipher: TLS_AES_256_GCM_SHA384",
+			}),
+		);
+	});
+
 	test("compares the selected tool run with the previous matching target", () => {
 		const history = appendToolHistory(
 			appendToolHistory(

@@ -5,6 +5,7 @@ import {
 	getToolDefinitions,
 	normalizeToolTarget,
 	runIpInfo,
+	runTlsInspect,
 	runTool,
 	runWhoisLookup,
 } from "../src/core/tools";
@@ -155,5 +156,101 @@ describe("lazyifconfig-style tools hub", () => {
 		expect(result.sections[0]?.lines).toContain(
 			"Organization: AS15169 Google LLC",
 		);
+	});
+
+	test("formats TLS inspection with target status and certificate sections", async () => {
+		const result = await runTlsInspect("example.com:443", {
+			timeoutMs: 1200,
+			inspectTls: async () => ({
+				host: "example.com",
+				port: 443,
+				authorized: true,
+				protocol: "TLSv1.3",
+				cipher: "TLS_AES_256_GCM_SHA384",
+				subject: "*.example.com",
+				issuer: "Example CA",
+				validFrom: "Jan 1 00:00:00 2026 GMT",
+				validTo: "Jan 1 23:59:59 2027 GMT",
+				subjectAltName: "DNS:example.com, DNS:www.example.com",
+				certificateCount: 2,
+			}),
+		});
+
+		expect(result.sections).toEqual([
+			{
+				label: "Target",
+				lines: [
+					"Host: example.com",
+					"Port: 443",
+					"Command: picos tools tls example.com:443",
+					"Timeout: 1200ms",
+				],
+			},
+			{
+				label: "Status",
+				lines: [
+					"Authorized: yes",
+					"Protocol: TLSv1.3",
+					"Cipher: TLS_AES_256_GCM_SHA384",
+				],
+			},
+			{
+				label: "Certificate",
+				lines: [
+					"Subject: *.example.com",
+					"Issuer: Example CA",
+					"Valid From: Jan 1 00:00:00 2026 GMT",
+					"Valid To: Jan 1 23:59:59 2027 GMT",
+					"SAN: DNS:example.com, DNS:www.example.com",
+					"Chain Certificates: 2",
+				],
+			},
+		]);
+		expect(result.rawOutput).toContain("[Target]\nHost: example.com");
+		expect(result.rawOutput).toContain("[Certificate]\nSubject: *.example.com");
+	});
+
+	test("formats traceroute with target status and parsed hop sections", async () => {
+		const result = await runTool("traceroute", ["8.8.8.8"], {
+			platform: "darwin",
+			timeoutMs: 1500,
+			runner: async (command, args) => ({
+				command,
+				args,
+				stdout: [
+					"traceroute to 8.8.8.8 (8.8.8.8), 30 hops max",
+					" 1  192.168.0.1  1.123 ms  1.221 ms  1.300 ms",
+					" 2  10.0.0.1  8.100 ms  8.200 ms  8.300 ms",
+				].join("\n"),
+				stderr: "",
+				exitCode: 0,
+				success: true,
+			}),
+		});
+
+		expect(result.sections).toEqual([
+			{
+				label: "Target",
+				lines: [
+					"Host: 8.8.8.8",
+					"Command: traceroute 8.8.8.8",
+					"Platform: darwin",
+					"Timeout: 1500ms",
+				],
+			},
+			{
+				label: "Status",
+				lines: ["Exit: 0", "Result: ok", "Output Lines: 3"],
+			},
+			{
+				label: "Hops",
+				lines: [
+					"1 192.168.0.1 1.123 ms 1.221 ms 1.300 ms",
+					"2 10.0.0.1 8.100 ms 8.200 ms 8.300 ms",
+				],
+			},
+		]);
+		expect(result.rawOutput).toContain("[Target]\nHost: 8.8.8.8");
+		expect(result.rawOutput).toContain("[Hops]\n1 192.168.0.1");
 	});
 });
