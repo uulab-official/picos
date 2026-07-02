@@ -2,7 +2,7 @@
 
 ## v0.4.289 - Remote Host Key Evidence Input
 
-Status: in progress on `codex/picos-v0.4.289-host-key-evidence-input`.
+Status: draft PR [#354](https://github.com/uulab-official/picos/pull/354) on `codex/picos-v0.4.289-host-key-evidence-input`.
 
 Goal: make provided host-key fingerprint evidence inspectable and comparable against selected `known_hosts` candidates before enabling any SFTP transport import, socket opening, host scan, host trust, local trust-file mutation, or remote mutation.
 
