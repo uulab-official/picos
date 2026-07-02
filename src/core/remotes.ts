@@ -162,6 +162,19 @@ export type RemoteHostKeyEvidenceInput = {
 	};
 };
 
+export type RemoteHostKeyEvidenceInputConfirmation = {
+	input: RemoteHostKeyEvidenceInput;
+	status: "recorded-blocked" | "rejected";
+	fingerprint: string;
+	parserInput: "missing" | "available";
+	networkOpened: false;
+	hostKeyScanned: false;
+	trustApplied: false;
+	knownHostsWritten: false;
+	remoteMutated: false;
+	message: string;
+};
+
 export type RemoteKnownHostsSourcePreview = {
 	id: string;
 	provider: "sftp";
@@ -711,6 +724,37 @@ export function formatRemoteHostKeyEvidenceInputRows(
 	];
 }
 
+export function formatRemoteHostKeyEvidenceInputPromptRows(
+	input: RemoteHostKeyEvidenceInput = createRemoteHostKeyEvidenceInput(),
+	value = "",
+): string[] {
+	return [
+		`:remote-host-key-evidence ${value}  confirm="${input.confirm}" enter=record esc=cancel`,
+	];
+}
+
+export function submitRemoteHostKeyEvidenceInput(
+	input: RemoteHostKeyEvidenceInput,
+	fingerprint: string,
+): RemoteHostKeyEvidenceInputConfirmation {
+	const normalizedFingerprint = fingerprint.trim();
+	const hasFingerprint = normalizedFingerprint.length > 0;
+	return {
+		input,
+		status: hasFingerprint ? "recorded-blocked" : "rejected",
+		fingerprint: hasFingerprint ? normalizedFingerprint : "sha256:unknown",
+		parserInput: hasFingerprint ? "available" : "missing",
+		networkOpened: false,
+		hostKeyScanned: false,
+		trustApplied: false,
+		knownHostsWritten: false,
+		remoteMutated: false,
+		message: hasFingerprint
+			? `remote host key evidence input recorded ${input.id} ${normalizedFingerprint}`
+			: `remote host key evidence input rejected ${input.id}`,
+	};
+}
+
 export function createRemoteKnownHostsSourcePreview(
 	profile?: SftpRemoteProfile,
 ): RemoteKnownHostsSourcePreview {
@@ -1255,6 +1299,28 @@ export function formatRemoteHostKeyTrustReviewAuditMessage(
 		"knownHostsWrite=false",
 		`confirm=${quoteAuditField(preview.confirm)}`,
 		`connectConfirm=${quoteAuditField(preview.connectConfirm)}`,
+	].join(" ");
+}
+
+export function formatRemoteHostKeyEvidenceInputAuditMessage(
+	confirmation: RemoteHostKeyEvidenceInputConfirmation,
+): string {
+	const { input } = confirmation;
+	return [
+		"remote host key evidence input audit",
+		"action=evidence",
+		`id=${input.id}`,
+		`target=${quoteAuditField(input.target)}`,
+		`lookup=${input.lookup}`,
+		`status=${confirmation.status}`,
+		`fingerprint=${confirmation.fingerprint}`,
+		`parserInput=${confirmation.parserInput}`,
+		"network=not-opened",
+		`scan=${confirmation.hostKeyScanned}`,
+		"trust=not-applied",
+		`knownHostsWrite=${confirmation.knownHostsWritten}`,
+		`remoteMutate=${confirmation.remoteMutated}`,
+		`confirm=${quoteAuditField(input.confirm)}`,
 	].join(" ");
 }
 

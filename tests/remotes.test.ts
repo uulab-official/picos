@@ -21,6 +21,8 @@ import {
 	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyCompareDetailRows,
+	formatRemoteHostKeyEvidenceInputAuditMessage,
+	formatRemoteHostKeyEvidenceInputPromptRows,
 	formatRemoteHostKeyEvidenceInputRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
@@ -41,6 +43,7 @@ import {
 	parseRemoteKnownHostsCandidatesFromReadResult,
 	parseRemoteProfileCommand,
 	submitRemoteConnectConfirmation,
+	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
 } from "../src/core/remotes";
 
@@ -1459,6 +1462,83 @@ describe("remote profiles", () => {
 				createRemoteHostKeyEvidenceInput(profile, "SHA256:different"),
 			).match,
 		).toBe("mismatch");
+	});
+
+	test("records provided remote host key evidence input without opening transport", () => {
+		const input = createRemoteHostKeyEvidenceInput({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+
+		const recorded = submitRemoteHostKeyEvidenceInput(
+			input,
+			" SHA256:providedFingerprint ",
+		);
+		expect(recorded).toEqual({
+			input,
+			status: "recorded-blocked",
+			fingerprint: "SHA256:providedFingerprint",
+			parserInput: "available",
+			networkOpened: false,
+			hostKeyScanned: false,
+			trustApplied: false,
+			knownHostsWritten: false,
+			remoteMutated: false,
+			message:
+				"remote host key evidence input recorded prod SHA256:providedFingerprint",
+		});
+		expect(formatRemoteHostKeyEvidenceInputAuditMessage(recorded)).toBe(
+			'remote host key evidence input audit action=evidence id=prod target="sftp://deploy@prod.example.com:2222/srv/app" lookup=prod.example.com:2222 status=recorded-blocked fingerprint=SHA256:providedFingerprint parserInput=available network=not-opened scan=false trust=not-applied knownHostsWrite=false remoteMutate=false confirm="compare host key prod"',
+		);
+
+		const rejected = submitRemoteHostKeyEvidenceInput(input, " ");
+		expect(rejected).toEqual({
+			input,
+			status: "rejected",
+			fingerprint: "sha256:unknown",
+			parserInput: "missing",
+			networkOpened: false,
+			hostKeyScanned: false,
+			trustApplied: false,
+			knownHostsWritten: false,
+			remoteMutated: false,
+			message: "remote host key evidence input rejected prod",
+		});
+		expect(formatRemoteHostKeyEvidenceInputAuditMessage(rejected)).toContain(
+			"status=rejected",
+		);
+	});
+
+	test("formats remote host key evidence input prompt rows", () => {
+		const input = createRemoteHostKeyEvidenceInput({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+
+		expect(formatRemoteHostKeyEvidenceInputPromptRows(input, "")).toEqual([
+			':remote-host-key-evidence   confirm="compare host key prod" enter=record esc=cancel',
+		]);
+		expect(
+			formatRemoteHostKeyEvidenceInputPromptRows(
+				input,
+				"SHA256:providedFingerprint",
+			),
+		).toEqual([
+			':remote-host-key-evidence SHA256:providedFingerprint  confirm="compare host key prod" enter=record esc=cancel',
+		]);
+		expect(formatRemoteHostKeyEvidenceInputPromptRows()).toEqual([
+			':remote-host-key-evidence   confirm="select remote profile" enter=record esc=cancel',
+		]);
 	});
 
 	test("includes remote host key compare detail in provider status", async () => {

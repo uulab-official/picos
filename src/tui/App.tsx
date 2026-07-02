@@ -159,6 +159,8 @@ import {
 	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyCompareDetailRows,
+	formatRemoteHostKeyEvidenceInputAuditMessage,
+	formatRemoteHostKeyEvidenceInputPromptRows,
 	formatRemoteHostKeyEvidenceInputRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
@@ -175,6 +177,7 @@ import {
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 	submitRemoteConnectConfirmation,
+	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
@@ -449,6 +452,7 @@ import {
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
 	createRemoteConnectStatusActivityResult,
+	createRemoteHostKeyEvidenceInputStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
@@ -3974,6 +3978,32 @@ export function App(): React.ReactElement {
 		selectedRemoteIndex,
 	]);
 
+	const submitRemoteHostKeyEvidenceInputCommand = useCallback(() => {
+		const profile = remoteProfiles[selectedRemoteIndex];
+		setCommandLine((current) => closeCommandLine(current));
+		if (!profile) {
+			log("warn", "remote host key evidence input requires a selected profile");
+			return;
+		}
+
+		const input = createRemoteHostKeyEvidenceInput(profile);
+		const confirmation = submitRemoteHostKeyEvidenceInput(
+			input,
+			commandLine.value,
+		);
+		log("warn", formatRemoteHostKeyEvidenceInputAuditMessage(confirmation));
+		recordStatusActivityResult(
+			createRemoteHostKeyEvidenceInputStatusActivityResult(confirmation),
+		);
+		log("warn", confirmation.message);
+	}, [
+		commandLine.value,
+		log,
+		recordStatusActivityResult,
+		remoteProfiles,
+		selectedRemoteIndex,
+	]);
+
 	const submitRemoteHostTrustReviewCommand = useCallback(() => {
 		const profile = remoteProfiles[selectedRemoteIndex];
 		setCommandLine((current) => closeCommandLine(current));
@@ -6190,13 +6220,16 @@ export function App(): React.ReactElement {
 																																										"remote-host-trust"
 																																									? "remote host trust review cancelled"
 																																									: commandLine.prompt ===
-																																											portProcessControlPrompt
-																																										? "port process control cancelled"
-																																										: commandLine.prompt.startsWith(
-																																													toolPromptPrefix,
-																																												)
-																																											? "tool target command cancelled"
-																																											: "path command cancelled",
+																																											"remote-host-key-evidence"
+																																										? "remote host key evidence input cancelled"
+																																										: commandLine.prompt ===
+																																												portProcessControlPrompt
+																																											? "port process control cancelled"
+																																											: commandLine.prompt.startsWith(
+																																														toolPromptPrefix,
+																																													)
+																																												? "tool target command cancelled"
+																																												: "path command cancelled",
 				);
 				return;
 			}
@@ -6230,6 +6263,8 @@ export function App(): React.ReactElement {
 					submitRemoteConnectCommand();
 				} else if (commandLine.prompt === "remote-host-trust") {
 					submitRemoteHostTrustReviewCommand();
+				} else if (commandLine.prompt === "remote-host-key-evidence") {
+					submitRemoteHostKeyEvidenceInputCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (
@@ -9494,6 +9529,21 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "e") {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile) {
+				log("warn", "no remote profile selected");
+				return;
+			}
+			const evidenceInput = createRemoteHostKeyEvidenceInput(profile);
+			setCommandLine(openCommandLine("remote-host-key-evidence"));
+			log(
+				"info",
+				`remote host key evidence input opened ${evidenceInput.confirm}`,
+			);
+			return;
+		}
+
 		if (focusArea === "remotes" && input === "t") {
 			const profile = remoteProfiles[selectedRemoteIndex];
 			if (!profile) {
@@ -12088,6 +12138,18 @@ function RemotesWorkspace({
 						{clip(row, 92)}
 					</Text>
 				))}
+				{commandLine.active && commandLine.prompt === "remote-host-key-evidence"
+					? formatRemoteHostKeyEvidenceInputPromptRows(
+							selectedProfile
+								? createRemoteHostKeyEvidenceInput(selectedProfile)
+								: createRemoteHostKeyEvidenceInput(),
+							commandLine.value,
+						).map((row) => (
+							<Text key={row} color="yellow">
+								{clip(row, 92)}
+							</Text>
+						))
+					: null}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">KNOWN_HOSTS SOURCE</Text>
