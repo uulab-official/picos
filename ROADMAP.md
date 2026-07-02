@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.252 - Config Recovery Tools Remotes Prompts
+
+Status: draft PR [#314](https://github.com/uulab-official/picos/pull/314) on `codex/picos-v0.4.252-config-recovery-tools-remotes-prompts`.
+
+Goal: make the remaining Config recovery actions create missing Tools target presets and Remotes profiles from safe prompts.
+
+- Config recovery direct prompt plans now include `tool-target-preset` and `remote-profile` for empty Tools and Remotes shelves.
+- Tools recovery prompts parse `<action> <target> [label]` lines such as `dns example.com Example DNS`, normalize the target through existing Tools action plans, and persist saved target presets.
+- Remotes recovery prompts parse `<id> <user@host[:port]> [root] [key=path]`, normalize through the SFTP profile schema, persist the profile, and refresh the Remotes workspace session immediately.
+- All Config empty-shelf recovery actions now open a direct creation/search prompt instead of stopping at a passive destination focus row.
+- Tests cover new prompt plans, Tools target preset parsing, Remote profile parsing, focused type/lint, and existing recovery behavior.
+- Next: add visible prompt preview rows and start a lazyifconfig parity pass for interface detail/actions, network refresh ergonomics, and safe adapter-owned controls.
+
 ## v0.4.251 - Config Recovery Direct Prompts
 
 Status: draft PR [#313](https://github.com/uulab-official/picos/pull/313) on `codex/picos-v0.4.251-config-recovery-direct-prompts`.

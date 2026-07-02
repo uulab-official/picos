@@ -26,6 +26,36 @@ export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 		.filter((profile): profile is SftpRemoteProfile => profile !== undefined);
 }
 
+export function parseRemoteProfileCommand(
+	input: string,
+): SftpRemoteProfile | undefined {
+	const parts = input.trim().split(/\s+/).filter(Boolean);
+	const [id, authority, ...rest] = parts;
+	if (!id || !authority?.includes("@")) {
+		return undefined;
+	}
+
+	const [username, hostPort] = authority.split("@");
+	const hostPortMatch = /^(?<host>[^:]+)(?::(?<port>\d+))?$/.exec(hostPort);
+	const host = hostPortMatch?.groups?.host;
+	const rawPort = hostPortMatch?.groups?.port;
+	const root = rest.find((part) => !part.startsWith("key=")) ?? ".";
+	const keyPath = rest
+		.find((part) => part.startsWith("key="))
+		?.slice("key=".length);
+	const [profile] = normalizeRemoteProfiles([
+		{
+			id,
+			host,
+			port: rawPort ? Number(rawPort) : undefined,
+			username,
+			root,
+			keyPath,
+		},
+	]);
+	return profile;
+}
+
 export function formatRemoteProfiles(profiles: SftpRemoteProfile[]): string {
 	if (!profiles.length) {
 		return "No remote profiles configured.";

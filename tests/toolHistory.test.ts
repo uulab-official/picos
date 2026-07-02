@@ -44,6 +44,7 @@ import {
 	nextToolHistorySort,
 	nextToolSectionClipboardSelection,
 	normalizeToolTargetPresets,
+	parseToolTargetPresetCommand,
 	promoteToolTargetPreset,
 	pruneToolHistoryExportArchive,
 	readToolHistoryExportArchiveIndex,
@@ -1350,6 +1351,27 @@ describe("TUI tool history", () => {
 			":tool api.github.com 443  enter=run esc=cancel",
 		]);
 		expect(formatToolPromptRows("route", "8.8.8.8")).toEqual([]);
+	});
+
+	test("parses saved tool target preset commands", () => {
+		expect(parseToolTargetPresetCommand("dns example.com Example DNS")).toEqual(
+			{
+				id: "custom-tools-dns-example-com",
+				label: "Example DNS",
+				actionId: "tools.dns",
+				target: "example.com",
+				hint: "saved dns target",
+			},
+		);
+		expect(parseToolTargetPresetCommand("connect api.github.com:443")).toEqual({
+			id: "custom-network-connect-api-github-com-443",
+			label: "connect api.github.com:443",
+			actionId: "network.connect",
+			target: "api.github.com:443",
+			hint: "saved connect target",
+		});
+		expect(parseToolTargetPresetCommand("unknown example.com")).toBeUndefined();
+		expect(parseToolTargetPresetCommand("dns")).toBeUndefined();
 	});
 
 	test("moves selected tool history with wraparound", () => {

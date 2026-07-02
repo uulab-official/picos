@@ -94,6 +94,34 @@ const toolRunActionAliases: Record<string, ToolRunActionId> = {
 	whois: "tools.whois",
 };
 
+export function parseToolTargetPresetCommand(
+	input: string,
+): ToolTargetPreset | undefined {
+	const parts = input.trim().split(/\s+/).filter(Boolean);
+	const [rawAction, target, ...labelParts] = parts;
+	if (!rawAction || !target) {
+		return undefined;
+	}
+	const actionId = toolRunActionAliases[rawAction.toLowerCase()] ?? rawAction;
+	const plan = createToolRunPlan(actionId, "example.com", undefined, target);
+	if (!plan) {
+		return undefined;
+	}
+	const label = labelParts.length
+		? labelParts.join(" ")
+		: `${rawAction.toLowerCase()} ${target}`;
+	const [preset] = normalizeToolTargetPresets([
+		{
+			id: `custom-${plan.actionId}-${target}`,
+			label,
+			actionId: plan.actionId,
+			target,
+			hint: `saved ${rawAction.toLowerCase()} target`,
+		},
+	]);
+	return preset as ToolTargetPreset | undefined;
+}
+
 export type ToolHistoryItem = {
 	id: string;
 	time: string;

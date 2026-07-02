@@ -426,10 +426,16 @@ describe("config TUI panel", () => {
 			createConfigRecoveryDirectPromptPlan("logs", { logs: 0 })?.prompt,
 		).toBe("log-search");
 		expect(
+			createConfigRecoveryDirectPromptPlan("tools", { tools: 0 })?.prompt,
+		).toBe("tool-target-preset");
+		expect(
+			createConfigRecoveryDirectPromptPlan("remotes", { remotes: 0 })?.prompt,
+		).toBe("remote-profile");
+		expect(
 			createConfigRecoveryDirectPromptPlan("routes", { routes: 2 }),
 		).toBeUndefined();
 		expect(
-			createConfigRecoveryDirectPromptPlan("tools", { tools: 0 }),
+			createConfigRecoveryDirectPromptPlan("tools", { tools: 1 }),
 		).toBeUndefined();
 	});
 

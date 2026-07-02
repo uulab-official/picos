@@ -5,6 +5,7 @@ import {
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
 	normalizeRemoteProfiles,
+	parseRemoteProfileCommand,
 } from "../src/core/remotes";
 
 describe("remote profiles", () => {
@@ -88,6 +89,34 @@ describe("remote profiles", () => {
 		expect(output).toContain("dev");
 		expect(output).toContain("sftp://alice@dev.example.com:22");
 		expect(output).toContain("root=.");
+	});
+
+	test("parses one-line remote profile commands", () => {
+		expect(
+			parseRemoteProfileCommand(
+				"prod deploy@example.com:2222 /srv/app key=~/.ssh/id_ed25519",
+			),
+		).toEqual({
+			id: "prod",
+			kind: "sftp",
+			host: "example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+		expect(parseRemoteProfileCommand("dev alice@dev.example.com")).toEqual({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: ".",
+		});
+		expect(
+			parseRemoteProfileCommand("bad host alice@example.com"),
+		).toBeUndefined();
+		expect(parseRemoteProfileCommand("prod example.com")).toBeUndefined();
 	});
 
 	test("formats remote provider status without opening a network session", async () => {
