@@ -1406,8 +1406,9 @@ export function getSelectedToolHistoryExport(
 	index: ToolHistoryExportIndex,
 	selectedIndex: number,
 	filter: ToolHistoryEvidenceFilter = "any",
+	query = "",
 ): ToolHistoryExportIndexItem | undefined {
-	const filtered = filterToolHistoryExportIndex(index, filter);
+	const filtered = filterToolHistoryExportIndex(index, filter, query);
 	if (filtered.items.length === 0) {
 		return undefined;
 	}
@@ -1419,14 +1420,27 @@ export function getSelectedToolHistoryExport(
 export function filterToolHistoryExportIndex(
 	index: ToolHistoryExportIndex,
 	filter: ToolHistoryEvidenceFilter = "any",
+	query = "",
 ): ToolHistoryExportIndex {
-	if (filter === "any") {
-		return index;
+	const normalizedQuery = normalizeToolHistoryEvidenceQuery(query);
+	const queryTokens = normalizedQuery ? normalizedQuery.split(" ") : [];
+	const items =
+		filter === "any"
+			? index.items
+			: index.items.filter((item) => item.scope === filter);
+	if (queryTokens.length === 0) {
+		return filter === "any" ? index : { baseDir: index.baseDir, items };
 	}
 	return {
 		baseDir: index.baseDir,
-		items: index.items.filter((item) => item.scope === filter),
+		items: items.filter((item) =>
+			matchesToolHistoryExportQuery(item, queryTokens),
+		),
 	};
+}
+
+export function normalizeToolHistoryEvidenceQuery(query: string): string {
+	return query.trim().toLowerCase().split(/\s+/).filter(Boolean).join(" ");
 }
 
 export function nextToolHistoryEvidenceFilter(
@@ -1447,15 +1461,25 @@ export function formatToolHistoryExportIndexRows(
 	selectedIndex = 0,
 	visibleRows = 8,
 	filter: ToolHistoryEvidenceFilter = "any",
+	query = "",
 ): string[] {
-	const filtered = filterToolHistoryExportIndex(index, filter);
+	const normalizedQuery = normalizeToolHistoryEvidenceQuery(query);
+	const filtered = filterToolHistoryExportIndex(index, filter, normalizedQuery);
 	const selected = getSelectedToolHistoryExport(filtered, selectedIndex);
 	const selectedTargets = selected ? [`open target=${selected.path}`] : [];
 	const budget = Math.max(0, visibleRows - 1 - selectedTargets.length);
-	const heading =
-		filter === "any"
-			? `TOOLS EVIDENCE ${index.items.length} base=${index.baseDir}`
-			: `TOOLS EVIDENCE ${filtered.items.length}/${index.items.length} filter=${filter} base=${index.baseDir}`;
+	const headingParts =
+		filter === "any" && !normalizedQuery
+			? [`TOOLS EVIDENCE ${index.items.length}`]
+			: [`TOOLS EVIDENCE ${filtered.items.length}/${index.items.length}`];
+	if (filter !== "any") {
+		headingParts.push(`filter=${filter}`);
+	}
+	if (normalizedQuery) {
+		headingParts.push(`query=${normalizedQuery}`);
+	}
+	headingParts.push(`base=${index.baseDir}`);
+	const heading = headingParts.join(" ");
 	if (filtered.items.length === 0) {
 		return [heading, "no matching tools evidence"].slice(0, visibleRows);
 	}
@@ -1474,6 +1498,22 @@ export function formatToolHistoryExportIndexRows(
 			),
 		...selectedTargets,
 	].slice(0, visibleRows);
+}
+
+function matchesToolHistoryExportQuery(
+	item: ToolHistoryExportIndexItem,
+	tokens: string[],
+): boolean {
+	const haystack = [
+		item.fileName,
+		item.generatedAt,
+		item.scope,
+		`runs=${item.runCount}`,
+		item.path,
+	]
+		.join(" ")
+		.toLowerCase();
+	return tokens.every((token) => haystack.includes(token));
 }
 
 function summarizeToolResult(result: ToolResult): string {

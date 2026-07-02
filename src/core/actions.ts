@@ -426,6 +426,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.toolsEvidence.search",
+		title: "Search Tools evidence files",
+		description:
+			"Open a Tools evidence search prompt for matching exported diagnostic files by filename, generated date, scope, run count, or path.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.toolsEvidence.archive",
 		title: "Archive Tools evidence",
 		description:

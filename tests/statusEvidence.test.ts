@@ -256,6 +256,21 @@ describe("Status evidence detail rows", () => {
 				path: "/tmp/picos/tools/picos-tools-compare.md",
 			}),
 		);
+
+		const searchedSelection = {
+			...selection,
+			toolExportQuery: "04:05" as const,
+		};
+		expect(
+			createStatusEvidenceEnterPlan(indexes, searchedSelection, "tools"),
+		).toEqual(
+			expect.objectContaining({
+				kind: "tools",
+				action: "open-tools",
+				label: "tools compare runs=1",
+				path: "/tmp/picos/tools/picos-tools-compare.md",
+			}),
+		);
 	});
 
 	test("routes archived evidence enter actions to safe existing controls", () => {
