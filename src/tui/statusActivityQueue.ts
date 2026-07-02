@@ -6,7 +6,7 @@ import {
 	writeConsoleAuditExport,
 } from "../core/auditLog";
 import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
-import type { SupportedPlatform } from "../core/types";
+import type { SftpRemoteProfile, SupportedPlatform } from "../core/types";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -58,6 +58,7 @@ export type StatusActivityEnterAction =
 	| "tools-evidence-retention"
 	| "process-control-preview"
 	| "process-control-evidence"
+	| "remote-host-review"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -482,6 +483,25 @@ export function createStatusActivityResultHistoryFilterPaletteResult(
 		action: "filter-result-history",
 		message: `palette status result filter ${filter} visible=${visible}/${total}`,
 		detail: `result history filter changed to ${filter}`,
+	};
+}
+
+export function createRemoteHostReviewStatusActivityResult(
+	profile: SftpRemoteProfile,
+): StatusActivityResult {
+	return {
+		source: "timeline",
+		action: "remote-host-review",
+		message: `remote host review staged ${profile.id} ${profile.host}:${profile.port}`,
+		detail: [
+			`target="${formatSftpRoot(profile)}"`,
+			`user=${profile.username}`,
+			`key=${profile.keyPath ? "configured" : "none"}`,
+			"policy=read-only",
+			"writes=locked",
+			"network=not-opened",
+			`confirm="connect remote ${profile.id}"`,
+		].join(" "),
 	};
 }
 
@@ -1378,6 +1398,9 @@ export function createStatusActivityResultTimelineSearch(
 	) {
 		return createProcessControlPreviewResultTimelineSearch(result);
 	}
+	if (result.source === "timeline" && result.action === "remote-host-review") {
+		return createRemoteHostReviewResultTimelineSearch(result);
+	}
 	if (
 		result.source !== "evidence" ||
 		result.action !== "timeline-evidence-trail"
@@ -1395,6 +1418,23 @@ export function createStatusActivityResultTimelineSearch(
 		filter: "audit",
 		query: `action=source source=${sourceFilter} visible=${visible}`,
 		message: `status activity result timeline search palette source ${sourceFilter} visible=${visible}`,
+	};
+}
+
+function createRemoteHostReviewResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^remote host review staged ([A-Za-z0-9._-]{1,64}) /,
+	);
+	const id = match?.[1];
+	if (!id) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: `remote host review audit action=stage id=${id}`,
+		message: `status activity result timeline search remote host review ${id}`,
 	};
 }
 
@@ -2794,6 +2834,11 @@ function formatStatusActivityResultTimelineJumpAuditValue(
 		.replaceAll(/[\r\n]/g, " ")
 		.replaceAll('"', '\\"')
 		.trim();
+}
+
+function formatSftpRoot(profile: SftpRemoteProfile): string {
+	const root = profile.root.startsWith("/") ? profile.root : `/${profile.root}`;
+	return `sftp://${profile.username}@${profile.host}:${profile.port}${root}`;
 }
 
 function formatAuditEventTime(date: Date): string {

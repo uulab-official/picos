@@ -417,6 +417,7 @@ import {
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
+	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -3870,8 +3871,11 @@ export function App(): React.ReactElement {
 		setScreen("files");
 		setFocusArea("workspaces");
 		log("info", formatRemoteHostReviewAuditMessage("stage", profile));
+		recordStatusActivityResult(
+			createRemoteHostReviewStatusActivityResult(profile),
+		);
 		log("info", `remote context selected ${context.label}`);
-	}, [log, remoteProfiles, selectedRemoteIndex]);
+	}, [log, recordStatusActivityResult, remoteProfiles, selectedRemoteIndex]);
 
 	const submitRemoteProfileCommand = useCallback(async () => {
 		const profile = parseRemoteProfileCommand(commandLine.value);
