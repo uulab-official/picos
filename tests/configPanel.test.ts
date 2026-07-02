@@ -5,6 +5,7 @@ import {
 	applyConfigPolicyPreset,
 	createConfigManagedShelfFileOpenOrigin,
 	createConfigManagedShelfFocusActionPlan,
+	createConfigRecoveryDirectPromptPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfCleanupBreadcrumbRows,
@@ -395,6 +396,41 @@ describe("config TUI panel", () => {
 				"enter=cycle log profiles  fallback=open search prompt",
 			],
 		});
+	});
+
+	test("creates direct prompt plans for empty recovery shelves", () => {
+		expect(
+			createConfigRecoveryDirectPromptPlan("routes", { routes: 0 }),
+		).toEqual({
+			target: "routes",
+			workspace: "routes",
+			label: "Routes",
+			prompt: "route-filter",
+			reason: "empty routeFilters",
+			rows: [
+				"CONFIG RECOVERY PROMPT",
+				"target=routes workspace=Routes",
+				"prompt=route-filter reason=empty routeFilters",
+				"next=type filter and press enter",
+			],
+		});
+		expect(
+			createConfigRecoveryDirectPromptPlan("connections", {
+				connections: 0,
+			})?.prompt,
+		).toBe("endpoint-filter:connections");
+		expect(
+			createConfigRecoveryDirectPromptPlan("ports", { ports: 0 })?.prompt,
+		).toBe("endpoint-filter:ports");
+		expect(
+			createConfigRecoveryDirectPromptPlan("logs", { logs: 0 })?.prompt,
+		).toBe("log-search");
+		expect(
+			createConfigRecoveryDirectPromptPlan("routes", { routes: 2 }),
+		).toBeUndefined();
+		expect(
+			createConfigRecoveryDirectPromptPlan("tools", { tools: 0 }),
+		).toBeUndefined();
 	});
 
 	test("formats prompt breadcrumbs for config-origin shelf edits", () => {
