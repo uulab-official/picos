@@ -2,7 +2,7 @@
 
 ## v0.4.292 - Remote Known Hosts Candidate Session Compare
 
-Status: in progress on `codex/picos-v0.4.292-session-known-hosts-candidate`.
+Status: draft PR [#363](https://github.com/uulab-official/picos/pull/363) on `codex/picos-v0.4.292-session-known-hosts-candidate`.
 
 Goal: make provided known_hosts candidates visible in the live Remotes compare flow so recorded host-key evidence can immediately show matched or mismatch state without reading local files or trusting hosts.
 
