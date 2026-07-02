@@ -1560,6 +1560,40 @@ describe("TUI tool history", () => {
 		]);
 	});
 
+	test("preserves cleared active tool fields while keeping run fallbacks", () => {
+		const cleared = updateToolFormFieldValue(
+			selectToolFormField(
+				createToolFormState(
+					"network.connect",
+					"google.com 443",
+					summary,
+					"api.github.com 443",
+				),
+				0,
+			),
+			"",
+		);
+		expect(formatToolFormInputValue(cleared, { preserveEmpty: true })).toBe(
+			" 443",
+		);
+		expect(formatToolFormRows(cleared).slice(0, 4)).toEqual([
+			"TOOLS FORM Telnet-style TCP check",
+			"action=network.connect tool=telnet fields=2 selected=1/2",
+			"> Host <empty> placeholder=github.com",
+			"  Port 443 placeholder=443",
+		]);
+		expect(createToolRunPlanFromForm(cleared)).toEqual({
+			actionId: "network.connect",
+			toolId: "telnet",
+			args: ["example.com", "443"],
+			label: "Telnet-style TCP check example.com:443",
+		});
+		expect(
+			createToolFormState("network.connect", "google.com 443", summary, " 443")
+				?.fields[0]?.value,
+		).toBe("");
+	});
+
 	test("formats active tool target prompt rows as field forms", () => {
 		expect(getToolRunActionMetadata("tools.tls")).toEqual({
 			actionId: "tools.tls",

@@ -436,7 +436,13 @@ export function createToolFormState(
 		summary,
 		targetInput,
 	);
-	const values = createToolFormValues(definition, plan, metadata, summary);
+	const values = createToolFormValues(
+		definition,
+		plan,
+		metadata,
+		summary,
+		targetInput,
+	);
 	return {
 		actionId,
 		title: metadata.title,
@@ -506,17 +512,23 @@ export function updateToolFormFieldValue(
 
 export function formatToolFormInputValue(
 	form: ToolFormState | undefined,
+	options: { preserveEmpty?: boolean } = {},
 ): string {
 	if (!form) {
 		return "";
 	}
 	if (form.toolId === "telnet" || form.toolId === "port-check") {
+		const valueFor = options.preserveEmpty
+			? getToolFormRawFieldValue
+			: getToolFormFieldValue;
 		return [
-			getToolFormFieldValue(form, "host", "example.com"),
-			getToolFormFieldValue(form, "port", "443"),
+			valueFor(form, "host", "example.com"),
+			valueFor(form, "port", "443"),
 		].join(" ");
 	}
-	return getToolFormFieldValue(form, form.fields[0]?.key ?? "target", "");
+	return (
+		options.preserveEmpty ? getToolFormRawFieldValue : getToolFormFieldValue
+	)(form, form.fields[0]?.key ?? "target", "");
 }
 
 export function createToolRunPlanFromForm(
@@ -550,7 +562,7 @@ export function formatToolFormRows(form: ToolFormState | undefined): string[] {
 		`action=${form.actionId} tool=${form.toolId} fields=${form.fields.length} selected=${selected + 1}/${form.fields.length}`,
 		...form.fields.map((field, index) => {
 			const marker = index === selected ? ">" : " ";
-			const value = field.value.trim() || field.placeholder;
+			const value = field.value.trim() || "<empty>";
 			return `${marker} ${field.label} ${value} placeholder=${field.placeholder}`;
 		}),
 		`cli=${plan ? formatToolRunCliCommand(plan) : `picos tools ${form.toolId}`}`,
@@ -1205,8 +1217,12 @@ function createToolFormValues(
 	plan: ToolRunPlan | undefined,
 	metadata: ToolRunActionMetadata,
 	summary?: NetworkSummary,
+	targetInput = "",
 ): Record<string, string> {
 	if (definition.id === "telnet" || definition.id === "port-check") {
+		if (targetInput && targetInput !== targetInput.trim()) {
+			return parseToolFormHostPortInput(targetInput);
+		}
 		if (plan) {
 			return {
 				host: plan.args[0] || "example.com",
@@ -1238,6 +1254,29 @@ function getToolFormFieldValue(
 	return (
 		form.fields.find((field) => field.key === key)?.value.trim() || fallback
 	);
+}
+
+function getToolFormRawFieldValue(
+	form: ToolFormState,
+	key: string,
+	_fallback: string,
+): string {
+	return form.fields.find((field) => field.key === key)?.value ?? "";
+}
+
+function parseToolFormHostPortInput(input: string): Record<string, string> {
+	const match = input.match(/^(\S*)\s+(.*)$/);
+	if (match) {
+		return {
+			host: match[1] ?? "",
+			port: match[2] ?? "",
+		};
+	}
+	const target = parseHostPortTarget(input);
+	return {
+		host: target.host,
+		port: target.port,
+	};
 }
 
 function formatToolFormTargetLabel(form: ToolFormState): string {

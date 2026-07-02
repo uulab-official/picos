@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.262 - Tools Field Replace Clear
+
+Status: draft PR [#324](https://github.com/uulab-official/picos/pull/324) on `codex/picos-v0.4.262-tools-field-replace-clear`.
+
+Goal: make live Tools fields feel like real operator inputs instead of default text that must be manually erased.
+
+- Command-line form prompts can now track touched field indexes without changing ordinary one-line prompt behavior.
+- Untouched Tools fields replace their default value on the first printable key, then append on subsequent keys.
+- `Ctrl+U` clears only the active Tools field and marks it touched, while rendering cleared fields as `<empty>`.
+- Cleared Tool form values preserve empty field state during editing but still fall back to safe defaults when converted into a run plan.
+- Tools prompt submission now builds the run plan from the structured form first, avoiding host/port parsing surprises after field-level clear.
+- Tests cover touched-field metadata, empty-field rendering/serialization, safe fallback run planning, typecheck, and focused regression suites.
+- Next: add a compact field help row and verify reverse field movement behavior across terminals before promoting Shift-Tab as a documented shortcut.
+
 ## v0.4.261 - Tools Live Field Focus
 
 Status: draft PR [#323](https://github.com/uulab-official/picos/pull/323) on `codex/picos-v0.4.261-tools-live-field-focus`.
@@ -12,7 +26,7 @@ Goal: close the next lazyifconfig-style Tools gap by making field-form prompts k
 - While a Tools prompt is active, `Tab` advances the selected field and typed/backspace input edits only that active field.
 - Prompt rows pass the live field index into the form renderer, so the `>` marker follows keyboard focus before `Enter` submits.
 - Tests cover command-line field focus, Tool form selection/serialization, prompt row focus rendering, typecheck, and focused regression suites.
-- Next: add richer field ergonomics such as clear-field/replace-first-typed-character behavior and backward field movement once terminal Shift-Tab handling is verified across platforms.
+- Next: refine field editing ergonomics with first-key default replacement and active-field clear.
 
 ## v0.4.260 - Tools Field Form
 
