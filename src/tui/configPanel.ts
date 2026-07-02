@@ -9,6 +9,7 @@ export type ConfigWorkspaceItemKey =
 	| "toolTargetPresetLimit"
 	| "language"
 	| "refreshInterval"
+	| "statusResultJumpClassFilter"
 	| "defaultPingHost"
 	| "controlExecutionMode"
 	| "allowAdminDryRun"
@@ -67,7 +68,8 @@ type ConfigWorkspaceResetKey =
 	| "controlExecutionMode"
 	| "allowAdminDryRun"
 	| "enableExperimentalControls"
-	| "editorSaveMode";
+	| "editorSaveMode"
+	| "statusResultJumpClassFilter";
 
 type ConfigWorkspaceResetValues = Pick<PicosConfig, ConfigWorkspaceResetKey>;
 
@@ -163,6 +165,7 @@ const resetKeys: ConfigWorkspaceResetKey[] = [
 	"allowAdminDryRun",
 	"enableExperimentalControls",
 	"editorSaveMode",
+	"statusResultJumpClassFilter",
 ];
 
 const configManagedShelfHandoffs: ConfigManagedShelfHandoff[] = [
@@ -206,6 +209,7 @@ export function createConfigWorkspaceItems(
 		| "toolTargetPresetLimit"
 		| "language"
 		| "refreshInterval"
+		| "statusResultJumpClassFilter"
 		| "defaultPingHost"
 		| "controlExecutionMode"
 		| "allowAdminDryRun"
@@ -254,6 +258,15 @@ export function createConfigWorkspaceItems(
 			max: 60000,
 			step: 1000,
 			hint: "refresh cadence in ms",
+		},
+		{
+			key: "statusResultJumpClassFilter",
+			label: "Result jump class",
+			value: config.statusResultJumpClassFilter,
+			kind: "choice",
+			section: "display",
+			options: ["all", "process", "timeline", "tools", "source"],
+			hint: "Status result jump browser class",
 		},
 		{
 			key: "defaultPingHost",
@@ -695,7 +708,7 @@ function getConfigSectionPersistHint(
 	sectionId: ConfigWorkspaceSectionId,
 ): string {
 	if (sectionId === "display") {
-		return "+/- writes language or refreshInterval";
+		return "+/- writes language, refreshInterval, or jump class";
 	}
 	if (sectionId === "safety") {
 		return "+/- writes policy, P cycles preset, R exact reset";
@@ -710,7 +723,7 @@ function getConfigSectionActionHint(
 	sectionId: ConfigWorkspaceSectionId,
 ): string {
 	if (sectionId === "display") {
-		return "+/- adjust language/refresh, R exact reset";
+		return "+/- adjust language/refresh/jump class, R exact reset";
 	}
 	if (sectionId === "safety") {
 		return "+/- adjust policy, P cycle preset, R exact reset";
@@ -921,5 +934,6 @@ function createDefaultResetValues(): ConfigWorkspaceResetValues {
 		allowAdminDryRun: defaultConfig.allowAdminDryRun,
 		enableExperimentalControls: defaultConfig.enableExperimentalControls,
 		editorSaveMode: defaultConfig.editorSaveMode,
+		statusResultJumpClassFilter: defaultConfig.statusResultJumpClassFilter,
 	};
 }

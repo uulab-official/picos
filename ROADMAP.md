@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.242 - Config Result Jump Class Control
+
+Status: draft PR [#304](https://github.com/uulab-official/picos/pull/304) on `codex/picos-v0.4.242-config-result-jump-class-control`.
+
+Goal: let operators adjust the saved Status result jump class filter from Config.
+
+- Config Display section now includes `statusResultJumpClassFilter` as a choice row.
+- `+/-` cycles `all/process/timeline/tools/source` from Config and persists through the existing config save path.
+- App updates the Status result jump browser state optimistically when the Config row changes, then syncs from the saved config.
+- `R reset config` now includes `statusResultJumpClassFilter`, restoring the saved class to `all`.
+- Tests cover Display row rendering, section grouping/detail hints, choice cycling, text-row index stability, and reset preview behavior.
+- Next: expose this Config control through command palette previews so operators can jump directly to the exact settings row from `? jump class config`.
+
 ## v0.4.241 - Result Jump Class Persistence
 
 Status: draft PR [#303](https://github.com/uulab-official/picos/pull/303) on `codex/picos-v0.4.241-result-jump-class-persistence`.
