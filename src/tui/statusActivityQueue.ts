@@ -882,6 +882,18 @@ function parseProcessControlAuditQuery(
 	};
 }
 
+function formatStatusActivityResultTimelineJumpTargetToken(
+	query: string,
+): string | undefined {
+	const target = parseProcessControlAuditQuery(query);
+	if (!target) {
+		return undefined;
+	}
+	return target.pid
+		? `process-control pid:${target.pid} action=${target.action}`
+		: `process-control status:${target.status ?? "unknown"} action=${target.action}`;
+}
+
 function formatProcessControlAuditExportTarget(
 	plan: ConsoleAuditExportPlan,
 ): string {
@@ -1989,7 +2001,11 @@ export function createStatusActivityResultTimelineJumpPaletteResult(
 	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0)) + 1;
 	const total = Math.max(1, Math.floor(options.total ?? 1));
 	const row = Math.max(0, Math.floor(options.historyIndex ?? 0)) + 1;
+	const target = formatStatusActivityResultTimelineJumpTargetToken(
+		options.jump.query,
+	);
 	const detail = [
+		target ? `target=${target}` : "",
 		`filter=${options.jump.filter}`,
 		`search=${options.jump.query}`,
 		options.matches !== undefined
@@ -2281,17 +2297,23 @@ export function formatStatusActivityResultTimelineJumpPaletteAuditMessage(
 	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
 	const total = Math.max(1, Math.floor(options.total ?? 1));
 	const row = Math.max(0, Math.floor(options.historyIndex ?? 0)) + 1;
+	const target = formatStatusActivityResultTimelineJumpTargetToken(
+		options.jump.query,
+	);
 	return [
 		"palette status result jump audit",
 		`action=${action}`,
 		`selected=${selected + 1}/${total}`,
 		`row=${row}`,
+		target ? `target="${formatTimelineEvidenceTrailAuditValue(target)}"` : "",
 		`filter=${options.jump.filter}`,
-		`query="${formatTimelineEvidenceTrailAuditValue(options.jump.query)}"`,
+		`query="${formatStatusActivityResultTimelineJumpAuditValue(options.jump.query)}"`,
 		...(options.matches !== undefined
 			? [`matches=${Math.max(0, Math.floor(options.matches))}`]
 			: []),
-	].join(" ");
+	]
+		.filter(Boolean)
+		.join(" ");
 }
 
 export function formatStatusActivityProcessControlPaletteAuditMessage(
@@ -2673,6 +2695,15 @@ function getTimelineEvidenceTrailControls(
 
 function formatTimelineEvidenceTrailAuditValue(value: string): string {
 	return value.replaceAll(/["\r\n]/g, " ").trim();
+}
+
+function formatStatusActivityResultTimelineJumpAuditValue(
+	value: string,
+): string {
+	return value
+		.replaceAll(/[\r\n]/g, " ")
+		.replaceAll('"', '\\"')
+		.trim();
 }
 
 function formatAuditEventTime(date: Date): string {
