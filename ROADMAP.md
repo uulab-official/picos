@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.226 - Palette Action Control Preview
+
+Status: draft PR [#288](https://github.com/uulab-official/picos/pull/288) on `codex/picos-v0.4.226-palette-action-control-preview`.
+
+Goal: make locked Action Center commands visible as OS control previews directly inside the command palette before `enter`.
+
+- Command palette locked controls now preview `control preview <action>` rows with dry-run state.
+- Preview rows include risk, privilege, exact confirmation phrase, blocked reason, adapter, and adapter-owned command when available.
+- The palette reuses `createActionPreviewPlan()` and platform `getControlPreviewCommand()`, so command definitions stay inside adapters.
+- Tests cover `dns.flush` as a locked admin write action with macOS adapter command preview.
+- Next: add reusable command-palette preview rows for selected process/port destructive controls, including PID and process metadata, so process actions feel as inspectable as network controls.
+
 ## v0.4.225 - Palette Tools Dispatch Preview
 
 Status: draft PR [#287](https://github.com/uulab-official/picos/pull/287) on `codex/picos-v0.4.225-palette-tools-dispatch-preview`.
@@ -10,7 +22,7 @@ Goal: make every Tools evidence management command-palette action advertise its 
 - `tools retention` palette actions now preview archived Tools retention max, keep/remove counts, first prune candidate, and exact `prune tools archive` confirmation.
 - The palette preview uses a separate retention preview plan, so Status confirmation panels still appear only after dispatch.
 - Tests cover archive dispatch previews and retention prune previews.
-- Next: extend dispatch previews to Action Center write/admin controls so OS-changing actions show adapter-owned dry-run commands directly in the command palette.
+- Next: add reusable command-palette preview rows for selected process/port destructive controls, including PID and process metadata, so process actions feel as inspectable as network controls.
 
 ## v0.4.224 - Palette Tools Match Preview
 
