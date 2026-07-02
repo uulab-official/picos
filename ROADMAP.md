@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.260 - Tools Field Form
+
+Status: draft PR [#322](https://github.com/uulab-official/picos/pull/322) on `codex/picos-v0.4.260-tools-field-form`.
+
+Goal: make Tools prompts feel more like OS console forms by showing structured target fields before execution.
+
+- Tools target prompts now render `TOOLS FORM` rows backed by the same field definitions used by the Tools Hub CLI.
+- Telnet-style TCP checks split the target into visible `Host` and `Port` rows with selected-field markers and placeholders.
+- Tool form helpers can move selected fields, update the selected value, and convert a form back into a safe `ToolRunPlan`.
+- Prompt rows now show the generated `picos tools ...` CLI command and shared run/cancel controls from the form model.
+- Tests cover form state, field focus movement, value updates, run-plan conversion, prompt rows, typecheck, and lint.
+- Next: wire the command-line prompt state to true field-focused editing so `Tab`/`Shift-Tab` changes the active Tools input field in the live TUI.
+
 ## v0.4.259 - Tools Palette Direct Run
 
 Status: draft PR [#321](https://github.com/uulab-official/picos/pull/321) on `codex/picos-v0.4.259-tools-palette-direct-run`.
@@ -12,7 +25,7 @@ Goal: make Tools Hub direct runs discoverable and reviewable from the command pa
 - Command palette previews for read-only Tools runs show target defaults, placeholder, CLI command, risk/privilege, and `enter` dispatch into the Tools prompt.
 - App preview context now passes the configured default ping host, public IP, and platform into command-palette Tools previews.
 - Tests cover prompt metadata, operator-style palette search, direct-run preview rows, typecheck, and lint.
-- Next: add a richer Tools modal/input-field loop so the TUI can run every Tool without relying on a single command-line prompt.
+- Next: wire the new field-form model into true field-focused editing so Tools prompts no longer depend on a single command-line value.
 
 ## v0.4.258 - Tools Trace TLS Detail
 

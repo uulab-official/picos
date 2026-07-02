@@ -7,16 +7,19 @@ import type { NetworkSummary } from "../src/core/types";
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
+	createToolFormState,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
 	createToolHistoryCompareExportPlan,
 	createToolHistoryExportArchivePlan,
 	createToolHistoryExportPlan,
 	createToolRunPlan,
+	createToolRunPlanFromForm,
 	createToolRunPlanFromPreset,
 	createToolTargetCleanupPreview,
 	filterToolHistory,
 	filterToolHistoryExportIndex,
+	formatToolFormRows,
 	formatToolHistoryArchiveRetentionRows,
 	formatToolHistoryExport,
 	formatToolHistoryExportArchiveRows,
@@ -35,6 +38,7 @@ import {
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
+	moveToolFormField,
 	moveToolHistorySelection,
 	moveToolSectionClipboardRow,
 	moveToolTargetPresetSelection,
@@ -61,6 +65,7 @@ import {
 	sortToolHistory,
 	submitToolHistoryCleanupConfirmation,
 	submitToolTargetCleanupConfirmation,
+	updateToolFormFieldValue,
 	writeToolHistoryExport,
 } from "../src/tui/toolHistory";
 
@@ -1472,7 +1477,57 @@ describe("TUI tool history", () => {
 		).toBeUndefined();
 	});
 
-	test("formats active tool target prompt rows", () => {
+	test("models active tool prompts as field forms", () => {
+		const form = createToolFormState(
+			"network.connect",
+			"google.com",
+			summary,
+			"api.github.com 443",
+		);
+		expect(form).toEqual({
+			actionId: "network.connect",
+			title: "Telnet-style TCP check",
+			toolId: "telnet",
+			selectedFieldIndex: 0,
+			fields: [
+				{
+					key: "host",
+					label: "Host",
+					placeholder: "github.com",
+					value: "api.github.com",
+				},
+				{
+					key: "port",
+					label: "Port",
+					placeholder: "443",
+					value: "443",
+				},
+			],
+		});
+		expect(moveToolFormField(form, "next")?.selectedFieldIndex).toBe(1);
+		expect(moveToolFormField(form, "previous")?.selectedFieldIndex).toBe(1);
+		const updated = updateToolFormFieldValue(
+			moveToolFormField(form, "next"),
+			"8443",
+		);
+		expect(updated?.fields[1]?.value).toBe("8443");
+		expect(createToolRunPlanFromForm(updated)).toEqual({
+			actionId: "network.connect",
+			toolId: "telnet",
+			args: ["api.github.com", "8443"],
+			label: "Telnet-style TCP check api.github.com:8443",
+		});
+		expect(formatToolFormRows(updated)).toEqual([
+			"TOOLS FORM Telnet-style TCP check",
+			"action=network.connect tool=telnet fields=2 selected=2/2",
+			"  Host api.github.com placeholder=github.com",
+			"> Port 8443 placeholder=443",
+			"cli=picos tools telnet api.github.com 8443",
+			"controls=tab/shift-tab field enter=run esc=cancel",
+		]);
+	});
+
+	test("formats active tool target prompt rows as field forms", () => {
 		expect(getToolRunActionMetadata("tools.tls")).toEqual({
 			actionId: "tools.tls",
 			title: "TLS inspector",
@@ -1486,18 +1541,19 @@ describe("TUI tool history", () => {
 		expect(
 			formatToolPromptRows("tool:network.connect", "api.github.com 443"),
 		).toEqual([
-			"TOOL TARGET Telnet-style TCP check",
-			"action=network.connect tool=telnet hint=host and port reachability",
-			"placeholder=example.com 443 example=github.com 443",
+			"TOOLS FORM Telnet-style TCP check",
+			"action=network.connect tool=telnet fields=2 selected=1/2",
+			"> Host api.github.com placeholder=github.com",
+			"  Port 443 placeholder=443",
 			"cli=picos tools telnet api.github.com 443",
-			":tool api.github.com 443  enter=run esc=cancel",
+			"controls=tab/shift-tab field enter=run esc=cancel",
 		]);
 		expect(formatToolPromptRows("tool:tools.tls", "")).toEqual([
-			"TOOL TARGET TLS inspector",
-			"action=tools.tls tool=tls hint=protocol, cipher, certificate chain",
-			"placeholder=example.com:443 example=github.com:443",
+			"TOOLS FORM TLS inspector",
+			"action=tools.tls tool=tls fields=1 selected=1/1",
+			"> Target example.com:443 placeholder=github.com:443",
 			"cli=picos tools tls example.com:443",
-			":tool example.com:443  enter=run esc=cancel",
+			"controls=tab/shift-tab field enter=run esc=cancel",
 		]);
 		expect(formatToolPromptRows("route", "8.8.8.8")).toEqual([]);
 	});
