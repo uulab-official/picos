@@ -1,7 +1,13 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import type { AuditLogEvent } from "../core/auditLog";
 import type { FileOpenOrigin } from "../core/fileOpen";
+import {
+	basenamePathLike,
+	dirnamePathLike,
+	joinPathLike,
+	resolvePathLike,
+} from "../utils/pathStyle";
 import type { LogProfile } from "./logPanel";
 import type { Screen } from "./navigation";
 import type { ToolRunActionId } from "./toolHistory";
@@ -536,7 +542,7 @@ export function createCleanupHandoffHistoryExportPlan(
 	const generatedAt = options.generatedAt ?? new Date();
 	const iso = generatedAt.toISOString();
 	return {
-		path: join(
+		path: joinPathLike(
 			options.baseDir,
 			"cleanup",
 			`picos-cleanup-${options.scope}-${iso.replaceAll(/[:.]/g, "")}.md`,
@@ -704,15 +710,17 @@ export function createCleanupHandoffHistoryExportArchivePlan(
 	path: string,
 	options: { confirmation?: string } = {},
 ): CleanupHandoffHistoryExportArchivePlan {
-	const target = resolve(path);
-	const cleanupDir = resolve(baseDir, "cleanup");
-	const fileName = basename(target);
+	const target = resolvePathLike(path);
+	const cleanupDir = resolvePathLike(baseDir, "cleanup");
+	const fileName = basenamePathLike(target);
 	const allowed =
-		dirname(target) === cleanupDir &&
+		dirnamePathLike(target) === cleanupDir &&
 		isPicosCleanupHandoffHistoryExportFilename(fileName);
 	const confirmed = options.confirmation === "archive cleanup export";
 	const enabled = allowed && confirmed;
-	const archivedPath = allowed ? join(cleanupDir, "archive", fileName) : "";
+	const archivedPath = allowed
+		? joinPathLike(cleanupDir, "archive", fileName)
+		: "";
 	const reason = !allowed
 		? "cleanup export archive is limited to picos-owned export files"
 		: enabled

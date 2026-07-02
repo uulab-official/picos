@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import { getControlPreviewCommand } from "../core/controlPreview";
 import type {
 	NetworkGroupSummary,
@@ -8,6 +8,7 @@ import type {
 	NetworkSummary,
 	SupportedPlatform,
 } from "../core/types";
+import { joinPathLike } from "../utils/pathStyle";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -198,7 +199,7 @@ export function createInterfaceSourceHandoffPlan(
 			?.map((source) => [source.command, ...source.args].join(" "))
 			.join("; ") ?? "-";
 	return {
-		path: join(
+		path: joinPathLike(
 			options.baseDir,
 			"interfaces",
 			`picos-interfaces-source-${iso.replaceAll(/[:.]/g, "")}.md`,

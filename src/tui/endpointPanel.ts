@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import type {
 	ActionPreviewCommand,
 	ActionPreviewConfirmation,
@@ -38,6 +38,7 @@ import type {
 	ListeningPort,
 	ProcessSummary,
 } from "../core/types";
+import { joinPathLike } from "../utils/pathStyle";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -569,7 +570,7 @@ export function createEndpointHandoffPlan(
 		view,
 	});
 	return {
-		path: join(
+		path: joinPathLike(
 			options.baseDir,
 			"endpoints",
 			`picos-${kind}-${view}-${iso.replaceAll(/[:.]/g, "")}.md`,

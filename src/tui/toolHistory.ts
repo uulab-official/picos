@@ -6,7 +6,7 @@ import {
 	unlink,
 	writeFile,
 } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join } from "node:path";
 import {
 	type ConfigCleanupPreview,
 	createConfigCleanupPreview,
@@ -23,6 +23,12 @@ import {
 	type ToolResult,
 } from "../core/tools";
 import type { NetworkSummary } from "../core/types";
+import {
+	basenamePathLike,
+	dirnamePathLike,
+	joinPathLike,
+	resolvePathLike,
+} from "../utils/pathStyle";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -1564,7 +1570,7 @@ export function createToolHistoryExportPlan(
 	const generatedAt = options.generatedAt ?? new Date();
 	const iso = generatedAt.toISOString();
 	return {
-		path: join(
+		path: joinPathLike(
 			options.baseDir,
 			"tools",
 			`picos-tools-${options.scope}-${iso.replaceAll(/[:.]/g, "")}.md`,
@@ -1600,7 +1606,7 @@ export function createToolHistoryCompareExportPlan(
 	const generatedAt = options.generatedAt ?? new Date();
 	const iso = generatedAt.toISOString();
 	return {
-		path: join(
+		path: joinPathLike(
 			options.baseDir,
 			"tools",
 			`picos-tools-compare-${iso.replaceAll(/[:.]/g, "")}.md`,
@@ -1676,14 +1682,16 @@ export function createToolHistoryExportArchivePlan(
 	path: string,
 	options: { confirmation?: string } = {},
 ): ToolHistoryExportArchivePlan {
-	const toolsDir = resolve(baseDir, "tools");
-	const sourcePath = resolve(path);
-	const fileName = basename(sourcePath);
+	const toolsDir = resolvePathLike(baseDir, "tools");
+	const sourcePath = resolvePathLike(path);
+	const fileName = basenamePathLike(sourcePath);
 	const allowed =
-		dirname(sourcePath) === toolsDir &&
+		dirnamePathLike(sourcePath) === toolsDir &&
 		isPicosToolHistoryExportFilename(fileName);
 	const confirmed = options.confirmation === "archive tools export";
-	const archivedPath = allowed ? join(toolsDir, "archive", fileName) : "";
+	const archivedPath = allowed
+		? joinPathLike(toolsDir, "archive", fileName)
+		: "";
 	const reason = !allowed
 		? "tools export archive is limited to picos-owned export files"
 		: confirmed
@@ -2023,10 +2031,10 @@ function isAllowedArchivedToolHistoryExportPath(
 	archiveDir: string,
 	item: ToolHistoryExportIndexItem,
 ): boolean {
-	const target = resolve(item.path);
+	const target = resolvePathLike(item.path);
 	return (
-		dirname(target) === resolve(archiveDir) &&
-		basename(target) === item.fileName &&
+		dirnamePathLike(target) === resolvePathLike(archiveDir) &&
+		basenamePathLike(target) === item.fileName &&
 		isPicosToolHistoryExportFilename(item.fileName)
 	);
 }

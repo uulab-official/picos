@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import { normalizeEndpointFilterPresets } from "../core/endpointPresets";
 import {
 	normalizeConnectionSortPreference,
@@ -19,6 +18,7 @@ import {
 } from "../core/toolHistoryPreferences";
 import type { PicosConfig, SupportedPlatform } from "../core/types";
 import { isSupportedLanguage } from "../i18n/catalog";
+import { joinPathLike } from "../utils/pathStyle";
 
 export const defaultConfig: PicosConfig = {
 	theme: "dark",
@@ -56,11 +56,11 @@ export function getConfigPathForPlatform(
 	env: NodeJS.ProcessEnv = process.env,
 ): string {
 	if (platform === "win32") {
-		return join(env.APPDATA ?? homeDirectory, "picos", "config.json");
+		return joinPathLike(env.APPDATA ?? homeDirectory, "picos", "config.json");
 	}
 
 	if (platform === "darwin") {
-		return join(
+		return joinPathLike(
 			homeDirectory,
 			"Library",
 			"Application Support",
@@ -69,8 +69,8 @@ export function getConfigPathForPlatform(
 		);
 	}
 
-	return join(
-		env.XDG_CONFIG_HOME ?? join(homeDirectory, ".config"),
+	return joinPathLike(
+		env.XDG_CONFIG_HOME ?? joinPathLike(homeDirectory, ".config"),
 		"picos",
 		"config.json",
 	);

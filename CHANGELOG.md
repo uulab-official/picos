@@ -6,6 +6,10 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ## [Unreleased]
 
+### Fixed
+
+- Config paths and exported evidence/archive plan paths now preserve the input path style across host OSes, keeping POSIX-style sample paths stable on Windows CI while retaining Windows backslash paths when provided.
+
 ### Added
 
 - Remotes workspace and `picos remote <id>` now show `REMOTE KNOWN_HOSTS READ PREVIEW` rows, making the local `known_hosts` read boundary, exact `read known_hosts <id>` confirmation, `~/.ssh` allowed base, parser-not-run state, and no-local-read/no-network/no-scan posture visible before any trust file is parsed.
