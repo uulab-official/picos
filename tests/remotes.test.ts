@@ -23,6 +23,7 @@ import {
 	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyScanRequestRows,
+	formatRemoteHostKeyScanReviewAuditMessage,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
 	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
@@ -41,6 +42,7 @@ import {
 	parseRemoteKnownHostsCandidatesFromReadResult,
 	parseRemoteProfileCommand,
 	submitRemoteConnectConfirmation,
+	submitRemoteHostKeyScanReview,
 	submitRemoteHostKeyTrustReview,
 } from "../src/core/remotes";
 
@@ -683,6 +685,52 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willScan=false willTrust=false willMutate=false",
+		);
+	});
+
+	test("records remote host key scan review attempts without scanning hosts", () => {
+		const request = createRemoteHostKeyScanRequest({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+
+		const confirmed = submitRemoteHostKeyScanReview(
+			request,
+			" scan host key prod ",
+		);
+		expect(confirmed).toEqual({
+			request,
+			status: "confirmed-blocked",
+			input: "scan host key prod",
+			networkOpened: false,
+			hostKeyScanned: false,
+			trustApplied: false,
+			knownHostsWritten: false,
+			message:
+				"remote host key scan review blocked prod sftp://deploy@prod.example.com:2222/srv/app",
+		});
+		expect(formatRemoteHostKeyScanReviewAuditMessage(confirmed)).toBe(
+			'remote host key scan review audit id=prod target="sftp://deploy@prod.example.com:2222/srv/app" status=confirmed-blocked dependency=@uulab/picos-sftp evidenceOutput=sha256:unknown network=not-opened scan=not-run trust=not-applied knownHostsWrite=false confirm="scan host key prod"',
+		);
+
+		const rejected = submitRemoteHostKeyScanReview(request, "scan prod");
+		expect(rejected).toEqual({
+			request,
+			status: "rejected",
+			input: "scan prod",
+			networkOpened: false,
+			hostKeyScanned: false,
+			trustApplied: false,
+			knownHostsWritten: false,
+			message: "remote host key scan review confirmation rejected prod",
+		});
+		expect(formatRemoteHostKeyScanReviewAuditMessage(rejected)).toContain(
+			"status=rejected",
 		);
 	});
 

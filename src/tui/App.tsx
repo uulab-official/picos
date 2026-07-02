@@ -161,6 +161,7 @@ import {
 	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyScanRequestRows,
+	formatRemoteHostKeyScanReviewAuditMessage,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
 	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
@@ -175,6 +176,7 @@ import {
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 	submitRemoteConnectConfirmation,
+	submitRemoteHostKeyScanReview,
 	submitRemoteHostKeyTrustReview,
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
@@ -449,6 +451,7 @@ import {
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
 	createRemoteConnectStatusActivityResult,
+	createRemoteHostKeyScanReviewStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
@@ -4000,6 +4003,32 @@ export function App(): React.ReactElement {
 		selectedRemoteIndex,
 	]);
 
+	const submitRemoteHostScanReviewCommand = useCallback(() => {
+		const profile = remoteProfiles[selectedRemoteIndex];
+		setCommandLine((current) => closeCommandLine(current));
+		if (!profile) {
+			log("warn", "remote host key scan review requires a selected profile");
+			return;
+		}
+
+		const request = createRemoteHostKeyScanRequest(profile);
+		const confirmation = submitRemoteHostKeyScanReview(
+			request,
+			commandLine.value,
+		);
+		log("warn", formatRemoteHostKeyScanReviewAuditMessage(confirmation));
+		recordStatusActivityResult(
+			createRemoteHostKeyScanReviewStatusActivityResult(confirmation),
+		);
+		log("warn", confirmation.message);
+	}, [
+		commandLine.value,
+		log,
+		recordStatusActivityResult,
+		remoteProfiles,
+		selectedRemoteIndex,
+	]);
+
 	const inspectSelectedEndpointProcess = useCallback(async () => {
 		const request =
 			screen === "connections"
@@ -6190,13 +6219,16 @@ export function App(): React.ReactElement {
 																																										"remote-host-trust"
 																																									? "remote host trust review cancelled"
 																																									: commandLine.prompt ===
-																																											portProcessControlPrompt
-																																										? "port process control cancelled"
-																																										: commandLine.prompt.startsWith(
-																																													toolPromptPrefix,
-																																												)
-																																											? "tool target command cancelled"
-																																											: "path command cancelled",
+																																											"remote-host-scan"
+																																										? "remote host key scan review cancelled"
+																																										: commandLine.prompt ===
+																																												portProcessControlPrompt
+																																											? "port process control cancelled"
+																																											: commandLine.prompt.startsWith(
+																																														toolPromptPrefix,
+																																													)
+																																												? "tool target command cancelled"
+																																												: "path command cancelled",
 				);
 				return;
 			}
@@ -6230,6 +6262,8 @@ export function App(): React.ReactElement {
 					submitRemoteConnectCommand();
 				} else if (commandLine.prompt === "remote-host-trust") {
 					submitRemoteHostTrustReviewCommand();
+				} else if (commandLine.prompt === "remote-host-scan") {
+					submitRemoteHostScanReviewCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (
@@ -9506,6 +9540,18 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "s") {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile) {
+				log("warn", "no remote profile selected");
+				return;
+			}
+			const request = createRemoteHostKeyScanRequest(profile);
+			setCommandLine(openCommandLine("remote-host-scan"));
+			log("info", `remote host key scan review opened ${request.confirm}`);
+			return;
+		}
+
 		if (key.escape) {
 			setFocusArea((current) => leaveFocus(current));
 		}
@@ -11888,7 +11934,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · t trust review · c connect preview · h/esc"
+					? "remote focus · j/k select · enter stage · s scan review · t trust review · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (
@@ -12087,6 +12133,15 @@ function RemotesWorkspace({
 						{clip(row, 92)}
 					</Text>
 				))}
+				{commandLine.active && commandLine.prompt === "remote-host-scan" ? (
+					<Text color="yellow">
+						:remote-host-scan {commandLine.value || " "} confirm="
+						{selectedProfile
+							? createRemoteHostKeyScanRequest(selectedProfile).confirm
+							: "select remote profile"}
+						" esc cancel
+					</Text>
+				) : null}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">KNOWN_HOSTS SOURCE</Text>
@@ -12292,8 +12347,8 @@ function RemotesWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
 				<Text>
-					picos remotes · picos remote &lt;id&gt; · t trust review · c connect
-					preview
+					picos remotes · picos remote &lt;id&gt; · s scan review · t trust
+					review · c connect preview
 				</Text>
 				<Text color="gray">
 					next: live read-only SFTP adapter behind host review

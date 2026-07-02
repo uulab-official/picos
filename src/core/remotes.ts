@@ -162,6 +162,17 @@ export type RemoteHostKeyScanRequest = {
 	};
 };
 
+export type RemoteHostKeyScanReviewConfirmation = {
+	request: RemoteHostKeyScanRequest;
+	status: "confirmed-blocked" | "rejected";
+	input: string;
+	networkOpened: false;
+	hostKeyScanned: false;
+	trustApplied: false;
+	knownHostsWritten: false;
+	message: string;
+};
+
 export type RemoteKnownHostsSourcePreview = {
 	id: string;
 	provider: "sftp";
@@ -697,6 +708,45 @@ export function formatRemoteHostKeyScanRequestRows(
 			? "next=select remote profile · no host-key scan request"
 			: "next=explicit scan review required before fingerprint evidence collection",
 	];
+}
+
+export function submitRemoteHostKeyScanReview(
+	request: RemoteHostKeyScanRequest,
+	input: string,
+): RemoteHostKeyScanReviewConfirmation {
+	const normalizedInput = input.trim();
+	const confirmed = normalizedInput === request.confirm;
+	return {
+		request,
+		status: confirmed ? "confirmed-blocked" : "rejected",
+		input: normalizedInput,
+		networkOpened: false,
+		hostKeyScanned: false,
+		trustApplied: false,
+		knownHostsWritten: false,
+		message: confirmed
+			? `remote host key scan review blocked ${request.id} ${request.target}`
+			: `remote host key scan review confirmation rejected ${request.id}`,
+	};
+}
+
+export function formatRemoteHostKeyScanReviewAuditMessage(
+	confirmation: RemoteHostKeyScanReviewConfirmation,
+): string {
+	const { request } = confirmation;
+	return [
+		"remote host key scan review audit",
+		`id=${request.id}`,
+		`target=${quoteAuditField(request.target)}`,
+		`status=${confirmation.status}`,
+		`dependency=${request.dependency}`,
+		`evidenceOutput=${request.evidenceOutput}`,
+		"network=not-opened",
+		"scan=not-run",
+		"trust=not-applied",
+		"knownHostsWrite=false",
+		`confirm=${quoteAuditField(request.confirm)}`,
+	].join(" ");
 }
 
 export function createRemoteKnownHostsSourcePreview(
