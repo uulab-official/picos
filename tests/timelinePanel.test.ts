@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { formatRemoteHostReviewAuditMessage } from "../src/core/remotes";
+import {
+	createRemoteConnectPreview,
+	formatRemoteConnectConfirmationAuditMessage,
+	formatRemoteHostReviewAuditMessage,
+	submitRemoteConnectConfirmation,
+} from "../src/core/remotes";
 import type { ConsoleEvent } from "../src/tui/events";
 import {
 	formatProcessControlEvidencePaletteAuditMessage,
@@ -278,6 +283,41 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=remote host review prod",
 			"TIMELINE",
 			'[12:00:09] INFO audit  remote host review audit action=stage id=prod target="sftp://deploy@prod.example.com:2222/srv/app" host=prod.example.com port=2222 user=deploy key=none policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
+	test("surfaces blocked remote connect audit in Timeline search", () => {
+		const preview = createRemoteConnectPreview({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+		});
+		const confirmation = submitRemoteConnectConfirmation(
+			preview,
+			"connect remote prod",
+		);
+		const remoteConnectEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-warn-remote-connect",
+				level: "warn",
+				time: "12:00:09",
+				message: formatRemoteConnectConfirmationAuditMessage(confirmation),
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(remoteConnectEvents, 5, "audit", {
+				query: "remote connect prod",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=remote connect prod",
+			"TIMELINE",
+			'[12:00:09] WARN audit  remote connect audit id=prod target="sftp://deploy@prod.example.com:2222/srv/app" status=confirmed-blocked dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened confirm="connect remote prod"',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});

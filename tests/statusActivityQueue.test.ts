@@ -8,6 +8,10 @@ import {
 	readConsoleAuditExportIndex,
 	writeConsoleAuditExport,
 } from "../src/core/auditLog";
+import {
+	createRemoteConnectPreview,
+	submitRemoteConnectConfirmation,
+} from "../src/core/remotes";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendStatusActivityCopyIntentHistory,
@@ -16,6 +20,7 @@ import {
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
+	createRemoteConnectStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
@@ -567,6 +572,47 @@ describe("Status activity queue", () => {
 			filter: "audit",
 			query: "remote host review audit action=stage id=prod",
 			message: "status activity result timeline search remote host review prod",
+		});
+	});
+
+	test("creates status activity results for blocked remote connect confirmations", () => {
+		const preview = createRemoteConnectPreview({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+		const confirmation = submitRemoteConnectConfirmation(
+			preview,
+			"connect remote prod",
+		);
+		const result = createRemoteConnectStatusActivityResult(confirmation);
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "remote-connect",
+			message: "remote connect confirmed-blocked prod prod.example.com:2222",
+			detail:
+				'target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=remote-connect",
+			"> remote connect confirmed-blocked prod prod.example.com:2222",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> timeline remote-connect remote connect confirmed-blocked prod prod.example.com:2222",
+			'    target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+		]);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query: "remote connect audit id=prod status=confirmed-blocked",
+			message:
+				"status activity result timeline search remote connect prod confirmed-blocked",
 		});
 	});
 
