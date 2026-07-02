@@ -402,6 +402,7 @@ import {
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
 	createStatusActivityResultTimelineSearchReplayWarning,
+	createStatusActivityToolsEvidenceMatchResult,
 	createStatusActivityToolsEvidencePaletteResult,
 	createStatusActivityToolsEvidenceSearchRecovery,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
@@ -423,6 +424,7 @@ import {
 	formatStatusActivityResultRows,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityResultTimelineJumpRows,
+	formatStatusActivityToolsEvidenceMatchAuditMessage,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
@@ -2865,6 +2867,10 @@ export function App(): React.ReactElement {
 			);
 			if (!item) {
 				log("warn", "no recovered tools evidence match selected");
+				log("info", formatStatusActivityToolsEvidenceMatchAuditMessage("open"));
+				recordStatusActivityResult(
+					createStatusActivityToolsEvidenceMatchResult("open"),
+				);
 				return;
 			}
 			const archived =
@@ -2888,8 +2894,24 @@ export function App(): React.ReactElement {
 				"info",
 				`recovered tools evidence open confirmation opened for ${item.fileName}`,
 			);
+			log(
+				"info",
+				formatStatusActivityToolsEvidenceMatchAuditMessage(
+					"open",
+					statusActivityToolsEvidenceSearchRecovery,
+					selectedStatusActivityToolsEvidenceSearchMatchIndex,
+				),
+			);
+			recordStatusActivityResult(
+				createStatusActivityToolsEvidenceMatchResult(
+					"open",
+					statusActivityToolsEvidenceSearchRecovery,
+					selectedStatusActivityToolsEvidenceSearchMatchIndex,
+				),
+			);
 		}, [
 			log,
+			recordStatusActivityResult,
 			selectedStatusActivityToolsEvidenceSearchMatchIndex,
 			statusActivityToolsEvidenceSearchRecovery,
 		]);
@@ -2902,10 +2924,32 @@ export function App(): React.ReactElement {
 			);
 			if (!item) {
 				log("warn", "no recovered tools evidence match selected");
+				log(
+					"info",
+					formatStatusActivityToolsEvidenceMatchAuditMessage("archive"),
+				);
+				recordStatusActivityResult(
+					createStatusActivityToolsEvidenceMatchResult("archive"),
+				);
 				return;
 			}
 			if (statusActivityToolsEvidenceSearchRecovery?.target !== "active") {
 				log("warn", "archived tools evidence matches are already archived");
+				log(
+					"info",
+					formatStatusActivityToolsEvidenceMatchAuditMessage(
+						"archive",
+						statusActivityToolsEvidenceSearchRecovery,
+						selectedStatusActivityToolsEvidenceSearchMatchIndex,
+					),
+				);
+				recordStatusActivityResult(
+					createStatusActivityToolsEvidenceMatchResult(
+						"archive",
+						statusActivityToolsEvidenceSearchRecovery,
+						selectedStatusActivityToolsEvidenceSearchMatchIndex,
+					),
+				);
 				return;
 			}
 			const plan = createToolHistoryExportArchivePlan(
@@ -2925,8 +2969,24 @@ export function App(): React.ReactElement {
 				"info",
 				`recovered tools evidence archive confirmation opened for ${item.fileName}`,
 			);
+			log(
+				"info",
+				formatStatusActivityToolsEvidenceMatchAuditMessage(
+					"archive",
+					statusActivityToolsEvidenceSearchRecovery,
+					selectedStatusActivityToolsEvidenceSearchMatchIndex,
+				),
+			);
+			recordStatusActivityResult(
+				createStatusActivityToolsEvidenceMatchResult(
+					"archive",
+					statusActivityToolsEvidenceSearchRecovery,
+					selectedStatusActivityToolsEvidenceSearchMatchIndex,
+				),
+			);
 		}, [
 			log,
+			recordStatusActivityResult,
 			selectedStatusActivityToolsEvidenceSearchMatchIndex,
 			statusActivityToolsEvidenceSearchRecovery,
 		]);

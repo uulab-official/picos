@@ -47,6 +47,8 @@ export type StatusActivityEnterAction =
 	| "timeline-selected-copy"
 	| "timeline-selected-export"
 	| "filter-result-history"
+	| "tools-evidence-match-open"
+	| "tools-evidence-match-archive"
 	| "tools-evidence-search"
 	| "tools-evidence-archive"
 	| "tools-evidence-retention"
@@ -1807,6 +1809,60 @@ export function createStatusActivityToolsEvidencePaletteResult(
 	};
 }
 
+export function createStatusActivityToolsEvidenceMatchResult(
+	action: "archive" | "open",
+	recovery?: StatusActivityToolsEvidenceSearchRecovery,
+	selectedIndex = 0,
+	options: { unavailableReason?: string } = {},
+): StatusActivityResult {
+	const item = getSelectedStatusActivityToolsEvidenceSearchMatch(
+		recovery,
+		selectedIndex,
+	);
+	const resultAction =
+		action === "open"
+			? "tools-evidence-match-open"
+			: "tools-evidence-match-archive";
+	if (!item) {
+		return {
+			source: "evidence",
+			action: resultAction,
+			message: `recovered tools evidence match ${action} unavailable`,
+			detail:
+				options.unavailableReason ??
+				"no recovered Tools evidence match selected",
+		};
+	}
+	const selected = getNormalizedSelectionIndex(
+		recovery?.items.length ?? 0,
+		selectedIndex,
+	);
+	const total = Math.max(1, recovery?.items.length ?? 1);
+	const unavailableReason =
+		options.unavailableReason ??
+		(action === "archive" && recovery?.target === "archive"
+			? "archived Tools evidence matches are already archived"
+			: undefined);
+	return {
+		source: "evidence",
+		action: resultAction,
+		message: `recovered tools evidence match ${action} ${recovery?.target ?? "active"} ${selected + 1}/${total} ${item.fileName}${unavailableReason ? " unavailable" : ""}`,
+		detail: [
+			recovery?.query ? `query=${recovery.query}` : "",
+			`scope=${item.scope}`,
+			`runs=${item.runCount}`,
+			`path=${item.path}`,
+			unavailableReason
+				? `reason=${unavailableReason}`
+				: action === "open"
+					? "confirm=file-open"
+					: "confirm=archive tools export",
+		]
+			.filter(Boolean)
+			.join(" "),
+	};
+}
+
 export function formatTimelineEvidenceTrailPaletteAuditMessage(
 	action: "select" | "open" | "search" | "source",
 	plan?: ConsoleAuditExportPlan,
@@ -1945,6 +2001,57 @@ export function formatStatusActivityToolsEvidencePaletteAuditMessage(
 	]
 		.filter(Boolean)
 		.join(" ");
+}
+
+export function formatStatusActivityToolsEvidenceMatchAuditMessage(
+	action: "archive" | "open",
+	recovery?: StatusActivityToolsEvidenceSearchRecovery,
+	selectedIndex = 0,
+	options: { unavailableReason?: string } = {},
+): string {
+	const item = getSelectedStatusActivityToolsEvidenceSearchMatch(
+		recovery,
+		selectedIndex,
+	);
+	if (!item) {
+		return [
+			"status tools evidence match audit",
+			`action=${action}`,
+			"status=unavailable",
+			`reason="${formatTimelineEvidenceTrailAuditValue(options.unavailableReason ?? "no recovered Tools evidence match selected")}"`,
+		].join(" ");
+	}
+	const selected = getNormalizedSelectionIndex(
+		recovery?.items.length ?? 0,
+		selectedIndex,
+	);
+	const total = Math.max(1, recovery?.items.length ?? 1);
+	const unavailableReason =
+		options.unavailableReason ??
+		(action === "archive" && recovery?.target === "archive"
+			? "archived Tools evidence matches are already archived"
+			: undefined);
+	return [
+		"status tools evidence match audit",
+		`action=${action}`,
+		`target=${recovery?.target ?? "active"}`,
+		...(unavailableReason
+			? [
+					"status=unavailable",
+					`reason="${formatTimelineEvidenceTrailAuditValue(unavailableReason)}"`,
+				]
+			: []),
+		`selected=${selected + 1}/${total}`,
+		`query="${formatTimelineEvidenceTrailAuditValue(recovery?.query ?? "")}"`,
+		`label="${formatTimelineEvidenceTrailAuditValue(item.fileName)}"`,
+		...(unavailableReason
+			? []
+			: [
+					`scope=${item.scope}`,
+					`runs=${Math.max(0, Math.floor(item.runCount))}`,
+				]),
+		`path="${formatTimelineEvidenceTrailAuditValue(item.path)}"`,
+	].join(" ");
 }
 
 export function createTimelineEvidenceTrailAuditExportPlan(

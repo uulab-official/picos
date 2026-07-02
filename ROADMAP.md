@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.222 - Tools Evidence Match Audit Trail
+
+Status: draft PR [#284](https://github.com/uulab-official/picos/pull/284) on `codex/picos-v0.4.222-tools-match-audit-trail`.
+
+Goal: make recovered Tools evidence match actions searchable after rapid keyboard sessions, not just visible while the Status shelf is on screen.
+
+- Recovered Tools evidence match `K` open attempts now append `tools-evidence-match-open` Status Activity result rows with selected match, query, scope, run count, path, and file-open confirmation hints.
+- Recovered Tools evidence match `D` archive attempts now append `tools-evidence-match-archive` result rows with the same selected-match context and exact `archive tools export` confirmation hints.
+- Archived-target `D` attempts stay read-only but now leave an unavailable result/audit trail instead of disappearing into a transient warning.
+- Timeline audit messages now use `status tools evidence match audit action=<open|archive>` text so operators can recover the exact selected match through Timeline audit search.
+- Tests cover result row formatting, unavailable archive audit rows, and Timeline audit search visibility.
+- Next: expose command-palette actions for recovered Tools match open/archive so mouse-free operators can invoke the same sub-menu actions through fuzzy search.
+
 ## v0.4.221 - Tools Evidence Match Actions
 
 Status: draft PR [#283](https://github.com/uulab-official/picos/pull/283) on `codex/picos-v0.4.221-tools-evidence-match-actions`.

@@ -27,6 +27,7 @@ import {
 	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
 	createStatusActivityResultTimelineSearchReplayWarning,
+	createStatusActivityToolsEvidenceMatchResult,
 	createStatusActivityToolsEvidencePaletteResult,
 	createStatusActivityToolsEvidenceSearchRecovery,
 	createTimelineEvidenceTrailAuditExportOpenPlan,
@@ -48,6 +49,7 @@ import {
 	formatStatusActivityResultRows,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityResultTimelineJumpRows,
+	formatStatusActivityToolsEvidenceMatchAuditMessage,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityCopyIntentAuditExport,
@@ -2218,6 +2220,86 @@ describe("Status activity queue", () => {
 			formatStatusActivityToolsEvidencePaletteAuditMessage("archive"),
 		).toBe(
 			'palette tools evidence audit action=archive status=unavailable reason="no Tools evidence export selected"',
+		);
+	});
+
+	test("creates recovered Tools evidence match activity results and audit messages", () => {
+		const recovery = {
+			target: "active" as const,
+			query: "040100",
+			total: 3,
+			items: [
+				{
+					fileName: "picos-tools-selected-20260701T040100000Z.md",
+					path: "/Users/me/.config/picos/tools/picos-tools-selected-20260701T040100000Z.md",
+					scope: "selected" as const,
+					runCount: 1,
+					generatedAt: "2026-07-01T04:01:00.000Z",
+				},
+				{
+					fileName: "picos-tools-all-20260701T040100000Z.md",
+					path: "/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md",
+					scope: "all" as const,
+					runCount: 3,
+					generatedAt: "2026-07-01T04:01:00.000Z",
+				},
+			],
+		};
+
+		const open = createStatusActivityToolsEvidenceMatchResult(
+			"open",
+			recovery,
+			1,
+		);
+		const archive = createStatusActivityToolsEvidenceMatchResult(
+			"archive",
+			recovery,
+			1,
+		);
+
+		expect(open).toEqual({
+			source: "evidence",
+			action: "tools-evidence-match-open",
+			message:
+				"recovered tools evidence match open active 2/2 picos-tools-all-20260701T040100000Z.md",
+			detail:
+				"query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md confirm=file-open",
+		});
+		expect(archive).toEqual({
+			source: "evidence",
+			action: "tools-evidence-match-archive",
+			message:
+				"recovered tools evidence match archive active 2/2 picos-tools-all-20260701T040100000Z.md",
+			detail:
+				"query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md confirm=archive tools export",
+		});
+		expect(formatStatusActivityResultRows(open)).toEqual([
+			"STATUS ACTIVITY RESULT source=evidence action=tools-evidence-match-open",
+			"> recovered tools evidence match open active 2/2 picos-tools-all-20260701T040100000Z.md",
+			"  query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md confirm=file-open",
+		]);
+		expect(
+			formatStatusActivityToolsEvidenceMatchAuditMessage("open", recovery, 1),
+		).toBe(
+			'status tools evidence match audit action=open target=active selected=2/2 query="040100" label="picos-tools-all-20260701T040100000Z.md" scope=all runs=3 path="/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md"',
+		);
+		expect(
+			formatStatusActivityToolsEvidenceMatchAuditMessage(
+				"archive",
+				{ ...recovery, target: "archive" },
+				1,
+			),
+		).toBe(
+			'status tools evidence match audit action=archive target=archive status=unavailable reason="archived Tools evidence matches are already archived" selected=2/2 query="040100" label="picos-tools-all-20260701T040100000Z.md" path="/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md"',
+		);
+		expect(createStatusActivityToolsEvidenceMatchResult("open")).toEqual({
+			source: "evidence",
+			action: "tools-evidence-match-open",
+			message: "recovered tools evidence match open unavailable",
+			detail: "no recovered Tools evidence match selected",
+		});
+		expect(formatStatusActivityToolsEvidenceMatchAuditMessage("open")).toBe(
+			'status tools evidence match audit action=open status=unavailable reason="no recovered Tools evidence match selected"',
 		);
 	});
 
