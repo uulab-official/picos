@@ -2364,13 +2364,28 @@ describe("TUI tool history", () => {
 					(item) => item.scope,
 				),
 			).toEqual(["compare"]);
+			expect(
+				filterToolHistoryExportIndex(index, "any", "040100").items.map(
+					(item) => item.scope,
+				),
+			).toEqual(["all"]);
 			expect(getSelectedToolHistoryExport(index, 99, "compare")?.scope).toBe(
 				"compare",
 			);
+			expect(
+				getSelectedToolHistoryExport(index, 99, "any", "040100")?.scope,
+			).toBe("all");
 			expect(formatToolHistoryExportIndexRows(index, 0, 5, "compare")).toEqual([
 				`TOOLS EVIDENCE 1/3 filter=compare base=${join(root, "tools")}`,
 				"> compare runs=1 2026-06-30T04:02:00.000Z picos-tools-compare-2026-06-30T040200000Z.md",
 				`open target=${comparePlan.path}`,
+			]);
+			expect(
+				formatToolHistoryExportIndexRows(index, 0, 5, "any", "040100"),
+			).toEqual([
+				`TOOLS EVIDENCE 1/3 query=040100 base=${join(root, "tools")}`,
+				"> all runs=1 2026-06-30T04:01:00.000Z picos-tools-all-2026-06-30T040100000Z.md",
+				`open target=${allPlan.path}`,
 			]);
 			expect(formatToolHistoryExportIndexRows(index, 0, 5, "selected")).toEqual(
 				[
@@ -2388,6 +2403,12 @@ describe("TUI tool history", () => {
 				),
 			).toEqual([
 				`TOOLS EVIDENCE 0/2 filter=compare base=${join(root, "tools")}`,
+				"no matching tools evidence",
+			]);
+			expect(
+				formatToolHistoryExportIndexRows(index, 0, 5, "compare", "040100"),
+			).toEqual([
+				`TOOLS EVIDENCE 0/3 filter=compare query=040100 base=${join(root, "tools")}`,
 				"no matching tools evidence",
 			]);
 		} finally {

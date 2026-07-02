@@ -44,6 +44,8 @@ export type StatusEvidenceSelection = {
 	selectedToolExportArchiveIndex?: number;
 	toolExportFilter?: ToolHistoryEvidenceFilter;
 	toolExportArchiveFilter?: ToolHistoryEvidenceFilter;
+	toolExportQuery?: string;
+	toolExportArchiveQuery?: string;
 };
 
 export type StatusEvidenceKind =
@@ -535,6 +537,7 @@ function collectStatusEvidenceEntries(
 				getToolExportIndex(indexes),
 				getSelectedToolExportIndex(selection),
 				getToolExportFilter(selection),
+				getToolExportQuery(selection),
 			),
 			"tools",
 			"enter=open open K archive D/a retention=-",
@@ -544,6 +547,7 @@ function collectStatusEvidenceEntries(
 				getToolExportArchiveIndex(indexes),
 				getSelectedToolExportArchiveIndex(selection),
 				getToolExportArchiveFilter(selection),
+				getToolExportArchiveQuery(selection),
 			),
 			"tools-archive",
 			"enter=open open K archive=archived retention=M/m",
@@ -621,6 +625,7 @@ function collectStatusEvidenceFamilyEntries(
 				entries: filterToolHistoryExportIndex(
 					getToolExportIndex(indexes),
 					getToolExportFilter(selection),
+					getToolExportQuery(selection),
 				)
 					.items.map((item) =>
 						formatToolsEvidence(
@@ -637,6 +642,7 @@ function collectStatusEvidenceFamilyEntries(
 				entries: filterToolHistoryExportIndex(
 					getToolExportArchiveIndex(indexes),
 					getToolExportArchiveFilter(selection),
+					getToolExportArchiveQuery(selection),
 				)
 					.items.map((item) =>
 						formatToolsEvidence(
@@ -896,6 +902,14 @@ function getToolExportArchiveFilter(
 	selection: StatusEvidenceSelection,
 ): ToolHistoryEvidenceFilter {
 	return selection.toolExportArchiveFilter ?? "any";
+}
+
+function getToolExportQuery(selection: StatusEvidenceSelection): string {
+	return selection.toolExportQuery ?? "";
+}
+
+function getToolExportArchiveQuery(selection: StatusEvidenceSelection): string {
+	return selection.toolExportArchiveQuery ?? "";
 }
 
 function getActiveStatusEvidenceEntry(

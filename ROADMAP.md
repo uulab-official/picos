@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.217 - Tools Evidence Search
+
+Status: draft PR [#279](https://github.com/uulab-official/picos/pull/279) on `codex/picos-v0.4.217-tools-evidence-search`.
+
+Goal: make active and archived Tools evidence recoverable by filename/date tokens, not only by export scope.
+
+- Tools evidence filtering now accepts a normalized token query and matches picos-owned export filename, generated timestamp, scope, run count, and path.
+- Filtered Tools evidence rows show both scope and query context in the heading before the selected open target.
+- Status Evidence selection, item movement, open, and archive plans now share the same Tools evidence scope/query filter model.
+- Command palette search for `tools evidence search` opens a read-only prompt that applies active or archived Tools evidence queries without changing OS state.
+- Tests cover query filtering, no-match rows, searched Status Evidence enter plans, action catalog counts, and palette discovery.
+- Next: surface the current Tools evidence search query in Status Activity result history so searches can be revisited from Timeline.
+
 ## v0.4.216 - Tools Evidence Scope Filters
 
 Status: draft PR [#278](https://github.com/uulab-official/picos/pull/278) on `codex/picos-v0.4.216-tools-evidence-filter`.
@@ -11,7 +24,7 @@ Goal: make exported Tools evidence easier to recover after compare/export/archiv
 - Status workspace adds `q` as a Tools evidence filter shortcut and resets the filtered selection cursor to the first matching item.
 - Command palette search for `tools compare` exposes a read-only Tools evidence filter action alongside archive and retention prompts.
 - Tests cover filter cycling, filtered Tools evidence rows, compare selection/open planning, Status Evidence filtered selections, action catalog counts, and palette discovery.
-- Next: add a small Tools Evidence search token prompt so archived diagnostic files can be narrowed by filename/date in addition to scope.
+- Next: Tools Evidence filename/date search moved into v0.4.217; Status Activity search history remains a follow-up.
 
 ## v0.4.215 - Tools Compare Handoffs
 
