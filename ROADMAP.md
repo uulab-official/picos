@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.288 - Remote Known Hosts Candidate Compare
+
+Status: draft PR [#351](https://github.com/uulab-official/picos/pull/351) on `codex/picos-v0.4.288-known-hosts-candidate-compare`.
+
+Goal: make a selected `known_hosts` read-result candidate inspectable inside host-key compare detail before any host trust, socket opening, host scan, local trust-file mutation, or remote mutation is enabled.
+
+- `createRemoteHostKeyCompareDetail()` now accepts parsed known_hosts candidate previews.
+- Compare detail rows can show candidate source, source line, host pattern, key type, selected fingerprint, and `candidate-only` match state.
+- Empty compare detail rows still show `candidateSource=none` and keep the locked no-read/no-parse/no-connect/no-scan/no-trust/no-mutate posture.
+- Tests cover read-result candidate comparison, provider status inclusion, empty compare detail rows, and blocked execution flags.
+- Next: add a locked host-key evidence input model so collected host-key fingerprints can be compared against selected candidates without opening a real SFTP session.
+
 ## v0.4.287 - Remote Known Hosts Read Result
 
 Status: draft PR [#350](https://github.com/uulab-official/picos/pull/350) on `codex/picos-v0.4.287-known-hosts-read-result`.
