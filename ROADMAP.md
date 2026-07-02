@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.294 - Remote SFTP Package Resolution Preview
+
+Status: in progress on `codex/picos-v0.4.294-sftp-package-resolution-preview`.
+
+Goal: show exactly where picos would look for the future optional SFTP transport package before it runs a resolver, imports transport code, opens sockets, starts sessions, trusts hosts, writes `known_hosts`, or mutates anything.
+
+- Remotes now models `REMOTE SFTP PACKAGE RESOLUTION PREVIEW` rows with dependency, detector, preview-only status, resolver-not-run blocker, start directory, lookup count, and deterministic lookup candidates.
+- Lookup candidates follow Node-style ancestor `node_modules/@uulab/picos-sftp` paths and support POSIX and Windows-style input paths.
+- Execution posture keeps package resolution, package reads, transport import, sockets, sessions, and mutation false.
+- `picos remote <id>` prints package resolution preview rows after SFTP transport readiness.
+- Remotes TUI renders a dedicated `SFTP PACKAGE RESOLUTION` section and reserves vertical budget for it.
+- Next: add an explicit optional-package resolver review result that can record found/missing metadata from an injected resolver without importing transport or opening sockets.
+
 ## v0.4.293 - Remote SFTP Transport Readiness
 
 Status: draft PR [#364](https://github.com/uulab-official/picos/pull/364) on `codex/picos-v0.4.293-sftp-transport-readiness`.
