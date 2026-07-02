@@ -9950,6 +9950,16 @@ function renderWorkspace(
 				processControlAuditExports,
 				selectedProcessControlAuditExportIndex,
 			);
+		const selectedStatusActivityResultTimelineJump =
+			createStatusActivityResultTimelineSearch(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+			);
+		const selectedStatusActivityResultTimelineJumpSelection =
+			getStatusActivityResultTimelineJumpSelection(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+			);
 		const filteredPorts = portsResult
 			? sortListeningPorts(
 					filterListeningPorts(portsResult.ports, portFilter),
@@ -9996,6 +10006,11 @@ function renderWorkspace(
 						selectedProcessEvidenceExportIndex:
 							selectedProcessControlAuditExportIndex,
 						totalProcessEvidenceExports: processControlAuditExports.length,
+						selectedStatusActivityResultTimelineJump,
+						selectedStatusActivityResultTimelineJumpIndex:
+							selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,
+						totalStatusActivityResultTimelineJumps:
+							selectedStatusActivityResultTimelineJumpSelection?.total,
 					},
 				)}
 			/>

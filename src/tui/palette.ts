@@ -2,7 +2,10 @@ import type { ActionPreviewPlan, PicosAction } from "../core/actions";
 import type { ConsoleAuditExportPlan } from "../core/auditLog";
 import type { PortProcessControlPreview } from "./endpointPanel";
 import { getNextIndex } from "./navigation";
-import type { StatusActivityToolsEvidenceSearchRecovery } from "./statusActivityQueue";
+import type {
+	StatusActivityCopyIntentTimelineSearch,
+	StatusActivityToolsEvidenceSearchRecovery,
+} from "./statusActivityQueue";
 import type {
 	ToolHistoryArchiveRetentionPlan,
 	ToolHistoryEvidenceFilter,
@@ -130,6 +133,9 @@ export type CommandPalettePreviewContext = {
 	selectedProcessEvidenceExport?: ConsoleAuditExportPlan;
 	selectedProcessEvidenceExportIndex?: number;
 	totalProcessEvidenceExports?: number;
+	selectedStatusActivityResultTimelineJump?: StatusActivityCopyIntentTimelineSearch;
+	selectedStatusActivityResultTimelineJumpIndex?: number;
+	totalStatusActivityResultTimelineJumps?: number;
 };
 
 export function formatCommandPaletteActionPreviewRows(
@@ -147,6 +153,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.processEvidence.select" &&
 		action.id !== "status.processEvidence.open" &&
 		action.id !== "status.processEvidence.search" &&
+		action.id !== "status.resultJump.select" &&
+		action.id !== "status.resultJump.open" &&
 		!context.portProcessPreview &&
 		!context.controlPreview
 	) {
@@ -177,6 +185,13 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id === "status.processEvidence.search"
 	) {
 		return formatProcessEvidencePalettePreviewRows(action, context);
+	}
+
+	if (
+		action.id === "status.resultJump.select" ||
+		action.id === "status.resultJump.open"
+	) {
+		return formatStatusActivityResultJumpPalettePreviewRows(action, context);
 	}
 
 	const recovery = context.toolsEvidenceSearchRecovery;
@@ -213,6 +228,48 @@ export function formatCommandPaletteActionPreviewRows(
 	return rows;
 }
 
+function formatStatusActivityResultJumpPalettePreviewRows(
+	action: PicosAction,
+	context: CommandPalettePreviewContext,
+): string[] {
+	const jump = context.selectedStatusActivityResultTimelineJump;
+	if (!jump) {
+		return [
+			"selected result jump unavailable",
+			"hint=select a Status Activity result row with a Timeline jump",
+		];
+	}
+	const total = Math.max(
+		1,
+		Math.floor(context.totalStatusActivityResultTimelineJumps ?? 1),
+	);
+	const selected = Math.min(
+		Math.max(
+			0,
+			Math.floor(context.selectedStatusActivityResultTimelineJumpIndex ?? 0),
+		),
+		total - 1,
+	);
+	return [
+		`selected result jump ${selected + 1}/${total} filter=${jump.filter}`,
+		formatResultJumpTargetRow(jump.query),
+		`query=${jump.query}`,
+		action.id === "status.resultJump.select"
+			? "action=select next Status result Timeline jump"
+			: `timeline-search=${jump.filter} message=${jump.message}`,
+	];
+}
+
+function formatResultJumpTargetRow(query: string): string {
+	const processTarget = parseProcessControlAuditTarget(query);
+	if (processTarget) {
+		return processTarget.pid
+			? `target=process-control pid:${processTarget.pid} action=${processTarget.action}`
+			: `target=process-control status:${processTarget.status ?? "unknown"} action=${processTarget.action}`;
+	}
+	return `target=filter-query ${query}`;
+}
+
 function formatProcessEvidencePalettePreviewRows(
 	action: PicosAction,
 	context: CommandPalettePreviewContext,
@@ -241,13 +298,39 @@ function formatProcessEvidencePalettePreviewRows(
 }
 
 function formatProcessEvidenceTarget(query: string | undefined): string {
-	const match = query?.match(
+	const target = query ? parseProcessControlAuditTarget(query) : undefined;
+	if (!target) {
+		return "unknown";
+	}
+	return target.pid
+		? `pid:${target.pid}`
+		: `status:${target.status ?? "unknown"}`;
+}
+
+function parseProcessControlAuditTarget(
+	query: string,
+): { action: string; pid?: string; status?: string } | undefined {
+	const evidenceMatch = query.match(
+		/(?:^| )(?:palette process evidence audit|status evidence process audit) action=(\S+)(?: .*?)?(?:target="?pid:([^" ]+)"?|status=(\S+))/,
+	);
+	if (evidenceMatch) {
+		return {
+			action: evidenceMatch[1] ?? "unknown",
+			...(evidenceMatch[2] ? { pid: evidenceMatch[2] } : {}),
+			...(evidenceMatch[3] ? { status: evidenceMatch[3] } : {}),
+		};
+	}
+	const match = query.match(
 		/(?:^| )palette process control audit action=(\S+)(?: .*?)?(?:pid=(\S+)|status=(\S+))/,
 	);
 	if (!match) {
-		return "unknown";
+		return undefined;
 	}
-	return match[2] ? `pid:${match[2]}` : `status:${match[3] ?? "unknown"}`;
+	return {
+		action: match[1] ?? "unknown",
+		...(match[2] ? { pid: match[2] } : {}),
+		...(match[3] ? { status: match[3] } : {}),
+	};
 }
 
 function formatPortProcessControlPalettePreviewRows(

@@ -217,6 +217,58 @@ describe("TUI command palette", () => {
 		).toContain("status.resultJump.select");
 	});
 
+	test("previews status result timeline jumps before dispatch", () => {
+		const jump = {
+			filter: "audit" as const,
+			query: 'status evidence process audit action=search target="pid:12345"',
+			message:
+				"status activity result timeline search status process evidence pid=12345",
+		};
+
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.resultJump.open",
+				),
+				{
+					selectedStatusActivityResultTimelineJump: jump,
+					selectedStatusActivityResultTimelineJumpIndex: 1,
+					totalStatusActivityResultTimelineJumps: 3,
+				},
+			),
+		).toEqual([
+			"selected result jump 2/3 filter=audit",
+			"target=process-control pid:12345 action=search",
+			'query=status evidence process audit action=search target="pid:12345"',
+			"timeline-search=audit message=status activity result timeline search status process evidence pid=12345",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.resultJump.select",
+				),
+				{
+					selectedStatusActivityResultTimelineJump: jump,
+				},
+			),
+		).toEqual([
+			"selected result jump 1/1 filter=audit",
+			"target=process-control pid:12345 action=search",
+			'query=status evidence process audit action=search target="pid:12345"',
+			"action=select next Status result Timeline jump",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.resultJump.open",
+				),
+			),
+		).toEqual([
+			"selected result jump unavailable",
+			"hint=select a Status Activity result row with a Timeline jump",
+		]);
+	});
+
 	test("finds status result history filter from the command palette", () => {
 		const actions = getFilteredPaletteActions(
 			getActionCatalog(),
