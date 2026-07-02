@@ -1,6 +1,6 @@
 import { promises as dns } from "node:dns";
 import tls from "node:tls";
-import { safeExec } from "../utils/safeExec";
+import { type SafeExecOptions, safeExec } from "../utils/safeExec";
 import {
 	assertSafeHost,
 	assertSafePort,
@@ -45,7 +45,13 @@ type ToolRuntime = {
 	fetch?: ToolFetch;
 	platform?: SupportedPlatform;
 	timeoutMs?: number;
+	runner?: ToolCommandRunner;
 	connect?: (host: string, port: number, timeoutMs: number) => Promise<void>;
+	inspectTls?: (
+		host: string,
+		port: number,
+		timeoutMs: number,
+	) => Promise<TlsInspection>;
 	now?: () => number;
 };
 
@@ -54,9 +60,29 @@ type ToolFetch = (
 	init?: RequestInit,
 ) => Promise<Response>;
 
+type ToolCommandRunner = (
+	command: string,
+	args: string[],
+	options?: SafeExecOptions,
+) => Promise<SafeExecResult>;
+
 type TracerouteCommand = {
 	command: string;
 	args: string[];
+};
+
+export type TlsInspection = {
+	host: string;
+	port: number;
+	authorized: boolean;
+	protocol: string;
+	cipher: string;
+	subject: string;
+	issuer: string;
+	validFrom: string;
+	validTo: string;
+	subjectAltName: string;
+	certificateCount: number;
 };
 
 const TARGET_PATTERN = /^[a-zA-Z0-9_.:-]+$/;
@@ -359,18 +385,50 @@ export async function runTlsInspect(
 	runtime: ToolRuntime = {},
 ): Promise<ToolResult> {
 	const { host, port } = splitHostPort(target, 443);
-	const inspected = await inspectTls(host, port, runtime.timeoutMs ?? 10000);
+	const timeoutMs = runtime.timeoutMs ?? 10000;
+	const inspected = await (runtime.inspectTls ?? inspectTls)(
+		host,
+		port,
+		timeoutMs,
+	);
 	const sections = [
 		{
-			label: "TLS",
-			lines: inspected,
+			label: "Target",
+			lines: [
+				`Host: ${inspected.host}`,
+				`Port: ${inspected.port}`,
+				`Command: picos tools tls ${inspected.host}:${inspected.port}`,
+				`Timeout: ${timeoutMs}ms`,
+			],
+		},
+		{
+			label: "Status",
+			lines: [
+				`Authorized: ${inspected.authorized ? "yes" : "no"}`,
+				`Protocol: ${inspected.protocol}`,
+				`Cipher: ${inspected.cipher}`,
+			],
+		},
+		{
+			label: "Certificate",
+			lines: [
+				`Subject: ${inspected.subject}`,
+				`Issuer: ${inspected.issuer}`,
+				`Valid From: ${inspected.validFrom}`,
+				`Valid To: ${inspected.validTo}`,
+				`SAN: ${inspected.subjectAltName}`,
+				`Chain Certificates: ${inspected.certificateCount}`,
+			],
 		},
 	];
 
 	return {
 		title: "TLS Inspector",
 		sections,
-		rawOutput: `$ picos tools tls ${host}:${port}\n${inspected.join("\n")}`,
+		rawOutput: [
+			`$ picos tools tls ${inspected.host}:${inspected.port}`,
+			...sections.flatMap(sectionToRaw),
+		].join("\n"),
 	};
 }
 
@@ -390,11 +448,13 @@ export async function runTraceroute(
 	target: string,
 	runtime: ToolRuntime = {},
 ): Promise<ToolResult> {
-	const command = buildTracerouteCommand(target, runtime.platform);
-	const result = await safeExec(command.command, command.args, {
-		timeoutMs: runtime.timeoutMs ?? 30000,
-	});
-	return commandResultToToolResult("Traceroute", result);
+	const platform = runtime.platform ?? process.platform;
+	const safeTarget = normalizeToolTarget(target);
+	const command = buildTracerouteCommand(safeTarget, platform);
+	const runner = runtime.runner ?? safeExec;
+	const timeoutMs = runtime.timeoutMs ?? 30000;
+	const result = await runner(command.command, command.args, { timeoutMs });
+	return tracerouteResultToToolResult(safeTarget, platform, timeoutMs, result);
 }
 
 export function buildTracerouteCommand(
@@ -508,7 +568,7 @@ function inspectTls(
 	host: string,
 	port: number,
 	timeoutMs: number,
-): Promise<string[]> {
+): Promise<TlsInspection> {
 	return new Promise((resolve, reject) => {
 		const socket = tls.connect({
 			host,
@@ -525,25 +585,108 @@ function inspectTls(
 			clearTimeout(timer);
 			const certificate = socket.getPeerCertificate();
 			const cipher = socket.getCipher();
-			const lines = [
-				`Target: ${host}:${port}`,
-				`Authorized: ${socket.authorized ? "yes" : "no"}`,
-				`Protocol: ${socket.getProtocol() ?? "-"}`,
-				`Cipher: ${cipher?.name ?? "-"}`,
-				`Subject: ${certificate.subject?.CN ?? "-"}`,
-				`Issuer: ${certificate.issuer?.CN ?? "-"}`,
-				`Valid From: ${certificate.valid_from ?? "-"}`,
-				`Valid To: ${certificate.valid_to ?? "-"}`,
-				`SAN: ${certificate.subjectaltname ?? "-"}`,
-			];
+			const inspection = {
+				host,
+				port,
+				authorized: socket.authorized,
+				protocol: socket.getProtocol() ?? "-",
+				cipher: cipher?.name ?? "-",
+				subject: formatCertificateName(certificate.subject?.CN),
+				issuer: formatCertificateName(certificate.issuer?.CN),
+				validFrom: certificate.valid_from ?? "-",
+				validTo: certificate.valid_to ?? "-",
+				subjectAltName: certificate.subjectaltname ?? "-",
+				certificateCount: countPeerCertificates(certificate),
+			};
 			socket.end();
-			resolve(lines);
+			resolve(inspection);
 		});
 		socket.once("error", (error) => {
 			clearTimeout(timer);
 			reject(error);
 		});
 	});
+}
+
+function countPeerCertificates(certificate: tls.PeerCertificate): number {
+	let count = 0;
+	let current: PeerCertificateWithIssuer | undefined = certificate;
+	const seen = new Set<tls.PeerCertificate>();
+	while (current && !seen.has(current)) {
+		seen.add(current);
+		count += 1;
+		const next: PeerCertificateWithIssuer | undefined =
+			current.issuerCertificate;
+		if (!next || next === current) {
+			break;
+		}
+		current = next;
+	}
+	return count;
+}
+
+type PeerCertificateWithIssuer = tls.PeerCertificate & {
+	issuerCertificate?: PeerCertificateWithIssuer;
+};
+
+function formatCertificateName(value: string | string[] | undefined): string {
+	if (Array.isArray(value)) {
+		return value.join(", ");
+	}
+	return value ?? "-";
+}
+
+function tracerouteResultToToolResult(
+	target: string,
+	platform: SupportedPlatform,
+	timeoutMs: number,
+	result: SafeExecResult,
+): ToolResult {
+	const output = result.stdout || result.stderr || "(no output)";
+	const outputLines = output.split(/\r?\n/).filter(Boolean);
+	const hopLines = parseTracerouteHops(outputLines);
+	const sections = [
+		{
+			label: "Target",
+			lines: [
+				`Host: ${target}`,
+				`Command: ${result.command} ${result.args.join(" ")}`.trimEnd(),
+				`Platform: ${platform}`,
+				`Timeout: ${timeoutMs}ms`,
+			],
+		},
+		{
+			label: "Status",
+			lines: [
+				`Exit: ${result.exitCode ?? "timeout"}`,
+				`Result: ${result.success ? "ok" : "fail"}`,
+				`Output Lines: ${outputLines.length}`,
+			],
+		},
+		{
+			label: "Hops",
+			lines: hopLines.length > 0 ? hopLines : outputLines.slice(0, 40),
+		},
+	];
+
+	return {
+		title: "Traceroute",
+		sections,
+		rawOutput: [
+			`$ ${result.command} ${result.args.join(" ")}`.trimEnd(),
+			...sections.flatMap(sectionToRaw),
+			"[Source Output]",
+			output,
+		].join("\n"),
+	};
+}
+
+function parseTracerouteHops(lines: string[]): string[] {
+	return lines
+		.map((line) => line.trim())
+		.filter((line) => /^\d+\s+/.test(line))
+		.map((line) => line.replace(/\s+/g, " "))
+		.slice(0, 64);
 }
 
 function commandResultToToolResult(

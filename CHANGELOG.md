@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Tools Hub TLS and traceroute runs now emit structured Target/Status/detail sections, so CLI output, TUI summaries, raw history, section/row copy, compare, and evidence exports all preserve inspectable diagnostic context.
 - Interfaces source pane can now copy retained source evidence through the locked clipboard flow, export it as `interfaces/*.md` handoff files, reopen it through locked file-open confirmation, and recover it in the Status handoff index.
 - Interfaces source pane now retains bounded raw source evidence for interface inventory, adapter stats, and default gateway commands so rendered summaries can be compared with their source output.
 - Command palette locked interface controls now preview the selected adapter target, address, traffic counters, platform source, and generic locked Action Center rows before dispatch.

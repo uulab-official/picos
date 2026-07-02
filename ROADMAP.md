@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.258 - Tools Trace TLS Detail
+
+Status: draft PR [#320](https://github.com/uulab-official/picos/pull/320) on `codex/picos-v0.4.258-tools-trace-tls-detail`.
+
+Goal: make Tools Hub TLS and traceroute runs inspectable as structured console evidence.
+
+- TLS Inspector now emits `Target`, `Status`, and `Certificate` sections with command, timeout, authorization, protocol, cipher, subject, issuer, validity, SAN, and chain-count rows.
+- Traceroute now emits `Target`, `Status`, and parsed `Hops` sections with platform command, timeout, exit status, result, output-line count, and normalized hop rows.
+- Traceroute execution accepts an injected runner for deterministic tests while production still goes through `safeExec()`.
+- Raw output keeps the original command output after the structured sections, so TUI raw history, compare, copy, and evidence exports retain source command context.
+- Tools history now verifies TLS/traceroute Target/Status sections activate structured section and row copy affordances beyond TCP checks.
+- Next: expose richer Tools direct-run discovery in the command palette and continue lazyifconfig parity around tool presets and result inspection.
+
 ## v0.4.257 - Interface Source Handoffs
 
 Status: draft PR [#319](https://github.com/uulab-official/picos/pull/319) on `codex/picos-v0.4.257-interface-source-handoffs`.
