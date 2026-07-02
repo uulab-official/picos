@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Evidence process search result rows can now become reusable Status Activity Timeline audit jumps, so keyboard-origin process evidence searches replay into Timeline with PID-targeted `status evidence process audit ...` queries and copy-intent shelf summaries.
 - Status Evidence process `G` searches now append their own Status Activity result rows and searchable `status evidence process audit ...` Timeline messages, matching the command palette process-evidence trail while keeping keyboard-origin actions distinct.
 - Status Evidence process rows now expose `G` Timeline search directly from the compact summary/table/command strip, while non-process evidence rows explicitly show `search=-` so the active target's search affordance is visible without relying on the Status Activity shelf.
 - Status Evidence now treats recovered process-control audit exports as a first-class `process` evidence family, with summary/table rows, number jump support, `[`/`]` item movement, `enter`/`F` locked file-open handoff, and compact legacy bridge hints.

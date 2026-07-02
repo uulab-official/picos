@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.235 - Process Evidence Jump Recovery
+
+Status: draft PR [#297](https://github.com/uulab-official/picos/pull/297) on `codex/picos-v0.4.235-process-evidence-jump-recovery`.
+
+Goal: make Status Evidence process search result rows replayable as reusable Timeline audit jumps.
+
+- Status Evidence process search result rows now map back into `status evidence process audit action=search ...` Timeline searches.
+- Fresh result-jump rows summarize the PID target as `process control target=pid:<pid> action=search I=fresh`.
+- Reusable copy-intent audit jump rows keep the same process-control PID target token, so `P`/`I` replay flows can return to keyboard-origin process evidence searches.
+- The process-control audit parser now recognizes both command-palette process-control previews and process-evidence audit rows.
+- Tests cover the Status Evidence process result jump, fresh shelf row, reusable copy-intent row, and PID-target summary.
+- Next: expose these recovered Status Evidence process search jumps in the command palette result-jump actions with a compact dispatch preview, keeping `? result jump` and direct `I` recovery equivalent.
+
 ## v0.4.234 - Process Evidence Search Audit
 
 Status: draft PR [#296](https://github.com/uulab-official/picos/pull/296) on `codex/picos-v0.4.234-process-evidence-search-audit`.
