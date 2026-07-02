@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Files workspace now shows compact root and selected-entry breadcrumbs, slicing long paths so operators can keep filesystem context visible in narrow and full terminal layouts.
 - Files workspace now shows selected path details and supports `y` to open the existing locked clipboard confirmation for copying the selected file or directory path.
 - Files workspace now keeps a forward navigation stack: `b` moves back, `B` moves forward, and the console shows back/forward counts beside the parent-directory controls.
 - Tools prompt field help now shows the active field, whether typing will replace or append, and the `Tab`/`Ctrl+U` field controls inside the live Tools form.

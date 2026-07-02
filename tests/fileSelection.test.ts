@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { FileEntry } from "../src/core/files";
 import {
+	formatFileBreadcrumbRows,
 	formatSelectedFilePathRows,
 	getSelectedFilePathClipboardPreview,
 } from "../src/tui/fileSelection";
@@ -49,5 +50,30 @@ describe("TUI file selection", () => {
 			"controls=j/k select · : path · 1-9 locations",
 		]);
 		expect(getSelectedFilePathClipboardPreview([], 0)).toBeUndefined();
+	});
+
+	test("formats compact root and selected breadcrumbs", () => {
+		expect(
+			formatFileBreadcrumbRows(
+				"/Users/bonjin/Documents/workspace/uulab/picos",
+				entries,
+				1,
+				{ maxSegments: 4 },
+			),
+		).toEqual([
+			"PATH BREADCRUMB selected=README.md depth=7",
+			"root=/ > ... > workspace > uulab > picos",
+			"selected=/ > ... > uulab > picos > README.md",
+			"controls=: path · u parent · y copy selected",
+		]);
+	});
+
+	test("keeps empty breadcrumbs useful", () => {
+		expect(formatFileBreadcrumbRows("/", [], 0)).toEqual([
+			"PATH BREADCRUMB selected=none depth=0",
+			"root=/",
+			"selected=none",
+			"controls=: path · u parent · y copy selected",
+		]);
 	});
 });
