@@ -7,6 +7,7 @@ import {
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
 	createRemoteHostKeyEvidenceInput,
+	createRemoteHostKeyEvidenceInputFromSession,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsParserPreview,
@@ -42,6 +43,7 @@ import {
 	parseRemoteKnownHostsCandidates,
 	parseRemoteKnownHostsCandidatesFromReadResult,
 	parseRemoteProfileCommand,
+	recordRemoteHostKeyEvidenceInputSession,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -1512,6 +1514,52 @@ describe("remote profiles", () => {
 		expect(formatRemoteHostKeyEvidenceInputAuditMessage(rejected)).toContain(
 			"status=rejected",
 		);
+	});
+
+	test("applies recorded host key evidence input to session compare detail", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const confirmation = submitRemoteHostKeyEvidenceInput(
+			createRemoteHostKeyEvidenceInput(profile),
+			" SHA256:providedFingerprint ",
+		);
+		const session = recordRemoteHostKeyEvidenceInputSession({}, confirmation);
+
+		expect(session).toEqual({ prod: "SHA256:providedFingerprint" });
+		const input = createRemoteHostKeyEvidenceInputFromSession(profile, session);
+		expect(input.status).toBe("provided");
+		expect(input.fingerprint).toBe("SHA256:providedFingerprint");
+		expect(input.parserInput).toBe("available");
+		expect(formatRemoteHostKeyEvidenceInputRows(input)).toContain(
+			"fingerprint=SHA256:providedFingerprint parserInput=available",
+		);
+
+		const detail = createRemoteHostKeyCompareDetail(profile, undefined, input);
+		expect(detail.match).toBe("evidence-only");
+		expect(formatRemoteHostKeyCompareDetailRows(detail)).toContain(
+			"next=parse known_hosts candidates before trust review; evidence remains read-only",
+		);
+
+		const rejected = submitRemoteHostKeyEvidenceInput(
+			createRemoteHostKeyEvidenceInput(profile),
+			" ",
+		);
+		expect(recordRemoteHostKeyEvidenceInputSession(session, rejected)).toEqual(
+			session,
+		);
+		expect(
+			createRemoteHostKeyEvidenceInputFromSession(
+				{ ...profile, id: "stage" },
+				session,
+			).status,
+		).toBe("missing");
 	});
 
 	test("formats remote host key evidence input prompt rows", () => {
