@@ -2,7 +2,7 @@
 
 ## v0.4.294 - Remote Known Hosts Candidate Selection
 
-Status: in progress on `codex/picos-v0.4.294-known-hosts-candidate-selection`.
+Status: draft PR [#367](https://github.com/uulab-official/picos/pull/367) on `codex/picos-v0.4.294-known-hosts-candidate-selection`.
 
 Goal: let operators rotate the selected candidate inside a pasted known_hosts review buffer so compare detail can be driven entirely from the keyboard before any host trust or local trust-file read is enabled.
 
