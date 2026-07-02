@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adapters/macos";
 import { createActionPreviewPlan, getActionCatalog } from "../src/core/actions";
+import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendCommandPaletteQuery,
 	backspaceCommandPaletteQuery,
@@ -381,6 +382,38 @@ describe("TUI command palette", () => {
 			"risk=write privilege=admin confirm=flush dns",
 			"adapter=macos command=sudo dscacheutil -flushcache",
 			"blocked=disabled-by-default",
+		]);
+	});
+
+	test("previews selected port process controls before dispatch", () => {
+		const portProcessPreview: PortProcessControlPreview = {
+			actionId: "process.terminate",
+			kind: "terminate",
+			port: {
+				protocol: "tcp",
+				localAddress: "*",
+				localPort: "3000",
+				pid: "12345",
+				command: "node",
+				user: "alice",
+			},
+			confirmationPhrase: "kill pid 12345",
+			risk: "destructive",
+			privilege: "user",
+			enabled: false,
+			rows: [],
+		};
+		const action = getActionCatalog().find(
+			(candidate) => candidate.id === "process.terminate",
+		);
+
+		expect(
+			formatCommandPaletteActionPreviewRows(action, { portProcessPreview }),
+		).toEqual([
+			"port process control process.terminate locked",
+			"risk=destructive privilege=user confirm=kill pid 12345",
+			"target port=*:3000 pid=12345 process=node user=alice",
+			"dryRun no process signal will be sent",
 		]);
 	});
 

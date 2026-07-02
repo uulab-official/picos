@@ -1,4 +1,5 @@
 import type { ActionPreviewPlan, PicosAction } from "../core/actions";
+import type { PortProcessControlPreview } from "./endpointPanel";
 import { getNextIndex } from "./navigation";
 import type { StatusActivityToolsEvidenceSearchRecovery } from "./statusActivityQueue";
 import type {
@@ -116,6 +117,7 @@ export function getPaletteAction(
 
 export type CommandPalettePreviewContext = {
 	controlPreview?: ActionPreviewPlan;
+	portProcessPreview?: PortProcessControlPreview;
 	toolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery;
 	selectedToolsEvidenceSearchMatchIndex?: number;
 	selectedToolExport?: ToolHistoryExportIndexItem;
@@ -138,9 +140,16 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.toolsEvidence.matchArchive" &&
 		action.id !== "status.toolsEvidence.archive" &&
 		action.id !== "status.toolsEvidence.retention" &&
+		!context.portProcessPreview &&
 		!context.controlPreview
 	) {
 		return [];
+	}
+
+	if (context.portProcessPreview) {
+		return formatPortProcessControlPalettePreviewRows(
+			context.portProcessPreview,
+		);
 	}
 
 	if (context.controlPreview) {
@@ -187,6 +196,19 @@ export function formatCommandPaletteActionPreviewRows(
 		rows.push(`confirm=${actionVerb} path=${item.path}`);
 	}
 	return rows;
+}
+
+function formatPortProcessControlPalettePreviewRows(
+	preview: PortProcessControlPreview,
+): string[] {
+	const state = preview.enabled ? "ready" : "locked";
+	const port = preview.port;
+	return [
+		`port process control ${preview.actionId} ${state}`,
+		`risk=${preview.risk} privilege=${preview.privilege} confirm=${preview.confirmationPhrase}`,
+		`target port=${port.localAddress}:${port.localPort} pid=${port.pid} process=${port.command} user=${port.user}`,
+		"dryRun no process signal will be sent",
+	];
 }
 
 function formatControlActionPalettePreviewRows(

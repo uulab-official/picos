@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Command palette `process.terminate` previews now show selected listening port, PID, process name, user, destructive risk, and exact `kill pid <pid>` confirmation before dispatch.
 - Command palette locked Action Center controls now preview risk, privilege, exact confirmation phrase, blocked state, and adapter-owned dry-run command before dispatch.
 - Command palette Tools evidence archive/retention actions now preview the selected export, active filter/query, retention keep/remove counts, first prune candidate, and exact confirmation phrase before dispatch.
 - Command palette recovered Tools match actions now preview the selected file, query, scope, run count, path, and exact locked confirmation before dispatching `tools match open/archive`.
