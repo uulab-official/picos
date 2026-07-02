@@ -47,6 +47,17 @@ export type ToolTargetPreset = {
 	hint: string;
 };
 
+export type ToolRunActionMetadata = {
+	actionId: ToolRunActionId;
+	title: string;
+	toolId: ToolId;
+	placeholder: string;
+	example: string;
+	defaultTarget: string;
+	cli: string;
+	hint: string;
+};
+
 export type ToolTargetCleanupPreview = {
 	actionId: ToolRunActionId;
 	count: number;
@@ -93,6 +104,97 @@ const toolRunActionAliases: Record<string, ToolRunActionId> = {
 	traceroute: "tools.traceroute",
 	whois: "tools.whois",
 };
+
+const toolRunActionMetadata: Record<
+	ToolRunActionId,
+	Omit<ToolRunActionMetadata, "cli">
+> = {
+	"tools.dns": {
+		actionId: "tools.dns",
+		title: "DNS lookup",
+		toolId: "dns",
+		placeholder: "example.com",
+		example: "github.com",
+		defaultTarget: "example.com",
+		hint: "DNS, reverse DNS, MX, CNAME, A, AAAA",
+	},
+	"tools.traceroute": {
+		actionId: "tools.traceroute",
+		title: "Traceroute",
+		toolId: "traceroute",
+		placeholder: "8.8.8.8",
+		example: "8.8.8.8",
+		defaultTarget: "8.8.8.8",
+		hint: "network path hops",
+	},
+	"tools.whois": {
+		actionId: "tools.whois",
+		title: "WHOIS/RDAP lookup",
+		toolId: "whois",
+		placeholder: "example.com",
+		example: "github.com",
+		defaultTarget: "example.com",
+		hint: "public registration metadata",
+	},
+	"tools.ipInfo": {
+		actionId: "tools.ipInfo",
+		title: "IP information",
+		toolId: "ip-info",
+		placeholder: "8.8.8.8",
+		example: "8.8.8.8",
+		defaultTarget: "8.8.8.8",
+		hint: "ASN, organization, country, reverse DNS",
+	},
+	"tools.tls": {
+		actionId: "tools.tls",
+		title: "TLS inspector",
+		toolId: "tls",
+		placeholder: "example.com:443",
+		example: "github.com:443",
+		defaultTarget: "example.com:443",
+		hint: "protocol, cipher, certificate chain",
+	},
+	"network.connect": {
+		actionId: "network.connect",
+		title: "Telnet-style TCP check",
+		toolId: "telnet",
+		placeholder: "example.com 443",
+		example: "github.com 443",
+		defaultTarget: "example.com 443",
+		hint: "host and port reachability",
+	},
+	"ping.default": {
+		actionId: "ping.default",
+		title: "Ping default host",
+		toolId: "ping",
+		placeholder: "example.com",
+		example: "8.8.8.8",
+		defaultTarget: "example.com",
+		hint: "platform ping reachability",
+	},
+};
+
+export function getToolRunActionMetadata(
+	actionId: string,
+): ToolRunActionMetadata | undefined {
+	const normalizedActionId = normalizeToolRunActionId(actionId);
+	if (!normalizedActionId) {
+		return undefined;
+	}
+	const metadata = toolRunActionMetadata[normalizedActionId];
+	const plan = createToolRunPlan(
+		normalizedActionId,
+		metadata.defaultTarget,
+		undefined,
+		"",
+	);
+	return {
+		...metadata,
+		cli: plan
+			? formatToolRunCliCommand(plan)
+			: `picos tools ${metadata.toolId}`,
+	};
+}
 
 export function parseToolTargetPresetCommand(
 	input: string,
@@ -901,10 +1003,31 @@ export function formatToolPromptRows(prompt: string, value: string): string[] {
 		return [];
 	}
 	const actionId = prompt.slice("tool:".length);
+	const metadata = getToolRunActionMetadata(actionId);
+	if (!metadata) {
+		return [
+			`TOOL TARGET ${actionId}`,
+			`:tool ${value || " "}  enter=run esc=cancel`,
+		];
+	}
+	const target = value.trim() || metadata.defaultTarget;
+	const plan = createToolRunPlan(
+		actionId,
+		metadata.defaultTarget,
+		undefined,
+		target,
+	);
 	return [
-		`TOOL TARGET ${actionId}`,
-		`:tool ${value || " "}  enter=run esc=cancel`,
+		`TOOL TARGET ${metadata.title}`,
+		`action=${metadata.actionId} tool=${metadata.toolId} hint=${metadata.hint}`,
+		`placeholder=${metadata.placeholder} example=${metadata.example}`,
+		`cli=${plan ? formatToolRunCliCommand(plan) : metadata.cli}`,
+		`:tool ${target || " "}  enter=run esc=cancel`,
 	];
+}
+
+function formatToolRunCliCommand(plan: ToolRunPlan): string {
+	return `picos tools ${plan.toolId} ${plan.args.join(" ")}`.trim();
 }
 
 export function moveToolHistorySelection(

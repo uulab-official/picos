@@ -31,6 +31,7 @@ import {
 	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
 	getSelectedToolTargetClipboardPreview,
+	getToolRunActionMetadata,
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
 	moveFilteredToolHistorySelection,
@@ -1472,11 +1473,31 @@ describe("TUI tool history", () => {
 	});
 
 	test("formats active tool target prompt rows", () => {
+		expect(getToolRunActionMetadata("tools.tls")).toEqual({
+			actionId: "tools.tls",
+			title: "TLS inspector",
+			toolId: "tls",
+			placeholder: "example.com:443",
+			example: "github.com:443",
+			defaultTarget: "example.com:443",
+			cli: "picos tools tls example.com:443",
+			hint: "protocol, cipher, certificate chain",
+		});
 		expect(
 			formatToolPromptRows("tool:network.connect", "api.github.com 443"),
 		).toEqual([
-			"TOOL TARGET network.connect",
+			"TOOL TARGET Telnet-style TCP check",
+			"action=network.connect tool=telnet hint=host and port reachability",
+			"placeholder=example.com 443 example=github.com 443",
+			"cli=picos tools telnet api.github.com 443",
 			":tool api.github.com 443  enter=run esc=cancel",
+		]);
+		expect(formatToolPromptRows("tool:tools.tls", "")).toEqual([
+			"TOOL TARGET TLS inspector",
+			"action=tools.tls tool=tls hint=protocol, cipher, certificate chain",
+			"placeholder=example.com:443 example=github.com:443",
+			"cli=picos tools tls example.com:443",
+			":tool example.com:443  enter=run esc=cancel",
 		]);
 		expect(formatToolPromptRows("route", "8.8.8.8")).toEqual([]);
 	});
