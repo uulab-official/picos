@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Recovered Tools evidence match `K`/`D` actions now append Status Activity result rows and searchable Timeline audit messages with target, selected match, query, scope, run count, and path details.
 - Status Activity Tools evidence search recovery now behaves like a keyboard sub-menu: `[`/`]` selects matching export files and `K`/`D` opens or archives the selected recovered match through the existing locked confirmations.
 - Status Activity copy-intent shelves now show a compact mini-list of Tools evidence files matching the selected Tools search recovery jump, including scope, run count, and open/archive action hints.
 - Status Activity copy-intent shelves now render Tools evidence search result jumps as dedicated `tools search target=... query=...` rows and summarize reusable Tools search audit jumps with target/query tokens.

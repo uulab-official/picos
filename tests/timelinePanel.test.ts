@@ -3,6 +3,7 @@ import type { ConsoleEvent } from "../src/tui/events";
 import {
 	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
+	formatStatusActivityToolsEvidenceMatchAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 } from "../src/tui/statusActivityQueue";
 import {
@@ -271,6 +272,46 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=tools evidence action=search",
 			"TIMELINE",
 			'[12:00:09] INFO audit  palette tools evidence audit action=search target=active query="040100" visible=1/3',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
+	test("surfaces recovered Tools evidence match actions in audit search", () => {
+		const toolMatchEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:10-info-tools-evidence-match",
+				level: "info",
+				time: "12:00:10",
+				message: formatStatusActivityToolsEvidenceMatchAuditMessage(
+					"open",
+					{
+						target: "active",
+						query: "040100",
+						total: 3,
+						items: [
+							{
+								fileName: "picos-tools-all-20260701T040100000Z.md",
+								path: "/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md",
+								scope: "all",
+								runCount: 3,
+								generatedAt: "2026-07-01T04:01:00.000Z",
+							},
+						],
+					},
+					0,
+				),
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(toolMatchEvents, 5, "audit", {
+				query: "tools evidence match action=open",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=tools evidence match action=open",
+			"TIMELINE",
+			'[12:00:10] INFO audit  status tools evidence match audit action=open target=active selected=1/1 query="040100" label="picos-tools-all-20260701T040100000Z.md" scope=all runs=3 path="/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md"',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});
