@@ -14,6 +14,34 @@ export type RemoteFileContext = {
 	writes: "locked";
 };
 
+export type RemoteConnectPreview = {
+	id: string;
+	target: string;
+	host: string;
+	port: number;
+	username: string;
+	key: "configured" | "none";
+	hostKey: "unverified";
+	transport: "sftp";
+	dependency: "@uulab/picos-sftp";
+	status: "blocked";
+	reason: "sftp-adapter-not-installed";
+	risk: "read";
+	privilege: "user";
+	confirm: string;
+	networkOpened: false;
+	writes: "locked";
+	destructive: "locked";
+};
+
+export type RemoteConnectConfirmation = {
+	preview: RemoteConnectPreview;
+	status: "confirmed-blocked" | "rejected";
+	input: string;
+	networkOpened: false;
+	message: string;
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -147,6 +175,89 @@ export function formatRemoteAdapterBoundaryRows(
 	];
 }
 
+export function createRemoteConnectPreview(
+	profile: SftpRemoteProfile,
+): RemoteConnectPreview {
+	return {
+		id: profile.id,
+		target: formatSftpRoot(profile),
+		host: profile.host,
+		port: profile.port,
+		username: profile.username,
+		key: profile.keyPath ? "configured" : "none",
+		hostKey: "unverified",
+		transport: "sftp",
+		dependency: "@uulab/picos-sftp",
+		status: "blocked",
+		reason: "sftp-adapter-not-installed",
+		risk: "read",
+		privilege: "user",
+		confirm: `connect remote ${profile.id}`,
+		networkOpened: false,
+		writes: "locked",
+		destructive: "locked",
+	};
+}
+
+export function formatRemoteConnectPreviewRows(
+	preview?: RemoteConnectPreview,
+): string[] {
+	if (!preview) {
+		return [
+			"REMOTE CONNECT PREVIEW none",
+			"dialog=host-review action=connect remote status=blocked network=not-opened",
+			"target=none",
+			"identity user=- host=- port=- key=none hostKey=unverified",
+			"risk=read privilege=user writes=locked destructive=locked",
+			'confirm="select remote profile" willExecute=false reason=no-remote-profile',
+			"controls=j/k select · enter stage context · no socket opened",
+		];
+	}
+
+	return [
+		`REMOTE CONNECT PREVIEW ${preview.id}`,
+		`dialog=host-review action=${preview.confirm} status=${preview.status} network=not-opened`,
+		`target=${preview.target}`,
+		`identity user=${preview.username} host=${preview.host} port=${preview.port} key=${preview.key} hostKey=${preview.hostKey}`,
+		`risk=${preview.risk} privilege=${preview.privilege} writes=${preview.writes} destructive=${preview.destructive}`,
+		`confirm="${preview.confirm}" willExecute=false reason=${preview.reason}`,
+		"controls=future c confirm host review · enter stage context · no socket opened",
+	];
+}
+
+export function submitRemoteConnectConfirmation(
+	preview: RemoteConnectPreview,
+	input: string,
+): RemoteConnectConfirmation {
+	const normalizedInput = input.trim();
+	const confirmed = normalizedInput === preview.confirm;
+	return {
+		preview,
+		status: confirmed ? "confirmed-blocked" : "rejected",
+		input: normalizedInput,
+		networkOpened: false,
+		message: confirmed
+			? `remote connect blocked ${preview.id} ${preview.target}`
+			: `remote connect confirmation rejected ${preview.id}`,
+	};
+}
+
+export function formatRemoteConnectConfirmationAuditMessage(
+	confirmation: RemoteConnectConfirmation,
+): string {
+	const { preview } = confirmation;
+	return [
+		"remote connect audit",
+		`id=${preview.id}`,
+		`target=${quoteAuditField(preview.target)}`,
+		`status=${confirmation.status}`,
+		`dependency=${preview.dependency}`,
+		`reason=${preview.reason}`,
+		"network=not-opened",
+		`confirm=${quoteAuditField(preview.confirm)}`,
+	].join(" ");
+}
+
 export function formatRemoteHostReviewAuditMessage(
 	action: RemoteHostReviewAuditAction,
 	profile: SftpRemoteProfile,
@@ -184,6 +295,8 @@ export async function formatRemoteProviderStatus(
 		...formatRemoteAdapterBoundaryRows(profile),
 		"",
 		...formatRemoteHostReviewRows(profile),
+		"",
+		...formatRemoteConnectPreviewRows(createRemoteConnectPreview(profile)),
 	].join("\n");
 }
 

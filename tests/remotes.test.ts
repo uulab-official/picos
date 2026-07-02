@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
+	createRemoteConnectPreview,
 	createRemoteFileContext,
 	formatRemoteAdapterBoundaryRows,
+	formatRemoteConnectConfirmationAuditMessage,
+	formatRemoteConnectPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
@@ -10,6 +13,7 @@ import {
 	formatRemoteProviderStatus,
 	normalizeRemoteProfiles,
 	parseRemoteProfileCommand,
+	submitRemoteConnectConfirmation,
 } from "../src/core/remotes";
 
 describe("remote profiles", () => {
@@ -145,6 +149,10 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain("REMOTE HOST REVIEW dev");
 		expect(output).toContain("network=not opened");
+		expect(output).toContain("REMOTE CONNECT PREVIEW dev");
+		expect(output).toContain(
+			"willExecute=false reason=sftp-adapter-not-installed",
+		);
 	});
 
 	test("creates a locked remote file context for selected profiles", async () => {
@@ -268,6 +276,83 @@ describe("remote profiles", () => {
 				"controls=j/k select · enter stage context · config remotes create profile",
 			].join("\n"),
 		);
+	});
+
+	test("formats remote connect preview rows without opening transport", () => {
+		const preview = createRemoteConnectPreview({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+
+		expect(preview).toEqual({
+			id: "prod",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			key: "configured",
+			hostKey: "unverified",
+			transport: "sftp",
+			dependency: "@uulab/picos-sftp",
+			status: "blocked",
+			reason: "sftp-adapter-not-installed",
+			risk: "read",
+			privilege: "user",
+			confirm: "connect remote prod",
+			networkOpened: false,
+			writes: "locked",
+			destructive: "locked",
+		});
+		expect(formatRemoteConnectPreviewRows(preview)).toEqual([
+			"REMOTE CONNECT PREVIEW prod",
+			"dialog=host-review action=connect remote prod status=blocked network=not-opened",
+			"target=sftp://deploy@prod.example.com:2222/srv/app",
+			"identity user=deploy host=prod.example.com port=2222 key=configured hostKey=unverified",
+			"risk=read privilege=user writes=locked destructive=locked",
+			'confirm="connect remote prod" willExecute=false reason=sftp-adapter-not-installed',
+			"controls=future c confirm host review · enter stage context · no socket opened",
+		]);
+
+		expect(formatRemoteConnectPreviewRows().join("\n")).toBe(
+			[
+				"REMOTE CONNECT PREVIEW none",
+				"dialog=host-review action=connect remote status=blocked network=not-opened",
+				"target=none",
+				"identity user=- host=- port=- key=none hostKey=unverified",
+				"risk=read privilege=user writes=locked destructive=locked",
+				'confirm="select remote profile" willExecute=false reason=no-remote-profile',
+				"controls=j/k select · enter stage context · no socket opened",
+			].join("\n"),
+		);
+
+		const confirmed = submitRemoteConnectConfirmation(
+			preview,
+			" connect remote prod ",
+		);
+		expect(confirmed).toEqual({
+			preview,
+			status: "confirmed-blocked",
+			input: "connect remote prod",
+			networkOpened: false,
+			message:
+				"remote connect blocked prod sftp://deploy@prod.example.com:2222/srv/app",
+		});
+		expect(formatRemoteConnectConfirmationAuditMessage(confirmed)).toBe(
+			'remote connect audit id=prod target="sftp://deploy@prod.example.com:2222/srv/app" status=confirmed-blocked dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened confirm="connect remote prod"',
+		);
+
+		expect(submitRemoteConnectConfirmation(preview, "connect prod")).toEqual({
+			preview,
+			status: "rejected",
+			input: "connect prod",
+			networkOpened: false,
+			message: "remote connect confirmation rejected prod",
+		});
 	});
 
 	test("formats remote host review audit messages without opening sessions", () => {
