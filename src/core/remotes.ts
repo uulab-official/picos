@@ -69,6 +69,31 @@ export function formatRemoteProfiles(profiles: SftpRemoteProfile[]): string {
 		.join("\n");
 }
 
+export function formatRemoteHandoffBoundaryRows(options: {
+	profile?: SftpRemoteProfile;
+	context?: RemoteFileContext;
+}): string[] {
+	const { profile, context } = options;
+	if (!profile) {
+		return [
+			"REMOTE HANDOFF none",
+			"provider=sftp root=none",
+			"status=no profile writes=locked session=not staged",
+			"controls=j/k select · enter stage · config remotes create profile",
+		];
+	}
+
+	const root = context?.root ?? formatSftpRoot(profile);
+	const staged = context?.id === profile.id;
+	const status = context && staged ? context.status : "profile ready";
+	return [
+		`REMOTE HANDOFF ${profile.id}`,
+		`provider=${profile.kind} root=${root}`,
+		`status=${status} writes=locked session=${staged ? "staged" : "not staged"}`,
+		`controls=enter ${staged ? "restage" : "stage"} · files opens locked SFTP boundary · no network session`,
+	];
+}
+
 export async function formatRemoteProviderStatus(
 	profile: SftpRemoteProfile,
 ): Promise<string> {
@@ -80,6 +105,8 @@ export async function formatRemoteProviderStatus(
 		`Root: ${context.root}`,
 		`Status: ${context.status}`,
 		"Writes: locked until host and path confirmation",
+		"",
+		...formatRemoteHandoffBoundaryRows({ profile, context }),
 	].join("\n");
 }
 
@@ -150,4 +177,9 @@ function normalizePort(value: unknown): number | undefined {
 	}
 
 	return value;
+}
+
+function formatSftpRoot(profile: SftpRemoteProfile): string {
+	const root = profile.root.startsWith("/") ? profile.root : `/${profile.root}`;
+	return `sftp://${profile.username}@${profile.host}:${profile.port}${root}`;
 }

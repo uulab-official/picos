@@ -69,6 +69,30 @@ describe("TUI file selection", () => {
 		]);
 	});
 
+	test("formats SFTP URL breadcrumbs with the provider authority intact", () => {
+		expect(
+			formatFileBreadcrumbRows(
+				"sftp://alice@dev.example.com:22/srv/app/releases/current",
+				[
+					{
+						name: "package.json",
+						path: "sftp://alice@dev.example.com:22/srv/app/releases/current/package.json",
+						type: "file",
+						size: 128,
+						readonly: true,
+					},
+				],
+				0,
+				{ maxSegments: 4 },
+			),
+		).toEqual([
+			"PATH BREADCRUMB selected=package.json depth=5",
+			"root=sftp://alice@dev.example.com:22 > srv > app > releases > current",
+			"selected=sftp://alice@dev.example.com:22 > ... > releases > current > package.json",
+			"controls=: path · u parent · y copy selected",
+		]);
+	});
+
 	test("keeps empty breadcrumbs useful", () => {
 		expect(formatFileBreadcrumbRows("/", [], 0)).toEqual([
 			"PATH BREADCRUMB selected=none depth=0",

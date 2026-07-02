@@ -55,7 +55,7 @@ export function formatFileBreadcrumbRows(
 	const entry = getSelectedFileEntry(entries, selectedIndex);
 	const selectedPath = entry?.path;
 	return [
-		`PATH BREADCRUMB selected=${entry?.name ?? "none"} depth=${selectedPath ? getPathSegments(selectedPath).length : 0}`,
+		`PATH BREADCRUMB selected=${entry?.name ?? "none"} depth=${selectedPath ? getBreadcrumbDepth(selectedPath) : 0}`,
 		`root=${formatPathBreadcrumb(root, options.maxSegments)}`,
 		`selected=${selectedPath ? formatPathBreadcrumb(selectedPath, options.maxSegments) : "none"}`,
 		"controls=: path · u parent · y copy selected",
@@ -92,9 +92,12 @@ function getSelectedFileEntry(
 }
 
 function formatPathBreadcrumb(path: string, maxSegments = 5): string {
-	const segments = getPathSegments(path);
+	const remote = parseRemotePath(path);
+	const segments = remote
+		? getPathSegments(remote.path)
+		: getPathSegments(path);
 	if (!segments.length) {
-		return "/";
+		return remote?.prefix ?? "/";
 	}
 	const segmentBudget = Math.max(1, Math.floor(maxSegments));
 	const visibleCount =
@@ -105,11 +108,34 @@ function formatPathBreadcrumb(path: string, maxSegments = 5): string {
 		segments.length > segmentBudget
 			? ["...", ...segments.slice(-visibleCount)]
 			: segments;
-	return [getPathPrefix(path), ...visibleSegments].filter(Boolean).join(" > ");
+	return [remote?.prefix ?? getPathPrefix(path), ...visibleSegments]
+		.filter(Boolean)
+		.join(" > ");
 }
 
 function getPathSegments(path: string): string[] {
 	return path.replace(/\\/g, "/").split("/").filter(Boolean);
+}
+
+function getBreadcrumbDepth(path: string): number {
+	const remote = parseRemotePath(path);
+	return getPathSegments(remote?.path ?? path).length;
+}
+
+function parseRemotePath(
+	path: string,
+): { prefix: string; path: string } | undefined {
+	const match = /^(?<scheme>[a-z][a-z0-9+.-]*:\/\/[^/]+)(?<path>\/.*)?$/i.exec(
+		path,
+	);
+	if (!match?.groups?.scheme) {
+		return undefined;
+	}
+
+	return {
+		prefix: match.groups.scheme,
+		path: match.groups.path ?? "/",
+	};
 }
 
 function getPathPrefix(path: string): string {

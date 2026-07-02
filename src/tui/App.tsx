@@ -140,6 +140,7 @@ import {
 } from "../core/processes";
 import {
 	createRemoteFileContext,
+	formatRemoteHandoffBoundaryRows,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 } from "../core/remotes";
@@ -11694,6 +11695,12 @@ function RemotesWorkspace({
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
 	const hiddenBelow = profiles.length - window.end;
+	const selectedProfile =
+		profiles[Math.min(selectedIndex, profiles.length - 1)];
+	const handoffRows = formatRemoteHandoffBoundaryRows({
+		profile: selectedProfile,
+		context: selectedContext,
+	});
 
 	return (
 		<Box flexDirection="column">
@@ -11740,14 +11747,20 @@ function RemotesWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">SELECTED CONTEXT</Text>
-				{selectedContext ? (
-					<Text color="yellow">
-						{selectedContext.label} {clip(selectedContext.root, 46)} ·{" "}
-						{selectedContext.status}
+				{handoffRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") || row.includes("pending")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
 					</Text>
-				) : (
-					<Text color="gray">none · press enter on a profile to stage it</Text>
-				)}
+				))}
 				<Text color="gray">
 					sessions locked · password persistence disabled by schema
 				</Text>
