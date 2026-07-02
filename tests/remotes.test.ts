@@ -6,6 +6,7 @@ import {
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
+	createRemoteHostKeyScanPolicy,
 	createRemoteHostKeyScanRequest,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
@@ -22,6 +23,7 @@ import {
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
+	formatRemoteHostKeyScanPolicyRows,
 	formatRemoteHostKeyScanRequestRows,
 	formatRemoteHostKeyScanReviewAuditMessage,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
@@ -685,6 +687,91 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willScan=false willTrust=false willMutate=false",
+		);
+	});
+
+	test("formats remote host key scan policy without enabling execution", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteHostKeyScanPolicy(profile)).toEqual({
+			id: "prod",
+			provider: "sftp",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			host: "prod.example.com",
+			port: 2222,
+			policy: "disabled",
+			mode: "preview-only",
+			dependency: "@uulab/picos-sftp",
+			risk: "read",
+			privilege: "user",
+			confirm: "scan host key prod",
+			prerequisites: [
+				"scanReview",
+				"transportInstalled",
+				"hostReview",
+				"knownHostsCompare",
+			],
+			blockers: ["policy-disabled", "transport-missing", "fingerprint-unknown"],
+			execution: {
+				importsTransport: false,
+				opensSocket: false,
+				scansHostKey: false,
+				trustsHost: false,
+				writesKnownHosts: false,
+				mutatesRemote: false,
+			},
+		});
+		expect(
+			formatRemoteHostKeyScanPolicyRows(createRemoteHostKeyScanPolicy(profile)),
+		).toEqual([
+			"REMOTE HOST KEY SCAN POLICY prod",
+			"target=sftp://deploy@prod.example.com:2222/srv/app host=prod.example.com port=2222 provider=sftp policy=disabled mode=preview-only",
+			"risk=read privilege=user dependency=@uulab/picos-sftp",
+			"prerequisites=scanReview, transportInstalled, hostReview, knownHostsCompare",
+			"blockers=policy-disabled, transport-missing, fingerprint-unknown",
+			'guards=exactConfirm="scan host key prod" trust=blocked knownHostsWrite=blocked',
+			"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
+			"next=enable scan execution policy only after transport, review, and compare prerequisites",
+		]);
+
+		expect(formatRemoteHostKeyScanPolicyRows().join("\n")).toBe(
+			[
+				"REMOTE HOST KEY SCAN POLICY none",
+				"target=none host=none port=- provider=sftp policy=disabled mode=preview-only",
+				"risk=read privilege=user dependency=@uulab/picos-sftp",
+				"prerequisites=scanReview, transportInstalled, hostReview, knownHostsCompare",
+				"blockers=policy-disabled, no-remote-profile, fingerprint-unknown",
+				'guards=exactConfirm="select remote profile" trust=blocked knownHostsWrite=blocked',
+				"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
+				"next=select remote profile · no scan execution policy",
+			].join("\n"),
+		);
+	});
+
+	test("includes remote host key scan policy in provider status", async () => {
+		const output = await formatRemoteProviderStatus({
+			id: "dev",
+			kind: "sftp",
+			host: "dev.example.com",
+			port: 22,
+			username: "alice",
+			root: "/srv/app",
+		});
+
+		expect(output).toContain("REMOTE HOST KEY SCAN POLICY dev");
+		expect(output).toContain(
+			"prerequisites=scanReview, transportInstalled, hostReview, knownHostsCompare",
+		);
+		expect(output).toContain(
+			"execution=willImport=false willConnect=false willScan=false willTrust=false willWriteKnownHosts=false willMutate=false",
 		);
 	});
 

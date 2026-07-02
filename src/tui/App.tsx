@@ -144,6 +144,7 @@ import {
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyCompareDetail,
 	createRemoteHostKeyEvidence,
+	createRemoteHostKeyScanPolicy,
 	createRemoteHostKeyScanRequest,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
@@ -160,6 +161,7 @@ import {
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyCompareDetailRows,
 	formatRemoteHostKeyEvidenceRows,
+	formatRemoteHostKeyScanPolicyRows,
 	formatRemoteHostKeyScanRequestRows,
 	formatRemoteHostKeyScanReviewAuditMessage,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
@@ -11869,7 +11871,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 94);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 103);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11895,6 +11897,9 @@ function RemotesWorkspace({
 	);
 	const hostKeyScanRequestRows = formatRemoteHostKeyScanRequestRows(
 		createRemoteHostKeyScanRequest(selectedProfile),
+	);
+	const hostKeyScanPolicyRows = formatRemoteHostKeyScanPolicyRows(
+		createRemoteHostKeyScanPolicy(selectedProfile),
 	);
 	const knownHostsSourceRows = formatRemoteKnownHostsSourcePreviewRows(
 		createRemoteKnownHostsSourcePreview(selectedProfile),
@@ -12142,6 +12147,30 @@ function RemotesWorkspace({
 						" esc cancel
 					</Text>
 				) : null}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">HOST KEY SCAN POLICY</Text>
+				{hostKeyScanPolicyRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("disabled") ||
+										row.includes("blocked") ||
+										row.includes("missing") ||
+										row.includes("unknown") ||
+										row.includes("willConnect=false") ||
+										row.includes("willScan=false") ||
+										row.includes("willTrust=false") ||
+										row.includes("willWriteKnownHosts=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">KNOWN_HOSTS SOURCE</Text>
