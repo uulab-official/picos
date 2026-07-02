@@ -294,10 +294,10 @@ export type RemoteHostKeyCompareDetail = {
 	target: string;
 	lookup: string;
 	collectedFingerprint: "sha256:unknown";
-	candidateCount: 0;
-	selectedCandidate: "none";
-	knownHostsCandidateFingerprint: "sha256:unknown";
-	match: "unknown";
+	candidateCount: number;
+	selectedCandidate: number | "none";
+	knownHostsCandidateFingerprint: string;
+	match: "unknown" | "candidate-ready";
 	decision: "blocked";
 	confirm: string;
 	execution: {
@@ -981,17 +981,26 @@ export function formatRemoteHostKeyTrustDecisionPreviewRows(
 
 export function createRemoteHostKeyCompareDetail(
 	profile?: SftpRemoteProfile,
+	candidatePreview?: RemoteKnownHostsCandidatePreview,
 ): RemoteHostKeyCompareDetail {
+	const selectedCandidate =
+		profile && candidatePreview && candidatePreview.selected !== "none"
+			? (candidatePreview.candidates.find(
+					(candidate) => candidate.index === candidatePreview.selected,
+				) ?? candidatePreview.candidates[0])
+			: undefined;
+
 	return {
 		id: profile?.id ?? "none",
 		provider: "sftp",
 		target: profile ? formatSftpRoot(profile) : "none",
 		lookup: profile ? `${profile.host}:${profile.port}` : "none",
 		collectedFingerprint: "sha256:unknown",
-		candidateCount: 0,
-		selectedCandidate: "none",
-		knownHostsCandidateFingerprint: "sha256:unknown",
-		match: "unknown",
+		candidateCount: profile ? (candidatePreview?.candidates.length ?? 0) : 0,
+		selectedCandidate: selectedCandidate?.index ?? "none",
+		knownHostsCandidateFingerprint:
+			selectedCandidate?.fingerprint ?? "sha256:unknown",
+		match: selectedCandidate ? "candidate-ready" : "unknown",
 		decision: "blocked",
 		confirm: profile
 			? `review host trust ${profile.id}`
@@ -1019,7 +1028,9 @@ export function formatRemoteHostKeyCompareDetailRows(
 		`execution=willImport=${detail.execution.importsTransport} willConnect=${detail.execution.opensSocket} willReadLocal=${detail.execution.readsLocal} willParse=${detail.execution.parsesRows} willScan=${detail.execution.scansHostKey} willTrust=${detail.execution.trustsHost} willMutate=${detail.execution.mutatesRemote}`,
 		detail.id === "none"
 			? "next=select remote profile · no compare detail"
-			: "next=collect evidence and parse known_hosts candidates before compare detail",
+			: detail.candidateCount > 0
+				? "next=collect host key evidence before trust review compare"
+				: "next=collect evidence and parse known_hosts candidates before compare detail",
 	];
 }
 
