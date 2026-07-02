@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Status Activity copy-intent exports for palette process-control audit jumps are now recovered from the audit export index as `process evidence` rows, including PID/status targets, locked file-open plans, and Timeline audit search handoffs after restart.
 - Status Activity copy-intent shelves now render fresh and reusable palette process-control audit jumps as compact `process control target=pid:<pid>` rows, keeping destructive intent review copy/export flows readable without opening Timeline first.
 - Command palette `process.terminate` dispatch now routes to the selected Ports process-control preview, opens the same exact `kill pid <pid>` confirmation prompt as `K`, and records Status Activity plus searchable Timeline audit rows for both selected and unavailable PID targets.
 - Command palette `process.terminate` previews now show selected listening port, PID, process name, user, destructive risk, and exact `kill pid <pid>` confirmation before dispatch.

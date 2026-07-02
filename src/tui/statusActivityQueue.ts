@@ -651,6 +651,8 @@ export function formatStatusActivityCopyIntentRows(
 	freshResultJumpCount = freshResultJump ? 1 : 0,
 	toolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery,
 	selectedToolsEvidenceSearchMatchIndex = 0,
+	processControlAuditExports: ConsoleAuditExportPlan[] = [],
+	selectedProcessControlAuditExportIndex = 0,
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -730,6 +732,22 @@ export function formatStatusActivityCopyIntentRows(
 					`no recovered Timeline Evidence trail exports for source=${timelineTrailSourceFilter}`,
 				]
 			: [];
+	const selectedProcessControlAuditExport =
+		getSelectedProcessControlAuditExport(
+			processControlAuditExports,
+			selectedProcessControlAuditExportIndex,
+		);
+	const normalizedProcessControlAuditExportIndex = getNormalizedSelectionIndex(
+		processControlAuditExports.length,
+		selectedProcessControlAuditExportIndex,
+	);
+	const processControlAuditExportRows = selectedProcessControlAuditExport
+		? [
+				`process evidence selected=${normalizedProcessControlAuditExportIndex + 1}/${processControlAuditExports.length}`,
+				`process evidence target=${basename(selectedProcessControlAuditExport.path)}${selectedProcessControlAuditExport.query ? ` query=${selectedProcessControlAuditExport.query}` : ""} events=${selectedProcessControlAuditExport.eventCount}`,
+				`process evidence detail ${formatProcessControlAuditExportTarget(selectedProcessControlAuditExport)} path=${selectedProcessControlAuditExport.path}`,
+			]
+		: [];
 	const rowsBeforeHistory = [
 		...exportRows,
 		...(freshResultJump && auditJumpActionHint === "fresh"
@@ -740,6 +758,7 @@ export function formatStatusActivityCopyIntentRows(
 				)
 			: []),
 		...auditJumpRows,
+		...processControlAuditExportRows,
 		...formatStatusActivityToolsEvidenceSearchRecoveryRows(
 			toolsEvidenceSearchRecovery,
 			selectedToolsEvidenceSearchMatchIndex,
@@ -764,7 +783,10 @@ export function formatStatusActivityCopyIntentRows(
 	const toolsRecoveryControls = toolsEvidenceSearchRecovery
 		? `${toolsEvidenceSearchRecovery.items.length > 1 ? " · [/] tools select" : ""} · tools recovered`
 		: "";
-	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
+	const processControlAuditExportControls = selectedProcessControlAuditExport
+		? " · process evidence"
+		: "";
+	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${processControlAuditExportControls}${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
@@ -837,7 +859,7 @@ function parseProcessControlAuditQuery(
 	query: string,
 ): { action: string; pid?: string; status?: string } | undefined {
 	const match = query.match(
-		/^palette process control audit action=(\S+)(?: .*?)?(?:pid=(\S+)|status=(\S+))/,
+		/(?:^| )palette process control audit action=(\S+)(?: .*?)?(?:pid=(\S+)|status=(\S+))/,
 	);
 	if (!match) {
 		return undefined;
@@ -847,6 +869,18 @@ function parseProcessControlAuditQuery(
 		...(match[2] ? { pid: match[2] } : {}),
 		...(match[3] ? { status: match[3] } : {}),
 	};
+}
+
+function formatProcessControlAuditExportTarget(
+	plan: ConsoleAuditExportPlan,
+): string {
+	const target = parseProcessControlAuditQuery(plan.query ?? "");
+	if (!target) {
+		return "target:unknown";
+	}
+	return target.pid
+		? `pid:${target.pid}`
+		: `status:${target.status ?? "unknown"}`;
 }
 
 export function createStatusActivityToolsEvidenceSearchRecovery(
@@ -1126,6 +1160,29 @@ export function getSelectedTimelineEvidenceTrailAuditExport(
 }
 
 export function moveTimelineEvidenceTrailSelection(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (exports.length === 0) {
+		return 0;
+	}
+	const current = getNormalizedSelectionIndex(exports.length, selectedIndex);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + exports.length) % exports.length;
+}
+
+export function getSelectedProcessControlAuditExport(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+): ConsoleAuditExportPlan | undefined {
+	if (exports.length === 0) {
+		return undefined;
+	}
+	return exports[getNormalizedSelectionIndex(exports.length, selectedIndex)];
+}
+
+export function moveProcessControlAuditExportSelection(
 	exports: ConsoleAuditExportPlan[],
 	selectedIndex: number,
 	direction: "next" | "previous",
@@ -1511,6 +1568,19 @@ export function createTimelineEvidenceTrailTimelineSearch(
 	};
 }
 
+export function createProcessControlAuditExportTimelineSearch(
+	plan?: ConsoleAuditExportPlan,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	if (!plan?.query) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: plan.query,
+		message: `process control evidence recovered search ${basename(plan.path)}`,
+	};
+}
+
 export function getSelectedStatusActivityCopyIntentClipboardPreview(
 	history: StatusActivityCopyIntentRecord[],
 	selectedIndex: number,
@@ -1601,6 +1671,22 @@ export function createTimelineEvidenceTrailAuditExportOpenPlan(
 	return buildFileOpenPlan({
 		baseDir: options.baseDir,
 		label: `timeline evidence trail export ${plan.scope} ${plan.query}`,
+		path: plan.path,
+		platform: options.platform,
+		source: "timeline-export",
+	});
+}
+
+export function createProcessControlAuditExportOpenPlan(
+	plan: ConsoleAuditExportPlan,
+	options: {
+		baseDir: string;
+		platform: SupportedPlatform;
+	},
+): FileOpenPlan {
+	return buildFileOpenPlan({
+		baseDir: options.baseDir,
+		label: `process control evidence export ${plan.scope} ${plan.query}`,
 		path: plan.path,
 		platform: options.platform,
 		source: "timeline-export",
@@ -2208,6 +2294,24 @@ export function getLatestTimelineEvidenceTrailAuditExport(
 	return getTimelineEvidenceTrailAuditExports(index)[0];
 }
 
+export function getLatestProcessControlAuditExport(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan | undefined {
+	return getProcessControlAuditExports(index)[0];
+}
+
+export function getProcessControlAuditExports(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan[] {
+	return index.items.filter(isProcessControlAuditExport).map((item) => ({
+		path: item.path,
+		content: "",
+		eventCount: item.entryCount,
+		...(item.query ? { query: item.query } : {}),
+		scope: item.scope,
+	}));
+}
+
 export function getTimelineEvidenceTrailAuditExports(
 	index: ConsoleAuditExportIndex,
 ): ConsoleAuditExportPlan[] {
@@ -2232,6 +2336,15 @@ function isTimelineEvidenceTrailAuditExport(
 		query === "palette timeline trail" ||
 		query.startsWith("palette timeline trail ")
 	);
+}
+
+function isProcessControlAuditExport(
+	candidate: ConsoleAuditExportIndex["items"][number],
+): boolean {
+	if (candidate.scope !== "selected") {
+		return false;
+	}
+	return parseProcessControlAuditQuery(candidate.query ?? "") !== undefined;
 }
 
 function getTimelineEvidenceTrailExportSource(

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.230 - Process Control Evidence Recovery
+
+Status: draft PR [#292](https://github.com/uulab-official/picos/pull/292) on `codex/picos-v0.4.230-process-control-evidence`.
+
+Goal: make destructive process-control review evidence survive restart through the same Status Evidence recovery model used by Timeline trail exports.
+
+- Status Activity copy-intent audit exports whose query contains `palette process control audit ...` now recover from the persisted audit export index as process-control evidence.
+- `STATUS ACTIVITY COPY INTENTS` now shows recovered process evidence rows with selected cursor, export filename, original audit query, event count, PID/status target, and path.
+- Process-control evidence exports have pure helpers for selection, cursor movement, locked file-open plans, and Timeline audit search handoffs.
+- The TUI refresh/bootstrap audit-index paths now keep recovered process-control evidence available after boot or manual audit export refresh.
+- Tests cover persisted export recovery, selected cursor lookup, cursor movement, Timeline search handoff, locked file-open plan creation, and shelf row rendering.
+- Next: wire keyboard and command-palette actions for selecting/opening/searching recovered process-control evidence, matching the richer Timeline trail `S`/`L`/`N` flow.
+
 ## v0.4.229 - Process Control Copy-Intent Shelf
 
 Status: draft PR [#291](https://github.com/uulab-official/picos/pull/291) on `codex/picos-v0.4.229-process-control-copy-intent`.
@@ -10,7 +23,7 @@ Goal: make destructive process-control audit jumps readable and reusable from St
 - Reusable result audit-jump summaries now include compact `target=process-control pid:<pid>` tokens.
 - The shelf still keeps the original audit query in the copy-intent history row, so `v`, `e`, `P`, and `g` continue to replay, export, cycle, and search the underlying Timeline evidence.
 - Tests cover fresh process-control jump rows and reusable process-control audit-jump summaries.
-- Next: add selection/export of process-control audit evidence files from Status Evidence so destructive-intent review can survive restart like Timeline trail exports.
+- Next: process-control evidence recovery moved into v0.4.230.
 
 ## v0.4.228 - Palette Process Control Audit
 

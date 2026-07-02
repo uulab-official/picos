@@ -433,6 +433,7 @@ import {
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
+	getProcessControlAuditExports,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
@@ -757,6 +758,13 @@ export function App(): React.ReactElement {
 		timelineEvidenceTrailSourceFilter,
 		setTimelineEvidenceTrailSourceFilter,
 	] = useState<TimelineEvidenceTrailSourceFilter>("all");
+	const [processControlAuditExports, setProcessControlAuditExports] = useState<
+		ConsoleAuditExportPlan[]
+	>([]);
+	const [
+		selectedProcessControlAuditExportIndex,
+		setSelectedProcessControlAuditExportIndex,
+	] = useState(0);
 	const filteredTimelineEvidenceTrailAuditExports = useMemo(
 		() =>
 			filterTimelineEvidenceTrailAuditExports(
@@ -2595,6 +2603,11 @@ export function App(): React.ReactElement {
 				setTimelineEvidenceTrailAuditExports(timelineTrailExports);
 				setLastTimelineEvidenceTrailAuditExport(
 					getLatestTimelineEvidenceTrailAuditExport(index),
+				);
+				const processExports = getProcessControlAuditExports(index);
+				setProcessControlAuditExports(processExports);
+				setSelectedProcessControlAuditExportIndex((current) =>
+					Math.min(current, Math.max(0, processExports.length - 1)),
 				);
 				const filteredTimelineTrailExports =
 					filterTimelineEvidenceTrailAuditExports(
@@ -4601,6 +4614,11 @@ export function App(): React.ReactElement {
 			setTimelineEvidenceTrailAuditExports(timelineTrailExports);
 			setLastTimelineEvidenceTrailAuditExport(
 				getLatestTimelineEvidenceTrailAuditExport(auditExports),
+			);
+			const processExports = getProcessControlAuditExports(auditExports);
+			setProcessControlAuditExports(processExports);
+			setSelectedProcessControlAuditExportIndex((current) =>
+				Math.min(current, Math.max(0, processExports.length - 1)),
 			);
 			setSelectedTimelineEvidenceTrailAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, timelineTrailExports.length - 1)),
@@ -8805,6 +8823,10 @@ export function App(): React.ReactElement {
 						selectedTimelineEvidenceTrailAuditExportIndex
 					}
 					timelineEvidenceTrailSourceFilter={timelineEvidenceTrailSourceFilter}
+					processControlAuditExports={processControlAuditExports}
+					selectedProcessControlAuditExportIndex={
+						selectedProcessControlAuditExportIndex
+					}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -9051,6 +9073,8 @@ function MainWorkspace({
 	timelineEvidenceTrailAuditExports,
 	selectedTimelineEvidenceTrailAuditExportIndex,
 	timelineEvidenceTrailSourceFilter,
+	processControlAuditExports,
+	selectedProcessControlAuditExportIndex,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -9198,6 +9222,8 @@ function MainWorkspace({
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
 	selectedTimelineEvidenceTrailAuditExportIndex: number;
 	timelineEvidenceTrailSourceFilter: TimelineEvidenceTrailSourceFilter;
+	processControlAuditExports: ConsoleAuditExportPlan[];
+	selectedProcessControlAuditExportIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -9423,6 +9449,8 @@ function MainWorkspace({
 						timelineEvidenceTrailAuditExports,
 						selectedTimelineEvidenceTrailAuditExportIndex,
 						timelineEvidenceTrailSourceFilter,
+						processControlAuditExports,
+						selectedProcessControlAuditExportIndex,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -9577,6 +9605,8 @@ function renderWorkspace(
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[],
 	selectedTimelineEvidenceTrailAuditExportIndex: number,
 	timelineEvidenceTrailSourceFilter: TimelineEvidenceTrailSourceFilter,
+	processControlAuditExports: ConsoleAuditExportPlan[],
+	selectedProcessControlAuditExportIndex: number,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -9932,6 +9962,10 @@ function renderWorkspace(
 					selectedTimelineEvidenceTrailAuditExportIndex
 				}
 				timelineEvidenceTrailSourceFilter={timelineEvidenceTrailSourceFilter}
+				processControlAuditExports={processControlAuditExports}
+				selectedProcessControlAuditExportIndex={
+					selectedProcessControlAuditExportIndex
+				}
 				events={events}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 				commandLine={commandLine}
@@ -12283,6 +12317,8 @@ function StatusWorkspace({
 	timelineEvidenceTrailAuditExports,
 	selectedTimelineEvidenceTrailAuditExportIndex,
 	timelineEvidenceTrailSourceFilter,
+	processControlAuditExports,
+	selectedProcessControlAuditExportIndex,
 	events,
 	selectedStatusEvidenceKind,
 	commandLine,
@@ -12335,6 +12371,8 @@ function StatusWorkspace({
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
 	selectedTimelineEvidenceTrailAuditExportIndex: number;
 	timelineEvidenceTrailSourceFilter: TimelineEvidenceTrailSourceFilter;
+	processControlAuditExports: ConsoleAuditExportPlan[];
+	selectedProcessControlAuditExportIndex: number;
 	events: ConsoleEvent[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	commandLine: CommandLineState;
@@ -12748,6 +12786,8 @@ function StatusWorkspace({
 					selectedStatusActivityResultTimelineJumpSelection?.total,
 					statusActivityToolsEvidenceSearchRecovery,
 					selectedStatusActivityToolsEvidenceSearchMatchIndex,
+					processControlAuditExports,
+					selectedProcessControlAuditExportIndex,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}
