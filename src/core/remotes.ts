@@ -42,6 +42,29 @@ export type RemoteConnectConfirmation = {
 	message: string;
 };
 
+export type RemoteTransportProbe = {
+	id: string;
+	dependency: "@uulab/picos-sftp";
+	installed: false;
+	status: "missing";
+	probe: "static";
+	target: string;
+	auth: "user";
+	key: "configured" | "none";
+	hostKey: "unverified";
+	capabilities: {
+		list: "planned";
+		read: "planned";
+		write: "locked";
+		destructive: "locked";
+	};
+	execution: "blocked";
+	networkOpened: false;
+	willImport: false;
+	willConnect: false;
+	next: string;
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -175,6 +198,49 @@ export function formatRemoteAdapterBoundaryRows(
 	];
 }
 
+export function createRemoteTransportProbe(
+	profile?: SftpRemoteProfile,
+): RemoteTransportProbe {
+	return {
+		id: profile?.id ?? "none",
+		dependency: "@uulab/picos-sftp",
+		installed: false,
+		status: "missing",
+		probe: "static",
+		target: profile ? formatSftpRoot(profile) : "none",
+		auth: "user",
+		key: profile?.keyPath ? "configured" : "none",
+		hostKey: "unverified",
+		capabilities: {
+			list: "planned",
+			read: "planned",
+			write: "locked",
+			destructive: "locked",
+		},
+		execution: "blocked",
+		networkOpened: false,
+		willImport: false,
+		willConnect: false,
+		next: profile
+			? "install optional adapter · then host review exact confirm"
+			: "select remote profile · no socket opened",
+	};
+}
+
+export function formatRemoteTransportProbeRows(
+	probe: RemoteTransportProbe = createRemoteTransportProbe(),
+): string[] {
+	return [
+		`REMOTE TRANSPORT PROBE ${probe.id}`,
+		`dependency=${probe.dependency} installed=${probe.installed} status=${probe.status} probe=${probe.probe}`,
+		`target=${probe.target}`,
+		`auth=${probe.auth}${probe.id === "none" ? "=-" : ""} key=${probe.key} hostKey=${probe.hostKey}`,
+		`capabilities=list/read ${probe.capabilities.list} write ${probe.capabilities.write} destructive ${probe.capabilities.destructive}`,
+		`execution=${probe.execution} network=not-opened willImport=${probe.willImport} willConnect=${probe.willConnect}`,
+		`next=${probe.next}`,
+	];
+}
+
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
 ): RemoteConnectPreview {
@@ -293,6 +359,8 @@ export async function formatRemoteProviderStatus(
 		...formatRemoteHandoffBoundaryRows({ profile, context }),
 		"",
 		...formatRemoteAdapterBoundaryRows(profile),
+		"",
+		...formatRemoteTransportProbeRows(createRemoteTransportProbe(profile)),
 		"",
 		...formatRemoteHostReviewRows(profile),
 		"",

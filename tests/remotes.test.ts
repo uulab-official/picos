@@ -3,6 +3,7 @@ import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
+	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
 	formatRemoteConnectConfirmationAuditMessage,
 	formatRemoteConnectPreviewRows,
@@ -11,6 +12,7 @@ import {
 	formatRemoteHostReviewRows,
 	formatRemoteProfiles,
 	formatRemoteProviderStatus,
+	formatRemoteTransportProbeRows,
 	normalizeRemoteProfiles,
 	parseRemoteProfileCommand,
 	submitRemoteConnectConfirmation,
@@ -147,6 +149,10 @@ describe("remote profiles", () => {
 		expect(output).toContain(
 			"dependency=@uulab/picos-sftp status=not installed",
 		);
+		expect(output).toContain("REMOTE TRANSPORT PROBE dev");
+		expect(output).toContain(
+			"execution=blocked network=not-opened willImport=false willConnect=false",
+		);
 		expect(output).toContain("REMOTE HOST REVIEW dev");
 		expect(output).toContain("network=not opened");
 		expect(output).toContain("REMOTE CONNECT PREVIEW dev");
@@ -274,6 +280,64 @@ describe("remote profiles", () => {
 				"capabilities=list/read planned write locked destructive locked",
 				"policy=read-only network=blocked-until-profile confirm=select remote profile",
 				"controls=j/k select · enter stage context · config remotes create profile",
+			].join("\n"),
+		);
+	});
+
+	test("formats remote transport probe rows without importing transport", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+
+		expect(createRemoteTransportProbe(profile)).toEqual({
+			id: "prod",
+			dependency: "@uulab/picos-sftp",
+			installed: false,
+			status: "missing",
+			probe: "static",
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			auth: "user",
+			key: "configured",
+			hostKey: "unverified",
+			capabilities: {
+				list: "planned",
+				read: "planned",
+				write: "locked",
+				destructive: "locked",
+			},
+			execution: "blocked",
+			networkOpened: false,
+			willImport: false,
+			willConnect: false,
+			next: "install optional adapter · then host review exact confirm",
+		});
+		expect(
+			formatRemoteTransportProbeRows(createRemoteTransportProbe(profile)),
+		).toEqual([
+			"REMOTE TRANSPORT PROBE prod",
+			"dependency=@uulab/picos-sftp installed=false status=missing probe=static",
+			"target=sftp://deploy@prod.example.com:2222/srv/app",
+			"auth=user key=configured hostKey=unverified",
+			"capabilities=list/read planned write locked destructive locked",
+			"execution=blocked network=not-opened willImport=false willConnect=false",
+			"next=install optional adapter · then host review exact confirm",
+		]);
+
+		expect(formatRemoteTransportProbeRows().join("\n")).toBe(
+			[
+				"REMOTE TRANSPORT PROBE none",
+				"dependency=@uulab/picos-sftp installed=false status=missing probe=static",
+				"target=none",
+				"auth=user=- key=none hostKey=unverified",
+				"capabilities=list/read planned write locked destructive locked",
+				"execution=blocked network=not-opened willImport=false willConnect=false",
+				"next=select remote profile · no socket opened",
 			].join("\n"),
 		);
 	});
