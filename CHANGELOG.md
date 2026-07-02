@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Files workspace now keeps a forward navigation stack: `b` moves back, `B` moves forward, and the console shows back/forward counts beside the parent-directory controls.
 - Tools prompt field help now shows the active field, whether typing will replace or append, and the `Tab`/`Ctrl+U` field controls inside the live Tools form.
 - Tools field prompts now replace untouched default field text on the first printable key and support `Ctrl+U` to clear the active field while keeping safe run-plan fallbacks.
 - Tools prompts now support live field focus: command-palette Tools runs open with default field values, `Tab` moves the active field, typed input edits only that field, and `Enter` still runs through the existing safe Tools plan.

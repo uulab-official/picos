@@ -19,3 +19,24 @@ export function popFileHistory(history: string[]): {
 		previousRoot: history.at(-1),
 	};
 }
+
+export function pushFileForwardHistory(
+	history: string[],
+	root: string,
+): string[] {
+	return pushFileHistory(history, root);
+}
+
+export function popFileForwardHistory(history: string[]): {
+	history: string[];
+	nextRoot?: string;
+} {
+	if (!history.length) {
+		return { history: [], nextRoot: undefined };
+	}
+
+	return {
+		history: history.slice(0, -1),
+		nextRoot: history.at(-1),
+	};
+}
