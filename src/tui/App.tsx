@@ -141,6 +141,7 @@ import {
 import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
+	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
 	formatRemoteConnectConfirmationAuditMessage,
@@ -148,6 +149,7 @@ import {
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
+	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
@@ -11755,7 +11757,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 11);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 18);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11769,6 +11771,9 @@ function RemotesWorkspace({
 	const adapterBoundaryRows = formatRemoteAdapterBoundaryRows(selectedProfile);
 	const transportProbeRows = formatRemoteTransportProbeRows(
 		createRemoteTransportProbe(selectedProfile),
+	);
+	const readOnlyAdapterRows = formatRemoteReadOnlyAdapterContractRows(
+		createRemoteReadOnlyAdapterContract(selectedProfile),
 	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 	const connectPreview = selectedProfile
@@ -11895,6 +11900,27 @@ function RemotesWorkspace({
 										row.includes("missing") ||
 										row.includes("not-opened") ||
 										row.includes("locked")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">READ ADAPTER CONTRACT</Text>
+				{readOnlyAdapterRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("locked") ||
+										row.includes("unsupported") ||
+										row.includes("disabled") ||
+										row.includes("willImport=false") ||
+										row.includes("willMutate=false")
 									? "yellow"
 									: "gray"
 						}

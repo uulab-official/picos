@@ -65,6 +65,34 @@ export type RemoteTransportProbe = {
 	next: string;
 };
 
+export type RemoteReadOnlyAdapterContract = {
+	id: string;
+	provider: "sftp";
+	dependency: "@uulab/picos-sftp";
+	adapter: "read-only";
+	target: string;
+	lifecycle: "planned";
+	methods: {
+		list: "planned";
+		read: "planned";
+		stat: "planned";
+		write: "locked";
+		delete: "locked";
+		exec: "unsupported";
+	};
+	guards: {
+		hostReview: true;
+		exactConfirm: string;
+		writeConfirm: "disabled";
+		destructiveConfirm: "disabled";
+	};
+	execution: {
+		importsTransport: false;
+		opensSocket: false;
+		mutatesRemote: false;
+	};
+};
+
 export function normalizeRemoteProfiles(input: unknown): SftpRemoteProfile[] {
 	if (!Array.isArray(input)) {
 		return [];
@@ -241,6 +269,56 @@ export function formatRemoteTransportProbeRows(
 	];
 }
 
+export function createRemoteReadOnlyAdapterContract(
+	profile?: SftpRemoteProfile,
+): RemoteReadOnlyAdapterContract {
+	return {
+		id: profile?.id ?? "none",
+		provider: "sftp",
+		dependency: "@uulab/picos-sftp",
+		adapter: "read-only",
+		target: profile ? formatSftpRoot(profile) : "none",
+		lifecycle: "planned",
+		methods: {
+			list: "planned",
+			read: "planned",
+			stat: "planned",
+			write: "locked",
+			delete: "locked",
+			exec: "unsupported",
+		},
+		guards: {
+			hostReview: true,
+			exactConfirm: profile
+				? `connect remote ${profile.id}`
+				: "select remote profile",
+			writeConfirm: "disabled",
+			destructiveConfirm: "disabled",
+		},
+		execution: {
+			importsTransport: false,
+			opensSocket: false,
+			mutatesRemote: false,
+		},
+	};
+}
+
+export function formatRemoteReadOnlyAdapterContractRows(
+	contract: RemoteReadOnlyAdapterContract = createRemoteReadOnlyAdapterContract(),
+): string[] {
+	return [
+		`REMOTE READ ADAPTER CONTRACT ${contract.id}`,
+		`provider=${contract.provider} dependency=${contract.dependency} adapter=${contract.adapter} lifecycle=${contract.lifecycle}`,
+		`target=${contract.target}`,
+		`methods=list ${contract.methods.list} read ${contract.methods.read} stat ${contract.methods.stat} write ${contract.methods.write} delete ${contract.methods.delete} exec ${contract.methods.exec}`,
+		`guards=hostReview exactConfirm="${contract.guards.exactConfirm}" writeConfirm=${contract.guards.writeConfirm} destructiveConfirm=${contract.guards.destructiveConfirm}`,
+		`execution=willImport=${contract.execution.importsTransport} willConnect=${contract.execution.opensSocket} willMutate=${contract.execution.mutatesRemote}`,
+		contract.id === "none"
+			? "next=select remote profile · no adapter import"
+			: "next=implement adapter behind transport probe and host review",
+	];
+}
+
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
 ): RemoteConnectPreview {
@@ -361,6 +439,10 @@ export async function formatRemoteProviderStatus(
 		...formatRemoteAdapterBoundaryRows(profile),
 		"",
 		...formatRemoteTransportProbeRows(createRemoteTransportProbe(profile)),
+		"",
+		...formatRemoteReadOnlyAdapterContractRows(
+			createRemoteReadOnlyAdapterContract(profile),
+		),
 		"",
 		...formatRemoteHostReviewRows(profile),
 		"",

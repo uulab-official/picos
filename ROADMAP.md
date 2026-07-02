@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.277 - Remotes Read-only Adapter Contract
+
+Status: draft PR [#339](https://github.com/uulab-official/picos/pull/339) on `codex/picos-v0.4.277-remote-read-adapter-contract`.
+
+Goal: define the future read-only SFTP adapter interface before picos imports transport or enables remote writes.
+
+- Remotes now models `REMOTE READ ADAPTER CONTRACT` rows for selected and empty SFTP profile states.
+- Contract rows make planned `list`, `read`, and `stat` methods explicit while `write` and `delete` stay locked and `exec` remains unsupported.
+- Guard rows require host review and exact `connect remote <id>` confirmation for future reads, while write/destructive confirmations remain disabled.
+- Execution rows keep `willImport=false`, `willConnect=false`, and `willMutate=false`.
+- `picos remote <id>` prints the same contract between transport probe and host review.
+- Remotes TUI renders a dedicated `READ ADAPTER CONTRACT` section before host review.
+- Tests cover selected-profile contract shape, empty-state rows, CLI provider status inclusion, and no-import/no-connect/no-mutation posture.
+- Next: add a locked remote file list/read request preview that uses the contract without importing transport.
+
 ## v0.4.276 - Remote Transport Probe
 
 Status: draft PR [#338](https://github.com/uulab-official/picos/pull/338) on `codex/picos-v0.4.276-remotes-transport-probe`.
