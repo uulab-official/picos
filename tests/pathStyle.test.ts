@@ -4,6 +4,7 @@ import {
 	dirnamePathLike,
 	joinPathLike,
 	resolvePathLike,
+	samePathLike,
 } from "../src/utils/pathStyle";
 
 describe("path style helpers", () => {
@@ -41,5 +42,20 @@ describe("path style helpers", () => {
 		expect(joinPathLike("C:/Users/Alice/AppData/Roaming", "picos")).toBe(
 			"C:/Users/Alice/AppData/Roaming/picos",
 		);
+	});
+
+	test("compares root-relative POSIX and backslash paths as the same logical path", () => {
+		expect(
+			samePathLike(
+				"\\Users\\alice\\.config\\picos\\audit",
+				"/Users/alice/.config/picos/audit",
+			),
+		).toBe(true);
+		expect(
+			samePathLike(
+				"C:\\Users\\alice\\.config\\picos\\audit",
+				"/Users/alice/.config/picos/audit",
+			),
+		).toBe(false);
 	});
 });

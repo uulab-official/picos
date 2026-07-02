@@ -12,6 +12,7 @@ import {
 	dirnamePathLike,
 	joinPathLike,
 	resolvePathLike,
+	samePathLike,
 } from "../utils/pathStyle";
 import type { FileOpenOrigin } from "./fileOpen";
 
@@ -330,12 +331,12 @@ export function createConsoleAuditExportArchivePlan(
 ): ConsoleAuditExportArchivePlan {
 	const auditDir = resolvePathLike(baseDir, "audit");
 	const sourcePath = resolvePathLike(path);
+	const sourceDir = dirnamePathLike(sourcePath);
 	const fileName = basenamePathLike(sourcePath);
 	const allowed =
-		dirnamePathLike(sourcePath) === auditDir &&
-		isPicosAuditExportFilename(fileName);
+		samePathLike(sourceDir, auditDir) && isPicosAuditExportFilename(fileName);
 	const archivedPath = allowed
-		? joinPathLike(auditDir, "archive", fileName)
+		? joinPathLike(sourceDir, "archive", fileName)
 		: "";
 	const confirmed = options.confirmation === "archive audit export";
 	const reason = !allowed
@@ -494,7 +495,7 @@ function isAllowedArchivedAuditExportPath(
 	const archiveDir = resolvePathLike(baseDir, "audit", "archive");
 	const target = resolvePathLike(path);
 	return (
-		dirnamePathLike(target) === archiveDir &&
+		samePathLike(dirnamePathLike(target), archiveDir) &&
 		basenamePathLike(target) === fileName &&
 		isPicosAuditExportFilename(fileName)
 	);

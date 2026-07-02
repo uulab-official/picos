@@ -23,3 +23,15 @@ export function dirnamePathLike(path: string): string {
 export function basenamePathLike(path: string): string {
 	return pathApiFor(path).basename(path);
 }
+
+export function samePathLike(left: string, right: string): boolean {
+	return normalizeComparablePath(left) === normalizeComparablePath(right);
+}
+
+function normalizeComparablePath(path: string): string {
+	return path
+		.replaceAll("\\", "/")
+		.replace(/\/+/g, "/")
+		.replace(/\/$/, "")
+		.toLowerCase();
+}

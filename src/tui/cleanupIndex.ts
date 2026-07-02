@@ -7,6 +7,7 @@ import {
 	dirnamePathLike,
 	joinPathLike,
 	resolvePathLike,
+	samePathLike,
 } from "../utils/pathStyle";
 import type { LogProfile } from "./logPanel";
 import type { Screen } from "./navigation";
@@ -712,14 +713,15 @@ export function createCleanupHandoffHistoryExportArchivePlan(
 ): CleanupHandoffHistoryExportArchivePlan {
 	const target = resolvePathLike(path);
 	const cleanupDir = resolvePathLike(baseDir, "cleanup");
+	const targetDir = dirnamePathLike(target);
 	const fileName = basenamePathLike(target);
 	const allowed =
-		dirnamePathLike(target) === cleanupDir &&
+		samePathLike(targetDir, cleanupDir) &&
 		isPicosCleanupHandoffHistoryExportFilename(fileName);
 	const confirmed = options.confirmation === "archive cleanup export";
 	const enabled = allowed && confirmed;
 	const archivedPath = allowed
-		? joinPathLike(cleanupDir, "archive", fileName)
+		? joinPathLike(targetDir, "archive", fileName)
 		: "";
 	const reason = !allowed
 		? "cleanup export archive is limited to picos-owned export files"

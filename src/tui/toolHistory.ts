@@ -28,6 +28,7 @@ import {
 	dirnamePathLike,
 	joinPathLike,
 	resolvePathLike,
+	samePathLike,
 } from "../utils/pathStyle";
 import {
 	type ClipboardPreview,
@@ -1684,13 +1685,14 @@ export function createToolHistoryExportArchivePlan(
 ): ToolHistoryExportArchivePlan {
 	const toolsDir = resolvePathLike(baseDir, "tools");
 	const sourcePath = resolvePathLike(path);
+	const sourceDir = dirnamePathLike(sourcePath);
 	const fileName = basenamePathLike(sourcePath);
 	const allowed =
-		dirnamePathLike(sourcePath) === toolsDir &&
+		samePathLike(sourceDir, toolsDir) &&
 		isPicosToolHistoryExportFilename(fileName);
 	const confirmed = options.confirmation === "archive tools export";
 	const archivedPath = allowed
-		? joinPathLike(toolsDir, "archive", fileName)
+		? joinPathLike(sourceDir, "archive", fileName)
 		: "";
 	const reason = !allowed
 		? "tools export archive is limited to picos-owned export files"
@@ -2033,7 +2035,7 @@ function isAllowedArchivedToolHistoryExportPath(
 ): boolean {
 	const target = resolvePathLike(item.path);
 	return (
-		dirnamePathLike(target) === resolvePathLike(archiveDir) &&
+		samePathLike(dirnamePathLike(target), resolvePathLike(archiveDir)) &&
 		basenamePathLike(target) === item.fileName &&
 		isPicosToolHistoryExportFilename(item.fileName)
 	);
