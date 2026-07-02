@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.224 - Palette Tools Match Preview
+
+Status: draft PR [#286](https://github.com/uulab-official/picos/pull/286) on `codex/picos-v0.4.224-palette-match-preview`.
+
+Goal: make command-palette recovered Tools match actions feel like an OS console dispatch prompt by showing the selected target before `enter`.
+
+- Command palette selected-action detail rows now preview recovered Tools match file, target, selected cursor, query, scope, run count, path, and exact confirm phrase.
+- Archived Tools evidence match archive actions show a blocked preview instead of implying another archive can run.
+- The preview reuses the same Status Activity Tools search recovery state as the Status shelf, keeping `? tools match` aligned with `[`/`]`, `K`, and `D`.
+- Tests cover active open/archive previews and the archived-target archive blocker.
+- Next: add compact previews for the broader Tools evidence archive/retention palette prompts, so every Tools management action advertises its exact target before dispatch.
+
 ## v0.4.223 - Tools Evidence Match Palette Actions
 
 Status: draft PR [#285](https://github.com/uulab-official/picos/pull/285) on `codex/picos-v0.4.223-tools-match-palette-actions`.
@@ -11,7 +23,7 @@ Goal: let operators invoke recovered Tools evidence match actions from the comma
 - Palette-triggered recovered match open/archive actions reuse the same locked file-open/archive confirmations as `K`/`D`.
 - Palette-triggered actions also reuse the v0.4.222 Status Activity result rows and Timeline audit messages.
 - Tests cover action discovery and natural query aliases.
-- Next: add a compact recovered Tools match action hint row to the command palette/Status shelf preview so operators can see the selected match before dispatching from `?`.
+- Next: add compact previews for the broader Tools evidence archive/retention palette prompts, so every Tools management action advertises its exact target before dispatch.
 
 ## v0.4.222 - Tools Evidence Match Audit Trail
 

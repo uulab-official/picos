@@ -357,6 +357,7 @@ import {
 	backspaceCommandPaletteQuery,
 	type CommandPaletteState,
 	closeCommandPalette,
+	formatCommandPaletteActionPreviewRows,
 	getFilteredPaletteActions,
 	getPaletteAction,
 	moveCommandPalette,
@@ -455,6 +456,7 @@ import {
 	type StatusActivityResult,
 	type StatusActivityResultHistoryFilter,
 	type StatusActivitySource,
+	type StatusActivityToolsEvidenceSearchRecovery,
 	type TimelineEvidenceTrailSourceFilter,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
@@ -8751,6 +8753,9 @@ export function App(): React.ReactElement {
 					selectedStatusActivityToolsEvidenceSearchMatchIndex={
 						selectedStatusActivityToolsEvidenceSearchMatchIndex
 					}
+					statusActivityToolsEvidenceSearchRecovery={
+						statusActivityToolsEvidenceSearchRecovery
+					}
 					lastStatusActivityCopyIntentAuditExport={
 						lastStatusActivityCopyIntentAuditExport
 					}
@@ -9001,6 +9006,7 @@ function MainWorkspace({
 	selectedStatusActivityCopyIntentIndex,
 	selectedStatusActivityResultAuditJumpIndex,
 	selectedStatusActivityToolsEvidenceSearchMatchIndex,
+	statusActivityToolsEvidenceSearchRecovery,
 	lastStatusActivityCopyIntentAuditExport,
 	lastTimelineEvidenceTrailAuditExport,
 	timelineEvidenceTrailAuditExports,
@@ -9146,6 +9152,7 @@ function MainWorkspace({
 	selectedStatusActivityCopyIntentIndex: number;
 	selectedStatusActivityResultAuditJumpIndex: number;
 	selectedStatusActivityToolsEvidenceSearchMatchIndex: number;
+	statusActivityToolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery;
 	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
 	lastTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
@@ -9369,6 +9376,7 @@ function MainWorkspace({
 						selectedStatusActivityCopyIntentIndex,
 						selectedStatusActivityResultAuditJumpIndex,
 						selectedStatusActivityToolsEvidenceSearchMatchIndex,
+						statusActivityToolsEvidenceSearchRecovery,
 						lastStatusActivityCopyIntentAuditExport,
 						lastTimelineEvidenceTrailAuditExport,
 						timelineEvidenceTrailAuditExports,
@@ -9519,6 +9527,9 @@ function renderWorkspace(
 	selectedStatusActivityCopyIntentIndex: number,
 	selectedStatusActivityResultAuditJumpIndex: number,
 	selectedStatusActivityToolsEvidenceSearchMatchIndex: number,
+	statusActivityToolsEvidenceSearchRecovery:
+		| StatusActivityToolsEvidenceSearchRecovery
+		| undefined,
 	lastStatusActivityCopyIntentAuditExport: ConsoleAuditExportPlan | undefined,
 	lastTimelineEvidenceTrailAuditExport: ConsoleAuditExportPlan | undefined,
 	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[],
@@ -9559,6 +9570,15 @@ function renderWorkspace(
 				query={palette.query}
 				totalActions={actions.length}
 				visibleRows={Math.max(3, height - 8)}
+				previewRows={formatCommandPaletteActionPreviewRows(
+					filteredActions[palette.selectedIndex],
+					{
+						toolsEvidenceSearchRecovery:
+							statusActivityToolsEvidenceSearchRecovery,
+						selectedToolsEvidenceSearchMatchIndex:
+							selectedStatusActivityToolsEvidenceSearchMatchIndex,
+					},
+				)}
 			/>
 		);
 	}
@@ -11909,12 +11929,14 @@ function CommandPaletteWorkspace({
 	query,
 	totalActions,
 	visibleRows,
+	previewRows = [],
 }: {
 	actions: PicosAction[];
 	selectedIndex: number;
 	query: string;
 	totalActions: number;
 	visibleRows: number;
+	previewRows?: string[];
 }): React.ReactElement {
 	const window = getVisibleWindow(actions.length, selectedIndex, visibleRows);
 	const visibleActions = actions.slice(window.start, window.end);
@@ -11954,6 +11976,20 @@ function CommandPaletteWorkspace({
 				<Text color="gray">
 					{clip(selectedAction?.description ?? "Choose a command to run.", 54)}
 				</Text>
+				{previewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("blocked=")
+								? "yellow"
+								: row.startsWith("confirm=")
+									? "cyan"
+									: "gray"
+						}
+					>
+						{clip(row, 72)}
+					</Text>
+				))}
 				<Text color="gray">read runs now · write/destructive stay locked</Text>
 			</Box>
 		</Box>
