@@ -128,7 +128,9 @@ export type ConfigRecoveryDirectPromptPlan = ConfigManagedShelfHandoff & {
 		| "route-filter"
 		| "endpoint-filter:connections"
 		| "endpoint-filter:ports"
-		| "log-search";
+		| "log-search"
+		| "tool-target-preset"
+		| "remote-profile";
 	reason: string;
 	rows: string[];
 };
@@ -1075,6 +1077,12 @@ function getConfigRecoveryDirectPrompt(
 	}
 	if (target === "logs") {
 		return "log-search";
+	}
+	if (target === "tools") {
+		return "tool-target-preset";
+	}
+	if (target === "remotes") {
+		return "remote-profile";
 	}
 	return undefined;
 }

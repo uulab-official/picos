@@ -140,6 +140,7 @@ import {
 } from "../core/processes";
 import {
 	createRemoteFileContext,
+	parseRemoteProfileCommand,
 	type RemoteFileContext,
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
@@ -550,6 +551,7 @@ import {
 	nextToolHistorySort,
 	nextToolSectionClipboardSelection,
 	normalizeToolHistoryEvidenceQuery,
+	parseToolTargetPresetCommand,
 	promoteToolTargetPreset,
 	pruneToolHistoryExportArchive,
 	readToolHistoryExportArchiveIndex,
@@ -1222,6 +1224,7 @@ export function App(): React.ReactElement {
 			config.statusResultJumpClassFilter,
 		);
 		setCustomToolTargetPresets(config.toolTargetPresets as ToolTargetPreset[]);
+		setRemoteProfiles(config.remoteProfiles);
 	}, []);
 
 	const saveConfigWorkspaceAdjustment = useCallback(
@@ -2133,6 +2136,37 @@ export function App(): React.ReactElement {
 		selectedToolTargetPresetIndex,
 		toolTargetPresets,
 	]);
+
+	const submitToolTargetPresetCommand = useCallback(() => {
+		const preset = parseToolTargetPresetCommand(commandLine.value);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!preset) {
+			log("warn", "tool target preset requires: <action> <target> [label]");
+			return;
+		}
+		const next = saveToolTargetPreset(
+			customToolTargetPresets,
+			preset,
+			toolTargetPresetLimit,
+		);
+		const selectedIndex = next.findIndex(
+			(current) =>
+				`${current.actionId}:${current.target}` ===
+				`${preset.actionId}:${preset.target}`,
+		);
+		setCustomToolTargetPresets(next);
+		setSelectedToolTargetPresetIndex(Math.max(0, selectedIndex));
+		void setConfigToolTargetPresets(next).catch((caught) =>
+			log(
+				"fail",
+				caught instanceof Error
+					? `tool target preset save failed ${caught.message}`
+					: `tool target preset save failed ${String(caught)}`,
+			),
+		);
+		log("ok", `tool target preset saved ${preset.label} ${preset.target}`);
+		setToolCopyPreview(false);
+	}, [commandLine.value, customToolTargetPresets, log, toolTargetPresetLimit]);
 
 	const submitEndpointFilterCommand = useCallback(() => {
 		const kind = commandLine.prompt.slice(endpointFilterPromptPrefix.length);
@@ -3626,6 +3660,43 @@ export function App(): React.ReactElement {
 		setFocusArea("workspaces");
 		log("info", `remote context selected ${context.label}`);
 	}, [log, remoteProfiles, selectedRemoteIndex]);
+
+	const submitRemoteProfileCommand = useCallback(async () => {
+		const profile = parseRemoteProfileCommand(commandLine.value);
+		setCommandLine((current) => closeCommandLine(current));
+		if (!profile) {
+			log(
+				"warn",
+				"remote profile requires: <id> <user@host[:port]> [root] [key=path]",
+			);
+			return;
+		}
+
+		try {
+			const config = await readConfig();
+			const nextConfig: PicosConfig = {
+				...config,
+				remoteProfiles: [
+					profile,
+					...config.remoteProfiles.filter((item) => item.id !== profile.id),
+				],
+			};
+			await writeConfig(nextConfig);
+			syncConfigSessionState(nextConfig);
+			setSelectedRemoteIndex(0);
+			setRemoteFileContext(undefined);
+			setScreen("remotes");
+			setFocusArea("workspaces");
+			log("ok", `remote profile saved ${profile.id} ${profile.host}`);
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `remote profile save failed ${caught.message}`
+					: `remote profile save failed ${String(caught)}`,
+			);
+		}
+	}, [commandLine.value, log, syncConfigSessionState]);
 
 	const inspectSelectedEndpointProcess = useCallback(async () => {
 		const request =
@@ -5799,13 +5870,19 @@ export function App(): React.ReactElement {
 																																						"tool-target-cleanup"
 																																					? "tool target cleanup cancelled"
 																																					: commandLine.prompt ===
-																																							portProcessControlPrompt
-																																						? "port process control cancelled"
-																																						: commandLine.prompt.startsWith(
-																																									toolPromptPrefix,
-																																								)
-																																							? "tool target command cancelled"
-																																							: "path command cancelled",
+																																							"tool-target-preset"
+																																						? "tool target preset cancelled"
+																																						: commandLine.prompt ===
+																																								"remote-profile"
+																																							? "remote profile cancelled"
+																																							: commandLine.prompt ===
+																																									portProcessControlPrompt
+																																								? "port process control cancelled"
+																																								: commandLine.prompt.startsWith(
+																																											toolPromptPrefix,
+																																										)
+																																									? "tool target command cancelled"
+																																									: "path command cancelled",
 				);
 				return;
 			}
@@ -5831,6 +5908,10 @@ export function App(): React.ReactElement {
 					submitToolTargetActionCommand();
 				} else if (commandLine.prompt === "tool-target-cleanup") {
 					submitToolTargetCleanupCommand();
+				} else if (commandLine.prompt === "tool-target-preset") {
+					submitToolTargetPresetCommand();
+				} else if (commandLine.prompt === "remote-profile") {
+					void submitRemoteProfileCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (

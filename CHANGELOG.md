@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Config recovery palette actions now open and persist missing Tools target presets and Remotes SFTP profiles through safe one-line prompts.
 - Config recovery palette actions now open route, endpoint, port, and log creation prompts directly when the target shelf is empty.
 - Command palette now exposes Config recovery actions for empty route filter, endpoint filter, Tools target, log profile/search, and remote profile shelves, with recovery-specific previews before dispatching into the owning workspace.
 - Config managed shelf summaries now include recovery hints for empty route filter, endpoint filter, Tools target, log profile/search, and remote profile shelves, and Status Enter on Config activity opens the Config recovery view.
