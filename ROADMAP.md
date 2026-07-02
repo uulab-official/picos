@@ -2,7 +2,7 @@
 
 ## v0.4.284 - Remote Host Trust Review Activity
 
-Status: in progress on `codex/picos-v0.4.284-host-trust-review-activity`.
+Status: draft PR [#346](https://github.com/uulab-official/picos/pull/346) on `codex/picos-v0.4.284-host-trust-review-activity`.
 
 Goal: let operators exercise the host-key trust review boundary from Remotes while keeping all trust, local-known-host writes, transport import, and socket opening blocked.
 

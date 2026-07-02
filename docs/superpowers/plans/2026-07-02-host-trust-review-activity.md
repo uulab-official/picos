@@ -34,7 +34,7 @@ Make the remote host-key trust review boundary keyboard-visible from Remotes wit
 - [x] **Step 6: Update docs**
   - Update README, CHANGELOG, and ROADMAP.
 
-- [ ] **Step 7: Verify, commit, push, and open draft PR**
+- [x] **Step 7: Verify, commit, push, and open draft PR**
   - Run focused tests.
   - Run `bun run verify`.
   - Run `bun run release:check`.
