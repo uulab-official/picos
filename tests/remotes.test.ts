@@ -10,6 +10,7 @@ import {
 	createRemoteHostKeyEvidenceInputFromSession,
 	createRemoteHostKeyTrustDecisionPreview,
 	createRemoteKnownHostsCandidatePreview,
+	createRemoteKnownHostsCandidatePreviewFromSession,
 	createRemoteKnownHostsParserPreview,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsReadResult,
@@ -44,6 +45,7 @@ import {
 	parseRemoteKnownHostsCandidatesFromReadResult,
 	parseRemoteProfileCommand,
 	recordRemoteHostKeyEvidenceInputSession,
+	recordRemoteKnownHostsCandidateSession,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -1166,6 +1168,73 @@ describe("remote profiles", () => {
 				"next=select remote profile · no candidate parsing",
 			].join("\n"),
 		);
+	});
+
+	test("applies selected known_hosts candidates from session to compare detail", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const content = [
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfake prod-port",
+			"[prod.example.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecondCandidate second",
+		].join("\n");
+		const parsed = parseRemoteKnownHostsCandidatesFromReadResult(
+			profile,
+			content,
+		);
+		const selectedFingerprint = parsed.candidates[1]?.fingerprint;
+		const session = recordRemoteKnownHostsCandidateSession(
+			{},
+			{
+				...parsed,
+				selected: 2,
+			},
+		);
+
+		expect(session.prod?.selected).toBe(2);
+		expect(session.prod?.candidates).toHaveLength(2);
+		const preview = createRemoteKnownHostsCandidatePreviewFromSession(
+			profile,
+			session,
+		);
+		expect(preview.selected).toBe(2);
+		expect(formatRemoteKnownHostsCandidatePreviewRows(preview)).toEqual(
+			expect.arrayContaining([expect.stringMatching(/^> #2 line=2 /)]),
+		);
+
+		const evidence = createRemoteHostKeyEvidenceInput(
+			profile,
+			selectedFingerprint,
+		);
+		expect(
+			createRemoteHostKeyCompareDetail(profile, preview, evidence).match,
+		).toBe("matched");
+		expect(
+			createRemoteHostKeyCompareDetail(
+				profile,
+				preview,
+				createRemoteHostKeyEvidenceInput(profile, "SHA256:different"),
+			).match,
+		).toBe("mismatch");
+
+		expect(
+			recordRemoteKnownHostsCandidateSession(session, {
+				...createRemoteKnownHostsCandidatePreview(profile, "not-a-candidate"),
+				selected: "none",
+			}),
+		).toBe(session);
+		expect(
+			createRemoteKnownHostsCandidatePreviewFromSession(
+				{ ...profile, id: "stage" },
+				session,
+			).status,
+		).toBe("not-parsed");
 	});
 
 	test("includes empty remote known_hosts candidate preview in provider status", async () => {
