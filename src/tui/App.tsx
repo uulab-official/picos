@@ -141,11 +141,13 @@ import {
 import {
 	createRemoteConnectPreview,
 	createRemoteFileContext,
+	createRemoteFileRequestPreview,
 	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
 	formatRemoteConnectConfirmationAuditMessage,
 	formatRemoteConnectPreviewRows,
+	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
@@ -11757,7 +11759,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 18);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 26);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11774,6 +11776,9 @@ function RemotesWorkspace({
 	);
 	const readOnlyAdapterRows = formatRemoteReadOnlyAdapterContractRows(
 		createRemoteReadOnlyAdapterContract(selectedProfile),
+	);
+	const fileRequestPreviewRows = formatRemoteFileRequestPreviewRows(
+		createRemoteFileRequestPreview(selectedProfile),
 	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
 	const connectPreview = selectedProfile
@@ -11921,6 +11926,26 @@ function RemotesWorkspace({
 										row.includes("disabled") ||
 										row.includes("willImport=false") ||
 										row.includes("willMutate=false")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">FILE REQUEST PREVIEW</Text>
+				{fileRequestPreviewRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("blocked") ||
+										row.includes("locked") ||
+										row.includes("unsupported") ||
+										row.includes("willRead=false")
 									? "yellow"
 									: "gray"
 						}

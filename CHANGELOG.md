@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace and `picos remote <id>` now show `REMOTE FILE REQUEST PREVIEW` rows for future SFTP list/read flows, keeping the request blocked behind host review and the read adapter contract while `willImport=false`/`willConnect=false`/`willRead=false`/`willMutate=false` remain explicit.
 - Remotes workspace and `picos remote <id>` now show `REMOTE READ ADAPTER CONTRACT` rows for the future read-only SFTP adapter, making list/read/stat planned methods explicit while write/delete remain locked, exec unsupported, and `willImport=false`/`willConnect=false`/`willMutate=false` stay visible.
 - Remotes workspace and `picos remote <id>` now show `REMOTE TRANSPORT PROBE` rows for the future SFTP adapter, including static dependency readiness, target, auth posture, planned read/list capability, locked writes/destructive actions, and explicit `willImport=false`/`willConnect=false` no-socket posture.
 - Remotes workspace now shows a `REMOTE ACTIVITY` shelf derived from Status Activity result history, so recent remote stage/connect attempts stay visible beside profiles without opening transport or switching to Status.
