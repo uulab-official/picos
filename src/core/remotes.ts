@@ -175,6 +175,8 @@ export type RemoteHostKeyEvidenceInputConfirmation = {
 	message: string;
 };
 
+export type RemoteHostKeyEvidenceInputSession = Record<string, string>;
+
 export type RemoteKnownHostsSourcePreview = {
 	id: string;
 	provider: "sftp";
@@ -753,6 +755,33 @@ export function submitRemoteHostKeyEvidenceInput(
 			? `remote host key evidence input recorded ${input.id} ${normalizedFingerprint}`
 			: `remote host key evidence input rejected ${input.id}`,
 	};
+}
+
+export function updateRemoteHostKeyEvidenceInputSession(
+	session: RemoteHostKeyEvidenceInputSession,
+	confirmation: RemoteHostKeyEvidenceInputConfirmation,
+): RemoteHostKeyEvidenceInputSession {
+	const { id } = confirmation.input;
+	if (id === "none") {
+		return { ...session };
+	}
+	const next = { ...session };
+	if (confirmation.parserInput === "available") {
+		next[id] = confirmation.fingerprint;
+	} else {
+		delete next[id];
+	}
+	return next;
+}
+
+export function createRemoteHostKeyEvidenceInputFromSession(
+	profile?: SftpRemoteProfile,
+	session: RemoteHostKeyEvidenceInputSession = {},
+): RemoteHostKeyEvidenceInput {
+	return createRemoteHostKeyEvidenceInput(
+		profile,
+		profile ? session[profile.id] : undefined,
+	);
 }
 
 export function createRemoteKnownHostsSourcePreview(
