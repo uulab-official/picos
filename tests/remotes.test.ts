@@ -18,6 +18,7 @@ import {
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
+	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	formatRemoteKnownHostsParserPreviewRows,
@@ -30,6 +31,7 @@ import {
 	normalizeRemoteProfiles,
 	parseRemoteProfileCommand,
 	submitRemoteConnectConfirmation,
+	submitRemoteHostKeyTrustReview,
 } from "../src/core/remotes";
 
 describe("remote profiles", () => {
@@ -912,6 +914,50 @@ describe("remote profiles", () => {
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willReadLocal=false willParse=false willScan=false willTrust=false willMutate=false",
+		);
+	});
+
+	test("records remote host key trust review attempts without trusting hosts", () => {
+		const preview = createRemoteHostKeyTrustDecisionPreview({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+
+		const confirmed = submitRemoteHostKeyTrustReview(
+			preview,
+			" review host trust prod ",
+		);
+		expect(confirmed).toEqual({
+			preview,
+			status: "confirmed-blocked",
+			input: "review host trust prod",
+			networkOpened: false,
+			trustApplied: false,
+			knownHostsWritten: false,
+			message:
+				"remote host trust review blocked prod sftp://deploy@prod.example.com:2222/srv/app",
+		});
+		expect(formatRemoteHostKeyTrustReviewAuditMessage(confirmed)).toBe(
+			'remote host trust review audit action=review id=prod target="sftp://deploy@prod.example.com:2222/srv/app" status=confirmed-blocked match=unknown decision=blocked collected=sha256:unknown knownHosts=sha256:unknown network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod" connectConfirm="connect remote prod"',
+		);
+
+		const rejected = submitRemoteHostKeyTrustReview(preview, "trust prod");
+		expect(rejected).toEqual({
+			preview,
+			status: "rejected",
+			input: "trust prod",
+			networkOpened: false,
+			trustApplied: false,
+			knownHostsWritten: false,
+			message: "remote host trust review confirmation rejected prod",
+		});
+		expect(formatRemoteHostKeyTrustReviewAuditMessage(rejected)).toContain(
+			"status=rejected",
 		);
 	});
 

@@ -10,7 +10,9 @@ import {
 } from "../src/core/auditLog";
 import {
 	createRemoteConnectPreview,
+	createRemoteHostKeyTrustDecisionPreview,
 	submitRemoteConnectConfirmation,
+	submitRemoteHostKeyTrustReview,
 } from "../src/core/remotes";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
@@ -21,6 +23,7 @@ import {
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
 	createRemoteConnectStatusActivityResult,
+	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
@@ -617,11 +620,54 @@ describe("Status activity queue", () => {
 		});
 	});
 
+	test("creates status activity results for blocked remote host trust review confirmations", () => {
+		const preview = createRemoteHostKeyTrustDecisionPreview({
+			id: "prod",
+			kind: "sftp",
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		});
+		const confirmation = submitRemoteHostKeyTrustReview(
+			preview,
+			"review host trust prod",
+		);
+		const result =
+			createRemoteHostKeyTrustReviewStatusActivityResult(confirmation);
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "remote-host-trust-review",
+			message:
+				"remote host trust review confirmed-blocked prod prod.example.com:2222",
+			detail:
+				'target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=remote-host-trust-review",
+			"> remote host trust review confirmed-blocked prod prod.example.com:2222",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> timeline remote-host-trust-review remote host trust review confirmed-blocked prod prod.example.com:2222",
+			'    target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
+		]);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query: "remote host trust review audit id=prod status=confirmed-blocked",
+			message:
+				"status activity result timeline search remote host trust review prod confirmed-blocked",
+		});
+	});
+
 	test("formats recent remote activity shelf rows for Remotes workspace", () => {
 		expect(formatRemoteActivityShelfRows([])).toEqual([
 			"REMOTE ACTIVITY recent=0 selected=none",
 			"no remote activity recorded yet",
-			"controls=enter stage · c connect preview · Status I timeline recovery",
+			"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
 		]);
 
 		const profile = {
@@ -635,6 +681,12 @@ describe("Status activity queue", () => {
 		};
 		const preview = createRemoteConnectPreview(profile);
 		const stage = createRemoteHostReviewStatusActivityResult(profile);
+		const trust = createRemoteHostKeyTrustReviewStatusActivityResult(
+			submitRemoteHostKeyTrustReview(
+				createRemoteHostKeyTrustDecisionPreview(profile),
+				"review host trust prod",
+			),
+		);
 		const connect = createRemoteConnectStatusActivityResult(
 			submitRemoteConnectConfirmation(preview, "connect remote prod"),
 		);
@@ -648,17 +700,20 @@ describe("Status activity queue", () => {
 						message: "selected timeline copy ignored",
 					},
 					connect,
+					trust,
 					stage,
 				],
 				{ selectedProfileId: "prod" },
 			),
 		).toEqual([
-			"REMOTE ACTIVITY recent=2 selected=prod",
+			"REMOTE ACTIVITY recent=3 selected=prod",
 			"> connect confirmed-blocked prod prod.example.com:2222",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+			"  trust confirmed-blocked prod prod.example.com:2222",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" match=unknown decision=blocked network=not-opened trust=not-applied knownHostsWrite=false confirm="review host trust prod"',
 			"  stage prod prod.example.com:2222",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" user=deploy key=configured policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
-			"controls=enter stage · c connect preview · Status I timeline recovery",
+			"controls=enter stage · t trust review · c connect preview · Status I timeline recovery",
 		]);
 	});
 
