@@ -335,6 +335,7 @@ import {
 	openFileOperationDialog,
 } from "./fileOperationDialog";
 import {
+	formatFileBreadcrumbRows,
 	formatSelectedFilePathRows,
 	getSelectedFilePathClipboardPreview,
 } from "./fileSelection";
@@ -11258,6 +11259,14 @@ function FilesWorkspace({
 	const hiddenAbove = window.start;
 	const hiddenBelow = entries.length - window.end;
 	const selectedPathRows = formatSelectedFilePathRows(entries, selectedIndex);
+	const breadcrumbRows = formatFileBreadcrumbRows(
+		root,
+		entries,
+		selectedIndex,
+		{
+			maxSegments: 5,
+		},
+	);
 
 	if (visibleRows < 12) {
 		const compactEntries = entries.slice(0, Math.max(2, visibleRows - 5));
@@ -11300,6 +11309,14 @@ function FilesWorkspace({
 				) : null}
 				{selectedPathRows.slice(0, 2).map((row) => (
 					<Text key={row} color={row.startsWith("SELECTED") ? "cyan" : "gray"}>
+						{clip(row, 76)}
+					</Text>
+				))}
+				{breadcrumbRows.slice(0, 2).map((row) => (
+					<Text
+						key={row}
+						color={row.startsWith("PATH BREADCRUMB") ? "cyan" : "gray"}
+					>
 						{clip(row, 76)}
 					</Text>
 				))}
@@ -11385,6 +11402,22 @@ function FilesWorkspace({
 					</Text>
 				</Box>
 			) : null}
+			<Box marginTop={1} flexDirection="column">
+				{breadcrumbRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("PATH BREADCRUMB")
+								? "cyan"
+								: row.startsWith("controls=")
+									? "gray"
+									: "white"
+						}
+					>
+						{clip(row, 100)}
+					</Text>
+				))}
+			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">SYSTEM LOCATIONS</Text>
 				{locations.slice(0, locationRows).map((location, index) => (

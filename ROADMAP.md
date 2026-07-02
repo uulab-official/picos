@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.266 - Files Breadcrumbs
+
+Status: draft PR [#328](https://github.com/uulab-official/picos/pull/328) on `codex/picos-v0.4.266-files-breadcrumbs`.
+
+Goal: keep filesystem context visible while operators navigate deep paths in the terminal.
+
+- Files now formats `PATH BREADCRUMB` rows for the current root and selected entry.
+- Long paths are sliced with `...` while preserving the final meaningful segments, so compact terminals keep the active filesystem target readable.
+- Full Files layouts show the breadcrumb block above system locations; compact layouts show the first root/selection breadcrumb rows before the directory list.
+- Breadcrumb rows share the existing `: path`, `u parent`, and `y copy selected` controls, connecting navigation, parent movement, and locked path copy into one visible OS-console strip.
+- Tests cover sliced breadcrumbs and empty-selection breadcrumbs alongside selected path copy behavior.
+- Next: add SFTP-ready provider boundary previews and remote path breadcrumb parity.
+
 ## v0.4.265 - Files Path Copy
 
 Status: draft PR [#327](https://github.com/uulab-official/picos/pull/327) on `codex/picos-v0.4.265-files-path-copy`.
