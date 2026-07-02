@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.237 - Result Jump Dispatch Audit Target
+
+Status: draft PR [#299](https://github.com/uulab-official/picos/pull/299) on `codex/picos-v0.4.237-result-jump-audit-target`.
+
+Goal: make palette result-jump dispatch rows preserve the same process-control target identity shown in previews.
+
+- Palette-triggered Status result jump `open`/`select` results now include `target=process-control pid:<pid> action=<action>` when replaying process-control evidence audit searches.
+- The matching Timeline audit message includes the same target token before filter/query/match fields, so process evidence recovery remains searchable by PID/action after palette dispatch.
+- Result-jump query audit formatting now preserves embedded quoted PID targets with escaped quotes instead of dropping quote boundaries.
+- Existing generic result-jump rows remain unchanged when no process-control target can be parsed.
+- Tests cover process-target detail rows and process-target audit messages for recovered Status Evidence process searches.
+- Next: surface palette result-jump dispatch target tokens in the Status result jump browser rows, so the browser itself shows process PID/action before opening the palette.
+
 ## v0.4.236 - Result Jump Palette Preview
 
 Status: draft PR [#298](https://github.com/uulab-official/picos/pull/298) on `codex/picos-v0.4.236-result-jump-preview`.

@@ -2399,6 +2399,29 @@ describe("Status activity queue", () => {
 			message: "palette status result jump select unavailable",
 			detail: "no Status result Timeline jump selected",
 		});
+
+		const processJump = {
+			filter: "audit" as const,
+			query: 'status evidence process audit action=search target="pid:12345"',
+			message:
+				"status activity result timeline search status process evidence pid=12345",
+		};
+		const processResult = createStatusActivityResultTimelineJumpPaletteResult(
+			"open",
+			{
+				historyIndex: 1,
+				jump: processJump,
+				matches: 4,
+			},
+		);
+
+		expect(processResult).toEqual({
+			source: "timeline",
+			action: "timeline-selected-copy",
+			message: "palette status result jump open 1/1 row=2",
+			detail:
+				'target=process-control pid:12345 action=search filter=audit search=status evidence process audit action=search target="pid:12345" matches=4',
+		});
 	});
 
 	test("formats palette-triggered status result jump audit messages", () => {
@@ -2444,6 +2467,21 @@ describe("Status activity queue", () => {
 			formatStatusActivityResultTimelineJumpPaletteAuditMessage("open"),
 		).toBe(
 			'palette status result jump audit action=open status=unavailable reason="no Status result Timeline jump selected"',
+		);
+		expect(
+			formatStatusActivityResultTimelineJumpPaletteAuditMessage("open", {
+				historyIndex: 1,
+				jump: {
+					filter: "audit",
+					query:
+						'status evidence process audit action=search target="pid:12345"',
+					message:
+						"status activity result timeline search status process evidence pid=12345",
+				},
+				matches: 4,
+			}),
+		).toBe(
+			'palette status result jump audit action=open selected=1/1 row=2 target="process-control pid:12345 action=search" filter=audit query="status evidence process audit action=search target=\\"pid:12345\\"" matches=4',
 		);
 	});
 
