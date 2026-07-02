@@ -16,7 +16,12 @@ import {
 	normalizeToolTargetPresets,
 	type ToolTargetPresetPreference,
 } from "../core/toolHistoryPreferences";
-import type { ToolId, ToolResult } from "../core/tools";
+import {
+	getToolDefinitions,
+	type ToolDefinition,
+	type ToolId,
+	type ToolResult,
+} from "../core/tools";
 import type { NetworkSummary } from "../core/types";
 import {
 	type ClipboardPreview,
@@ -56,6 +61,21 @@ export type ToolRunActionMetadata = {
 	defaultTarget: string;
 	cli: string;
 	hint: string;
+};
+
+export type ToolFormField = {
+	key: string;
+	label: string;
+	placeholder: string;
+	value: string;
+};
+
+export type ToolFormState = {
+	actionId: ToolRunActionId;
+	title: string;
+	toolId: ToolId;
+	selectedFieldIndex: number;
+	fields: ToolFormField[];
 };
 
 export type ToolTargetCleanupPreview = {
@@ -389,6 +409,124 @@ export function createToolRunPlan(
 		};
 	}
 	return undefined;
+}
+
+export function createToolFormState(
+	actionIdInput: string,
+	defaultTarget: string,
+	summary?: NetworkSummary,
+	targetInput = "",
+): ToolFormState | undefined {
+	const actionId = normalizeToolRunActionId(actionIdInput);
+	if (!actionId) {
+		return undefined;
+	}
+	const metadata = getToolRunActionMetadata(actionId);
+	if (!metadata) {
+		return undefined;
+	}
+	const definition = getToolDefinition(metadata.toolId);
+	if (!definition) {
+		return undefined;
+	}
+	const plan = createToolRunPlan(
+		actionId,
+		defaultTarget || metadata.defaultTarget,
+		summary,
+		targetInput,
+	);
+	const values = createToolFormValues(definition, plan, metadata, summary);
+	return {
+		actionId,
+		title: metadata.title,
+		toolId: metadata.toolId,
+		selectedFieldIndex: 0,
+		fields: definition.fields.map((field) => ({
+			...field,
+			value: values[field.key] ?? field.placeholder,
+		})),
+	};
+}
+
+export function moveToolFormField(
+	form: ToolFormState | undefined,
+	direction: "next" | "previous",
+): ToolFormState | undefined {
+	if (!form || form.fields.length <= 0) {
+		return form;
+	}
+	const offset = direction === "next" ? 1 : -1;
+	return {
+		...form,
+		selectedFieldIndex:
+			(form.selectedFieldIndex + offset + form.fields.length) %
+			form.fields.length,
+	};
+}
+
+export function updateToolFormFieldValue(
+	form: ToolFormState | undefined,
+	value: string,
+): ToolFormState | undefined {
+	if (!form || form.fields.length <= 0) {
+		return form;
+	}
+	const selectedFieldIndex = Math.min(
+		Math.max(form.selectedFieldIndex, 0),
+		form.fields.length - 1,
+	);
+	return {
+		...form,
+		selectedFieldIndex,
+		fields: form.fields.map((field, index) =>
+			index === selectedFieldIndex ? { ...field, value } : field,
+		),
+	};
+}
+
+export function createToolRunPlanFromForm(
+	form: ToolFormState | undefined,
+): ToolRunPlan | undefined {
+	if (!form) {
+		return undefined;
+	}
+	const target =
+		form.toolId === "telnet" || form.toolId === "port-check"
+			? [
+					getToolFormFieldValue(form, "host", "example.com"),
+					getToolFormFieldValue(form, "port", "443"),
+				].join(" ")
+			: getToolFormFieldValue(form, form.fields[0]?.key ?? "target", "");
+	const plan = createToolRunPlan(form.actionId, "", undefined, target);
+	if (!plan) {
+		return undefined;
+	}
+	return {
+		...plan,
+		label: `${form.title} ${formatToolFormTargetLabel(form)}`.trim(),
+	};
+}
+
+export function formatToolFormRows(form: ToolFormState | undefined): string[] {
+	if (!form) {
+		return [];
+	}
+	const plan = createToolRunPlanFromForm(form);
+	const selected = Math.min(
+		Math.max(form.selectedFieldIndex, 0),
+		Math.max(0, form.fields.length - 1),
+	);
+	return [
+		`TOOLS FORM ${form.title}`,
+		`action=${form.actionId} tool=${form.toolId} fields=${form.fields.length} selected=${selected + 1}/${form.fields.length}`,
+		...form.fields.map((field, index) => {
+			const marker = index === selected ? ">" : " ";
+			const value = field.value.trim() || field.placeholder;
+			return `${marker} ${field.label} ${value} placeholder=${field.placeholder}`;
+		}),
+		`cli=${plan ? formatToolRunCliCommand(plan) : `picos tools ${form.toolId}`}`,
+		"controls=tab/shift-tab field enter=run esc=cancel",
+	];
 }
 
 export function createToolRunPlanFromPreset(
@@ -1010,24 +1148,69 @@ export function formatToolPromptRows(prompt: string, value: string): string[] {
 			`:tool ${value || " "}  enter=run esc=cancel`,
 		];
 	}
-	const target = value.trim() || metadata.defaultTarget;
-	const plan = createToolRunPlan(
-		actionId,
-		metadata.defaultTarget,
-		undefined,
-		target,
+	return formatToolFormRows(
+		createToolFormState(
+			actionId,
+			metadata.defaultTarget,
+			undefined,
+			value.trim() || metadata.defaultTarget,
+		),
 	);
-	return [
-		`TOOL TARGET ${metadata.title}`,
-		`action=${metadata.actionId} tool=${metadata.toolId} hint=${metadata.hint}`,
-		`placeholder=${metadata.placeholder} example=${metadata.example}`,
-		`cli=${plan ? formatToolRunCliCommand(plan) : metadata.cli}`,
-		`:tool ${target || " "}  enter=run esc=cancel`,
-	];
 }
 
 function formatToolRunCliCommand(plan: ToolRunPlan): string {
 	return `picos tools ${plan.toolId} ${plan.args.join(" ")}`.trim();
+}
+
+function getToolDefinition(toolId: ToolId): ToolDefinition | undefined {
+	return getToolDefinitions().find((tool) => tool.id === toolId);
+}
+
+function createToolFormValues(
+	definition: ToolDefinition,
+	plan: ToolRunPlan | undefined,
+	metadata: ToolRunActionMetadata,
+	summary?: NetworkSummary,
+): Record<string, string> {
+	if (definition.id === "telnet" || definition.id === "port-check") {
+		if (plan) {
+			return {
+				host: plan.args[0] || "example.com",
+				port: plan.args[1] || "443",
+			};
+		}
+		const target = parseHostPortTarget(metadata.defaultTarget);
+		return {
+			host: target.host,
+			port: target.port,
+		};
+	}
+	if (definition.id === "ip-info") {
+		return {
+			ip: plan?.args[0] ?? summary?.publicIp ?? metadata.defaultTarget,
+		};
+	}
+	const [firstField] = definition.fields;
+	return {
+		[firstField?.key ?? "target"]: plan?.args[0] ?? metadata.defaultTarget,
+	};
+}
+
+function getToolFormFieldValue(
+	form: ToolFormState,
+	key: string,
+	fallback: string,
+): string {
+	return (
+		form.fields.find((field) => field.key === key)?.value.trim() || fallback
+	);
+}
+
+function formatToolFormTargetLabel(form: ToolFormState): string {
+	if (form.toolId === "telnet" || form.toolId === "port-check") {
+		return `${getToolFormFieldValue(form, "host", "example.com")}:${getToolFormFieldValue(form, "port", "443")}`;
+	}
+	return getToolFormFieldValue(form, form.fields[0]?.key ?? "target", "");
 }
 
 export function moveToolHistorySelection(
