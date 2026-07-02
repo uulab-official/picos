@@ -9,6 +9,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 ### Added
 
 - Project logo SVG and README brand header.
+- Command palette Tools evidence archive/retention actions now preview the selected export, active filter/query, retention keep/remove counts, first prune candidate, and exact confirmation phrase before dispatch.
 - Command palette recovered Tools match actions now preview the selected file, query, scope, run count, path, and exact locked confirmation before dispatching `tools match open/archive`.
 - Command palette now exposes recovered Tools match open/archive actions via `tools match`, `tools match open`, and `tools match archive`, routing through the same locked confirmations and audit trail as `K`/`D`.
 - Recovered Tools evidence match `K`/`D` actions now append Status Activity result rows and searchable Timeline audit messages with target, selected match, query, scope, run count, and path details.

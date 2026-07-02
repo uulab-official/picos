@@ -1,6 +1,11 @@
 import type { PicosAction } from "../core/actions";
 import { getNextIndex } from "./navigation";
 import type { StatusActivityToolsEvidenceSearchRecovery } from "./statusActivityQueue";
+import type {
+	ToolHistoryArchiveRetentionPlan,
+	ToolHistoryEvidenceFilter,
+	ToolHistoryExportIndexItem,
+} from "./toolHistory";
 
 export type CommandPaletteState = {
 	active: boolean;
@@ -112,6 +117,12 @@ export function getPaletteAction(
 export type CommandPalettePreviewContext = {
 	toolsEvidenceSearchRecovery?: StatusActivityToolsEvidenceSearchRecovery;
 	selectedToolsEvidenceSearchMatchIndex?: number;
+	selectedToolExport?: ToolHistoryExportIndexItem;
+	selectedToolExportIndex?: number;
+	totalToolExports?: number;
+	toolExportFilter?: ToolHistoryEvidenceFilter;
+	toolExportQuery?: string;
+	toolArchiveRetentionPlan?: ToolHistoryArchiveRetentionPlan;
 };
 
 export function formatCommandPaletteActionPreviewRows(
@@ -123,9 +134,19 @@ export function formatCommandPaletteActionPreviewRows(
 	}
 	if (
 		action.id !== "status.toolsEvidence.matchOpen" &&
-		action.id !== "status.toolsEvidence.matchArchive"
+		action.id !== "status.toolsEvidence.matchArchive" &&
+		action.id !== "status.toolsEvidence.archive" &&
+		action.id !== "status.toolsEvidence.retention"
 	) {
 		return [];
+	}
+
+	if (action.id === "status.toolsEvidence.archive") {
+		return formatToolEvidenceArchivePalettePreviewRows(context);
+	}
+
+	if (action.id === "status.toolsEvidence.retention") {
+		return formatToolEvidenceRetentionPalettePreviewRows(context);
 	}
 
 	const recovery = context.toolsEvidenceSearchRecovery;
@@ -158,6 +179,50 @@ export function formatCommandPaletteActionPreviewRows(
 		rows.push("blocked=archived Tools evidence matches are already archived");
 	} else {
 		rows.push(`confirm=${actionVerb} path=${item.path}`);
+	}
+	return rows;
+}
+
+function formatToolEvidenceArchivePalettePreviewRows(
+	context: CommandPalettePreviewContext,
+): string[] {
+	const item = context.selectedToolExport;
+	if (!item) {
+		return [
+			"selected tools export unavailable",
+			"hint=refresh Tools evidence or clear filters",
+		];
+	}
+	const total = Math.max(1, Math.floor(context.totalToolExports ?? 1));
+	const selected = Math.min(
+		Math.max(0, Math.floor(context.selectedToolExportIndex ?? 0)),
+		total - 1,
+	);
+	return [
+		`selected tools export ${selected + 1}/${total} ${item.fileName}`,
+		`filter=${context.toolExportFilter ?? "any"} query=${context.toolExportQuery?.trim() || "-"} scope=${item.scope} runs=${item.runCount}`,
+		`confirm=archive tools export path=${item.path}`,
+	];
+}
+
+function formatToolEvidenceRetentionPalettePreviewRows(
+	context: CommandPalettePreviewContext,
+): string[] {
+	const plan = context.toolArchiveRetentionPlan;
+	if (!plan) {
+		return [
+			"tools archive retention unavailable",
+			"hint=refresh archived Tools evidence",
+		];
+	}
+	const rows = [
+		`tools archive retention max=${plan.maxItems} candidates=${plan.candidateItems.length}`,
+		`keep=${plan.retainedItems.length} remove=${plan.candidateItems.length}`,
+		...plan.candidateItems.slice(0, 1).map((item) => `remove ${item.fileName}`),
+		`confirm=${plan.confirmationPhrase}`,
+	];
+	if (plan.candidateItems.length === 0) {
+		rows.splice(2, 0, "blocked=no archived Tools exports beyond retention");
 	}
 	return rows;
 }
