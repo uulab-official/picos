@@ -52,6 +52,7 @@ import {
 	filterTimelineEvidenceTrailAuditExports,
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
+	formatRemoteActivityShelfRows,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -614,6 +615,51 @@ describe("Status activity queue", () => {
 			message:
 				"status activity result timeline search remote connect prod confirmed-blocked",
 		});
+	});
+
+	test("formats recent remote activity shelf rows for Remotes workspace", () => {
+		expect(formatRemoteActivityShelfRows([])).toEqual([
+			"REMOTE ACTIVITY recent=0 selected=none",
+			"no remote activity recorded yet",
+			"controls=enter stage · c connect preview · Status I timeline recovery",
+		]);
+
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const preview = createRemoteConnectPreview(profile);
+		const stage = createRemoteHostReviewStatusActivityResult(profile);
+		const connect = createRemoteConnectStatusActivityResult(
+			submitRemoteConnectConfirmation(preview, "connect remote prod"),
+		);
+
+		expect(
+			formatRemoteActivityShelfRows(
+				[
+					{
+						source: "timeline",
+						action: "timeline-selected-copy",
+						message: "selected timeline copy ignored",
+					},
+					connect,
+					stage,
+				],
+				{ selectedProfileId: "prod" },
+			),
+		).toEqual([
+			"REMOTE ACTIVITY recent=2 selected=prod",
+			"> connect confirmed-blocked prod prod.example.com:2222",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+			"  stage prod prod.example.com:2222",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" user=deploy key=configured policy=read-only writes=locked network=not-opened confirm="connect remote prod"',
+			"controls=enter stage · c connect preview · Status I timeline recovery",
+		]);
 	});
 
 	test("creates status activity and audit rows for palette process control previews", () => {

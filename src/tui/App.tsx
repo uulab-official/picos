@@ -454,6 +454,7 @@ import {
 	filterTimelineEvidenceTrailAuditExports,
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
+	formatRemoteActivityShelfRows,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -10749,6 +10750,7 @@ function renderWorkspace(
 				profiles={remoteProfiles}
 				selectedIndex={selectedRemoteIndex}
 				selectedContext={remoteFileContext}
+				activityResults={statusActivityResults}
 				focused={focusArea === "remotes"}
 				commandLine={commandLine}
 				visibleRows={Math.max(5, height - 8)}
@@ -11729,6 +11731,7 @@ function RemotesWorkspace({
 	profiles,
 	selectedIndex,
 	selectedContext,
+	activityResults,
 	focused,
 	commandLine,
 	visibleRows,
@@ -11738,6 +11741,7 @@ function RemotesWorkspace({
 	profiles: SftpRemoteProfile[];
 	selectedIndex: number;
 	selectedContext?: RemoteFileContext;
+	activityResults: StatusActivityResult[];
 	focused: boolean;
 	commandLine: CommandLineState;
 	visibleRows: number;
@@ -11749,7 +11753,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 7);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 11);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -11766,6 +11770,9 @@ function RemotesWorkspace({
 		? createRemoteConnectPreview(selectedProfile)
 		: undefined;
 	const connectPreviewRows = formatRemoteConnectPreviewRows(connectPreview);
+	const activityRows = formatRemoteActivityShelfRows(activityResults, {
+		selectedProfileId: selectedProfile?.id,
+	});
 
 	return (
 		<Box flexDirection="column">
@@ -11809,6 +11816,28 @@ function RemotesWorkspace({
 				{hiddenBelow > 0 ? (
 					<Text color="gray">↓ {hiddenBelow} more profiles</Text>
 				) : null}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">RECENT ACTIVITY</Text>
+				{activityRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("confirmed-blocked") ||
+										row.includes("rejected") ||
+										row.includes("locked") ||
+										row.includes("not-opened")
+									? "yellow"
+									: row.startsWith(">")
+										? "cyan"
+										: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">SELECTED CONTEXT</Text>
