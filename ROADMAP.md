@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.288 - Remote Known Hosts Selected Compare
+
+Status: draft PR [#352](https://github.com/uulab-official/picos/pull/352) on `codex/picos-v0.4.288-known-hosts-selection`.
+
+Goal: connect parsed `known_hosts` candidates into host-key compare detail so operators can see which candidate fingerprint would be compared before any remote socket, host-key scan, trust decision, local trust-file write, or mutation is enabled.
+
+- Core compare detail can now accept a `RemoteKnownHostsCandidatePreview`.
+- Selected candidate rows surface candidate count, selected candidate index, and selected candidate fingerprint while collected host-key evidence remains `sha256:unknown`.
+- Empty provider status remains unchanged until real parser input is supplied, keeping `picos remote <id>` safe by default.
+- Compare detail still reports blocked decision plus `willImport=false`, `willConnect=false`, `willReadLocal=false`, `willParse=false`, `willScan=false`, `willTrust=false`, and `willMutate=false`.
+- Tests cover read-result candidate parsing into compare detail and the unchanged no-candidate provider surface.
+- Next: add a locked host-key evidence result model so a future collected fingerprint can be compared against the selected candidate without immediately trusting the host.
+
 ## v0.4.287 - Remote Known Hosts Read Result
 
 Status: draft PR [#350](https://github.com/uulab-official/picos/pull/350) on `codex/picos-v0.4.287-known-hosts-read-result`.
