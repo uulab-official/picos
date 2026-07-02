@@ -791,6 +791,12 @@ export function formatStatusActivityCopyIntentRows(
 function formatStatusActivityResultAuditJumpTargetToken(
 	intent: StatusActivityCopyIntentRecord,
 ): string {
+	const processControlTarget = parseProcessControlAuditQuery(intent.preview);
+	if (processControlTarget) {
+		return processControlTarget.pid
+			? ` target=process-control pid:${processControlTarget.pid}`
+			: ` target=process-control status:${processControlTarget.status ?? "unknown"}`;
+	}
 	const toolsSearchTarget = parseToolsEvidenceSearchAuditQuery(intent.preview);
 	if (toolsSearchTarget) {
 		return ` target=tools:${toolsSearchTarget.target} query:${toolsSearchTarget.query || "-"}`;
@@ -810,6 +816,12 @@ function formatFreshStatusActivityResultJumpRows(
 	selectedIndex: number,
 	count: number,
 ): string[] {
+	const processControlTarget = parseProcessControlAuditQuery(jump.query);
+	if (processControlTarget) {
+		return [
+			`process control target=${processControlTarget.pid ? `pid:${processControlTarget.pid}` : `status:${processControlTarget.status ?? "unknown"}`} action=${processControlTarget.action} I=fresh`,
+		];
+	}
 	const toolsSearchTarget = parseToolsEvidenceSearchAuditQuery(jump.query);
 	if (toolsSearchTarget) {
 		return [
@@ -819,6 +831,22 @@ function formatFreshStatusActivityResultJumpRows(
 	return [
 		`result jump target=filter:${jump.filter} query=${jump.query}${count > 1 ? ` selected=${getNormalizedSelectionIndex(count, selectedIndex) + 1}/${count}` : ""} I=fresh`,
 	];
+}
+
+function parseProcessControlAuditQuery(
+	query: string,
+): { action: string; pid?: string; status?: string } | undefined {
+	const match = query.match(
+		/^palette process control audit action=(\S+)(?: .*?)?(?:pid=(\S+)|status=(\S+))/,
+	);
+	if (!match) {
+		return undefined;
+	}
+	return {
+		action: match[1] ?? "unknown",
+		...(match[2] ? { pid: match[2] } : {}),
+		...(match[3] ? { status: match[3] } : {}),
+	};
 }
 
 export function createStatusActivityToolsEvidenceSearchRecovery(

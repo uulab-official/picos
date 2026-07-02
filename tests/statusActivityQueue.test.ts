@@ -844,6 +844,80 @@ describe("Status activity queue", () => {
 		]);
 	});
 
+	test("shows process-control audit jump targets in the copy intent shelf", () => {
+		const processControlResult =
+			createStatusActivityProcessControlPaletteResult({
+				actionId: "process.terminate",
+				kind: "terminate",
+				port: {
+					protocol: "tcp",
+					localAddress: "*",
+					localPort: "3000",
+					pid: "12345",
+					command: "node",
+					user: "alice",
+				},
+				confirmationPhrase: "kill pid 12345",
+				risk: "destructive",
+				privilege: "user",
+				enabled: false,
+				rows: [],
+			});
+		const processControlJump = createStatusActivityResultTimelineSearch(
+			[processControlResult],
+			0,
+		);
+		const processControlIntent =
+			createStatusActivityResultTimelineSearchIntent(processControlJump);
+		if (!processControlJump || !processControlIntent) {
+			throw new Error("expected process-control audit jump");
+		}
+
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				"fresh",
+				0,
+				undefined,
+				processControlJump,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"process control target=pid:12345 action=preview I=fresh",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search",
+		]);
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[processControlIntent],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				processControlIntent,
+				1,
+				"replay",
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=1 selected=1/1",
+			"audit jumps count=1 target=process-control pid:12345 latest=palette process control audit action=preview pid=12345 lines=3 I=replay replay=selected valid",
+			"> status activity result audit jump palette process control audit action=preview pid=12345 row=1 expanded=false lines=3 preview=palette process control audit action=preview pid=12345",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+		]);
+	});
+
 	test("shows fresh Tools evidence search result targets in the copy intent shelf", () => {
 		const toolsSearchResult = createStatusActivityToolsEvidencePaletteResult(
 			"search",

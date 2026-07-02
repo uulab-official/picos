@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.229 - Process Control Copy-Intent Shelf
+
+Status: draft PR [#291](https://github.com/uulab-official/picos/pull/291) on `codex/picos-v0.4.229-process-control-copy-intent`.
+
+Goal: make destructive process-control audit jumps readable and reusable from Status without opening Timeline first.
+
+- Fresh Status Activity result jumps for palette process-control previews now render as `process control target=pid:<pid> action=preview I=fresh` rows in `STATUS ACTIVITY COPY INTENTS`.
+- Reusable result audit-jump summaries now include compact `target=process-control pid:<pid>` tokens.
+- The shelf still keeps the original audit query in the copy-intent history row, so `v`, `e`, `P`, and `g` continue to replay, export, cycle, and search the underlying Timeline evidence.
+- Tests cover fresh process-control jump rows and reusable process-control audit-jump summaries.
+- Next: add selection/export of process-control audit evidence files from Status Evidence so destructive-intent review can survive restart like Timeline trail exports.
+
 ## v0.4.228 - Palette Process Control Audit
 
 Status: draft PR [#290](https://github.com/uulab-official/picos/pull/290) on `codex/picos-v0.4.228-palette-process-control-audit`.
@@ -12,7 +24,7 @@ Goal: make palette-triggered process-control attempts recoverable after rapid ke
 - Timeline audit messages now include action, locked/unavailable status, port, PID, process, user, risk, privilege, and exact confirmation phrase.
 - Status Activity result rows can jump back into the matching Timeline audit search for the selected PID.
 - Tests cover Status Activity rows, audit formatting, result-to-Timeline search recovery, and Timeline audit search rendering.
-- Next: add a compact Status copy-intent shelf row for recent process-control audit jumps so destructive intent reviews can be copied/exported without manually opening Timeline.
+- Next: compact process-control audit-jump shelf rows moved into v0.4.229.
 
 ## v0.4.227 - Palette Port Control Preview
 
