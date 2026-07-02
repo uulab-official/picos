@@ -2,6 +2,7 @@ import { getControlPreviewCommand } from "../core/controlPreview";
 import type {
 	NetworkGroupSummary,
 	NetworkInterfaceSummary,
+	NetworkSourceOutput,
 	NetworkSummary,
 	SupportedPlatform,
 } from "../core/types";
@@ -134,6 +135,7 @@ export function formatInterfaceSourceRows(
 			command: platformGatewayCommand(summary.platform),
 		}),
 		`dns=node:dns.getServers servers=${formatDnsCompact(summary.dnsServers)}`,
+		...formatInterfaceRawSourceRows(summary.sourceOutputs ?? [], name),
 		...formatInterfaceControlPreviewRows(summary.platform),
 	];
 }
@@ -284,6 +286,30 @@ function formatSourceCommandRow(
 	preview: { command: string[] },
 ): string {
 	return `${label}=${source} command="${preview.command.join(" ")}"`;
+}
+
+function formatInterfaceRawSourceRows(
+	sources: NetworkSourceOutput[],
+	selectedName: string,
+): string[] {
+	if (sources.length === 0) {
+		return [`RAW RETAINED sources=0 selected=${selectedName}`];
+	}
+	return [
+		`RAW RETAINED sources=${sources.length} selected=${selectedName}`,
+		...sources.flatMap((source) => {
+			const command = [source.command, ...source.args].join(" ");
+			const status = source.success ? "ok" : "fail";
+			const truncated = source.truncated ? " truncated=yes" : "";
+			const firstLine =
+				source.output.split(/\r?\n/).find((line) => line.length > 0) ??
+				"(no output)";
+			return [
+				`raw[${source.key}] ${command} ${status} lines=${source.lineCount} shown=${source.shownLines}${truncated}`,
+				`  ${clip(firstLine, 76)}`,
+			];
+		}),
+	];
 }
 
 function formatInterfaceControlPreviewRows(

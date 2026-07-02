@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	classifyNetworkAddress,
+	createNetworkSourceOutput,
 	inferInterfaceKind,
 	sortNetworkInterfaces,
 	summarizeNetworkInterfaces,
@@ -107,6 +108,56 @@ describe("network summary", () => {
 			txBytes: 654321,
 			txPackets: 200,
 		});
+	});
+
+	test("retains bounded raw network source evidence", () => {
+		const source = createNetworkSourceOutput(
+			"interface-stats",
+			"Interface stats",
+			"netstat",
+			["-ibn"],
+			{
+				command: "netstat",
+				args: ["-ibn"],
+				stdout: "Name Mtu\nen0 1500\nutun4 1380\nbridge0 1500",
+				stderr: "",
+				exitCode: 0,
+				success: true,
+			},
+			{ maxLines: 2 },
+		);
+
+		expect(source).toEqual({
+			key: "interface-stats",
+			label: "Interface stats",
+			command: "netstat",
+			args: ["-ibn"],
+			output: "Name Mtu\nen0 1500",
+			lineCount: 4,
+			shownLines: 2,
+			truncated: true,
+			success: true,
+			exitCode: 0,
+		});
+
+		const summary = summarizeNetworkInterfaces(
+			{
+				en0: [
+					{
+						address: "192.168.0.12",
+						family: "IPv4",
+						internal: false,
+						mac: "aa:bb:cc:dd:ee:ff",
+						netmask: "255.255.255.0",
+						cidr: "192.168.0.12/24",
+					},
+				],
+			},
+			["1.1.1.1"],
+			{ sourceOutputs: [source] },
+		);
+
+		expect(summary.sourceOutputs).toEqual([source]);
 	});
 
 	test("sorts interface rows for dense console scanning", () => {

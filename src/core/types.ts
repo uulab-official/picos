@@ -50,6 +50,24 @@ export type NetworkInterfaceStats = Pick<
 
 export type NetworkInterfaceStatsMap = Record<string, NetworkInterfaceStats>;
 
+export type NetworkSourceOutputKey =
+	| "interface-inventory"
+	| "interface-stats"
+	| "gateway";
+
+export type NetworkSourceOutput = {
+	key: NetworkSourceOutputKey;
+	label: string;
+	command: string;
+	args: string[];
+	output: string;
+	lineCount: number;
+	shownLines: number;
+	truncated: boolean;
+	success: boolean;
+	exitCode: number | null;
+};
+
 export type NetworkGroupSummary = {
 	kind: NetworkGroupKind;
 	label: string;
@@ -69,6 +87,7 @@ export type NetworkSummary = {
 	gateway?: string;
 	dnsServers: string[];
 	publicIp?: string;
+	sourceOutputs?: NetworkSourceOutput[];
 };
 
 export type SystemSummary = {
