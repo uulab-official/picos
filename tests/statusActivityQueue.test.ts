@@ -811,10 +811,10 @@ describe("Status activity queue", () => {
 		).toEqual([
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			"interface evidence selected=1/1",
-			"interface evidence target=interface confirmation confirmed-blocked interface.disable target=Wi-Fi query=interface confirmation interface.disable status=confirmed-blocked",
+			'interface evidence target=interface.disable:confirmed-blocked target="Wi-Fi" query=interface confirmation interface.disable status=confirmed-blocked',
 			'interface evidence detail action=disable target="Wi-Fi" expected="disable interface" received="disable interface" confirmed=true willExecute=false risk=write privilege=admin reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off" actions=y copy e export I timeline',
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · interface evidence · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · interface evidence target · palette interface evidence · g Timeline audit search",
 		]);
 		expect(
 			createInterfaceConfirmationAuditExportPlan([result], 0, {

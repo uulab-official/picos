@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.330 - Interface Evidence Targets
+
+Status: in progress on `codex/picos-v0.4.330-interface-evidence-targets`, stacked on draft PR [#404](https://github.com/uulab-official/picos/pull/404).
+
+Goal: make interface confirmation evidence easier to scan inside the Status Activity copy-intent shelf.
+
+- Status Activity copy-intent rows now render interface confirmation evidence with compact target tokens such as `interface.disable:confirmed-blocked target="Wi-Fi"` instead of repeating the full confirmation message.
+- The interface evidence controls hint now advertises the command-palette path with `palette interface evidence`, so operators can rediscover select/open/search without memorizing shortcuts.
+- Timeline audit recovery still uses the stable `interface confirmation interface.* status=*` query shape.
+- No adapter execution, dry-run execution, privileged call, interface enable/disable command, or OS mutation is added.
+- Tests cover the compact target row and controls hint in the Status Activity copy-intent shelf.
+- Next: add archive/retention controls for interface audit evidence.
+
 ## v0.4.329 - Interface Evidence Palette
 
 Status: draft PR [#404](https://github.com/uulab-official/picos/pull/404) on `codex/picos-v0.4.329-interface-evidence-palette`, stacked on draft PR [#403](https://github.com/uulab-official/picos/pull/403).
@@ -13,7 +26,7 @@ Goal: make recovered interface confirmation evidence discoverable and executable
 - Result-history `I` can replay palette or Status Evidence interface evidence searches back into the matching Timeline audit trail.
 - No adapter execution, dry-run execution, privileged call, interface enable/disable command, or OS mutation is added.
 - Tests cover action catalog metadata, command palette discovery/previews, Status Activity result/audit formatting, and Timeline audit-search recovery.
-- Next: add archive/retention controls for interface audit evidence and show compact interface evidence target tokens in the Status copy-intent shelf.
+- Next: compact interface evidence target tokens are completed by v0.4.330; archive/retention controls for interface audit evidence remain next.
 
 ## v0.4.328 - Interface Evidence Family
 
