@@ -728,10 +728,10 @@ export function formatRemoteKnownHostsSelectionHistoryRows(
 		limit?: number;
 	} = {},
 ): string[] {
-	const limit = Math.max(1, Math.floor(options.limit ?? 3));
-	const selectionResults = history
-		.filter(isRemoteKnownHostsSelectionActivityResult)
-		.slice(0, limit);
+	const selectionResults = getRemoteKnownHostsSelectionHistoryResults(
+		history,
+		options.limit,
+	);
 	const selectedProfileId = options.selectedProfileId ?? "none";
 	const selectedIndex = getSelectedRemoteActivityIndex(
 		selectionResults,
@@ -764,9 +764,81 @@ export function formatRemoteKnownHostsSelectionHistoryRows(
 		}
 	}
 	rows.push(
-		"controls=[/] rotate · 1-9 direct · S typed · palette remote known_hosts select · Status I timeline recovery",
+		"controls=[/] rotate · 1-9 direct · S typed · y copy · E export · palette remote known_hosts select · Status I timeline recovery",
 	);
 	return rows;
+}
+
+export function getRemoteKnownHostsSelectionHistoryClipboardPreview(
+	history: StatusActivityResult[],
+	options: {
+		selectedProfileId?: string;
+		limit?: number;
+	} = {},
+): ClipboardPreview | undefined {
+	const selectionResults = getRemoteKnownHostsSelectionHistoryResults(
+		history,
+		options.limit,
+	);
+	if (!selectionResults.length) {
+		return undefined;
+	}
+	const selectedProfileId = options.selectedProfileId ?? "none";
+	return createClipboardPreview({
+		source: "status-activity",
+		label: `remote known_hosts selection history ${selectedProfileId}`,
+		copyText: formatRemoteKnownHostsSelectionHistoryRows(history, options).join(
+			"\n",
+		),
+		details: [
+			`selection-history count=${selectionResults.length} selected=${selectedProfileId}`,
+			"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
+		],
+	});
+}
+
+export function createRemoteKnownHostsSelectionHistoryAuditExportPlan(
+	history: StatusActivityResult[],
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+		selectedProfileId?: string;
+		limit?: number;
+	},
+): ConsoleAuditExportPlan | undefined {
+	const selectionResults = getRemoteKnownHostsSelectionHistoryResults(
+		history,
+		options.limit,
+	);
+	if (!selectionResults.length) {
+		return undefined;
+	}
+	const generatedAt = options.generatedAt ?? new Date();
+	const selectedProfileId = options.selectedProfileId ?? "none";
+	return createConsoleAuditExportPlan(
+		selectionResults.map((result, index) => ({
+			id: `remote-known-hosts-selection-history-${index + 1}`,
+			level: "info",
+			time: formatAuditEventTime(generatedAt),
+			message: formatRemoteKnownHostsSelectionHistoryAuditMessage(
+				result,
+				index,
+				selectionResults.length,
+			),
+		})),
+		{
+			baseDir: options.baseDir,
+			generatedAt,
+			query: `remote known_hosts selection history ${selectedProfileId}`,
+			scope: "filtered",
+		},
+	);
+}
+
+export async function writeRemoteKnownHostsSelectionHistoryAuditExport(
+	plan: ConsoleAuditExportPlan,
+): Promise<ConsoleAuditExportPlan> {
+	return writeConsoleAuditExport(plan);
 }
 
 function isRemoteActivityResult(result: StatusActivityResult): boolean {
@@ -780,6 +852,16 @@ function isRemoteActivityResult(result: StatusActivityResult): boolean {
 	);
 }
 
+function getRemoteKnownHostsSelectionHistoryResults(
+	history: StatusActivityResult[],
+	limit = 3,
+): StatusActivityResult[] {
+	const boundedLimit = Math.max(1, Math.floor(limit));
+	return history
+		.filter(isRemoteKnownHostsSelectionActivityResult)
+		.slice(0, boundedLimit);
+}
+
 function isRemoteKnownHostsSelectionActivityResult(
 	result: StatusActivityResult,
 ): boolean {
@@ -787,6 +869,29 @@ function isRemoteKnownHostsSelectionActivityResult(
 		result.source === "timeline" &&
 		result.action === "remote-known-hosts-selection"
 	);
+}
+
+function formatRemoteKnownHostsSelectionHistoryAuditMessage(
+	result: StatusActivityResult,
+	index: number,
+	total: number,
+): string {
+	const timelineSearch = createStatusActivityResultTimelineSearch([result], 0);
+	return [
+		"remote known_hosts selection history",
+		`${index + 1}/${total}`,
+		formatRemoteActivitySummary(result),
+		result.detail ? `detail=${quoteAuditAttribute(result.detail)}` : undefined,
+		timelineSearch
+			? `timeline=${quoteAuditAttribute(timelineSearch.query)}`
+			: undefined,
+	]
+		.filter(Boolean)
+		.join(" ");
+}
+
+function quoteAuditAttribute(value: string): string {
+	return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
 
 function getSelectedRemoteActivityIndex(

@@ -31,6 +31,7 @@ import {
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
+	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createRemoteKnownHostsSelectionStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
@@ -84,6 +85,7 @@ import {
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getProcessControlAuditExports,
+	getRemoteKnownHostsSelectionHistoryClipboardPreview,
 	getSelectedProcessControlAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
@@ -106,6 +108,7 @@ import {
 	nextStatusActivityResultHistoryFilter,
 	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
+	writeRemoteKnownHostsSelectionHistoryAuditExport,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
 } from "../src/tui/statusActivityQueue";
@@ -1031,8 +1034,141 @@ describe("Status activity queue", () => {
 			"  known_hosts previous prod prod.example.com:2222 selected=1/2",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" line=1 hostPattern=[prod.example.com]:2222 keyType=ssh-rsa fingerprint=SHA256:first match=candidate-only network=not-opened scan=false trust=not-applied knownHostsWrite=false',
 			"  timeline=remote known_hosts selection audit id=prod selected=1",
-			"controls=[/] rotate · 1-9 direct · S typed · palette remote known_hosts select · Status I timeline recovery",
+			"controls=[/] rotate · 1-9 direct · S typed · y copy · E export · palette remote known_hosts select · Status I timeline recovery",
 		]);
+	});
+
+	test("creates remote known_hosts selection history copy previews and audit exports", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-known-hosts-history-"));
+		try {
+			const profile = {
+				id: "prod",
+				kind: "sftp" as const,
+				host: "prod.example.com",
+				port: 2222,
+				username: "deploy",
+				root: "/srv/app",
+				keyPath: "~/.ssh/id_ed25519",
+			};
+			const review = selectRemoteKnownHostsPasteReviewCandidate(
+				createRemoteKnownHostsPasteReview(
+					profile,
+					[
+						"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfirst first",
+						"[prod.example.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecond second",
+					].join("\n"),
+				),
+				2,
+			);
+			const commandResult =
+				createRemoteKnownHostsPasteSelectionStatusActivityResult(
+					review,
+					"command",
+				);
+			const moveResult = createRemoteKnownHostsSelectionStatusActivityResult({
+				id: "prod",
+				host: "prod.example.com",
+				port: 2222,
+				target: "sftp://deploy@prod.example.com:2222/srv/app",
+				direction: "previous",
+				selected: 1,
+				candidateCount: 2,
+				sourceLine: 1,
+				hostPattern: "[prod.example.com]:2222",
+				keyType: "ssh-rsa",
+				fingerprint: "SHA256:first",
+				match: "candidate-only",
+			});
+			const history = [
+				{
+					source: "timeline",
+					action: "remote-connect",
+					message: "remote connect ignored prod prod.example.com:2222",
+				} as const,
+				commandResult,
+				moveResult,
+			];
+
+			expect(
+				getRemoteKnownHostsSelectionHistoryClipboardPreview(history, {
+					limit: 2,
+					selectedProfileId: "prod",
+				}),
+			).toEqual({
+				source: "status-activity",
+				label: "remote known_hosts selection history prod",
+				copyText: [
+					"KNOWN_HOSTS SELECTION HISTORY count=2 selected=prod",
+					"> known_hosts selected prod prod.example.com:2222 candidate=2/2 method=command",
+					"  source=provided-known-hosts-paste line=2 key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false",
+					"  timeline=remote known_hosts paste selection audit id=prod candidate=2 method=command",
+					"  known_hosts previous prod prod.example.com:2222 selected=1/2",
+					'  target="sftp://deploy@prod.example.com:2222/srv/app" line=1 hostPattern=[prod.example.com]:2222 keyType=ssh-rsa fingerprint=SHA256:first match=candidate-only network=not-opened scan=false trust=not-applied knownHostsWrite=false',
+					"  timeline=remote known_hosts selection audit id=prod selected=1",
+					"controls=[/] rotate · 1-9 direct · S typed · y copy · E export · palette remote known_hosts select · Status I timeline recovery",
+				].join("\n"),
+				details: [
+					"selection-history count=2 selected=prod",
+					"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
+				],
+				confirmation: "copy",
+				enabled: false,
+				reason: "Clipboard writes require explicit confirmation plumbing.",
+			});
+			expect(
+				getRemoteKnownHostsSelectionHistoryClipboardPreview([], {
+					selectedProfileId: "prod",
+				}),
+			).toBeUndefined();
+
+			const plan = createRemoteKnownHostsSelectionHistoryAuditExportPlan(
+				history,
+				{
+					baseDir: root,
+					generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+					limit: 2,
+					selectedProfileId: "prod",
+				},
+			);
+
+			expect(plan).toEqual({
+				path: join(
+					root,
+					"audit",
+					"picos-audit-filtered-2026-07-01T030000000Z.log",
+				),
+				content: [
+					"# picos audit log",
+					"generatedAt=2026-07-01T03:00:00.000Z",
+					"scope=filtered",
+					"query=remote known_hosts selection history prod",
+					"events=2",
+					"",
+					'[03:00:00] INFO remote known_hosts selection history 1/2 known_hosts selected prod prod.example.com:2222 candidate=2/2 method=command detail="source=provided-known-hosts-paste line=2 key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false" timeline="remote known_hosts paste selection audit id=prod candidate=2 method=command"',
+					'[03:00:00] INFO remote known_hosts selection history 2/2 known_hosts previous prod prod.example.com:2222 selected=1/2 detail="target=\\"sftp://deploy@prod.example.com:2222/srv/app\\" line=1 hostPattern=[prod.example.com]:2222 keyType=ssh-rsa fingerprint=SHA256:first match=candidate-only network=not-opened scan=false trust=not-applied knownHostsWrite=false" timeline="remote known_hosts selection audit id=prod selected=1"',
+					"",
+				].join("\n"),
+				eventCount: 2,
+				query: "remote known_hosts selection history prod",
+				scope: "filtered",
+			});
+			expect(
+				createRemoteKnownHostsSelectionHistoryAuditExportPlan([], {
+					baseDir: root,
+				}),
+			).toBeUndefined();
+			if (!plan) {
+				throw new Error("expected known_hosts selection history export plan");
+			}
+			const written =
+				await writeRemoteKnownHostsSelectionHistoryAuditExport(plan);
+			expect(written).toEqual(plan);
+			expect(await readFile(plan.path, "utf8")).toContain(
+				"remote known_hosts selection history 1/2 known_hosts selected prod",
+			);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
 	});
 
 	test("creates status activity and audit rows for palette process control previews", () => {
