@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.324 - Interface Confirmation Draft
+
+Status: in progress on `codex/picos-v0.4.324-interface-confirmation-draft`, stacked on draft PR [#398](https://github.com/uulab-official/picos/pull/398).
+
+Goal: make locked interface enable/disable proposals show the exact confirmation phrase and blocked confirmation state before any prompt or execution path exists.
+
+- Interface state proposals now include a `confirmationDraft` model with status, exact phrase, typed value, confirmed state, target label, reason, blockers, and `willExecute=false`.
+- Interfaces workspace and command-palette proposal previews show confirmation rows between dry-run policy and preflight.
+- Preflight rows now include `confirmationRequired=... confirmed=false willExecute=false` so the execution gate is visible in the same OS-style checklist.
+- No confirmation prompt, interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
+- Tests cover confirmation draft modeling plus workspace and command-palette rendering.
+- Next: add a locked `:interface-confirm` prompt that records blocked or rejected confirmation attempts without executing the adapter command.
+
 ## v0.4.323 - Interface Dry-Run Policy Preview
 
 Status: draft PR [#398](https://github.com/uulab-official/picos/pull/398) on `codex/picos-v0.4.323-interface-dry-run-policy`, stacked on draft PR [#397](https://github.com/uulab-official/picos/pull/397).
@@ -13,7 +26,7 @@ Goal: make locked interface enable/disable proposals show dry-run support and bl
 - Preflight rows now include explicit dry-run blockers instead of the old single `adapterDryRun=proposal-only` row.
 - No interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
 - Tests cover dry-run preview modeling, platform differences, workspace rendering, and command-palette rendering.
-- Next: add an exact confirmation draft for interface proposals, still without executing the adapter command.
+- Next: completed by v0.4.324 exact confirmation draft rows for interface proposals.
 
 ## v0.4.322 - macOS Interface Service Map
 

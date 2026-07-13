@@ -43,6 +43,17 @@ export type InterfaceDryRunPreview = {
 	blockers: string[];
 };
 
+export type InterfaceConfirmationDraft = {
+	status: "required";
+	phrase: "enable interface" | "disable interface";
+	typed: "";
+	confirmed: false;
+	willExecute: false;
+	targetLabel: string;
+	reason: string;
+	blockers: string[];
+};
+
 export type InterfaceStateProposal = {
 	actionId: "interface.enable" | "interface.disable";
 	action: InterfaceStateProposalAction;
@@ -54,6 +65,7 @@ export type InterfaceStateProposal = {
 	target?: InterfaceStateProposalTarget;
 	controlTarget?: InterfaceControlTarget;
 	dryRunPreview: InterfaceDryRunPreview;
+	confirmationDraft: InterfaceConfirmationDraft;
 	currentStatus?: InterfaceStatus;
 	desiredStatus: InterfaceStatus;
 	preflight: string[];
@@ -77,6 +89,10 @@ export function createInterfaceStateProposal(
 		? createInterfaceControlTarget(target, action, options)
 		: undefined;
 	const dryRunPreview = createInterfaceDryRunPreview(controlTarget);
+	const confirmationDraft = createInterfaceConfirmationDraft(
+		action,
+		controlTarget,
+	);
 	const status: InterfaceStateProposalStatus = !target
 		? "invalid"
 		: selected?.status === desiredStatus
@@ -95,6 +111,7 @@ export function createInterfaceStateProposal(
 		target,
 		controlTarget,
 		dryRunPreview,
+		confirmationDraft,
 		currentStatus: selected?.status,
 		desiredStatus,
 		preflight: [
@@ -103,6 +120,7 @@ export function createInterfaceStateProposal(
 			`willModify=interface-link-state serviceOrAdapter=${controlTarget?.kind ?? "unknown"} controlTarget=${controlTarget?.label ?? "-"}`,
 			`targetResolution=${controlTarget?.resolution ?? "select an interface before preview"}`,
 			"requires=selected-interface admin confirmation dry-run-policy",
+			`confirmationRequired=${confirmationDraft.phrase} confirmed=${confirmationDraft.confirmed} willExecute=${confirmationDraft.willExecute}`,
 			`adapterDryRun=${dryRunPreview.adapterDryRun} policy=${dryRunPreview.policy} willExecute=${dryRunPreview.willExecute}`,
 			`dryRunBlockers=${dryRunPreview.blockers.join(",")}`,
 			"rollback=restore previous interface state from current snapshot",
@@ -134,6 +152,9 @@ export function formatInterfaceStateProposalRows(
 		`dryRun status=${proposal.dryRunPreview.status} policy=${proposal.dryRunPreview.policy} adapterDryRun=${proposal.dryRunPreview.adapterDryRun} willExecute=${proposal.dryRunPreview.willExecute}`,
 		`dryRunCommand=${proposal.dryRunPreview.commandPreview}`,
 		`dryRunReason=${proposal.dryRunPreview.reason} blockers=${proposal.dryRunPreview.blockers.join(",")}`,
+		`confirmation status=${proposal.confirmationDraft.status} phrase=${proposal.confirmationDraft.phrase} typed="${proposal.confirmationDraft.typed}" confirmed=${proposal.confirmationDraft.confirmed}`,
+		`confirmationTarget=${proposal.confirmationDraft.targetLabel} willExecute=${proposal.confirmationDraft.willExecute}`,
+		`confirmationReason=${proposal.confirmationDraft.reason} blockers=${proposal.confirmationDraft.blockers.join(",")}`,
 		"PREFLIGHT",
 		...proposal.preflight,
 		"execution=disabled no interface state will be changed",
@@ -157,6 +178,27 @@ function createInterfaceStateProposalTarget(
 		mtu: selected.mtu,
 		primary: selected.name === options.primaryInterfaceName,
 		platform: options.platform,
+	};
+}
+
+export function createInterfaceConfirmationDraft(
+	action: InterfaceStateProposalAction,
+	controlTarget: InterfaceControlTarget | undefined,
+): InterfaceConfirmationDraft {
+	const phrase = action === "enable" ? "enable interface" : "disable interface";
+	return {
+		status: "required",
+		phrase,
+		typed: "",
+		confirmed: false,
+		willExecute: false,
+		targetLabel: controlTarget?.label ?? "-",
+		reason: "confirmation-not-opened",
+		blockers: [
+			"confirmation-required",
+			"interface-execution-disabled",
+			"mutation-controls-disabled",
+		],
 	};
 }
 
