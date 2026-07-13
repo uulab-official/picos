@@ -2,7 +2,7 @@
 
 ## v0.4.327 - Interface Audit Handoff
 
-Status: in progress on `codex/picos-v0.4.327-interface-audit-handoff`, stacked on draft PR [#401](https://github.com/uulab-official/picos/pull/401).
+Status: draft PR [#402](https://github.com/uulab-official/picos/pull/402) on `codex/picos-v0.4.327-interface-audit-handoff`, stacked on draft PR [#401](https://github.com/uulab-official/picos/pull/401).
 
 Goal: make interface confirmation audits copy/export handoff targets from Status Activity.
 

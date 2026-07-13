@@ -13,7 +13,7 @@ Make blocked or rejected interface confirmation audit attempts reusable as Statu
 - [x] Keep all interface execution, dry-run execution, privileged calls, and OS mutation disabled.
 - [x] Cover copy preview, copy-intent rows, and selected export planning with tests.
 - [x] Run focused tests, lint, typecheck, verify, and release checks.
-- [ ] Publish a stacked draft PR on top of v0.4.326.
+- [x] Publish a stacked draft PR on top of v0.4.326.
 
 ## Safety Boundary
 
