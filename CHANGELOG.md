@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Interface confirmation audit attempts now append Status Activity result-history entries with reusable Timeline audit-search jumps, so blocked/rejected interface control confirmations can be recovered after leaving the Interfaces workspace.
 - Interfaces workspace now opens a locked `:interface-confirm` audit prompt from `K` or `enter` after a state proposal, recording exact confirmations as `confirmed-blocked` and mismatches as `rejected` while keeping `willExecute=false`.
 - Interface state proposals now include exact confirmation draft rows that show the required phrase, empty typed value, target label, blocked confirmation state, and blockers before any interface execution path exists.
 - Interface state proposals now include explicit dry-run policy preview rows that show adapter dry-run availability, proposal-only policy, blocked execution state, command preview, and blockers without enabling interface mutation.

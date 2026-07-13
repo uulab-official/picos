@@ -9,6 +9,10 @@ import {
 	writeConsoleAuditExport,
 } from "../src/core/auditLog";
 import {
+	createInterfaceStateProposal,
+	submitInterfaceConfirmation,
+} from "../src/core/interfaceControl";
+import {
 	createRemoteConnectPreview,
 	createRemoteHostKeyEvidenceInput,
 	createRemoteHostKeyTrustDecisionPreview,
@@ -22,6 +26,7 @@ import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createInterfaceConfirmationStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
@@ -702,6 +707,59 @@ describe("Status activity queue", () => {
 			query: "remote connect audit id=prod status=confirmed-blocked",
 			message:
 				"status activity result timeline search remote connect prod confirmed-blocked",
+		});
+	});
+
+	test("creates recoverable status activity results for interface confirmations", () => {
+		const proposal = createInterfaceStateProposal(
+			{
+				name: "en0",
+				status: "connected",
+				kind: "wifiOrEthernet",
+				ipv4: "192.168.0.20",
+				ipv4Cidr: "192.168.0.20/24",
+				ipv6: "fe80::1",
+				mac: "aa:bb:cc:dd:ee:ff",
+				mtu: 1500,
+			},
+			"disable",
+			{
+				platform: "darwin",
+				primaryInterfaceName: "en0",
+				macosServiceNamesByDevice: { en0: "Wi-Fi" },
+			},
+		);
+		const confirmation = submitInterfaceConfirmation(
+			proposal,
+			"disable interface",
+		);
+		const result =
+			createInterfaceConfirmationStatusActivityResult(confirmation);
+
+		expect(result).toEqual({
+			source: "timeline",
+			action: "interface-confirmation",
+			message:
+				"interface confirmation confirmed-blocked interface.disable target=Wi-Fi",
+			detail:
+				'action=disable target="Wi-Fi" expected="disable interface" received="disable interface" confirmed=true willExecute=false risk=write privilege=admin reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off"',
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=timeline action=interface-confirmation",
+			"> interface confirmation confirmed-blocked interface.disable target=Wi-Fi",
+			'  action=disable target="Wi-Fi" expected="disable interface" received="disable interface" confirmed=true willExecute=false risk=write privilege=admin reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off"',
+		]);
+		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
+			"> timeline interface-confirmation interface confirmation confirmed-blocked interface.disable target=Wi-Fi",
+			'    action=disable target="Wi-Fi" expected="disable interface" received="disable interface" confirmed=true willExecute=false risk=write privilege=admin reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off"',
+		]);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query:
+				"interface confirmation interface.disable status=confirmed-blocked",
+			message:
+				"status activity result timeline search interface confirmation interface.disable confirmed-blocked",
 		});
 	});
 
