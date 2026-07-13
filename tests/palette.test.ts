@@ -508,6 +508,7 @@ describe("TUI command palette", () => {
 				"status.remoteKnownHostsEvidence.copy",
 				"status.remoteKnownHostsEvidence.export",
 				"status.remoteKnownHostsEvidence.handoffSelect",
+				"status.remoteKnownHostsEvidence.handoffOpen",
 			]),
 		);
 		expect(
@@ -537,6 +538,15 @@ describe("TUI command palette", () => {
 				),
 			).map((action) => action.id),
 		).toContain("status.remoteKnownHostsEvidence.handoffSelect");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"remote known_hosts handoff open",
+				),
+			).map((action) => action.id),
+		).toContain("status.remoteKnownHostsEvidence.handoffOpen");
 	});
 
 	test("previews recovered remote known_hosts evidence actions before dispatch", () => {
@@ -645,7 +655,36 @@ describe("TUI command palette", () => {
 			formatCommandPaletteActionPreviewRows(
 				getActionCatalog().find(
 					(action) =>
-						action.id === "status.remoteKnownHostsEvidence.handoffSelect",
+						action.id === "status.remoteKnownHostsEvidence.handoffOpen",
+				),
+				{
+					selectedRemoteKnownHostsEvidenceHandoff: {
+						action: "export",
+						historyIndex: 2,
+						id: "prod",
+						jump: {
+							filter: "audit",
+							query:
+								'palette remote known_hosts evidence audit action=export target="prod"',
+							message:
+								"status activity result timeline search palette remote known_hosts evidence prod",
+						},
+						selected: 1,
+						total: 2,
+					},
+				},
+			),
+		).toEqual([
+			"selected remote known_hosts handoff 2/2",
+			"target=id:prod action=export row=3",
+			'query=palette remote known_hosts evidence audit action=export target="prod"',
+			"timeline-search=audit message=status activity result timeline search palette remote known_hosts evidence prod",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) =>
+						action.id === "status.remoteKnownHostsEvidence.handoffOpen",
 				),
 			),
 		).toEqual([

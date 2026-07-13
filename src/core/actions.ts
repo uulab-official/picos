@@ -679,6 +679,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.remoteKnownHostsEvidence.handoffOpen",
+		title: "Open known_hosts handoff",
+		description:
+			"Known_hosts handoff open shortcut for replaying the selected Remotes known_hosts copy/export handoff Timeline search.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.resultJump.select",
 		title: "Select Status result Timeline jump",
 		description:
