@@ -503,6 +503,7 @@ import {
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
+	formatRemoteKnownHostsSelectionHistoryRows,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -12225,7 +12226,7 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 101);
+	const profileRows = Math.max(1, visibleRows - focusRows.length - 109);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
@@ -12303,6 +12304,11 @@ function RemotesWorkspace({
 	const activityRows = formatRemoteActivityShelfRows(activityResults, {
 		selectedProfileId: selectedProfile?.id,
 	});
+	const knownHostsSelectionHistoryRows =
+		formatRemoteKnownHostsSelectionHistoryRows(activityResults, {
+			selectedProfileId: selectedProfile?.id,
+			limit: 2,
+		});
 
 	return (
 		<Box flexDirection="column">
@@ -12362,6 +12368,28 @@ function RemotesWorkspace({
 									? "yellow"
 									: row.startsWith(">")
 										? "cyan"
+										: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">KNOWN_HOSTS SELECTION HISTORY</Text>
+				{knownHostsSelectionHistoryRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("KNOWN_HOSTS")
+								? "cyan"
+								: row.startsWith(">") || row.startsWith("controls=")
+									? "cyan"
+									: row.includes("not-opened") ||
+											row.includes("not-applied") ||
+											row.includes("knownHostsWrite=false") ||
+											row.startsWith("guards=")
+										? "yellow"
 										: "gray"
 						}
 					>

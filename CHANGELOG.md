@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes workspace now shows a dedicated `KNOWN_HOSTS SELECTION HISTORY` shelf derived from Status Activity `remote-known-hosts-selection` rows, including selected candidate summaries, locked trust/write guards, and reusable Timeline recovery queries without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Command palette now finds `remote known_hosts select` and `known hosts candidate`, previews the locked `:remote-known-hosts-select` prompt with read/network/trust/write guards, and dispatches into Remotes focus without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports locked `S` typed known_hosts paste candidate selection through `:remote-known-hosts-select`, accepting inputs such as `12`, `#12`, and `candidate 12` for paste buffers beyond shortcut digits while recording `method=command` Status Activity and Timeline recovery rows without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports locked known_hosts paste candidate selection with `1-9`, and `[`/`]` or number selections now record Status Activity and Timeline recovery rows without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.

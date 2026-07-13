@@ -63,6 +63,7 @@ import {
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
+	formatRemoteKnownHostsSelectionHistoryRows,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
@@ -962,6 +963,76 @@ describe("Status activity queue", () => {
 			message:
 				"status activity result timeline search remote known_hosts selection prod candidate=2",
 		});
+	});
+
+	test("formats remote known_hosts selection history rows", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const review = selectRemoteKnownHostsPasteReviewCandidate(
+			createRemoteKnownHostsPasteReview(
+				profile,
+				[
+					"[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCfirst first",
+					"[prod.example.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAISecond second",
+				].join("\n"),
+			),
+			2,
+		);
+		const commandResult =
+			createRemoteKnownHostsPasteSelectionStatusActivityResult(
+				review,
+				"command",
+			);
+		const moveResult = createRemoteKnownHostsSelectionStatusActivityResult({
+			id: "prod",
+			host: "prod.example.com",
+			port: 2222,
+			target: "sftp://deploy@prod.example.com:2222/srv/app",
+			direction: "previous",
+			selected: 1,
+			candidateCount: 2,
+			sourceLine: 1,
+			hostPattern: "[prod.example.com]:2222",
+			keyType: "ssh-rsa",
+			fingerprint: "SHA256:first",
+			match: "candidate-only",
+		});
+
+		expect(formatRemoteKnownHostsSelectionHistoryRows([])).toEqual([
+			"KNOWN_HOSTS SELECTION HISTORY count=0 selected=none",
+			"hint=use [/] 1-9 S or palette remote known_hosts select after paste review",
+			"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
+		]);
+		expect(
+			formatRemoteKnownHostsSelectionHistoryRows(
+				[
+					{
+						source: "timeline",
+						action: "remote-connect",
+						message: "remote connect ignored prod prod.example.com:2222",
+					},
+					commandResult,
+					moveResult,
+				],
+				{ limit: 2, selectedProfileId: "prod" },
+			),
+		).toEqual([
+			"KNOWN_HOSTS SELECTION HISTORY count=2 selected=prod",
+			"> known_hosts selected prod prod.example.com:2222 candidate=2/2 method=command",
+			"  source=provided-known-hosts-paste line=2 key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false",
+			"  timeline=remote known_hosts paste selection audit id=prod candidate=2 method=command",
+			"  known_hosts previous prod prod.example.com:2222 selected=1/2",
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" line=1 hostPattern=[prod.example.com]:2222 keyType=ssh-rsa fingerprint=SHA256:first match=candidate-only network=not-opened scan=false trust=not-applied knownHostsWrite=false',
+			"  timeline=remote known_hosts selection audit id=prod selected=1",
+			"controls=[/] rotate · 1-9 direct · S typed · palette remote known_hosts select · Status I timeline recovery",
+		]);
 	});
 
 	test("creates status activity and audit rows for palette process control previews", () => {
