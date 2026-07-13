@@ -99,6 +99,43 @@ describe("TUI command palette", () => {
 		).toContain("tools.dns");
 	});
 
+	test("finds Remotes known_hosts selection prompt from the command palette", () => {
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"remote known_hosts select",
+				),
+			).map((action) => action.id),
+		).toContain("remote.knownHosts.select");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"known hosts candidate",
+				),
+			).map((action) => action.id),
+		).toContain("remote.knownHosts.select");
+	});
+
+	test("previews Remotes known_hosts selection prompt before dispatch", () => {
+		const actions = getActionCatalog();
+
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				actions.find((action) => action.id === "remote.knownHosts.select"),
+			),
+		).toEqual([
+			"remote known_hosts select",
+			"action=remote.knownHosts.select risk=read privilege=none",
+			"prompt=:remote-known-hosts-select accepts=12,#12,candidate 12",
+			"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
+			"dispatch=enter opens Remotes known_hosts selection prompt",
+		]);
+	});
+
 	test("previews Tools direct-run prompts before dispatch", () => {
 		const actions = getActionCatalog();
 

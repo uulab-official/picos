@@ -525,6 +525,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "remote.knownHosts.select",
+		title: "Select known_hosts candidate",
+		description:
+			"Remote known_hosts select shortcut for opening the typed candidate prompt without reading trust files or opening transport.",
+		category: "remote",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.timelineTrail.select",
 		title: "Select recovered Timeline trail",
 		description:

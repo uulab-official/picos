@@ -5333,6 +5333,16 @@ export function App(): React.ReactElement {
 					log("info", `remote profiles ${config.remoteProfiles.length}`);
 				}
 
+				if (action.id === "remote.knownHosts.select") {
+					setScreen("remotes");
+					setFocusArea("remotes");
+					setCommandLine(openCommandLine("remote-known-hosts-select"));
+					log(
+						"info",
+						"remote known_hosts candidate selection opened via palette",
+					);
+				}
+
 				if (action.id === "files.list") {
 					await refreshFiles();
 					log("ok", `files listed ${fileRoot}`);
