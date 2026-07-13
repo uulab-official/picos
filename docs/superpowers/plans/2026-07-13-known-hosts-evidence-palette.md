@@ -53,4 +53,6 @@
 
 - [x] Document command palette known_hosts evidence actions and replay path.
 - [x] Run `bun run verify` and `bun run release:check`.
-- [ ] Commit, push, and open a draft PR stacked on v0.4.300.
+- [x] Commit, push, and open a draft PR stacked on v0.4.300.
+
+Result: Draft PR [#376](https://github.com/uulab-official/picos/pull/376) opened on 2026-07-13, stacked on `codex/picos-v0.4.300-known-hosts-evidence-recovery`.

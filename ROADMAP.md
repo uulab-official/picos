@@ -2,7 +2,7 @@
 
 ## v0.4.301 - Remote Known Hosts Evidence Palette
 
-Status: in progress on `codex/picos-v0.4.301-known-hosts-evidence-palette`.
+Status: draft PR [#376](https://github.com/uulab-official/picos/pull/376) on `codex/picos-v0.4.301-known-hosts-evidence-palette`.
 
 Goal: make recovered Remotes known_hosts selection-history evidence reachable from the command palette and replayable from Status Activity, matching process evidence parity.
 
