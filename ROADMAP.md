@@ -2,7 +2,7 @@
 
 ## v0.4.320 - Interface Proposal Palette
 
-Status: in progress on `codex/picos-v0.4.320-interface-proposal-palette`, stacked on draft PR [#394](https://github.com/uulab-official/picos/pull/394).
+Status: draft PR [#395](https://github.com/uulab-official/picos/pull/395) on `codex/picos-v0.4.320-interface-proposal-palette`, stacked on draft PR [#394](https://github.com/uulab-official/picos/pull/394).
 
 Goal: make interface state proposals discoverable from the command palette, so OS-control intent can start from the launcher as well as from `D`/`U` shortcuts.
 
