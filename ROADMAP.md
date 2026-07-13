@@ -2,7 +2,7 @@
 
 ## v0.4.311 - Remote Known Hosts Evidence Handoff Palette Open
 
-Status: in progress on `codex/picos-v0.4.311-known-hosts-handoff-palette-open`, stacked on draft PR [#385](https://github.com/uulab-official/picos/pull/385).
+Status: draft PR [#386](https://github.com/uulab-official/picos/pull/386) on `codex/picos-v0.4.311-known-hosts-handoff-palette-open`, stacked on draft PR [#385](https://github.com/uulab-official/picos/pull/385).
 
 Goal: make selected Remotes known_hosts evidence copy/export handoff replay reachable directly from the command palette.
 
