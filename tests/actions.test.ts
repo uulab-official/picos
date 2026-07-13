@@ -517,6 +517,13 @@ describe("action catalog", () => {
 				args: ["dscacheutil", "-flushcache"],
 				note: "flush local DNS resolver cache",
 			},
+			preflight: [
+				"scope=local resolver cache",
+				"willModify=cache-only persistentConfig=false networkRestart=false",
+				"requires=admin confirmation dry-run-policy",
+				"adapterDryRun=preview-only",
+				"rollback=not-required cache repopulates from configured resolvers",
+			],
 			preview: [
 				"Risk: write",
 				"Privilege: admin",
@@ -534,6 +541,12 @@ describe("action catalog", () => {
 			"blocked=disabled-by-default",
 			"adapter=macos",
 			"command=sudo dscacheutil -flushcache",
+			"PREFLIGHT",
+			"scope=local resolver cache",
+			"willModify=cache-only persistentConfig=false networkRestart=false",
+			"requires=admin confirmation dry-run-policy",
+			"adapterDryRun=preview-only",
+			"rollback=not-required cache repopulates from configured resolvers",
 			"Risk: write",
 			"Privilege: admin",
 			"Platform: macos",
@@ -543,7 +556,7 @@ describe("action catalog", () => {
 			"Dry run: no OS command will be executed",
 		]);
 		expect(formatActionPreviewAuditMessage(plan)).toBe(
-			'control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache"',
+			'control preview dns.flush risk=write privilege=admin dryRun=true blocked=disabled-by-default adapter=macos command="sudo dscacheutil -flushcache" preflight=5',
 		);
 	});
 

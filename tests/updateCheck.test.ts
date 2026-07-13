@@ -201,6 +201,13 @@ describe("update check", () => {
 				note: "npm package manager dry-run for picos self-update",
 				dryRunExecutable: true,
 			},
+			preflight: [
+				"scope=global npm package",
+				"willModify=installed-picos-version persistentConfig=false",
+				"requires=package-manager confirmation dry-run-policy",
+				"adapterDryRun=available",
+				"rollback=reinstall previous package version manually",
+			],
 			preview: [
 				"Risk: write",
 				"Privilege: user",
