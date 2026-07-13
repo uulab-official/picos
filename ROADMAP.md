@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.321 - Interface Control Target Resolution
+
+Status: in progress on `codex/picos-v0.4.321-interface-control-targets`, stacked on draft PR [#395](https://github.com/uulab-official/picos/pull/395).
+
+Goal: make locked interface state proposals show the OS-specific control target that would be used before any enable/disable execution path exists.
+
+- Interface state proposals now include a `controlTarget` model with target kind, label, confidence, source, command preview, and resolution guidance.
+- Linux proposals resolve selected interface names to exact `ip link set <interface> up/down` targets.
+- Windows proposals resolve selected adapter names to exact `Enable-NetAdapter` / `Disable-NetAdapter -WhatIf` targets.
+- macOS proposals require a `networksetup` hardware-port service mapping when only a BSD device such as `en0` is known, and can mark mapped service names as exact when provided.
+- Interfaces workspace and command-palette proposal previews show control-target and command-preview rows before preflight.
+- No interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
+- Tests cover target resolution plus workspace and palette proposal rendering.
+- Next: collect macOS `networksetup -listallhardwareports` evidence into the interface source model, then pass exact service mappings into proposals.
+
 ## v0.4.320 - Interface Proposal Palette
 
 Status: draft PR [#395](https://github.com/uulab-official/picos/pull/395) on `codex/picos-v0.4.320-interface-proposal-palette`, stacked on draft PR [#394](https://github.com/uulab-official/picos/pull/394).
@@ -12,7 +27,7 @@ Goal: make interface state proposals discoverable from the command palette, so O
 - Palette dispatch moves to the Interfaces workspace, focuses panels, clears stale source-copy preview state, and opens the same proposal as the `D`/`U` shortcuts.
 - No interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
 - Tests cover palette discovery, proposal preview formatting, and action-catalog safety counts.
-- Next: add platform service-name mapping for safer adapter targets or extend proposal palette coverage to DNS server set prompts.
+- Next: completed by v0.4.321 platform control-target resolution.
 
 ## v0.4.319 - Interface State Proposal Preflight
 
