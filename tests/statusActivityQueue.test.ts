@@ -816,6 +816,42 @@ describe("Status activity queue", () => {
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · interface evidence target · palette interface evidence · g Timeline audit search",
 		]);
+		const quotedTargetResult = {
+			...result,
+			message:
+				'interface confirmation confirmed-blocked interface.disable target=Wi"Fi',
+			detail: result.detail?.replace('target="Wi-Fi"', 'target="Wi\\"Fi"'),
+		};
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				undefined,
+				0,
+				undefined,
+				undefined,
+				0,
+				1,
+				undefined,
+				0,
+				[],
+				0,
+				[],
+				0,
+				[quotedTargetResult],
+				0,
+			)[2],
+		).toBe(
+			'interface evidence target=interface.disable:confirmed-blocked target="Wi\\"Fi" query=interface confirmation interface.disable status=confirmed-blocked',
+		);
 		expect(
 			createInterfaceConfirmationAuditExportPlan([result], 0, {
 				baseDir: "/Users/bonjin/.config/picos",

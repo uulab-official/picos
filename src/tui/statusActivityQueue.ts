@@ -1521,9 +1521,26 @@ function formatInterfaceConfirmationActivityResultTarget(
 	if (!status || !actionId) {
 		return result.message;
 	}
-	const targetMatch = result.detail?.match(/(?:^| )target="([^"]+)"/);
-	const target = targetMatch?.[1];
-	return `${actionId}:${status}${target ? ` target="${target}"` : ""}`;
+	const targetMatch = result.detail?.match(/(?:^| )target="((?:\\.|[^"\\])*)"/);
+	const target = targetMatch?.[1]
+		? unquoteAuditAttributeValue(targetMatch[1])
+		: undefined;
+	return `${actionId}:${status}${target ? ` target=${quoteAuditAttribute(target)}` : ""}`;
+}
+
+function unquoteAuditAttributeValue(value: string): string {
+	let unquoted = "";
+	for (let index = 0; index < value.length; index += 1) {
+		const current = value[index];
+		const next = value[index + 1];
+		if (current === "\\" && (next === "\\" || next === '"')) {
+			unquoted += next;
+			index += 1;
+			continue;
+		}
+		unquoted += current;
+	}
+	return unquoted;
 }
 
 export type StatusActivityRemoteKnownHostsEvidenceHandoffOpenIntent = {
