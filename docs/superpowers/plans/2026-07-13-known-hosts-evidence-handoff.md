@@ -38,4 +38,6 @@
 
 - [x] Document direct known_hosts evidence copy/export fallback behavior.
 - [x] Run `bun run verify` and `bun run release:check`.
-- [ ] Commit, push, and open a draft PR stacked on v0.4.302.
+- [x] Commit, push, and open a draft PR stacked on v0.4.302.
+
+Result: Draft PR [#378](https://github.com/uulab-official/picos/pull/378) opened on 2026-07-13, stacked on `codex/picos-v0.4.302-known-hosts-evidence-copy-intents`.

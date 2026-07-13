@@ -2,7 +2,7 @@
 
 ## v0.4.303 - Remote Known Hosts Evidence Handoff
 
-Status: in progress on `codex/picos-v0.4.303-known-hosts-evidence-handoff`.
+Status: draft PR [#378](https://github.com/uulab-official/picos/pull/378) on `codex/picos-v0.4.303-known-hosts-evidence-handoff`.
 
 Goal: let operators copy or export the selected recovered Remotes known_hosts evidence directly from the Status Activity copy-intent shelf.
 
