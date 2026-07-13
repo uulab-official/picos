@@ -13,7 +13,7 @@ Make interface confirmation evidence easier to scan from the Status Activity cop
 - [x] Keep adapter execution, dry-run execution, privileged calls, and OS mutation disabled.
 - [x] Cover the compact target row and controls hint with tests.
 - [x] Run full verify and release checks.
-- [ ] Publish a stacked draft PR on top of v0.4.329.
+- [x] Publish a stacked draft PR on top of v0.4.329.
 
 ## Safety Boundary
 

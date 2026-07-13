@@ -2,7 +2,7 @@
 
 ## v0.4.330 - Interface Evidence Targets
 
-Status: in progress on `codex/picos-v0.4.330-interface-evidence-targets`, stacked on draft PR [#404](https://github.com/uulab-official/picos/pull/404).
+Status: draft PR [#405](https://github.com/uulab-official/picos/pull/405) on `codex/picos-v0.4.330-interface-evidence-targets`, stacked on draft PR [#404](https://github.com/uulab-official/picos/pull/404).
 
 Goal: make interface confirmation evidence easier to scan inside the Status Activity copy-intent shelf.
 
