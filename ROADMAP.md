@@ -2,7 +2,7 @@
 
 ## v0.4.317 - DNS Server Proposal Preflight
 
-Status: in progress on `codex/picos-v0.4.317-dns-proposal-preflight`, stacked on draft PR [#391](https://github.com/uulab-official/picos/pull/391).
+Status: draft PR [#392](https://github.com/uulab-official/picos/pull/392) on `codex/picos-v0.4.317-dns-proposal-preflight`, stacked on draft PR [#391](https://github.com/uulab-official/picos/pull/391).
 
 Goal: start target-specific DNS edit preflight prompts without enabling DNS mutation.
 
