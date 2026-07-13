@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Interfaces workspace now opens a locked `:interface-confirm` audit prompt from `K` or `enter` after a state proposal, recording exact confirmations as `confirmed-blocked` and mismatches as `rejected` while keeping `willExecute=false`.
 - Interface state proposals now include exact confirmation draft rows that show the required phrase, empty typed value, target label, blocked confirmation state, and blockers before any interface execution path exists.
 - Interface state proposals now include explicit dry-run policy preview rows that show adapter dry-run availability, proposal-only policy, blocked execution state, command preview, and blockers without enabling interface mutation.
 - macOS network summaries now retain `networksetup -listallhardwareports` evidence, parse BSD device to service-name mappings such as `en0 -> Wi-Fi`, show the map in Interfaces source/platform panes, and feed exact service targets into locked interface state proposals.

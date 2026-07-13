@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createInterfaceStateProposal } from "../src/core/interfaceControl";
+import {
+	createInterfaceStateProposal,
+	submitInterfaceConfirmation,
+} from "../src/core/interfaceControl";
 import type { NetworkSummary } from "../src/core/types";
 import {
 	createInterfaceSourceHandoffPlan,
@@ -471,6 +474,38 @@ describe("interface TUI panel formatting", () => {
 			"dryRunBlockers=interface-execution-disabled,mutation-controls-disabled,adapter-dry-run-unavailable",
 			"rollback=restore previous interface state from current snapshot",
 			"execution=disabled no interface state will be changed",
+		]);
+	});
+
+	test("formats interface confirmation audit rows in the workspace", () => {
+		const proposal = createInterfaceStateProposal(
+			fixture.interfaces[0],
+			"disable",
+			{
+				platform: fixture.platform,
+				primaryInterfaceName: fixture.primaryInterface?.name,
+				macosServiceNamesByDevice: fixture.macosServiceNamesByDevice,
+			},
+		);
+		const confirmationResult = submitInterfaceConfirmation(
+			proposal,
+			"disable interface",
+		);
+
+		expect(
+			formatInterfaceWorkspaceRows(fixture, 48, {
+				confirmationResult,
+				selectedIndex: 0,
+				stateProposal: proposal,
+				view: "detail",
+			}).slice(-6),
+		).toEqual([
+			"INTERFACE CONFIRM AUDIT interface.disable",
+			"status=confirmed-blocked confirmed=true willExecute=false",
+			'expected="disable interface" received="disable interface"',
+			"target=Wi-Fi risk=write privilege=admin",
+			"command=sudo networksetup -setnetworkserviceenabled Wi-Fi off",
+			"reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled",
 		]);
 	});
 });

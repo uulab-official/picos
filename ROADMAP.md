@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.325 - Interface Confirmation Audit Prompt
+
+Status: draft PR [#400](https://github.com/uulab-official/picos/pull/400) on `codex/picos-v0.4.325-interface-confirm-audit`, stacked on draft PR [#399](https://github.com/uulab-official/picos/pull/399).
+
+Goal: let operators type the exact interface confirmation phrase and keep a visible blocked/rejected audit trail without enabling adapter execution.
+
+- Interfaces workspace now opens a locked `:interface-confirm` prompt with `K` or `enter` after an interface state proposal exists.
+- Exact phrases become `confirmed-blocked`; mismatches become `rejected`.
+- Confirmation audit rows show expected/received text, target label, risk, privilege, command preview, reason, blockers, and `willExecute=false`.
+- The prompt is visible in the Interfaces panel and closes back into the same proposal/audit view.
+- No interface enable/disable command, adapter mutation path, dry-run execution, privileged OS call, or status-activity queue extension is added.
+- Tests cover prompt rows, confirmation result modeling, audit messages, and workspace rendering.
+- Next: persist interface confirmation audit attempts into Timeline/Status Activity as first-class recoverable evidence.
+
 ## v0.4.324 - Interface Confirmation Draft
 
 Status: draft PR [#399](https://github.com/uulab-official/picos/pull/399) on `codex/picos-v0.4.324-interface-confirmation-draft`, stacked on draft PR [#398](https://github.com/uulab-official/picos/pull/398).
@@ -11,7 +25,7 @@ Goal: make locked interface enable/disable proposals show the exact confirmation
 - Preflight rows now include `confirmationRequired=... confirmed=false willExecute=false` so the execution gate is visible in the same OS-style checklist.
 - No confirmation prompt, interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
 - Tests cover confirmation draft modeling plus workspace and command-palette rendering.
-- Next: add a locked `:interface-confirm` prompt that records blocked or rejected confirmation attempts without executing the adapter command.
+- Next: completed by v0.4.325 locked interface confirmation audit prompt.
 
 ## v0.4.323 - Interface Dry-Run Policy Preview
 

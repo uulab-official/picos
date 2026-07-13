@@ -4,7 +4,11 @@ import {
 	createInterfaceControlTarget,
 	createInterfaceDryRunPreview,
 	createInterfaceStateProposal,
+	formatInterfaceConfirmationAuditMessage,
+	formatInterfaceConfirmationPromptRows,
+	formatInterfaceConfirmationResultRows,
 	formatInterfaceStateProposalRows,
+	submitInterfaceConfirmation,
 } from "../src/core/interfaceControl";
 import type { NetworkInterfaceSummary } from "../src/core/types";
 
@@ -225,6 +229,66 @@ describe("interface state proposal preflight", () => {
 			reason: "confirmation-not-opened",
 			blockers: [
 				"confirmation-required",
+				"interface-execution-disabled",
+				"mutation-controls-disabled",
+			],
+		});
+	});
+
+	test("records interface confirmations as blocked or rejected audit", () => {
+		const proposal = createInterfaceStateProposal(selected, "disable", {
+			platform: "darwin",
+			primaryInterfaceName: "en0",
+			macosServiceNamesByDevice: { en0: "Wi-Fi" },
+		});
+
+		expect(formatInterfaceConfirmationPromptRows(proposal, "disable")).toEqual([
+			"INTERFACE CONFIRM interface.disable",
+			':interface-confirm disable  type="disable interface" enter=audit esc=cancel',
+			"target=Wi-Fi confirmed=false willExecute=false",
+			"executionEnabled=false adapterCommandBlocked=true",
+		]);
+
+		const confirmed = submitInterfaceConfirmation(
+			proposal,
+			" disable interface ",
+		);
+		expect(confirmed).toEqual({
+			actionId: "interface.disable",
+			action: "disable",
+			status: "confirmed-blocked",
+			expectedPhrase: "disable interface",
+			receivedPhrase: "disable interface",
+			confirmed: true,
+			willExecute: false,
+			targetLabel: "Wi-Fi",
+			risk: "write",
+			privilege: "admin",
+			commandPreview: "sudo networksetup -setnetworkserviceenabled Wi-Fi off",
+			reason: "execution-disabled",
+			blockers: ["interface-execution-disabled", "mutation-controls-disabled"],
+		});
+		expect(formatInterfaceConfirmationResultRows(confirmed)).toEqual([
+			"INTERFACE CONFIRM AUDIT interface.disable",
+			"status=confirmed-blocked confirmed=true willExecute=false",
+			'expected="disable interface" received="disable interface"',
+			"target=Wi-Fi risk=write privilege=admin",
+			"command=sudo networksetup -setnetworkserviceenabled Wi-Fi off",
+			"reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled",
+		]);
+		expect(formatInterfaceConfirmationAuditMessage(confirmed)).toBe(
+			'interface confirmation interface.disable status=confirmed-blocked confirmed=true willExecute=false target=Wi-Fi reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off"',
+		);
+
+		const rejected = submitInterfaceConfirmation(proposal, "disable adapter");
+		expect(rejected).toMatchObject({
+			status: "rejected",
+			receivedPhrase: "disable adapter",
+			confirmed: false,
+			willExecute: false,
+			reason: "confirmation-mismatch",
+			blockers: [
+				"confirmation-mismatch",
 				"interface-execution-disabled",
 				"mutation-controls-disabled",
 			],

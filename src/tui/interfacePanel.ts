@@ -2,7 +2,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { getControlPreviewCommand } from "../core/controlPreview";
 import {
+	formatInterfaceConfirmationResultRows,
 	formatInterfaceStateProposalRows,
+	type InterfaceConfirmationResult,
 	type InterfaceStateProposal,
 } from "../core/interfaceControl";
 import type {
@@ -71,6 +73,7 @@ export function formatInterfaceWorkspaceRows(
 	visibleRows: number,
 	options: {
 		copyPreview?: boolean;
+		confirmationResult?: InterfaceConfirmationResult;
 		selectedIndex?: number;
 		stateProposal?: InterfaceStateProposal;
 		view?: InterfaceDetailView;
@@ -91,6 +94,7 @@ export function formatInterfaceWorkspaceRows(
 			...formatSelectedInterfaceSummaryRows(summary, selected),
 			...formatInterfaceDetailRows(summary, selected),
 			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
+			...formatInterfaceConfirmationResultRows(options.confirmationResult),
 		].slice(0, visibleRows);
 	}
 	if (view === "stats") {
@@ -99,6 +103,7 @@ export function formatInterfaceWorkspaceRows(
 			...formatSelectedInterfaceSummaryRows(summary, selected),
 			...formatInterfaceStatsRows(selected),
 			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
+			...formatInterfaceConfirmationResultRows(options.confirmationResult),
 		].slice(0, visibleRows);
 	}
 	if (view === "platform") {
@@ -107,6 +112,7 @@ export function formatInterfaceWorkspaceRows(
 			...formatSelectedInterfaceSummaryRows(summary, selected),
 			...formatInterfacePlatformRows(summary),
 			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
+			...formatInterfaceConfirmationResultRows(options.confirmationResult),
 		].slice(0, visibleRows);
 	}
 	if (view === "source") {
@@ -118,6 +124,7 @@ export function formatInterfaceWorkspaceRows(
 				? formatInterfaceSourceClipboardPreviewRows(summary, selected)
 				: []),
 			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
+			...formatInterfaceConfirmationResultRows(options.confirmationResult),
 		].slice(0, visibleRows);
 	}
 
@@ -126,6 +133,7 @@ export function formatInterfaceWorkspaceRows(
 		...formatSelectedInterfaceSummaryRows(summary, selected),
 		...formatInterfaceListRows(summary, selectedIndex),
 		...formatOptionalInterfaceStateProposalRows(options.stateProposal),
+		...formatInterfaceConfirmationResultRows(options.confirmationResult),
 	].slice(0, visibleRows);
 }
 
