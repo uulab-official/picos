@@ -2,7 +2,7 @@
 
 ## v0.4.325 - Interface Confirmation Audit Prompt
 
-Status: in progress on `codex/picos-v0.4.325-interface-confirm-audit`, stacked on draft PR [#399](https://github.com/uulab-official/picos/pull/399).
+Status: draft PR [#400](https://github.com/uulab-official/picos/pull/400) on `codex/picos-v0.4.325-interface-confirm-audit`, stacked on draft PR [#399](https://github.com/uulab-official/picos/pull/399).
 
 Goal: let operators type the exact interface confirmation phrase and keep a visible blocked/rejected audit trail without enabling adapter execution.
 

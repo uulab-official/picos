@@ -13,7 +13,7 @@ Let operators type the exact interface enable/disable confirmation phrase from t
 - [x] Show the latest confirmation audit rows beside the proposal.
 - [x] Cover prompt rows, result rows, audit messages, and workspace rendering with tests.
 - [x] Run focused tests, lint, typecheck, verify, and release checks.
-- [ ] Publish a stacked draft PR on top of v0.4.324.
+- [x] Publish a stacked draft PR on top of v0.4.324.
 
 ## Safety Boundary
 
