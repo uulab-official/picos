@@ -2,7 +2,7 @@
 
 ## v0.4.314 - Endpoint Detail Section Shortcuts
 
-Status: in progress on `codex/picos-v0.4.314-endpoint-section-shortcuts`, stacked on draft PR [#388](https://github.com/uulab-official/picos/pull/388).
+Status: draft PR [#389](https://github.com/uulab-official/picos/pull/389) on `codex/picos-v0.4.314-endpoint-section-shortcuts`, stacked on draft PR [#388](https://github.com/uulab-official/picos/pull/388).
 
 Goal: extend lazyifconfig-style direct detail-pane jumps from Routes to Connections and Ports.
 
