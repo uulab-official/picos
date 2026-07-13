@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Interface state proposals now show platform control-target resolution rows, including Linux `ip link` targets, Windows `Get-NetAdapter` targets, and macOS `networksetup` service-name lookup requirements before any interface mutation can be executed.
 - Command palette now exposes read-only `interface proposal disable` and `interface proposal enable` actions that open the Interfaces workspace with the same locked state proposal, selected adapter metadata, write/admin risk, preflight, rollback, and execution-disabled rows as the `D`/`U` shortcuts.
 - Interfaces workspace now supports locked interface state proposals: `D` previews disable, `U` previews enable, and `C` clears the proposal while showing selected adapter metadata, transition, preflight, rollback, and disabled execution rows without changing interface state.
 - DNS workspace proposal previews now include a selectable target: press `T` to cycle local interfaces before `S`, and picos records the target interface, status, kind, primary marker, platform, and address in the locked preflight rows.
