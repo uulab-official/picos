@@ -2,7 +2,7 @@
 
 ## v0.4.329 - Interface Evidence Palette
 
-Status: in progress on `codex/picos-v0.4.329-interface-evidence-palette`, stacked on draft PR [#403](https://github.com/uulab-official/picos/pull/403).
+Status: draft PR [#404](https://github.com/uulab-official/picos/pull/404) on `codex/picos-v0.4.329-interface-evidence-palette`, stacked on draft PR [#403](https://github.com/uulab-official/picos/pull/403).
 
 Goal: make recovered interface confirmation evidence discoverable and executable from the command palette, not only Status Evidence shortcuts.
 

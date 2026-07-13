@@ -14,7 +14,7 @@ Make recovered interface confirmation audit evidence discoverable from the comma
 - [x] Keep adapter execution, dry-run execution, privileged calls, and OS mutation disabled.
 - [x] Cover action metadata, palette previews, Status Activity formatting, and Timeline recovery with tests.
 - [x] Run full verify and release checks.
-- [ ] Publish a stacked draft PR on top of v0.4.328.
+- [x] Publish a stacked draft PR on top of v0.4.328.
 
 ## Safety Boundary
 
