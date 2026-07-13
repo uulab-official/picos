@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.309 - Remote Known Hosts Evidence Handoff Browser
+
+Status: draft PR [#384](https://github.com/uulab-official/picos/pull/384) on `codex/picos-v0.4.309-known-hosts-evidence-handoff-browser`, stacked on draft PR [#383](https://github.com/uulab-official/picos/pull/383).
+
+Goal: make known_hosts evidence copy/export handoffs reachable from the Status copy-intent shelf without cycling the full result history.
+
+- `STATUS ACTIVITY COPY INTENTS` now shows a compact `remote known_hosts handoffs` browser when copy/export handoff results exist.
+- The browser reports total count, selected handoff cursor, original result-history row number, target id, action, and the exact Timeline replay query.
+- Status `H` cycles only Remotes known_hosts evidence copy/export handoff result rows and syncs the selected result-history row so `I` replays the matching Timeline audit search.
+- The browser reuses the `evidence-handoffs` result-history filter classifier, adding no local trust-file read, transport, scan, trust, write, or remote mutation path.
+- Tests cover handoff index extraction, selected handoff metadata, and copy-intent shelf rows/controls.
+- Next: add command-palette access for the selected evidence-handoff browser so keyboard discovery does not rely on remembering `H`.
+
 ## v0.4.308 - Remote Known Hosts Evidence History Filter
 
 Status: draft PR [#383](https://github.com/uulab-official/picos/pull/383) on `codex/picos-v0.4.308-known-hosts-evidence-history-filter`, stacked on draft PR [#382](https://github.com/uulab-official/picos/pull/382).
@@ -11,7 +24,7 @@ Goal: let operators narrow Status Activity result history directly to Remotes kn
 - Filtered history navigation keeps `u`/`i` inside only the visible handoff rows while preserving original result row numbers and detail rows.
 - Command palette discovery for `status.resultHistory.filter` now includes `known_hosts handoffs` in addition to `result filter` and `palette result jumps`.
 - Tests cover filter cycling, handoff-only indexes, selected row rendering, empty filtered state, and palette discovery.
-- Next: add a compact selected evidence-handoff browser in Status copy intents so operators can jump copy/export rows without cycling full result history.
+- Next: completed by v0.4.309 compact selected evidence-handoff browser in Status copy intents.
 
 ## v0.4.307 - Remote Known Hosts Evidence History Targets
 

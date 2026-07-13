@@ -8145,6 +8145,35 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "status" && focusArea === "workspaces" && input === "H") {
+			const indexes = filterStatusActivityResultHistoryIndexes(
+				statusActivityResults,
+				"evidence-handoffs",
+			);
+			if (indexes.length === 0) {
+				log("warn", "no remote known_hosts evidence handoff results");
+				return;
+			}
+			setSelectedStatusActivityResultIndex((current) => {
+				const next = moveStatusActivityResultHistoryFilteredSelection(
+					statusActivityResults,
+					current,
+					"next",
+					"evidence-handoffs",
+				);
+				const selected = Math.max(0, indexes.indexOf(next));
+				const result = statusActivityResults[next];
+				log(
+					"info",
+					`remote known_hosts evidence handoff ${selected + 1}/${indexes.length} row=${next + 1} ${result?.message ?? "none"}`,
+				);
+				setSelectedStatusActivityCopyPreviewRowIndex(0);
+				setStatusActivityCopyPreviewExpanded(false);
+				return next;
+			});
+			return;
+		}
+
 		if (screen === "status" && focusArea === "workspaces" && input === "J") {
 			selectNextStatusActivityResultTimelineJump();
 			return;
@@ -15341,7 +15370,7 @@ function StatusWorkspace({
 					{statusActivityResultHistoryFilter} · ^ jump class=
 					{statusActivityResultTimelineJumpFilter} · u/i history · ; preview · =
 					expand · y copy · &lt;/&gt; intents · v replay · e export · z open · L
-					trail · N trail search · S trail select · g Timeline
+					trail · N trail search · S trail select · H handoff · g Timeline
 				</Text>
 				{formatStatusActivityQueueRows({
 					releaseRows: statusActivityReleaseRows,
@@ -15514,6 +15543,8 @@ function StatusWorkspace({
 					selectedProcessControlAuditExportIndex,
 					remoteKnownHostsSelectionAuditExports,
 					selectedRemoteKnownHostsSelectionAuditExportIndex,
+					statusActivityResults,
+					selectedStatusActivityResultIndex,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}

@@ -1162,6 +1162,8 @@ export function formatStatusActivityCopyIntentRows(
 	selectedProcessControlAuditExportIndex = 0,
 	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[] = [],
 	selectedRemoteKnownHostsSelectionAuditExportIndex = 0,
+	statusActivityResultHistory: StatusActivityResult[] = [],
+	selectedStatusActivityResultHistoryIndex = 0,
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -1276,6 +1278,19 @@ export function formatStatusActivityCopyIntentRows(
 					"remote known_hosts evidence handoff y/e palette=? known_hosts evidence copy/export",
 				]
 			: [];
+	const selectedRemoteKnownHostsEvidenceHandoff =
+		getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(
+			statusActivityResultHistory,
+			selectedStatusActivityResultHistoryIndex,
+		);
+	const remoteKnownHostsEvidenceHandoffRows =
+		selectedRemoteKnownHostsEvidenceHandoff
+			? [
+					`remote known_hosts handoffs count=${selectedRemoteKnownHostsEvidenceHandoff.total} selected=${selectedRemoteKnownHostsEvidenceHandoff.selected + 1}/${selectedRemoteKnownHostsEvidenceHandoff.total}`,
+					`remote known_hosts handoff #${selectedRemoteKnownHostsEvidenceHandoff.historyIndex + 1} target=id:${selectedRemoteKnownHostsEvidenceHandoff.id} action=${selectedRemoteKnownHostsEvidenceHandoff.action} I=replay`,
+					`remote known_hosts handoff detail query=${selectedRemoteKnownHostsEvidenceHandoff.jump.query} H select`,
+				]
+			: [];
 	const rowsBeforeHistory = [
 		...exportRows,
 		...(freshResultJump && auditJumpActionHint === "fresh"
@@ -1288,6 +1303,7 @@ export function formatStatusActivityCopyIntentRows(
 		...auditJumpRows,
 		...processControlAuditExportRows,
 		...remoteKnownHostsSelectionAuditExportRows,
+		...remoteKnownHostsEvidenceHandoffRows,
 		...formatStatusActivityToolsEvidenceSearchRecoveryRows(
 			toolsEvidenceSearchRecovery,
 			selectedToolsEvidenceSearchMatchIndex,
@@ -1319,10 +1335,14 @@ export function formatStatusActivityCopyIntentRows(
 		selectedRemoteKnownHostsSelectionAuditExport
 			? " · remote known_hosts evidence · palette known_hosts copy/export"
 			: "";
+	const remoteKnownHostsEvidenceHandoffControls =
+		selectedRemoteKnownHostsEvidenceHandoff
+			? " · H handoff select · I handoff search"
+			: "";
 	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${processControlAuditExportControls}${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	const controlsWithRemoteKnownHosts = controls.replace(
 		" · g Timeline audit search",
-		`${remoteKnownHostsSelectionAuditExportControls} · g Timeline audit search`,
+		`${remoteKnownHostsSelectionAuditExportControls}${remoteKnownHostsEvidenceHandoffControls} · g Timeline audit search`,
 	);
 	if (history.length === 0) {
 		return [
@@ -1345,6 +1365,60 @@ export function formatStatusActivityCopyIntentRows(
 		}),
 		`${controlsWithRemoteKnownHosts} · :clipboard confirm=copy locked`,
 	];
+}
+
+export type StatusActivityRemoteKnownHostsEvidenceHandoffSelection = {
+	action: "copy" | "export";
+	historyIndex: number;
+	id: string;
+	jump: StatusActivityCopyIntentTimelineSearch;
+	selected: number;
+	total: number;
+};
+
+export function getStatusActivityRemoteKnownHostsEvidenceHandoffIndexes(
+	history: StatusActivityResult[],
+): number[] {
+	return filterStatusActivityResultHistoryIndexes(history, "evidence-handoffs");
+}
+
+export function getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(
+	history: StatusActivityResult[],
+	selectedHistoryIndex = 0,
+): StatusActivityRemoteKnownHostsEvidenceHandoffSelection | undefined {
+	const indexes =
+		getStatusActivityRemoteKnownHostsEvidenceHandoffIndexes(history);
+	if (indexes.length === 0) {
+		return undefined;
+	}
+	const normalizedHistoryIndex = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedHistoryIndex,
+	);
+	const selected = Math.max(0, indexes.indexOf(normalizedHistoryIndex));
+	const historyIndex = indexes[selected] ?? indexes[0];
+	if (historyIndex === undefined) {
+		return undefined;
+	}
+	const jump = createStatusActivityResultTimelineSearch(history, historyIndex);
+	const target = jump
+		? parseRemoteKnownHostsSelectionHistoryEvidenceAuditQuery(jump.query)
+		: undefined;
+	if (
+		!jump ||
+		!target ||
+		(target.action !== "copy" && target.action !== "export")
+	) {
+		return undefined;
+	}
+	return {
+		action: target.action,
+		historyIndex,
+		id: target.id,
+		jump,
+		selected,
+		total: indexes.length,
+	};
 }
 
 function formatStatusActivityResultAuditJumpTargetToken(

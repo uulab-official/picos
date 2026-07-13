@@ -99,11 +99,13 @@ import {
 	getSelectedProcessControlAuditExport,
 	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
+	getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	getSelectedStatusActivityToolsEvidenceSearchMatch,
 	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
+	getStatusActivityRemoteKnownHostsEvidenceHandoffIndexes,
 	getStatusActivityResultAuditJumpIntentCount,
 	getTimelineEvidenceTrailAuditExports,
 	moveProcessControlAuditExportSelection,
@@ -3477,6 +3479,94 @@ describe("Status activity queue", () => {
 			"    target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
 			"  evidence remote-known-hosts-evidence palette remote known_hosts evidence export 1/1 picos-audit-filtered-2026-07-01T060000000Z.log target=remote-known-hosts id:prod action=export",
 			"    target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+		]);
+	});
+
+	test("shows selected remote known_hosts evidence handoffs in the copy intent shelf", () => {
+		const knownHostsEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			content: "",
+			eventCount: 2,
+			query: "remote known_hosts selection history prod",
+			scope: "filtered" as const,
+		};
+		const history = [
+			createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+				"copy",
+				knownHostsEvidence,
+				{
+					selectedIndex: 0,
+					total: 1,
+				},
+			),
+			{
+				source: "dialog" as const,
+				action: "show-dialog" as const,
+				message: "dialog activity selected; type the exact confirmation phrase",
+			},
+			createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+				"export",
+				knownHostsEvidence,
+				{
+					selectedIndex: 0,
+					total: 1,
+				},
+			),
+		];
+
+		expect(
+			getStatusActivityRemoteKnownHostsEvidenceHandoffIndexes(history),
+		).toEqual([0, 2]);
+		expect(
+			getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(history, 2),
+		).toEqual({
+			action: "export",
+			historyIndex: 2,
+			id: "prod",
+			jump: {
+				filter: "audit",
+				query:
+					'palette remote known_hosts evidence audit action=export target="prod"',
+				message:
+					"status activity result timeline search palette remote known_hosts evidence prod",
+			},
+			selected: 1,
+			total: 2,
+		});
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				undefined,
+				0,
+				undefined,
+				undefined,
+				0,
+				0,
+				undefined,
+				0,
+				[],
+				0,
+				[],
+				0,
+				history,
+				2,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"remote known_hosts handoffs count=2 selected=2/2",
+			"remote known_hosts handoff #3 target=id:prod action=export I=replay",
+			'remote known_hosts handoff detail query=palette remote known_hosts evidence audit action=export target="prod" H select',
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · H handoff select · I handoff search · g Timeline audit search",
 		]);
 	});
 
