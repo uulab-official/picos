@@ -12,6 +12,7 @@ import {
 	formatPortProcessControlExecutionRows,
 	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
+	getEndpointDetailViewShortcut,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
 	getSelectedPortClipboardPreview,
@@ -271,6 +272,12 @@ describe("endpoint TUI panel formatting", () => {
 		expect(nextEndpointDetailView("detail")).toBe("raw");
 		expect(nextEndpointDetailView("raw")).toBe("process");
 		expect(nextEndpointDetailView("process")).toBe("detail");
+		expect(getEndpointDetailViewShortcut("1")).toBe("detail");
+		expect(getEndpointDetailViewShortcut("2")).toBe("raw");
+		expect(getEndpointDetailViewShortcut("3")).toBe("process");
+		expect(getEndpointDetailViewShortcut("", { home: true })).toBe("detail");
+		expect(getEndpointDetailViewShortcut("", { end: true })).toBe("process");
+		expect(getEndpointDetailViewShortcut("4")).toBeUndefined();
 		expect(
 			formatConnectionsWorkspaceRows(result, 7, {
 				selectedIndex: 0,

@@ -353,6 +353,7 @@ import {
 	formatPortProcessControlExecutionRows,
 	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
+	getEndpointDetailViewShortcut,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
 	getSelectedPortClipboardPreview,
@@ -7686,6 +7687,33 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "connections" && focusArea === "workspaces") {
+			const next = getEndpointDetailViewShortcut(input, {
+				home: key.home,
+				end: key.end,
+			});
+			if (next) {
+				setConnectionDetailView(next);
+				setConnectionCopyPreview(false);
+				log("info", `connections detail ${next}`);
+				return;
+			}
+		}
+
+		if (screen === "ports" && focusArea === "workspaces") {
+			const next = getEndpointDetailViewShortcut(input, {
+				home: key.home,
+				end: key.end,
+			});
+			if (next) {
+				setPortDetailView(next);
+				setPortCopyPreview(false);
+				setPortProcessControlPreview(false);
+				log("info", `ports detail ${next}`);
+				return;
+			}
+		}
+
 		if (screen === "connections" && focusArea === "workspaces" && key.tab) {
 			setConnectionDetailView((current) => {
 				const next = nextEndpointDetailView(current);
@@ -13904,7 +13932,7 @@ function ConnectionsWorkspace({
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
 				active endpoints · f filter · P save · ] preset · D cleanup · e export ·
-				o open · tab detail · j/k select
+				o open · tab/1-3 detail · home/end · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
@@ -14020,8 +14048,8 @@ function PortsWorkspace({
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
 				listening ports · f filter · P save · ] preset · D cleanup · e export ·
-				o open · enter process · I inspector · K control · tab detail · j/k
-				select
+				o open · enter process · I inspector · K control · tab/1-3 detail ·
+				home/end · j/k select
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (

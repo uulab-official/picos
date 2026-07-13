@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.314 - Endpoint Detail Section Shortcuts
+
+Status: draft PR [#389](https://github.com/uulab-official/picos/pull/389) on `codex/picos-v0.4.314-endpoint-section-shortcuts`, stacked on draft PR [#388](https://github.com/uulab-official/picos/pull/388).
+
+Goal: extend lazyifconfig-style direct detail-pane jumps from Routes to Connections and Ports.
+
+- Connections and Ports focus now maps `1` to detail, `2` to raw, and `3` to process panes.
+- Home jumps to the first endpoint detail pane and End jumps to the process pane.
+- Direct jumps clear stale copy-preview state, matching existing Tab cycling behavior.
+- Connections and Ports footers advertise `tab/1-3 detail` plus Home/End.
+- Tests cover the pure shortcut contract beside existing Tab cycling and detail-pane formatting.
+- Next: add route destination prompt presets or continue direct section shortcuts in Tools detail panes.
+
 ## v0.4.313 - Route Detail Section Shortcuts
 
 Status: draft PR [#388](https://github.com/uulab-official/picos/pull/388) on `codex/picos-v0.4.313-route-section-shortcuts`, stacked on draft PR [#387](https://github.com/uulab-official/picos/pull/387).
@@ -11,7 +24,7 @@ Goal: close a lazyifconfig Route Inspector control gap by making picos route det
 - Direct jumps clear stale route copy-preview state, matching existing Tab cycling behavior.
 - The Routes workspace footer advertises `tab/1-4 detail` plus Home/End so the panel feels more like a keyboard-driven network console.
 - Tests cover the pure shortcut contract beside existing Tab cycling and detail-pane formatting.
-- Next: continue lazyifconfig parity by adding direct section shortcuts to Connections/Ports detail tabs or route destination prompt presets.
+- Next: completed by v0.4.314 direct Connections/Ports detail section shortcuts.
 
 ## v0.4.312 - Remote Known Hosts Handoff Open Copy Intent
 
