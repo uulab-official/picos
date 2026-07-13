@@ -2,7 +2,7 @@
 
 ## v0.4.304 - Remote Known Hosts Evidence Handoff Palette
 
-Status: local branch `codex/picos-v0.4.304-known-hosts-evidence-handoff-palette` stacked on draft PR [#378](https://github.com/uulab-official/picos/pull/378).
+Status: draft PR [#379](https://github.com/uulab-official/picos/pull/379) on `codex/picos-v0.4.304-known-hosts-evidence-handoff-palette`, stacked on draft PR [#378](https://github.com/uulab-official/picos/pull/378).
 
 Goal: make direct recovered Remotes known_hosts evidence copy/export handoffs discoverable and executable from the command palette.
 
