@@ -2,7 +2,7 @@
 
 ## v0.4.322 - macOS Interface Service Map
 
-Status: in progress on `codex/picos-v0.4.322-macos-interface-service-map`, stacked on draft PR [#396](https://github.com/uulab-official/picos/pull/396).
+Status: draft PR [#397](https://github.com/uulab-official/picos/pull/397) on `codex/picos-v0.4.322-macos-interface-service-map`, stacked on draft PR [#396](https://github.com/uulab-official/picos/pull/396).
 
 Goal: collect macOS `networksetup` hardware-port evidence so locked interface proposals can resolve BSD devices such as `en0` to exact service names such as `Wi-Fi`.
 
