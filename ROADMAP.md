@@ -2,7 +2,7 @@
 
 ## v0.4.313 - Route Detail Section Shortcuts
 
-Status: in progress on `codex/picos-v0.4.313-route-section-shortcuts`, stacked on draft PR [#387](https://github.com/uulab-official/picos/pull/387).
+Status: draft PR [#388](https://github.com/uulab-official/picos/pull/388) on `codex/picos-v0.4.313-route-section-shortcuts`, stacked on draft PR [#387](https://github.com/uulab-official/picos/pull/387).
 
 Goal: close a lazyifconfig Route Inspector control gap by making picos route detail panes directly keyboard-addressable.
 
