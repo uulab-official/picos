@@ -73,8 +73,10 @@ import {
 import { getControlPreviewCommand } from "../core/controlPreview";
 import {
 	createDnsServerProposal,
+	createDnsServerProposalTarget,
 	type DnsServerProposal,
 	formatDnsServerProposalRows,
+	formatDnsServerProposalTargetRows,
 } from "../core/dnsControl";
 import { runDoctorChecks } from "../core/doctor";
 import {
@@ -991,6 +993,7 @@ export function App(): React.ReactElement {
 	const [selectedConnectionIndex, setSelectedConnectionIndex] = useState(0);
 	const [selectedPortIndex, setSelectedPortIndex] = useState(0);
 	const [selectedInterfaceIndex, setSelectedInterfaceIndex] = useState(0);
+	const [selectedDnsTargetIndex, setSelectedDnsTargetIndex] = useState(0);
 	const [interfaceDetailView, setInterfaceDetailView] =
 		useState<InterfaceDetailView>("list");
 	const [interfaceSourceCopyPreview, setInterfaceSourceCopyPreview] =
@@ -6887,17 +6890,33 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitDnsServerProposalCommand = useCallback(() => {
+		const summary = summaryRef.current;
+		const resolvedTargetIndex = summary?.interfaces.length
+			? Math.min(
+					Math.max(selectedDnsTargetIndex, 0),
+					Math.max(0, summary.interfaces.length - 1),
+				)
+			: undefined;
+		const selectedInterface =
+			resolvedTargetIndex === undefined
+				? undefined
+				: summary?.interfaces[resolvedTargetIndex];
+		const target = createDnsServerProposalTarget(selectedInterface, {
+			platform: summary?.platform,
+			primaryInterfaceName: summary?.primaryInterface?.name,
+		});
 		const proposal = createDnsServerProposal(
 			commandLine.value,
-			summaryRef.current?.dnsServers ?? [],
+			summary?.dnsServers ?? [],
+			target,
 		);
 		setDnsServerProposal(proposal);
 		setCommandLine((current) => closeCommandLine(current));
 		log(
 			proposal.status === "ready" ? "warn" : "fail",
-			`dns server proposal ${proposal.status} proposed=${proposal.proposedServers.join(",") || "-"}`,
+			`dns server proposal ${proposal.status} target=${proposal.target.name} proposed=${proposal.proposedServers.join(",") || "-"}`,
 		);
-	}, [commandLine.value, log]);
+	}, [commandLine.value, log, selectedDnsTargetIndex]);
 
 	const exportCleanupHandoffHistory = useCallback(async () => {
 		const plan = createCleanupHandoffHistoryExportPlan(
@@ -7383,6 +7402,18 @@ export function App(): React.ReactElement {
 		if (screen === "dns" && focusArea === "workspaces" && input === "S") {
 			setCommandLine(openCommandLine("dns-servers"));
 			log("info", "dns server proposal opened");
+			return;
+		}
+
+		if (screen === "dns" && focusArea === "workspaces" && input === "T") {
+			setSelectedDnsTargetIndex((index) => {
+				const total = summary?.interfaces.length ?? 0;
+				const next = getNextInterfaceIndex(index, total, "down");
+				const targetName = summary?.interfaces[next]?.name ?? "system";
+				log("info", `dns target ${targetName}`);
+				return next;
+			});
+			setDnsServerProposal(undefined);
 			return;
 		}
 
@@ -10860,6 +10891,7 @@ export function App(): React.ReactElement {
 					selectedLocationIndex={selectedLocationIndex}
 					commandLine={commandLine}
 					dnsServerProposal={dnsServerProposal}
+					selectedDnsTargetIndex={selectedDnsTargetIndex}
 					fileFilter={fileFilter}
 					fileOperationDialog={fileOperationDialog}
 					editorPreview={editorPreview}
@@ -11147,6 +11179,7 @@ function MainWorkspace({
 	selectedLocationIndex,
 	commandLine,
 	dnsServerProposal,
+	selectedDnsTargetIndex,
 	fileFilter,
 	fileOperationDialog,
 	editorPreview,
@@ -11307,6 +11340,7 @@ function MainWorkspace({
 	selectedLocationIndex: number;
 	commandLine: CommandLineState;
 	dnsServerProposal?: DnsServerProposal;
+	selectedDnsTargetIndex: number;
 	fileFilter: FileFilterState;
 	fileOperationDialog: FileOperationDialogState;
 	editorPreview?: EditorBuffer;
@@ -11546,6 +11580,7 @@ function MainWorkspace({
 						selectedLocationIndex,
 						commandLine,
 						dnsServerProposal,
+						selectedDnsTargetIndex,
 						fileFilter,
 						fileOperationDialog,
 						editorPreview,
@@ -11711,6 +11746,7 @@ function renderWorkspace(
 	selectedLocationIndex: number,
 	commandLine: CommandLineState,
 	dnsServerProposal: DnsServerProposal | undefined,
+	selectedDnsTargetIndex: number,
 	fileFilter: FileFilterState,
 	fileOperationDialog: FileOperationDialogState,
 	editorPreview: EditorBuffer | undefined,
@@ -12188,6 +12224,7 @@ function renderWorkspace(
 			<DnsWorkspace
 				commandLine={commandLine}
 				proposal={dnsServerProposal}
+				selectedTargetIndex={selectedDnsTargetIndex}
 				summary={summary}
 				t={t}
 			/>
@@ -14778,14 +14815,34 @@ function formatFileOpenPromptRows(
 function DnsWorkspace({
 	commandLine,
 	proposal,
+	selectedTargetIndex,
 	summary,
 	t,
 }: {
 	commandLine: CommandLineState;
 	proposal?: DnsServerProposal;
+	selectedTargetIndex: number;
 	summary?: NetworkSummary;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const resolvedTargetIndex = summary?.interfaces.length
+		? Math.min(
+				Math.max(selectedTargetIndex, 0),
+				Math.max(0, summary.interfaces.length - 1),
+			)
+		: undefined;
+	const selectedInterface =
+		resolvedTargetIndex === undefined
+			? undefined
+			: summary?.interfaces[resolvedTargetIndex];
+	const target = createDnsServerProposalTarget(selectedInterface, {
+		platform: summary?.platform,
+		primaryInterfaceName: summary?.primaryInterface?.name,
+	});
+	const targetRows = formatDnsServerProposalTargetRows(target, {
+		selectedIndex: resolvedTargetIndex,
+		totalTargets: summary?.interfaces.length,
+	});
 	const proposalRows = formatDnsServerProposalRows(proposal);
 	const promptRows =
 		commandLine.active && commandLine.prompt === "dns-servers"
@@ -14799,14 +14856,14 @@ function DnsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.dns")}</Text>
 			<Text color="gray">
-				resolver visibility · S proposal · C clear · mutation locked
+				resolver visibility · T target · S proposal · C clear · mutation locked
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text>Servers: {summary?.dnsServers.join(", ") || "-"}</Text>
 				<Text color="yellow">
 					dns.flush locked: requires preview + admin + confirm
 				</Text>
-				{[...promptRows, ...proposalRows].map((row) => (
+				{[...targetRows, ...promptRows, ...proposalRows].map((row) => (
 					<Text key={row} color={getActionPreviewRowColor(row)}>
 						{row}
 					</Text>
