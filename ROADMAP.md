@@ -2,7 +2,7 @@
 
 ## v0.4.310 - Remote Known Hosts Evidence Handoff Palette Select
 
-Status: in progress on `codex/picos-v0.4.310-known-hosts-handoff-palette-select`, stacked on draft PR [#384](https://github.com/uulab-official/picos/pull/384).
+Status: draft PR [#385](https://github.com/uulab-official/picos/pull/385) on `codex/picos-v0.4.310-known-hosts-handoff-palette-select`, stacked on draft PR [#384](https://github.com/uulab-official/picos/pull/384).
 
 Goal: make the Remotes known_hosts evidence handoff browser discoverable and executable from the command palette.
 
