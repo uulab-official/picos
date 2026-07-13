@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Command palette now exposes a read-only Remotes `known_hosts` evidence handoff open action, letting operators search `known_hosts handoff open` to replay the selected copy/export handoff Timeline query directly.
 - Command palette now exposes a read-only Remotes `known_hosts` evidence handoff select action, so operators can search `known_hosts handoff select` instead of remembering the `H` shortcut.
 - Status Activity copy-intent shelves now include a compact Remotes `known_hosts` evidence handoff browser, with `H` cycling copy/export handoff result rows and `I` replaying the selected handoff Timeline search.
 - Status Activity result-history filtering now cycles through an `evidence-handoffs` view for palette Remotes `known_hosts` copy/export rows, and the command palette can discover it with `known_hosts handoffs`.

@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.311 - Remote Known Hosts Evidence Handoff Palette Open
+
+Status: draft PR [#386](https://github.com/uulab-official/picos/pull/386) on `codex/picos-v0.4.311-known-hosts-handoff-palette-open`, stacked on draft PR [#385](https://github.com/uulab-official/picos/pull/385).
+
+Goal: make selected Remotes known_hosts evidence copy/export handoff replay reachable directly from the command palette.
+
+- Action Center now exposes enabled read-only `status.remoteKnownHostsEvidence.handoffOpen`.
+- Command palette searches such as `known_hosts handoff open` and `remote known_hosts handoff open` find the selected handoff replay action.
+- Palette previews reuse selected handoff metadata and show target id, action, result-history row, replay query, Timeline filter, and replay message.
+- Palette dispatch replays the selected handoff Timeline search directly without depending on asynchronous row-selection updates.
+- Dispatch records the same Status Activity result-jump audit row used by palette-opened Timeline result jumps, preserving the existing replay trail.
+- Tests cover action catalog counts, palette discovery, selected/unavailable preview rows, and read-only action listing.
+- Next: add a Status copy-intent row that summarizes the last handoff-open replay result so repeat opens are visible even after returning from Timeline.
+
 ## v0.4.310 - Remote Known Hosts Evidence Handoff Palette Select
 
 Status: draft PR [#385](https://github.com/uulab-official/picos/pull/385) on `codex/picos-v0.4.310-known-hosts-handoff-palette-select`, stacked on draft PR [#384](https://github.com/uulab-official/picos/pull/384).
@@ -11,7 +25,7 @@ Goal: make the Remotes known_hosts evidence handoff browser discoverable and exe
 - Palette previews show the selected handoff cursor, target id, action, original result-history row, and exact Timeline replay query.
 - Palette dispatch reuses the same selection path as Status `H`, moves focus to Status, and only changes the selected Status Activity result row.
 - Tests cover action catalog counts, palette discovery, available action listing, selected/unavailable preview rows, and existing read-only safety metadata.
-- Next: add a direct command-palette open/replay action for the selected evidence handoff so `I` also becomes discoverable through search.
+- Next: completed by v0.4.311 direct command-palette open/replay action for the selected evidence handoff.
 
 ## v0.4.309 - Remote Known Hosts Evidence Handoff Browser
 

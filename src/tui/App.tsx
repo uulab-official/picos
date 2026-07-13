@@ -5514,6 +5514,75 @@ export function App(): React.ReactElement {
 		[log, statusActivityResults],
 	);
 
+	const openSelectedRemoteKnownHostsEvidenceHandoff = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const selected = getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+			);
+			if (!selected) {
+				log("warn", "no remote known_hosts evidence handoff result selected");
+				if (options.origin === "palette") {
+					recordStatusActivityResult(
+						createStatusActivityResultTimelineJumpPaletteResult("open"),
+					);
+				}
+				return;
+			}
+			const intent = createStatusActivityResultTimelineSearchIntent(
+				selected.jump,
+			);
+			setStatusActivityCopyIntentHistory((current) =>
+				appendStatusActivityCopyIntentHistory(current, intent),
+			);
+			setSelectedStatusActivityCopyIntentIndex(0);
+			if (intent) {
+				log("info", intent.auditMessage);
+			}
+			const filtered = filterTimelineEvents(
+				events,
+				selected.jump.query,
+				selected.jump.filter,
+			);
+			setTimelineFilter(selected.jump.filter);
+			setTimelineSearchQuery(selected.jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${selected.jump.message} matches ${filtered.length}${options.origin === "palette" ? " origin=palette" : ""}`,
+			);
+			if (options.origin === "palette") {
+				log(
+					"info",
+					formatStatusActivityResultTimelineJumpPaletteAuditMessage("open", {
+						historyIndex: selected.historyIndex,
+						jump: selected.jump,
+						matches: filtered.length,
+						selectedIndex: selected.selected,
+						total: selected.total,
+					}),
+				);
+				recordStatusActivityResult(
+					createStatusActivityResultTimelineJumpPaletteResult("open", {
+						historyIndex: selected.historyIndex,
+						jump: selected.jump,
+						matches: filtered.length,
+						selectedIndex: selected.selected,
+						total: selected.total,
+					}),
+				);
+			}
+		},
+		[
+			events,
+			log,
+			recordStatusActivityResult,
+			selectedStatusActivityResultIndex,
+			statusActivityResults,
+		],
+	);
+
 	const openSelectedStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			const selectedAuditJumpIntent =
@@ -5967,6 +6036,10 @@ export function App(): React.ReactElement {
 					selectNextRemoteKnownHostsEvidenceHandoff({ origin: "palette" });
 				}
 
+				if (action.id === "status.remoteKnownHostsEvidence.handoffOpen") {
+					openSelectedRemoteKnownHostsEvidenceHandoff({ origin: "palette" });
+				}
+
 				if (action.id === "status.resultJump.select") {
 					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
 				}
@@ -6055,6 +6128,7 @@ export function App(): React.ReactElement {
 			logProfiles.length,
 			openToolEvidenceSearchPrompt,
 			openSelectedProcessControlEvidenceExport,
+			openSelectedRemoteKnownHostsEvidenceHandoff,
 			openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff,
 			openSelectedRemoteKnownHostsSelectionEvidenceExport,
 			openSelectedStatusActivityResultTimelineJump,
