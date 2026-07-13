@@ -635,6 +635,7 @@ import {
 	getSelectedToolSectionClipboardPreview,
 	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
+	getToolHistoryDetailViewShortcut,
 	getToolRunActionMetadata,
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
@@ -9951,6 +9952,28 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "tools" && focusArea === "workspaces") {
+			const next = getToolHistoryDetailViewShortcut(input, {
+				home: key.home,
+				end: key.end,
+			});
+			if (next) {
+				setToolHistoryDetailView(next);
+				void setConfigToolHistoryPreferences({ detailView: next }).catch(
+					(caught) =>
+						log(
+							"fail",
+							caught instanceof Error
+								? `tools detail save failed ${caught.message}`
+								: `tools detail save failed ${String(caught)}`,
+						),
+				);
+				setToolCopyPreview(false);
+				log("info", `tools detail ${next}`);
+				return;
+			}
+		}
+
 		if (screen === "tools" && focusArea === "workspaces" && key.tab) {
 			setToolHistoryDetailView((current) => {
 				const next = nextToolHistoryDetailView(current);
@@ -14481,8 +14504,8 @@ function ToolsWorkspace({
 			<Text bold>{t("screen.tools")}</Text>
 			<Text color="gray">
 				Tools Hub · n target · T save · U pin · L label · M target · A action ·
-				X delete · D target cleanup · C filter cleanup · R run · tab detail · f
-				filter · P save filter
+				X delete · D target cleanup · C filter cleanup · R run · tab/1-4 detail
+				· home/end · f filter · P save filter
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{[...promptRows, ...copyRows, ...rows]
