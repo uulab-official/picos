@@ -704,7 +704,7 @@ const actionCatalog: PicosAction[] = [
 		id: "status.resultHistory.filter",
 		title: "Filter Status result history",
 		description:
-			"Result filter shortcut for cycling Status Activity result history across all rows and palette result jumps.",
+			"Result filter shortcut for cycling Status Activity result history across all rows, palette result jumps, and known_hosts evidence handoffs.",
 		category: "status",
 		risk: "read",
 		privilege: "none",
