@@ -472,6 +472,7 @@ import {
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
+	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -523,6 +524,7 @@ import {
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getProcessControlAuditExports,
+	getRemoteKnownHostsSelectionHistoryClipboardPreview,
 	getSelectedProcessControlAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
@@ -555,6 +557,7 @@ import {
 	type StatusActivitySource,
 	type StatusActivityToolsEvidenceSearchRecovery,
 	type TimelineEvidenceTrailSourceFilter,
+	writeRemoteKnownHostsSelectionHistoryAuditExport,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
 } from "./statusActivityQueue";
@@ -9793,6 +9796,57 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "y") {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			const preview = getRemoteKnownHostsSelectionHistoryClipboardPreview(
+				statusActivityResults,
+				{
+					selectedProfileId: profile?.id,
+					limit: 5,
+				},
+			);
+			if (!preview) {
+				log("warn", "no remote known_hosts selection history to copy");
+				return;
+			}
+			openClipboardConfirmation(preview);
+			return;
+		}
+
+		if (focusArea === "remotes" && input === "E") {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			const plan = createRemoteKnownHostsSelectionHistoryAuditExportPlan(
+				statusActivityResults,
+				{
+					baseDir: dirname(getConfigPath()),
+					selectedProfileId: profile?.id,
+					limit: 25,
+				},
+			);
+			if (!plan) {
+				log("warn", "no remote known_hosts selection history to export");
+				return;
+			}
+			void writeRemoteKnownHostsSelectionHistoryAuditExport(plan)
+				.then((written) => {
+					setLastStatusActivityCopyIntentAuditExport(written);
+					log(
+						"ok",
+						`remote known_hosts selection history exported ${written.path} events=${written.eventCount}`,
+					);
+					void refreshAuditExportIndex(false);
+				})
+				.catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `remote known_hosts selection history export failed ${caught.message}`
+							: `remote known_hosts selection history export failed ${String(caught)}`,
+					),
+				);
+			return;
+		}
+
 		if (focusArea === "remotes" && input === "c") {
 			const profile = remoteProfiles[selectedRemoteIndex];
 			if (!profile) {
@@ -12317,7 +12371,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · [ ]/1-9/S candidate · t trust review · c connect preview · h/esc"
+					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · [ ]/1-9/S candidate · y copy · E export · t trust review · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (

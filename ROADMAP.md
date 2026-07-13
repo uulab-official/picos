@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.299 - Remote Known Hosts Selection History Copy Export
+
+Status: draft PR [#374](https://github.com/uulab-official/picos/pull/374) on `codex/picos-v0.4.299-known-hosts-history-copy-export`.
+
+Goal: turn the visible known_hosts selection-history shelf into an operator handoff surface with locked copy and audit export controls.
+
+- Status Activity now creates a clipboard preview for recent `remote-known-hosts-selection` rows, preserving the same rendered shelf rows operators see in Remotes.
+- Status Activity can build and write filtered audit exports for known_hosts selection history with one event per selected candidate movement.
+- Remotes focus maps `y` to a locked clipboard confirmation for the selection-history shelf and `E` to a picos-owned audit export.
+- Exported rows include candidate summary, detail, Timeline recovery query, and locked guard posture.
+- Tests cover empty history behavior, copy preview content, export plan content, and export file writes.
+- Next: add Status Evidence recovery/open controls for known_hosts selection-history exports.
+
 ## v0.4.298 - Remote Known Hosts Selection History
 
 Status: draft PR [#373](https://github.com/uulab-official/picos/pull/373) on `codex/picos-v0.4.298-known-hosts-selection-history`.
@@ -11,7 +24,7 @@ Goal: make known_hosts candidate selection history visible inside the Remotes OS
 - Empty history keeps useful controls and locked guard rows visible instead of showing a blank panel.
 - The shelf preserves the locked posture: no local trust-file read, no network transport, no host scan, no trust application, and no `known_hosts` write.
 - Tests cover empty and populated selection-history rows, including command-driven candidate selection and move-driven selection recovery.
-- Next: add copy/export controls for known_hosts selection history.
+- Next: add Status Evidence recovery/open controls for known_hosts selection-history exports.
 
 ## v0.4.297 - Remote Known Hosts Select Palette
 
