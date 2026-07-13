@@ -2,7 +2,7 @@
 
 ## v0.4.312 - Remote Known Hosts Handoff Open Copy Intent
 
-Status: in progress on `codex/picos-v0.4.312-known-hosts-handoff-open-copy-intent`, stacked on draft PR [#386](https://github.com/uulab-official/picos/pull/386).
+Status: draft PR [#387](https://github.com/uulab-official/picos/pull/387) on `codex/picos-v0.4.312-known-hosts-handoff-open-copy-intent`, stacked on draft PR [#386](https://github.com/uulab-official/picos/pull/386).
 
 Goal: keep command-palette Remotes known_hosts handoff-open replays visible and repeatable inside the Status copy-intent shelf.
 
