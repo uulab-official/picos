@@ -3411,6 +3411,15 @@ describe("Status activity queue", () => {
 					"status activity result timeline search palette remote known_hosts evidence prod",
 			},
 		);
+		expect(
+			formatStatusActivityResultHistoryRows([copyResult, exportResult]),
+		).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=2 selected=1/2",
+			"> evidence remote-known-hosts-evidence palette remote known_hosts evidence copy 1/1 picos-audit-filtered-2026-07-01T060000000Z.log target=remote-known-hosts id:prod action=copy",
+			"    target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			"  evidence remote-known-hosts-evidence palette remote known_hosts evidence export 1/1 picos-audit-filtered-2026-07-01T060000000Z.log target=remote-known-hosts id:prod action=export",
+			"    target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+		]);
 	});
 
 	test("creates reusable Timeline jumps from Status Evidence process search results", () => {

@@ -1,5 +1,16 @@
 # picos Roadmap
 
+## v0.4.307 - Remote Known Hosts Evidence History Targets
+
+Status: local branch `codex/picos-v0.4.307-known-hosts-evidence-history-targets` stacked on draft PR [#381](https://github.com/uulab-official/picos/pull/381).
+
+Goal: make copy/export replay targets visible in compact Status Activity result-history rows before operators press `I`.
+
+- `STATUS ACTIVITY RESULT HISTORY` rows for palette Remotes known_hosts evidence copy/export now append `target=remote-known-hosts id:<id> action=copy|export`.
+- Target extraction reuses the existing recovered known_hosts evidence detail target parser, so no new trust-file read, network transport, scan, trust, write, or remote mutation path is added.
+- Tests cover copy/export history rows with the compact replay target token and preserve the detailed target/query/path row below it.
+- Next: add an evidence-handoff result-history filter so known_hosts copy/export replay rows can be narrowed without mixing them into the existing palette-result-jump filter.
+
 ## v0.4.306 - Remote Known Hosts Evidence Handoff Replay
 
 Status: draft PR [#381](https://github.com/uulab-official/picos/pull/381) on `codex/picos-v0.4.306-known-hosts-evidence-handoff-replay`, stacked on draft PR [#380](https://github.com/uulab-official/picos/pull/380).
@@ -10,7 +21,7 @@ Goal: let palette-triggered known_hosts evidence copy/export result rows become 
 - Reusable audit-jump queries now target `palette remote known_hosts evidence audit action=copy|export target="<id>"`, so handoff operations can be recovered from Timeline audit search.
 - Timeline audit search rendering covers `palette remote known_hosts evidence audit action=copy` rows with the same target/query/path detail as search rows.
 - Tests cover reusable `I` jump creation for copy/export handoff origins and Timeline rendering for copy audit rows.
-- Next: add visible result-history copy/export target tokens in the compact `STATUS ACTIVITY RESULT HISTORY` rows so operators can see handoff replay targets before pressing `I`.
+- Next: completed by v0.4.307 visible result-history copy/export target tokens in compact `STATUS ACTIVITY RESULT HISTORY` rows.
 
 ## v0.4.305 - Remote Known Hosts Evidence Handoff Hints
 
