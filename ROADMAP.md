@@ -2,7 +2,7 @@
 
 ## v0.4.316 - Control Preflight Console
 
-Status: in progress on `codex/picos-v0.4.316-control-preflight-console`, stacked on draft PR [#390](https://github.com/uulab-official/picos/pull/390).
+Status: draft PR [#391](https://github.com/uulab-official/picos/pull/391) on `codex/picos-v0.4.316-control-preflight-console`, stacked on draft PR [#390](https://github.com/uulab-official/picos/pull/390).
 
 Goal: move closer to lazyifconfig-style OS controls by making locked mutation previews explain operational impact before any confirmation or dry-run attempt.
 
