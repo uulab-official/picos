@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.308 - Remote Known Hosts Evidence History Filter
+
+Status: in progress on `codex/picos-v0.4.308-known-hosts-evidence-history-filter`, stacked on draft PR [#382](https://github.com/uulab-official/picos/pull/382).
+
+Goal: let operators narrow Status Activity result history directly to Remotes known_hosts evidence copy/export handoff rows.
+
+- Status Activity result-history filtering now cycles `all -> palette-result-jumps -> evidence-handoffs -> all`.
+- The `evidence-handoffs` filter matches palette Remotes known_hosts evidence copy/export result rows via their compact `target=remote-known-hosts id:<id> action=copy|export` token.
+- Filtered history navigation keeps `u`/`i` inside only the visible handoff rows while preserving original result row numbers and detail rows.
+- Command palette discovery for `status.resultHistory.filter` now includes `known_hosts handoffs` in addition to `result filter` and `palette result jumps`.
+- Tests cover filter cycling, handoff-only indexes, selected row rendering, empty filtered state, and palette discovery.
+- Next: add a compact selected evidence-handoff browser in Status copy intents so operators can jump copy/export rows without cycling full result history.
+
 ## v0.4.307 - Remote Known Hosts Evidence History Targets
 
 Status: draft PR [#382](https://github.com/uulab-official/picos/pull/382) on `codex/picos-v0.4.307-known-hosts-evidence-history-targets`, stacked on draft PR [#381](https://github.com/uulab-official/picos/pull/381).
@@ -9,7 +22,7 @@ Goal: make copy/export replay targets visible in compact Status Activity result-
 - `STATUS ACTIVITY RESULT HISTORY` rows for palette Remotes known_hosts evidence copy/export now append `target=remote-known-hosts id:<id> action=copy|export`.
 - Target extraction reuses the existing recovered known_hosts evidence detail target parser, so no new trust-file read, network transport, scan, trust, write, or remote mutation path is added.
 - Tests cover copy/export history rows with the compact replay target token and preserve the detailed target/query/path row below it.
-- Next: add an evidence-handoff result-history filter so known_hosts copy/export replay rows can be narrowed without mixing them into the existing palette-result-jump filter.
+- Next: completed by v0.4.308 evidence-handoff result-history filtering.
 
 ## v0.4.306 - Remote Known Hosts Evidence Handoff Replay
 

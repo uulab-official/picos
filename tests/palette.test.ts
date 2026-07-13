@@ -840,6 +840,12 @@ describe("TUI command palette", () => {
 				appendCommandPaletteQuery(openCommandPalette(), "palette result jumps"),
 			).map((action) => action.id),
 		).toContain("status.resultHistory.filter");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(openCommandPalette(), "known_hosts handoffs"),
+			).map((action) => action.id),
+		).toContain("status.resultHistory.filter");
 	});
 
 	test("finds Tools evidence management actions from the command palette", () => {

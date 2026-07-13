@@ -83,7 +83,10 @@ export type StatusActivityResult = StatusActivityEnterPlan & {
 	detailRows?: string[];
 };
 
-export type StatusActivityResultHistoryFilter = "all" | "palette-result-jumps";
+export type StatusActivityResultHistoryFilter =
+	| "all"
+	| "palette-result-jumps"
+	| "evidence-handoffs";
 export type StatusActivityResultTimelineJumpFilter =
 	| "all"
 	| "process"
@@ -446,7 +449,13 @@ function formatStatusActivityResultHistoryTargetToken(
 export function nextStatusActivityResultHistoryFilter(
 	filter: StatusActivityResultHistoryFilter,
 ): StatusActivityResultHistoryFilter {
-	return filter === "all" ? "palette-result-jumps" : "all";
+	if (filter === "all") {
+		return "palette-result-jumps";
+	}
+	if (filter === "palette-result-jumps") {
+		return "evidence-handoffs";
+	}
+	return "all";
 }
 
 export function filterStatusActivityResultHistoryIndexes(
@@ -457,7 +466,11 @@ export function filterStatusActivityResultHistoryIndexes(
 		return history.map((_, index) => index);
 	}
 	return history.reduce<number[]>((indexes, result, index) => {
-		if (isPaletteStatusActivityResultJump(result)) {
+		const matches =
+			filter === "palette-result-jumps"
+				? isPaletteStatusActivityResultJump(result)
+				: isEvidenceHandoffStatusActivityResult(result);
+		if (matches) {
 			indexes.push(index);
 		}
 		return indexes;
@@ -959,6 +972,12 @@ function isPaletteStatusActivityResultJump(
 		result.action === "timeline-selected-copy" &&
 		result.message.startsWith("palette status result jump ")
 	);
+}
+
+function isEvidenceHandoffStatusActivityResult(
+	result: StatusActivityResult,
+): boolean {
+	return Boolean(formatStatusActivityResultHistoryTargetToken(result));
 }
 
 function formatStatusActivityResultAuditJumpIntentRows(

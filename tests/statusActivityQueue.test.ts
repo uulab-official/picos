@@ -470,6 +470,9 @@ describe("Status activity queue", () => {
 			"palette-result-jumps",
 		);
 		expect(nextStatusActivityResultHistoryFilter("palette-result-jumps")).toBe(
+			"evidence-handoffs",
+		);
+		expect(nextStatusActivityResultHistoryFilter("evidence-handoffs")).toBe(
 			"all",
 		);
 		expect(
@@ -509,6 +512,61 @@ describe("Status activity queue", () => {
 		]);
 	});
 
+	test("filters activity result history to evidence handoff rows", () => {
+		const knownHostsEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			content: "",
+			eventCount: 2,
+			query: "remote known_hosts selection history prod",
+			scope: "filtered" as const,
+		};
+		const history = [
+			createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+				"copy",
+				knownHostsEvidence,
+				{ selectedIndex: 0, total: 1 },
+			),
+			{
+				source: "dialog" as const,
+				action: "show-dialog" as const,
+				message: "dialog activity selected; type the exact confirmation phrase",
+			},
+			createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+				"export",
+				knownHostsEvidence,
+				{ selectedIndex: 0, total: 1 },
+			),
+		];
+
+		expect(
+			filterStatusActivityResultHistoryIndexes(history, "evidence-handoffs"),
+		).toEqual([0, 2]);
+		expect(
+			moveStatusActivityResultHistoryFilteredSelection(
+				history,
+				0,
+				"next",
+				"evidence-handoffs",
+			),
+		).toBe(2);
+		expect(
+			formatStatusActivityResultHistoryRows(
+				history,
+				2,
+				undefined,
+				0,
+				"evidence-handoffs",
+			),
+		).toEqual([
+			"STATUS ACTIVITY RESULT HISTORY count=3 visible=2 filter=evidence-handoffs selected=2/2",
+			"  #1 evidence remote-known-hosts-evidence palette remote known_hosts evidence copy 1/1 picos-audit-filtered-2026-07-01T060000000Z.log target=remote-known-hosts id:prod action=copy",
+			"    target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			"> #3 evidence remote-known-hosts-evidence palette remote known_hosts evidence export 1/1 picos-audit-filtered-2026-07-01T060000000Z.log target=remote-known-hosts id:prod action=export",
+			"    target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			"controls=f result filter · u/i filtered history",
+		]);
+	});
+
 	test("keeps filtered activity result history useful when nothing matches", () => {
 		expect(
 			formatStatusActivityResultHistoryRows(
@@ -523,11 +581,11 @@ describe("Status activity queue", () => {
 				0,
 				undefined,
 				0,
-				"palette-result-jumps",
+				"evidence-handoffs",
 			),
 		).toEqual([
-			"STATUS ACTIVITY RESULT HISTORY count=1 visible=0 filter=palette-result-jumps",
-			"no Status activity result history for filter=palette-result-jumps",
+			"STATUS ACTIVITY RESULT HISTORY count=1 visible=0 filter=evidence-handoffs",
+			"no Status activity result history for filter=evidence-handoffs",
 			"controls=f result filter · u/i filtered history",
 		]);
 	});
