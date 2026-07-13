@@ -17,6 +17,7 @@ import type { PortProcessControlPreview } from "./endpointPanel";
 import { getNextIndex } from "./navigation";
 import type {
 	StatusActivityCopyIntentTimelineSearch,
+	StatusActivityRemoteKnownHostsEvidenceHandoffSelection,
 	StatusActivityResultTimelineJumpFilter,
 	StatusActivityToolsEvidenceSearchRecovery,
 } from "./statusActivityQueue";
@@ -153,6 +154,7 @@ export type CommandPalettePreviewContext = {
 	selectedRemoteKnownHostsEvidenceExport?: ConsoleAuditExportPlan;
 	selectedRemoteKnownHostsEvidenceExportIndex?: number;
 	totalRemoteKnownHostsEvidenceExports?: number;
+	selectedRemoteKnownHostsEvidenceHandoff?: StatusActivityRemoteKnownHostsEvidenceHandoffSelection;
 	selectedStatusActivityResultTimelineJump?: StatusActivityCopyIntentTimelineSearch;
 	selectedStatusActivityResultTimelineJumpIndex?: number;
 	totalStatusActivityResultTimelineJumps?: number;
@@ -189,6 +191,7 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.remoteKnownHostsEvidence.search" &&
 		action.id !== "status.remoteKnownHostsEvidence.copy" &&
 		action.id !== "status.remoteKnownHostsEvidence.export" &&
+		action.id !== "status.remoteKnownHostsEvidence.handoffSelect" &&
 		action.id !== "status.resultJump.select" &&
 		action.id !== "status.resultJump.open" &&
 		action.id !== "status.resultJump.filter" &&
@@ -249,7 +252,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id === "status.remoteKnownHostsEvidence.open" ||
 		action.id === "status.remoteKnownHostsEvidence.search" ||
 		action.id === "status.remoteKnownHostsEvidence.copy" ||
-		action.id === "status.remoteKnownHostsEvidence.export"
+		action.id === "status.remoteKnownHostsEvidence.export" ||
+		action.id === "status.remoteKnownHostsEvidence.handoffSelect"
 	) {
 		return formatRemoteKnownHostsEvidencePalettePreviewRows(action, context);
 	}
@@ -700,6 +704,9 @@ function formatRemoteKnownHostsEvidencePalettePreviewRows(
 	action: PicosAction,
 	context: CommandPalettePreviewContext,
 ): string[] {
+	if (action.id === "status.remoteKnownHostsEvidence.handoffSelect") {
+		return formatRemoteKnownHostsEvidenceHandoffPalettePreviewRows(context);
+	}
 	const selected = context.selectedRemoteKnownHostsEvidenceExport;
 	if (!selected) {
 		return [
@@ -736,6 +743,24 @@ function formatRemoteKnownHostsEvidenceTarget(
 ): string {
 	const target = parseRemoteKnownHostsEvidenceTarget(query);
 	return target ?? "unknown";
+}
+
+function formatRemoteKnownHostsEvidenceHandoffPalettePreviewRows(
+	context: CommandPalettePreviewContext,
+): string[] {
+	const selected = context.selectedRemoteKnownHostsEvidenceHandoff;
+	if (!selected) {
+		return [
+			"selected remote known_hosts handoff unavailable",
+			"hint=create or recover a palette known_hosts evidence copy/export result",
+		];
+	}
+	return [
+		`selected remote known_hosts handoff ${selected.selected + 1}/${selected.total}`,
+		`target=id:${selected.id} action=${selected.action} row=${selected.historyIndex + 1}`,
+		`query=${selected.jump.query}`,
+		"action=select next remote known_hosts handoff result",
+	];
 }
 
 function parseRemoteKnownHostsEvidenceTarget(

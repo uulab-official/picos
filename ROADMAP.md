@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.310 - Remote Known Hosts Evidence Handoff Palette Select
+
+Status: draft PR [#385](https://github.com/uulab-official/picos/pull/385) on `codex/picos-v0.4.310-known-hosts-handoff-palette-select`, stacked on draft PR [#384](https://github.com/uulab-official/picos/pull/384).
+
+Goal: make the Remotes known_hosts evidence handoff browser discoverable and executable from the command palette.
+
+- Action Center now exposes enabled read-only `status.remoteKnownHostsEvidence.handoffSelect`.
+- Command palette searches such as `known_hosts handoff select` and `remote known_hosts handoff select` find the handoff selector.
+- Palette previews show the selected handoff cursor, target id, action, original result-history row, and exact Timeline replay query.
+- Palette dispatch reuses the same selection path as Status `H`, moves focus to Status, and only changes the selected Status Activity result row.
+- Tests cover action catalog counts, palette discovery, available action listing, selected/unavailable preview rows, and existing read-only safety metadata.
+- Next: add a direct command-palette open/replay action for the selected evidence handoff so `I` also becomes discoverable through search.
+
 ## v0.4.309 - Remote Known Hosts Evidence Handoff Browser
 
 Status: draft PR [#384](https://github.com/uulab-official/picos/pull/384) on `codex/picos-v0.4.309-known-hosts-evidence-handoff-browser`, stacked on draft PR [#383](https://github.com/uulab-official/picos/pull/383).
@@ -11,7 +24,7 @@ Goal: make known_hosts evidence copy/export handoffs reachable from the Status c
 - Status `H` cycles only Remotes known_hosts evidence copy/export handoff result rows and syncs the selected result-history row so `I` replays the matching Timeline audit search.
 - The browser reuses the `evidence-handoffs` result-history filter classifier, adding no local trust-file read, transport, scan, trust, write, or remote mutation path.
 - Tests cover handoff index extraction, selected handoff metadata, and copy-intent shelf rows/controls.
-- Next: add command-palette access for the selected evidence-handoff browser so keyboard discovery does not rely on remembering `H`.
+- Next: completed by v0.4.310 command-palette access for the selected evidence-handoff browser.
 
 ## v0.4.308 - Remote Known Hosts Evidence History Filter
 

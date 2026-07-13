@@ -668,6 +668,17 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.remoteKnownHostsEvidence.handoffSelect",
+		title: "Select known_hosts handoff",
+		description:
+			"Known_hosts handoff select shortcut for cycling Status Activity Remotes known_hosts copy/export handoff result rows.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.resultJump.select",
 		title: "Select Status result Timeline jump",
 		description:
