@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { parseInterfaceStats as parseLinuxInterfaceStats } from "../src/adapters/linux";
-import { parseInterfaceStats as parseMacosInterfaceStats } from "../src/adapters/macos";
+import {
+	parseHardwarePorts,
+	parseInterfaceStats as parseMacosInterfaceStats,
+} from "../src/adapters/macos";
 import { parseInterfaceStats as parseWindowsInterfaceStats } from "../src/adapters/windows";
 
 describe("platform interface statistics parsers", () => {
@@ -20,6 +23,23 @@ awdl0 1500  <Link#12>     ff:ee:dd:cc:bb:aa  10    0        2048      12    0   
 			txBytes: 654321,
 		});
 		expect(stats.awdl0?.rxBytes).toBe(2048);
+	});
+
+	test("parses macOS hardware ports into service names by device", () => {
+		expect(
+			parseHardwarePorts(`
+Hardware Port: Wi-Fi
+Device: en0
+Ethernet Address: aa:bb:cc:dd:ee:ff
+
+Hardware Port: Thunderbolt Bridge
+Device: bridge0
+Ethernet Address: ff:ee:dd:cc:bb:aa
+`),
+		).toEqual({
+			en0: "Wi-Fi",
+			bridge0: "Thunderbolt Bridge",
+		});
 	});
 
 	test("parses Linux ip -s link counters", () => {

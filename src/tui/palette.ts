@@ -173,6 +173,7 @@ export type CommandPalettePreviewContext = {
 	selectedInterface?: NetworkInterfaceSummary;
 	selectedInterfacePlatform?: SupportedPlatform;
 	primaryInterfaceName?: string;
+	macosServiceNamesByDevice?: Record<string, string>;
 	defaultToolTarget?: string;
 	publicIp?: string;
 };
@@ -402,6 +403,7 @@ function formatInterfaceStateProposalPalettePreviewRows(
 		{
 			platform: context.selectedInterfacePlatform,
 			primaryInterfaceName: context.primaryInterfaceName,
+			macosServiceNamesByDevice: context.macosServiceNamesByDevice,
 		},
 	);
 	const rows = formatInterfaceStateProposalRows(proposal);

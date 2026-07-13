@@ -6938,6 +6938,7 @@ export function App(): React.ReactElement {
 			const proposal = createInterfaceStateProposal(selected, action, {
 				platform: summary?.platform,
 				primaryInterfaceName: summary?.primaryInterface?.name,
+				macosServiceNamesByDevice: summary?.macosServiceNamesByDevice,
 			});
 			setInterfaceStateProposal(proposal);
 			log(
@@ -12091,6 +12092,7 @@ function renderWorkspace(
 							],
 						selectedInterfacePlatform: summary?.platform,
 						primaryInterfaceName: summary?.primaryInterface?.name,
+						macosServiceNamesByDevice: summary?.macosServiceNamesByDevice,
 						defaultToolTarget: defaultPingHost,
 						publicIp: summary?.publicIp,
 					},

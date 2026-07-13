@@ -61,7 +61,23 @@ const fixture: NetworkSummary = {
 			success: true,
 			exitCode: 0,
 		},
+		{
+			key: "hardware-ports",
+			label: "macOS hardware ports",
+			command: "networksetup",
+			args: ["-listallhardwareports"],
+			output:
+				"Hardware Port: Wi-Fi\nDevice: en0\nEthernet Address: aa:bb:cc:dd:ee:ff",
+			lineCount: 3,
+			shownLines: 3,
+			truncated: false,
+			success: true,
+			exitCode: 0,
+		},
 	],
+	macosServiceNamesByDevice: {
+		en0: "Wi-Fi",
+	},
 	primaryInterface: {
 		name: "en0",
 		status: "connected",
@@ -209,7 +225,7 @@ describe("interface TUI panel formatting", () => {
 			"mtu=1500 status=connected",
 		]);
 		expect(
-			formatInterfaceWorkspaceRows(fixture, 11, {
+			formatInterfaceWorkspaceRows(fixture, 12, {
 				selectedIndex: 0,
 				view: "platform",
 			}),
@@ -221,8 +237,9 @@ describe("interface TUI panel formatting", () => {
 			"ROUTE gateway=192.168.0.1 dns=1.1.1.1,8.8.8.8 public=203.0.113.10",
 			"SOURCE os=darwin stats=netstat -ib actions=R refresh Tab panes K locked controls",
 			"PLATFORM darwin",
-			"SOURCES node:os.networkInterfaces, netstat -ib, route/get gateway, dns.getServers",
+			"SOURCES node:os.networkInterfaces, netstat -ib, route/get gateway, networksetup hardware ports, dns.getServers",
 			"PRIMARY en0",
+			"MACOS SERVICE MAP en0:Wi-Fi",
 			"GROUP LAN scope=private interfaces=en0 addresses=192.168.0.20",
 			"  hint=RFC1918 private network for local devices",
 		]);
@@ -234,20 +251,24 @@ describe("interface TUI panel formatting", () => {
 			"inventory=node:os.networkInterfaces interface=en0",
 			'stats=netstat -ib command="netstat -ibn"',
 			'gateway=route/get command="route -n get default"',
+			'hardwarePorts=networksetup command="networksetup -listallhardwareports"',
+			"serviceMap=en0:Wi-Fi",
 			"dns=node:dns.getServers servers=1.1.1.1,8.8.8.8",
-			"RAW RETAINED sources=3 selected=en0",
+			"RAW RETAINED sources=4 selected=en0",
 			"raw[interface-inventory] node:os networkInterfaces() ok lines=2 shown=2",
 			"  en0 IPv4 192.168.0.20/24 external mac=aa:bb:cc:dd:ee:ff",
 			"raw[interface-stats] netstat -ibn ok lines=3 shown=2 truncated=yes",
 			"  Name Mtu Network Address Ipkts Ierrs Ibytes Opkts",
 			"raw[gateway] route -n get default ok lines=2 shown=2",
 			"  gateway: 192.168.0.1",
+			"raw[hardware-ports] networksetup -listallhardwareports ok lines=3 shown=3",
+			"  Hardware Port: Wi-Fi",
 			"CONTROL interface.disable risk=write privilege=admin status=locked confirmation=disable interface",
 			'adapter=macos command="sudo networksetup -setnetworkserviceenabled <service> off"',
 			"note=disable a network service",
 		]);
 		expect(
-			formatInterfaceWorkspaceRows(fixture, 21, {
+			formatInterfaceWorkspaceRows(fixture, 25, {
 				selectedIndex: 0,
 				view: "source",
 			}),
@@ -262,14 +283,18 @@ describe("interface TUI panel formatting", () => {
 			"inventory=node:os.networkInterfaces interface=en0",
 			'stats=netstat -ib command="netstat -ibn"',
 			'gateway=route/get command="route -n get default"',
+			'hardwarePorts=networksetup command="networksetup -listallhardwareports"',
+			"serviceMap=en0:Wi-Fi",
 			"dns=node:dns.getServers servers=1.1.1.1,8.8.8.8",
-			"RAW RETAINED sources=3 selected=en0",
+			"RAW RETAINED sources=4 selected=en0",
 			"raw[interface-inventory] node:os networkInterfaces() ok lines=2 shown=2",
 			"  en0 IPv4 192.168.0.20/24 external mac=aa:bb:cc:dd:ee:ff",
 			"raw[interface-stats] netstat -ibn ok lines=3 shown=2 truncated=yes",
 			"  Name Mtu Network Address Ipkts Ierrs Ibytes Opkts",
 			"raw[gateway] route -n get default ok lines=2 shown=2",
 			"  gateway: 192.168.0.1",
+			"raw[hardware-ports] networksetup -listallhardwareports ok lines=3 shown=3",
+			"  Hardware Port: Wi-Fi",
 			"CONTROL interface.disable risk=write privilege=admin status=locked confirmation=disable interface",
 			'adapter=macos command="sudo networksetup -setnetworkserviceenabled <service> off"',
 			"note=disable a network service",
@@ -296,10 +321,14 @@ describe("interface TUI panel formatting", () => {
 				" en0 1500 <Link#4> aa:bb:cc:dd:ee:ff 9000 0 125000000 7100\n\n" +
 				"[gateway] route -n get default ok lines=2 shown=2\n" +
 				"gateway: 192.168.0.1\n" +
-				"interface: en0",
+				"interface: en0\n\n" +
+				"[hardware-ports] networksetup -listallhardwareports ok lines=3 shown=3\n" +
+				"Hardware Port: Wi-Fi\n" +
+				"Device: en0\n" +
+				"Ethernet Address: aa:bb:cc:dd:ee:ff",
 			details: [
 				"selected=en0 platform=darwin",
-				"sources=3 gateway=192.168.0.1",
+				"sources=4 gateway=192.168.0.1",
 			],
 			confirmation: "copy",
 			enabled: false,
@@ -325,7 +354,7 @@ describe("interface TUI panel formatting", () => {
 				"kind=interfaces\n" +
 				"view=source\n" +
 				"label=interface source evidence en0\n" +
-				"command=node:os networkInterfaces(); netstat -ibn; route -n get default\n" +
+				"command=node:os networkInterfaces(); netstat -ibn; route -n get default; networksetup -listallhardwareports\n" +
 				"selected=en0\n" +
 				"platform=darwin\n" +
 				"\n" +
@@ -343,7 +372,11 @@ describe("interface TUI panel formatting", () => {
 				" en0 1500 <Link#4> aa:bb:cc:dd:ee:ff 9000 0 125000000 7100\n\n" +
 				"[gateway] route -n get default ok lines=2 shown=2\n" +
 				"gateway: 192.168.0.1\n" +
-				"interface: en0\n" +
+				"interface: en0\n\n" +
+				"[hardware-ports] networksetup -listallhardwareports ok lines=3 shown=3\n" +
+				"Hardware Port: Wi-Fi\n" +
+				"Device: en0\n" +
+				"Ethernet Address: aa:bb:cc:dd:ee:ff\n" +
 				"```\n",
 		});
 
@@ -383,14 +416,14 @@ describe("interface TUI panel formatting", () => {
 			"CLIPBOARD PREVIEW interface-source",
 			"label interface source evidence en0",
 			"detail selected=en0 platform=darwin",
-			"detail sources=3 gateway=192.168.0.1",
+			"detail sources=4 gateway=192.168.0.1",
 			"copy picos interfaces source",
 			"copy ",
 			"copy [Summary]",
 			"copy Selected: en0",
 			"copy Platform: darwin",
 			"copy Gateway: 192.168.0.1",
-			"copy ... 12 more lines",
+			"copy ... 17 more lines",
 			"confirm copy locked",
 		]);
 	});
@@ -402,6 +435,7 @@ describe("interface TUI panel formatting", () => {
 			{
 				platform: fixture.platform,
 				primaryInterfaceName: fixture.primaryInterface?.name,
+				macosServiceNamesByDevice: fixture.macosServiceNamesByDevice,
 			},
 		);
 
@@ -418,13 +452,13 @@ describe("interface TUI panel formatting", () => {
 			"address ipv4=192.168.0.20/24 ipv6=fe80::1/64 mac=aa:bb:cc:dd:ee:ff mtu=1500",
 			"transition current=connected desired=disconnected",
 			"risk=write privilege=admin confirm=disable interface",
-			"controlTarget kind=network-service label=<service-for-en0> confidence=missing source=networksetup-hardware-port-map",
-			'controlCommand=sudo networksetup -setnetworkserviceenabled "<service-for-en0>" off',
+			"controlTarget kind=network-service label=Wi-Fi confidence=exact source=networksetup-hardware-port-map",
+			"controlCommand=sudo networksetup -setnetworkserviceenabled Wi-Fi off",
 			"PREFLIGHT",
 			"scope=interface target=en0",
 			"currentStatus=connected desiredStatus=disconnected primary=yes platform=darwin",
-			"willModify=interface-link-state serviceOrAdapter=network-service controlTarget=<service-for-en0>",
-			"targetResolution=requires networksetup hardware-port lookup for BSD device en0",
+			"willModify=interface-link-state serviceOrAdapter=network-service controlTarget=Wi-Fi",
+			"targetResolution=mapped BSD device en0 to network service Wi-Fi",
 			"requires=selected-interface admin confirmation dry-run-policy",
 			"adapterDryRun=proposal-only",
 			"rollback=restore previous interface state from current snapshot",
