@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.305 - Remote Known Hosts Evidence Handoff Hints
+
+Status: draft PR [#380](https://github.com/uulab-official/picos/pull/380) on `codex/picos-v0.4.305-known-hosts-evidence-handoff-hints`, stacked on draft PR [#379](https://github.com/uulab-official/picos/pull/379).
+
+Goal: make direct known_hosts evidence handoff discovery visible inside the Status Activity shelf itself, not only in docs or command-palette search.
+
+- `STATUS ACTIVITY COPY INTENTS` now adds a compact `remote known_hosts evidence handoff y/e palette=? known_hosts evidence copy/export` row beside recovered known_hosts evidence targets.
+- The Status copy-intent controls row now includes `palette known_hosts copy/export` whenever a recovered known_hosts evidence export is selected.
+- The hint keeps the existing `y` clipboard and `e` audit export keyboard path visible while also surfacing the command-palette keywords operators can search.
+- Tests cover the empty copy-intent shelf with recovered known_hosts evidence and verify the new handoff/palette hint rows.
+- Next: add copy/export palette actions to Timeline replay recovery for copy/export origin rows so handoff operations can become reusable `I` jumps where useful.
+
 ## v0.4.304 - Remote Known Hosts Evidence Handoff Palette
 
 Status: draft PR [#379](https://github.com/uulab-official/picos/pull/379) on `codex/picos-v0.4.304-known-hosts-evidence-handoff-palette`, stacked on draft PR [#378](https://github.com/uulab-official/picos/pull/378).
@@ -12,7 +24,7 @@ Goal: make direct recovered Remotes known_hosts evidence copy/export handoffs di
 - Palette dispatch reuses the same Status Activity copy-intent clipboard preview and picos-owned audit export helpers as the `y`/`e` fallback flow, keeping no-local-read/no-network/no-scan/no-trust/no-write guards intact.
 - Status `y` and `e` fallback handling now share the same selected known_hosts evidence handoff helpers used by the palette actions.
 - Tests cover action catalog exposure, palette discovery, and copy/export preview rows.
-- Next: add a compact Status Activity row command hint for direct known_hosts evidence handoffs, so the shelf itself shows palette keywords beside `y`/`e`.
+- Next: completed by v0.4.305 compact Status Activity row command hints for direct known_hosts evidence handoffs.
 
 ## v0.4.303 - Remote Known Hosts Evidence Handoff
 
