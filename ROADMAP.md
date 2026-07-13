@@ -2,7 +2,7 @@
 
 ## v0.4.323 - Interface Dry-Run Policy Preview
 
-Status: in progress on `codex/picos-v0.4.323-interface-dry-run-policy`, stacked on draft PR [#397](https://github.com/uulab-official/picos/pull/397).
+Status: draft PR [#398](https://github.com/uulab-official/picos/pull/398) on `codex/picos-v0.4.323-interface-dry-run-policy`, stacked on draft PR [#397](https://github.com/uulab-official/picos/pull/397).
 
 Goal: make locked interface enable/disable proposals show dry-run support and blockers explicitly before any execution path exists.
 
