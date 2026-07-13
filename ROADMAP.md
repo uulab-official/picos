@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.298 - Remote Known Hosts Selection History
+
+Status: draft PR [#373](https://github.com/uulab-official/picos/pull/373) on `codex/picos-v0.4.298-known-hosts-selection-history`.
+
+Goal: make known_hosts candidate selection history visible inside the Remotes OS-console workspace, so operators can recover what they selected without switching to Status first.
+
+- Status Activity now has a dedicated formatter for `remote-known-hosts-selection` history rows.
+- Remotes renders a `KNOWN_HOSTS SELECTION HISTORY` shelf below recent activity with candidate summaries, details, and Timeline recovery queries.
+- Empty history keeps useful controls and locked guard rows visible instead of showing a blank panel.
+- The shelf preserves the locked posture: no local trust-file read, no network transport, no host scan, no trust application, and no `known_hosts` write.
+- Tests cover empty and populated selection-history rows, including command-driven candidate selection and move-driven selection recovery.
+- Next: add copy/export controls for known_hosts selection history.
+
 ## v0.4.297 - Remote Known Hosts Select Palette
 
 Status: draft PR [#372](https://github.com/uulab-official/picos/pull/372) on `codex/picos-v0.4.297-known-hosts-select-palette`.
@@ -11,7 +24,7 @@ Goal: make typed known_hosts candidate selection discoverable from the command p
 - Palette preview shows the `:remote-known-hosts-select` prompt, accepted formats, and locked local-read/network/trust/write guards before dispatch.
 - Palette dispatch moves into Remotes focus and opens the existing typed candidate selection prompt, reusing the safe session and Activity path from v0.4.296.
 - Tests cover action catalog counts, read-only action metadata, palette search, and preview rows.
-- Next: expose known_hosts selection history as a copy/export source.
+- Next: add copy/export controls for known_hosts selection history.
 
 ## v0.4.296 - Remote Known Hosts Select Command
 
@@ -25,7 +38,7 @@ Goal: let operators select pasted known_hosts candidates beyond `1-9` through a 
 - Typed selections update the paste review session, known_hosts candidate session, live compare detail, and Status Activity result history with `method=command`.
 - Timeline recovery can search command-driven selection audit rows by remote id, candidate number, and method without opening transport, reading local trust files, trusting hosts, or writing `known_hosts`.
 - Tests cover parsing, no-op safety, long-buffer candidate selection, command-method Activity rows, and Timeline recovery.
-- Next: expose known_hosts selection history as a copy/export source.
+- Next: add copy/export controls for known_hosts selection history.
 
 ## v0.4.295 - Remote Known Hosts Selection Activity
 

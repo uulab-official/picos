@@ -721,6 +721,54 @@ export function formatRemoteActivityShelfRows(
 	return rows;
 }
 
+export function formatRemoteKnownHostsSelectionHistoryRows(
+	history: StatusActivityResult[],
+	options: {
+		selectedProfileId?: string;
+		limit?: number;
+	} = {},
+): string[] {
+	const limit = Math.max(1, Math.floor(options.limit ?? 3));
+	const selectionResults = history
+		.filter(isRemoteKnownHostsSelectionActivityResult)
+		.slice(0, limit);
+	const selectedProfileId = options.selectedProfileId ?? "none";
+	const selectedIndex = getSelectedRemoteActivityIndex(
+		selectionResults,
+		options.selectedProfileId,
+	);
+
+	if (!selectionResults.length) {
+		return [
+			"KNOWN_HOSTS SELECTION HISTORY count=0 selected=none",
+			"hint=use [/] 1-9 S or palette remote known_hosts select after paste review",
+			"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
+		];
+	}
+
+	const rows = [
+		`KNOWN_HOSTS SELECTION HISTORY count=${selectionResults.length} selected=${selectedProfileId}`,
+	];
+	for (const [index, result] of selectionResults.entries()) {
+		const marker = index === selectedIndex ? ">" : " ";
+		rows.push(`${marker} ${formatRemoteActivitySummary(result)}`);
+		if (result.detail) {
+			rows.push(`  ${result.detail}`);
+		}
+		const timelineSearch = createStatusActivityResultTimelineSearch(
+			[result],
+			0,
+		);
+		if (timelineSearch) {
+			rows.push(`  timeline=${timelineSearch.query}`);
+		}
+	}
+	rows.push(
+		"controls=[/] rotate · 1-9 direct · S typed · palette remote known_hosts select · Status I timeline recovery",
+	);
+	return rows;
+}
+
 function isRemoteActivityResult(result: StatusActivityResult): boolean {
 	return (
 		result.source === "timeline" &&
@@ -729,6 +777,15 @@ function isRemoteActivityResult(result: StatusActivityResult): boolean {
 			result.action === "remote-host-trust-review" ||
 			result.action === "remote-known-hosts-selection" ||
 			result.action === "remote-connect")
+	);
+}
+
+function isRemoteKnownHostsSelectionActivityResult(
+	result: StatusActivityResult,
+): boolean {
+	return (
+		result.source === "timeline" &&
+		result.action === "remote-known-hosts-selection"
 	);
 }
 
