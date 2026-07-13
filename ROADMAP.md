@@ -2,7 +2,7 @@
 
 ## v0.4.315 - Tools Detail Section Shortcuts
 
-Status: in progress on `codex/picos-v0.4.315-tools-section-shortcuts`, stacked on draft PR [#389](https://github.com/uulab-official/picos/pull/389).
+Status: draft PR [#390](https://github.com/uulab-official/picos/pull/390) on `codex/picos-v0.4.315-tools-section-shortcuts`, stacked on draft PR [#389](https://github.com/uulab-official/picos/pull/389).
 
 Goal: continue lazyifconfig-style panel ergonomics by making Tools Hub history detail panes directly keyboard-addressable.
 
