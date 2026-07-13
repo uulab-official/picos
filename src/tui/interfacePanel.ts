@@ -1,6 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { getControlPreviewCommand } from "../core/controlPreview";
+import {
+	formatInterfaceStateProposalRows,
+	type InterfaceStateProposal,
+} from "../core/interfaceControl";
 import type {
 	NetworkGroupSummary,
 	NetworkInterfaceSummary,
@@ -68,6 +72,7 @@ export function formatInterfaceWorkspaceRows(
 	options: {
 		copyPreview?: boolean;
 		selectedIndex?: number;
+		stateProposal?: InterfaceStateProposal;
 		view?: InterfaceDetailView;
 	} = {},
 ): string[] {
@@ -85,6 +90,7 @@ export function formatInterfaceWorkspaceRows(
 			header,
 			...formatSelectedInterfaceSummaryRows(summary, selected),
 			...formatInterfaceDetailRows(summary, selected),
+			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 		].slice(0, visibleRows);
 	}
 	if (view === "stats") {
@@ -92,6 +98,7 @@ export function formatInterfaceWorkspaceRows(
 			header,
 			...formatSelectedInterfaceSummaryRows(summary, selected),
 			...formatInterfaceStatsRows(selected),
+			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 		].slice(0, visibleRows);
 	}
 	if (view === "platform") {
@@ -99,6 +106,7 @@ export function formatInterfaceWorkspaceRows(
 			header,
 			...formatSelectedInterfaceSummaryRows(summary, selected),
 			...formatInterfacePlatformRows(summary),
+			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 		].slice(0, visibleRows);
 	}
 	if (view === "source") {
@@ -109,6 +117,7 @@ export function formatInterfaceWorkspaceRows(
 			...(options.copyPreview
 				? formatInterfaceSourceClipboardPreviewRows(summary, selected)
 				: []),
+			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 		].slice(0, visibleRows);
 	}
 
@@ -116,6 +125,7 @@ export function formatInterfaceWorkspaceRows(
 		header,
 		...formatSelectedInterfaceSummaryRows(summary, selected),
 		...formatInterfaceListRows(summary, selectedIndex),
+		...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 	].slice(0, visibleRows);
 }
 
@@ -240,6 +250,12 @@ function getSelectedIndex(
 		return undefined;
 	}
 	return Math.min(Math.max(selectedIndex ?? 0, 0), total - 1);
+}
+
+function formatOptionalInterfaceStateProposalRows(
+	proposal: InterfaceStateProposal | undefined,
+): string[] {
+	return proposal ? formatInterfaceStateProposalRows(proposal) : [];
 }
 
 function formatInterfaceListRows(
