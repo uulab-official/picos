@@ -38,6 +38,6 @@
 
 - [x] Document the new Remotes selection-history shelf.
 - [x] Run `bun run verify` and `bun run release:check`.
-- [ ] Commit, push, and open a draft PR stacked on v0.4.297.
+- [x] Commit, push, and open a draft PR stacked on v0.4.297.
 
-Result: In progress on `codex/picos-v0.4.298-known-hosts-selection-history`.
+Result: Draft PR [#373](https://github.com/uulab-official/picos/pull/373) opened on 2026-07-13, stacked on `codex/picos-v0.4.297-known-hosts-select-palette`.

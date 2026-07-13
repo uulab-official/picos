@@ -2,7 +2,7 @@
 
 ## v0.4.298 - Remote Known Hosts Selection History
 
-Status: in progress on `codex/picos-v0.4.298-known-hosts-selection-history`.
+Status: draft PR [#373](https://github.com/uulab-official/picos/pull/373) on `codex/picos-v0.4.298-known-hosts-selection-history`.
 
 Goal: make known_hosts candidate selection history visible inside the Remotes OS-console workspace, so operators can recover what they selected without switching to Status first.
 
