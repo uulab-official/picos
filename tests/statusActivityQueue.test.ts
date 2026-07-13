@@ -30,6 +30,7 @@ import {
 	createRemoteHostKeyEvidenceInputStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
+	createRemoteKnownHostsEvidenceHandoffOpenCopyIntent,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
 	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
@@ -89,6 +90,7 @@ import {
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestProcessControlAuditExport,
+	getLatestRemoteKnownHostsEvidenceHandoffOpenIntent,
 	getLatestRemoteKnownHostsSelectionHistoryAuditExport,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
@@ -3517,9 +3519,9 @@ describe("Status activity queue", () => {
 		expect(
 			getStatusActivityRemoteKnownHostsEvidenceHandoffIndexes(history),
 		).toEqual([0, 2]);
-		expect(
-			getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(history, 2),
-		).toEqual({
+		const selectedHandoff =
+			getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(history, 2);
+		expect(selectedHandoff).toEqual({
 			action: "export",
 			historyIndex: 2,
 			id: "prod",
@@ -3533,9 +3535,55 @@ describe("Status activity queue", () => {
 			selected: 1,
 			total: 2,
 		});
+		const handoffOpenIntent =
+			createRemoteKnownHostsEvidenceHandoffOpenCopyIntent(selectedHandoff, {
+				matches: 4,
+			});
+		expect(handoffOpenIntent).toEqual({
+			label:
+				"remote known_hosts handoff open id:prod action=export row=3 matches=4 selected=2/2",
+			copyText:
+				'palette remote known_hosts evidence audit action=export target="prod"\nstatus activity result timeline search palette remote known_hosts evidence prod\nfilter=audit\nhandoff=open\nrow=3\nmatches=4',
+			selectedRow: 1,
+			expanded: false,
+			lines: 6,
+			preview:
+				'palette remote known_hosts evidence audit action=export target="prod"',
+			auditMessage:
+				'clipboard intent status-activity label="remote known_hosts handoff open id:prod action=export row=3 matches=4 selected=2/2" selectedRow=1 expanded=false lines=6 preview="palette remote known_hosts evidence audit action=export target="prod""',
+		});
+		if (!handoffOpenIntent) {
+			throw new Error("expected remote known_hosts handoff open intent");
+		}
+		expect(
+			getLatestRemoteKnownHostsEvidenceHandoffOpenIntent([handoffOpenIntent]),
+		).toEqual({
+			action: "export",
+			historyIndex: 2,
+			id: "prod",
+			jump: {
+				filter: "audit",
+				query:
+					'palette remote known_hosts evidence audit action=export target="prod"',
+				message:
+					"status activity result timeline search palette remote known_hosts evidence prod",
+			},
+			matches: 4,
+			selected: 1,
+			total: 2,
+		});
+		expect(
+			createStatusActivityCopyIntentTimelineSearch([handoffOpenIntent], 0),
+		).toEqual({
+			filter: "audit",
+			query:
+				'palette remote known_hosts evidence audit action=export target="prod"',
+			message:
+				"status activity copy intent timeline search remote known_hosts handoff open prod action=export",
+		});
 		expect(
 			formatStatusActivityCopyIntentRows(
-				[],
+				[handoffOpenIntent],
 				0,
 				undefined,
 				undefined,
@@ -3561,12 +3609,14 @@ describe("Status activity queue", () => {
 				2,
 			),
 		).toEqual([
-			"STATUS ACTIVITY COPY INTENTS count=0",
+			"STATUS ACTIVITY COPY INTENTS count=1 selected=1/1",
 			"remote known_hosts handoffs count=2 selected=2/2",
 			"remote known_hosts handoff #3 target=id:prod action=export I=replay",
 			'remote known_hosts handoff detail query=palette remote known_hosts evidence audit action=export target="prod" H select',
-			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · H handoff select · I handoff search · g Timeline audit search",
+			"remote known_hosts handoff open target=id:prod action=export row=3 matches=4 selected=2/2",
+			'remote known_hosts handoff open detail query=palette remote known_hosts evidence audit action=export target="prod" g Timeline v replay',
+			'> remote known_hosts handoff open id:prod action=export row=3 matches=4 selected=2/2 row=1 expanded=false lines=6 preview=palette remote known_hosts evidence audit action=export target="prod"',
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · H handoff select · I handoff search · handoff open tracked · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
 	});
 
