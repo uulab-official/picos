@@ -11,6 +11,7 @@ import {
 	formatRouteRawRows,
 	formatRouteWorkspaceRows,
 	getRouteClipboardPreview,
+	getRouteDetailViewShortcut,
 	nextRouteDetailView,
 	nextRouteFilterPreset,
 	saveRouteFilterPreset,
@@ -263,6 +264,13 @@ describe("route TUI panel formatting", () => {
 		expect(nextRouteDetailView("raw")).toBe("diagnostics");
 		expect(nextRouteDetailView("diagnostics")).toBe("path");
 		expect(nextRouteDetailView("path")).toBe("table");
+		expect(getRouteDetailViewShortcut("1")).toBe("table");
+		expect(getRouteDetailViewShortcut("2")).toBe("raw");
+		expect(getRouteDetailViewShortcut("3")).toBe("diagnostics");
+		expect(getRouteDetailViewShortcut("4")).toBe("path");
+		expect(getRouteDetailViewShortcut("", { home: true })).toBe("table");
+		expect(getRouteDetailViewShortcut("", { end: true })).toBe("path");
+		expect(getRouteDetailViewShortcut("5")).toBeUndefined();
 		expect(formatRouteWorkspaceRows(fixture, 5, { view: "raw" })).toEqual([
 			"SUMMARY routes=2 view=raw command=netstat -rn",
 			"RAW OUTPUT",

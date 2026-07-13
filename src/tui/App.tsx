@@ -452,6 +452,7 @@ import {
 	formatRoutePathRows,
 	formatRouteWorkspaceRows,
 	getRouteClipboardPreview,
+	getRouteDetailViewShortcut,
 	nextRouteDetailView,
 	nextRouteFilterPreset,
 	type RouteDetailView,
@@ -7539,6 +7540,19 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "routes" && focusArea === "workspaces") {
+			const nextRouteView = getRouteDetailViewShortcut(input, {
+				end: key.end,
+				home: key.home,
+			});
+			if (nextRouteView) {
+				setRouteDetailView(nextRouteView);
+				setRouteCopyPreview(false);
+				log("info", `route detail ${nextRouteView}`);
+				return;
+			}
+		}
+
 		if (screen === "routes" && focusArea === "workspaces" && input === ":") {
 			setCommandLine(openCommandLine("route"));
 			log("info", "route destination prompt opened");
@@ -14115,7 +14129,8 @@ function RoutesWorkspace({
 			<Text bold>{t("screen.routes")}</Text>
 			<Text color="gray">
 				route table diagnostics · f filter · F clear · P save · ] preset · c
-				copy · D cleanup · e export · o open · tab detail · s sort · : path
+				copy · D cleanup · e export · o open · tab/1-4 detail · home/end · s
+				sort · : path
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => {

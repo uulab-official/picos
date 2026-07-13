@@ -51,6 +51,34 @@ export type RouteFilterCleanupConfirmation = {
 	removed: number;
 };
 
+export function getRouteDetailViewShortcut(
+	input: string,
+	options: {
+		end?: boolean;
+		home?: boolean;
+	} = {},
+): RouteDetailView | undefined {
+	if (options.home) {
+		return "table";
+	}
+	if (options.end) {
+		return "path";
+	}
+	if (input === "1") {
+		return "table";
+	}
+	if (input === "2") {
+		return "raw";
+	}
+	if (input === "3") {
+		return "diagnostics";
+	}
+	if (input === "4") {
+		return "path";
+	}
+	return undefined;
+}
+
 export function nextRouteDetailView(view: RouteDetailView): RouteDetailView {
 	if (view === "table") {
 		return "raw";
