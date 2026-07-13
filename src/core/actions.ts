@@ -613,6 +613,39 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.remoteKnownHostsEvidence.select",
+		title: "Select known_hosts evidence",
+		description:
+			"Cycle recovered Remotes known_hosts selection-history evidence exports in Status Evidence.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.remoteKnownHostsEvidence.open",
+		title: "Open known_hosts evidence",
+		description:
+			"Open the selected recovered Remotes known_hosts selection-history evidence export through the locked file-open prompt.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.remoteKnownHostsEvidence.search",
+		title: "Known_hosts evidence search",
+		description:
+			"Jump to Timeline audit search for the selected recovered Remotes known_hosts selection-history evidence query.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.resultJump.select",
 		title: "Select Status result Timeline jump",
 		description:
