@@ -2,7 +2,7 @@
 
 ## v0.4.300 - Remote Known Hosts Evidence Recovery
 
-Status: in progress on `codex/picos-v0.4.300-known-hosts-evidence-recovery`.
+Status: draft PR [#375](https://github.com/uulab-official/picos/pull/375) on `codex/picos-v0.4.300-known-hosts-evidence-recovery`.
 
 Goal: make Remotes known_hosts selection-history audit exports recoverable from Status Evidence after refresh or restart.
 

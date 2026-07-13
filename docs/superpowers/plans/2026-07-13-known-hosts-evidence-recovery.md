@@ -49,4 +49,6 @@
 
 - [x] Document the recovered `remote-known-hosts` evidence family and controls.
 - [x] Run `bun run verify` and `bun run release:check`.
-- [ ] Commit, push, and open a draft PR stacked on v0.4.299.
+- [x] Commit, push, and open a draft PR stacked on v0.4.299.
+
+Result: Draft PR [#375](https://github.com/uulab-official/picos/pull/375) opened on 2026-07-13, stacked on `codex/picos-v0.4.299-known-hosts-history-copy-export`.
