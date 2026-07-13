@@ -2,7 +2,7 @@
 
 ## v0.4.305 - Remote Known Hosts Evidence Handoff Hints
 
-Status: local branch `codex/picos-v0.4.305-known-hosts-evidence-handoff-hints` stacked on draft PR [#379](https://github.com/uulab-official/picos/pull/379).
+Status: draft PR [#380](https://github.com/uulab-official/picos/pull/380) on `codex/picos-v0.4.305-known-hosts-evidence-handoff-hints`, stacked on draft PR [#379](https://github.com/uulab-official/picos/pull/379).
 
 Goal: make direct known_hosts evidence handoff discovery visible inside the Status Activity shelf itself, not only in docs or command-palette search.
 
