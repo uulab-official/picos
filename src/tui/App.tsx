@@ -15352,6 +15352,8 @@ function StatusWorkspace({
 					selectedStatusActivityToolsEvidenceSearchMatchIndex,
 					processControlAuditExports,
 					selectedProcessControlAuditExportIndex,
+					remoteKnownHostsSelectionAuditExports,
+					selectedRemoteKnownHostsSelectionAuditExportIndex,
 				).map((row) => (
 					<Text
 						key={`activity-copy-intent-${row}`}

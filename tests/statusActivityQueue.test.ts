@@ -1667,6 +1667,89 @@ describe("Status activity queue", () => {
 		]);
 	});
 
+	test("shows remote known_hosts evidence targets in the copy intent shelf", () => {
+		const knownHostsEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			content: "",
+			eventCount: 2,
+			query: "remote known_hosts selection history prod",
+			scope: "filtered" as const,
+		};
+		const knownHostsResult =
+			createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
+				"search",
+				knownHostsEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			);
+		const knownHostsJump = createStatusActivityResultTimelineSearch(
+			[knownHostsResult],
+			0,
+		);
+		const knownHostsIntent =
+			createStatusActivityResultTimelineSearchIntent(knownHostsJump);
+		if (!knownHostsJump || !knownHostsIntent) {
+			throw new Error("expected remote known_hosts audit jump");
+		}
+
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				"fresh",
+				0,
+				undefined,
+				knownHostsJump,
+				0,
+				1,
+				undefined,
+				0,
+				[],
+				0,
+				[knownHostsEvidence],
+				0,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"remote known_hosts target=id:prod action=search I=fresh",
+			"remote known_hosts evidence selected=1/1",
+			"remote known_hosts evidence target=picos-audit-filtered-2026-07-01T060000000Z.log query=remote known_hosts selection history prod events=2",
+			"remote known_hosts evidence detail id:prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log actions=R open G search",
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · remote known_hosts evidence · g Timeline audit search",
+		]);
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[knownHostsIntent],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				knownHostsIntent,
+				1,
+				"replay",
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=1 selected=1/1",
+			'audit jumps count=1 target=remote-known-hosts id:prod latest=status evidence remote known_hosts audit action=search target="prod" lines=3 I=replay replay=selected valid',
+			'> status activity result audit jump status evidence remote known_hosts audit action=search target="prod" row=1 expanded=false lines=3 preview=status evidence remote known_hosts audit action=search target="prod"',
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
+		]);
+	});
+
 	test("shows fresh Tools evidence search result targets in the copy intent shelf", () => {
 		const toolsSearchResult = createStatusActivityToolsEvidencePaletteResult(
 			"search",

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.302 - Remote Known Hosts Evidence Copy Intents
+
+Status: draft PR [#377](https://github.com/uulab-official/picos/pull/377) on `codex/picos-v0.4.302-known-hosts-evidence-copy-intents`.
+
+Goal: surface recovered Remotes known_hosts evidence inside the Status Activity copy-intent shelf so trust evidence can be copied, exported, and replayed like process evidence.
+
+- `STATUS ACTIVITY COPY INTENTS` now shows recovered `remote-known-hosts` evidence rows with selected cursor, filename, original audit query, event count, recovered remote id, path, and open/search action hints.
+- Fresh Status Activity result jumps for known_hosts evidence searches now render as `remote known_hosts target=id:<id> action=search I=fresh` instead of a generic audit query.
+- Reusable audit-jump summaries now append `target=remote-known-hosts id:<id>` for known_hosts evidence replay rows.
+- The Status workspace passes recovered known_hosts selection-history audit exports into the copy-intent shelf beside process evidence, Tools evidence, and Timeline trail recovery.
+- Tests cover fresh/replay target summaries and recovered known_hosts evidence shelf rows.
+- Next: add direct copy/export recovery for selected known_hosts evidence rows from the Status copy-intent shelf, so operators can produce a small handoff without moving back through Status Evidence first.
+
 ## v0.4.301 - Remote Known Hosts Evidence Palette
 
 Status: draft PR [#376](https://github.com/uulab-official/picos/pull/376) on `codex/picos-v0.4.301-known-hosts-evidence-palette`.
@@ -11,7 +24,7 @@ Goal: make recovered Remotes known_hosts selection-history evidence reachable fr
 - Palette-triggered select/open/search actions now append compact Status Activity result rows plus searchable Timeline audit messages.
 - Status Evidence `remote-known-hosts` searches also leave Status Activity results, so `I`/replay can return to the matching `status evidence remote known_hosts audit ...` query.
 - Tests cover action catalog exposure, palette discovery and previews, Status Activity/audit result formatting, reusable Timeline jumps, and Timeline audit search rendering.
-- Next: add a compact Status Activity copy-intent shelf row for recovered known_hosts evidence selections, so selected/exported remote trust evidence can be copied or exported like process evidence.
+- Next: completed by v0.4.302 Status Activity copy-intent shelf rows for recovered known_hosts evidence selections.
 
 ## v0.4.300 - Remote Known Hosts Evidence Recovery
 
