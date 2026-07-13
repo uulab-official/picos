@@ -646,6 +646,28 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.remoteKnownHostsEvidence.copy",
+		title: "Copy known_hosts evidence",
+		description:
+			"Open a locked clipboard preview for the selected recovered Remotes known_hosts evidence handoff.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.remoteKnownHostsEvidence.export",
+		title: "Export known_hosts evidence",
+		description:
+			"Write a small picos audit handoff for the selected recovered Remotes known_hosts evidence.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.resultJump.select",
 		title: "Select Status result Timeline jump",
 		description:

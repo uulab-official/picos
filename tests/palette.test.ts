@@ -505,6 +505,8 @@ describe("TUI command palette", () => {
 				"status.remoteKnownHostsEvidence.select",
 				"status.remoteKnownHostsEvidence.open",
 				"status.remoteKnownHostsEvidence.search",
+				"status.remoteKnownHostsEvidence.copy",
+				"status.remoteKnownHostsEvidence.export",
 			]),
 		);
 		expect(
@@ -516,6 +518,15 @@ describe("TUI command palette", () => {
 				),
 			).map((action) => action.id),
 		).toContain("status.remoteKnownHostsEvidence.search");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"remote known_hosts evidence export",
+				),
+			).map((action) => action.id),
+		).toContain("status.remoteKnownHostsEvidence.export");
 	});
 
 	test("previews recovered remote known_hosts evidence actions before dispatch", () => {
@@ -544,6 +555,42 @@ describe("TUI command palette", () => {
 			"target=prod events=2",
 			"query=remote known_hosts selection history prod",
 			"confirm=file-open path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.remoteKnownHostsEvidence.copy",
+				),
+				{
+					selectedRemoteKnownHostsEvidenceExport:
+						selectedKnownHostsEvidenceExport,
+					selectedRemoteKnownHostsEvidenceExportIndex: 1,
+					totalRemoteKnownHostsEvidenceExports: 3,
+				},
+			),
+		).toEqual([
+			"selected remote known_hosts evidence 2/3 picos-audit-filtered-2026-07-01T060000000Z.log",
+			"target=prod events=2",
+			"query=remote known_hosts selection history prod",
+			"confirm=clipboard handoff=remote-known-hosts path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.remoteKnownHostsEvidence.export",
+				),
+				{
+					selectedRemoteKnownHostsEvidenceExport:
+						selectedKnownHostsEvidenceExport,
+					selectedRemoteKnownHostsEvidenceExportIndex: 1,
+					totalRemoteKnownHostsEvidenceExports: 3,
+				},
+			),
+		).toEqual([
+			"selected remote known_hosts evidence 2/3 picos-audit-filtered-2026-07-01T060000000Z.log",
+			"target=prod events=2",
+			"query=remote known_hosts selection history prod",
+			"audit-export=selected-handoff path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
 		]);
 		expect(
 			formatCommandPaletteActionPreviewRows(
