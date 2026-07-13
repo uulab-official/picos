@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.323 - Interface Dry-Run Policy Preview
+
+Status: draft PR [#398](https://github.com/uulab-official/picos/pull/398) on `codex/picos-v0.4.323-interface-dry-run-policy`, stacked on draft PR [#397](https://github.com/uulab-official/picos/pull/397).
+
+Goal: make locked interface enable/disable proposals show dry-run support and blockers explicitly before any execution path exists.
+
+- Interface state proposals now include a `dryRunPreview` model with status, policy, adapter dry-run availability, command preview, reason, and blockers.
+- Windows `Get-NetAdapter` targets show adapter dry-run availability because the command preview uses `-WhatIf`.
+- macOS `networksetup` and Linux `ip link` targets show adapter dry-run unavailable, while all platforms remain blocked by proposal-only execution policy.
+- Interfaces workspace and command-palette proposal previews show dry-run rows before preflight.
+- Preflight rows now include explicit dry-run blockers instead of the old single `adapterDryRun=proposal-only` row.
+- No interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
+- Tests cover dry-run preview modeling, platform differences, workspace rendering, and command-palette rendering.
+- Next: add an exact confirmation draft for interface proposals, still without executing the adapter command.
+
 ## v0.4.322 - macOS Interface Service Map
 
 Status: draft PR [#397](https://github.com/uulab-official/picos/pull/397) on `codex/picos-v0.4.322-macos-interface-service-map`, stacked on draft PR [#396](https://github.com/uulab-official/picos/pull/396).
@@ -14,7 +29,7 @@ Goal: collect macOS `networksetup` hardware-port evidence so locked interface pr
 - Locked interface state proposals now show exact macOS service-name command previews when the map is available.
 - No interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
 - Tests cover hardware-port parsing, summary retention, source panel rendering, copy/export evidence, and proposal/palette exact target previews.
-- Next: model an explicit dry-run policy preview for interface enable/disable proposals without allowing execution.
+- Next: completed by v0.4.323 explicit interface dry-run policy preview.
 
 ## v0.4.321 - Interface Control Target Resolution
 

@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Interface state proposals now include explicit dry-run policy preview rows that show adapter dry-run availability, proposal-only policy, blocked execution state, command preview, and blockers without enabling interface mutation.
 - macOS network summaries now retain `networksetup -listallhardwareports` evidence, parse BSD device to service-name mappings such as `en0 -> Wi-Fi`, show the map in Interfaces source/platform panes, and feed exact service targets into locked interface state proposals.
 - Interface state proposals now show platform control-target resolution rows, including Linux `ip link` targets, Windows `Get-NetAdapter` targets, and macOS `networksetup` service-name lookup requirements before any interface mutation can be executed.
 - Command palette now exposes read-only `interface proposal disable` and `interface proposal enable` actions that open the Interfaces workspace with the same locked state proposal, selected adapter metadata, write/admin risk, preflight, rollback, and execution-disabled rows as the `D`/`U` shortcuts.
