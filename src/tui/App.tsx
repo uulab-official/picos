@@ -481,6 +481,7 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createInterfaceConfirmationAuditExportPlan,
 	createInterfaceConfirmationStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
@@ -588,6 +589,7 @@ import {
 	type StatusActivitySource,
 	type StatusActivityToolsEvidenceSearchRecovery,
 	type TimelineEvidenceTrailSourceFilter,
+	writeInterfaceConfirmationAuditExport,
 	writeRemoteKnownHostsSelectionHistoryAuditExport,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
@@ -8684,6 +8686,33 @@ export function App(): React.ReactElement {
 				},
 			);
 			if (!plan) {
+				const interfacePlan = createInterfaceConfirmationAuditExportPlan(
+					statusActivityResults,
+					selectedStatusActivityResultIndex,
+					{
+						baseDir: dirname(getConfigPath()),
+					},
+				);
+				if (interfacePlan) {
+					void writeInterfaceConfirmationAuditExport(interfacePlan)
+						.then((written) => {
+							setLastStatusActivityCopyIntentAuditExport(written);
+							log(
+								"ok",
+								`interface confirmation audit exported ${written.path} events=${written.eventCount}`,
+							);
+							void refreshAuditExportIndex(false);
+						})
+						.catch((caught) =>
+							log(
+								"fail",
+								caught instanceof Error
+									? `interface confirmation audit export failed ${caught.message}`
+									: `interface confirmation audit export failed ${String(caught)}`,
+							),
+						);
+					return;
+				}
 				exportSelectedRemoteKnownHostsSelectionEvidenceHandoff();
 				return;
 			}
