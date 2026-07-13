@@ -2194,6 +2194,29 @@ export function moveRemoteKnownHostsSelectionHistoryAuditExportSelection(
 	return (current + delta + exports.length) % exports.length;
 }
 
+export function getSelectedInterfaceConfirmationAuditExport(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+): ConsoleAuditExportPlan | undefined {
+	if (exports.length === 0) {
+		return undefined;
+	}
+	return exports[getNormalizedSelectionIndex(exports.length, selectedIndex)];
+}
+
+export function moveInterfaceConfirmationAuditExportSelection(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (exports.length === 0) {
+		return 0;
+	}
+	const current = getNormalizedSelectionIndex(exports.length, selectedIndex);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + exports.length) % exports.length;
+}
+
 export function filterTimelineEvidenceTrailAuditExports(
 	exports: ConsoleAuditExportPlan[],
 	filter: TimelineEvidenceTrailSourceFilter,
@@ -2844,6 +2867,19 @@ export function createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch(
 	};
 }
 
+export function createInterfaceConfirmationAuditExportTimelineSearch(
+	plan?: ConsoleAuditExportPlan,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	if (!plan?.query) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: plan.query,
+		message: `interface confirmation evidence recovered search ${basename(plan.path)}`,
+	};
+}
+
 export function createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview(
 	plan?: ConsoleAuditExportPlan,
 	options: {
@@ -3062,6 +3098,22 @@ export function createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan(
 	return buildFileOpenPlan({
 		baseDir: options.baseDir,
 		label: `remote known_hosts selection history export ${plan.scope} ${plan.query}`,
+		path: plan.path,
+		platform: options.platform,
+		source: "timeline-export",
+	});
+}
+
+export function createInterfaceConfirmationAuditExportOpenPlan(
+	plan: ConsoleAuditExportPlan,
+	options: {
+		baseDir: string;
+		platform: SupportedPlatform;
+	},
+): FileOpenPlan {
+	return buildFileOpenPlan({
+		baseDir: options.baseDir,
+		label: `interface confirmation evidence export ${plan.scope} ${plan.query}`,
 		path: plan.path,
 		platform: options.platform,
 		source: "timeline-export",
@@ -3954,6 +4006,12 @@ export function getLatestRemoteKnownHostsSelectionHistoryAuditExport(
 	return getRemoteKnownHostsSelectionHistoryAuditExports(index)[0];
 }
 
+export function getLatestInterfaceConfirmationAuditExport(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan | undefined {
+	return getInterfaceConfirmationAuditExports(index)[0];
+}
+
 export function getProcessControlAuditExports(
 	index: ConsoleAuditExportIndex,
 ): ConsoleAuditExportPlan[] {
@@ -3979,6 +4037,19 @@ export function getRemoteKnownHostsSelectionHistoryAuditExports(
 			scope: item.scope,
 			...(item.origin ? { origin: item.origin } : {}),
 		}));
+}
+
+export function getInterfaceConfirmationAuditExports(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan[] {
+	return index.items.filter(isInterfaceConfirmationAuditExport).map((item) => ({
+		path: item.path,
+		content: "",
+		eventCount: item.entryCount,
+		...(item.query ? { query: item.query } : {}),
+		scope: item.scope,
+		...(item.origin ? { origin: item.origin } : {}),
+	}));
 }
 
 export function getTimelineEvidenceTrailAuditExports(
@@ -4024,6 +4095,17 @@ function isRemoteKnownHostsSelectionHistoryAuditExport(
 	}
 	return (candidate.query ?? "").startsWith(
 		"remote known_hosts selection history ",
+	);
+}
+
+function isInterfaceConfirmationAuditExport(
+	candidate: ConsoleAuditExportIndex["items"][number],
+): boolean {
+	if (candidate.scope !== "selected") {
+		return false;
+	}
+	return (candidate.query ?? "").startsWith(
+		"interface confirmation interface.",
 	);
 }
 

@@ -481,7 +481,9 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createInterfaceConfirmationAuditExportOpenPlan,
 	createInterfaceConfirmationAuditExportPlan,
+	createInterfaceConfirmationAuditExportTimelineSearch,
 	createInterfaceConfirmationStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
@@ -549,12 +551,14 @@ import {
 	formatStatusActivityToolsEvidenceMatchAuditMessage,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
+	getInterfaceConfirmationAuditExports,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getProcessControlAuditExports,
 	getRemoteKnownHostsSelectionHistoryAuditExports,
 	getRemoteKnownHostsSelectionHistoryClipboardPreview,
+	getSelectedInterfaceConfirmationAuditExport,
 	getSelectedProcessControlAuditExport,
 	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
@@ -927,6 +931,19 @@ export function App(): React.ReactElement {
 		getSelectedRemoteKnownHostsSelectionHistoryAuditExport(
 			remoteKnownHostsSelectionAuditExports,
 			selectedRemoteKnownHostsSelectionAuditExportIndex,
+		);
+	const [
+		interfaceConfirmationAuditExports,
+		setInterfaceConfirmationAuditExports,
+	] = useState<ConsoleAuditExportPlan[]>([]);
+	const [
+		selectedInterfaceConfirmationAuditExportIndex,
+		setSelectedInterfaceConfirmationAuditExportIndex,
+	] = useState(0);
+	const selectedInterfaceConfirmationAuditExport =
+		getSelectedInterfaceConfirmationAuditExport(
+			interfaceConfirmationAuditExports,
+			selectedInterfaceConfirmationAuditExportIndex,
 		);
 	const filteredTimelineEvidenceTrailAuditExports = useMemo(
 		() =>
@@ -2939,6 +2956,11 @@ export function App(): React.ReactElement {
 				setRemoteKnownHostsSelectionAuditExports(remoteKnownHostsExports);
 				setSelectedRemoteKnownHostsSelectionAuditExportIndex((current) =>
 					Math.min(current, Math.max(0, remoteKnownHostsExports.length - 1)),
+				);
+				const interfaceExports = getInterfaceConfirmationAuditExports(index);
+				setInterfaceConfirmationAuditExports(interfaceExports);
+				setSelectedInterfaceConfirmationAuditExportIndex((current) =>
+					Math.min(current, Math.max(0, interfaceExports.length - 1)),
 				);
 				const filteredTimelineTrailExports =
 					filterTimelineEvidenceTrailAuditExports(
@@ -5419,6 +5441,108 @@ export function App(): React.ReactElement {
 		],
 	);
 
+	const getSelectedInterfaceConfirmationEvidenceResultOptions = useCallback(
+		() => ({
+			selectedIndex: selectedInterfaceConfirmationAuditExportIndex,
+			total: interfaceConfirmationAuditExports.length || 1,
+		}),
+		[
+			interfaceConfirmationAuditExports.length,
+			selectedInterfaceConfirmationAuditExportIndex,
+		],
+	);
+
+	const jumpSelectedInterfaceConfirmationEvidenceSearch = useCallback(() => {
+		const resultOptions =
+			getSelectedInterfaceConfirmationEvidenceResultOptions();
+		const jump = createInterfaceConfirmationAuditExportTimelineSearch(
+			selectedInterfaceConfirmationAuditExport,
+		);
+		if (!jump) {
+			log("warn", "no interface confirmation evidence export for timeline");
+			recordStatusActivityResult({
+				source: "evidence",
+				action: "interface-confirmation",
+				message: "status evidence interface search unavailable",
+			});
+			return;
+		}
+		const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+		setTimelineFilter(jump.filter);
+		setTimelineSearchQuery(jump.query);
+		setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+		setScreen("timeline");
+		log(
+			filtered.length ? "info" : "warn",
+			`${jump.message} matches ${filtered.length}`,
+		);
+		recordStatusActivityResult({
+			source: "evidence",
+			action: "interface-confirmation",
+			message: `status evidence interface search ${resultOptions.selectedIndex + 1}/${resultOptions.total}`,
+			detail: `query=${jump.query} path=${selectedInterfaceConfirmationAuditExport?.path ?? "-"}`,
+		});
+	}, [
+		events,
+		getSelectedInterfaceConfirmationEvidenceResultOptions,
+		log,
+		recordStatusActivityResult,
+		selectedInterfaceConfirmationAuditExport,
+	]);
+
+	const openSelectedInterfaceConfirmationEvidenceExport = useCallback(() => {
+		const resultOptions =
+			getSelectedInterfaceConfirmationEvidenceResultOptions();
+		if (!selectedInterfaceConfirmationAuditExport) {
+			log("warn", "no interface confirmation evidence export to open");
+			setScreen("status");
+			recordStatusActivityResult({
+				source: "evidence",
+				action: "interface-confirmation",
+				message: "status evidence interface open unavailable",
+			});
+			return;
+		}
+		const plan = createInterfaceConfirmationAuditExportOpenPlan(
+			selectedInterfaceConfirmationAuditExport,
+			{
+				baseDir: dirname(getConfigPath()),
+				platform: currentPlatform(),
+			},
+		);
+		const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+			auditExportIndex,
+			selectedInterfaceConfirmationAuditExport,
+		);
+		if (evidenceIndex !== undefined) {
+			setSelectedAuditExportIndex(evidenceIndex);
+			setSelectedStatusEvidenceKind("audit");
+		}
+		setFileOpenPlan(plan);
+		setExternalOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
+		setAuditArchiveRetentionPlan(undefined);
+		setCleanupExportArchivePlan(undefined);
+		setCommandLine(openCommandLine("file-open"));
+		setScreen("status");
+		log(
+			"info",
+			`interface confirmation evidence export open confirmation opened for ${selectedInterfaceConfirmationAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
+		);
+		recordStatusActivityResult({
+			source: "evidence",
+			action: "interface-confirmation",
+			message: `status evidence interface open ${resultOptions.selectedIndex + 1}/${resultOptions.total}`,
+			detail: `query=${selectedInterfaceConfirmationAuditExport.query ?? "-"} path=${selectedInterfaceConfirmationAuditExport.path}`,
+		});
+	}, [
+		auditExportIndex,
+		getSelectedInterfaceConfirmationEvidenceResultOptions,
+		log,
+		recordStatusActivityResult,
+		selectedInterfaceConfirmationAuditExport,
+	]);
+
 	const selectNextStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			if (options.origin === "palette") {
@@ -6298,6 +6422,12 @@ export function App(): React.ReactElement {
 			setRemoteKnownHostsSelectionAuditExports(remoteKnownHostsExports);
 			setSelectedRemoteKnownHostsSelectionAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, remoteKnownHostsExports.length - 1)),
+			);
+			const interfaceExports =
+				getInterfaceConfirmationAuditExports(auditExports);
+			setInterfaceConfirmationAuditExports(interfaceExports);
+			setSelectedInterfaceConfirmationAuditExportIndex((current) =>
+				Math.min(current, Math.max(0, interfaceExports.length - 1)),
 			);
 			setSelectedTimelineEvidenceTrailAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, timelineTrailExports.length - 1)),
@@ -8425,6 +8555,13 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "I") {
+			if (
+				selectedStatusEvidenceKind === "interface" &&
+				interfaceConfirmationAuditExports.length > 0
+			) {
+				openSelectedInterfaceConfirmationEvidenceExport();
+				return;
+			}
 			openSelectedStatusActivityResultTimelineJump();
 			return;
 		}
@@ -8537,7 +8674,8 @@ export function App(): React.ReactElement {
 		if (screen === "status" && focusArea === "workspaces" && input === "G") {
 			if (
 				selectedStatusEvidenceKind === "process" ||
-				selectedStatusEvidenceKind === "remote-known-hosts"
+				selectedStatusEvidenceKind === "remote-known-hosts" ||
+				selectedStatusEvidenceKind === "interface"
 			) {
 				const evidenceSearchPlan = createStatusEvidenceSearchPlan(
 					{
@@ -8550,6 +8688,7 @@ export function App(): React.ReactElement {
 						toolExportArchiveIndex,
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
+						interfaceConfirmationAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -8561,6 +8700,7 @@ export function App(): React.ReactElement {
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
 						selectedRemoteKnownHostsSelectionAuditExportIndex,
+						selectedInterfaceConfirmationAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -8586,6 +8726,9 @@ export function App(): React.ReactElement {
 					jumpSelectedRemoteKnownHostsSelectionEvidenceSearch({
 						origin: "status-evidence",
 					});
+				}
+				if (evidenceSearchPlan.action === "search-interface-evidence") {
+					jumpSelectedInterfaceConfirmationEvidenceSearch();
 				}
 				log(
 					"info",
@@ -8818,6 +8961,7 @@ export function App(): React.ReactElement {
 					toolExportArchiveIndex,
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
+					interfaceConfirmationAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -8829,6 +8973,7 @@ export function App(): React.ReactElement {
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
 					selectedRemoteKnownHostsSelectionAuditExportIndex,
+					selectedInterfaceConfirmationAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -8886,6 +9031,7 @@ export function App(): React.ReactElement {
 					toolExportArchiveIndex,
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
+					interfaceConfirmationAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -8897,6 +9043,7 @@ export function App(): React.ReactElement {
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
 					selectedRemoteKnownHostsSelectionAuditExportIndex,
+					selectedInterfaceConfirmationAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -8944,6 +9091,11 @@ export function App(): React.ReactElement {
 						evidenceMovePlan.selectedIndex,
 					);
 					break;
+				case "interface":
+					setSelectedInterfaceConfirmationAuditExportIndex(
+						evidenceMovePlan.selectedIndex,
+					);
+					break;
 			}
 			log(
 				"info",
@@ -8962,7 +9114,8 @@ export function App(): React.ReactElement {
 				toolExportIndex.items.length +
 				toolExportArchiveIndex.items.length +
 				processControlAuditExports.length +
-				remoteKnownHostsSelectionAuditExports.length;
+				remoteKnownHostsSelectionAuditExports.length +
+				interfaceConfirmationAuditExports.length;
 			if (evidenceCount === 0) {
 				log("warn", "no status evidence indexed");
 				return;
@@ -8979,6 +9132,7 @@ export function App(): React.ReactElement {
 						toolExportArchiveIndex,
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
+						interfaceConfirmationAuditExports,
 					},
 					current,
 					"next",
@@ -9100,7 +9254,8 @@ export function App(): React.ReactElement {
 						toolExportIndex.items.length > 0 ||
 						toolExportArchiveIndex.items.length > 0 ||
 						processControlAuditExports.length > 0 ||
-						remoteKnownHostsSelectionAuditExports.length > 0
+						remoteKnownHostsSelectionAuditExports.length > 0 ||
+						interfaceConfirmationAuditExports.length > 0
 							? ["STATUS EVIDENCE SUMMARY"]
 							: [],
 				},
@@ -9181,6 +9336,7 @@ export function App(): React.ReactElement {
 					toolExportArchiveIndex,
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
+					interfaceConfirmationAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -9192,6 +9348,7 @@ export function App(): React.ReactElement {
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
 					selectedRemoteKnownHostsSelectionAuditExportIndex,
+					selectedInterfaceConfirmationAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -9224,6 +9381,9 @@ export function App(): React.ReactElement {
 						break;
 					case "open-remote-known-hosts-evidence":
 						openSelectedRemoteKnownHostsSelectionEvidenceExport();
+						break;
+					case "open-interface-evidence":
+						openSelectedInterfaceConfirmationEvidenceExport();
 						break;
 					case "select-cleanup-archive":
 						log(
@@ -9279,6 +9439,7 @@ export function App(): React.ReactElement {
 					toolExportArchiveIndex,
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
+					interfaceConfirmationAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -9290,6 +9451,7 @@ export function App(): React.ReactElement {
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
 					selectedRemoteKnownHostsSelectionAuditExportIndex,
+					selectedInterfaceConfirmationAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -9341,6 +9503,7 @@ export function App(): React.ReactElement {
 					toolExportArchiveIndex,
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
+					interfaceConfirmationAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -9352,6 +9515,7 @@ export function App(): React.ReactElement {
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
 					selectedRemoteKnownHostsSelectionAuditExportIndex,
+					selectedInterfaceConfirmationAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -11192,6 +11356,10 @@ export function App(): React.ReactElement {
 					selectedRemoteKnownHostsSelectionAuditExportIndex={
 						selectedRemoteKnownHostsSelectionAuditExportIndex
 					}
+					interfaceConfirmationAuditExports={interfaceConfirmationAuditExports}
+					selectedInterfaceConfirmationAuditExportIndex={
+						selectedInterfaceConfirmationAuditExportIndex
+					}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -11454,6 +11622,8 @@ function MainWorkspace({
 	selectedProcessControlAuditExportIndex,
 	remoteKnownHostsSelectionAuditExports,
 	selectedRemoteKnownHostsSelectionAuditExportIndex,
+	interfaceConfirmationAuditExports,
+	selectedInterfaceConfirmationAuditExportIndex,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -11617,6 +11787,8 @@ function MainWorkspace({
 	selectedProcessControlAuditExportIndex: number;
 	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[];
 	selectedRemoteKnownHostsSelectionAuditExportIndex: number;
+	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[];
+	selectedInterfaceConfirmationAuditExportIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -11858,6 +12030,8 @@ function MainWorkspace({
 						selectedProcessControlAuditExportIndex,
 						remoteKnownHostsSelectionAuditExports,
 						selectedRemoteKnownHostsSelectionAuditExportIndex,
+						interfaceConfirmationAuditExports,
+						selectedInterfaceConfirmationAuditExportIndex,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -12028,6 +12202,8 @@ function renderWorkspace(
 	selectedProcessControlAuditExportIndex: number,
 	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[],
 	selectedRemoteKnownHostsSelectionAuditExportIndex: number,
+	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[],
+	selectedInterfaceConfirmationAuditExportIndex: number,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -12493,6 +12669,10 @@ function renderWorkspace(
 				}
 				selectedRemoteKnownHostsSelectionAuditExportIndex={
 					selectedRemoteKnownHostsSelectionAuditExportIndex
+				}
+				interfaceConfirmationAuditExports={interfaceConfirmationAuditExports}
+				selectedInterfaceConfirmationAuditExportIndex={
+					selectedInterfaceConfirmationAuditExportIndex
 				}
 				configManagedShelfRows={configManagedShelfRows}
 				events={events}
@@ -15541,6 +15721,8 @@ function StatusWorkspace({
 	selectedProcessControlAuditExportIndex,
 	remoteKnownHostsSelectionAuditExports,
 	selectedRemoteKnownHostsSelectionAuditExportIndex,
+	interfaceConfirmationAuditExports,
+	selectedInterfaceConfirmationAuditExportIndex,
 	configManagedShelfRows,
 	events,
 	selectedStatusEvidenceKind,
@@ -15599,6 +15781,8 @@ function StatusWorkspace({
 	selectedProcessControlAuditExportIndex: number;
 	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[];
 	selectedRemoteKnownHostsSelectionAuditExportIndex: number;
+	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[];
+	selectedInterfaceConfirmationAuditExportIndex: number;
 	configManagedShelfRows: string[];
 	events: ConsoleEvent[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
@@ -15803,6 +15987,7 @@ function StatusWorkspace({
 			toolExportArchiveIndex,
 			processControlAuditExports,
 			remoteKnownHostsSelectionAuditExports,
+			interfaceConfirmationAuditExports,
 		},
 		{
 			selectedHandoffIndex,
@@ -15814,6 +15999,7 @@ function StatusWorkspace({
 			selectedToolExportArchiveIndex,
 			selectedProcessControlAuditExportIndex,
 			selectedRemoteKnownHostsSelectionAuditExportIndex,
+			selectedInterfaceConfirmationAuditExportIndex,
 			toolExportFilter,
 			toolExportArchiveFilter,
 			toolExportQuery,
@@ -15836,7 +16022,8 @@ function StatusWorkspace({
 		toolExportIndex.items.length > 0 ||
 		toolExportArchiveIndex.items.length > 0 ||
 		processControlAuditExports.length > 0 ||
-		remoteKnownHostsSelectionAuditExports.length > 0
+		remoteKnownHostsSelectionAuditExports.length > 0 ||
+		interfaceConfirmationAuditExports.length > 0
 			? statusEvidenceSummaryRows
 			: [];
 	const statusActivityCopyPreview =
@@ -16160,6 +16347,7 @@ function StatusWorkspace({
 						toolExportArchiveIndex,
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
+						interfaceConfirmationAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -16171,6 +16359,7 @@ function StatusWorkspace({
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
 						selectedRemoteKnownHostsSelectionAuditExportIndex,
+						selectedInterfaceConfirmationAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -16202,6 +16391,7 @@ function StatusWorkspace({
 						toolExportArchiveIndex,
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
+						interfaceConfirmationAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -16213,6 +16403,7 @@ function StatusWorkspace({
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
 						selectedRemoteKnownHostsSelectionAuditExportIndex,
+						selectedInterfaceConfirmationAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -16246,6 +16437,7 @@ function StatusWorkspace({
 						toolExportArchiveIndex,
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
+						interfaceConfirmationAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -16257,6 +16449,7 @@ function StatusWorkspace({
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
 						selectedRemoteKnownHostsSelectionAuditExportIndex,
+						selectedInterfaceConfirmationAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -16295,6 +16488,7 @@ function StatusWorkspace({
 						toolExportArchiveIndex,
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
+						interfaceConfirmationAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -16306,6 +16500,7 @@ function StatusWorkspace({
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
 						selectedRemoteKnownHostsSelectionAuditExportIndex,
+						selectedInterfaceConfirmationAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,

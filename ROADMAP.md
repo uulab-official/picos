@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.328 - Interface Evidence Family
+
+Status: in progress on `codex/picos-v0.4.328-interface-evidence-family`, stacked on draft PR [#402](https://github.com/uulab-official/picos/pull/402).
+
+Goal: make exported interface confirmation audits manageable from the same Status Evidence console as process and remote known_hosts evidence.
+
+- Interface confirmation audit exports are recovered from the audit export index when their selected query starts with `interface confirmation interface.`.
+- Status Evidence now exposes a dedicated `interface` family with summary/table/command-strip/detail rows.
+- Operators can focus the family with `Tab` or `1..9`, move selected exports with `[`/`]`, open with locked `enter`/`I`, and restore Timeline audit search with `G`.
+- Opening interface evidence uses the existing locked picos-owned file-open confirmation path.
+- Timeline recovery preserves the v0.4.326/v0.4.327 query shape, including action id and blocked/rejected status.
+- No adapter execution, dry-run execution, privileged calls, interface enable/disable command, or OS mutation is added.
+- Tests cover Status Evidence family rows, enter/search/item movement plans, audit-index recovery, file-open plans, and Timeline search recovery.
+- Next: add command-palette discovery for `interface evidence` select/open/search and then archive/retention controls for interface audit evidence.
+
 ## v0.4.327 - Interface Audit Handoff
 
 Status: draft PR [#402](https://github.com/uulab-official/picos/pull/402) on `codex/picos-v0.4.327-interface-audit-handoff`, stacked on draft PR [#401](https://github.com/uulab-official/picos/pull/401).
@@ -12,7 +27,7 @@ Goal: make interface confirmation audits copy/export handoff targets from Status
 - Timeline recovery still uses the v0.4.326 `interface confirmation ... status=...` search path, so `I`, copy, and export stay aligned.
 - No adapter execution, dry-run execution, privileged calls, or OS mutation is added.
 - Tests cover selected interface confirmation copy preview rows, copy-intent shelf rows, and selected audit-export planning.
-- Next: add archived evidence indexing/open controls for interface confirmation audit exports or merge this handoff into the Status Evidence family selector.
+- Next: completed by v0.4.328 dedicated Status Evidence family rows and open/search controls for interface confirmation audit exports.
 
 ## v0.4.326 - Interface Audit Recovery
 

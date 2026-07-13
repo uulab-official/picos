@@ -763,6 +763,108 @@ describe("Status evidence detail rows", () => {
 		]);
 	});
 
+	test("surfaces interface confirmation audit exports as recoverable evidence", () => {
+		const interfaceIndexes = {
+			...populatedIndexes,
+			interfaceConfirmationAuditExports: [
+				{
+					path: "/tmp/picos/audit/picos-audit-interface-wifi.log",
+					content: "",
+					eventCount: 1,
+					scope: "selected" as const,
+					query:
+						"interface confirmation interface.disable status=confirmed-blocked",
+					origin,
+				},
+				{
+					path: "/tmp/picos/audit/picos-audit-interface-eth.log",
+					content: "",
+					eventCount: 1,
+					scope: "selected" as const,
+					query: "interface confirmation interface.enable status=rejected",
+					origin,
+				},
+			],
+		};
+		const interfaceSelection = {
+			...selection,
+			selectedInterfaceConfirmationAuditExportIndex: 0,
+		};
+
+		expect(
+			formatStatusEvidenceIndexRows(
+				interfaceIndexes,
+				interfaceSelection,
+				"interface",
+			),
+		).toEqual([
+			"EVIDENCE INDEX 1..6",
+			"1 handoff route routes/table",
+			"2 audit selected events=1 query=control",
+			"3 cleanup selected entries=2",
+			"4 tools selected runs=1",
+			"5 process selected events=3 query=process control evidence: kill pid=42 node",
+			">6 interface selected events=1 query=interface confirmation interface.disable status=confirmed-blocked",
+		]);
+		expect(
+			createStatusEvidenceEnterPlan(
+				interfaceIndexes,
+				interfaceSelection,
+				"interface",
+			),
+		).toEqual({
+			kind: "interface",
+			action: "open-interface-evidence",
+			shortcut: "I",
+			label:
+				"interface selected events=1 query=interface confirmation interface.disable status=confirmed-blocked",
+			path: "/tmp/picos/audit/picos-audit-interface-wifi.log",
+		});
+		expect(
+			createStatusEvidenceSearchPlan(
+				interfaceIndexes,
+				interfaceSelection,
+				"interface",
+			),
+		).toEqual({
+			kind: "interface",
+			action: "search-interface-evidence",
+			shortcut: "G",
+			label:
+				"interface selected events=1 query=interface confirmation interface.disable status=confirmed-blocked",
+			path: "/tmp/picos/audit/picos-audit-interface-wifi.log",
+			query:
+				"interface confirmation interface.disable status=confirmed-blocked",
+		});
+		expect(
+			createStatusEvidenceItemMovePlan(
+				interfaceIndexes,
+				interfaceSelection,
+				"interface",
+				"next",
+			),
+		).toEqual({
+			kind: "interface",
+			direction: "next",
+			shortcut: "]",
+			selectedIndex: 1,
+			itemCount: 2,
+			label:
+				"interface selected events=1 query=interface confirmation interface.enable status=rejected",
+		});
+		expect(
+			formatStatusEvidenceCommandStripRows(
+				interfaceIndexes,
+				interfaceSelection,
+				"interface",
+			),
+		).toEqual([
+			"COMMAND STRIP active=interface",
+			"> enter=open/I archive=- retention=- search=G item=[/]",
+			"target=interface selected events=1 query=interface confirmation interface.disable status=confirmed-blocked",
+		]);
+	});
+
 	test("formats indexed evidence family jump rows", () => {
 		expect(
 			formatStatusEvidenceIndexRows(populatedIndexes, selection, "audit"),
