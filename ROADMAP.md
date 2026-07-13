@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.316 - Control Preflight Console
+
+Status: draft PR [#391](https://github.com/uulab-official/picos/pull/391) on `codex/picos-v0.4.316-control-preflight-console`, stacked on draft PR [#390](https://github.com/uulab-official/picos/pull/390).
+
+Goal: move closer to lazyifconfig-style OS controls by making locked mutation previews explain operational impact before any confirmation or dry-run attempt.
+
+- Action preview plans now carry preflight rows for DNS flush, interface disable, route add, service restart, process termination, and picos update apply.
+- Preflight rows expose scope, mutation surface, required inputs/approval, adapter dry-run availability, and rollback posture.
+- Action Center preview rows render a `PREFLIGHT` block before the generic risk/privilege/command preview.
+- Command palette previews show the preflight count plus the first operational impact rows for locked controls, including selected interface control previews.
+- Audit messages record `preflight=<count>` for newly generated control preview events so Timeline search can distinguish richer previews.
+- Tests cover DNS flush and selected interface preflight rendering while preserving the locked-by-default mutation posture.
+- Next: add route destination prompt presets or start target-specific interface/DNS edit preflight prompts with typed proposed values.
+
 ## v0.4.315 - Tools Detail Section Shortcuts
 
 Status: draft PR [#390](https://github.com/uulab-official/picos/pull/390) on `codex/picos-v0.4.315-tools-section-shortcuts`, stacked on draft PR [#389](https://github.com/uulab-official/picos/pull/389).
@@ -12,7 +26,7 @@ Goal: continue lazyifconfig-style panel ergonomics by making Tools Hub history d
 - The persisted Tools detail-view preference is updated for both Tab cycling and direct jumps.
 - Tools footers advertise `tab/1-4 detail` plus Home/End.
 - Tests cover the pure shortcut contract beside existing Tab cycling and detail-pane formatting.
-- Next: add destination prompt presets for route path lookup or start modeling lazyifconfig-style DNS/interface mutation preflight screens behind locked confirmations.
+- Next: completed by v0.4.316 locked control preflight rows for DNS/interface and related OS-changing actions.
 
 ## v0.4.314 - Endpoint Detail Section Shortcuts
 

@@ -39,6 +39,7 @@ export type ActionPreviewPlan = {
 	confirmationPhrase?: string;
 	blockedReason?: "disabled-by-default" | "confirmation-required";
 	commandPreview?: ActionPreviewCommand;
+	preflight: string[];
 	preview: string[];
 };
 
@@ -971,6 +972,7 @@ export function createActionPreviewPlan(
 		preview.push(`Command: ${formatPreviewCommand(commandPreview)}`);
 	}
 	preview.push("Dry run: no OS command will be executed");
+	const preflight = getActionPreflightRows(action.id, commandPreview);
 
 	return {
 		actionId: action.id,
@@ -982,6 +984,7 @@ export function createActionPreviewPlan(
 		confirmationPhrase: action.confirmationPhrase,
 		blockedReason,
 		commandPreview,
+		preflight,
 		preview,
 	};
 }
@@ -997,6 +1000,7 @@ export function formatActionPreviewRows(plan: ActionPreviewPlan): string[] {
 		...(plan.commandPreview
 			? [`command=${formatPreviewCommand(plan.commandPreview)}`]
 			: []),
+		...(plan.preflight.length ? ["PREFLIGHT", ...plan.preflight] : []),
 		...plan.preview,
 	];
 }
@@ -1014,6 +1018,7 @@ export function formatActionPreviewAuditMessage(
 		plan.commandPreview
 			? `command="${formatPreviewCommand(plan.commandPreview)}"`
 			: "",
+		plan.preflight.length ? `preflight=${plan.preflight.length}` : "",
 	]
 		.filter(Boolean)
 		.join(" ");
@@ -1135,4 +1140,77 @@ export function formatActionSimulationAuditMessage(
 
 function formatPreviewCommand(command: ActionPreviewCommand): string {
 	return [command.command, ...command.args].join(" ").trim();
+}
+
+function getActionPreflightRows(
+	actionId: string,
+	commandPreview?: ActionPreviewCommand,
+): string[] {
+	const adapterDryRun = commandPreview?.dryRunExecutable
+		? "available"
+		: commandPreview
+			? "preview-only"
+			: "missing";
+
+	if (actionId === "dns.flush") {
+		return [
+			"scope=local resolver cache",
+			"willModify=cache-only persistentConfig=false networkRestart=false",
+			"requires=admin confirmation dry-run-policy",
+			`adapterDryRun=${adapterDryRun}`,
+			"rollback=not-required cache repopulates from configured resolvers",
+		];
+	}
+
+	if (actionId === "interface.disable") {
+		return [
+			"scope=selected interface or network service",
+			"willModify=link-state persistentConfig=platform-dependent networkDrop=possible",
+			"requires=selected-interface admin confirmation dry-run-policy",
+			`adapterDryRun=${adapterDryRun}`,
+			"rollback=enable matching interface/service through adapter review",
+		];
+	}
+
+	if (actionId === "route.add") {
+		return [
+			"scope=route table",
+			"willModify=routing persistentConfig=false trafficPath=possible",
+			"requires=destination gateway admin confirmation dry-run-policy",
+			`adapterDryRun=${adapterDryRun}`,
+			"rollback=remove added destination route after route review",
+		];
+	}
+
+	if (actionId === "service.restart") {
+		return [
+			"scope=local system service",
+			"willModify=process-lifecycle persistentConfig=false downtime=possible",
+			"requires=service-name admin confirmation dry-run-policy",
+			`adapterDryRun=${adapterDryRun}`,
+			"rollback=service manager status review and restart retry only",
+		];
+	}
+
+	if (actionId === "process.terminate") {
+		return [
+			"scope=selected pid",
+			"willModify=process-lifecycle persistentConfig=false connectionDrop=possible",
+			"requires=pid ownership confirmation dry-run-policy",
+			`adapterDryRun=${adapterDryRun}`,
+			"rollback=not-available terminated processes must be restarted externally",
+		];
+	}
+
+	if (actionId === "picos.update.apply") {
+		return [
+			"scope=global npm package",
+			"willModify=installed-picos-version persistentConfig=false",
+			"requires=package-manager confirmation dry-run-policy",
+			`adapterDryRun=${adapterDryRun}`,
+			"rollback=reinstall previous package version manually",
+		];
+	}
+
+	return [];
 }

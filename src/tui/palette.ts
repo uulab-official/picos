@@ -806,6 +806,12 @@ function formatControlActionPalettePreviewRows(
 					`adapter=${preview.commandPreview.adapter} command=${formatPalettePreviewCommand(preview.commandPreview)}`,
 				]
 			: []),
+		...(preview.preflight.length
+			? [
+					`preflight=${preview.preflight.length} ${preview.preflight[0]}`,
+					preview.preflight[1],
+				].filter((row): row is string => Boolean(row))
+			: []),
 		...(preview.blockedReason ? [`blocked=${preview.blockedReason}`] : []),
 	];
 }

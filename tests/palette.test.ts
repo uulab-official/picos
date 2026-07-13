@@ -1149,6 +1149,8 @@ describe("TUI command palette", () => {
 			"control preview dns.flush locked dryRun=true",
 			"risk=write privilege=admin confirm=flush dns",
 			"adapter=macos command=sudo dscacheutil -flushcache",
+			"preflight=5 scope=local resolver cache",
+			"willModify=cache-only persistentConfig=false networkRestart=false",
 			"blocked=disabled-by-default",
 		]);
 	});
@@ -1192,6 +1194,8 @@ describe("TUI command palette", () => {
 			"control preview interface.disable locked dryRun=true",
 			"risk=destructive privilege=admin confirm=disable interface",
 			"adapter=macos command=sudo networksetup -setnetworkserviceenabled <service> off",
+			"preflight=5 scope=selected interface or network service",
+			"willModify=link-state persistentConfig=platform-dependent networkDrop=possible",
 			"blocked=disabled-by-default",
 		]);
 	});

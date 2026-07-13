@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Locked Action Center control previews now include OS-style preflight rows for DNS flush, interface disable, route add, service restart, process termination, and picos update apply actions, showing scope, mutation surface, requirements, adapter dry-run availability, and rollback posture before any confirmation.
 - Tools workspace now supports lazyifconfig-style detail shortcuts: `1` raw, `2` summary, `3` command, `4` compare, plus Home/End for first/last Tools detail panes.
 - Connections and Ports workspaces now support lazyifconfig-style section shortcuts: `1` detail, `2` raw, `3` process, plus Home/End for first/last endpoint detail panes.
 - Routes workspace now supports lazyifconfig-style section shortcuts: `1` table, `2` raw, `3` diagnostics, `4` path, plus Home/End for first/last route detail panes.

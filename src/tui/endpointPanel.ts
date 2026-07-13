@@ -741,6 +741,13 @@ function createPortProcessControlActionPreviewPlan(
 		confirmationPhrase: preview.confirmationPhrase,
 		blockedReason: "disabled-by-default",
 		commandPreview,
+		preflight: [
+			"scope=selected pid",
+			"willModify=process-lifecycle persistentConfig=false connectionDrop=possible",
+			"requires=pid ownership confirmation dry-run-policy",
+			`adapterDryRun=${commandPreview?.dryRunExecutable ? "available" : commandPreview ? "preview-only" : "missing"}`,
+			"rollback=not-available terminated processes must be restarted externally",
+		],
 		preview: preview.rows,
 	};
 }
