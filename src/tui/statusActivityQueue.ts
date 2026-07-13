@@ -1122,6 +1122,8 @@ export function formatStatusActivityCopyIntentRows(
 	selectedToolsEvidenceSearchMatchIndex = 0,
 	processControlAuditExports: ConsoleAuditExportPlan[] = [],
 	selectedProcessControlAuditExportIndex = 0,
+	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[] = [],
+	selectedRemoteKnownHostsSelectionAuditExportIndex = 0,
 ): string[] {
 	const exportRows = latestExport
 		? [
@@ -1217,6 +1219,24 @@ export function formatStatusActivityCopyIntentRows(
 				`process evidence detail ${formatProcessControlAuditExportTarget(selectedProcessControlAuditExport)} path=${selectedProcessControlAuditExport.path}`,
 			]
 		: [];
+	const selectedRemoteKnownHostsSelectionAuditExport =
+		getSelectedRemoteKnownHostsSelectionHistoryAuditExport(
+			remoteKnownHostsSelectionAuditExports,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
+		);
+	const normalizedRemoteKnownHostsSelectionAuditExportIndex =
+		getNormalizedSelectionIndex(
+			remoteKnownHostsSelectionAuditExports.length,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
+		);
+	const remoteKnownHostsSelectionAuditExportRows =
+		selectedRemoteKnownHostsSelectionAuditExport
+			? [
+					`remote known_hosts evidence selected=${normalizedRemoteKnownHostsSelectionAuditExportIndex + 1}/${remoteKnownHostsSelectionAuditExports.length}`,
+					`remote known_hosts evidence target=${basename(selectedRemoteKnownHostsSelectionAuditExport.path)}${selectedRemoteKnownHostsSelectionAuditExport.query ? ` query=${selectedRemoteKnownHostsSelectionAuditExport.query}` : ""} events=${selectedRemoteKnownHostsSelectionAuditExport.eventCount}`,
+					`remote known_hosts evidence detail id:${formatRemoteKnownHostsSelectionHistoryEvidenceTarget(selectedRemoteKnownHostsSelectionAuditExport)} path=${selectedRemoteKnownHostsSelectionAuditExport.path} actions=R open G search`,
+				]
+			: [];
 	const rowsBeforeHistory = [
 		...exportRows,
 		...(freshResultJump && auditJumpActionHint === "fresh"
@@ -1228,6 +1248,7 @@ export function formatStatusActivityCopyIntentRows(
 			: []),
 		...auditJumpRows,
 		...processControlAuditExportRows,
+		...remoteKnownHostsSelectionAuditExportRows,
 		...formatStatusActivityToolsEvidenceSearchRecoveryRows(
 			toolsEvidenceSearchRecovery,
 			selectedToolsEvidenceSearchMatchIndex,
@@ -1255,13 +1276,21 @@ export function formatStatusActivityCopyIntentRows(
 	const processControlAuditExportControls = selectedProcessControlAuditExport
 		? `${processControlAuditExports.length > 1 ? " · F process select" : ""} · process evidence`
 		: "";
+	const remoteKnownHostsSelectionAuditExportControls =
+		selectedRemoteKnownHostsSelectionAuditExport
+			? " · remote known_hosts evidence"
+			: "";
 	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${processControlAuditExportControls}${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
+	const controlsWithRemoteKnownHosts = controls.replace(
+		" · g Timeline audit search",
+		`${remoteKnownHostsSelectionAuditExportControls} · g Timeline audit search`,
+	);
 	if (history.length === 0) {
 		return [
 			"STATUS ACTIVITY COPY INTENTS count=0",
 			...rowsBeforeHistory,
 			"no Status activity copy intents yet",
-			controls,
+			controlsWithRemoteKnownHosts,
 		];
 	}
 	const selected = getSelectedStatusActivityResultHistoryIndex(
@@ -1275,7 +1304,7 @@ export function formatStatusActivityCopyIntentRows(
 			const marker = index === selected ? "> " : "  ";
 			return `${marker}${record.label} row=${record.selectedRow} expanded=${record.expanded} lines=${record.lines} preview=${record.preview}`;
 		}),
-		`${controls} · :clipboard confirm=copy locked`,
+		`${controlsWithRemoteKnownHosts} · :clipboard confirm=copy locked`,
 	];
 }
 
@@ -1291,6 +1320,11 @@ function formatStatusActivityResultAuditJumpTargetToken(
 	const toolsSearchTarget = parseToolsEvidenceSearchAuditQuery(intent.preview);
 	if (toolsSearchTarget) {
 		return ` target=tools:${toolsSearchTarget.target} query:${toolsSearchTarget.query || "-"}`;
+	}
+	const knownHostsTarget =
+		parseRemoteKnownHostsSelectionHistoryEvidenceAuditQuery(intent.preview);
+	if (knownHostsTarget) {
+		return ` target=remote-known-hosts id:${knownHostsTarget.id}`;
 	}
 	const match = intent.preview.match(
 		/^action=source source=(\S+) visible=(\S+)$/,
@@ -1317,6 +1351,13 @@ function formatFreshStatusActivityResultJumpRows(
 	if (toolsSearchTarget) {
 		return [
 			`tools search target=${toolsSearchTarget.target} query=${toolsSearchTarget.query || "-"} I=fresh`,
+		];
+	}
+	const knownHostsTarget =
+		parseRemoteKnownHostsSelectionHistoryEvidenceAuditQuery(jump.query);
+	if (knownHostsTarget) {
+		return [
+			`remote known_hosts target=id:${knownHostsTarget.id} action=${knownHostsTarget.action} I=fresh`,
 		];
 	}
 	return [
