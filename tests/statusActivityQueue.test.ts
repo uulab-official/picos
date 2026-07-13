@@ -29,6 +29,8 @@ import {
 	createInterfaceConfirmationAuditExportOpenPlan,
 	createInterfaceConfirmationAuditExportPlan,
 	createInterfaceConfirmationAuditExportTimelineSearch,
+	createInterfaceConfirmationEvidencePaletteStatusActivityResult,
+	createInterfaceConfirmationEvidenceStatusActivityResult,
 	createInterfaceConfirmationStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
@@ -76,6 +78,8 @@ import {
 	createTimelineSelectedStatusActivityResult,
 	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
+	formatInterfaceConfirmationEvidencePaletteAuditMessage,
+	formatInterfaceConfirmationEvidenceStatusAuditMessage,
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
@@ -3547,6 +3551,103 @@ describe("Status activity queue", () => {
 		).toBe(
 			'status evidence remote known_hosts audit action=search selected=2/3 target="prod" label="picos-audit-filtered-2026-07-01T060000000Z.log" query="remote known_hosts selection history prod" path="/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log"',
 		);
+	});
+
+	test("creates status activity results for interface evidence actions", () => {
+		const interfaceEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"interface confirmation interface.disable status=confirmed-blocked",
+			scope: "selected" as const,
+		};
+
+		const result =
+			createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+				"search",
+				interfaceEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			);
+
+		expect(result).toEqual({
+			source: "evidence",
+			action: "interface-confirmation",
+			message:
+				"palette interface evidence search 2/3 picos-audit-interface-2026-07-01T070000000Z.log",
+			detail:
+				"target=interface.disable:confirmed-blocked query=interface confirmation interface.disable status=confirmed-blocked path=/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=evidence action=interface-confirmation",
+			"> palette interface evidence search 2/3 picos-audit-interface-2026-07-01T070000000Z.log",
+			"  target=interface.disable:confirmed-blocked query=interface confirmation interface.disable status=confirmed-blocked path=/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log",
+		]);
+		expect(
+			createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+				"open",
+				undefined,
+			),
+		).toEqual({
+			source: "evidence",
+			action: "interface-confirmation",
+			message: "palette interface evidence open unavailable",
+			detail: "no recovered interface confirmation evidence export selected",
+		});
+		expect(
+			formatInterfaceConfirmationEvidencePaletteAuditMessage(
+				"search",
+				interfaceEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toBe(
+			'palette interface evidence audit action=search selected=2/3 target="interface.disable:confirmed-blocked" label="picos-audit-interface-2026-07-01T070000000Z.log" query="interface confirmation interface.disable status=confirmed-blocked" path="/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log"',
+		);
+		expect(formatInterfaceConfirmationEvidencePaletteAuditMessage("open")).toBe(
+			'palette interface evidence audit action=open status=unavailable reason="no recovered interface confirmation evidence export selected"',
+		);
+		expect(
+			createInterfaceConfirmationEvidenceStatusActivityResult(
+				"search",
+				interfaceEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toEqual({
+			source: "evidence",
+			action: "interface-confirmation",
+			message:
+				"status evidence interface search 2/3 picos-audit-interface-2026-07-01T070000000Z.log",
+			detail:
+				"target=interface.disable:confirmed-blocked query=interface confirmation interface.disable status=confirmed-blocked path=/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log",
+		});
+		expect(
+			formatInterfaceConfirmationEvidenceStatusAuditMessage(
+				"search",
+				interfaceEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toBe(
+			'status evidence interface audit action=search selected=2/3 target="interface.disable:confirmed-blocked" label="picos-audit-interface-2026-07-01T070000000Z.log" query="interface confirmation interface.disable status=confirmed-blocked" path="/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log"',
+		);
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query:
+				'palette interface evidence audit action=search target="interface.disable:confirmed-blocked"',
+			message:
+				"status activity result timeline search palette interface evidence interface.disable:confirmed-blocked",
+		});
 	});
 
 	test("creates reusable Timeline jumps from remote known_hosts evidence handoff results", () => {

@@ -1737,6 +1737,27 @@ function parseRemoteKnownHostsSelectionHistoryEvidenceTarget(
 	return match?.[1]?.trim() || undefined;
 }
 
+function formatInterfaceConfirmationEvidenceTarget(
+	plan: ConsoleAuditExportPlan,
+): string {
+	const target = parseInterfaceConfirmationEvidenceTarget(plan.query);
+	return target ? `${target.actionId}:${target.status}` : "unknown";
+}
+
+function parseInterfaceConfirmationEvidenceTarget(
+	query: string | undefined,
+): { actionId: string; status: string } | undefined {
+	const match = query?.match(
+		/^interface confirmation (interface\.(?:enable|disable)) status=(confirmed-blocked|rejected)$/,
+	);
+	const actionId = match?.[1];
+	const status = match?.[2];
+	if (!actionId || !status) {
+		return undefined;
+	}
+	return { actionId, status };
+}
+
 function parseRemoteKnownHostsSelectionHistoryEvidenceAuditQuery(
 	query: string,
 ): { action: string; id: string } | undefined {
@@ -1795,6 +1816,13 @@ function parseRemoteKnownHostsEvidenceHandoffOpenIntent(
 }
 
 function getRemoteKnownHostsSelectionHistoryEvidenceResultDetailTarget(
+	detail?: string,
+): string | undefined {
+	const match = detail?.match(/(?:^| )target=([^ ]+)/);
+	return match?.[1]?.trim() || undefined;
+}
+
+function getInterfaceConfirmationEvidenceResultDetailTarget(
 	detail?: string,
 ): string | undefined {
 	const match = detail?.match(/(?:^| )target=([^ ]+)/);
@@ -2309,6 +2337,12 @@ export function createStatusActivityResultTimelineSearch(
 		);
 	}
 	if (
+		result.source === "evidence" &&
+		result.action === "interface-confirmation"
+	) {
+		return createInterfaceConfirmationEvidenceResultTimelineSearch(result);
+	}
+	if (
 		result.source === "timeline" &&
 		result.action === "process-control-preview"
 	) {
@@ -2557,6 +2591,41 @@ function createRemoteKnownHostsSelectionHistoryEvidenceResultTimelineSearch(
 			? "status remote known_hosts evidence"
 			: "palette remote known_hosts evidence";
 	const target = getRemoteKnownHostsSelectionHistoryEvidenceResultDetailTarget(
+		result.detail,
+	);
+	if (target) {
+		return {
+			filter: "audit",
+			query: `${auditPrefix} action=${action} target="${target}"`,
+			message: `status activity result timeline search ${messagePrefix} ${target}`,
+		};
+	}
+	return {
+		filter: "audit",
+		query: `${auditPrefix} action=${action} status=unavailable`,
+		message: `status activity result timeline search ${messagePrefix} unavailable`,
+	};
+}
+
+function createInterfaceConfirmationEvidenceResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^(palette interface evidence|status evidence interface) (select|open|search)(?:\s|$)/,
+	);
+	if (!match) {
+		return undefined;
+	}
+	const [, prefix, action] = match;
+	const auditPrefix =
+		prefix === "status evidence interface"
+			? "status evidence interface audit"
+			: "palette interface evidence audit";
+	const messagePrefix =
+		prefix === "status evidence interface"
+			? "status interface evidence"
+			: "palette interface evidence";
+	const target = getInterfaceConfirmationEvidenceResultDetailTarget(
 		result.detail,
 	);
 	if (target) {
@@ -3405,6 +3474,71 @@ function createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResultWithP
 	};
 }
 
+export function createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	return createInterfaceConfirmationEvidenceStatusActivityResultWithPrefix(
+		"palette interface evidence",
+		action,
+		plan,
+		options,
+	);
+}
+
+export function createInterfaceConfirmationEvidenceStatusActivityResult(
+	action: "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	return createInterfaceConfirmationEvidenceStatusActivityResultWithPrefix(
+		"status evidence interface",
+		action,
+		plan,
+		options,
+	);
+}
+
+function createInterfaceConfirmationEvidenceStatusActivityResultWithPrefix(
+	prefix: "palette interface evidence" | "status evidence interface",
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	if (!plan) {
+		return {
+			source: "evidence",
+			action: "interface-confirmation",
+			message: `${prefix} ${action} unavailable`,
+			detail: "no recovered interface confirmation evidence export selected",
+		};
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	return {
+		source: "evidence",
+		action: "interface-confirmation",
+		message: `${prefix} ${action} ${selected + 1}/${total} ${basename(plan.path)}`,
+		detail: [
+			`target=${formatInterfaceConfirmationEvidenceTarget(plan)}`,
+			plan.query ? `query=${plan.query}` : "",
+			`path=${plan.path}`,
+		]
+			.filter(Boolean)
+			.join(" "),
+	};
+}
+
 export function createStatusActivityResultTimelineJumpPaletteResult(
 	action: "select" | "open",
 	options: {
@@ -3701,6 +3835,38 @@ export function formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage
 	);
 }
 
+export function formatInterfaceConfirmationEvidencePaletteAuditMessage(
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	return formatInterfaceConfirmationEvidenceAuditMessageWithPrefix(
+		"palette interface evidence audit",
+		action,
+		plan,
+		options,
+	);
+}
+
+export function formatInterfaceConfirmationEvidenceStatusAuditMessage(
+	action: "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	return formatInterfaceConfirmationEvidenceAuditMessageWithPrefix(
+		"status evidence interface audit",
+		action,
+		plan,
+		options,
+	);
+}
+
 function formatProcessControlEvidenceAuditMessageWithPrefix(
 	prefix: "palette process evidence audit" | "status evidence process audit",
 	action: "select" | "open" | "search",
@@ -3725,6 +3891,40 @@ function formatProcessControlEvidenceAuditMessageWithPrefix(
 		`action=${action}`,
 		`selected=${selected + 1}/${total}`,
 		`target="${formatTimelineEvidenceTrailAuditValue(formatProcessControlAuditExportTarget(plan))}"`,
+		`label="${formatTimelineEvidenceTrailAuditValue(basename(plan.path))}"`,
+		...(plan.query
+			? [`query="${formatTimelineEvidenceTrailAuditValue(plan.query)}"`]
+			: []),
+		`path="${formatTimelineEvidenceTrailAuditValue(plan.path)}"`,
+	].join(" ");
+}
+
+function formatInterfaceConfirmationEvidenceAuditMessageWithPrefix(
+	prefix:
+		| "palette interface evidence audit"
+		| "status evidence interface audit",
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	if (!plan) {
+		return [
+			prefix,
+			`action=${action}`,
+			"status=unavailable",
+			`reason="${formatTimelineEvidenceTrailAuditValue("no recovered interface confirmation evidence export selected")}"`,
+		].join(" ");
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	return [
+		prefix,
+		`action=${action}`,
+		`selected=${selected + 1}/${total}`,
+		`target="${formatTimelineEvidenceTrailAuditValue(formatInterfaceConfirmationEvidenceTarget(plan))}"`,
 		`label="${formatTimelineEvidenceTrailAuditValue(basename(plan.path))}"`,
 		...(plan.query
 			? [`query="${formatTimelineEvidenceTrailAuditValue(plan.query)}"`]

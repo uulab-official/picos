@@ -484,6 +484,8 @@ import {
 	createInterfaceConfirmationAuditExportOpenPlan,
 	createInterfaceConfirmationAuditExportPlan,
 	createInterfaceConfirmationAuditExportTimelineSearch,
+	createInterfaceConfirmationEvidencePaletteStatusActivityResult,
+	createInterfaceConfirmationEvidenceStatusActivityResult,
 	createInterfaceConfirmationStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
@@ -530,6 +532,8 @@ import {
 	createTimelineSelectedStatusActivityResult,
 	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
+	formatInterfaceConfirmationEvidencePaletteAuditMessage,
+	formatInterfaceConfirmationEvidenceStatusAuditMessage,
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
@@ -573,6 +577,7 @@ import {
 	getStatusActivityResultTimelineJumpIndexes,
 	getStatusActivityResultTimelineJumpSelection,
 	getTimelineEvidenceTrailAuditExports,
+	moveInterfaceConfirmationAuditExportSelection,
 	moveProcessControlAuditExportSelection,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
@@ -5452,96 +5457,219 @@ export function App(): React.ReactElement {
 		],
 	);
 
-	const jumpSelectedInterfaceConfirmationEvidenceSearch = useCallback(() => {
-		const resultOptions =
-			getSelectedInterfaceConfirmationEvidenceResultOptions();
-		const jump = createInterfaceConfirmationAuditExportTimelineSearch(
-			selectedInterfaceConfirmationAuditExport,
-		);
-		if (!jump) {
-			log("warn", "no interface confirmation evidence export for timeline");
-			recordStatusActivityResult({
-				source: "evidence",
-				action: "interface-confirmation",
-				message: "status evidence interface search unavailable",
-			});
-			return;
-		}
-		const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-		setTimelineFilter(jump.filter);
-		setTimelineSearchQuery(jump.query);
-		setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
-		setScreen("timeline");
-		log(
-			filtered.length ? "info" : "warn",
-			`${jump.message} matches ${filtered.length}`,
-		);
-		recordStatusActivityResult({
-			source: "evidence",
-			action: "interface-confirmation",
-			message: `status evidence interface search ${resultOptions.selectedIndex + 1}/${resultOptions.total}`,
-			detail: `query=${jump.query} path=${selectedInterfaceConfirmationAuditExport?.path ?? "-"}`,
-		});
-	}, [
-		events,
-		getSelectedInterfaceConfirmationEvidenceResultOptions,
-		log,
-		recordStatusActivityResult,
-		selectedInterfaceConfirmationAuditExport,
-	]);
-
-	const openSelectedInterfaceConfirmationEvidenceExport = useCallback(() => {
-		const resultOptions =
-			getSelectedInterfaceConfirmationEvidenceResultOptions();
-		if (!selectedInterfaceConfirmationAuditExport) {
-			log("warn", "no interface confirmation evidence export to open");
+	const selectNextInterfaceConfirmationEvidenceExport = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
-			recordStatusActivityResult({
-				source: "evidence",
-				action: "interface-confirmation",
-				message: "status evidence interface open unavailable",
+			setSelectedStatusEvidenceKind("interface");
+			if (interfaceConfirmationAuditExports.length <= 1) {
+				log("warn", "no alternate interface confirmation evidence exports");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatInterfaceConfirmationEvidencePaletteAuditMessage("select"),
+					);
+					recordStatusActivityResult(
+						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+							"select",
+						),
+					);
+				}
+				return;
+			}
+			setSelectedInterfaceConfirmationAuditExportIndex((current) => {
+				const next = moveInterfaceConfirmationAuditExportSelection(
+					interfaceConfirmationAuditExports,
+					current,
+					"next",
+				);
+				const evidence = interfaceConfirmationAuditExports[next];
+				log(
+					"info",
+					`interface confirmation evidence selected ${next + 1}/${interfaceConfirmationAuditExports.length} ${evidence ? basename(evidence.path) : "none"}`,
+				);
+				if (options.origin === "palette") {
+					const resultOptions = {
+						selectedIndex: next,
+						total: interfaceConfirmationAuditExports.length,
+					};
+					log(
+						"info",
+						formatInterfaceConfirmationEvidencePaletteAuditMessage(
+							"select",
+							evidence,
+							resultOptions,
+						),
+					);
+					recordStatusActivityResult(
+						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+							"select",
+							evidence,
+							resultOptions,
+						),
+					);
+				}
+				return next;
 			});
-			return;
-		}
-		const plan = createInterfaceConfirmationAuditExportOpenPlan(
+		},
+		[interfaceConfirmationAuditExports, log, recordStatusActivityResult],
+	);
+
+	const jumpSelectedInterfaceConfirmationEvidenceSearch = useCallback(
+		(options: { origin?: "keyboard" | "palette" | "status-evidence" } = {}) => {
+			const resultOptions =
+				getSelectedInterfaceConfirmationEvidenceResultOptions();
+			const jump = createInterfaceConfirmationAuditExportTimelineSearch(
+				selectedInterfaceConfirmationAuditExport,
+			);
+			if (!jump) {
+				log("warn", "no interface confirmation evidence export for timeline");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatInterfaceConfirmationEvidencePaletteAuditMessage("search"),
+					);
+					recordStatusActivityResult(
+						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+							"search",
+						),
+					);
+				}
+				if (options.origin === "status-evidence") {
+					log(
+						"info",
+						formatInterfaceConfirmationEvidenceStatusAuditMessage("search"),
+					);
+					recordStatusActivityResult(
+						createInterfaceConfirmationEvidenceStatusActivityResult("search"),
+					);
+				}
+				return;
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}`,
+			);
+			if (options.origin === "palette") {
+				log(
+					"info",
+					formatInterfaceConfirmationEvidencePaletteAuditMessage(
+						"search",
+						selectedInterfaceConfirmationAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+						"search",
+						selectedInterfaceConfirmationAuditExport,
+						resultOptions,
+					),
+				);
+			}
+			if (options.origin === "status-evidence") {
+				log(
+					"info",
+					formatInterfaceConfirmationEvidenceStatusAuditMessage(
+						"search",
+						selectedInterfaceConfirmationAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createInterfaceConfirmationEvidenceStatusActivityResult(
+						"search",
+						selectedInterfaceConfirmationAuditExport,
+						resultOptions,
+					),
+				);
+			}
+		},
+		[
+			events,
+			getSelectedInterfaceConfirmationEvidenceResultOptions,
+			log,
+			recordStatusActivityResult,
 			selectedInterfaceConfirmationAuditExport,
-			{
-				baseDir: dirname(getConfigPath()),
-				platform: currentPlatform(),
-			},
-		);
-		const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+		],
+	);
+
+	const openSelectedInterfaceConfirmationEvidenceExport = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			if (!selectedInterfaceConfirmationAuditExport) {
+				log("warn", "no interface confirmation evidence export to open");
+				setScreen("status");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatInterfaceConfirmationEvidencePaletteAuditMessage("open"),
+					);
+					recordStatusActivityResult(
+						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+							"open",
+						),
+					);
+				}
+				return;
+			}
+			const plan = createInterfaceConfirmationAuditExportOpenPlan(
+				selectedInterfaceConfirmationAuditExport,
+				{
+					baseDir: dirname(getConfigPath()),
+					platform: currentPlatform(),
+				},
+			);
+			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+				auditExportIndex,
+				selectedInterfaceConfirmationAuditExport,
+			);
+			if (evidenceIndex !== undefined) {
+				setSelectedAuditExportIndex(evidenceIndex);
+				setSelectedStatusEvidenceKind("audit");
+			}
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
+			log(
+				"info",
+				`interface confirmation evidence export open confirmation opened for ${selectedInterfaceConfirmationAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
+			);
+			if (options.origin === "palette") {
+				const resultOptions =
+					getSelectedInterfaceConfirmationEvidenceResultOptions();
+				log(
+					"info",
+					formatInterfaceConfirmationEvidencePaletteAuditMessage(
+						"open",
+						selectedInterfaceConfirmationAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+						"open",
+						selectedInterfaceConfirmationAuditExport,
+						resultOptions,
+					),
+				);
+			}
+		},
+		[
 			auditExportIndex,
+			getSelectedInterfaceConfirmationEvidenceResultOptions,
+			log,
+			recordStatusActivityResult,
 			selectedInterfaceConfirmationAuditExport,
-		);
-		if (evidenceIndex !== undefined) {
-			setSelectedAuditExportIndex(evidenceIndex);
-			setSelectedStatusEvidenceKind("audit");
-		}
-		setFileOpenPlan(plan);
-		setExternalOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("file-open"));
-		setScreen("status");
-		log(
-			"info",
-			`interface confirmation evidence export open confirmation opened for ${selectedInterfaceConfirmationAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
-		);
-		recordStatusActivityResult({
-			source: "evidence",
-			action: "interface-confirmation",
-			message: `status evidence interface open ${resultOptions.selectedIndex + 1}/${resultOptions.total}`,
-			detail: `query=${selectedInterfaceConfirmationAuditExport.query ?? "-"} path=${selectedInterfaceConfirmationAuditExport.path}`,
-		});
-	}, [
-		auditExportIndex,
-		getSelectedInterfaceConfirmationEvidenceResultOptions,
-		log,
-		recordStatusActivityResult,
-		selectedInterfaceConfirmationAuditExport,
-	]);
+		],
+	);
 
 	const selectNextStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
@@ -6197,6 +6325,24 @@ export function App(): React.ReactElement {
 					openSelectedRemoteKnownHostsEvidenceHandoff({ origin: "palette" });
 				}
 
+				if (action.id === "status.interfaceEvidence.select") {
+					selectNextInterfaceConfirmationEvidenceExport({
+						origin: "palette",
+					});
+				}
+
+				if (action.id === "status.interfaceEvidence.open") {
+					openSelectedInterfaceConfirmationEvidenceExport({
+						origin: "palette",
+					});
+				}
+
+				if (action.id === "status.interfaceEvidence.search") {
+					jumpSelectedInterfaceConfirmationEvidenceSearch({
+						origin: "palette",
+					});
+				}
+
 				if (action.id === "status.resultJump.select") {
 					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
 				}
@@ -6278,12 +6424,14 @@ export function App(): React.ReactElement {
 			exportToolHistory,
 			fileRoot,
 			exportSelectedRemoteKnownHostsSelectionEvidenceHandoff,
+			jumpSelectedInterfaceConfirmationEvidenceSearch,
 			jumpSelectedProcessControlEvidenceSearch,
 			jumpSelectedRemoteKnownHostsSelectionEvidenceSearch,
 			jumpSelectedTimelineEvidenceTrailSearch,
 			log,
 			logProfiles.length,
 			openToolEvidenceSearchPrompt,
+			openSelectedInterfaceConfirmationEvidenceExport,
 			openSelectedProcessControlEvidenceExport,
 			openSelectedRemoteKnownHostsEvidenceHandoff,
 			openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff,
@@ -6299,6 +6447,7 @@ export function App(): React.ReactElement {
 			refreshFiles,
 			remoteProfiles.length,
 			routeFilterPresets.length,
+			selectNextInterfaceConfirmationEvidenceExport,
 			selectNextProcessControlEvidenceExport,
 			selectNextRemoteKnownHostsEvidenceHandoff,
 			selectNextRemoteKnownHostsSelectionEvidenceExport,
@@ -8728,7 +8877,9 @@ export function App(): React.ReactElement {
 					});
 				}
 				if (evidenceSearchPlan.action === "search-interface-evidence") {
-					jumpSelectedInterfaceConfirmationEvidenceSearch();
+					jumpSelectedInterfaceConfirmationEvidenceSearch({
+						origin: "status-evidence",
+					});
 				}
 				log(
 					"info",
@@ -12248,6 +12399,11 @@ function renderWorkspace(
 				remoteKnownHostsSelectionAuditExports,
 				selectedRemoteKnownHostsSelectionAuditExportIndex,
 			);
+		const selectedInterfaceConfirmationAuditExport =
+			getSelectedInterfaceConfirmationAuditExport(
+				interfaceConfirmationAuditExports,
+				selectedInterfaceConfirmationAuditExportIndex,
+			);
 		const selectedStatusActivityResultTimelineJump =
 			createStatusActivityResultTimelineSearch(
 				statusActivityResults,
@@ -12324,6 +12480,12 @@ function renderWorkspace(
 						totalRemoteKnownHostsEvidenceExports:
 							remoteKnownHostsSelectionAuditExports.length,
 						selectedRemoteKnownHostsEvidenceHandoff,
+						selectedInterfaceEvidenceExport:
+							selectedInterfaceConfirmationAuditExport,
+						selectedInterfaceEvidenceExportIndex:
+							selectedInterfaceConfirmationAuditExportIndex,
+						totalInterfaceEvidenceExports:
+							interfaceConfirmationAuditExports.length,
 						selectedStatusActivityResultTimelineJump,
 						selectedStatusActivityResultTimelineJumpIndex:
 							selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,

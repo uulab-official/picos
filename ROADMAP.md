@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.329 - Interface Evidence Palette
+
+Status: draft PR [#404](https://github.com/uulab-official/picos/pull/404) on `codex/picos-v0.4.329-interface-evidence-palette`, stacked on draft PR [#403](https://github.com/uulab-official/picos/pull/403).
+
+Goal: make recovered interface confirmation evidence discoverable and executable from the command palette, not only Status Evidence shortcuts.
+
+- Command palette now exposes read-only `status.interfaceEvidence.select`, `status.interfaceEvidence.open`, and `status.interfaceEvidence.search` actions for `interface evidence` queries.
+- Palette previews show the selected interface evidence export, blocked/rejected interface action target, event count, original audit query, path, and whether dispatch selects, opens a locked file-open prompt, or jumps to Timeline audit search.
+- Palette-triggered interface evidence select/open/search actions now append Status Activity result rows and searchable `palette interface evidence audit ...` Timeline messages.
+- Status Evidence `G` searches for interface evidence now use the same result/audit formatting with a distinct `status evidence interface audit ...` origin.
+- Result-history `I` can replay palette or Status Evidence interface evidence searches back into the matching Timeline audit trail.
+- No adapter execution, dry-run execution, privileged call, interface enable/disable command, or OS mutation is added.
+- Tests cover action catalog metadata, command palette discovery/previews, Status Activity result/audit formatting, and Timeline audit-search recovery.
+- Next: add archive/retention controls for interface audit evidence and show compact interface evidence target tokens in the Status copy-intent shelf.
+
 ## v0.4.328 - Interface Evidence Family
 
 Status: draft PR [#403](https://github.com/uulab-official/picos/pull/403) on `codex/picos-v0.4.328-interface-evidence-family`, stacked on draft PR [#402](https://github.com/uulab-official/picos/pull/402).
@@ -13,7 +28,7 @@ Goal: make exported interface confirmation audits manageable from the same Statu
 - Timeline recovery preserves the v0.4.326/v0.4.327 query shape, including action id and blocked/rejected status.
 - No adapter execution, dry-run execution, privileged calls, interface enable/disable command, or OS mutation is added.
 - Tests cover Status Evidence family rows, enter/search/item movement plans, audit-index recovery, file-open plans, and Timeline search recovery.
-- Next: add command-palette discovery for `interface evidence` select/open/search and then archive/retention controls for interface audit evidence.
+- Next: command-palette discovery for `interface evidence` select/open/search is completed by v0.4.329; archive/retention controls for interface audit evidence remain next.
 
 ## v0.4.327 - Interface Audit Handoff
 
