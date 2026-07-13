@@ -163,6 +163,7 @@ export function formatInterfaceSourceRows(
 		formatSourceCommandRow("gateway", platformGatewaySource(summary.platform), {
 			command: platformGatewayCommand(summary.platform),
 		}),
+		...formatMacosHardwarePortSourceRows(summary),
 		`dns=node:dns.getServers servers=${formatDnsCompact(summary.dnsServers)}`,
 		...formatInterfaceRawSourceRows(summary.sourceOutputs ?? [], name),
 		...formatInterfaceControlPreviewRows(summary.platform),
@@ -309,10 +310,48 @@ function formatInterfaceStatsRows(
 function formatInterfacePlatformRows(summary: NetworkSummary): string[] {
 	return [
 		`PLATFORM ${summary.platform}`,
-		`SOURCES node:os.networkInterfaces, ${platformStatsSource(summary.platform)}, route/get gateway, dns.getServers`,
+		`SOURCES node:os.networkInterfaces, ${platformStatsSource(summary.platform)}, route/get gateway${summary.platform === "darwin" ? ", networksetup hardware ports" : ""}, dns.getServers`,
 		`PRIMARY ${summary.primaryInterface?.name ?? "-"}`,
+		...formatMacosServiceMapRows(summary),
 		...summary.networkGroups.flatMap(formatNetworkGroupRows),
 	];
+}
+
+function formatMacosHardwarePortSourceRows(summary: NetworkSummary): string[] {
+	if (summary.platform !== "darwin") {
+		return [];
+	}
+	return [
+		formatSourceCommandRow("hardwarePorts", "networksetup", {
+			command: ["networksetup", "-listallhardwareports"],
+		}),
+		`serviceMap=${formatMacosServiceMap(summary.macosServiceNamesByDevice)}`,
+	];
+}
+
+function formatMacosServiceMapRows(summary: NetworkSummary): string[] {
+	if (summary.platform !== "darwin") {
+		return [];
+	}
+	return [
+		`MACOS SERVICE MAP ${formatMacosServiceMap(summary.macosServiceNamesByDevice)}`,
+	];
+}
+
+function formatMacosServiceMap(
+	servicesByDevice: Record<string, string> | undefined,
+): string {
+	const entries = Object.entries(servicesByDevice ?? {}).sort(
+		([left], [right]) =>
+			left.localeCompare(right, undefined, {
+				numeric: true,
+				sensitivity: "base",
+			}),
+	);
+	if (entries.length === 0) {
+		return "unresolved";
+	}
+	return entries.map(([device, service]) => `${device}:${service}`).join(", ");
 }
 
 function formatNetworkGroupRows(group: NetworkGroupSummary): string[] {

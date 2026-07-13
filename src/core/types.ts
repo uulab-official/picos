@@ -53,7 +53,8 @@ export type NetworkInterfaceStatsMap = Record<string, NetworkInterfaceStats>;
 export type NetworkSourceOutputKey =
 	| "interface-inventory"
 	| "interface-stats"
-	| "gateway";
+	| "gateway"
+	| "hardware-ports";
 
 export type NetworkSourceOutput = {
 	key: NetworkSourceOutputKey;
@@ -88,6 +89,7 @@ export type NetworkSummary = {
 	dnsServers: string[];
 	publicIp?: string;
 	sourceOutputs?: NetworkSourceOutput[];
+	macosServiceNamesByDevice?: Record<string, string>;
 };
 
 export type SystemSummary = {

@@ -154,10 +154,14 @@ describe("network summary", () => {
 				],
 			},
 			["1.1.1.1"],
-			{ sourceOutputs: [source] },
+			{
+				sourceOutputs: [source],
+				macosServiceNamesByDevice: { en0: "Wi-Fi" },
+			},
 		);
 
 		expect(summary.sourceOutputs).toEqual([source]);
+		expect(summary.macosServiceNamesByDevice).toEqual({ en0: "Wi-Fi" });
 	});
 
 	test("sorts interface rows for dense console scanning", () => {

@@ -29,6 +29,34 @@ export function interfaceStatsCommand(): { command: string; args: string[] } {
 	return { command: "netstat", args: ["-ibn"] };
 }
 
+export function hardwarePortsCommand(): { command: string; args: string[] } {
+	return { command: "networksetup", args: ["-listallhardwareports"] };
+}
+
+export function parseHardwarePorts(stdout: string): Record<string, string> {
+	const servicesByDevice: Record<string, string> = {};
+	let currentService: string | undefined;
+
+	for (const line of stdout.split(/\r?\n/)) {
+		const trimmed = line.trim();
+		if (!trimmed) {
+			continue;
+		}
+		if (trimmed.startsWith("Hardware Port:")) {
+			currentService = trimmed.replace("Hardware Port:", "").trim();
+			continue;
+		}
+		if (trimmed.startsWith("Device:")) {
+			const device = trimmed.replace("Device:", "").trim();
+			if (device && currentService) {
+				servicesByDevice[device] = currentService;
+			}
+		}
+	}
+
+	return servicesByDevice;
+}
+
 export function osLogCommand(): {
 	source: string;
 	command: string;

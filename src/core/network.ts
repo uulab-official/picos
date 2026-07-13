@@ -31,6 +31,7 @@ export function summarizeNetworkInterfaces(
 		publicIp?: string;
 		interfaceStats?: NetworkInterfaceStatsMap;
 		sourceOutputs?: NetworkSourceOutput[];
+		macosServiceNamesByDevice?: Record<string, string>;
 	} = {},
 ): NetworkSummary {
 	const summaries = Object.entries(interfaces)
@@ -54,6 +55,7 @@ export function summarizeNetworkInterfaces(
 		dnsServers,
 		publicIp: options.publicIp,
 		sourceOutputs: options.sourceOutputs,
+		macosServiceNamesByDevice: options.macosServiceNamesByDevice,
 	};
 }
 
@@ -73,11 +75,13 @@ export function sortNetworkInterfaces(
 export async function getNetworkSummary(): Promise<NetworkSummary> {
 	const targetPlatform = process.platform;
 	const interfaces = networkInterfaces();
-	const [gatewayResult, publicIp, statsResult] = await Promise.all([
-		getDefaultGatewayWithSource(targetPlatform),
-		lookupPublicIp(),
-		getInterfaceStatsWithSource(targetPlatform),
-	]);
+	const [gatewayResult, publicIp, statsResult, hardwarePortsResult] =
+		await Promise.all([
+			getDefaultGatewayWithSource(targetPlatform),
+			lookupPublicIp(),
+			getInterfaceStatsWithSource(targetPlatform),
+			getMacosHardwarePortsWithSource(targetPlatform),
+		]);
 
 	return summarizeNetworkInterfaces(interfaces, getServers(), {
 		gateway: gatewayResult.gateway,
@@ -87,7 +91,11 @@ export async function getNetworkSummary(): Promise<NetworkSummary> {
 			createNetworkInventorySourceOutput(interfaces),
 			statsResult.sourceOutput,
 			gatewayResult.sourceOutput,
+			...(hardwarePortsResult?.sourceOutput
+				? [hardwarePortsResult.sourceOutput]
+				: []),
 		],
+		macosServiceNamesByDevice: hardwarePortsResult?.servicesByDevice,
 	});
 }
 
@@ -172,6 +180,36 @@ async function getDefaultGatewayWithSource(
 	}
 
 	return { gateway: adapter.parseGateway(result.stdout), sourceOutput };
+}
+
+async function getMacosHardwarePortsWithSource(
+	targetPlatform: SupportedPlatform,
+): Promise<
+	| {
+			servicesByDevice: Record<string, string>;
+			sourceOutput: NetworkSourceOutput;
+	  }
+	| undefined
+> {
+	if (targetPlatform !== "darwin") {
+		return undefined;
+	}
+	const { command, args } = macos.hardwarePortsCommand();
+	const result = await safeExec(command, args, { timeoutMs: 5000 });
+	const sourceOutput = createNetworkSourceOutput(
+		"hardware-ports",
+		"macOS hardware ports",
+		command,
+		args,
+		result,
+	);
+
+	return {
+		servicesByDevice: result.success
+			? macos.parseHardwarePorts(result.stdout)
+			: {},
+		sourceOutput,
+	};
 }
 
 export function createNetworkInventorySourceOutput(

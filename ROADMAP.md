@@ -1,5 +1,21 @@
 # picos Roadmap
 
+## v0.4.322 - macOS Interface Service Map
+
+Status: in progress on `codex/picos-v0.4.322-macos-interface-service-map`, stacked on draft PR [#396](https://github.com/uulab-official/picos/pull/396).
+
+Goal: collect macOS `networksetup` hardware-port evidence so locked interface proposals can resolve BSD devices such as `en0` to exact service names such as `Wi-Fi`.
+
+- macOS adapter code now exposes `networksetup -listallhardwareports` and parses `Hardware Port` / `Device` blocks into service names by BSD device.
+- `getNetworkSummary()` collects the hardware-port source only on macOS and retains it beside interface inventory, stats, and gateway evidence.
+- `NetworkSummary` now carries `macosServiceNamesByDevice`, allowing TUI proposal flows and command-palette previews to resolve exact macOS network service targets.
+- Interfaces platform/source panes show the service map and raw hardware-port source evidence.
+- Interface source copy/export/open handoffs include the hardware-port evidence, keeping target resolution auditable before mutation exists.
+- Locked interface state proposals now show exact macOS service-name command previews when the map is available.
+- No interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
+- Tests cover hardware-port parsing, summary retention, source panel rendering, copy/export evidence, and proposal/palette exact target previews.
+- Next: model an explicit dry-run policy preview for interface enable/disable proposals without allowing execution.
+
 ## v0.4.321 - Interface Control Target Resolution
 
 Status: draft PR [#396](https://github.com/uulab-official/picos/pull/396) on `codex/picos-v0.4.321-interface-control-targets`, stacked on draft PR [#395](https://github.com/uulab-official/picos/pull/395).
@@ -13,7 +29,7 @@ Goal: make locked interface state proposals show the OS-specific control target 
 - Interfaces workspace and command-palette proposal previews show control-target and command-preview rows before preflight.
 - No interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
 - Tests cover target resolution plus workspace and palette proposal rendering.
-- Next: collect macOS `networksetup -listallhardwareports` evidence into the interface source model, then pass exact service mappings into proposals.
+- Next: completed by v0.4.322 macOS hardware-port evidence and service-map propagation.
 
 ## v0.4.320 - Interface Proposal Palette
 
