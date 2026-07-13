@@ -2,7 +2,7 @@
 
 ## v0.4.307 - Remote Known Hosts Evidence History Targets
 
-Status: local branch `codex/picos-v0.4.307-known-hosts-evidence-history-targets` stacked on draft PR [#381](https://github.com/uulab-official/picos/pull/381).
+Status: draft PR [#382](https://github.com/uulab-official/picos/pull/382) on `codex/picos-v0.4.307-known-hosts-evidence-history-targets`, stacked on draft PR [#381](https://github.com/uulab-official/picos/pull/381).
 
 Goal: make copy/export replay targets visible in compact Status Activity result-history rows before operators press `I`.
 
