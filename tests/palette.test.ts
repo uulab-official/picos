@@ -715,6 +715,96 @@ describe("TUI command palette", () => {
 		]);
 	});
 
+	test("finds recovered interface evidence actions from the command palette", () => {
+		const state = appendCommandPaletteQuery(
+			openCommandPalette(),
+			"interface evidence",
+		);
+		const actions = getFilteredPaletteActions(getActionCatalog(), state);
+
+		expect(actions.map((action) => action.id)).toEqual(
+			expect.arrayContaining([
+				"status.interfaceEvidence.select",
+				"status.interfaceEvidence.open",
+				"status.interfaceEvidence.search",
+			]),
+		);
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"interface evidence open",
+				),
+			).map((action) => action.id),
+		).toContain("status.interfaceEvidence.open");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"interface evidence search",
+				),
+			).map((action) => action.id),
+		).toContain("status.interfaceEvidence.search");
+	});
+
+	test("previews recovered interface evidence actions before dispatch", () => {
+		const selectedInterfaceEvidenceExport: ConsoleAuditExportPlan = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log",
+			content: "",
+			eventCount: 1,
+			query:
+				"interface confirmation interface.disable status=confirmed-blocked",
+			scope: "selected",
+		};
+
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.select",
+				),
+				{
+					selectedInterfaceEvidenceExport,
+					selectedInterfaceEvidenceExportIndex: 0,
+					totalInterfaceEvidenceExports: 2,
+				},
+			),
+		).toEqual([
+			"selected interface evidence 1/2 picos-audit-interface-2026-07-01T070000000Z.log",
+			"target=interface.disable confirmed-blocked events=1",
+			"query=interface confirmation interface.disable status=confirmed-blocked",
+			"action=select next recovered interface evidence",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.open",
+				),
+				{
+					selectedInterfaceEvidenceExport,
+					selectedInterfaceEvidenceExportIndex: 0,
+					totalInterfaceEvidenceExports: 2,
+				},
+			),
+		).toEqual([
+			"selected interface evidence 1/2 picos-audit-interface-2026-07-01T070000000Z.log",
+			"target=interface.disable confirmed-blocked events=1",
+			"query=interface confirmation interface.disable status=confirmed-blocked",
+			"confirm=file-open path=/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.search",
+				),
+			),
+		).toEqual([
+			"selected interface evidence unavailable",
+			"hint=export or recover an interface confirmation audit log",
+		]);
+	});
+
 	test("finds status result timeline jump actions from the command palette", () => {
 		const state = appendCommandPaletteQuery(
 			openCommandPalette(),

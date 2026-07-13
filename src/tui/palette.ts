@@ -160,6 +160,9 @@ export type CommandPalettePreviewContext = {
 	selectedRemoteKnownHostsEvidenceExportIndex?: number;
 	totalRemoteKnownHostsEvidenceExports?: number;
 	selectedRemoteKnownHostsEvidenceHandoff?: StatusActivityRemoteKnownHostsEvidenceHandoffSelection;
+	selectedInterfaceEvidenceExport?: ConsoleAuditExportPlan;
+	selectedInterfaceEvidenceExportIndex?: number;
+	totalInterfaceEvidenceExports?: number;
 	selectedStatusActivityResultTimelineJump?: StatusActivityCopyIntentTimelineSearch;
 	selectedStatusActivityResultTimelineJumpIndex?: number;
 	totalStatusActivityResultTimelineJumps?: number;
@@ -200,6 +203,9 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.remoteKnownHostsEvidence.export" &&
 		action.id !== "status.remoteKnownHostsEvidence.handoffSelect" &&
 		action.id !== "status.remoteKnownHostsEvidence.handoffOpen" &&
+		action.id !== "status.interfaceEvidence.select" &&
+		action.id !== "status.interfaceEvidence.open" &&
+		action.id !== "status.interfaceEvidence.search" &&
 		action.id !== "status.resultJump.select" &&
 		action.id !== "status.resultJump.open" &&
 		action.id !== "status.resultJump.filter" &&
@@ -274,6 +280,14 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id === "status.remoteKnownHostsEvidence.handoffOpen"
 	) {
 		return formatRemoteKnownHostsEvidencePalettePreviewRows(action, context);
+	}
+
+	if (
+		action.id === "status.interfaceEvidence.select" ||
+		action.id === "status.interfaceEvidence.open" ||
+		action.id === "status.interfaceEvidence.search"
+	) {
+		return formatInterfaceEvidencePalettePreviewRows(action, context);
 	}
 
 	if (
@@ -818,6 +832,44 @@ function parseRemoteKnownHostsEvidenceTarget(
 ): string | undefined {
 	const match = query?.match(/^remote known_hosts selection history (.+)$/);
 	return match?.[1]?.trim() || undefined;
+}
+
+function formatInterfaceEvidencePalettePreviewRows(
+	action: PicosAction,
+	context: CommandPalettePreviewContext,
+): string[] {
+	const selected = context.selectedInterfaceEvidenceExport;
+	if (!selected) {
+		return [
+			"selected interface evidence unavailable",
+			"hint=export or recover an interface confirmation audit log",
+		];
+	}
+	const selectedIndex = Math.max(
+		0,
+		Math.floor(context.selectedInterfaceEvidenceExportIndex ?? 0),
+	);
+	const total = Math.max(1, context.totalInterfaceEvidenceExports ?? 1);
+	const fileName = selected.path.split(/[\\/]/).pop() ?? selected.path;
+	const handoff =
+		action.id === "status.interfaceEvidence.select"
+			? "action=select next recovered interface evidence"
+			: `${action.id === "status.interfaceEvidence.open" ? "confirm=file-open" : "timeline-search=audit"} path=${selected.path}`;
+	return [
+		`selected interface evidence ${selectedIndex + 1}/${total} ${fileName}`,
+		`target=${formatInterfaceEvidenceTarget(selected.query)} events=${selected.eventCount}`,
+		`query=${selected.query ?? "-"}`,
+		handoff,
+	];
+}
+
+function formatInterfaceEvidenceTarget(query: string | undefined): string {
+	const match = query?.match(
+		/^interface confirmation (interface\.(?:enable|disable)) status=(confirmed-blocked|rejected)$/,
+	);
+	const actionId = match?.[1];
+	const status = match?.[2];
+	return actionId && status ? `${actionId} ${status}` : "unknown";
 }
 
 function formatPortProcessControlPalettePreviewRows(

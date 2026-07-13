@@ -691,6 +691,39 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.interfaceEvidence.select",
+		title: "Select interface evidence",
+		description:
+			"Cycle recovered interface confirmation evidence exports in Status Evidence.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.interfaceEvidence.open",
+		title: "Open interface evidence",
+		description:
+			"Open the selected recovered interface confirmation evidence export through the locked file-open prompt.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.interfaceEvidence.search",
+		title: "Interface evidence search",
+		description:
+			"Jump to Timeline audit search for the selected recovered interface confirmation evidence query.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.resultJump.select",
 		title: "Select Status result Timeline jump",
 		description:
