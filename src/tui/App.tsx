@@ -537,6 +537,7 @@ import {
 	getSelectedProcessControlAuditExport,
 	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
+	getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	getSelectedStatusActivityToolsEvidenceSearchMatch,
@@ -5477,6 +5478,42 @@ export function App(): React.ReactElement {
 		],
 	);
 
+	const selectNextRemoteKnownHostsEvidenceHandoff = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			if (options.origin === "palette") {
+				setScreen("status");
+				setFocusArea("workspaces");
+			}
+			const indexes = filterStatusActivityResultHistoryIndexes(
+				statusActivityResults,
+				"evidence-handoffs",
+			);
+			if (indexes.length === 0) {
+				log("warn", "no remote known_hosts evidence handoff results");
+				return false;
+			}
+			setSelectedStatusActivityResultIndex((current) => {
+				const next = moveStatusActivityResultHistoryFilteredSelection(
+					statusActivityResults,
+					current,
+					"next",
+					"evidence-handoffs",
+				);
+				const selected = Math.max(0, indexes.indexOf(next));
+				const result = statusActivityResults[next];
+				log(
+					"info",
+					`remote known_hosts evidence handoff ${selected + 1}/${indexes.length} row=${next + 1}${options.origin === "palette" ? " origin=palette" : ""} ${result?.message ?? "none"}`,
+				);
+				setSelectedStatusActivityCopyPreviewRowIndex(0);
+				setStatusActivityCopyPreviewExpanded(false);
+				return next;
+			});
+			return true;
+		},
+		[log, statusActivityResults],
+	);
+
 	const openSelectedStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			const selectedAuditJumpIntent =
@@ -5926,6 +5963,10 @@ export function App(): React.ReactElement {
 					});
 				}
 
+				if (action.id === "status.remoteKnownHostsEvidence.handoffSelect") {
+					selectNextRemoteKnownHostsEvidenceHandoff({ origin: "palette" });
+				}
+
 				if (action.id === "status.resultJump.select") {
 					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
 				}
@@ -6028,6 +6069,7 @@ export function App(): React.ReactElement {
 			remoteProfiles.length,
 			routeFilterPresets.length,
 			selectNextProcessControlEvidenceExport,
+			selectNextRemoteKnownHostsEvidenceHandoff,
 			selectNextRemoteKnownHostsSelectionEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
@@ -8146,31 +8188,7 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "H") {
-			const indexes = filterStatusActivityResultHistoryIndexes(
-				statusActivityResults,
-				"evidence-handoffs",
-			);
-			if (indexes.length === 0) {
-				log("warn", "no remote known_hosts evidence handoff results");
-				return;
-			}
-			setSelectedStatusActivityResultIndex((current) => {
-				const next = moveStatusActivityResultHistoryFilteredSelection(
-					statusActivityResults,
-					current,
-					"next",
-					"evidence-handoffs",
-				);
-				const selected = Math.max(0, indexes.indexOf(next));
-				const result = statusActivityResults[next];
-				log(
-					"info",
-					`remote known_hosts evidence handoff ${selected + 1}/${indexes.length} row=${next + 1} ${result?.message ?? "none"}`,
-				);
-				setSelectedStatusActivityCopyPreviewRowIndex(0);
-				setStatusActivityCopyPreviewExpanded(false);
-				return next;
-			});
+			selectNextRemoteKnownHostsEvidenceHandoff();
 			return;
 		}
 
@@ -11672,6 +11690,11 @@ function renderWorkspace(
 				statusActivityResults,
 				selectedStatusActivityResultIndex,
 			);
+		const selectedRemoteKnownHostsEvidenceHandoff =
+			getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(
+				statusActivityResults,
+				selectedStatusActivityResultIndex,
+			);
 		const selectedStatusActivityResultTimelineJumpSelection =
 			getStatusActivityResultTimelineJumpSelection(
 				statusActivityResults,
@@ -11737,6 +11760,7 @@ function renderWorkspace(
 							selectedRemoteKnownHostsSelectionAuditExportIndex,
 						totalRemoteKnownHostsEvidenceExports:
 							remoteKnownHostsSelectionAuditExports.length,
+						selectedRemoteKnownHostsEvidenceHandoff,
 						selectedStatusActivityResultTimelineJump,
 						selectedStatusActivityResultTimelineJumpIndex:
 							selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,

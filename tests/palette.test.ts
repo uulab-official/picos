@@ -507,6 +507,7 @@ describe("TUI command palette", () => {
 				"status.remoteKnownHostsEvidence.search",
 				"status.remoteKnownHostsEvidence.copy",
 				"status.remoteKnownHostsEvidence.export",
+				"status.remoteKnownHostsEvidence.handoffSelect",
 			]),
 		);
 		expect(
@@ -527,6 +528,15 @@ describe("TUI command palette", () => {
 				),
 			).map((action) => action.id),
 		).toContain("status.remoteKnownHostsEvidence.export");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"remote known_hosts handoff select",
+				),
+			).map((action) => action.id),
+		).toContain("status.remoteKnownHostsEvidence.handoffSelect");
 	});
 
 	test("previews recovered remote known_hosts evidence actions before dispatch", () => {
@@ -601,6 +611,46 @@ describe("TUI command palette", () => {
 		).toEqual([
 			"selected remote known_hosts evidence unavailable",
 			"hint=export or recover a Remotes known_hosts selection-history audit log",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) =>
+						action.id === "status.remoteKnownHostsEvidence.handoffSelect",
+				),
+				{
+					selectedRemoteKnownHostsEvidenceHandoff: {
+						action: "export",
+						historyIndex: 2,
+						id: "prod",
+						jump: {
+							filter: "audit",
+							query:
+								'palette remote known_hosts evidence audit action=export target="prod"',
+							message:
+								"status activity result timeline search palette remote known_hosts evidence prod",
+						},
+						selected: 1,
+						total: 2,
+					},
+				},
+			),
+		).toEqual([
+			"selected remote known_hosts handoff 2/2",
+			"target=id:prod action=export row=3",
+			'query=palette remote known_hosts evidence audit action=export target="prod"',
+			"action=select next remote known_hosts handoff result",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) =>
+						action.id === "status.remoteKnownHostsEvidence.handoffSelect",
+				),
+			),
+		).toEqual([
+			"selected remote known_hosts handoff unavailable",
+			"hint=create or recover a palette known_hosts evidence copy/export result",
 		]);
 	});
 

@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 76,
-			enabled: 64,
+			total: 77,
+			enabled: 65,
 			locked: 12,
 			elevated: 4,
 		});
@@ -99,6 +99,7 @@ describe("action catalog", () => {
 			"status.remoteKnownHostsEvidence.search",
 			"status.remoteKnownHostsEvidence.copy",
 			"status.remoteKnownHostsEvidence.export",
+			"status.remoteKnownHostsEvidence.handoffSelect",
 			"status.resultJump.select",
 			"status.resultJump.open",
 			"status.resultJump.filter",
