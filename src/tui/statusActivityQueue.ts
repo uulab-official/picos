@@ -381,7 +381,7 @@ export function formatStatusActivityResultHistoryRows(
 				const result = history[historyIndex] as StatusActivityResult;
 				const marker = index === selectedFilteredIndex ? "> " : "  ";
 				const rows = [
-					`${marker}#${historyIndex + 1} ${result.source} ${result.action} ${result.message}`,
+					`${marker}#${historyIndex + 1} ${result.source} ${result.action} ${result.message}${formatStatusActivityResultHistoryTargetToken(result)}`,
 				];
 				rows.push(...formatStatusActivityResultDetailRows(result, "    "));
 				if (index === selectedFilteredIndex) {
@@ -407,7 +407,7 @@ export function formatStatusActivityResultHistoryRows(
 		...history.flatMap((result, index) => {
 			const marker = index === selected ? "> " : "  ";
 			const rows = [
-				`${marker}${result.source} ${result.action} ${result.message}`,
+				`${marker}${result.source} ${result.action} ${result.message}${formatStatusActivityResultHistoryTargetToken(result)}`,
 			];
 			rows.push(...formatStatusActivityResultDetailRows(result, "    "));
 			if (index === selected) {
@@ -422,6 +422,25 @@ export function formatStatusActivityResultHistoryRows(
 			return rows;
 		}),
 	];
+}
+
+function formatStatusActivityResultHistoryTargetToken(
+	result: StatusActivityResult,
+): string {
+	if (result.action !== "remote-known-hosts-evidence") {
+		return "";
+	}
+	const match = result.message.match(
+		/^palette remote known_hosts evidence (copy|export)(?:\s|$)/,
+	);
+	const action = match?.[1];
+	const target = getRemoteKnownHostsSelectionHistoryEvidenceResultDetailTarget(
+		result.detail,
+	);
+	if (!action || !target) {
+		return "";
+	}
+	return ` target=remote-known-hosts id:${target} action=${action}`;
 }
 
 export function nextStatusActivityResultHistoryFilter(
