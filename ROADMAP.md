@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.297 - Remote Known Hosts Select Palette
+
+Status: in progress on `codex/picos-v0.4.297-known-hosts-select-palette`.
+
+Goal: make typed known_hosts candidate selection discoverable from the command palette, matching the OS-console expectation that important controls are searchable as well as shortcut-driven.
+
+- Action Center now exposes `remote.knownHosts.select` as an enabled read-only remote action with no confirmation requirement.
+- Command palette search finds the action through `remote known_hosts select` and `known hosts candidate` queries.
+- Palette preview shows the `:remote-known-hosts-select` prompt, accepted formats, and locked local-read/network/trust/write guards before dispatch.
+- Palette dispatch moves into Remotes focus and opens the existing typed candidate selection prompt, reusing the safe session and Activity path from v0.4.296.
+- Tests cover action catalog counts, read-only action metadata, palette search, and preview rows.
+- Next: expose known_hosts selection history as a copy/export source.
+
 ## v0.4.296 - Remote Known Hosts Select Command
 
 Status: draft PR [#371](https://github.com/uulab-official/picos/pull/371) on `codex/picos-v0.4.296-known-hosts-select-command`.
@@ -12,7 +25,7 @@ Goal: let operators select pasted known_hosts candidates beyond `1-9` through a 
 - Typed selections update the paste review session, known_hosts candidate session, live compare detail, and Status Activity result history with `method=command`.
 - Timeline recovery can search command-driven selection audit rows by remote id, candidate number, and method without opening transport, reading local trust files, trusting hosts, or writing `known_hosts`.
 - Tests cover parsing, no-op safety, long-buffer candidate selection, command-method Activity rows, and Timeline recovery.
-- Next: expose known_hosts selection history as a copy/export source and add palette discovery for the typed selection prompt.
+- Next: expose known_hosts selection history as a copy/export source.
 
 ## v0.4.295 - Remote Known Hosts Selection Activity
 

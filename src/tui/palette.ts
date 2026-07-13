@@ -189,6 +189,7 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "config.editorSaveMode.focus" &&
 		action.id !== "config.auditRetention.focus" &&
 		action.id !== "config.toolTargetRetention.focus" &&
+		action.id !== "remote.knownHosts.select" &&
 		!getToolRunActionMetadata(action.id) &&
 		!getConfigRecoveryActionFocusTarget(action.id) &&
 		!getConfigManagedShelfActionFocusTarget(action.id) &&
@@ -213,6 +214,10 @@ export function formatCommandPaletteActionPreviewRows(
 
 	if (getToolRunActionMetadata(action.id)) {
 		return formatToolDirectRunPalettePreviewRows(action, context);
+	}
+
+	if (action.id === "remote.knownHosts.select") {
+		return formatRemoteKnownHostsSelectPalettePreviewRows(action);
 	}
 
 	if (action.id === "status.toolsEvidence.archive") {
@@ -331,6 +336,18 @@ function formatToolDirectRunPalettePreviewRows(
 		`target default=${plan ? plan.args.join(" ") : target} placeholder=${metadata.placeholder}`,
 		`cli=${plan ? formatPaletteToolCli(plan.toolId, plan.args) : metadata.cli}`,
 		"dispatch=enter opens Tools target prompt",
+	];
+}
+
+function formatRemoteKnownHostsSelectPalettePreviewRows(
+	action: PicosAction,
+): string[] {
+	return [
+		"remote known_hosts select",
+		`action=${action.id} risk=${action.risk} privilege=${action.privilege}`,
+		"prompt=:remote-known-hosts-select accepts=12,#12,candidate 12",
+		"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
+		"dispatch=enter opens Remotes known_hosts selection prompt",
 	];
 }
 

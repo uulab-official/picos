@@ -32,8 +32,8 @@ describe("action catalog", () => {
 
 	test("summarizes action availability for the status panel", () => {
 		expect(getActionSummary()).toEqual({
-			total: 70,
-			enabled: 58,
+			total: 71,
+			enabled: 59,
 			locked: 12,
 			elevated: 4,
 		});
@@ -86,6 +86,7 @@ describe("action catalog", () => {
 			"tools.export",
 			"picos.update",
 			"remote.profiles",
+			"remote.knownHosts.select",
 			"status.timelineTrail.select",
 			"status.timelineTrail.open",
 			"status.timelineTrail.search",
@@ -206,6 +207,15 @@ describe("action catalog", () => {
 				risk: "read",
 				privilege: "none",
 				enabled: true,
+			}),
+		);
+		expect(catalog).toContainEqual(
+			expect.objectContaining({
+				id: "remote.knownHosts.select",
+				risk: "read",
+				privilege: "none",
+				enabled: true,
+				confirmationRequired: false,
 			}),
 		);
 		expect(catalog).toContainEqual(
