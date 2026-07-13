@@ -13,7 +13,7 @@ Make exported interface confirmation audit attempts manageable from Status Evide
 - [x] Keep adapter execution, dry-run execution, privileged calls, and OS mutation disabled.
 - [x] Cover Status Evidence rows/plans and audit-index recovery with tests.
 - [x] Run focused tests, lint, typecheck, verify, and release checks.
-- [ ] Publish a stacked draft PR on top of v0.4.327.
+- [x] Publish a stacked draft PR on top of v0.4.327.
 
 ## Safety Boundary
 

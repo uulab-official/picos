@@ -2,7 +2,7 @@
 
 ## v0.4.328 - Interface Evidence Family
 
-Status: in progress on `codex/picos-v0.4.328-interface-evidence-family`, stacked on draft PR [#402](https://github.com/uulab-official/picos/pull/402).
+Status: draft PR [#403](https://github.com/uulab-official/picos/pull/403) on `codex/picos-v0.4.328-interface-evidence-family`, stacked on draft PR [#402](https://github.com/uulab-official/picos/pull/402).
 
 Goal: make exported interface confirmation audits manageable from the same Status Evidence console as process and remote known_hosts evidence.
 
