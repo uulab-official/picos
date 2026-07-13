@@ -54,6 +54,26 @@ export type InterfaceConfirmationDraft = {
 	blockers: string[];
 };
 
+export type InterfaceConfirmationResultStatus =
+	| "confirmed-blocked"
+	| "rejected";
+
+export type InterfaceConfirmationResult = {
+	actionId: "interface.enable" | "interface.disable";
+	action: InterfaceStateProposalAction;
+	status: InterfaceConfirmationResultStatus;
+	expectedPhrase: "enable interface" | "disable interface";
+	receivedPhrase: string;
+	confirmed: boolean;
+	willExecute: false;
+	targetLabel: string;
+	risk: "write";
+	privilege: "admin";
+	commandPreview: string;
+	reason: string;
+	blockers: string[];
+};
+
 export type InterfaceStateProposal = {
 	actionId: "interface.enable" | "interface.disable";
 	action: InterfaceStateProposalAction;
@@ -159,6 +179,74 @@ export function formatInterfaceStateProposalRows(
 		...proposal.preflight,
 		"execution=disabled no interface state will be changed",
 	];
+}
+
+export function submitInterfaceConfirmation(
+	proposal: InterfaceStateProposal,
+	receivedPhrase: string,
+): InterfaceConfirmationResult {
+	const normalized = receivedPhrase.trim();
+	const confirmed = normalized === proposal.confirmationDraft.phrase;
+	const blockers = confirmed
+		? ["interface-execution-disabled", "mutation-controls-disabled"]
+		: [
+				"confirmation-mismatch",
+				"interface-execution-disabled",
+				"mutation-controls-disabled",
+			];
+
+	return {
+		actionId: proposal.actionId,
+		action: proposal.action,
+		status: confirmed ? "confirmed-blocked" : "rejected",
+		expectedPhrase: proposal.confirmationDraft.phrase,
+		receivedPhrase: normalized,
+		confirmed,
+		willExecute: false,
+		targetLabel: proposal.confirmationDraft.targetLabel,
+		risk: proposal.risk,
+		privilege: proposal.privilege,
+		commandPreview: proposal.controlTarget?.commandPreview ?? "-",
+		reason: confirmed ? "execution-disabled" : "confirmation-mismatch",
+		blockers,
+	};
+}
+
+export function formatInterfaceConfirmationPromptRows(
+	proposal: InterfaceStateProposal | undefined,
+	typed: string,
+): string[] {
+	if (!proposal) {
+		return [];
+	}
+	return [
+		`INTERFACE CONFIRM ${proposal.actionId}`,
+		`:interface-confirm ${typed || " "}  type="${proposal.confirmationDraft.phrase}" enter=audit esc=cancel`,
+		`target=${proposal.confirmationDraft.targetLabel} confirmed=false willExecute=false`,
+		"executionEnabled=false adapterCommandBlocked=true",
+	];
+}
+
+export function formatInterfaceConfirmationResultRows(
+	result: InterfaceConfirmationResult | undefined,
+): string[] {
+	if (!result) {
+		return [];
+	}
+	return [
+		`INTERFACE CONFIRM AUDIT ${result.actionId}`,
+		`status=${result.status} confirmed=${result.confirmed} willExecute=${result.willExecute}`,
+		`expected="${result.expectedPhrase}" received="${result.receivedPhrase || "-"}"`,
+		`target=${result.targetLabel} risk=${result.risk} privilege=${result.privilege}`,
+		`command=${result.commandPreview}`,
+		`reason=${result.reason} blockers=${result.blockers.join(",")}`,
+	];
+}
+
+export function formatInterfaceConfirmationAuditMessage(
+	result: InterfaceConfirmationResult,
+): string {
+	return `interface confirmation ${result.actionId} status=${result.status} confirmed=${result.confirmed} willExecute=${result.willExecute} target=${result.targetLabel} reason=${result.reason} blockers=${result.blockers.join(",")} command="${result.commandPreview}"`;
 }
 
 function createInterfaceStateProposalTarget(

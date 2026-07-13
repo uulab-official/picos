@@ -124,8 +124,12 @@ import {
 } from "../core/handoffIndex";
 import {
 	createInterfaceStateProposal,
+	formatInterfaceConfirmationAuditMessage,
+	formatInterfaceConfirmationPromptRows,
+	type InterfaceConfirmationResult,
 	type InterfaceStateProposal,
 	type InterfaceStateProposalAction,
+	submitInterfaceConfirmation,
 } from "../core/interfaceControl";
 import { getNetworkSummary } from "../core/network";
 import {
@@ -1005,6 +1009,8 @@ export function App(): React.ReactElement {
 		useState(false);
 	const [interfaceStateProposal, setInterfaceStateProposal] =
 		useState<InterfaceStateProposal>();
+	const [interfaceConfirmationResult, setInterfaceConfirmationResult] =
+		useState<InterfaceConfirmationResult>();
 	const [connectionDetailView, setConnectionDetailView] =
 		useState<EndpointDetailView>("detail");
 	const [portDetailView, setPortDetailView] =
@@ -6941,6 +6947,7 @@ export function App(): React.ReactElement {
 				macosServiceNamesByDevice: summary?.macosServiceNamesByDevice,
 			});
 			setInterfaceStateProposal(proposal);
+			setInterfaceConfirmationResult(undefined);
 			log(
 				proposal.status === "ready" ? "warn" : "info",
 				`interface ${action} proposal ${proposal.status} target=${proposal.target?.name ?? "-"}`,
@@ -6948,6 +6955,24 @@ export function App(): React.ReactElement {
 		},
 		[log, selectedInterfaceIndex],
 	);
+
+	const submitInterfaceConfirmationCommand = useCallback(() => {
+		if (!interfaceStateProposal) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "interface confirmation missing proposal");
+			return;
+		}
+		const result = submitInterfaceConfirmation(
+			interfaceStateProposal,
+			commandLine.value,
+		);
+		setInterfaceConfirmationResult(result);
+		setCommandLine((current) => closeCommandLine(current));
+		log(
+			result.confirmed ? "warn" : "fail",
+			formatInterfaceConfirmationAuditMessage(result),
+		);
+	}, [commandLine.value, interfaceStateProposal, log]);
 
 	const exportCleanupHandoffHistory = useCallback(async () => {
 		const plan = createCleanupHandoffHistoryExportPlan(
@@ -7230,6 +7255,8 @@ export function App(): React.ReactElement {
 					submitToolEvidenceSearchCommand();
 				} else if (commandLine.prompt === "dns-servers") {
 					submitDnsServerProposalCommand();
+				} else if (commandLine.prompt === "interface-confirm") {
+					submitInterfaceConfirmationCommand();
 				} else if (commandLine.prompt === "config-reset") {
 					void submitConfigResetCommand();
 				} else if (commandLine.prompt === "editor-append") {
@@ -7776,9 +7803,27 @@ export function App(): React.ReactElement {
 		if (
 			screen === "interfaces" &&
 			focusArea === "workspaces" &&
+			(key.return || input === "K")
+		) {
+			if (!interfaceStateProposal) {
+				log("warn", "open an interface proposal with D or U first");
+				return;
+			}
+			setCommandLine(openCommandLine("interface-confirm"));
+			log(
+				"warn",
+				`interface confirmation prompt opened type ${interfaceStateProposal.confirmationDraft.phrase}`,
+			);
+			return;
+		}
+
+		if (
+			screen === "interfaces" &&
+			focusArea === "workspaces" &&
 			input === "C"
 		) {
 			setInterfaceStateProposal(undefined);
+			setInterfaceConfirmationResult(undefined);
 			log("info", "interface state proposal cleared");
 			return;
 		}
@@ -10993,6 +11038,7 @@ export function App(): React.ReactElement {
 					interfaceDetailView={interfaceDetailView}
 					interfaceSourceCopyPreview={interfaceSourceCopyPreview}
 					interfaceStateProposal={interfaceStateProposal}
+					interfaceConfirmationResult={interfaceConfirmationResult}
 					selectedConnectionIndex={selectedConnectionIndex}
 					selectedPortIndex={selectedPortIndex}
 					connectionDetailView={connectionDetailView}
@@ -11280,6 +11326,7 @@ function MainWorkspace({
 	interfaceDetailView,
 	interfaceSourceCopyPreview,
 	interfaceStateProposal,
+	interfaceConfirmationResult,
 	selectedConnectionIndex,
 	selectedPortIndex,
 	connectionDetailView,
@@ -11442,6 +11489,7 @@ function MainWorkspace({
 	interfaceDetailView: InterfaceDetailView;
 	interfaceSourceCopyPreview: boolean;
 	interfaceStateProposal?: InterfaceStateProposal;
+	interfaceConfirmationResult?: InterfaceConfirmationResult;
 	selectedConnectionIndex: number;
 	selectedPortIndex: number;
 	connectionDetailView: EndpointDetailView;
@@ -11683,6 +11731,7 @@ function MainWorkspace({
 						interfaceDetailView,
 						interfaceSourceCopyPreview,
 						interfaceStateProposal,
+						interfaceConfirmationResult,
 						selectedConnectionIndex,
 						selectedPortIndex,
 						connectionDetailView,
@@ -11850,6 +11899,7 @@ function renderWorkspace(
 	interfaceDetailView: InterfaceDetailView,
 	interfaceSourceCopyPreview: boolean,
 	interfaceStateProposal: InterfaceStateProposal | undefined,
+	interfaceConfirmationResult: InterfaceConfirmationResult | undefined,
 	selectedConnectionIndex: number,
 	selectedPortIndex: number,
 	connectionDetailView: EndpointDetailView,
@@ -12198,6 +12248,8 @@ function renderWorkspace(
 				view={interfaceDetailView}
 				copyPreview={interfaceSourceCopyPreview}
 				stateProposal={interfaceStateProposal}
+				confirmationResult={interfaceConfirmationResult}
+				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 8)}
 				t={t}
 			/>
@@ -13993,6 +14045,8 @@ function InterfacesWorkspace({
 	view,
 	copyPreview,
 	stateProposal,
+	confirmationResult,
+	commandLine,
 	visibleRows,
 	t,
 }: {
@@ -14001,24 +14055,38 @@ function InterfacesWorkspace({
 	view: InterfaceDetailView;
 	copyPreview: boolean;
 	stateProposal?: InterfaceStateProposal;
+	confirmationResult?: InterfaceConfirmationResult;
+	commandLine: CommandLineState;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const promptRows =
+		commandLine.active && commandLine.prompt === "interface-confirm"
+			? formatInterfaceConfirmationPromptRows(stateProposal, commandLine.value)
+			: [];
 	const rows = summary
-		? formatInterfaceWorkspaceRows(summary, visibleRows - 3, {
-				copyPreview,
-				selectedIndex,
-				stateProposal,
-				view,
-			})
+		? [
+				...formatInterfaceWorkspaceRows(
+					summary,
+					Math.max(1, visibleRows - 3 - promptRows.length),
+					{
+						confirmationResult,
+						copyPreview,
+						selectedIndex,
+						stateProposal,
+						view,
+					},
+				),
+				...promptRows,
+			]
 		: ["loading interfaces..."];
 
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.interfaces")}</Text>
 			<Text color="gray">
-				interface console · j/k select · tab panes · D disable U enable C clear
-				· source: c copy e export o open
+				interface console · j/k select · tab panes · D disable U enable ·
+				K/enter confirm-audit · C clear · source: c copy e export o open
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
