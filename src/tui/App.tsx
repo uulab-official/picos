@@ -181,6 +181,7 @@ import {
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
 	moveRemoteKnownHostsPasteReviewSelection,
+	parseRemoteKnownHostsCandidateSelectionInput,
 	parseRemoteProfileCommand,
 	type RemoteFileContext,
 	type RemoteHostKeyEvidenceInputSession,
@@ -190,6 +191,7 @@ import {
 	recordRemoteKnownHostsCandidateSession,
 	recordRemoteKnownHostsPasteReviewSession,
 	selectRemoteKnownHostsPasteReviewCandidate,
+	selectRemoteKnownHostsPasteReviewCandidateFromInput,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -4139,7 +4141,7 @@ export function App(): React.ReactElement {
 	);
 
 	const selectRemoteKnownHostsPasteReviewCandidateCommand = useCallback(
-		(candidateIndex: number) => {
+		(candidateIndex: number, method: "number" | "command" = "number") => {
 			const profile = remoteProfiles[selectedRemoteIndex];
 			if (!profile) {
 				log("warn", "remote known_hosts paste selection requires a profile");
@@ -4173,12 +4175,12 @@ export function App(): React.ReactElement {
 			recordStatusActivityResult(
 				createRemoteKnownHostsPasteSelectionStatusActivityResult(
 					nextReview,
-					"number",
+					method,
 				),
 			);
 			log(
 				"info",
-				`remote known_hosts paste candidate selected ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length}`,
+				`remote known_hosts paste candidate selected ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length} method=${method}`,
 			);
 		},
 		[
@@ -4189,6 +4191,68 @@ export function App(): React.ReactElement {
 			selectedRemoteIndex,
 		],
 	);
+
+	const submitRemoteKnownHostsPasteSelectionCommand = useCallback(() => {
+		const profile = remoteProfiles[selectedRemoteIndex];
+		const inputValue = commandLine.value;
+		setCommandLine((current) => closeCommandLine(current));
+		if (!profile) {
+			log("warn", "remote known_hosts paste selection requires a profile");
+			return;
+		}
+
+		const candidateIndex =
+			parseRemoteKnownHostsCandidateSelectionInput(inputValue);
+		if (candidateIndex === undefined) {
+			log(
+				"warn",
+				`remote known_hosts paste candidate command invalid ${profile.id} input=${inputValue || "empty"}`,
+			);
+			return;
+		}
+
+		const review = createRemoteKnownHostsPasteReviewFromSession(
+			profile,
+			remoteKnownHostsPasteReviewSession,
+		);
+		const nextReview = selectRemoteKnownHostsPasteReviewCandidateFromInput(
+			review,
+			inputValue,
+		);
+		if (nextReview === review) {
+			log(
+				"warn",
+				`remote known_hosts paste candidate ${candidateIndex} unavailable ${profile.id}`,
+			);
+			return;
+		}
+
+		const preview =
+			createRemoteKnownHostsCandidatePreviewFromPasteReview(nextReview);
+		setRemoteKnownHostsPasteReviewSession((current) =>
+			recordRemoteKnownHostsPasteReviewSession(current, nextReview),
+		);
+		setRemoteKnownHostsCandidateSession((current) =>
+			recordRemoteKnownHostsCandidateSession(current, preview),
+		);
+		recordStatusActivityResult(
+			createRemoteKnownHostsPasteSelectionStatusActivityResult(
+				nextReview,
+				"command",
+			),
+		);
+		log(
+			"info",
+			`remote known_hosts paste candidate command selected ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length}`,
+		);
+	}, [
+		commandLine.value,
+		log,
+		recordStatusActivityResult,
+		remoteKnownHostsPasteReviewSession,
+		remoteProfiles,
+		selectedRemoteIndex,
+	]);
 
 	const submitRemoteHostTrustReviewCommand = useCallback(() => {
 		const profile = remoteProfiles[selectedRemoteIndex];
@@ -6415,13 +6479,16 @@ export function App(): React.ReactElement {
 																																													"remote-known-hosts-paste"
 																																												? "remote known_hosts paste review cancelled"
 																																												: commandLine.prompt ===
-																																														portProcessControlPrompt
-																																													? "port process control cancelled"
-																																													: commandLine.prompt.startsWith(
-																																																toolPromptPrefix,
-																																															)
-																																														? "tool target command cancelled"
-																																														: "path command cancelled",
+																																														"remote-known-hosts-select"
+																																													? "remote known_hosts paste selection cancelled"
+																																													: commandLine.prompt ===
+																																															portProcessControlPrompt
+																																														? "port process control cancelled"
+																																														: commandLine.prompt.startsWith(
+																																																	toolPromptPrefix,
+																																																)
+																																															? "tool target command cancelled"
+																																															: "path command cancelled",
 				);
 				return;
 			}
@@ -6461,6 +6528,8 @@ export function App(): React.ReactElement {
 					submitRemoteKnownHostsCandidateCommand();
 				} else if (commandLine.prompt === "remote-known-hosts-paste") {
 					submitRemoteKnownHostsPasteReviewCommand();
+				} else if (commandLine.prompt === "remote-known-hosts-select") {
+					submitRemoteKnownHostsPasteSelectionCommand();
 				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
 					submitEndpointFilterCommand();
 				} else if (
@@ -9762,6 +9831,20 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "S") {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile) {
+				log("warn", "no remote profile selected");
+				return;
+			}
+			setCommandLine(openCommandLine("remote-known-hosts-select"));
+			log(
+				"info",
+				`remote known_hosts candidate selection opened ${profile.id}`,
+			);
+			return;
+		}
+
 		if (focusArea === "remotes" && input === "]") {
 			moveRemoteKnownHostsPasteReviewSelectionCommand("next");
 			return;
@@ -12218,7 +12301,7 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · [ ]/1-9 candidate · t trust review · c connect preview · h/esc"
+					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · [ ]/1-9/S candidate · t trust review · c connect preview · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
 			{focusRows.length > 0 ? (
@@ -12540,6 +12623,15 @@ function RemotesWorkspace({
 					<Text color="yellow">
 						{clip(
 							`:remote-known-hosts-paste ${commandLine.value || " "} use \\n between lines · enter=parse esc=cancel`,
+							92,
+						)}
+					</Text>
+				) : null}
+				{commandLine.active &&
+				commandLine.prompt === "remote-known-hosts-select" ? (
+					<Text color="yellow">
+						{clip(
+							`:remote-known-hosts-select ${commandLine.value || " "} enter=select · accepts 12, #12, candidate 12 · esc=cancel`,
 							92,
 						)}
 					</Text>

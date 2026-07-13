@@ -45,12 +45,14 @@ import {
 	formatRemoteTransportProbeRows,
 	moveRemoteKnownHostsPasteReviewSelection,
 	normalizeRemoteProfiles,
+	parseRemoteKnownHostsCandidateSelectionInput,
 	parseRemoteKnownHostsCandidates,
 	parseRemoteKnownHostsCandidatesFromReadResult,
 	parseRemoteProfileCommand,
 	recordRemoteHostKeyEvidenceInputSession,
 	recordRemoteKnownHostsCandidateSession,
 	selectRemoteKnownHostsPasteReviewCandidate,
+	selectRemoteKnownHostsPasteReviewCandidateFromInput,
 	submitRemoteConnectConfirmation,
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
@@ -1398,6 +1400,60 @@ describe("remote profiles", () => {
 		).toBe("matched");
 		expect(unchanged).toBe(selected);
 		expect(empty.selected).toBe("none");
+	});
+
+	test("parses typed known_hosts candidate selection commands beyond shortcut digits", () => {
+		expect(parseRemoteKnownHostsCandidateSelectionInput("12")).toBe(12);
+		expect(parseRemoteKnownHostsCandidateSelectionInput("#12")).toBe(12);
+		expect(parseRemoteKnownHostsCandidateSelectionInput("candidate 12")).toBe(
+			12,
+		);
+		expect(parseRemoteKnownHostsCandidateSelectionInput("select 27")).toBe(27);
+		expect(parseRemoteKnownHostsCandidateSelectionInput("0")).toBe(undefined);
+		expect(parseRemoteKnownHostsCandidateSelectionInput("-1")).toBe(undefined);
+		expect(parseRemoteKnownHostsCandidateSelectionInput("candidate")).toBe(
+			undefined,
+		);
+		expect(parseRemoteKnownHostsCandidateSelectionInput("not-a-number")).toBe(
+			undefined,
+		);
+	});
+
+	test("selects pasted known_hosts candidates from typed command input", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+			keyPath: "~/.ssh/id_ed25519",
+		};
+		const review = createRemoteKnownHostsPasteReview(
+			profile,
+			Array.from(
+				{ length: 12 },
+				(_, index) =>
+					`[prod.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC${index + 1} key-${index + 1}`,
+			).join("\n"),
+		);
+
+		const selected = selectRemoteKnownHostsPasteReviewCandidateFromInput(
+			review,
+			"candidate 12",
+		);
+		const invalid = selectRemoteKnownHostsPasteReviewCandidateFromInput(
+			review,
+			"candidate 13",
+		);
+		const malformed = selectRemoteKnownHostsPasteReviewCandidateFromInput(
+			review,
+			"candidate",
+		);
+
+		expect(selected.selected).toBe(12);
+		expect(invalid).toBe(review);
+		expect(malformed).toBe(review);
 	});
 
 	test("includes empty remote known_hosts candidate preview in provider status", async () => {

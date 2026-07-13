@@ -1229,6 +1229,32 @@ export function selectRemoteKnownHostsPasteReviewCandidate(
 	};
 }
 
+export function parseRemoteKnownHostsCandidateSelectionInput(
+	input: string,
+): number | undefined {
+	const trimmed = input.trim().toLowerCase();
+	const match = /^(?:candidate|select)?\s*#?\s*(\d+)$/.exec(trimmed);
+	if (!match) {
+		return undefined;
+	}
+	const parsed = Number(match[1]);
+	if (!Number.isSafeInteger(parsed) || parsed < 1) {
+		return undefined;
+	}
+	return parsed;
+}
+
+export function selectRemoteKnownHostsPasteReviewCandidateFromInput(
+	review: RemoteKnownHostsPasteReview,
+	input: string,
+): RemoteKnownHostsPasteReview {
+	const candidateIndex = parseRemoteKnownHostsCandidateSelectionInput(input);
+	if (candidateIndex === undefined) {
+		return review;
+	}
+	return selectRemoteKnownHostsPasteReviewCandidate(review, candidateIndex);
+}
+
 export function formatRemoteKnownHostsPasteReviewRows(
 	review: RemoteKnownHostsPasteReview = createRemoteKnownHostsPasteReview(),
 ): string[] {

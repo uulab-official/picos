@@ -901,6 +901,11 @@ describe("Status activity queue", () => {
 			review,
 			"number",
 		);
+		const commandResult =
+			createRemoteKnownHostsPasteSelectionStatusActivityResult(
+				review,
+				"command",
+			);
 
 		expect(result).toEqual({
 			source: "timeline",
@@ -945,6 +950,18 @@ describe("Status activity queue", () => {
 			"  source=provided-known-hosts-paste line=2 key=ssh-ed25519 fingerprint=SHA256:5wnj3YGbMQxijj1nUCV/nIJhURF9SykyDtsSkFszWsY rawContent=hidden network=not-opened trust=not-applied knownHostsWrite=false",
 			"controls=enter stage · e evidence · t trust review · c connect preview · Status I timeline recovery",
 		]);
+		expect(commandResult.message).toBe(
+			"remote known_hosts paste selection selected prod prod.example.com:2222 candidate=2/2 method=command",
+		);
+		expect(
+			createStatusActivityResultTimelineSearch([commandResult], 0),
+		).toEqual({
+			filter: "audit",
+			query:
+				"remote known_hosts paste selection audit id=prod candidate=2 method=command",
+			message:
+				"status activity result timeline search remote known_hosts selection prod candidate=2",
+		});
 	});
 
 	test("creates status activity and audit rows for palette process control previews", () => {
