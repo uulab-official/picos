@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createInterfaceStateProposal } from "../src/core/interfaceControl";
 import type { NetworkSummary } from "../src/core/types";
 import {
 	createInterfaceSourceHandoffPlan,
@@ -391,6 +392,40 @@ describe("interface TUI panel formatting", () => {
 			"copy Gateway: 192.168.0.1",
 			"copy ... 12 more lines",
 			"confirm copy locked",
+		]);
+	});
+
+	test("formats locked interface state proposal rows in the workspace", () => {
+		const proposal = createInterfaceStateProposal(
+			fixture.interfaces[0],
+			"disable",
+			{
+				platform: fixture.platform,
+				primaryInterfaceName: fixture.primaryInterface?.name,
+			},
+		);
+
+		expect(
+			formatInterfaceWorkspaceRows(fixture, 40, {
+				selectedIndex: 0,
+				stateProposal: proposal,
+				view: "detail",
+			}).slice(-14),
+		).toEqual([
+			"INTERFACE STATE PROPOSAL",
+			"status=ready action=interface.disable locked enabled=false",
+			"target=en0 kind=wifiOrEthernet primary=yes platform=darwin",
+			"address ipv4=192.168.0.20/24 ipv6=fe80::1/64 mac=aa:bb:cc:dd:ee:ff mtu=1500",
+			"transition current=connected desired=disconnected",
+			"risk=write privilege=admin confirm=disable interface",
+			"PREFLIGHT",
+			"scope=interface target=en0",
+			"currentStatus=connected desiredStatus=disconnected primary=yes platform=darwin",
+			"willModify=interface-link-state serviceOrAdapter=platform-dependent",
+			"requires=selected-interface admin confirmation dry-run-policy",
+			"adapterDryRun=proposal-only",
+			"rollback=restore previous interface state from current snapshot",
+			"execution=disabled no interface state will be changed",
 		]);
 	});
 });

@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.319 - Interface State Proposal Preflight
+
+Status: draft PR [#394](https://github.com/uulab-official/picos/pull/394) on `codex/picos-v0.4.319-interface-state-preflight`, stacked on draft PR [#393](https://github.com/uulab-official/picos/pull/393).
+
+Goal: give Interfaces the same target-aware locked control proposal loop now available in DNS.
+
+- Interfaces workspace now opens locked state proposals with `D` disable and `U` enable.
+- Proposal rows show selected adapter metadata, current/desired state, risk, privilege, confirmation phrase, preflight, rollback, and execution-disabled posture.
+- `C` clears the interface state proposal, and changing selected interface clears stale proposal state.
+- Proposal statuses distinguish ready, noop, and invalid states without adding execution.
+- No interface enable/disable command or adapter mutation path is added.
+- Tests cover proposal creation/formatting and panel rendering.
+- Next: add command-palette discovery for interface state proposals or platform service-name mapping for safer adapter targets.
+
 ## v0.4.318 - DNS Target Preflight
 
 Status: draft PR [#393](https://github.com/uulab-official/picos/pull/393) on `codex/picos-v0.4.318-dns-target-preflight`, stacked on draft PR [#392](https://github.com/uulab-official/picos/pull/392).
@@ -12,7 +26,7 @@ Goal: make DNS edit proposals target-aware so the operator can see which system/
 - Submitted resolver proposals record the selected target in proposal rows and preflight rows.
 - No DNS command, adapter mutation, or write execution path is enabled.
 - Tests cover target creation/formatting plus target-aware proposal rows.
-- Next: add interface enable/disable typed proposal previews or platform-specific DNS service naming once adapters expose safe target metadata.
+- Next: completed by v0.4.319 interface state proposal preflight.
 
 ## v0.4.317 - DNS Server Proposal Preflight
 

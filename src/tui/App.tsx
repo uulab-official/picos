@@ -122,6 +122,11 @@ import {
 	type HandoffIndex,
 	readHandoffIndex,
 } from "../core/handoffIndex";
+import {
+	createInterfaceStateProposal,
+	type InterfaceStateProposal,
+	type InterfaceStateProposalAction,
+} from "../core/interfaceControl";
 import { getNetworkSummary } from "../core/network";
 import {
 	createOsLogSnapshot,
@@ -998,6 +1003,8 @@ export function App(): React.ReactElement {
 		useState<InterfaceDetailView>("list");
 	const [interfaceSourceCopyPreview, setInterfaceSourceCopyPreview] =
 		useState(false);
+	const [interfaceStateProposal, setInterfaceStateProposal] =
+		useState<InterfaceStateProposal>();
 	const [connectionDetailView, setConnectionDetailView] =
 		useState<EndpointDetailView>("detail");
 	const [portDetailView, setPortDetailView] =
@@ -6918,6 +6925,29 @@ export function App(): React.ReactElement {
 		);
 	}, [commandLine.value, log, selectedDnsTargetIndex]);
 
+	const openInterfaceStateProposal = useCallback(
+		(action: InterfaceStateProposalAction) => {
+			const summary = summaryRef.current;
+			const selected =
+				summary?.interfaces[
+					Math.min(
+						Math.max(selectedInterfaceIndex, 0),
+						Math.max(0, (summary?.interfaces.length ?? 0) - 1),
+					)
+				];
+			const proposal = createInterfaceStateProposal(selected, action, {
+				platform: summary?.platform,
+				primaryInterfaceName: summary?.primaryInterface?.name,
+			});
+			setInterfaceStateProposal(proposal);
+			log(
+				proposal.status === "ready" ? "warn" : "info",
+				`interface ${action} proposal ${proposal.status} target=${proposal.target?.name ?? "-"}`,
+			);
+		},
+		[log, selectedInterfaceIndex],
+	);
+
 	const exportCleanupHandoffHistory = useCallback(async () => {
 		const plan = createCleanupHandoffHistoryExportPlan(
 			cleanupHandoffHistory,
@@ -7709,6 +7739,34 @@ export function App(): React.ReactElement {
 				return next;
 			});
 			setInterfaceSourceCopyPreview(false);
+			return;
+		}
+
+		if (
+			screen === "interfaces" &&
+			focusArea === "workspaces" &&
+			input === "D"
+		) {
+			openInterfaceStateProposal("disable");
+			return;
+		}
+
+		if (
+			screen === "interfaces" &&
+			focusArea === "workspaces" &&
+			input === "U"
+		) {
+			openInterfaceStateProposal("enable");
+			return;
+		}
+
+		if (
+			screen === "interfaces" &&
+			focusArea === "workspaces" &&
+			input === "C"
+		) {
+			setInterfaceStateProposal(undefined);
+			log("info", "interface state proposal cleared");
 			return;
 		}
 
@@ -10748,6 +10806,7 @@ export function App(): React.ReactElement {
 					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "down"),
 				);
 				setInterfaceSourceCopyPreview(false);
+				setInterfaceStateProposal(undefined);
 			} else if (screen === "processes") {
 				setSelectedProcessFileIndex((index) =>
 					getNextIndex(
@@ -10809,6 +10868,7 @@ export function App(): React.ReactElement {
 					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "up"),
 				);
 				setInterfaceSourceCopyPreview(false);
+				setInterfaceStateProposal(undefined);
 			} else if (screen === "processes") {
 				setSelectedProcessFileIndex((index) =>
 					getNextIndex(
@@ -10919,6 +10979,7 @@ export function App(): React.ReactElement {
 					selectedInterfaceIndex={selectedInterfaceIndex}
 					interfaceDetailView={interfaceDetailView}
 					interfaceSourceCopyPreview={interfaceSourceCopyPreview}
+					interfaceStateProposal={interfaceStateProposal}
 					selectedConnectionIndex={selectedConnectionIndex}
 					selectedPortIndex={selectedPortIndex}
 					connectionDetailView={connectionDetailView}
@@ -11205,6 +11266,7 @@ function MainWorkspace({
 	selectedInterfaceIndex,
 	interfaceDetailView,
 	interfaceSourceCopyPreview,
+	interfaceStateProposal,
 	selectedConnectionIndex,
 	selectedPortIndex,
 	connectionDetailView,
@@ -11366,6 +11428,7 @@ function MainWorkspace({
 	selectedInterfaceIndex: number;
 	interfaceDetailView: InterfaceDetailView;
 	interfaceSourceCopyPreview: boolean;
+	interfaceStateProposal?: InterfaceStateProposal;
 	selectedConnectionIndex: number;
 	selectedPortIndex: number;
 	connectionDetailView: EndpointDetailView;
@@ -11606,6 +11669,7 @@ function MainWorkspace({
 						selectedInterfaceIndex,
 						interfaceDetailView,
 						interfaceSourceCopyPreview,
+						interfaceStateProposal,
 						selectedConnectionIndex,
 						selectedPortIndex,
 						connectionDetailView,
@@ -11772,6 +11836,7 @@ function renderWorkspace(
 	selectedInterfaceIndex: number,
 	interfaceDetailView: InterfaceDetailView,
 	interfaceSourceCopyPreview: boolean,
+	interfaceStateProposal: InterfaceStateProposal | undefined,
 	selectedConnectionIndex: number,
 	selectedPortIndex: number,
 	connectionDetailView: EndpointDetailView,
@@ -12117,6 +12182,7 @@ function renderWorkspace(
 				selectedIndex={selectedInterfaceIndex}
 				view={interfaceDetailView}
 				copyPreview={interfaceSourceCopyPreview}
+				stateProposal={interfaceStateProposal}
 				visibleRows={Math.max(6, height - 8)}
 				t={t}
 			/>
@@ -13911,6 +13977,7 @@ function InterfacesWorkspace({
 	selectedIndex,
 	view,
 	copyPreview,
+	stateProposal,
 	visibleRows,
 	t,
 }: {
@@ -13918,6 +13985,7 @@ function InterfacesWorkspace({
 	selectedIndex: number;
 	view: InterfaceDetailView;
 	copyPreview: boolean;
+	stateProposal?: InterfaceStateProposal;
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
@@ -13925,6 +13993,7 @@ function InterfacesWorkspace({
 		? formatInterfaceWorkspaceRows(summary, visibleRows - 3, {
 				copyPreview,
 				selectedIndex,
+				stateProposal,
 				view,
 			})
 		: ["loading interfaces..."];
@@ -13933,8 +14002,8 @@ function InterfacesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.interfaces")}</Text>
 			<Text color="gray">
-				interface console · j/k select · tab panes · source: c copy e export o
-				open
+				interface console · j/k select · tab panes · D disable U enable C clear
+				· source: c copy e export o open
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
@@ -13945,6 +14014,8 @@ function InterfacesWorkspace({
 							row.startsWith("DETAIL") ||
 							row.startsWith("STATS") ||
 							row.startsWith("PLATFORM") ||
+							row.startsWith("INTERFACE") ||
+							row.startsWith("PREFLIGHT") ||
 							row.startsWith("CLIPBOARD")
 								? "cyan"
 								: row.startsWith(">")
