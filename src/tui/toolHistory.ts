@@ -773,7 +773,7 @@ export function formatToolsWorkspaceRows(
 		...(copyModePreview ? [copyModePreview] : []),
 		...(copySectionPreview ? [copySectionPreview] : []),
 		...(copyTargetPreview ? [copyTargetPreview] : []),
-		`shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=${sectionClipboardSelection}${sectionRowSummary} · v copy section · c raw`,
+		`shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=${sectionClipboardSelection}${sectionRowSummary} · v copy section · c raw`,
 	].slice(0, visibleRows);
 }
 
@@ -870,6 +870,31 @@ export function nextToolHistoryDetailView(
 		return "compare";
 	}
 	return "raw";
+}
+
+export function getToolHistoryDetailViewShortcut(
+	input: string,
+	options: { home?: boolean; end?: boolean } = {},
+): ToolHistoryDetailView | undefined {
+	if (options.home) {
+		return "raw";
+	}
+	if (options.end) {
+		return "compare";
+	}
+	if (input === "1") {
+		return "raw";
+	}
+	if (input === "2") {
+		return "summary";
+	}
+	if (input === "3") {
+		return "command";
+	}
+	if (input === "4") {
+		return "compare";
+	}
+	return undefined;
 }
 
 export function nextToolSectionClipboardSelection(

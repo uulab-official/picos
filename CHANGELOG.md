@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Tools workspace now supports lazyifconfig-style detail shortcuts: `1` raw, `2` summary, `3` command, `4` compare, plus Home/End for first/last Tools detail panes.
 - Connections and Ports workspaces now support lazyifconfig-style section shortcuts: `1` detail, `2` raw, `3` process, plus Home/End for first/last endpoint detail panes.
 - Routes workspace now supports lazyifconfig-style section shortcuts: `1` table, `2` raw, `3` diagnostics, `4` path, plus Home/End for first/last route detail panes.
 - Status Activity copy-intent shelves now retain a dedicated Remotes `known_hosts` handoff-open row after command-palette replay, showing target id, action, source row, match count, and the exact Timeline query for repeat `g` search or `v` clipboard replay.

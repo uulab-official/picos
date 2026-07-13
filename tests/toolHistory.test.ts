@@ -35,6 +35,7 @@ import {
 	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
 	getSelectedToolTargetClipboardPreview,
+	getToolHistoryDetailViewShortcut,
 	getToolRunActionMetadata,
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
@@ -252,7 +253,7 @@ describe("TUI tool history", () => {
 			"> Default ping google.com default reachability target",
 			"  Gateway ping 192.168.0.1 primary gateway",
 			"  DNS server 1 1.1.1.1 resolver check",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 	});
 
@@ -372,7 +373,7 @@ describe("TUI tool history", () => {
 			"$ picos tools dns example.com",
 			"[Summary]",
 			"Query: example.com",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 	});
 
@@ -453,12 +454,12 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 		expect(formatToolsWorkspaceRows(history, 4, 0, "missing")).toEqual([
 			"TOOLS history=2 filter=missing matches=0 selected=-",
 			"no matching tool runs",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 		expect(
 			moveFilteredToolHistorySelection(history, 0, "connect", "next"),
@@ -517,7 +518,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 	});
 
@@ -567,7 +568,7 @@ describe("TUI tool history", () => {
 			"Summary: Query: example.com | A: 2",
 			"RAW",
 			"$ picos tools port-check api.github.com 443",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(history, 7, 0, "", "time", "status"),
@@ -606,7 +607,7 @@ describe("TUI tool history", () => {
 		).toEqual([
 			"TOOLS history=0 presets=connect,fail,dns selected=-",
 			"no tool runs yet",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 	});
 
@@ -1121,6 +1122,13 @@ describe("TUI tool history", () => {
 		expect(nextToolHistoryDetailView("summary")).toBe("command");
 		expect(nextToolHistoryDetailView("command")).toBe("compare");
 		expect(nextToolHistoryDetailView("compare")).toBe("raw");
+		expect(getToolHistoryDetailViewShortcut("1")).toBe("raw");
+		expect(getToolHistoryDetailViewShortcut("2")).toBe("summary");
+		expect(getToolHistoryDetailViewShortcut("3")).toBe("command");
+		expect(getToolHistoryDetailViewShortcut("4")).toBe("compare");
+		expect(getToolHistoryDetailViewShortcut("", { home: true })).toBe("raw");
+		expect(getToolHistoryDetailViewShortcut("", { end: true })).toBe("compare");
+		expect(getToolHistoryDetailViewShortcut("5")).toBeUndefined();
 		expect(
 			formatToolsWorkspaceRows(
 				history,
@@ -1142,7 +1150,7 @@ describe("TUI tool history", () => {
 			"command=picos tools dns example.com",
 			"copy help: b row=- · v section=- · c raw=ok · y summary=ok",
 			"copy hint: b/v need TCP Target or Status rows; use c raw or y summary",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=target · v copy section · c raw",
 		]);
 		expect(
 			formatToolsWorkspaceRows(
@@ -1914,7 +1922,7 @@ describe("TUI tool history", () => {
 		).toEqual([
 			"TOOLS history=0 selected=-",
 			"no tool runs yet",
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · v copy section · c raw",
 		]);
 	});
 
@@ -2025,7 +2033,7 @@ describe("TUI tool history", () => {
 				1,
 			).at(-1),
 		).toBe(
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
 		);
 	});
 
@@ -2145,7 +2153,7 @@ describe("TUI tool history", () => {
 			"copy target: section=status rows=2 row=2 text=Elapsed: 42ms",
 		);
 		expect(rows.at(-1)).toBe(
-			"shortcuts: j/k select · tab detail · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
+			"shortcuts: j/k select · tab/1-4 detail · home/end · f filter · F clear · s sort · G group · P save filter · ] preset · C filter cleanup · n/N target · T save target · U pin target · L label target · M edit target · A action target · X delete target · D delete action · R run · r rerun · y summary · o compare · O export compare · V section=status · ,/. row=2/2 · b row · v copy section · c raw",
 		);
 	});
 
