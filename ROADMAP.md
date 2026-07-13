@@ -2,7 +2,7 @@
 
 ## v0.4.321 - Interface Control Target Resolution
 
-Status: in progress on `codex/picos-v0.4.321-interface-control-targets`, stacked on draft PR [#395](https://github.com/uulab-official/picos/pull/395).
+Status: draft PR [#396](https://github.com/uulab-official/picos/pull/396) on `codex/picos-v0.4.321-interface-control-targets`, stacked on draft PR [#395](https://github.com/uulab-official/picos/pull/395).
 
 Goal: make locked interface state proposals show the OS-specific control target that would be used before any enable/disable execution path exists.
 
