@@ -45,4 +45,6 @@
 
 - [x] Document palette discovery for Remotes known_hosts selection.
 - [x] Run `bun run verify` and `bun run release:check`.
-- [ ] Commit, push, and open a draft PR stacked on v0.4.296.
+- [x] Commit, push, and open a draft PR stacked on v0.4.296.
+
+Result: Draft PR [#372](https://github.com/uulab-official/picos/pull/372) opened on 2026-07-13, stacked on `codex/picos-v0.4.296-known-hosts-select-command`.

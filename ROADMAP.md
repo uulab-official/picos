@@ -2,7 +2,7 @@
 
 ## v0.4.297 - Remote Known Hosts Select Palette
 
-Status: in progress on `codex/picos-v0.4.297-known-hosts-select-palette`.
+Status: draft PR [#372](https://github.com/uulab-official/picos/pull/372) on `codex/picos-v0.4.297-known-hosts-select-palette`.
 
 Goal: make typed known_hosts candidate selection discoverable from the command palette, matching the OS-console expectation that important controls are searchable as well as shortcut-driven.
 
