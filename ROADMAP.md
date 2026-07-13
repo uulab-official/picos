@@ -2,7 +2,7 @@
 
 ## v0.4.299 - Remote Known Hosts Selection History Copy Export
 
-Status: in progress on `codex/picos-v0.4.299-known-hosts-history-copy-export`.
+Status: draft PR [#374](https://github.com/uulab-official/picos/pull/374) on `codex/picos-v0.4.299-known-hosts-history-copy-export`.
 
 Goal: turn the visible known_hosts selection-history shelf into an operator handoff surface with locked copy and audit export controls.
 

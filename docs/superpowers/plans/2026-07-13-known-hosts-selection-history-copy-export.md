@@ -38,6 +38,6 @@
 
 - [x] Document Remotes known_hosts selection-history copy/export controls.
 - [x] Run `bun run verify` and `bun run release:check`.
-- [ ] Commit, push, and open a draft PR stacked on v0.4.298.
+- [x] Commit, push, and open a draft PR stacked on v0.4.298.
 
-Result: In progress on `codex/picos-v0.4.299-known-hosts-history-copy-export`.
+Result: Draft PR [#374](https://github.com/uulab-official/picos/pull/374) opened on 2026-07-13, stacked on `codex/picos-v0.4.298-known-hosts-selection-history`.
