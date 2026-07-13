@@ -2,7 +2,7 @@
 
 ## v0.4.308 - Remote Known Hosts Evidence History Filter
 
-Status: in progress on `codex/picos-v0.4.308-known-hosts-evidence-history-filter`, stacked on draft PR [#382](https://github.com/uulab-official/picos/pull/382).
+Status: draft PR [#383](https://github.com/uulab-official/picos/pull/383) on `codex/picos-v0.4.308-known-hosts-evidence-history-filter`, stacked on draft PR [#382](https://github.com/uulab-official/picos/pull/382).
 
 Goal: let operators narrow Status Activity result history directly to Remotes known_hosts evidence copy/export handoff rows.
 
