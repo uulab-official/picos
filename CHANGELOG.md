@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Status Evidence now recovers Remotes `known_hosts` selection-history audit exports as a first-class `remote-known-hosts` family, with `Tab`/`1..9` focus, `[`/`]` item movement, `enter`/`R` locked file-open, and `G` Timeline audit search without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports `y` copy and `E` audit export for the dedicated `KNOWN_HOSTS SELECTION HISTORY` shelf, producing locked clipboard previews and picos-owned audit export files for recent known_hosts candidate selections without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes workspace now shows a dedicated `KNOWN_HOSTS SELECTION HISTORY` shelf derived from Status Activity `remote-known-hosts-selection` rows, including selected candidate summaries, locked trust/write guards, and reusable Timeline recovery queries without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Command palette now finds `remote known_hosts select` and `known hosts candidate`, previews the locked `:remote-known-hosts-select` prompt with read/network/trust/write guards, and dispatches into Remotes focus without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.

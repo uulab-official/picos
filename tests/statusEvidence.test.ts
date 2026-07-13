@@ -663,6 +663,106 @@ describe("Status evidence detail rows", () => {
 		).toBeUndefined();
 	});
 
+	test("surfaces remote known_hosts selection history exports as recoverable evidence", () => {
+		const knownHostsIndexes = {
+			...populatedIndexes,
+			remoteKnownHostsSelectionAuditExports: [
+				{
+					path: "/tmp/picos/audit/picos-audit-known-hosts-prod.log",
+					content: "",
+					eventCount: 2,
+					scope: "filtered" as const,
+					query: "remote known_hosts selection history prod",
+					origin,
+				},
+				{
+					path: "/tmp/picos/audit/picos-audit-known-hosts-dev.log",
+					content: "",
+					eventCount: 1,
+					scope: "filtered" as const,
+					query: "remote known_hosts selection history dev",
+					origin,
+				},
+			],
+		};
+		const knownHostsSelection = {
+			...selection,
+			selectedRemoteKnownHostsSelectionAuditExportIndex: 0,
+		};
+
+		expect(
+			formatStatusEvidenceIndexRows(
+				knownHostsIndexes,
+				knownHostsSelection,
+				"remote-known-hosts",
+			),
+		).toEqual([
+			"EVIDENCE INDEX 1..6",
+			"1 handoff route routes/table",
+			"2 audit selected events=1 query=control",
+			"3 cleanup selected entries=2",
+			"4 tools selected runs=1",
+			"5 process selected events=3 query=process control evidence: kill pid=42 node",
+			">6 remote known_hosts filtered events=2 query=remote known_hosts selection history prod",
+		]);
+		expect(
+			createStatusEvidenceEnterPlan(
+				knownHostsIndexes,
+				knownHostsSelection,
+				"remote-known-hosts",
+			),
+		).toEqual({
+			kind: "remote-known-hosts",
+			action: "open-remote-known-hosts-evidence",
+			shortcut: "R",
+			label:
+				"remote known_hosts filtered events=2 query=remote known_hosts selection history prod",
+			path: "/tmp/picos/audit/picos-audit-known-hosts-prod.log",
+		});
+		expect(
+			createStatusEvidenceSearchPlan(
+				knownHostsIndexes,
+				knownHostsSelection,
+				"remote-known-hosts",
+			),
+		).toEqual({
+			kind: "remote-known-hosts",
+			action: "search-remote-known-hosts-evidence",
+			shortcut: "G",
+			label:
+				"remote known_hosts filtered events=2 query=remote known_hosts selection history prod",
+			path: "/tmp/picos/audit/picos-audit-known-hosts-prod.log",
+			query: "remote known_hosts selection history prod",
+		});
+		expect(
+			createStatusEvidenceItemMovePlan(
+				knownHostsIndexes,
+				knownHostsSelection,
+				"remote-known-hosts",
+				"next",
+			),
+		).toEqual({
+			kind: "remote-known-hosts",
+			direction: "next",
+			shortcut: "]",
+			selectedIndex: 1,
+			itemCount: 2,
+			label:
+				"remote known_hosts filtered events=1 query=remote known_hosts selection history dev",
+		});
+		expect(
+			formatStatusEvidenceCommandStripRows(
+				knownHostsIndexes,
+				knownHostsSelection,
+				"remote-known-hosts",
+			),
+		).toEqual([
+			"COMMAND STRIP active=remote-known-hosts",
+			"> enter=open/R archive=- retention=- search=G item=[/]",
+			"target=remote known_hosts filtered events=2 query=remote known_hosts selection history prod",
+		]);
+	});
+
 	test("formats indexed evidence family jump rows", () => {
 		expect(
 			formatStatusEvidenceIndexRows(populatedIndexes, selection, "audit"),

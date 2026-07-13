@@ -472,7 +472,9 @@ import {
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
+	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
+	createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -524,8 +526,10 @@ import {
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getProcessControlAuditExports,
+	getRemoteKnownHostsSelectionHistoryAuditExports,
 	getRemoteKnownHostsSelectionHistoryClipboardPreview,
 	getSelectedProcessControlAuditExport,
+	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
@@ -878,6 +882,19 @@ export function App(): React.ReactElement {
 		getSelectedProcessControlAuditExport(
 			processControlAuditExports,
 			selectedProcessControlAuditExportIndex,
+		);
+	const [
+		remoteKnownHostsSelectionAuditExports,
+		setRemoteKnownHostsSelectionAuditExports,
+	] = useState<ConsoleAuditExportPlan[]>([]);
+	const [
+		selectedRemoteKnownHostsSelectionAuditExportIndex,
+		setSelectedRemoteKnownHostsSelectionAuditExportIndex,
+	] = useState(0);
+	const selectedRemoteKnownHostsSelectionAuditExport =
+		getSelectedRemoteKnownHostsSelectionHistoryAuditExport(
+			remoteKnownHostsSelectionAuditExports,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
 		);
 	const filteredTimelineEvidenceTrailAuditExports = useMemo(
 		() =>
@@ -2879,6 +2896,12 @@ export function App(): React.ReactElement {
 				setProcessControlAuditExports(processExports);
 				setSelectedProcessControlAuditExportIndex((current) =>
 					Math.min(current, Math.max(0, processExports.length - 1)),
+				);
+				const remoteKnownHostsExports =
+					getRemoteKnownHostsSelectionHistoryAuditExports(index);
+				setRemoteKnownHostsSelectionAuditExports(remoteKnownHostsExports);
+				setSelectedRemoteKnownHostsSelectionAuditExportIndex((current) =>
+					Math.min(current, Math.max(0, remoteKnownHostsExports.length - 1)),
 				);
 				const filteredTimelineTrailExports =
 					filterTimelineEvidenceTrailAuditExports(
@@ -4975,6 +4998,65 @@ export function App(): React.ReactElement {
 		],
 	);
 
+	const jumpSelectedRemoteKnownHostsSelectionEvidenceSearch =
+		useCallback(() => {
+			const jump =
+				createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch(
+					selectedRemoteKnownHostsSelectionAuditExport,
+				);
+			if (!jump) {
+				log(
+					"warn",
+					"no remote known_hosts selection evidence export for timeline",
+				);
+				return;
+			}
+			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+			setTimelineFilter(jump.filter);
+			setTimelineSearchQuery(jump.query);
+			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setScreen("timeline");
+			log(
+				filtered.length ? "info" : "warn",
+				`${jump.message} matches ${filtered.length}`,
+			);
+		}, [events, log, selectedRemoteKnownHostsSelectionAuditExport]);
+
+	const openSelectedRemoteKnownHostsSelectionEvidenceExport =
+		useCallback(() => {
+			if (!selectedRemoteKnownHostsSelectionAuditExport) {
+				log("warn", "no remote known_hosts selection evidence export to open");
+				setScreen("status");
+				return;
+			}
+			const plan = createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan(
+				selectedRemoteKnownHostsSelectionAuditExport,
+				{
+					baseDir: dirname(getConfigPath()),
+					platform: currentPlatform(),
+				},
+			);
+			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+				auditExportIndex,
+				selectedRemoteKnownHostsSelectionAuditExport,
+			);
+			if (evidenceIndex !== undefined) {
+				setSelectedAuditExportIndex(evidenceIndex);
+				setSelectedStatusEvidenceKind("audit");
+			}
+			setFileOpenPlan(plan);
+			setExternalOpenPlan(undefined);
+			setAuditExportArchivePlan(undefined);
+			setAuditArchiveRetentionPlan(undefined);
+			setCleanupExportArchivePlan(undefined);
+			setCommandLine(openCommandLine("file-open"));
+			setScreen("status");
+			log(
+				"info",
+				`remote known_hosts selection evidence export open confirmation opened for ${selectedRemoteKnownHostsSelectionAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
+			);
+		}, [auditExportIndex, log, selectedRemoteKnownHostsSelectionAuditExport]);
+
 	const selectNextStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			if (options.origin === "palette") {
@@ -5695,6 +5777,12 @@ export function App(): React.ReactElement {
 			setProcessControlAuditExports(processExports);
 			setSelectedProcessControlAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, processExports.length - 1)),
+			);
+			const remoteKnownHostsExports =
+				getRemoteKnownHostsSelectionHistoryAuditExports(auditExports);
+			setRemoteKnownHostsSelectionAuditExports(remoteKnownHostsExports);
+			setSelectedRemoteKnownHostsSelectionAuditExportIndex((current) =>
+				Math.min(current, Math.max(0, remoteKnownHostsExports.length - 1)),
 			);
 			setSelectedTimelineEvidenceTrailAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, timelineTrailExports.length - 1)),
@@ -7718,7 +7806,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "G") {
-			if (selectedStatusEvidenceKind === "process") {
+			if (
+				selectedStatusEvidenceKind === "process" ||
+				selectedStatusEvidenceKind === "remote-known-hosts"
+			) {
 				const evidenceSearchPlan = createStatusEvidenceSearchPlan(
 					{
 						handoffIndex,
@@ -7729,6 +7820,7 @@ export function App(): React.ReactElement {
 						toolExportIndex,
 						toolExportArchiveIndex,
 						processControlAuditExports,
+						remoteKnownHostsSelectionAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -7739,6 +7831,7 @@ export function App(): React.ReactElement {
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
+						selectedRemoteKnownHostsSelectionAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -7747,12 +7840,22 @@ export function App(): React.ReactElement {
 					selectedStatusEvidenceKind,
 				);
 				if (!evidenceSearchPlan) {
-					log("warn", "no process evidence search target");
+					log(
+						"warn",
+						`no ${selectedStatusEvidenceKind} evidence search target`,
+					);
 					return;
 				}
-				jumpSelectedProcessControlEvidenceSearch({
-					origin: "status-evidence",
-				});
+				if (evidenceSearchPlan.action === "search-process-evidence") {
+					jumpSelectedProcessControlEvidenceSearch({
+						origin: "status-evidence",
+					});
+				}
+				if (
+					evidenceSearchPlan.action === "search-remote-known-hosts-evidence"
+				) {
+					jumpSelectedRemoteKnownHostsSelectionEvidenceSearch();
+				}
 				log(
 					"info",
 					`status evidence search ${evidenceSearchPlan.shortcut} ${evidenceSearchPlan.label}`,
@@ -7956,6 +8059,7 @@ export function App(): React.ReactElement {
 					toolExportIndex,
 					toolExportArchiveIndex,
 					processControlAuditExports,
+					remoteKnownHostsSelectionAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -7966,6 +8070,7 @@ export function App(): React.ReactElement {
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
+					selectedRemoteKnownHostsSelectionAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -8022,6 +8127,7 @@ export function App(): React.ReactElement {
 					toolExportIndex,
 					toolExportArchiveIndex,
 					processControlAuditExports,
+					remoteKnownHostsSelectionAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -8032,6 +8138,7 @@ export function App(): React.ReactElement {
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
+					selectedRemoteKnownHostsSelectionAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -8074,6 +8181,11 @@ export function App(): React.ReactElement {
 						evidenceMovePlan.selectedIndex,
 					);
 					break;
+				case "remote-known-hosts":
+					setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+						evidenceMovePlan.selectedIndex,
+					);
+					break;
 			}
 			log(
 				"info",
@@ -8091,7 +8203,8 @@ export function App(): React.ReactElement {
 				cleanupExportArchiveIndex.items.length +
 				toolExportIndex.items.length +
 				toolExportArchiveIndex.items.length +
-				processControlAuditExports.length;
+				processControlAuditExports.length +
+				remoteKnownHostsSelectionAuditExports.length;
 			if (evidenceCount === 0) {
 				log("warn", "no status evidence indexed");
 				return;
@@ -8107,6 +8220,7 @@ export function App(): React.ReactElement {
 						toolExportIndex,
 						toolExportArchiveIndex,
 						processControlAuditExports,
+						remoteKnownHostsSelectionAuditExports,
 					},
 					current,
 					"next",
@@ -8183,6 +8297,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "R") {
+			if (selectedStatusEvidenceKind === "remote-known-hosts") {
+				openSelectedRemoteKnownHostsSelectionEvidenceExport();
+				return;
+			}
 			reopenCleanupHandoffHistory();
 			return;
 		}
@@ -8222,7 +8340,9 @@ export function App(): React.ReactElement {
 						cleanupExportIndex.items.length > 0 ||
 						cleanupExportArchiveIndex.items.length > 0 ||
 						toolExportIndex.items.length > 0 ||
-						toolExportArchiveIndex.items.length > 0
+						toolExportArchiveIndex.items.length > 0 ||
+						processControlAuditExports.length > 0 ||
+						remoteKnownHostsSelectionAuditExports.length > 0
 							? ["STATUS EVIDENCE SUMMARY"]
 							: [],
 				},
@@ -8302,6 +8422,7 @@ export function App(): React.ReactElement {
 					toolExportIndex,
 					toolExportArchiveIndex,
 					processControlAuditExports,
+					remoteKnownHostsSelectionAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -8312,6 +8433,7 @@ export function App(): React.ReactElement {
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
+					selectedRemoteKnownHostsSelectionAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -8341,6 +8463,9 @@ export function App(): React.ReactElement {
 						break;
 					case "open-process-evidence":
 						openSelectedProcessControlEvidenceExport();
+						break;
+					case "open-remote-known-hosts-evidence":
+						openSelectedRemoteKnownHostsSelectionEvidenceExport();
 						break;
 					case "select-cleanup-archive":
 						log(
@@ -8395,6 +8520,7 @@ export function App(): React.ReactElement {
 					toolExportIndex,
 					toolExportArchiveIndex,
 					processControlAuditExports,
+					remoteKnownHostsSelectionAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -8405,6 +8531,7 @@ export function App(): React.ReactElement {
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
+					selectedRemoteKnownHostsSelectionAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -8455,6 +8582,7 @@ export function App(): React.ReactElement {
 					toolExportIndex,
 					toolExportArchiveIndex,
 					processControlAuditExports,
+					remoteKnownHostsSelectionAuditExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -8465,6 +8593,7 @@ export function App(): React.ReactElement {
 					selectedToolExportIndex,
 					selectedToolExportArchiveIndex,
 					selectedProcessControlAuditExportIndex,
+					selectedRemoteKnownHostsSelectionAuditExportIndex,
 					toolExportFilter,
 					toolExportArchiveFilter,
 					toolExportQuery,
@@ -10271,6 +10400,12 @@ export function App(): React.ReactElement {
 					selectedProcessControlAuditExportIndex={
 						selectedProcessControlAuditExportIndex
 					}
+					remoteKnownHostsSelectionAuditExports={
+						remoteKnownHostsSelectionAuditExports
+					}
+					selectedRemoteKnownHostsSelectionAuditExportIndex={
+						selectedRemoteKnownHostsSelectionAuditExportIndex
+					}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -10527,6 +10662,8 @@ function MainWorkspace({
 	timelineEvidenceTrailSourceFilter,
 	processControlAuditExports,
 	selectedProcessControlAuditExportIndex,
+	remoteKnownHostsSelectionAuditExports,
+	selectedRemoteKnownHostsSelectionAuditExportIndex,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -10684,6 +10821,8 @@ function MainWorkspace({
 	timelineEvidenceTrailSourceFilter: TimelineEvidenceTrailSourceFilter;
 	processControlAuditExports: ConsoleAuditExportPlan[];
 	selectedProcessControlAuditExportIndex: number;
+	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[];
+	selectedRemoteKnownHostsSelectionAuditExportIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -10919,6 +11058,8 @@ function MainWorkspace({
 						timelineEvidenceTrailSourceFilter,
 						processControlAuditExports,
 						selectedProcessControlAuditExportIndex,
+						remoteKnownHostsSelectionAuditExports,
+						selectedRemoteKnownHostsSelectionAuditExportIndex,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -11083,6 +11224,8 @@ function renderWorkspace(
 	timelineEvidenceTrailSourceFilter: TimelineEvidenceTrailSourceFilter,
 	processControlAuditExports: ConsoleAuditExportPlan[],
 	selectedProcessControlAuditExportIndex: number,
+	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[],
+	selectedRemoteKnownHostsSelectionAuditExportIndex: number,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -11512,6 +11655,12 @@ function renderWorkspace(
 				processControlAuditExports={processControlAuditExports}
 				selectedProcessControlAuditExportIndex={
 					selectedProcessControlAuditExportIndex
+				}
+				remoteKnownHostsSelectionAuditExports={
+					remoteKnownHostsSelectionAuditExports
+				}
+				selectedRemoteKnownHostsSelectionAuditExportIndex={
+					selectedRemoteKnownHostsSelectionAuditExportIndex
 				}
 				configManagedShelfRows={configManagedShelfRows}
 				events={events}
@@ -14496,6 +14645,8 @@ function StatusWorkspace({
 	timelineEvidenceTrailSourceFilter,
 	processControlAuditExports,
 	selectedProcessControlAuditExportIndex,
+	remoteKnownHostsSelectionAuditExports,
+	selectedRemoteKnownHostsSelectionAuditExportIndex,
 	configManagedShelfRows,
 	events,
 	selectedStatusEvidenceKind,
@@ -14552,6 +14703,8 @@ function StatusWorkspace({
 	timelineEvidenceTrailSourceFilter: TimelineEvidenceTrailSourceFilter;
 	processControlAuditExports: ConsoleAuditExportPlan[];
 	selectedProcessControlAuditExportIndex: number;
+	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[];
+	selectedRemoteKnownHostsSelectionAuditExportIndex: number;
 	configManagedShelfRows: string[];
 	events: ConsoleEvent[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
@@ -14755,6 +14908,7 @@ function StatusWorkspace({
 			toolExportIndex,
 			toolExportArchiveIndex,
 			processControlAuditExports,
+			remoteKnownHostsSelectionAuditExports,
 		},
 		{
 			selectedHandoffIndex,
@@ -14765,6 +14919,7 @@ function StatusWorkspace({
 			selectedToolExportIndex,
 			selectedToolExportArchiveIndex,
 			selectedProcessControlAuditExportIndex,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
 			toolExportFilter,
 			toolExportArchiveFilter,
 			toolExportQuery,
@@ -14786,7 +14941,8 @@ function StatusWorkspace({
 		cleanupExportArchiveIndex.items.length > 0 ||
 		toolExportIndex.items.length > 0 ||
 		toolExportArchiveIndex.items.length > 0 ||
-		processControlAuditExports.length > 0
+		processControlAuditExports.length > 0 ||
+		remoteKnownHostsSelectionAuditExports.length > 0
 			? statusEvidenceSummaryRows
 			: [];
 	const statusActivityCopyPreview =
@@ -15105,6 +15261,7 @@ function StatusWorkspace({
 						toolExportIndex,
 						toolExportArchiveIndex,
 						processControlAuditExports,
+						remoteKnownHostsSelectionAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -15115,6 +15272,7 @@ function StatusWorkspace({
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
+						selectedRemoteKnownHostsSelectionAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -15145,6 +15303,7 @@ function StatusWorkspace({
 						toolExportIndex,
 						toolExportArchiveIndex,
 						processControlAuditExports,
+						remoteKnownHostsSelectionAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -15155,6 +15314,7 @@ function StatusWorkspace({
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
+						selectedRemoteKnownHostsSelectionAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -15187,6 +15347,7 @@ function StatusWorkspace({
 						toolExportIndex,
 						toolExportArchiveIndex,
 						processControlAuditExports,
+						remoteKnownHostsSelectionAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -15197,6 +15358,7 @@ function StatusWorkspace({
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
+						selectedRemoteKnownHostsSelectionAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
@@ -15234,6 +15396,7 @@ function StatusWorkspace({
 						toolExportIndex,
 						toolExportArchiveIndex,
 						processControlAuditExports,
+						remoteKnownHostsSelectionAuditExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -15244,6 +15407,7 @@ function StatusWorkspace({
 						selectedToolExportIndex,
 						selectedToolExportArchiveIndex,
 						selectedProcessControlAuditExportIndex,
+						selectedRemoteKnownHostsSelectionAuditExportIndex,
 						toolExportFilter,
 						toolExportArchiveFilter,
 						toolExportQuery,
