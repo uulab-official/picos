@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.303 - Remote Known Hosts Evidence Handoff
+
+Status: draft PR [#378](https://github.com/uulab-official/picos/pull/378) on `codex/picos-v0.4.303-known-hosts-evidence-handoff`.
+
+Goal: let operators copy or export the selected recovered Remotes known_hosts evidence directly from the Status Activity copy-intent shelf.
+
+- Selected recovered `remote-known-hosts` evidence can now build a locked clipboard preview with target id, selected cursor, filename, query, path, event count, and explicit no-read/no-network/no-trust/no-write guards.
+- Empty or sparse Status Activity result history can fall back from `y` to the selected known_hosts evidence clipboard preview, then records a normal copy-intent row before opening `:clipboard`.
+- Empty copy-intent export state can fall back from `e` to a small selected audit handoff for the selected known_hosts evidence row.
+- Exported handoffs use the shared picos audit export path with `query=remote known_hosts evidence handoff <id>`, so `z` can reopen the result through the existing locked file-open flow.
+- Tests cover copy preview shape, selected audit export content, unavailable fallbacks, and the expanded shelf action hint.
+- Next: add command-palette discovery for the direct known_hosts evidence handoff actions, so operators can find copy/export without remembering fallback keys.
+
 ## v0.4.302 - Remote Known Hosts Evidence Copy Intents
 
 Status: draft PR [#377](https://github.com/uulab-official/picos/pull/377) on `codex/picos-v0.4.302-known-hosts-evidence-copy-intents`.
@@ -11,7 +24,7 @@ Goal: surface recovered Remotes known_hosts evidence inside the Status Activity 
 - Reusable audit-jump summaries now append `target=remote-known-hosts id:<id>` for known_hosts evidence replay rows.
 - The Status workspace passes recovered known_hosts selection-history audit exports into the copy-intent shelf beside process evidence, Tools evidence, and Timeline trail recovery.
 - Tests cover fresh/replay target summaries and recovered known_hosts evidence shelf rows.
-- Next: add direct copy/export recovery for selected known_hosts evidence rows from the Status copy-intent shelf, so operators can produce a small handoff without moving back through Status Evidence first.
+- Next: completed by v0.4.303 direct copy/export handoffs for selected known_hosts evidence rows from the Status copy-intent shelf.
 
 ## v0.4.301 - Remote Known Hosts Evidence Palette
 

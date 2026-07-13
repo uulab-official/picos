@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Status Activity copy-intent shelves can now fall back to the selected recovered Remotes `known_hosts` evidence row for direct `y` clipboard handoffs and `e` selected audit exports, preserving locked no-local-read/no-network/no-scan/no-trust/no-write guards and reopening exported handoffs through the existing `z` file-open path.
 - Status Activity copy-intent shelves now show recovered Remotes `known_hosts` evidence rows with selected export, query, event count, recovered remote id, path, and open/search action hints, and known_hosts evidence result jumps now render compact `remote-known-hosts` target tokens for fresh and replay flows.
 - Command palette now exposes recovered Remotes `known_hosts` evidence select/open/search actions, previews the selected selection-history export target/query/path, and records palette or Status Evidence search operations as Status Activity result rows plus searchable Timeline audit messages without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Status Evidence now recovers Remotes `known_hosts` selection-history audit exports as a first-class `remote-known-hosts` family, with `Tab`/`1..9` focus, `[`/`]` item movement, `enter`/`R` locked file-open, and `G` Timeline audit search without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.

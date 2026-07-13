@@ -34,6 +34,8 @@ import {
 	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch,
+	createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan,
+	createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview,
 	createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult,
 	createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult,
 	createRemoteKnownHostsSelectionStatusActivityResult,
@@ -1724,7 +1726,7 @@ describe("Status activity queue", () => {
 			"remote known_hosts target=id:prod action=search I=fresh",
 			"remote known_hosts evidence selected=1/1",
 			"remote known_hosts evidence target=picos-audit-filtered-2026-07-01T060000000Z.log query=remote known_hosts selection history prod events=2",
-			"remote known_hosts evidence detail id:prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log actions=R open G search",
+			"remote known_hosts evidence detail id:prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log actions=R open G search y copy e export",
 			"no Status activity copy intents yet",
 			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · remote known_hosts evidence · g Timeline audit search",
 		]);
@@ -1748,6 +1750,73 @@ describe("Status activity queue", () => {
 			'> status activity result audit jump status evidence remote known_hosts audit action=search target="prod" row=1 expanded=false lines=3 preview=status evidence remote known_hosts audit action=search target="prod"',
 			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · g Timeline audit search · :clipboard confirm=copy locked",
 		]);
+	});
+
+	test("creates copy and export handoffs for selected remote known_hosts evidence", () => {
+		const knownHostsEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			content: "",
+			eventCount: 2,
+			query: "remote known_hosts selection history prod",
+			scope: "filtered" as const,
+		};
+
+		expect(
+			createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview(
+				knownHostsEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toEqual({
+			source: "status-activity",
+			label: "remote known_hosts evidence prod",
+			enabled: false,
+			confirmation: "copy",
+			reason: "Clipboard writes require explicit confirmation plumbing.",
+			copyText: [
+				"remote known_hosts evidence selected=2/3",
+				"target=prod",
+				"file=picos-audit-filtered-2026-07-01T060000000Z.log",
+				"query=remote known_hosts selection history prod",
+				"path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+				"events=2",
+				"guards=localRead=false network=not-opened scan=false trust=not-applied knownHostsWrite=false",
+			].join("\n"),
+			details: [
+				"target=prod selected=2/3 events=2",
+				"path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+				"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
+			],
+		});
+		expect(
+			createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview(),
+		).toBeUndefined();
+
+		expect(
+			createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan(
+				knownHostsEvidence,
+				{
+					baseDir: "/Users/bonjin/.config/picos",
+					generatedAt: new Date("2026-07-01T07:00:00.000Z"),
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toEqual({
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T070000000Z.log",
+			content:
+				'# picos audit log\ngeneratedAt=2026-07-01T07:00:00.000Z\nscope=selected\nquery=remote known_hosts evidence handoff prod\nevents=1\n\n[07:00:00] INFO remote known_hosts evidence handoff selected=2/3 target="prod" label="picos-audit-filtered-2026-07-01T060000000Z.log" query="remote known_hosts selection history prod" path="/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log" events=2 guards="localRead=false network=not-opened scan=false trust=not-applied knownHostsWrite=false"\n',
+			eventCount: 1,
+			query: "remote known_hosts evidence handoff prod",
+			scope: "selected",
+		});
+		expect(
+			createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan(undefined, {
+				baseDir: "/Users/bonjin/.config/picos",
+			}),
+		).toBeUndefined();
 	});
 
 	test("shows fresh Tools evidence search result targets in the copy intent shelf", () => {

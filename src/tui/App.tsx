@@ -475,6 +475,8 @@ import {
 	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch,
+	createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan,
+	createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview,
 	createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult,
 	createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
@@ -7917,7 +7919,26 @@ export function App(): React.ReactElement {
 				selectedStatusActivityResultIndex,
 			);
 			if (!preview) {
-				log("warn", "no status activity result history to copy");
+				const evidencePreview =
+					createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview(
+						selectedRemoteKnownHostsSelectionAuditExport,
+						getSelectedRemoteKnownHostsSelectionEvidenceResultOptions(),
+					);
+				if (!evidencePreview) {
+					log("warn", "no status activity result history to copy");
+					return;
+				}
+				const intent = createStatusActivityCopyIntentRecord(evidencePreview);
+				setStatusActivityCopyIntentHistory((current) =>
+					appendStatusActivityCopyIntentHistory(current, intent),
+				);
+				setSelectedStatusActivityCopyIntentIndex(0);
+				log(
+					"info",
+					intent?.auditMessage ??
+						formatStatusActivityCopyIntentAuditMessage(evidencePreview),
+				);
+				openClipboardConfirmation(evidencePreview);
 				return;
 			}
 			const intent = createStatusActivityCopyIntentRecord(preview, {
@@ -8163,7 +8184,35 @@ export function App(): React.ReactElement {
 				},
 			);
 			if (!plan) {
-				log("warn", "no status activity copy intent to export");
+				const evidencePlan =
+					createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan(
+						selectedRemoteKnownHostsSelectionAuditExport,
+						{
+							baseDir: dirname(getConfigPath()),
+							...getSelectedRemoteKnownHostsSelectionEvidenceResultOptions(),
+						},
+					);
+				if (!evidencePlan) {
+					log("warn", "no status activity copy intent to export");
+					return;
+				}
+				void writeStatusActivityCopyIntentAuditExport(evidencePlan)
+					.then((written) => {
+						setLastStatusActivityCopyIntentAuditExport(written);
+						log(
+							"ok",
+							`remote known_hosts evidence handoff exported ${written.path} events=${written.eventCount}`,
+						);
+						void refreshAuditExportIndex(false);
+					})
+					.catch((caught) =>
+						log(
+							"fail",
+							caught instanceof Error
+								? `remote known_hosts evidence handoff export failed ${caught.message}`
+								: `remote known_hosts evidence handoff export failed ${String(caught)}`,
+						),
+					);
 				return;
 			}
 			void writeStatusActivityCopyIntentAuditExport(plan)
