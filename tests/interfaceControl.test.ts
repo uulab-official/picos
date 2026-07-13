@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	createInterfaceControlTarget,
+	createInterfaceDryRunPreview,
 	createInterfaceStateProposal,
 	formatInterfaceStateProposalRows,
 } from "../src/core/interfaceControl";
@@ -53,6 +54,20 @@ describe("interface state proposal preflight", () => {
 				resolution:
 					"requires networksetup hardware-port lookup for BSD device en0",
 			},
+			dryRunPreview: {
+				status: "blocked",
+				policy: "proposal-only",
+				adapterDryRun: "unavailable",
+				willExecute: false,
+				commandPreview:
+					'sudo networksetup -setnetworkserviceenabled "<service-for-en0>" off',
+				reason: "interface-execution-disabled",
+				blockers: [
+					"interface-execution-disabled",
+					"mutation-controls-disabled",
+					"adapter-dry-run-unavailable",
+				],
+			},
 			currentStatus: "connected",
 			desiredStatus: "disconnected",
 			preflight: [
@@ -61,7 +76,8 @@ describe("interface state proposal preflight", () => {
 				"willModify=interface-link-state serviceOrAdapter=network-service controlTarget=<service-for-en0>",
 				"targetResolution=requires networksetup hardware-port lookup for BSD device en0",
 				"requires=selected-interface admin confirmation dry-run-policy",
-				"adapterDryRun=proposal-only",
+				"adapterDryRun=unavailable policy=proposal-only willExecute=false",
+				"dryRunBlockers=interface-execution-disabled,mutation-controls-disabled,adapter-dry-run-unavailable",
 				"rollback=restore previous interface state from current snapshot",
 			],
 		});
@@ -74,13 +90,17 @@ describe("interface state proposal preflight", () => {
 			"risk=write privilege=admin confirm=disable interface",
 			"controlTarget kind=network-service label=<service-for-en0> confidence=missing source=networksetup-hardware-port-map",
 			'controlCommand=sudo networksetup -setnetworkserviceenabled "<service-for-en0>" off',
+			"dryRun status=blocked policy=proposal-only adapterDryRun=unavailable willExecute=false",
+			'dryRunCommand=sudo networksetup -setnetworkserviceenabled "<service-for-en0>" off',
+			"dryRunReason=interface-execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled,adapter-dry-run-unavailable",
 			"PREFLIGHT",
 			"scope=interface target=en0",
 			"currentStatus=connected desiredStatus=disconnected primary=yes platform=darwin",
 			"willModify=interface-link-state serviceOrAdapter=network-service controlTarget=<service-for-en0>",
 			"targetResolution=requires networksetup hardware-port lookup for BSD device en0",
 			"requires=selected-interface admin confirmation dry-run-policy",
-			"adapterDryRun=proposal-only",
+			"adapterDryRun=unavailable policy=proposal-only willExecute=false",
+			"dryRunBlockers=interface-execution-disabled,mutation-controls-disabled,adapter-dry-run-unavailable",
 			"rollback=restore previous interface state from current snapshot",
 			"execution=disabled no interface state will be changed",
 		]);
@@ -93,6 +113,10 @@ describe("interface state proposal preflight", () => {
 		expect(enableProposal.status).toBe("noop");
 		expect(enableProposal.enabled).toBeFalse();
 		expect(enableProposal.desiredStatus).toBe("connected");
+		expect(enableProposal.dryRunPreview).toMatchObject({
+			adapterDryRun: "unavailable",
+			willExecute: false,
+		});
 
 		const invalid = createInterfaceStateProposal(undefined, "disable", {
 			platform: "win32",
@@ -142,6 +166,40 @@ describe("interface state proposal preflight", () => {
 			source: "networksetup-hardware-port-map",
 			commandPreview: "sudo networksetup -setnetworkserviceenabled Wi-Fi on",
 			resolution: "mapped BSD device en0 to network service Wi-Fi",
+		});
+	});
+
+	test("models dry-run policy previews without enabling execution", () => {
+		const target = createInterfaceStateProposalTargetFixture();
+		const windowsTarget = createInterfaceControlTarget(target, "disable", {
+			platform: "win32",
+		});
+		const linuxTarget = createInterfaceControlTarget(target, "disable", {
+			platform: "linux",
+		});
+
+		expect(createInterfaceDryRunPreview(windowsTarget)).toEqual({
+			status: "blocked",
+			policy: "proposal-only",
+			adapterDryRun: "available",
+			willExecute: false,
+			commandPreview:
+				"powershell -NoProfile -Command \"Disable-NetAdapter -Name 'en0' -Confirm:$false -WhatIf\"",
+			reason: "interface-execution-disabled",
+			blockers: ["interface-execution-disabled", "mutation-controls-disabled"],
+		});
+		expect(createInterfaceDryRunPreview(linuxTarget)).toEqual({
+			status: "blocked",
+			policy: "proposal-only",
+			adapterDryRun: "unavailable",
+			willExecute: false,
+			commandPreview: "sudo ip link set en0 down",
+			reason: "interface-execution-disabled",
+			blockers: [
+				"interface-execution-disabled",
+				"mutation-controls-disabled",
+				"adapter-dry-run-unavailable",
+			],
 		});
 	});
 });

@@ -33,6 +33,16 @@ export type InterfaceControlTarget = {
 	resolution: string;
 };
 
+export type InterfaceDryRunPreview = {
+	status: "blocked";
+	policy: "proposal-only";
+	adapterDryRun: "available" | "unavailable" | "unknown";
+	willExecute: false;
+	commandPreview: string;
+	reason: string;
+	blockers: string[];
+};
+
 export type InterfaceStateProposal = {
 	actionId: "interface.enable" | "interface.disable";
 	action: InterfaceStateProposalAction;
@@ -43,6 +53,7 @@ export type InterfaceStateProposal = {
 	confirmationPhrase: "enable interface" | "disable interface";
 	target?: InterfaceStateProposalTarget;
 	controlTarget?: InterfaceControlTarget;
+	dryRunPreview: InterfaceDryRunPreview;
 	currentStatus?: InterfaceStatus;
 	desiredStatus: InterfaceStatus;
 	preflight: string[];
@@ -65,6 +76,7 @@ export function createInterfaceStateProposal(
 	const controlTarget = target
 		? createInterfaceControlTarget(target, action, options)
 		: undefined;
+	const dryRunPreview = createInterfaceDryRunPreview(controlTarget);
 	const status: InterfaceStateProposalStatus = !target
 		? "invalid"
 		: selected?.status === desiredStatus
@@ -82,6 +94,7 @@ export function createInterfaceStateProposal(
 			action === "enable" ? "enable interface" : "disable interface",
 		target,
 		controlTarget,
+		dryRunPreview,
 		currentStatus: selected?.status,
 		desiredStatus,
 		preflight: [
@@ -90,7 +103,8 @@ export function createInterfaceStateProposal(
 			`willModify=interface-link-state serviceOrAdapter=${controlTarget?.kind ?? "unknown"} controlTarget=${controlTarget?.label ?? "-"}`,
 			`targetResolution=${controlTarget?.resolution ?? "select an interface before preview"}`,
 			"requires=selected-interface admin confirmation dry-run-policy",
-			"adapterDryRun=proposal-only",
+			`adapterDryRun=${dryRunPreview.adapterDryRun} policy=${dryRunPreview.policy} willExecute=${dryRunPreview.willExecute}`,
+			`dryRunBlockers=${dryRunPreview.blockers.join(",")}`,
 			"rollback=restore previous interface state from current snapshot",
 		],
 	};
@@ -117,6 +131,9 @@ export function formatInterfaceStateProposalRows(
 		`risk=${proposal.risk} privilege=${proposal.privilege} confirm=${proposal.confirmationPhrase}`,
 		`controlTarget kind=${proposal.controlTarget?.kind ?? "unknown"} label=${proposal.controlTarget?.label ?? "-"} confidence=${proposal.controlTarget?.confidence ?? "missing"} source=${proposal.controlTarget?.source ?? "-"}`,
 		`controlCommand=${proposal.controlTarget?.commandPreview ?? "-"}`,
+		`dryRun status=${proposal.dryRunPreview.status} policy=${proposal.dryRunPreview.policy} adapterDryRun=${proposal.dryRunPreview.adapterDryRun} willExecute=${proposal.dryRunPreview.willExecute}`,
+		`dryRunCommand=${proposal.dryRunPreview.commandPreview}`,
+		`dryRunReason=${proposal.dryRunPreview.reason} blockers=${proposal.dryRunPreview.blockers.join(",")}`,
 		"PREFLIGHT",
 		...proposal.preflight,
 		"execution=disabled no interface state will be changed",
@@ -140,6 +157,32 @@ function createInterfaceStateProposalTarget(
 		mtu: selected.mtu,
 		primary: selected.name === options.primaryInterfaceName,
 		platform: options.platform,
+	};
+}
+
+export function createInterfaceDryRunPreview(
+	controlTarget: InterfaceControlTarget | undefined,
+): InterfaceDryRunPreview {
+	const adapterDryRun =
+		controlTarget?.source === "Get-NetAdapter.Name"
+			? "available"
+			: controlTarget
+				? "unavailable"
+				: "unknown";
+	const blockers = [
+		"interface-execution-disabled",
+		"mutation-controls-disabled",
+		...(adapterDryRun === "available" ? [] : ["adapter-dry-run-unavailable"]),
+	];
+
+	return {
+		status: "blocked",
+		policy: "proposal-only",
+		adapterDryRun,
+		willExecute: false,
+		commandPreview: controlTarget?.commandPreview ?? "-",
+		reason: blockers[0] ?? "blocked",
+		blockers,
 	};
 }
 
