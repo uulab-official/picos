@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Routes workspace now supports lazyifconfig-style section shortcuts: `1` table, `2` raw, `3` diagnostics, `4` path, plus Home/End for first/last route detail panes.
 - Status Activity copy-intent shelves now retain a dedicated Remotes `known_hosts` handoff-open row after command-palette replay, showing target id, action, source row, match count, and the exact Timeline query for repeat `g` search or `v` clipboard replay.
 - Command palette now exposes a read-only Remotes `known_hosts` evidence handoff open action, letting operators search `known_hosts handoff open` to replay the selected copy/export handoff Timeline query directly.
 - Command palette now exposes a read-only Remotes `known_hosts` evidence handoff select action, so operators can search `known_hosts handoff select` instead of remembering the `H` shortcut.

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.313 - Route Detail Section Shortcuts
+
+Status: in progress on `codex/picos-v0.4.313-route-section-shortcuts`, stacked on draft PR [#387](https://github.com/uulab-official/picos/pull/387).
+
+Goal: close a lazyifconfig Route Inspector control gap by making picos route detail panes directly keyboard-addressable.
+
+- Routes focus now maps `1` to table, `2` to raw, `3` to diagnostics, and `4` to path detail panes.
+- Home jumps to the first route detail pane and End jumps to the path pane.
+- Direct jumps clear stale route copy-preview state, matching existing Tab cycling behavior.
+- The Routes workspace footer advertises `tab/1-4 detail` plus Home/End so the panel feels more like a keyboard-driven network console.
+- Tests cover the pure shortcut contract beside existing Tab cycling and detail-pane formatting.
+- Next: continue lazyifconfig parity by adding direct section shortcuts to Connections/Ports detail tabs or route destination prompt presets.
+
 ## v0.4.312 - Remote Known Hosts Handoff Open Copy Intent
 
 Status: draft PR [#387](https://github.com/uulab-official/picos/pull/387) on `codex/picos-v0.4.312-known-hosts-handoff-open-copy-intent`, stacked on draft PR [#386](https://github.com/uulab-official/picos/pull/386).
@@ -12,7 +25,7 @@ Goal: keep command-palette Remotes known_hosts handoff-open replays visible and 
 - `v replay` opens the locked clipboard preview for the same handoff-open record, keeping the repeat path visible after returning from Timeline.
 - The Status copy-intent shelf now shows a compact latest handoff-open summary above history rows.
 - Tests cover intent creation, latest summary recovery, copy-intent shelf rendering, and Timeline search replay.
-- Next: compare lazyifconfig network panel affordances and add the next missing network/OS control surface as a small read-first slice.
+- Next: completed by v0.4.313 lazyifconfig-style direct Route detail section shortcuts.
 
 ## v0.4.311 - Remote Known Hosts Evidence Handoff Palette Open
 
