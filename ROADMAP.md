@@ -2,7 +2,7 @@
 
 ## v0.4.306 - Remote Known Hosts Evidence Handoff Replay
 
-Status: local branch `codex/picos-v0.4.306-known-hosts-evidence-handoff-replay` stacked on draft PR [#380](https://github.com/uulab-official/picos/pull/380).
+Status: draft PR [#381](https://github.com/uulab-official/picos/pull/381) on `codex/picos-v0.4.306-known-hosts-evidence-handoff-replay`, stacked on draft PR [#380](https://github.com/uulab-official/picos/pull/380).
 
 Goal: let palette-triggered known_hosts evidence copy/export result rows become reusable Timeline replay jumps.
 
