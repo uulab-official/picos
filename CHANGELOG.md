@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Interface confirmation audit exports now appear as a dedicated Status Evidence family, with `Tab`/`1..9` focus, `[`/`]` item movement, locked `enter`/`I` file-open confirmation, and `G` Timeline audit search recovery for blocked or rejected interface control confirmations.
 - Selected interface confirmation audit attempts can now be copied, exported, and replayed from Status Activity copy-intent handoffs, with compact `interface evidence` rows and Timeline audit-search recovery while interface execution remains disabled.
 - Interface confirmation audit attempts now append Status Activity result-history entries with reusable Timeline audit-search jumps, so blocked/rejected interface control confirmations can be recovered after leaving the Interfaces workspace.
 - Interfaces workspace now opens a locked `:interface-confirm` audit prompt from `K` or `enter` after a state proposal, recording exact confirmations as `confirmed-blocked` and mismatches as `rejected` while keeping `willExecute=false`.

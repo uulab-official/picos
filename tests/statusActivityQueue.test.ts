@@ -26,7 +26,9 @@ import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createInterfaceConfirmationAuditExportOpenPlan,
 	createInterfaceConfirmationAuditExportPlan,
+	createInterfaceConfirmationAuditExportTimelineSearch,
 	createInterfaceConfirmationStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
@@ -95,6 +97,8 @@ import {
 	formatStatusActivityToolsEvidenceMatchAuditMessage,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
+	getInterfaceConfirmationAuditExports,
+	getLatestInterfaceConfirmationAuditExport,
 	getLatestProcessControlAuditExport,
 	getLatestRemoteKnownHostsEvidenceHandoffOpenIntent,
 	getLatestRemoteKnownHostsSelectionHistoryAuditExport,
@@ -104,6 +108,7 @@ import {
 	getProcessControlAuditExports,
 	getRemoteKnownHostsSelectionHistoryAuditExports,
 	getRemoteKnownHostsSelectionHistoryClipboardPreview,
+	getSelectedInterfaceConfirmationAuditExport,
 	getSelectedProcessControlAuditExport,
 	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
@@ -116,6 +121,7 @@ import {
 	getStatusActivityRemoteKnownHostsEvidenceHandoffIndexes,
 	getStatusActivityResultAuditJumpIntentCount,
 	getTimelineEvidenceTrailAuditExports,
+	moveInterfaceConfirmationAuditExportSelection,
 	moveProcessControlAuditExportSelection,
 	moveRemoteKnownHostsSelectionHistoryAuditExportSelection,
 	moveStatusActivityCopyIntentSelection,
@@ -130,6 +136,7 @@ import {
 	nextStatusActivityResultHistoryFilter,
 	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
+	writeInterfaceConfirmationAuditExport,
 	writeRemoteKnownHostsSelectionHistoryAuditExport,
 	writeStatusActivityCopyIntentAuditExport,
 	writeTimelineEvidenceTrailAuditExport,
@@ -4456,6 +4463,125 @@ describe("Status activity queue", () => {
 					platform: "darwin",
 					command: "open",
 					args: [processControlPlan.path],
+				},
+			});
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	test("recovers interface confirmation audit exports as status evidence", async () => {
+		const root = await mkdtemp(join(tmpdir(), "picos-interface-evidence-"));
+		try {
+			const interfaceResult = createInterfaceConfirmationStatusActivityResult(
+				submitInterfaceConfirmation(
+					createInterfaceStateProposal(
+						{
+							name: "en0",
+							status: "connected",
+							ipv4: "192.168.0.10",
+							ipv4Cidr: "192.168.0.10/24",
+							ipv6: "-",
+							mac: "aa:bb:cc:dd:ee:ff",
+							netmask: "255.255.255.0",
+							kind: "wifiOrEthernet",
+							mtu: 1500,
+							rxBytes: 1,
+							txBytes: 2,
+						},
+						"disable",
+						{
+							platform: "darwin",
+							macosServiceNamesByDevice: { en0: "Wi-Fi" },
+						},
+					),
+					"disable interface",
+				),
+			);
+			const interfacePlan = createInterfaceConfirmationAuditExportPlan(
+				[interfaceResult],
+				0,
+				{
+					baseDir: root,
+					generatedAt: new Date("2026-07-01T06:00:00.000Z"),
+				},
+			);
+			const unrelatedIntent = createStatusActivityResultTimelineSearchIntent({
+				filter: "audit",
+				query: "remote connect audit id=prod status=rejected",
+				message:
+					"status activity result audit jump remote connect audit id=prod status=rejected",
+			});
+			const unrelatedPlan = unrelatedIntent
+				? createStatusActivityCopyIntentAuditExportPlan([unrelatedIntent], 0, {
+						baseDir: root,
+						generatedAt: new Date("2026-07-01T05:00:00.000Z"),
+					})
+				: undefined;
+			if (!interfacePlan || !unrelatedPlan) {
+				throw new Error("expected audit export plans");
+			}
+
+			await writeStatusActivityCopyIntentAuditExport(unrelatedPlan);
+			await writeInterfaceConfirmationAuditExport(interfacePlan);
+
+			const index = await readConsoleAuditExportIndex(root);
+			const interfaceExports = getInterfaceConfirmationAuditExports(index);
+			const latest = getLatestInterfaceConfirmationAuditExport(index);
+
+			expect(interfaceExports).toEqual([
+				{
+					path: interfacePlan.path,
+					content: "",
+					eventCount: 1,
+					query:
+						"interface confirmation interface.disable status=confirmed-blocked",
+					scope: "selected",
+				},
+			]);
+			expect(latest).toEqual(interfaceExports[0]);
+			expect(
+				getSelectedInterfaceConfirmationAuditExport(interfaceExports, 0),
+			).toEqual(interfaceExports[0]);
+			expect(
+				moveInterfaceConfirmationAuditExportSelection(
+					[interfaceExports[0], unrelatedPlan],
+					0,
+					"next",
+				),
+			).toBe(1);
+			expect(
+				createInterfaceConfirmationAuditExportTimelineSearch(
+					interfaceExports[0],
+				),
+			).toEqual({
+				filter: "audit",
+				query:
+					"interface confirmation interface.disable status=confirmed-blocked",
+				message:
+					"interface confirmation evidence recovered search picos-audit-selected-2026-07-01T060000000Z.log",
+			});
+			expect(
+				createInterfaceConfirmationAuditExportOpenPlan(interfaceExports[0], {
+					baseDir: root,
+					platform: "darwin",
+				}),
+			).toEqual({
+				source: "timeline-export",
+				label:
+					"interface confirmation evidence export selected interface confirmation interface.disable status=confirmed-blocked",
+				path: interfacePlan.path,
+				risk: "write",
+				privilege: "user",
+				confirmationRequired: true,
+				confirmationPhrase: "open",
+				confirmed: false,
+				enabled: false,
+				reason: "type open to launch external file viewer",
+				adapter: {
+					platform: "darwin",
+					command: "open",
+					args: [interfacePlan.path],
 				},
 			});
 		} finally {
