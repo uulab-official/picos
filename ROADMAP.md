@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.318 - DNS Target Preflight
+
+Status: draft PR [#393](https://github.com/uulab-official/picos/pull/393) on `codex/picos-v0.4.318-dns-target-preflight`, stacked on draft PR [#392](https://github.com/uulab-official/picos/pull/392).
+
+Goal: make DNS edit proposals target-aware so the operator can see which system/interface resolver surface would be affected before any mutation exists.
+
+- DNS proposals now carry a target snapshot for the system resolver fallback or selected local interface.
+- DNS workspace shows a `DNS TARGET` block with target label, scope, selected index, status, kind, primary marker, platform, and addresses.
+- `T` cycles the DNS proposal target across local interfaces and clears stale proposal previews when the target changes.
+- Submitted resolver proposals record the selected target in proposal rows and preflight rows.
+- No DNS command, adapter mutation, or write execution path is enabled.
+- Tests cover target creation/formatting plus target-aware proposal rows.
+- Next: add interface enable/disable typed proposal previews or platform-specific DNS service naming once adapters expose safe target metadata.
+
 ## v0.4.317 - DNS Server Proposal Preflight
 
 Status: draft PR [#392](https://github.com/uulab-official/picos/pull/392) on `codex/picos-v0.4.317-dns-proposal-preflight`, stacked on draft PR [#391](https://github.com/uulab-official/picos/pull/391).
@@ -12,7 +26,7 @@ Goal: start target-specific DNS edit preflight prompts without enabling DNS muta
 - Preflight rows keep scope, mutation surface, requirements, dry-run availability, rollback, and execution-disabled posture visible.
 - `C` clears the active DNS proposal without touching system DNS settings.
 - Tests cover parser and formatter behavior for ready, empty, and invalid proposals.
-- Next: add selected-interface/service targeting for DNS proposals or interface enable/disable typed proposal previews.
+- Next: completed by v0.4.318 DNS target-aware proposal preflight.
 
 ## v0.4.316 - Control Preflight Console
 
