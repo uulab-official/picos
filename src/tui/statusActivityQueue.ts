@@ -644,7 +644,7 @@ export function createRemoteKnownHostsSelectionStatusActivityResult(
 
 export function createRemoteKnownHostsPasteSelectionStatusActivityResult(
 	review: RemoteKnownHostsPasteReview,
-	method: "next" | "previous" | "number",
+	method: "next" | "previous" | "number" | "command",
 ): StatusActivityResult {
 	const candidate =
 		review.selected === "none"

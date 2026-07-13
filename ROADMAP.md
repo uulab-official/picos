@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.296 - Remote Known Hosts Select Command
+
+Status: in progress on `codex/picos-v0.4.296-known-hosts-select-command`.
+
+Goal: let operators select pasted known_hosts candidates beyond `1-9` through a typed Remotes command while preserving the locked read-only trust-review posture.
+
+- Core now parses typed candidate selection input such as `12`, `#12`, `candidate 12`, and `select 27` into safe one-based candidate indexes.
+- Core can select pasted known_hosts candidates from typed input, returning the existing review unchanged for malformed or unavailable candidates.
+- Remotes focus now maps `S` to `:remote-known-hosts-select`, so long paste buffers can be navigated without relying on single-digit shortcuts.
+- Typed selections update the paste review session, known_hosts candidate session, live compare detail, and Status Activity result history with `method=command`.
+- Timeline recovery can search command-driven selection audit rows by remote id, candidate number, and method without opening transport, reading local trust files, trusting hosts, or writing `known_hosts`.
+- Tests cover parsing, no-op safety, long-buffer candidate selection, command-method Activity rows, and Timeline recovery.
+- Next: expose known_hosts selection history as a copy/export source and add palette discovery for the typed selection prompt.
+
 ## v0.4.295 - Remote Known Hosts Selection Activity
 
 Status: draft PR [#370](https://github.com/uulab-official/picos/pull/370) on `codex/picos-v0.4.295-known-hosts-selection-activity`.
@@ -12,7 +26,7 @@ Goal: make pasted known_hosts candidate selection durable and recoverable from S
 - Status Activity Timeline recovery can search candidate selection audit rows by remote id, candidate number, and method.
 - The Remotes activity shelf now includes known_hosts selection results beside stage/evidence/trust/connect activity.
 - Tests cover numeric selection, empty/invalid no-op behavior, selection Activity formatting, Remotes shelf summaries, and Timeline recovery rows.
-- Next: add candidate selection by typed command for indexes beyond 9 and expose selection history as a copy/export source.
+- Next: expose selection history as a copy/export source.
 
 ## v0.4.294 - Remote Known Hosts Candidate Selection
 

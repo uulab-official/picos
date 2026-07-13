@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Remotes focus now supports locked `S` typed known_hosts paste candidate selection through `:remote-known-hosts-select`, accepting inputs such as `12`, `#12`, and `candidate 12` for paste buffers beyond shortcut digits while recording `method=command` Status Activity and Timeline recovery rows without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports locked known_hosts paste candidate selection with `1-9`, and `[`/`]` or number selections now record Status Activity and Timeline recovery rows without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports locked known_hosts paste candidate rotation with `[` and `]`, updating the hidden paste review selection and live compare candidate without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
 - Remotes focus now supports locked multi-row known_hosts paste review with `P`, parsing pasted `\n`-separated candidates into a hidden-content review buffer and feeding the selected candidate into live host-key compare detail without reading local trust files, opening transport, scanning hosts, trusting hosts, writing `known_hosts`, or mutating remote state.
