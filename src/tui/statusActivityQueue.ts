@@ -1743,6 +1743,29 @@ export function moveProcessControlAuditExportSelection(
 	return (current + delta + exports.length) % exports.length;
 }
 
+export function getSelectedRemoteKnownHostsSelectionHistoryAuditExport(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+): ConsoleAuditExportPlan | undefined {
+	if (exports.length === 0) {
+		return undefined;
+	}
+	return exports[getNormalizedSelectionIndex(exports.length, selectedIndex)];
+}
+
+export function moveRemoteKnownHostsSelectionHistoryAuditExportSelection(
+	exports: ConsoleAuditExportPlan[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): number {
+	if (exports.length === 0) {
+		return 0;
+	}
+	const current = getNormalizedSelectionIndex(exports.length, selectedIndex);
+	const delta = direction === "next" ? 1 : -1;
+	return (current + delta + exports.length) % exports.length;
+}
+
 export function filterTimelineEvidenceTrailAuditExports(
 	exports: ConsoleAuditExportPlan[],
 	filter: TimelineEvidenceTrailSourceFilter,
@@ -2305,6 +2328,19 @@ export function createProcessControlAuditExportTimelineSearch(
 	};
 }
 
+export function createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch(
+	plan?: ConsoleAuditExportPlan,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	if (!plan?.query) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: plan.query,
+		message: `remote known_hosts selection evidence recovered search ${basename(plan.path)}`,
+	};
+}
+
 export function getSelectedStatusActivityCopyIntentClipboardPreview(
 	history: StatusActivityCopyIntentRecord[],
 	selectedIndex: number,
@@ -2411,6 +2447,22 @@ export function createProcessControlAuditExportOpenPlan(
 	return buildFileOpenPlan({
 		baseDir: options.baseDir,
 		label: `process control evidence export ${plan.scope} ${plan.query}`,
+		path: plan.path,
+		platform: options.platform,
+		source: "timeline-export",
+	});
+}
+
+export function createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan(
+	plan: ConsoleAuditExportPlan,
+	options: {
+		baseDir: string;
+		platform: SupportedPlatform;
+	},
+): FileOpenPlan {
+	return buildFileOpenPlan({
+		baseDir: options.baseDir,
+		label: `remote known_hosts selection history export ${plan.scope} ${plan.query}`,
 		path: plan.path,
 		platform: options.platform,
 		source: "timeline-export",
@@ -3163,6 +3215,12 @@ export function getLatestProcessControlAuditExport(
 	return getProcessControlAuditExports(index)[0];
 }
 
+export function getLatestRemoteKnownHostsSelectionHistoryAuditExport(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan | undefined {
+	return getRemoteKnownHostsSelectionHistoryAuditExports(index)[0];
+}
+
 export function getProcessControlAuditExports(
 	index: ConsoleAuditExportIndex,
 ): ConsoleAuditExportPlan[] {
@@ -3173,6 +3231,21 @@ export function getProcessControlAuditExports(
 		...(item.query ? { query: item.query } : {}),
 		scope: item.scope,
 	}));
+}
+
+export function getRemoteKnownHostsSelectionHistoryAuditExports(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportPlan[] {
+	return index.items
+		.filter(isRemoteKnownHostsSelectionHistoryAuditExport)
+		.map((item) => ({
+			path: item.path,
+			content: "",
+			eventCount: item.entryCount,
+			...(item.query ? { query: item.query } : {}),
+			scope: item.scope,
+			...(item.origin ? { origin: item.origin } : {}),
+		}));
 }
 
 export function getTimelineEvidenceTrailAuditExports(
@@ -3208,6 +3281,17 @@ function isProcessControlAuditExport(
 		return false;
 	}
 	return parseProcessControlAuditQuery(candidate.query ?? "") !== undefined;
+}
+
+function isRemoteKnownHostsSelectionHistoryAuditExport(
+	candidate: ConsoleAuditExportIndex["items"][number],
+): boolean {
+	if (candidate.scope !== "filtered") {
+		return false;
+	}
+	return (candidate.query ?? "").startsWith(
+		"remote known_hosts selection history ",
+	);
 }
 
 function getTimelineEvidenceTrailExportSource(

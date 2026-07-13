@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.300 - Remote Known Hosts Evidence Recovery
+
+Status: draft PR [#375](https://github.com/uulab-official/picos/pull/375) on `codex/picos-v0.4.300-known-hosts-evidence-recovery`.
+
+Goal: make Remotes known_hosts selection-history audit exports recoverable from Status Evidence after refresh or restart.
+
+- Status Activity now recovers filtered `remote known_hosts selection history <id>` audit exports from the audit export index.
+- Status Evidence now includes a `remote-known-hosts` family with summary, command strip, dense table, detail, legacy bridge, direct number jump, and item movement rows.
+- Status `G` can jump from the active `remote-known-hosts` evidence row back into Timeline audit search for the selected export query.
+- Status `enter` and active-family `R` open the selected known_hosts selection-history export through the locked `:file-open` confirmation.
+- Tests cover audit-index recovery helpers, locked file-open plans, Timeline search plans, Status Evidence render rows, enter plans, search plans, and item movement.
+- Next: expose `remote-known-hosts` evidence actions in the command palette and Status Activity result trail, matching process evidence parity.
+
 ## v0.4.299 - Remote Known Hosts Selection History Copy Export
 
 Status: draft PR [#374](https://github.com/uulab-official/picos/pull/374) on `codex/picos-v0.4.299-known-hosts-history-copy-export`.
@@ -11,7 +24,7 @@ Goal: turn the visible known_hosts selection-history shelf into an operator hand
 - Remotes focus maps `y` to a locked clipboard confirmation for the selection-history shelf and `E` to a picos-owned audit export.
 - Exported rows include candidate summary, detail, Timeline recovery query, and locked guard posture.
 - Tests cover empty history behavior, copy preview content, export plan content, and export file writes.
-- Next: add Status Evidence recovery/open controls for known_hosts selection-history exports.
+- Next: completed by v0.4.300 Status Evidence recovery/open/search controls for known_hosts selection-history exports.
 
 ## v0.4.298 - Remote Known Hosts Selection History
 

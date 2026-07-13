@@ -34,6 +34,7 @@ export type StatusEvidenceIndexes = {
 	toolExportIndex?: ToolHistoryExportIndex;
 	toolExportArchiveIndex?: ToolHistoryExportIndex;
 	processControlAuditExports?: ConsoleAuditExportPlan[];
+	remoteKnownHostsSelectionAuditExports?: ConsoleAuditExportPlan[];
 };
 
 export type StatusEvidenceSelection = {
@@ -45,6 +46,7 @@ export type StatusEvidenceSelection = {
 	selectedToolExportIndex?: number;
 	selectedToolExportArchiveIndex?: number;
 	selectedProcessControlAuditExportIndex?: number;
+	selectedRemoteKnownHostsSelectionAuditExportIndex?: number;
 	toolExportFilter?: ToolHistoryEvidenceFilter;
 	toolExportArchiveFilter?: ToolHistoryEvidenceFilter;
 	toolExportQuery?: string;
@@ -59,7 +61,8 @@ export type StatusEvidenceKind =
 	| "cleanup-archive"
 	| "tools"
 	| "tools-archive"
-	| "process";
+	| "process"
+	| "remote-known-hosts";
 
 export type StatusEvidenceEnterAction =
 	| "open-handoff"
@@ -69,7 +72,8 @@ export type StatusEvidenceEnterAction =
 	| "select-cleanup-archive"
 	| "open-tools"
 	| "open-tools-archive"
-	| "open-process-evidence";
+	| "open-process-evidence"
+	| "open-remote-known-hosts-evidence";
 
 export type StatusEvidenceSecondaryIntent = "archive" | "retention";
 
@@ -81,7 +85,9 @@ export type StatusEvidenceSecondaryAction =
 	| "preview-audit-retention"
 	| "preview-tools-retention";
 
-export type StatusEvidenceSearchAction = "search-process-evidence";
+export type StatusEvidenceSearchAction =
+	| "search-process-evidence"
+	| "search-remote-known-hosts-evidence";
 
 export type StatusEvidenceEnterPlan = {
 	kind: StatusEvidenceKind;
@@ -484,14 +490,23 @@ export function createStatusEvidenceSearchPlan(
 		collectStatusEvidenceEntries(indexes, selection),
 		activeKind,
 	);
-	if (activeEntry?.kind !== "process") {
+	if (
+		activeEntry?.kind !== "process" &&
+		activeEntry?.kind !== "remote-known-hosts"
+	) {
 		return undefined;
 	}
 	const action = getStatusEvidenceSearchAction(activeEntry.kind);
-	const exportPlan = getSelectedProcessControlAuditExport(
-		getProcessControlAuditExports(indexes),
-		getSelectedProcessControlAuditExportIndex(selection),
-	);
+	const exportPlan =
+		activeEntry.kind === "process"
+			? getSelectedProcessControlAuditExport(
+					getProcessControlAuditExports(indexes),
+					getSelectedProcessControlAuditExportIndex(selection),
+				)
+			: getSelectedProcessControlAuditExport(
+					getRemoteKnownHostsSelectionAuditExports(indexes),
+					getSelectedRemoteKnownHostsSelectionAuditExportIndex(selection),
+				);
 	if (!action || !exportPlan?.query) {
 		return undefined;
 	}
@@ -606,6 +621,12 @@ function collectStatusEvidenceEntries(
 				getSelectedProcessControlAuditExportIndex(selection),
 			),
 		),
+		formatRemoteKnownHostsEvidence(
+			getSelectedProcessControlAuditExport(
+				getRemoteKnownHostsSelectionAuditExports(indexes),
+				getSelectedRemoteKnownHostsSelectionAuditExportIndex(selection),
+			),
+		),
 	].filter((entry): entry is EvidenceEntry => Boolean(entry));
 }
 
@@ -715,6 +736,14 @@ function collectStatusEvidenceFamilyEntries(
 					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
 				selectedIndex: getSelectedProcessControlAuditExportIndex(selection),
 			};
+		case "remote-known-hosts":
+			return {
+				entries: getRemoteKnownHostsSelectionAuditExports(indexes)
+					.map(formatRemoteKnownHostsEvidence)
+					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
+				selectedIndex:
+					getSelectedRemoteKnownHostsSelectionAuditExportIndex(selection),
+			};
 	}
 }
 
@@ -727,6 +756,7 @@ const STATUS_EVIDENCE_KIND_ORDER: StatusEvidenceKind[] = [
 	"tools",
 	"tools-archive",
 	"process",
+	"remote-known-hosts",
 ];
 
 function createStatusEvidenceSummaryRow(
@@ -853,6 +883,14 @@ function getStatusEvidenceLegacyShortcuts(kind: StatusEvidenceKind): {
 				archive: "-",
 				retention: "-",
 			};
+		case "remote-known-hosts":
+			return {
+				refresh: "-",
+				select: "R",
+				open: "R",
+				archive: "-",
+				retention: "-",
+			};
 	}
 }
 
@@ -938,6 +976,22 @@ function formatProcessEvidence(
 	};
 }
 
+function formatRemoteKnownHostsEvidence(
+	item: ConsoleAuditExportPlan | undefined,
+): EvidenceEntry | undefined {
+	if (!item) {
+		return undefined;
+	}
+	const scope = item.scope ?? "filtered";
+	return {
+		kind: "remote-known-hosts",
+		label: `remote known_hosts ${scope} events=${item.eventCount}${item.query ? ` query=${item.query}` : ""}`,
+		path: item.path,
+		origin: item.origin,
+		controls: "enter=open open R archive=- retention=- search=G",
+	};
+}
+
 function formatEvidenceOrigin(origin: FileOpenOrigin | undefined): string {
 	return origin
 		? `source=Config>${origin.label} scope=${origin.scope}`
@@ -1005,10 +1059,22 @@ function getProcessControlAuditExports(
 	return indexes.processControlAuditExports ?? [];
 }
 
+function getRemoteKnownHostsSelectionAuditExports(
+	indexes: StatusEvidenceIndexes,
+): ConsoleAuditExportPlan[] {
+	return indexes.remoteKnownHostsSelectionAuditExports ?? [];
+}
+
 function getSelectedProcessControlAuditExportIndex(
 	selection: StatusEvidenceSelection,
 ): number {
 	return selection.selectedProcessControlAuditExportIndex ?? 0;
+}
+
+function getSelectedRemoteKnownHostsSelectionAuditExportIndex(
+	selection: StatusEvidenceSelection,
+): number {
+	return selection.selectedRemoteKnownHostsSelectionAuditExportIndex ?? 0;
 }
 
 function getSelectedProcessControlAuditExport(
@@ -1049,6 +1115,11 @@ function getStatusEvidenceEnterAction(kind: StatusEvidenceKind): {
 			return { action: "open-tools-archive", shortcut: "K" };
 		case "process":
 			return { action: "open-process-evidence", shortcut: "F" };
+		case "remote-known-hosts":
+			return {
+				action: "open-remote-known-hosts-evidence",
+				shortcut: "R",
+			};
 	}
 }
 
@@ -1083,6 +1154,7 @@ function getStatusEvidenceSecondaryAction(
 		case "cleanup-archive":
 		case "tools-archive":
 		case "process":
+		case "remote-known-hosts":
 			return undefined;
 	}
 }
@@ -1093,8 +1165,14 @@ function getStatusEvidenceSearchAction(kind: StatusEvidenceKind):
 			shortcut: string;
 	  }
 	| undefined {
-	if (kind !== "process") {
-		return undefined;
+	if (kind === "process") {
+		return { action: "search-process-evidence", shortcut: "G" };
 	}
-	return { action: "search-process-evidence", shortcut: "G" };
+	if (kind === "remote-known-hosts") {
+		return {
+			action: "search-remote-known-hosts-evidence",
+			shortcut: "G",
+		};
+	}
+	return undefined;
 }

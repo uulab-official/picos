@@ -31,7 +31,9 @@ import {
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
+	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
+	createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch,
 	createRemoteKnownHostsSelectionStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
@@ -81,12 +83,15 @@ import {
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestProcessControlAuditExport,
+	getLatestRemoteKnownHostsSelectionHistoryAuditExport,
 	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
 	getLatestTimelineEvidenceTrailAuditExport,
 	getProcessControlAuditExports,
+	getRemoteKnownHostsSelectionHistoryAuditExports,
 	getRemoteKnownHostsSelectionHistoryClipboardPreview,
 	getSelectedProcessControlAuditExport,
+	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
@@ -96,6 +101,7 @@ import {
 	getStatusActivityResultAuditJumpIntentCount,
 	getTimelineEvidenceTrailAuditExports,
 	moveProcessControlAuditExportSelection,
+	moveRemoteKnownHostsSelectionHistoryAuditExportSelection,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultAuditJumpSelection,
@@ -1166,6 +1172,64 @@ describe("Status activity queue", () => {
 			expect(await readFile(plan.path, "utf8")).toContain(
 				"remote known_hosts selection history 1/2 known_hosts selected prod",
 			);
+
+			const index = await readConsoleAuditExportIndex(root);
+			const exports = getRemoteKnownHostsSelectionHistoryAuditExports(index);
+			expect(exports).toEqual([
+				{
+					path: plan.path,
+					content: "",
+					eventCount: 2,
+					query: "remote known_hosts selection history prod",
+					scope: "filtered",
+				},
+			]);
+			expect(
+				getLatestRemoteKnownHostsSelectionHistoryAuditExport(index),
+			).toEqual(exports[0]);
+			expect(
+				getSelectedRemoteKnownHostsSelectionHistoryAuditExport(exports, 3),
+			).toEqual(exports[0]);
+			expect(
+				moveRemoteKnownHostsSelectionHistoryAuditExportSelection(
+					exports,
+					0,
+					"next",
+				),
+			).toBe(0);
+			expect(
+				createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch(
+					exports[0],
+				),
+			).toEqual({
+				filter: "audit",
+				query: "remote known_hosts selection history prod",
+				message:
+					"remote known_hosts selection evidence recovered search picos-audit-filtered-2026-07-01T030000000Z.log",
+			});
+			expect(
+				createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan(exports[0], {
+					baseDir: root,
+					platform: "darwin",
+				}),
+			).toEqual({
+				source: "timeline-export",
+				label:
+					"remote known_hosts selection history export filtered remote known_hosts selection history prod",
+				path: plan.path,
+				risk: "write",
+				privilege: "user",
+				confirmationRequired: true,
+				confirmationPhrase: "open",
+				confirmed: false,
+				enabled: false,
+				reason: "type open to launch external file viewer",
+				adapter: {
+					platform: "darwin",
+					command: "open",
+					args: [plan.path],
+				},
+			});
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
