@@ -1397,7 +1397,7 @@ export function formatStatusActivityCopyIntentRows(
 	const interfaceConfirmationRows = selectedInterfaceConfirmationResult
 		? [
 				`interface evidence selected=${selectedInterfaceConfirmationResultIndex + 1}/${statusActivityResultHistory.length}`,
-				`interface evidence target=${selectedInterfaceConfirmationResult.message}${interfaceConfirmationTimelineSearch ? ` query=${interfaceConfirmationTimelineSearch.query}` : ""}`,
+				`interface evidence target=${formatInterfaceConfirmationActivityResultTarget(selectedInterfaceConfirmationResult)}${interfaceConfirmationTimelineSearch ? ` query=${interfaceConfirmationTimelineSearch.query}` : ""}`,
 				`interface evidence detail ${selectedInterfaceConfirmationResult.detail ?? "-"} actions=y copy e export I timeline`,
 			]
 		: [];
@@ -1456,7 +1456,7 @@ export function formatStatusActivityCopyIntentRows(
 			? " · handoff open tracked"
 			: "";
 	const interfaceConfirmationControls = selectedInterfaceConfirmationResult
-		? " · interface evidence"
+		? " · interface evidence target · palette interface evidence"
 		: "";
 	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${processControlAuditExportControls}${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	const controlsWithRemoteKnownHosts = controls.replace(
@@ -1508,6 +1508,39 @@ function getSelectedInterfaceConfirmationActivityResult(
 		result.action === "interface-confirmation"
 		? result
 		: undefined;
+}
+
+function formatInterfaceConfirmationActivityResultTarget(
+	result: StatusActivityResult,
+): string {
+	const match = result.message.match(
+		/^interface confirmation (confirmed-blocked|rejected) (interface\.(?:enable|disable))(?:\s|$)/,
+	);
+	const status = match?.[1];
+	const actionId = match?.[2];
+	if (!status || !actionId) {
+		return result.message;
+	}
+	const targetMatch = result.detail?.match(/(?:^| )target="((?:\\.|[^"\\])*)"/);
+	const target = targetMatch?.[1]
+		? unquoteAuditAttributeValue(targetMatch[1])
+		: undefined;
+	return `${actionId}:${status}${target ? ` target=${quoteAuditAttribute(target)}` : ""}`;
+}
+
+function unquoteAuditAttributeValue(value: string): string {
+	let unquoted = "";
+	for (let index = 0; index < value.length; index += 1) {
+		const current = value[index];
+		const next = value[index + 1];
+		if (current === "\\" && (next === "\\" || next === '"')) {
+			unquoted += next;
+			index += 1;
+			continue;
+		}
+		unquoted += current;
+	}
+	return unquoted;
 }
 
 export type StatusActivityRemoteKnownHostsEvidenceHandoffOpenIntent = {

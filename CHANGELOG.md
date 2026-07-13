@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Status Activity copy-intent shelves now show compact interface evidence target tokens such as `interface.disable:confirmed-blocked target="Wi-Fi"` and advertise the `palette interface evidence` recovery path.
 - Command palette now exposes recovered interface confirmation evidence select/open/search actions, with selected export previews, Status Activity result rows, and searchable Timeline audit recovery while interface enable/disable execution remains disabled.
 - Interface confirmation audit exports now appear as a dedicated Status Evidence family, with `Tab`/`1..9` focus, `[`/`]` item movement, locked `enter`/`I` file-open confirmation, and `G` Timeline audit search recovery for blocked or rejected interface control confirmations.
 - Selected interface confirmation audit attempts can now be copied, exported, and replayed from Status Activity copy-intent handoffs, with compact `interface evidence` rows and Timeline audit-search recovery while interface execution remains disabled.
