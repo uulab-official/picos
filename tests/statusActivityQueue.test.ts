@@ -1727,8 +1727,9 @@ describe("Status activity queue", () => {
 			"remote known_hosts evidence selected=1/1",
 			"remote known_hosts evidence target=picos-audit-filtered-2026-07-01T060000000Z.log query=remote known_hosts selection history prod events=2",
 			"remote known_hosts evidence detail id:prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log actions=R open G search y copy e export",
+			"remote known_hosts evidence handoff y/e palette=? known_hosts evidence copy/export",
 			"no Status activity copy intents yet",
-			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · remote known_hosts evidence · g Timeline audit search",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · remote known_hosts evidence · palette known_hosts copy/export · g Timeline audit search",
 		]);
 		expect(
 			formatStatusActivityCopyIntentRows(

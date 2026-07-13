@@ -1235,6 +1235,7 @@ export function formatStatusActivityCopyIntentRows(
 					`remote known_hosts evidence selected=${normalizedRemoteKnownHostsSelectionAuditExportIndex + 1}/${remoteKnownHostsSelectionAuditExports.length}`,
 					`remote known_hosts evidence target=${basename(selectedRemoteKnownHostsSelectionAuditExport.path)}${selectedRemoteKnownHostsSelectionAuditExport.query ? ` query=${selectedRemoteKnownHostsSelectionAuditExport.query}` : ""} events=${selectedRemoteKnownHostsSelectionAuditExport.eventCount}`,
 					`remote known_hosts evidence detail id:${formatRemoteKnownHostsSelectionHistoryEvidenceTarget(selectedRemoteKnownHostsSelectionAuditExport)} path=${selectedRemoteKnownHostsSelectionAuditExport.path} actions=R open G search y copy e export`,
+					"remote known_hosts evidence handoff y/e palette=? known_hosts evidence copy/export",
 				]
 			: [];
 	const rowsBeforeHistory = [
@@ -1278,7 +1279,7 @@ export function formatStatusActivityCopyIntentRows(
 		: "";
 	const remoteKnownHostsSelectionAuditExportControls =
 		selectedRemoteKnownHostsSelectionAuditExport
-			? " · remote known_hosts evidence"
+			? " · remote known_hosts evidence · palette known_hosts copy/export"
 			: "";
 	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${processControlAuditExportControls}${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	const controlsWithRemoteKnownHosts = controls.replace(
