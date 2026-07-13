@@ -2,7 +2,7 @@
 
 ## v0.4.309 - Remote Known Hosts Evidence Handoff Browser
 
-Status: in progress on `codex/picos-v0.4.309-known-hosts-evidence-handoff-browser`, stacked on draft PR [#383](https://github.com/uulab-official/picos/pull/383).
+Status: draft PR [#384](https://github.com/uulab-official/picos/pull/384) on `codex/picos-v0.4.309-known-hosts-evidence-handoff-browser`, stacked on draft PR [#383](https://github.com/uulab-official/picos/pull/383).
 
 Goal: make known_hosts evidence copy/export handoffs reachable from the Status copy-intent shelf without cycling the full result history.
 
