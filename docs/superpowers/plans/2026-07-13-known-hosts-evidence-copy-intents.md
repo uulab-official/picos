@@ -46,4 +46,6 @@
 
 - [x] Document the copy-intent shelf rows and known_hosts replay target tokens.
 - [x] Run `bun run verify` and `bun run release:check`.
-- [ ] Commit, push, and open a draft PR stacked on v0.4.301.
+- [x] Commit, push, and open a draft PR stacked on v0.4.301.
+
+Result: Draft PR [#377](https://github.com/uulab-official/picos/pull/377) opened on 2026-07-13, stacked on `codex/picos-v0.4.301-known-hosts-evidence-palette`.

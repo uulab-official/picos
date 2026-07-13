@@ -2,7 +2,7 @@
 
 ## v0.4.302 - Remote Known Hosts Evidence Copy Intents
 
-Status: in progress on `codex/picos-v0.4.302-known-hosts-evidence-copy-intents`.
+Status: draft PR [#377](https://github.com/uulab-official/picos/pull/377) on `codex/picos-v0.4.302-known-hosts-evidence-copy-intents`.
 
 Goal: surface recovered Remotes known_hosts evidence inside the Status Activity copy-intent shelf so trust evidence can be copied, exported, and replayed like process evidence.
 
