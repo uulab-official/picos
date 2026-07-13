@@ -471,6 +471,7 @@ import {
 	createRemoteHostKeyEvidenceInputStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
+	createRemoteKnownHostsEvidenceHandoffOpenCopyIntent,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
 	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
@@ -5529,8 +5530,16 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const intent = createStatusActivityResultTimelineSearchIntent(
-				selected.jump,
+			const filtered = filterTimelineEvents(
+				events,
+				selected.jump.query,
+				selected.jump.filter,
+			);
+			const intent = createRemoteKnownHostsEvidenceHandoffOpenCopyIntent(
+				selected,
+				{
+					matches: filtered.length,
+				},
 			);
 			setStatusActivityCopyIntentHistory((current) =>
 				appendStatusActivityCopyIntentHistory(current, intent),
@@ -5539,11 +5548,6 @@ export function App(): React.ReactElement {
 			if (intent) {
 				log("info", intent.auditMessage);
 			}
-			const filtered = filterTimelineEvents(
-				events,
-				selected.jump.query,
-				selected.jump.filter,
-			);
 			setTimelineFilter(selected.jump.filter);
 			setTimelineSearchQuery(selected.jump.query);
 			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));

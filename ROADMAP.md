@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.312 - Remote Known Hosts Handoff Open Copy Intent
+
+Status: in progress on `codex/picos-v0.4.312-known-hosts-handoff-open-copy-intent`, stacked on draft PR [#386](https://github.com/uulab-official/picos/pull/386).
+
+Goal: keep command-palette Remotes known_hosts handoff-open replays visible and repeatable inside the Status copy-intent shelf.
+
+- Palette-triggered `known_hosts handoff open` now records a dedicated `remote known_hosts handoff open` copy-intent row.
+- The row preserves target id, copy/export action, source Status result row, selected handoff cursor, match count, and exact Timeline audit query.
+- `g Timeline` on the selected handoff-open intent searches the original audit query instead of the human-readable copy-intent label.
+- `v replay` opens the locked clipboard preview for the same handoff-open record, keeping the repeat path visible after returning from Timeline.
+- The Status copy-intent shelf now shows a compact latest handoff-open summary above history rows.
+- Tests cover intent creation, latest summary recovery, copy-intent shelf rendering, and Timeline search replay.
+- Next: compare lazyifconfig network panel affordances and add the next missing network/OS control surface as a small read-first slice.
+
 ## v0.4.311 - Remote Known Hosts Evidence Handoff Palette Open
 
 Status: draft PR [#386](https://github.com/uulab-official/picos/pull/386) on `codex/picos-v0.4.311-known-hosts-handoff-palette-open`, stacked on draft PR [#385](https://github.com/uulab-official/picos/pull/385).
@@ -12,7 +26,7 @@ Goal: make selected Remotes known_hosts evidence copy/export handoff replay reac
 - Palette dispatch replays the selected handoff Timeline search directly without depending on asynchronous row-selection updates.
 - Dispatch records the same Status Activity result-jump audit row used by palette-opened Timeline result jumps, preserving the existing replay trail.
 - Tests cover action catalog counts, palette discovery, selected/unavailable preview rows, and read-only action listing.
-- Next: add a Status copy-intent row that summarizes the last handoff-open replay result so repeat opens are visible even after returning from Timeline.
+- Next: completed by v0.4.312 Status copy-intent tracking for handoff-open replay results.
 
 ## v0.4.310 - Remote Known Hosts Evidence Handoff Palette Select
 

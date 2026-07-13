@@ -1291,6 +1291,15 @@ export function formatStatusActivityCopyIntentRows(
 					`remote known_hosts handoff detail query=${selectedRemoteKnownHostsEvidenceHandoff.jump.query} H select`,
 				]
 			: [];
+	const latestRemoteKnownHostsEvidenceHandoffOpenIntent =
+		getLatestRemoteKnownHostsEvidenceHandoffOpenIntent(history);
+	const remoteKnownHostsEvidenceHandoffOpenRows =
+		latestRemoteKnownHostsEvidenceHandoffOpenIntent
+			? [
+					`remote known_hosts handoff open target=id:${latestRemoteKnownHostsEvidenceHandoffOpenIntent.id} action=${latestRemoteKnownHostsEvidenceHandoffOpenIntent.action} row=${latestRemoteKnownHostsEvidenceHandoffOpenIntent.historyIndex + 1} matches=${latestRemoteKnownHostsEvidenceHandoffOpenIntent.matches} selected=${latestRemoteKnownHostsEvidenceHandoffOpenIntent.selected + 1}/${latestRemoteKnownHostsEvidenceHandoffOpenIntent.total}`,
+					`remote known_hosts handoff open detail query=${latestRemoteKnownHostsEvidenceHandoffOpenIntent.jump.query} g Timeline v replay`,
+				]
+			: [];
 	const rowsBeforeHistory = [
 		...exportRows,
 		...(freshResultJump && auditJumpActionHint === "fresh"
@@ -1304,6 +1313,7 @@ export function formatStatusActivityCopyIntentRows(
 		...processControlAuditExportRows,
 		...remoteKnownHostsSelectionAuditExportRows,
 		...remoteKnownHostsEvidenceHandoffRows,
+		...remoteKnownHostsEvidenceHandoffOpenRows,
 		...formatStatusActivityToolsEvidenceSearchRecoveryRows(
 			toolsEvidenceSearchRecovery,
 			selectedToolsEvidenceSearchMatchIndex,
@@ -1339,10 +1349,14 @@ export function formatStatusActivityCopyIntentRows(
 		selectedRemoteKnownHostsEvidenceHandoff
 			? " · H handoff select · I handoff search"
 			: "";
+	const remoteKnownHostsEvidenceHandoffOpenControls =
+		latestRemoteKnownHostsEvidenceHandoffOpenIntent
+			? " · handoff open tracked"
+			: "";
 	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${processControlAuditExportControls}${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	const controlsWithRemoteKnownHosts = controls.replace(
 		" · g Timeline audit search",
-		`${remoteKnownHostsSelectionAuditExportControls}${remoteKnownHostsEvidenceHandoffControls} · g Timeline audit search`,
+		`${remoteKnownHostsSelectionAuditExportControls}${remoteKnownHostsEvidenceHandoffControls}${remoteKnownHostsEvidenceHandoffOpenControls} · g Timeline audit search`,
 	);
 	if (history.length === 0) {
 		return [
@@ -1372,6 +1386,16 @@ export type StatusActivityRemoteKnownHostsEvidenceHandoffSelection = {
 	historyIndex: number;
 	id: string;
 	jump: StatusActivityCopyIntentTimelineSearch;
+	selected: number;
+	total: number;
+};
+
+export type StatusActivityRemoteKnownHostsEvidenceHandoffOpenIntent = {
+	action: "copy" | "export";
+	historyIndex: number;
+	id: string;
+	jump: StatusActivityCopyIntentTimelineSearch;
+	matches: number;
 	selected: number;
 	total: number;
 };
@@ -1419,6 +1443,51 @@ export function getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(
 		selected,
 		total: indexes.length,
 	};
+}
+
+export function createRemoteKnownHostsEvidenceHandoffOpenCopyIntent(
+	selection: StatusActivityRemoteKnownHostsEvidenceHandoffSelection | undefined,
+	options: {
+		matches?: number;
+	} = {},
+): StatusActivityCopyIntentRecord | undefined {
+	if (!selection) {
+		return undefined;
+	}
+	const matches = Math.max(0, Math.floor(options.matches ?? 0));
+	return createStatusActivityCopyIntentRecord(
+		createClipboardPreview({
+			source: "status-activity",
+			label: [
+				"remote known_hosts handoff open",
+				`id:${selection.id}`,
+				`action=${selection.action}`,
+				`row=${selection.historyIndex + 1}`,
+				`matches=${matches}`,
+				`selected=${selection.selected + 1}/${selection.total}`,
+			].join(" "),
+			copyText: [
+				selection.jump.query,
+				selection.jump.message,
+				`filter=${selection.jump.filter}`,
+				"handoff=open",
+				`row=${selection.historyIndex + 1}`,
+				`matches=${matches}`,
+			].join("\n"),
+		}),
+	);
+}
+
+export function getLatestRemoteKnownHostsEvidenceHandoffOpenIntent(
+	history: StatusActivityCopyIntentRecord[],
+): StatusActivityRemoteKnownHostsEvidenceHandoffOpenIntent | undefined {
+	for (const record of history) {
+		const parsed = parseRemoteKnownHostsEvidenceHandoffOpenIntent(record);
+		if (parsed) {
+			return parsed;
+		}
+	}
+	return undefined;
 }
 
 function formatStatusActivityResultAuditJumpTargetToken(
@@ -1560,6 +1629,49 @@ function parseRemoteKnownHostsSelectionHistoryEvidenceAuditQuery(
 		return undefined;
 	}
 	return { action, id };
+}
+
+function parseRemoteKnownHostsEvidenceHandoffOpenIntent(
+	record: StatusActivityCopyIntentRecord,
+): StatusActivityRemoteKnownHostsEvidenceHandoffOpenIntent | undefined {
+	const labelMatch = record.label.match(
+		/^remote known_hosts handoff open id:([A-Za-z0-9._-]{1,64}) action=(copy|export) row=(\d+) matches=(\d+) selected=(\d+)\/(\d+)$/,
+	);
+	if (!labelMatch) {
+		return undefined;
+	}
+	const [, id, action, row, matches, selected, total] = labelMatch;
+	const [query, message, filterLine] = record.copyText.split(/\r?\n/);
+	if (!id || !action || !row || !matches || !selected || !total || !query) {
+		return undefined;
+	}
+	if (action !== "copy" && action !== "export") {
+		return undefined;
+	}
+	const target = parseRemoteKnownHostsSelectionHistoryEvidenceAuditQuery(query);
+	if (
+		!target ||
+		target.id !== id ||
+		target.action !== action ||
+		filterLine !== "filter=audit"
+	) {
+		return undefined;
+	}
+	return {
+		action,
+		historyIndex: Math.max(0, Number.parseInt(row, 10) - 1),
+		id,
+		jump: {
+			filter: "audit",
+			query,
+			message:
+				message ||
+				`status activity result timeline search palette remote known_hosts evidence ${id}`,
+		},
+		matches: Math.max(0, Number.parseInt(matches, 10)),
+		selected: Math.max(0, Number.parseInt(selected, 10) - 1),
+		total: Math.max(1, Number.parseInt(total, 10)),
+	};
 }
 
 function getRemoteKnownHostsSelectionHistoryEvidenceResultDetailTarget(
@@ -1998,6 +2110,14 @@ export function createStatusActivityCopyIntentTimelineSearch(
 	const record = history[selected];
 	if (!record) {
 		return undefined;
+	}
+	const handoffOpenIntent =
+		parseRemoteKnownHostsEvidenceHandoffOpenIntent(record);
+	if (handoffOpenIntent) {
+		return {
+			...handoffOpenIntent.jump,
+			message: `status activity copy intent timeline search remote known_hosts handoff open ${handoffOpenIntent.id} action=${handoffOpenIntent.action}`,
+		};
 	}
 	return {
 		filter: "audit",
