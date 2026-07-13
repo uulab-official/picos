@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.327 - Interface Audit Handoff
+
+Status: draft PR [#402](https://github.com/uulab-official/picos/pull/402) on `codex/picos-v0.4.327-interface-audit-handoff`, stacked on draft PR [#401](https://github.com/uulab-official/picos/pull/401).
+
+Goal: make interface confirmation audits copy/export handoff targets from Status Activity.
+
+- Selected interface confirmation result rows now show compact `interface evidence` rows in Status Activity copy intents.
+- Pressing `e` in Status can export the selected interface confirmation audit as a picos-owned selected audit log when no copy-intent row is selected.
+- The export preserves action id, target label, expected/received phrase, confirmed state, blockers, command preview, and the reusable Timeline audit-search query.
+- Timeline recovery still uses the v0.4.326 `interface confirmation ... status=...` search path, so `I`, copy, and export stay aligned.
+- No adapter execution, dry-run execution, privileged calls, or OS mutation is added.
+- Tests cover selected interface confirmation copy preview rows, copy-intent shelf rows, and selected audit-export planning.
+- Next: add archived evidence indexing/open controls for interface confirmation audit exports or merge this handoff into the Status Evidence family selector.
+
 ## v0.4.326 - Interface Audit Recovery
 
 Status: draft PR [#401](https://github.com/uulab-official/picos/pull/401) on `codex/picos-v0.4.326-interface-audit-recovery`, stacked on draft PR [#400](https://github.com/uulab-official/picos/pull/400).
@@ -11,7 +25,7 @@ Goal: make blocked/rejected interface confirmation attempts recoverable from Sta
 - Status Activity result-history rows now create reusable Timeline audit-search jumps such as `interface confirmation interface.disable status=confirmed-blocked`.
 - Interfaces still do not execute adapter commands, dry-runs, privileged calls, or OS mutations.
 - Tests cover result rows and Timeline search recovery for confirmed-blocked interface confirmations.
-- Next: add Status Evidence export/copy handoffs for interface confirmation audit attempts.
+- Next: completed by v0.4.327 Status Activity copy/export handoffs for interface confirmation audit attempts.
 
 ## v0.4.325 - Interface Confirmation Audit Prompt
 

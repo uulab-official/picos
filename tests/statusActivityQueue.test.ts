@@ -26,6 +26,7 @@ import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createInterfaceConfirmationAuditExportPlan,
 	createInterfaceConfirmationStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
@@ -761,6 +762,76 @@ describe("Status activity queue", () => {
 			message:
 				"status activity result timeline search interface confirmation interface.disable confirmed-blocked",
 		});
+		expect(
+			getSelectedStatusActivityResultHistoryClipboardPreview([result], 0),
+		).toMatchObject({
+			source: "status-activity",
+			label: "status activity timeline interface-confirmation",
+			copyText:
+				'timeline interface-confirmation\ninterface confirmation confirmed-blocked interface.disable target=Wi-Fi\naction=disable target="Wi-Fi" expected="disable interface" received="disable interface" confirmed=true willExecute=false risk=write privilege=admin reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off"',
+		});
+		expect(
+			formatStatusActivityCopyIntentRows(
+				[],
+				0,
+				undefined,
+				undefined,
+				undefined,
+				[],
+				0,
+				"all",
+				undefined,
+				0,
+				undefined,
+				0,
+				undefined,
+				undefined,
+				0,
+				1,
+				undefined,
+				0,
+				[],
+				0,
+				[],
+				0,
+				[result],
+				0,
+			),
+		).toEqual([
+			"STATUS ACTIVITY COPY INTENTS count=0",
+			"interface evidence selected=1/1",
+			"interface evidence target=interface confirmation confirmed-blocked interface.disable target=Wi-Fi query=interface confirmation interface.disable status=confirmed-blocked",
+			'interface evidence detail action=disable target="Wi-Fi" expected="disable interface" received="disable interface" confirmed=true willExecute=false risk=write privilege=admin reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off" actions=y copy e export I timeline',
+			"no Status activity copy intents yet",
+			"controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export · interface evidence · g Timeline audit search",
+		]);
+		expect(
+			createInterfaceConfirmationAuditExportPlan([result], 0, {
+				baseDir: "/Users/bonjin/.config/picos",
+				generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+			}),
+		).toEqual({
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T030000000Z.log",
+			content: [
+				"# picos audit log",
+				"generatedAt=2026-07-01T03:00:00.000Z",
+				"scope=selected",
+				"query=interface confirmation interface.disable status=confirmed-blocked",
+				"events=1",
+				"",
+				'[03:00:00] WARN interface confirmation audit interface confirmation confirmed-blocked interface.disable target=Wi-Fi detail="action=disable target=\\"Wi-Fi\\" expected=\\"disable interface\\" received=\\"disable interface\\" confirmed=true willExecute=false risk=write privilege=admin reason=execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled command=\\"sudo networksetup -setnetworkserviceenabled Wi-Fi off\\"" timeline="interface confirmation interface.disable status=confirmed-blocked"',
+				"",
+			].join("\n"),
+			eventCount: 1,
+			query:
+				"interface confirmation interface.disable status=confirmed-blocked",
+			scope: "selected",
+		});
+		expect(
+			createInterfaceConfirmationAuditExportPlan([], 0, {
+				baseDir: "/Users/bonjin/.config/picos",
+			}),
+		).toBeUndefined();
 	});
 
 	test("creates status activity results for blocked remote host trust review confirmations", () => {

@@ -899,6 +899,56 @@ export async function writeRemoteKnownHostsSelectionHistoryAuditExport(
 	return writeConsoleAuditExport(plan);
 }
 
+export function createInterfaceConfirmationAuditExportPlan(
+	history: StatusActivityResult[],
+	selectedIndex: number,
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+	},
+): ConsoleAuditExportPlan | undefined {
+	const result = getSelectedInterfaceConfirmationActivityResult(
+		history,
+		selectedIndex,
+	);
+	if (!result) {
+		return undefined;
+	}
+	const generatedAt = options.generatedAt ?? new Date();
+	const timelineSearch = createStatusActivityResultTimelineSearch([result], 0);
+	return createConsoleAuditExportPlan(
+		[
+			{
+				id: "interface-confirmation-audit-1",
+				level: result.message.includes("rejected") ? "fail" : "warn",
+				time: formatAuditEventTime(generatedAt),
+				message: [
+					"interface confirmation audit",
+					result.message,
+					result.detail ? `detail=${quoteAuditAttribute(result.detail)}` : "",
+					timelineSearch
+						? `timeline=${quoteAuditAttribute(timelineSearch.query)}`
+						: "",
+				]
+					.filter(Boolean)
+					.join(" "),
+			},
+		],
+		{
+			baseDir: options.baseDir,
+			generatedAt,
+			query: timelineSearch?.query ?? result.message,
+			scope: "selected",
+		},
+	);
+}
+
+export async function writeInterfaceConfirmationAuditExport(
+	plan: ConsoleAuditExportPlan,
+): Promise<ConsoleAuditExportPlan> {
+	return writeConsoleAuditExport(plan);
+}
+
 function isRemoteActivityResult(result: StatusActivityResult): boolean {
 	return (
 		result.source === "timeline" &&
@@ -1325,6 +1375,32 @@ export function formatStatusActivityCopyIntentRows(
 					`remote known_hosts handoff open detail query=${latestRemoteKnownHostsEvidenceHandoffOpenIntent.jump.query} g Timeline v replay`,
 				]
 			: [];
+	const selectedInterfaceConfirmationResult =
+		getSelectedInterfaceConfirmationActivityResult(
+			statusActivityResultHistory,
+			selectedStatusActivityResultHistoryIndex,
+		);
+	const selectedInterfaceConfirmationResultIndex =
+		selectedInterfaceConfirmationResult
+			? getSelectedStatusActivityResultHistoryIndex(
+					statusActivityResultHistory.length,
+					selectedStatusActivityResultHistoryIndex,
+				)
+			: -1;
+	const interfaceConfirmationTimelineSearch =
+		selectedInterfaceConfirmationResult
+			? createStatusActivityResultTimelineSearch(
+					[selectedInterfaceConfirmationResult],
+					0,
+				)
+			: undefined;
+	const interfaceConfirmationRows = selectedInterfaceConfirmationResult
+		? [
+				`interface evidence selected=${selectedInterfaceConfirmationResultIndex + 1}/${statusActivityResultHistory.length}`,
+				`interface evidence target=${selectedInterfaceConfirmationResult.message}${interfaceConfirmationTimelineSearch ? ` query=${interfaceConfirmationTimelineSearch.query}` : ""}`,
+				`interface evidence detail ${selectedInterfaceConfirmationResult.detail ?? "-"} actions=y copy e export I timeline`,
+			]
+		: [];
 	const rowsBeforeHistory = [
 		...exportRows,
 		...(freshResultJump && auditJumpActionHint === "fresh"
@@ -1337,6 +1413,7 @@ export function formatStatusActivityCopyIntentRows(
 		...auditJumpRows,
 		...processControlAuditExportRows,
 		...remoteKnownHostsSelectionAuditExportRows,
+		...interfaceConfirmationRows,
 		...remoteKnownHostsEvidenceHandoffRows,
 		...remoteKnownHostsEvidenceHandoffOpenRows,
 		...formatStatusActivityToolsEvidenceSearchRecoveryRows(
@@ -1378,10 +1455,13 @@ export function formatStatusActivityCopyIntentRows(
 		latestRemoteKnownHostsEvidenceHandoffOpenIntent
 			? " · handoff open tracked"
 			: "";
+	const interfaceConfirmationControls = selectedInterfaceConfirmationResult
+		? " · interface evidence"
+		: "";
 	const controls = `controls=y records intent · </> select · P audit jump · v replay · e export · w Evidence focus · G focus search · K stale search · z open export${processControlAuditExportControls}${trailControls}${resultJumpControls}${toolsRecoveryControls} · g Timeline audit search`;
 	const controlsWithRemoteKnownHosts = controls.replace(
 		" · g Timeline audit search",
-		`${remoteKnownHostsSelectionAuditExportControls}${remoteKnownHostsEvidenceHandoffControls}${remoteKnownHostsEvidenceHandoffOpenControls} · g Timeline audit search`,
+		`${remoteKnownHostsSelectionAuditExportControls}${remoteKnownHostsEvidenceHandoffControls}${remoteKnownHostsEvidenceHandoffOpenControls}${interfaceConfirmationControls} · g Timeline audit search`,
 	);
 	if (history.length === 0) {
 		return [
@@ -1414,6 +1494,21 @@ export type StatusActivityRemoteKnownHostsEvidenceHandoffSelection = {
 	selected: number;
 	total: number;
 };
+
+function getSelectedInterfaceConfirmationActivityResult(
+	history: StatusActivityResult[],
+	selectedIndex = 0,
+): StatusActivityResult | undefined {
+	const selected = getSelectedStatusActivityResultHistoryIndex(
+		history.length,
+		selectedIndex,
+	);
+	const result = history[selected];
+	return result?.source === "timeline" &&
+		result.action === "interface-confirmation"
+		? result
+		: undefined;
+}
 
 export type StatusActivityRemoteKnownHostsEvidenceHandoffOpenIntent = {
 	action: "copy" | "export";
