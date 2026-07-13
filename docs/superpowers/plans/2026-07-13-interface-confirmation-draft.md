@@ -13,7 +13,7 @@ Show the exact confirmation phrase and blocked confirmation state inside locked 
 - [x] Add preflight confirmation requirement rows beside dry-run policy rows.
 - [x] Cover proposal, workspace, and palette rendering with tests.
 - [x] Run focused tests, lint, typecheck, verify, and release checks.
-- [ ] Publish a stacked draft PR on top of v0.4.323.
+- [x] Publish a stacked draft PR on top of v0.4.323.
 
 ## Safety Boundary
 

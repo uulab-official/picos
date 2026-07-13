@@ -2,7 +2,7 @@
 
 ## v0.4.324 - Interface Confirmation Draft
 
-Status: in progress on `codex/picos-v0.4.324-interface-confirmation-draft`, stacked on draft PR [#398](https://github.com/uulab-official/picos/pull/398).
+Status: draft PR [#399](https://github.com/uulab-official/picos/pull/399) on `codex/picos-v0.4.324-interface-confirmation-draft`, stacked on draft PR [#398](https://github.com/uulab-official/picos/pull/398).
 
 Goal: make locked interface enable/disable proposals show the exact confirmation phrase and blocked confirmation state before any prompt or execution path exists.
 
