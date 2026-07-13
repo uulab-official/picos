@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	createInterfaceConfirmationDraft,
 	createInterfaceControlTarget,
 	createInterfaceDryRunPreview,
 	createInterfaceStateProposal,
@@ -68,6 +69,20 @@ describe("interface state proposal preflight", () => {
 					"adapter-dry-run-unavailable",
 				],
 			},
+			confirmationDraft: {
+				status: "required",
+				phrase: "disable interface",
+				typed: "",
+				confirmed: false,
+				willExecute: false,
+				targetLabel: "<service-for-en0>",
+				reason: "confirmation-not-opened",
+				blockers: [
+					"confirmation-required",
+					"interface-execution-disabled",
+					"mutation-controls-disabled",
+				],
+			},
 			currentStatus: "connected",
 			desiredStatus: "disconnected",
 			preflight: [
@@ -76,6 +91,7 @@ describe("interface state proposal preflight", () => {
 				"willModify=interface-link-state serviceOrAdapter=network-service controlTarget=<service-for-en0>",
 				"targetResolution=requires networksetup hardware-port lookup for BSD device en0",
 				"requires=selected-interface admin confirmation dry-run-policy",
+				"confirmationRequired=disable interface confirmed=false willExecute=false",
 				"adapterDryRun=unavailable policy=proposal-only willExecute=false",
 				"dryRunBlockers=interface-execution-disabled,mutation-controls-disabled,adapter-dry-run-unavailable",
 				"rollback=restore previous interface state from current snapshot",
@@ -93,12 +109,16 @@ describe("interface state proposal preflight", () => {
 			"dryRun status=blocked policy=proposal-only adapterDryRun=unavailable willExecute=false",
 			'dryRunCommand=sudo networksetup -setnetworkserviceenabled "<service-for-en0>" off',
 			"dryRunReason=interface-execution-disabled blockers=interface-execution-disabled,mutation-controls-disabled,adapter-dry-run-unavailable",
+			'confirmation status=required phrase=disable interface typed="" confirmed=false',
+			"confirmationTarget=<service-for-en0> willExecute=false",
+			"confirmationReason=confirmation-not-opened blockers=confirmation-required,interface-execution-disabled,mutation-controls-disabled",
 			"PREFLIGHT",
 			"scope=interface target=en0",
 			"currentStatus=connected desiredStatus=disconnected primary=yes platform=darwin",
 			"willModify=interface-link-state serviceOrAdapter=network-service controlTarget=<service-for-en0>",
 			"targetResolution=requires networksetup hardware-port lookup for BSD device en0",
 			"requires=selected-interface admin confirmation dry-run-policy",
+			"confirmationRequired=disable interface confirmed=false willExecute=false",
 			"adapterDryRun=unavailable policy=proposal-only willExecute=false",
 			"dryRunBlockers=interface-execution-disabled,mutation-controls-disabled,adapter-dry-run-unavailable",
 			"rollback=restore previous interface state from current snapshot",
@@ -115,6 +135,11 @@ describe("interface state proposal preflight", () => {
 		expect(enableProposal.desiredStatus).toBe("connected");
 		expect(enableProposal.dryRunPreview).toMatchObject({
 			adapterDryRun: "unavailable",
+			willExecute: false,
+		});
+		expect(enableProposal.confirmationDraft).toMatchObject({
+			phrase: "enable interface",
+			confirmed: false,
 			willExecute: false,
 		});
 
@@ -166,6 +191,43 @@ describe("interface state proposal preflight", () => {
 			source: "networksetup-hardware-port-map",
 			commandPreview: "sudo networksetup -setnetworkserviceenabled Wi-Fi on",
 			resolution: "mapped BSD device en0 to network service Wi-Fi",
+		});
+	});
+
+	test("creates exact confirmation drafts without enabling execution", () => {
+		const target = createInterfaceStateProposalTargetFixture();
+		const controlTarget = createInterfaceControlTarget(target, "disable", {
+			platform: "darwin",
+			macosServiceNamesByDevice: { en0: "Wi-Fi" },
+		});
+
+		expect(createInterfaceConfirmationDraft("disable", controlTarget)).toEqual({
+			status: "required",
+			phrase: "disable interface",
+			typed: "",
+			confirmed: false,
+			willExecute: false,
+			targetLabel: "Wi-Fi",
+			reason: "confirmation-not-opened",
+			blockers: [
+				"confirmation-required",
+				"interface-execution-disabled",
+				"mutation-controls-disabled",
+			],
+		});
+		expect(createInterfaceConfirmationDraft("enable", undefined)).toEqual({
+			status: "required",
+			phrase: "enable interface",
+			typed: "",
+			confirmed: false,
+			willExecute: false,
+			targetLabel: "-",
+			reason: "confirmation-not-opened",
+			blockers: [
+				"confirmation-required",
+				"interface-execution-disabled",
+				"mutation-controls-disabled",
+			],
 		});
 	});
 
