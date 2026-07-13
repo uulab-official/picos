@@ -493,6 +493,70 @@ describe("TUI command palette", () => {
 		]);
 	});
 
+	test("finds recovered remote known_hosts evidence actions from the command palette", () => {
+		const state = appendCommandPaletteQuery(
+			openCommandPalette(),
+			"known_hosts evidence",
+		);
+		const actions = getFilteredPaletteActions(getActionCatalog(), state);
+
+		expect(actions.map((action) => action.id)).toEqual(
+			expect.arrayContaining([
+				"status.remoteKnownHostsEvidence.select",
+				"status.remoteKnownHostsEvidence.open",
+				"status.remoteKnownHostsEvidence.search",
+			]),
+		);
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"remote known_hosts evidence search",
+				),
+			).map((action) => action.id),
+		).toContain("status.remoteKnownHostsEvidence.search");
+	});
+
+	test("previews recovered remote known_hosts evidence actions before dispatch", () => {
+		const selectedKnownHostsEvidenceExport: ConsoleAuditExportPlan = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			content: "",
+			eventCount: 2,
+			query: "remote known_hosts selection history prod",
+			scope: "filtered",
+		};
+
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.remoteKnownHostsEvidence.open",
+				),
+				{
+					selectedRemoteKnownHostsEvidenceExport:
+						selectedKnownHostsEvidenceExport,
+					selectedRemoteKnownHostsEvidenceExportIndex: 1,
+					totalRemoteKnownHostsEvidenceExports: 3,
+				},
+			),
+		).toEqual([
+			"selected remote known_hosts evidence 2/3 picos-audit-filtered-2026-07-01T060000000Z.log",
+			"target=prod events=2",
+			"query=remote known_hosts selection history prod",
+			"confirm=file-open path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.remoteKnownHostsEvidence.search",
+				),
+			),
+		).toEqual([
+			"selected remote known_hosts evidence unavailable",
+			"hint=export or recover a Remotes known_hosts selection-history audit log",
+		]);
+	});
+
 	test("finds status result timeline jump actions from the command palette", () => {
 		const state = appendCommandPaletteQuery(
 			openCommandPalette(),

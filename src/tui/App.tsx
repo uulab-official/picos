@@ -475,6 +475,8 @@ import {
 	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch,
+	createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult,
+	createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -506,6 +508,8 @@ import {
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
+	formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage,
+	formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage,
 	formatRemoteKnownHostsSelectionHistoryRows,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -4998,8 +5002,81 @@ export function App(): React.ReactElement {
 		],
 	);
 
-	const jumpSelectedRemoteKnownHostsSelectionEvidenceSearch =
-		useCallback(() => {
+	const getSelectedRemoteKnownHostsSelectionEvidenceResultOptions = useCallback(
+		() => ({
+			selectedIndex: selectedRemoteKnownHostsSelectionAuditExportIndex,
+			total: remoteKnownHostsSelectionAuditExports.length || 1,
+		}),
+		[
+			remoteKnownHostsSelectionAuditExports.length,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
+		],
+	);
+
+	const selectNextRemoteKnownHostsSelectionEvidenceExport = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			setScreen("status");
+			setSelectedStatusEvidenceKind("remote-known-hosts");
+			if (remoteKnownHostsSelectionAuditExports.length <= 1) {
+				log(
+					"warn",
+					"no alternate remote known_hosts selection evidence exports",
+				);
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+							"select",
+						),
+					);
+					recordStatusActivityResult(
+						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+							"select",
+						),
+					);
+				}
+				return;
+			}
+			setSelectedRemoteKnownHostsSelectionAuditExportIndex((current) => {
+				const next =
+					(current + 1 + remoteKnownHostsSelectionAuditExports.length) %
+					remoteKnownHostsSelectionAuditExports.length;
+				const evidence = remoteKnownHostsSelectionAuditExports[next];
+				log(
+					"info",
+					`remote known_hosts evidence selected ${next + 1}/${remoteKnownHostsSelectionAuditExports.length} ${evidence ? basename(evidence.path) : "none"}`,
+				);
+				if (options.origin === "palette") {
+					const resultOptions = {
+						selectedIndex: next,
+						total: remoteKnownHostsSelectionAuditExports.length,
+					};
+					log(
+						"info",
+						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+							"select",
+							evidence,
+							resultOptions,
+						),
+					);
+					recordStatusActivityResult(
+						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+							"select",
+							evidence,
+							resultOptions,
+						),
+					);
+				}
+				return next;
+			});
+		},
+		[log, recordStatusActivityResult, remoteKnownHostsSelectionAuditExports],
+	);
+
+	const jumpSelectedRemoteKnownHostsSelectionEvidenceSearch = useCallback(
+		(options: { origin?: "keyboard" | "palette" | "status-evidence" } = {}) => {
+			const resultOptions =
+				getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
 			const jump =
 				createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch(
 					selectedRemoteKnownHostsSelectionAuditExport,
@@ -5009,6 +5086,32 @@ export function App(): React.ReactElement {
 					"warn",
 					"no remote known_hosts selection evidence export for timeline",
 				);
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+							"search",
+						),
+					);
+					recordStatusActivityResult(
+						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+							"search",
+						),
+					);
+				}
+				if (options.origin === "status-evidence") {
+					log(
+						"info",
+						formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage(
+							"search",
+						),
+					);
+					recordStatusActivityResult(
+						createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
+							"search",
+						),
+					);
+				}
 				return;
 			}
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
@@ -5020,13 +5123,68 @@ export function App(): React.ReactElement {
 				filtered.length ? "info" : "warn",
 				`${jump.message} matches ${filtered.length}`,
 			);
-		}, [events, log, selectedRemoteKnownHostsSelectionAuditExport]);
+			if (options.origin === "palette") {
+				log(
+					"info",
+					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+						"search",
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+						"search",
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					),
+				);
+			}
+			if (options.origin === "status-evidence") {
+				log(
+					"info",
+					formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage(
+						"search",
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
+						"search",
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					),
+				);
+			}
+		},
+		[
+			events,
+			getSelectedRemoteKnownHostsSelectionEvidenceResultOptions,
+			log,
+			recordStatusActivityResult,
+			selectedRemoteKnownHostsSelectionAuditExport,
+		],
+	);
 
-	const openSelectedRemoteKnownHostsSelectionEvidenceExport =
-		useCallback(() => {
+	const openSelectedRemoteKnownHostsSelectionEvidenceExport = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			if (!selectedRemoteKnownHostsSelectionAuditExport) {
 				log("warn", "no remote known_hosts selection evidence export to open");
 				setScreen("status");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+							"open",
+						),
+					);
+					recordStatusActivityResult(
+						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+							"open",
+						),
+					);
+				}
 				return;
 			}
 			const plan = createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan(
@@ -5055,7 +5213,34 @@ export function App(): React.ReactElement {
 				"info",
 				`remote known_hosts selection evidence export open confirmation opened for ${selectedRemoteKnownHostsSelectionAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
 			);
-		}, [auditExportIndex, log, selectedRemoteKnownHostsSelectionAuditExport]);
+			if (options.origin === "palette") {
+				const resultOptions =
+					getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
+				log(
+					"info",
+					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+						"open",
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+						"open",
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					),
+				);
+			}
+		},
+		[
+			auditExportIndex,
+			getSelectedRemoteKnownHostsSelectionEvidenceResultOptions,
+			log,
+			recordStatusActivityResult,
+			selectedRemoteKnownHostsSelectionAuditExport,
+		],
+	);
 
 	const selectNextStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
@@ -5565,6 +5750,24 @@ export function App(): React.ReactElement {
 					jumpSelectedProcessControlEvidenceSearch({ origin: "palette" });
 				}
 
+				if (action.id === "status.remoteKnownHostsEvidence.select") {
+					selectNextRemoteKnownHostsSelectionEvidenceExport({
+						origin: "palette",
+					});
+				}
+
+				if (action.id === "status.remoteKnownHostsEvidence.open") {
+					openSelectedRemoteKnownHostsSelectionEvidenceExport({
+						origin: "palette",
+					});
+				}
+
+				if (action.id === "status.remoteKnownHostsEvidence.search") {
+					jumpSelectedRemoteKnownHostsSelectionEvidenceSearch({
+						origin: "palette",
+					});
+				}
+
 				if (action.id === "status.resultJump.select") {
 					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
 				}
@@ -5646,11 +5849,13 @@ export function App(): React.ReactElement {
 			exportToolHistory,
 			fileRoot,
 			jumpSelectedProcessControlEvidenceSearch,
+			jumpSelectedRemoteKnownHostsSelectionEvidenceSearch,
 			jumpSelectedTimelineEvidenceTrailSearch,
 			log,
 			logProfiles.length,
 			openToolEvidenceSearchPrompt,
 			openSelectedProcessControlEvidenceExport,
+			openSelectedRemoteKnownHostsSelectionEvidenceExport,
 			openSelectedStatusActivityResultTimelineJump,
 			openSelectedStatusActivityToolsEvidenceSearchMatchArchive,
 			openSelectedStatusActivityToolsEvidenceSearchMatchFile,
@@ -5663,6 +5868,7 @@ export function App(): React.ReactElement {
 			remoteProfiles.length,
 			routeFilterPresets.length,
 			selectNextProcessControlEvidenceExport,
+			selectNextRemoteKnownHostsSelectionEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
 			timelineFilter,
@@ -7854,7 +8060,9 @@ export function App(): React.ReactElement {
 				if (
 					evidenceSearchPlan.action === "search-remote-known-hosts-evidence"
 				) {
-					jumpSelectedRemoteKnownHostsSelectionEvidenceSearch();
+					jumpSelectedRemoteKnownHostsSelectionEvidenceSearch({
+						origin: "status-evidence",
+					});
 				}
 				log(
 					"info",
@@ -11265,6 +11473,11 @@ function renderWorkspace(
 				processControlAuditExports,
 				selectedProcessControlAuditExportIndex,
 			);
+		const selectedRemoteKnownHostsSelectionAuditExport =
+			getSelectedRemoteKnownHostsSelectionHistoryAuditExport(
+				remoteKnownHostsSelectionAuditExports,
+				selectedRemoteKnownHostsSelectionAuditExportIndex,
+			);
 		const selectedStatusActivityResultTimelineJump =
 			createStatusActivityResultTimelineSearch(
 				statusActivityResults,
@@ -11329,6 +11542,12 @@ function renderWorkspace(
 						selectedProcessEvidenceExportIndex:
 							selectedProcessControlAuditExportIndex,
 						totalProcessEvidenceExports: processControlAuditExports.length,
+						selectedRemoteKnownHostsEvidenceExport:
+							selectedRemoteKnownHostsSelectionAuditExport,
+						selectedRemoteKnownHostsEvidenceExportIndex:
+							selectedRemoteKnownHostsSelectionAuditExportIndex,
+						totalRemoteKnownHostsEvidenceExports:
+							remoteKnownHostsSelectionAuditExports.length,
 						selectedStatusActivityResultTimelineJump,
 						selectedStatusActivityResultTimelineJumpIndex:
 							selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,

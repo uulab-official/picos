@@ -34,6 +34,8 @@ import {
 	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch,
+	createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult,
+	createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult,
 	createRemoteKnownHostsSelectionStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
@@ -66,6 +68,8 @@ import {
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
+	formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage,
+	formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage,
 	formatRemoteKnownHostsSelectionHistoryRows,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -3100,6 +3104,125 @@ describe("Status activity queue", () => {
 		expect(formatProcessControlEvidenceStatusAuditMessage("search")).toBe(
 			'status evidence process audit action=search status=unavailable reason="no recovered process-control evidence export selected"',
 		);
+	});
+
+	test("creates status activity results for remote known_hosts evidence actions", () => {
+		const knownHostsEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			content: "",
+			eventCount: 2,
+			query: "remote known_hosts selection history prod",
+			scope: "filtered" as const,
+		};
+
+		const result =
+			createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+				"search",
+				knownHostsEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			);
+
+		expect(result).toEqual({
+			source: "evidence",
+			action: "remote-known-hosts-evidence",
+			message:
+				"palette remote known_hosts evidence search 2/3 picos-audit-filtered-2026-07-01T060000000Z.log",
+			detail:
+				"target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+		});
+		expect(formatStatusActivityResultRows(result)).toEqual([
+			"STATUS ACTIVITY RESULT source=evidence action=remote-known-hosts-evidence",
+			"> palette remote known_hosts evidence search 2/3 picos-audit-filtered-2026-07-01T060000000Z.log",
+			"  target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+		]);
+		expect(
+			createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+				"open",
+				undefined,
+			),
+		).toEqual({
+			source: "evidence",
+			action: "remote-known-hosts-evidence",
+			message: "palette remote known_hosts evidence open unavailable",
+			detail:
+				"no recovered remote known_hosts selection-history export selected",
+		});
+		expect(
+			formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+				"search",
+				knownHostsEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toBe(
+			'palette remote known_hosts evidence audit action=search selected=2/3 target="prod" label="picos-audit-filtered-2026-07-01T060000000Z.log" query="remote known_hosts selection history prod" path="/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log"',
+		);
+		expect(
+			formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage("open"),
+		).toBe(
+			'palette remote known_hosts evidence audit action=open status=unavailable reason="no recovered remote known_hosts selection-history export selected"',
+		);
+		expect(
+			createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
+				"search",
+				knownHostsEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toEqual({
+			source: "evidence",
+			action: "remote-known-hosts-evidence",
+			message:
+				"status evidence remote known_hosts search 2/3 picos-audit-filtered-2026-07-01T060000000Z.log",
+			detail:
+				"target=prod query=remote known_hosts selection history prod path=/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+		});
+		expect(
+			formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage(
+				"search",
+				knownHostsEvidence,
+				{
+					selectedIndex: 1,
+					total: 3,
+				},
+			),
+		).toBe(
+			'status evidence remote known_hosts audit action=search selected=2/3 target="prod" label="picos-audit-filtered-2026-07-01T060000000Z.log" query="remote known_hosts selection history prod" path="/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log"',
+		);
+	});
+
+	test("creates reusable Timeline jumps from remote known_hosts evidence search results", () => {
+		const knownHostsEvidence = {
+			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+			content: "",
+			eventCount: 2,
+			query: "remote known_hosts selection history prod",
+			scope: "filtered" as const,
+		};
+		const result =
+			createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
+				"search",
+				knownHostsEvidence,
+				{
+					selectedIndex: 0,
+					total: 1,
+				},
+			);
+
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query:
+				'status evidence remote known_hosts audit action=search target="prod"',
+			message:
+				"status activity result timeline search status remote known_hosts evidence prod",
+		});
 	});
 
 	test("creates reusable Timeline jumps from Status Evidence process search results", () => {

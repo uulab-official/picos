@@ -150,6 +150,9 @@ export type CommandPalettePreviewContext = {
 	selectedProcessEvidenceExport?: ConsoleAuditExportPlan;
 	selectedProcessEvidenceExportIndex?: number;
 	totalProcessEvidenceExports?: number;
+	selectedRemoteKnownHostsEvidenceExport?: ConsoleAuditExportPlan;
+	selectedRemoteKnownHostsEvidenceExportIndex?: number;
+	totalRemoteKnownHostsEvidenceExports?: number;
 	selectedStatusActivityResultTimelineJump?: StatusActivityCopyIntentTimelineSearch;
 	selectedStatusActivityResultTimelineJumpIndex?: number;
 	totalStatusActivityResultTimelineJumps?: number;
@@ -181,6 +184,9 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.processEvidence.select" &&
 		action.id !== "status.processEvidence.open" &&
 		action.id !== "status.processEvidence.search" &&
+		action.id !== "status.remoteKnownHostsEvidence.select" &&
+		action.id !== "status.remoteKnownHostsEvidence.open" &&
+		action.id !== "status.remoteKnownHostsEvidence.search" &&
 		action.id !== "status.resultJump.select" &&
 		action.id !== "status.resultJump.open" &&
 		action.id !== "status.resultJump.filter" &&
@@ -234,6 +240,14 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id === "status.processEvidence.search"
 	) {
 		return formatProcessEvidencePalettePreviewRows(action, context);
+	}
+
+	if (
+		action.id === "status.remoteKnownHostsEvidence.select" ||
+		action.id === "status.remoteKnownHostsEvidence.open" ||
+		action.id === "status.remoteKnownHostsEvidence.search"
+	) {
+		return formatRemoteKnownHostsEvidencePalettePreviewRows(action, context);
 	}
 
 	if (
@@ -676,6 +690,47 @@ function parseProcessControlAuditTarget(
 		...(match[2] ? { pid: match[2] } : {}),
 		...(match[3] ? { status: match[3] } : {}),
 	};
+}
+
+function formatRemoteKnownHostsEvidencePalettePreviewRows(
+	action: PicosAction,
+	context: CommandPalettePreviewContext,
+): string[] {
+	const selected = context.selectedRemoteKnownHostsEvidenceExport;
+	if (!selected) {
+		return [
+			"selected remote known_hosts evidence unavailable",
+			"hint=export or recover a Remotes known_hosts selection-history audit log",
+		];
+	}
+	const selectedIndex = Math.max(
+		0,
+		Math.floor(context.selectedRemoteKnownHostsEvidenceExportIndex ?? 0),
+	);
+	const total = Math.max(1, context.totalRemoteKnownHostsEvidenceExports ?? 1);
+	const fileName = selected.path.split(/[\\/]/).pop() ?? selected.path;
+	return [
+		`selected remote known_hosts evidence ${selectedIndex + 1}/${total} ${fileName}`,
+		`target=${formatRemoteKnownHostsEvidenceTarget(selected.query)} events=${selected.eventCount}`,
+		`query=${selected.query ?? "-"}`,
+		action.id === "status.remoteKnownHostsEvidence.select"
+			? "action=select next recovered remote known_hosts evidence"
+			: `${action.id === "status.remoteKnownHostsEvidence.open" ? "confirm=file-open" : "timeline-search=audit"} path=${selected.path}`,
+	];
+}
+
+function formatRemoteKnownHostsEvidenceTarget(
+	query: string | undefined,
+): string {
+	const target = parseRemoteKnownHostsEvidenceTarget(query);
+	return target ?? "unknown";
+}
+
+function parseRemoteKnownHostsEvidenceTarget(
+	query: string | undefined,
+): string | undefined {
+	const match = query?.match(/^remote known_hosts selection history (.+)$/);
+	return match?.[1]?.trim() || undefined;
 }
 
 function formatPortProcessControlPalettePreviewRows(

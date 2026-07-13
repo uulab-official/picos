@@ -64,6 +64,7 @@ export type StatusActivityEnterAction =
 	| "tools-evidence-retention"
 	| "process-control-preview"
 	| "process-control-evidence"
+	| "remote-known-hosts-evidence"
 	| "remote-host-review"
 	| "remote-host-key-evidence"
 	| "remote-host-trust-review"
@@ -1353,12 +1354,17 @@ function formatStatusActivityResultTimelineJumpTargetToken(
 	query: string,
 ): string | undefined {
 	const target = parseProcessControlAuditQuery(query);
-	if (!target) {
-		return undefined;
+	if (target) {
+		return target.pid
+			? `process-control pid:${target.pid} action=${target.action}`
+			: `process-control status:${target.status ?? "unknown"} action=${target.action}`;
 	}
-	return target.pid
-		? `process-control pid:${target.pid} action=${target.action}`
-		: `process-control status:${target.status ?? "unknown"} action=${target.action}`;
+	const knownHostsTarget =
+		parseRemoteKnownHostsSelectionHistoryEvidenceAuditQuery(query);
+	if (knownHostsTarget) {
+		return `remote-known-hosts id:${knownHostsTarget.id} action=${knownHostsTarget.action}`;
+	}
+	return undefined;
 }
 
 function formatProcessControlAuditExportTarget(
@@ -1371,6 +1377,42 @@ function formatProcessControlAuditExportTarget(
 	return target.pid
 		? `pid:${target.pid}`
 		: `status:${target.status ?? "unknown"}`;
+}
+
+function formatRemoteKnownHostsSelectionHistoryEvidenceTarget(
+	plan: ConsoleAuditExportPlan,
+): string {
+	return (
+		parseRemoteKnownHostsSelectionHistoryEvidenceTarget(plan.query) ?? "unknown"
+	);
+}
+
+function parseRemoteKnownHostsSelectionHistoryEvidenceTarget(
+	query: string | undefined,
+): string | undefined {
+	const match = query?.match(/^remote known_hosts selection history (.+)$/);
+	return match?.[1]?.trim() || undefined;
+}
+
+function parseRemoteKnownHostsSelectionHistoryEvidenceAuditQuery(
+	query: string,
+): { action: string; id: string } | undefined {
+	const match = query.match(
+		/(?:^| )(?:palette remote known_hosts evidence audit|status evidence remote known_hosts audit) action=(\S+)(?: .*?)?target="?([^" ]+)"?/,
+	);
+	const action = match?.[1];
+	const id = match?.[2];
+	if (!action || !id) {
+		return undefined;
+	}
+	return { action, id };
+}
+
+function getRemoteKnownHostsSelectionHistoryEvidenceResultDetailTarget(
+	detail?: string,
+): string | undefined {
+	const match = detail?.match(/(?:^| )target=([^ ]+)/);
+	return match?.[1]?.trim() || undefined;
 }
 
 export function createStatusActivityToolsEvidenceSearchRecovery(
@@ -1842,6 +1884,14 @@ export function createStatusActivityResultTimelineSearch(
 		return createProcessControlEvidenceResultTimelineSearch(result);
 	}
 	if (
+		result.source === "evidence" &&
+		result.action === "remote-known-hosts-evidence"
+	) {
+		return createRemoteKnownHostsSelectionHistoryEvidenceResultTimelineSearch(
+			result,
+		);
+	}
+	if (
 		result.source === "timeline" &&
 		result.action === "process-control-preview"
 	) {
@@ -2038,6 +2088,41 @@ function createProcessControlEvidenceResultTimelineSearch(
 			filter: "audit",
 			query: `${auditPrefix} action=${action} target="pid:${pid}"`,
 			message: `status activity result timeline search ${messagePrefix} pid=${pid}`,
+		};
+	}
+	return {
+		filter: "audit",
+		query: `${auditPrefix} action=${action} status=unavailable`,
+		message: `status activity result timeline search ${messagePrefix} unavailable`,
+	};
+}
+
+function createRemoteKnownHostsSelectionHistoryEvidenceResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^(palette remote known_hosts evidence|status evidence remote known_hosts) (select|open|search)(?:\s|$)/,
+	);
+	if (!match) {
+		return undefined;
+	}
+	const [, prefix, action] = match;
+	const auditPrefix =
+		prefix === "status evidence remote known_hosts"
+			? "status evidence remote known_hosts audit"
+			: "palette remote known_hosts evidence audit";
+	const messagePrefix =
+		prefix === "status evidence remote known_hosts"
+			? "status remote known_hosts evidence"
+			: "palette remote known_hosts evidence";
+	const target = getRemoteKnownHostsSelectionHistoryEvidenceResultDetailTarget(
+		result.detail,
+	);
+	if (target) {
+		return {
+			filter: "audit",
+			query: `${auditPrefix} action=${action} target="${target}"`,
+			message: `status activity result timeline search ${messagePrefix} ${target}`,
 		};
 	}
 	return {
@@ -2686,6 +2771,74 @@ function createProcessControlEvidenceStatusActivityResultWithPrefix(
 	};
 }
 
+export function createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	return createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResultWithPrefix(
+		"palette remote known_hosts evidence",
+		action,
+		plan,
+		options,
+	);
+}
+
+export function createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
+	action: "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	return createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResultWithPrefix(
+		"status evidence remote known_hosts",
+		action,
+		plan,
+		options,
+	);
+}
+
+function createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResultWithPrefix(
+	prefix:
+		| "palette remote known_hosts evidence"
+		| "status evidence remote known_hosts",
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): StatusActivityResult {
+	if (!plan) {
+		return {
+			source: "evidence",
+			action: "remote-known-hosts-evidence",
+			message: `${prefix} ${action} unavailable`,
+			detail:
+				"no recovered remote known_hosts selection-history export selected",
+		};
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	return {
+		source: "evidence",
+		action: "remote-known-hosts-evidence",
+		message: `${prefix} ${action} ${selected + 1}/${total} ${basename(plan.path)}`,
+		detail: [
+			`target=${formatRemoteKnownHostsSelectionHistoryEvidenceTarget(plan)}`,
+			plan.query ? `query=${plan.query}` : "",
+			`path=${plan.path}`,
+		]
+			.filter(Boolean)
+			.join(" "),
+	};
+}
+
 export function createStatusActivityResultTimelineJumpPaletteResult(
 	action: "select" | "open",
 	options: {
@@ -2950,6 +3103,38 @@ export function formatProcessControlEvidenceStatusAuditMessage(
 	);
 }
 
+export function formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	return formatRemoteKnownHostsSelectionHistoryEvidenceAuditMessageWithPrefix(
+		"palette remote known_hosts evidence audit",
+		action,
+		plan,
+		options,
+	);
+}
+
+export function formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage(
+	action: "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	return formatRemoteKnownHostsSelectionHistoryEvidenceAuditMessageWithPrefix(
+		"status evidence remote known_hosts audit",
+		action,
+		plan,
+		options,
+	);
+}
+
 function formatProcessControlEvidenceAuditMessageWithPrefix(
 	prefix: "palette process evidence audit" | "status evidence process audit",
 	action: "select" | "open" | "search",
@@ -2974,6 +3159,40 @@ function formatProcessControlEvidenceAuditMessageWithPrefix(
 		`action=${action}`,
 		`selected=${selected + 1}/${total}`,
 		`target="${formatTimelineEvidenceTrailAuditValue(formatProcessControlAuditExportTarget(plan))}"`,
+		`label="${formatTimelineEvidenceTrailAuditValue(basename(plan.path))}"`,
+		...(plan.query
+			? [`query="${formatTimelineEvidenceTrailAuditValue(plan.query)}"`]
+			: []),
+		`path="${formatTimelineEvidenceTrailAuditValue(plan.path)}"`,
+	].join(" ");
+}
+
+function formatRemoteKnownHostsSelectionHistoryEvidenceAuditMessageWithPrefix(
+	prefix:
+		| "palette remote known_hosts evidence audit"
+		| "status evidence remote known_hosts audit",
+	action: "select" | "open" | "search",
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): string {
+	if (!plan) {
+		return [
+			prefix,
+			`action=${action}`,
+			"status=unavailable",
+			`reason="${formatTimelineEvidenceTrailAuditValue("no recovered remote known_hosts selection-history export selected")}"`,
+		].join(" ");
+	}
+	const selected = Math.max(0, Math.floor(options.selectedIndex ?? 0));
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	return [
+		prefix,
+		`action=${action}`,
+		`selected=${selected + 1}/${total}`,
+		`target="${formatTimelineEvidenceTrailAuditValue(formatRemoteKnownHostsSelectionHistoryEvidenceTarget(plan))}"`,
 		`label="${formatTimelineEvidenceTrailAuditValue(basename(plan.path))}"`,
 		...(plan.query
 			? [`query="${formatTimelineEvidenceTrailAuditValue(plan.query)}"`]

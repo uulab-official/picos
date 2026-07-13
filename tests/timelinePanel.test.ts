@@ -8,6 +8,7 @@ import {
 import type { ConsoleEvent } from "../src/tui/events";
 import {
 	formatProcessControlEvidencePaletteAuditMessage,
+	formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage,
 	formatStatusActivityProcessControlPaletteAuditMessage,
 	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
@@ -253,6 +254,40 @@ describe("timeline TUI panel formatting", () => {
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette process evidence audit action=search",
 			"TIMELINE",
 			'[12:00:09] INFO audit  palette process evidence audit action=search selected=1/1 target="pid:12345" label="picos-audit-selected-2026-07-01T050000000Z.log" query="status activity result audit jump palette process control audit action=preview pid=12345" path="/Users/bonjin/.config/picos/audit/picos-audit-selected-2026-07-01T050000000Z.log"',
+			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
+		]);
+	});
+
+	test("surfaces palette-triggered remote known_hosts evidence actions in audit search", () => {
+		const knownHostsEvidenceEvents: ConsoleEvent[] = [
+			...events,
+			{
+				id: "12:00:09-info-known-hosts-evidence",
+				level: "info",
+				time: "12:00:09",
+				message:
+					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+						"search",
+						{
+							path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
+							content: "",
+							eventCount: 2,
+							query: "remote known_hosts selection history prod",
+							scope: "filtered",
+						},
+						{ selectedIndex: 0, total: 1 },
+					),
+			},
+		];
+
+		expect(
+			formatTimelineWorkspaceRows(knownHostsEvidenceEvents, 5, "audit", {
+				query: "palette remote known_hosts evidence audit action=search",
+			}),
+		).toEqual([
+			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=palette remote known_hosts evidence audit action=search",
+			"TIMELINE",
+			'[12:00:09] INFO audit  palette remote known_hosts evidence audit action=search selected=1/1 target="prod" label="picos-audit-filtered-2026-07-01T060000000Z.log" query="remote known_hosts selection history prod" path="/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log"',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});

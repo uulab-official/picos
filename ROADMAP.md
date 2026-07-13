@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.301 - Remote Known Hosts Evidence Palette
+
+Status: draft PR [#376](https://github.com/uulab-official/picos/pull/376) on `codex/picos-v0.4.301-known-hosts-evidence-palette`.
+
+Goal: make recovered Remotes known_hosts selection-history evidence reachable from the command palette and replayable from Status Activity, matching process evidence parity.
+
+- Action Center now exposes enabled read-only `status.remoteKnownHostsEvidence.select`, `status.remoteKnownHostsEvidence.open`, and `status.remoteKnownHostsEvidence.search` actions.
+- Command palette searches such as `known_hosts evidence` and `remote known_hosts evidence search` preview the selected export, recovered target id, query, path, and locked file-open or Timeline search handoff.
+- Palette-triggered select/open/search actions now append compact Status Activity result rows plus searchable Timeline audit messages.
+- Status Evidence `remote-known-hosts` searches also leave Status Activity results, so `I`/replay can return to the matching `status evidence remote known_hosts audit ...` query.
+- Tests cover action catalog exposure, palette discovery and previews, Status Activity/audit result formatting, reusable Timeline jumps, and Timeline audit search rendering.
+- Next: add a compact Status Activity copy-intent shelf row for recovered known_hosts evidence selections, so selected/exported remote trust evidence can be copied or exported like process evidence.
+
 ## v0.4.300 - Remote Known Hosts Evidence Recovery
 
 Status: draft PR [#375](https://github.com/uulab-official/picos/pull/375) on `codex/picos-v0.4.300-known-hosts-evidence-recovery`.
@@ -11,7 +24,7 @@ Goal: make Remotes known_hosts selection-history audit exports recoverable from 
 - Status `G` can jump from the active `remote-known-hosts` evidence row back into Timeline audit search for the selected export query.
 - Status `enter` and active-family `R` open the selected known_hosts selection-history export through the locked `:file-open` confirmation.
 - Tests cover audit-index recovery helpers, locked file-open plans, Timeline search plans, Status Evidence render rows, enter plans, search plans, and item movement.
-- Next: expose `remote-known-hosts` evidence actions in the command palette and Status Activity result trail, matching process evidence parity.
+- Next: completed by v0.4.301 command palette and Status Activity result trail support for `remote-known-hosts` evidence actions.
 
 ## v0.4.299 - Remote Known Hosts Selection History Copy Export
 
