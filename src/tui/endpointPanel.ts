@@ -122,6 +122,28 @@ export function nextEndpointDetailView(
 	return "detail";
 }
 
+export function getEndpointDetailViewShortcut(
+	input: string,
+	options: { home?: boolean; end?: boolean } = {},
+): EndpointDetailView | undefined {
+	if (options.home) {
+		return "detail";
+	}
+	if (options.end) {
+		return "process";
+	}
+	if (input === "1") {
+		return "detail";
+	}
+	if (input === "2") {
+		return "raw";
+	}
+	if (input === "3") {
+		return "process";
+	}
+	return undefined;
+}
+
 export function saveEndpointFilterPreset(
 	presets: string[],
 	query: string,
