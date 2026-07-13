@@ -1234,7 +1234,7 @@ export function formatStatusActivityCopyIntentRows(
 			? [
 					`remote known_hosts evidence selected=${normalizedRemoteKnownHostsSelectionAuditExportIndex + 1}/${remoteKnownHostsSelectionAuditExports.length}`,
 					`remote known_hosts evidence target=${basename(selectedRemoteKnownHostsSelectionAuditExport.path)}${selectedRemoteKnownHostsSelectionAuditExport.query ? ` query=${selectedRemoteKnownHostsSelectionAuditExport.query}` : ""} events=${selectedRemoteKnownHostsSelectionAuditExport.eventCount}`,
-					`remote known_hosts evidence detail id:${formatRemoteKnownHostsSelectionHistoryEvidenceTarget(selectedRemoteKnownHostsSelectionAuditExport)} path=${selectedRemoteKnownHostsSelectionAuditExport.path} actions=R open G search`,
+					`remote known_hosts evidence detail id:${formatRemoteKnownHostsSelectionHistoryEvidenceTarget(selectedRemoteKnownHostsSelectionAuditExport)} path=${selectedRemoteKnownHostsSelectionAuditExport.path} actions=R open G search y copy e export`,
 				]
 			: [];
 	const rowsBeforeHistory = [
@@ -2464,6 +2464,102 @@ export function createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch(
 		filter: "audit",
 		query: plan.query,
 		message: `remote known_hosts selection evidence recovered search ${basename(plan.path)}`,
+	};
+}
+
+export function createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview(
+	plan?: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	} = {},
+): ClipboardPreview | undefined {
+	if (!plan) {
+		return undefined;
+	}
+	const selected = getRemoteKnownHostsSelectionHistoryEvidenceSelection(plan, {
+		selectedIndex: options.selectedIndex,
+		total: options.total,
+	});
+	return createClipboardPreview({
+		source: "status-activity",
+		label: `remote known_hosts evidence ${selected.target}`,
+		copyText: [
+			`remote known_hosts evidence selected=${selected.selected}/${selected.total}`,
+			`target=${selected.target}`,
+			`file=${basename(plan.path)}`,
+			`query=${plan.query ?? "-"}`,
+			`path=${plan.path}`,
+			`events=${plan.eventCount}`,
+			"guards=localRead=false network=not-opened scan=false trust=not-applied knownHostsWrite=false",
+		].join("\n"),
+		details: [
+			`target=${selected.target} selected=${selected.selected}/${selected.total} events=${plan.eventCount}`,
+			`path=${plan.path}`,
+			"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
+		],
+	});
+}
+
+export function createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan(
+	plan: ConsoleAuditExportPlan | undefined,
+	options: {
+		baseDir: string;
+		generatedAt?: Date;
+		selectedIndex?: number;
+		total?: number;
+	},
+): ConsoleAuditExportPlan | undefined {
+	if (!plan) {
+		return undefined;
+	}
+	const generatedAt = options.generatedAt ?? new Date();
+	const selected = getRemoteKnownHostsSelectionHistoryEvidenceSelection(plan, {
+		selectedIndex: options.selectedIndex,
+		total: options.total,
+	});
+	return createConsoleAuditExportPlan(
+		[
+			{
+				id: `remote-known-hosts-evidence-handoff-${selected.selected}`,
+				level: "info",
+				time: formatAuditEventTime(generatedAt),
+				message: [
+					`remote known_hosts evidence handoff selected=${selected.selected}/${selected.total}`,
+					`target="${formatTimelineEvidenceTrailAuditValue(selected.target)}"`,
+					`label="${formatTimelineEvidenceTrailAuditValue(basename(plan.path))}"`,
+					`query="${formatTimelineEvidenceTrailAuditValue(plan.query ?? "-")}"`,
+					`path="${formatTimelineEvidenceTrailAuditValue(plan.path)}"`,
+					`events=${plan.eventCount}`,
+					'guards="localRead=false network=not-opened scan=false trust=not-applied knownHostsWrite=false"',
+				].join(" "),
+			},
+		],
+		{
+			baseDir: options.baseDir,
+			generatedAt,
+			query: `remote known_hosts evidence handoff ${selected.target}`,
+			scope: "selected",
+		},
+	);
+}
+
+function getRemoteKnownHostsSelectionHistoryEvidenceSelection(
+	plan: ConsoleAuditExportPlan,
+	options: {
+		selectedIndex?: number;
+		total?: number;
+	},
+): { selected: number; total: number; target: string } {
+	const total = Math.max(1, Math.floor(options.total ?? 1));
+	const selected = Math.min(
+		total,
+		Math.max(1, Math.floor(options.selectedIndex ?? 0) + 1),
+	);
+	return {
+		selected,
+		total,
+		target: formatRemoteKnownHostsSelectionHistoryEvidenceTarget(plan),
 	};
 }
 
