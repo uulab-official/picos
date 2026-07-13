@@ -7312,6 +7312,18 @@ export function App(): React.ReactElement {
 						openPalettePortProcessControlPreview();
 						return;
 					}
+					if (
+						action.id === "interface.proposal.disable" ||
+						action.id === "interface.proposal.enable"
+					) {
+						setScreen("interfaces");
+						setFocusArea("workspaces");
+						setInterfaceSourceCopyPreview(false);
+						openInterfaceStateProposal(
+							action.id === "interface.proposal.enable" ? "enable" : "disable",
+						);
+						return;
+					}
 					runAction(action);
 				}
 				return;
@@ -12078,6 +12090,7 @@ function renderWorkspace(
 								)
 							],
 						selectedInterfacePlatform: summary?.platform,
+						primaryInterfaceName: summary?.primaryInterface?.name,
 						defaultToolTarget: defaultPingHost,
 						publicIp: summary?.publicIp,
 					},

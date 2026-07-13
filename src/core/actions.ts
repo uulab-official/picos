@@ -903,6 +903,28 @@ const actionCatalog: PicosAction[] = [
 		confirmationPhrase: "disable interface",
 	},
 	{
+		id: "interface.proposal.disable",
+		title: "Open interface disable proposal",
+		description:
+			"Open a locked interface proposal preview for disabling the selected adapter.",
+		category: "network",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "interface.proposal.enable",
+		title: "Open interface enable proposal",
+		description:
+			"Open a locked interface proposal preview for enabling the selected adapter.",
+		category: "network",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "route.add",
 		title: "Add route",
 		description: "Add a routing table entry with dry-run preview.",

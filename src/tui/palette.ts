@@ -1,5 +1,10 @@
 import type { ActionPreviewPlan, PicosAction } from "../core/actions";
 import type { ConsoleAuditExportPlan } from "../core/auditLog";
+import {
+	createInterfaceStateProposal,
+	formatInterfaceStateProposalRows,
+	type InterfaceStateProposalAction,
+} from "../core/interfaceControl";
 import type { NetworkInterfaceSummary, SupportedPlatform } from "../core/types";
 import type {
 	ConfigManagedShelfTarget,
@@ -167,6 +172,7 @@ export type CommandPalettePreviewContext = {
 	allStatusActivityResultTimelineJumps?: number;
 	selectedInterface?: NetworkInterfaceSummary;
 	selectedInterfacePlatform?: SupportedPlatform;
+	primaryInterfaceName?: string;
 	defaultToolTarget?: string;
 	publicIp?: string;
 };
@@ -202,6 +208,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "config.auditRetention.focus" &&
 		action.id !== "config.toolTargetRetention.focus" &&
 		action.id !== "remote.knownHosts.select" &&
+		action.id !== "interface.proposal.disable" &&
+		action.id !== "interface.proposal.enable" &&
 		!getToolRunActionMetadata(action.id) &&
 		!getConfigRecoveryActionFocusTarget(action.id) &&
 		!getConfigManagedShelfActionFocusTarget(action.id) &&
@@ -222,6 +230,13 @@ export function formatCommandPaletteActionPreviewRows(
 			return formatInterfaceControlPalettePreviewRows(action, context);
 		}
 		return formatControlActionPalettePreviewRows(context.controlPreview);
+	}
+
+	if (
+		action.id === "interface.proposal.disable" ||
+		action.id === "interface.proposal.enable"
+	) {
+		return formatInterfaceStateProposalPalettePreviewRows(action, context);
 	}
 
 	if (getToolRunActionMetadata(action.id)) {
@@ -372,6 +387,28 @@ function formatRemoteKnownHostsSelectPalettePreviewRows(
 		"prompt=:remote-known-hosts-select accepts=12,#12,candidate 12",
 		"guards=localRead=false network=not-opened trust=not-applied knownHostsWrite=false",
 		"dispatch=enter opens Remotes known_hosts selection prompt",
+	];
+}
+
+function formatInterfaceStateProposalPalettePreviewRows(
+	action: PicosAction,
+	context: CommandPalettePreviewContext,
+): string[] {
+	const proposalAction: InterfaceStateProposalAction =
+		action.id === "interface.proposal.enable" ? "enable" : "disable";
+	const proposal = createInterfaceStateProposal(
+		context.selectedInterface,
+		proposalAction,
+		{
+			platform: context.selectedInterfacePlatform,
+			primaryInterfaceName: context.primaryInterfaceName,
+		},
+	);
+	const rows = formatInterfaceStateProposalRows(proposal);
+	return [
+		`palette dispatch=${action.id} opens=interfaces`,
+		`selected=${proposal.target?.name ?? "-"} status=${proposal.status} proposal=${proposal.actionId}`,
+		...rows.slice(1),
 	];
 }
 

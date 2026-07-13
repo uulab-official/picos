@@ -78,6 +78,28 @@ describe("TUI command palette", () => {
 		expect(actions.map((action) => action.id)).toContain("network.connect");
 	});
 
+	test("finds interface state proposals by palette query", () => {
+		const disableState = appendCommandPaletteQuery(
+			openCommandPalette(),
+			"interface proposal disable",
+		);
+		const enableState = appendCommandPaletteQuery(
+			openCommandPalette(),
+			"interface proposal enable",
+		);
+
+		expect(
+			getFilteredPaletteActions(getActionCatalog(), disableState).map(
+				(action) => action.id,
+			),
+		).toContain("interface.proposal.disable");
+		expect(
+			getFilteredPaletteActions(getActionCatalog(), enableState).map(
+				(action) => action.id,
+			),
+		).toContain("interface.proposal.enable");
+	});
+
 	test("finds Tools direct-run actions with operator-style queries", () => {
 		expect(
 			getFilteredPaletteActions(
@@ -1197,6 +1219,52 @@ describe("TUI command palette", () => {
 			"preflight=5 scope=selected interface or network service",
 			"willModify=link-state persistentConfig=platform-dependent networkDrop=possible",
 			"blocked=disabled-by-default",
+		]);
+	});
+
+	test("previews selected interface state proposals before dispatch", () => {
+		const action = getActionCatalog().find(
+			(candidate) => candidate.id === "interface.proposal.disable",
+		);
+		const selectedInterface: NetworkInterfaceSummary = {
+			name: "en0",
+			status: "connected",
+			kind: "wifiOrEthernet",
+			ipv4: "192.168.0.20",
+			ipv6: "fe80::1",
+			ipv4Cidr: "192.168.0.20/24",
+			ipv6Cidr: "fe80::1/64",
+			netmask: "255.255.255.0",
+			mac: "aa:bb:cc:dd:ee:ff",
+			mtu: 1500,
+			rxBytes: 125000000,
+			txBytes: 42000000,
+			rxPackets: 9000,
+			txPackets: 7100,
+		};
+
+		expect(
+			formatCommandPaletteActionPreviewRows(action, {
+				selectedInterface,
+				selectedInterfacePlatform: "darwin",
+				primaryInterfaceName: "en0",
+			}),
+		).toEqual([
+			"palette dispatch=interface.proposal.disable opens=interfaces",
+			"selected=en0 status=ready proposal=interface.disable",
+			"status=ready action=interface.disable locked enabled=false",
+			"target=en0 kind=wifiOrEthernet primary=yes platform=darwin",
+			"address ipv4=192.168.0.20/24 ipv6=fe80::1/64 mac=aa:bb:cc:dd:ee:ff mtu=1500",
+			"transition current=connected desired=disconnected",
+			"risk=write privilege=admin confirm=disable interface",
+			"PREFLIGHT",
+			"scope=interface target=en0",
+			"currentStatus=connected desiredStatus=disconnected primary=yes platform=darwin",
+			"willModify=interface-link-state serviceOrAdapter=platform-dependent",
+			"requires=selected-interface admin confirmation dry-run-policy",
+			"adapterDryRun=proposal-only",
+			"rollback=restore previous interface state from current snapshot",
+			"execution=disabled no interface state will be changed",
 		]);
 	});
 

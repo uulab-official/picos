@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.320 - Interface Proposal Palette
+
+Status: draft PR [#395](https://github.com/uulab-official/picos/pull/395) on `codex/picos-v0.4.320-interface-proposal-palette`, stacked on draft PR [#394](https://github.com/uulab-official/picos/pull/394).
+
+Goal: make interface state proposals discoverable from the command palette, so OS-control intent can start from the launcher as well as from `D`/`U` shortcuts.
+
+- Action Center now exposes read-only `interface.proposal.disable` and `interface.proposal.enable` commands for opening locked interface state proposals.
+- Command palette searches such as `interface proposal disable` and `interface proposal enable` find the proposal openers.
+- Palette previews show the selected adapter, proposal status, target metadata, current/desired transition, write/admin risk, confirmation phrase, preflight, rollback, and execution-disabled posture.
+- Palette dispatch moves to the Interfaces workspace, focuses panels, clears stale source-copy preview state, and opens the same proposal as the `D`/`U` shortcuts.
+- No interface enable/disable command, adapter mutation path, dry-run execution, or privileged OS call is added.
+- Tests cover palette discovery, proposal preview formatting, and action-catalog safety counts.
+- Next: add platform service-name mapping for safer adapter targets or extend proposal palette coverage to DNS server set prompts.
+
 ## v0.4.319 - Interface State Proposal Preflight
 
 Status: draft PR [#394](https://github.com/uulab-official/picos/pull/394) on `codex/picos-v0.4.319-interface-state-preflight`, stacked on draft PR [#393](https://github.com/uulab-official/picos/pull/393).
@@ -12,7 +26,7 @@ Goal: give Interfaces the same target-aware locked control proposal loop now ava
 - Proposal statuses distinguish ready, noop, and invalid states without adding execution.
 - No interface enable/disable command or adapter mutation path is added.
 - Tests cover proposal creation/formatting and panel rendering.
-- Next: add command-palette discovery for interface state proposals or platform service-name mapping for safer adapter targets.
+- Next: completed by v0.4.320 command-palette discovery for interface state proposals.
 
 ## v0.4.318 - DNS Target Preflight
 
