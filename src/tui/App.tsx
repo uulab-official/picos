@@ -5244,6 +5244,150 @@ export function App(): React.ReactElement {
 		],
 	);
 
+	const openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff =
+		useCallback(
+			(options: { origin?: "keyboard" | "palette" } = {}) => {
+				const resultOptions =
+					getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
+				const preview =
+					createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview(
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					);
+				if (!preview) {
+					log("warn", "no remote known_hosts evidence handoff to copy");
+					if (options.origin === "palette") {
+						log(
+							"info",
+							formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+								"copy",
+							),
+						);
+						recordStatusActivityResult(
+							createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+								"copy",
+							),
+						);
+					}
+					return;
+				}
+				const intent = createStatusActivityCopyIntentRecord(preview);
+				setStatusActivityCopyIntentHistory((current) =>
+					appendStatusActivityCopyIntentHistory(current, intent),
+				);
+				setSelectedStatusActivityCopyIntentIndex(0);
+				setScreen("status");
+				setFocusArea("workspaces");
+				setSelectedStatusEvidenceKind("remote-known-hosts");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+							"copy",
+							selectedRemoteKnownHostsSelectionAuditExport,
+							resultOptions,
+						),
+					);
+					recordStatusActivityResult(
+						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+							"copy",
+							selectedRemoteKnownHostsSelectionAuditExport,
+							resultOptions,
+						),
+					);
+				}
+				log(
+					"info",
+					intent?.auditMessage ??
+						formatStatusActivityCopyIntentAuditMessage(preview),
+				);
+				openClipboardConfirmation(preview);
+			},
+			[
+				getSelectedRemoteKnownHostsSelectionEvidenceResultOptions,
+				log,
+				openClipboardConfirmation,
+				recordStatusActivityResult,
+				selectedRemoteKnownHostsSelectionAuditExport,
+			],
+		);
+
+	const exportSelectedRemoteKnownHostsSelectionEvidenceHandoff = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const resultOptions =
+				getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
+			const evidencePlan =
+				createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan(
+					selectedRemoteKnownHostsSelectionAuditExport,
+					{
+						baseDir: dirname(getConfigPath()),
+						...resultOptions,
+					},
+				);
+			if (!evidencePlan) {
+				log("warn", "no remote known_hosts evidence handoff to export");
+				if (options.origin === "palette") {
+					log(
+						"info",
+						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+							"export",
+						),
+					);
+					recordStatusActivityResult(
+						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+							"export",
+						),
+					);
+				}
+				return;
+			}
+			setScreen("status");
+			setFocusArea("workspaces");
+			setSelectedStatusEvidenceKind("remote-known-hosts");
+			if (options.origin === "palette") {
+				log(
+					"info",
+					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+						"export",
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					),
+				);
+				recordStatusActivityResult(
+					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+						"export",
+						selectedRemoteKnownHostsSelectionAuditExport,
+						resultOptions,
+					),
+				);
+			}
+			void writeStatusActivityCopyIntentAuditExport(evidencePlan)
+				.then((written) => {
+					setLastStatusActivityCopyIntentAuditExport(written);
+					log(
+						"ok",
+						`remote known_hosts evidence handoff exported ${written.path} events=${written.eventCount}`,
+					);
+					void refreshAuditExportIndex(false);
+				})
+				.catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `remote known_hosts evidence handoff export failed ${caught.message}`
+							: `remote known_hosts evidence handoff export failed ${String(caught)}`,
+					),
+				);
+		},
+		[
+			getSelectedRemoteKnownHostsSelectionEvidenceResultOptions,
+			log,
+			recordStatusActivityResult,
+			refreshAuditExportIndex,
+			selectedRemoteKnownHostsSelectionAuditExport,
+		],
+	);
+
 	const selectNextStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			if (options.origin === "palette") {
@@ -5770,6 +5914,18 @@ export function App(): React.ReactElement {
 					});
 				}
 
+				if (action.id === "status.remoteKnownHostsEvidence.copy") {
+					openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff({
+						origin: "palette",
+					});
+				}
+
+				if (action.id === "status.remoteKnownHostsEvidence.export") {
+					exportSelectedRemoteKnownHostsSelectionEvidenceHandoff({
+						origin: "palette",
+					});
+				}
+
 				if (action.id === "status.resultJump.select") {
 					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
 				}
@@ -5850,6 +6006,7 @@ export function App(): React.ReactElement {
 			events,
 			exportToolHistory,
 			fileRoot,
+			exportSelectedRemoteKnownHostsSelectionEvidenceHandoff,
 			jumpSelectedProcessControlEvidenceSearch,
 			jumpSelectedRemoteKnownHostsSelectionEvidenceSearch,
 			jumpSelectedTimelineEvidenceTrailSearch,
@@ -5857,6 +6014,7 @@ export function App(): React.ReactElement {
 			logProfiles.length,
 			openToolEvidenceSearchPrompt,
 			openSelectedProcessControlEvidenceExport,
+			openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff,
 			openSelectedRemoteKnownHostsSelectionEvidenceExport,
 			openSelectedStatusActivityResultTimelineJump,
 			openSelectedStatusActivityToolsEvidenceSearchMatchArchive,
@@ -7919,26 +8077,7 @@ export function App(): React.ReactElement {
 				selectedStatusActivityResultIndex,
 			);
 			if (!preview) {
-				const evidencePreview =
-					createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview(
-						selectedRemoteKnownHostsSelectionAuditExport,
-						getSelectedRemoteKnownHostsSelectionEvidenceResultOptions(),
-					);
-				if (!evidencePreview) {
-					log("warn", "no status activity result history to copy");
-					return;
-				}
-				const intent = createStatusActivityCopyIntentRecord(evidencePreview);
-				setStatusActivityCopyIntentHistory((current) =>
-					appendStatusActivityCopyIntentHistory(current, intent),
-				);
-				setSelectedStatusActivityCopyIntentIndex(0);
-				log(
-					"info",
-					intent?.auditMessage ??
-						formatStatusActivityCopyIntentAuditMessage(evidencePreview),
-				);
-				openClipboardConfirmation(evidencePreview);
+				openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff();
 				return;
 			}
 			const intent = createStatusActivityCopyIntentRecord(preview, {
@@ -8184,35 +8323,7 @@ export function App(): React.ReactElement {
 				},
 			);
 			if (!plan) {
-				const evidencePlan =
-					createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan(
-						selectedRemoteKnownHostsSelectionAuditExport,
-						{
-							baseDir: dirname(getConfigPath()),
-							...getSelectedRemoteKnownHostsSelectionEvidenceResultOptions(),
-						},
-					);
-				if (!evidencePlan) {
-					log("warn", "no status activity copy intent to export");
-					return;
-				}
-				void writeStatusActivityCopyIntentAuditExport(evidencePlan)
-					.then((written) => {
-						setLastStatusActivityCopyIntentAuditExport(written);
-						log(
-							"ok",
-							`remote known_hosts evidence handoff exported ${written.path} events=${written.eventCount}`,
-						);
-						void refreshAuditExportIndex(false);
-					})
-					.catch((caught) =>
-						log(
-							"fail",
-							caught instanceof Error
-								? `remote known_hosts evidence handoff export failed ${caught.message}`
-								: `remote known_hosts evidence handoff export failed ${String(caught)}`,
-						),
-					);
+				exportSelectedRemoteKnownHostsSelectionEvidenceHandoff();
 				return;
 			}
 			void writeStatusActivityCopyIntentAuditExport(plan)

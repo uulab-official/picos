@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.304 - Remote Known Hosts Evidence Handoff Palette
+
+Status: local branch `codex/picos-v0.4.304-known-hosts-evidence-handoff-palette` stacked on draft PR [#378](https://github.com/uulab-official/picos/pull/378).
+
+Goal: make direct recovered Remotes known_hosts evidence copy/export handoffs discoverable and executable from the command palette.
+
+- Action Center now exposes enabled read-only `status.remoteKnownHostsEvidence.copy` and `status.remoteKnownHostsEvidence.export` actions beside select/open/search.
+- Command palette searches such as `known_hosts evidence copy` and `remote known_hosts evidence export` now find the direct handoff actions.
+- Palette previews show the selected known_hosts evidence export, recovered target id, query, path, and whether dispatch opens locked `:clipboard` or writes a selected audit handoff.
+- Palette dispatch reuses the same Status Activity copy-intent clipboard preview and picos-owned audit export helpers as the `y`/`e` fallback flow, keeping no-local-read/no-network/no-scan/no-trust/no-write guards intact.
+- Status `y` and `e` fallback handling now share the same selected known_hosts evidence handoff helpers used by the palette actions.
+- Tests cover action catalog exposure, palette discovery, and copy/export preview rows.
+- Next: add a compact Status Activity row command hint for direct known_hosts evidence handoffs, so the shelf itself shows palette keywords beside `y`/`e`.
+
 ## v0.4.303 - Remote Known Hosts Evidence Handoff
 
 Status: draft PR [#378](https://github.com/uulab-official/picos/pull/378) on `codex/picos-v0.4.303-known-hosts-evidence-handoff`.
@@ -11,7 +25,7 @@ Goal: let operators copy or export the selected recovered Remotes known_hosts ev
 - Empty copy-intent export state can fall back from `e` to a small selected audit handoff for the selected known_hosts evidence row.
 - Exported handoffs use the shared picos audit export path with `query=remote known_hosts evidence handoff <id>`, so `z` can reopen the result through the existing locked file-open flow.
 - Tests cover copy preview shape, selected audit export content, unavailable fallbacks, and the expanded shelf action hint.
-- Next: add command-palette discovery for the direct known_hosts evidence handoff actions, so operators can find copy/export without remembering fallback keys.
+- Next: completed by v0.4.304 command-palette discovery for direct known_hosts evidence copy/export handoff actions.
 
 ## v0.4.302 - Remote Known Hosts Evidence Copy Intents
 

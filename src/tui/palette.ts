@@ -187,6 +187,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.remoteKnownHostsEvidence.select" &&
 		action.id !== "status.remoteKnownHostsEvidence.open" &&
 		action.id !== "status.remoteKnownHostsEvidence.search" &&
+		action.id !== "status.remoteKnownHostsEvidence.copy" &&
+		action.id !== "status.remoteKnownHostsEvidence.export" &&
 		action.id !== "status.resultJump.select" &&
 		action.id !== "status.resultJump.open" &&
 		action.id !== "status.resultJump.filter" &&
@@ -245,7 +247,9 @@ export function formatCommandPaletteActionPreviewRows(
 	if (
 		action.id === "status.remoteKnownHostsEvidence.select" ||
 		action.id === "status.remoteKnownHostsEvidence.open" ||
-		action.id === "status.remoteKnownHostsEvidence.search"
+		action.id === "status.remoteKnownHostsEvidence.search" ||
+		action.id === "status.remoteKnownHostsEvidence.copy" ||
+		action.id === "status.remoteKnownHostsEvidence.export"
 	) {
 		return formatRemoteKnownHostsEvidencePalettePreviewRows(action, context);
 	}
@@ -709,13 +713,21 @@ function formatRemoteKnownHostsEvidencePalettePreviewRows(
 	);
 	const total = Math.max(1, context.totalRemoteKnownHostsEvidenceExports ?? 1);
 	const fileName = selected.path.split(/[\\/]/).pop() ?? selected.path;
+	const handoff =
+		action.id === "status.remoteKnownHostsEvidence.select"
+			? "action=select next recovered remote known_hosts evidence"
+			: action.id === "status.remoteKnownHostsEvidence.open"
+				? `confirm=file-open path=${selected.path}`
+				: action.id === "status.remoteKnownHostsEvidence.search"
+					? `timeline-search=audit path=${selected.path}`
+					: action.id === "status.remoteKnownHostsEvidence.copy"
+						? `confirm=clipboard handoff=remote-known-hosts path=${selected.path}`
+						: `audit-export=selected-handoff path=${selected.path}`;
 	return [
 		`selected remote known_hosts evidence ${selectedIndex + 1}/${total} ${fileName}`,
 		`target=${formatRemoteKnownHostsEvidenceTarget(selected.query)} events=${selected.eventCount}`,
 		`query=${selected.query ?? "-"}`,
-		action.id === "status.remoteKnownHostsEvidence.select"
-			? "action=select next recovered remote known_hosts evidence"
-			: `${action.id === "status.remoteKnownHostsEvidence.open" ? "confirm=file-open" : "timeline-search=audit"} path=${selected.path}`,
+		handoff,
 	];
 }
 

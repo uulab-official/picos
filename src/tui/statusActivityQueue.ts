@@ -2909,7 +2909,7 @@ function createProcessControlEvidenceStatusActivityResultWithPrefix(
 }
 
 export function createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-	action: "select" | "open" | "search",
+	action: "select" | "open" | "search" | "copy" | "export",
 	plan?: ConsoleAuditExportPlan,
 	options: {
 		selectedIndex?: number;
@@ -2944,7 +2944,7 @@ function createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResultWithP
 	prefix:
 		| "palette remote known_hosts evidence"
 		| "status evidence remote known_hosts",
-	action: "select" | "open" | "search",
+	action: "select" | "open" | "search" | "copy" | "export",
 	plan?: ConsoleAuditExportPlan,
 	options: {
 		selectedIndex?: number;
@@ -3241,7 +3241,7 @@ export function formatProcessControlEvidenceStatusAuditMessage(
 }
 
 export function formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-	action: "select" | "open" | "search",
+	action: "select" | "open" | "search" | "copy" | "export",
 	plan?: ConsoleAuditExportPlan,
 	options: {
 		selectedIndex?: number;
@@ -3308,7 +3308,7 @@ function formatRemoteKnownHostsSelectionHistoryEvidenceAuditMessageWithPrefix(
 	prefix:
 		| "palette remote known_hosts evidence audit"
 		| "status evidence remote known_hosts audit",
-	action: "select" | "open" | "search",
+	action: "select" | "open" | "search" | "copy" | "export",
 	plan?: ConsoleAuditExportPlan,
 	options: {
 		selectedIndex?: number;
