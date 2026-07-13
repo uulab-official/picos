@@ -40,4 +40,6 @@
 
 - [x] Document `S` typed selection and Activity/Timeline behavior.
 - [x] Run `bun run verify` and `bun run release:check`.
-- [ ] Commit, push, and open a draft PR stacked on v0.4.295.
+- [x] Commit, push, and open a draft PR stacked on v0.4.295.
+
+Result: Draft PR [#371](https://github.com/uulab-official/picos/pull/371) opened on 2026-07-13, stacked on `codex/picos-v0.4.295-known-hosts-selection-activity`.

@@ -2,7 +2,7 @@
 
 ## v0.4.296 - Remote Known Hosts Select Command
 
-Status: in progress on `codex/picos-v0.4.296-known-hosts-select-command`.
+Status: draft PR [#371](https://github.com/uulab-official/picos/pull/371) on `codex/picos-v0.4.296-known-hosts-select-command`.
 
 Goal: let operators select pasted known_hosts candidates beyond `1-9` through a typed Remotes command while preserving the locked read-only trust-review posture.
 
