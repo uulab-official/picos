@@ -481,6 +481,7 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
+	createInterfaceConfirmationStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
@@ -6972,7 +6973,15 @@ export function App(): React.ReactElement {
 			result.confirmed ? "warn" : "fail",
 			formatInterfaceConfirmationAuditMessage(result),
 		);
-	}, [commandLine.value, interfaceStateProposal, log]);
+		recordStatusActivityResult(
+			createInterfaceConfirmationStatusActivityResult(result),
+		);
+	}, [
+		commandLine.value,
+		interfaceStateProposal,
+		log,
+		recordStatusActivityResult,
+	]);
 
 	const exportCleanupHandoffHistory = useCallback(async () => {
 		const plan = createCleanupHandoffHistoryExportPlan(

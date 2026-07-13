@@ -6,6 +6,7 @@ import {
 	writeConsoleAuditExport,
 } from "../core/auditLog";
 import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
+import type { InterfaceConfirmationResult } from "../core/interfaceControl";
 import type {
 	RemoteConnectConfirmation,
 	RemoteHostKeyEvidenceInputConfirmation,
@@ -70,6 +71,7 @@ export type StatusActivityEnterAction =
 	| "remote-host-trust-review"
 	| "remote-known-hosts-selection"
 	| "remote-connect"
+	| "interface-confirmation"
 	| "none";
 
 export type StatusActivityEnterPlan = {
@@ -587,6 +589,29 @@ export function createRemoteConnectStatusActivityResult(
 			"network=not-opened",
 			"willExecute=false",
 			`confirm="${preview.confirm}"`,
+		].join(" "),
+	};
+}
+
+export function createInterfaceConfirmationStatusActivityResult(
+	confirmation: InterfaceConfirmationResult,
+): StatusActivityResult {
+	return {
+		source: "timeline",
+		action: "interface-confirmation",
+		message: `interface confirmation ${confirmation.status} ${confirmation.actionId} target=${confirmation.targetLabel}`,
+		detail: [
+			`action=${confirmation.action}`,
+			`target=${quoteAuditAttribute(confirmation.targetLabel)}`,
+			`expected=${quoteAuditAttribute(confirmation.expectedPhrase)}`,
+			`received=${quoteAuditAttribute(confirmation.receivedPhrase || "-")}`,
+			`confirmed=${confirmation.confirmed}`,
+			`willExecute=${confirmation.willExecute}`,
+			`risk=${confirmation.risk}`,
+			`privilege=${confirmation.privilege}`,
+			`reason=${confirmation.reason}`,
+			`blockers=${confirmation.blockers.join(",")}`,
+			`command=${quoteAuditAttribute(confirmation.commandPreview)}`,
 		].join(" "),
 	};
 }
@@ -2196,6 +2221,12 @@ export function createStatusActivityResultTimelineSearch(
 		return createRemoteConnectResultTimelineSearch(result);
 	}
 	if (
+		result.source === "timeline" &&
+		result.action === "interface-confirmation"
+	) {
+		return createInterfaceConfirmationResultTimelineSearch(result);
+	}
+	if (
 		result.source !== "evidence" ||
 		result.action !== "timeline-evidence-trail"
 	) {
@@ -2230,6 +2261,24 @@ function createRemoteConnectResultTimelineSearch(
 		filter: "audit",
 		query: `remote connect audit id=${id} status=${status}`,
 		message: `status activity result timeline search remote connect ${id} ${status}`,
+	};
+}
+
+function createInterfaceConfirmationResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const match = result.message.match(
+		/^interface confirmation (confirmed-blocked|rejected) (interface\.(?:enable|disable)) /,
+	);
+	const status = match?.[1];
+	const actionId = match?.[2];
+	if (!actionId || !status) {
+		return undefined;
+	}
+	return {
+		filter: "audit",
+		query: `interface confirmation ${actionId} status=${status}`,
+		message: `status activity result timeline search interface confirmation ${actionId} ${status}`,
 	};
 }
 

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.326 - Interface Audit Recovery
+
+Status: in progress on `codex/picos-v0.4.326-interface-audit-recovery`, stacked on draft PR [#400](https://github.com/uulab-official/picos/pull/400).
+
+Goal: make blocked/rejected interface confirmation attempts recoverable from Status Activity result history and Timeline audit search.
+
+- Interface confirmation submissions now create `source=timeline action=interface-confirmation` Status Activity results.
+- Result rows preserve action id, target label, expected/received phrase, confirmed state, `willExecute=false`, risk, privilege, reason, blockers, and command preview.
+- Status Activity result-history rows now create reusable Timeline audit-search jumps such as `interface confirmation interface.disable status=confirmed-blocked`.
+- Interfaces still do not execute adapter commands, dry-runs, privileged calls, or OS mutations.
+- Tests cover result rows and Timeline search recovery for confirmed-blocked interface confirmations.
+- Next: add Status Evidence export/copy handoffs for interface confirmation audit attempts.
+
 ## v0.4.325 - Interface Confirmation Audit Prompt
 
 Status: draft PR [#400](https://github.com/uulab-official/picos/pull/400) on `codex/picos-v0.4.325-interface-confirm-audit`, stacked on draft PR [#399](https://github.com/uulab-official/picos/pull/399).
@@ -12,7 +25,7 @@ Goal: let operators type the exact interface confirmation phrase and keep a visi
 - The prompt is visible in the Interfaces panel and closes back into the same proposal/audit view.
 - No interface enable/disable command, adapter mutation path, dry-run execution, privileged OS call, or status-activity queue extension is added.
 - Tests cover prompt rows, confirmation result modeling, audit messages, and workspace rendering.
-- Next: persist interface confirmation audit attempts into Timeline/Status Activity as first-class recoverable evidence.
+- Next: completed by v0.4.326 Status Activity result-history and Timeline search recovery for interface confirmation audits.
 
 ## v0.4.324 - Interface Confirmation Draft
 
