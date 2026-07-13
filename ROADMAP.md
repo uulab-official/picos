@@ -2,7 +2,7 @@
 
 ## v0.4.319 - Interface State Proposal Preflight
 
-Status: in progress on `codex/picos-v0.4.319-interface-state-preflight`, stacked on draft PR [#393](https://github.com/uulab-official/picos/pull/393).
+Status: draft PR [#394](https://github.com/uulab-official/picos/pull/394) on `codex/picos-v0.4.319-interface-state-preflight`, stacked on draft PR [#393](https://github.com/uulab-official/picos/pull/393).
 
 Goal: give Interfaces the same target-aware locked control proposal loop now available in DNS.
 
