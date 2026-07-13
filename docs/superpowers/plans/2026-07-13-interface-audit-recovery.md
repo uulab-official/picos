@@ -13,7 +13,7 @@ Make blocked or rejected interface confirmation attempts recoverable after the o
 - [x] Keep all interface execution, dry-run execution, privileged calls, and OS mutation disabled.
 - [x] Cover result rows and Timeline search recovery with tests.
 - [x] Run focused tests, lint, typecheck, verify, and release checks.
-- [ ] Publish a stacked draft PR on top of v0.4.325.
+- [x] Publish a stacked draft PR on top of v0.4.325.
 
 ## Safety Boundary
 

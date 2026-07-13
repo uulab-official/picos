@@ -2,7 +2,7 @@
 
 ## v0.4.326 - Interface Audit Recovery
 
-Status: in progress on `codex/picos-v0.4.326-interface-audit-recovery`, stacked on draft PR [#400](https://github.com/uulab-official/picos/pull/400).
+Status: draft PR [#401](https://github.com/uulab-official/picos/pull/401) on `codex/picos-v0.4.326-interface-audit-recovery`, stacked on draft PR [#400](https://github.com/uulab-official/picos/pull/400).
 
 Goal: make blocked/rejected interface confirmation attempts recoverable from Status Activity result history and Timeline audit search.
 
