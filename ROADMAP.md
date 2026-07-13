@@ -2,7 +2,7 @@
 
 ## v0.4.318 - DNS Target Preflight
 
-Status: in progress on `codex/picos-v0.4.318-dns-target-preflight`, stacked on draft PR [#392](https://github.com/uulab-official/picos/pull/392).
+Status: draft PR [#393](https://github.com/uulab-official/picos/pull/393) on `codex/picos-v0.4.318-dns-target-preflight`, stacked on draft PR [#392](https://github.com/uulab-official/picos/pull/392).
 
 Goal: make DNS edit proposals target-aware so the operator can see which system/interface resolver surface would be affected before any mutation exists.
 
