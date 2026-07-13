@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- DNS workspace now supports a locked DNS server proposal prompt: press `S`, enter resolver IPs, and picos shows current, proposed, added, removed, invalid, preflight, and rollback rows without changing DNS settings.
 - Locked Action Center control previews now include OS-style preflight rows for DNS flush, interface disable, route add, service restart, process termination, and picos update apply actions, showing scope, mutation surface, requirements, adapter dry-run availability, and rollback posture before any confirmation.
 - Tools workspace now supports lazyifconfig-style detail shortcuts: `1` raw, `2` summary, `3` command, `4` compare, plus Home/End for first/last Tools detail panes.
 - Connections and Ports workspaces now support lazyifconfig-style section shortcuts: `1` detail, `2` raw, `3` process, plus Home/End for first/last endpoint detail panes.

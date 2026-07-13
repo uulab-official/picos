@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.317 - DNS Server Proposal Preflight
+
+Status: draft PR [#392](https://github.com/uulab-official/picos/pull/392) on `codex/picos-v0.4.317-dns-proposal-preflight`, stacked on draft PR [#391](https://github.com/uulab-official/picos/pull/391).
+
+Goal: start target-specific DNS edit preflight prompts without enabling DNS mutation.
+
+- DNS workspace now opens a locked `dns.servers.set` proposal prompt with `S`.
+- Typed resolver lists are parsed, deduplicated, and validated as IP addresses.
+- Proposal rows show current, proposed, added, removed, and invalid resolver entries.
+- Preflight rows keep scope, mutation surface, requirements, dry-run availability, rollback, and execution-disabled posture visible.
+- `C` clears the active DNS proposal without touching system DNS settings.
+- Tests cover parser and formatter behavior for ready, empty, and invalid proposals.
+- Next: add selected-interface/service targeting for DNS proposals or interface enable/disable typed proposal previews.
+
 ## v0.4.316 - Control Preflight Console
 
 Status: draft PR [#391](https://github.com/uulab-official/picos/pull/391) on `codex/picos-v0.4.316-control-preflight-console`, stacked on draft PR [#390](https://github.com/uulab-official/picos/pull/390).
@@ -12,7 +26,7 @@ Goal: move closer to lazyifconfig-style OS controls by making locked mutation pr
 - Command palette previews show the preflight count plus the first operational impact rows for locked controls, including selected interface control previews.
 - Audit messages record `preflight=<count>` for newly generated control preview events so Timeline search can distinguish richer previews.
 - Tests cover DNS flush and selected interface preflight rendering while preserving the locked-by-default mutation posture.
-- Next: add route destination prompt presets or start target-specific interface/DNS edit preflight prompts with typed proposed values.
+- Next: completed by v0.4.317 DNS server proposal preflight prompts.
 
 ## v0.4.315 - Tools Detail Section Shortcuts
 

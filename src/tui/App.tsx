@@ -71,6 +71,11 @@ import {
 	runControlExecutionPlan,
 } from "../core/controlExecution";
 import { getControlPreviewCommand } from "../core/controlPreview";
+import {
+	createDnsServerProposal,
+	type DnsServerProposal,
+	formatDnsServerProposalRows,
+} from "../core/dnsControl";
 import { runDoctorChecks } from "../core/doctor";
 import {
 	createEditorSaveExecutionPlan,
@@ -743,6 +748,8 @@ export function App(): React.ReactElement {
 		useState<ControlExecutionPlan>();
 	const [controlExecutionPolicy, setControlExecutionPolicy] =
 		useState<ControlExecutionPolicy>(defaultControlExecutionPolicy);
+	const [dnsServerProposal, setDnsServerProposal] =
+		useState<DnsServerProposal>();
 	const [updateCheckResult, setUpdateCheckResult] =
 		useState<PackageUpdateCheckResult>();
 	const [githubReleaseCheckResult, setGitHubReleaseCheckResult] =
@@ -6879,6 +6886,19 @@ export function App(): React.ReactElement {
 		toolExportArchiveIndex,
 	]);
 
+	const submitDnsServerProposalCommand = useCallback(() => {
+		const proposal = createDnsServerProposal(
+			commandLine.value,
+			summaryRef.current?.dnsServers ?? [],
+		);
+		setDnsServerProposal(proposal);
+		setCommandLine((current) => closeCommandLine(current));
+		log(
+			proposal.status === "ready" ? "warn" : "fail",
+			`dns server proposal ${proposal.status} proposed=${proposal.proposedServers.join(",") || "-"}`,
+		);
+	}, [commandLine.value, log]);
+
 	const exportCleanupHandoffHistory = useCallback(async () => {
 		const plan = createCleanupHandoffHistoryExportPlan(
 			cleanupHandoffHistory,
@@ -7037,49 +7057,52 @@ export function App(): React.ReactElement {
 																																		"tools-evidence-search"
 																																	? "tools evidence search cancelled"
 																																	: commandLine.prompt ===
-																																			"tool-target-label"
-																																		? "tool target label cancelled"
+																																			"dns-servers"
+																																		? "dns server proposal cancelled"
 																																		: commandLine.prompt ===
-																																				"tool-target-value"
-																																			? "tool target value cancelled"
+																																				"tool-target-label"
+																																			? "tool target label cancelled"
 																																			: commandLine.prompt ===
-																																					"tool-target-action"
-																																				? "tool target action cancelled"
+																																					"tool-target-value"
+																																				? "tool target value cancelled"
 																																				: commandLine.prompt ===
-																																						"tool-target-cleanup"
-																																					? "tool target cleanup cancelled"
+																																						"tool-target-action"
+																																					? "tool target action cancelled"
 																																					: commandLine.prompt ===
-																																							"tool-target-preset"
-																																						? "tool target preset cancelled"
+																																							"tool-target-cleanup"
+																																						? "tool target cleanup cancelled"
 																																						: commandLine.prompt ===
-																																								"remote-profile"
-																																							? "remote profile cancelled"
+																																								"tool-target-preset"
+																																							? "tool target preset cancelled"
 																																							: commandLine.prompt ===
-																																									"remote-connect"
-																																								? "remote connect confirmation cancelled"
+																																									"remote-profile"
+																																								? "remote profile cancelled"
 																																								: commandLine.prompt ===
-																																										"remote-host-trust"
-																																									? "remote host trust review cancelled"
+																																										"remote-connect"
+																																									? "remote connect confirmation cancelled"
 																																									: commandLine.prompt ===
-																																											"remote-host-key-evidence"
-																																										? "remote host key evidence input cancelled"
+																																											"remote-host-trust"
+																																										? "remote host trust review cancelled"
 																																										: commandLine.prompt ===
-																																												"remote-known-hosts-candidate"
-																																											? "remote known_hosts candidate input cancelled"
+																																												"remote-host-key-evidence"
+																																											? "remote host key evidence input cancelled"
 																																											: commandLine.prompt ===
-																																													"remote-known-hosts-paste"
-																																												? "remote known_hosts paste review cancelled"
+																																													"remote-known-hosts-candidate"
+																																												? "remote known_hosts candidate input cancelled"
 																																												: commandLine.prompt ===
-																																														"remote-known-hosts-select"
-																																													? "remote known_hosts paste selection cancelled"
+																																														"remote-known-hosts-paste"
+																																													? "remote known_hosts paste review cancelled"
 																																													: commandLine.prompt ===
-																																															portProcessControlPrompt
-																																														? "port process control cancelled"
-																																														: commandLine.prompt.startsWith(
-																																																	toolPromptPrefix,
-																																																)
-																																															? "tool target command cancelled"
-																																															: "path command cancelled",
+																																															"remote-known-hosts-select"
+																																														? "remote known_hosts paste selection cancelled"
+																																														: commandLine.prompt ===
+																																																portProcessControlPrompt
+																																															? "port process control cancelled"
+																																															: commandLine.prompt.startsWith(
+																																																		toolPromptPrefix,
+																																																	)
+																																																? "tool target command cancelled"
+																																																: "path command cancelled",
 				);
 				return;
 			}
@@ -7155,6 +7178,8 @@ export function App(): React.ReactElement {
 					void submitToolArchiveRetentionCommand();
 				} else if (commandLine.prompt === "tools-evidence-search") {
 					submitToolEvidenceSearchCommand();
+				} else if (commandLine.prompt === "dns-servers") {
+					submitDnsServerProposalCommand();
 				} else if (commandLine.prompt === "config-reset") {
 					void submitConfigResetCommand();
 				} else if (commandLine.prompt === "editor-append") {
@@ -7353,6 +7378,18 @@ export function App(): React.ReactElement {
 				setScreen("actions");
 				runAction(ping);
 			}
+		}
+
+		if (screen === "dns" && focusArea === "workspaces" && input === "S") {
+			setCommandLine(openCommandLine("dns-servers"));
+			log("info", "dns server proposal opened");
+			return;
+		}
+
+		if (screen === "dns" && focusArea === "workspaces" && input === "C") {
+			setDnsServerProposal(undefined);
+			log("info", "dns server proposal cleared");
+			return;
 		}
 
 		if (
@@ -10822,6 +10859,7 @@ export function App(): React.ReactElement {
 					selectedFileIndex={selectedFileIndex}
 					selectedLocationIndex={selectedLocationIndex}
 					commandLine={commandLine}
+					dnsServerProposal={dnsServerProposal}
 					fileFilter={fileFilter}
 					fileOperationDialog={fileOperationDialog}
 					editorPreview={editorPreview}
@@ -11108,6 +11146,7 @@ function MainWorkspace({
 	selectedFileIndex,
 	selectedLocationIndex,
 	commandLine,
+	dnsServerProposal,
 	fileFilter,
 	fileOperationDialog,
 	editorPreview,
@@ -11267,6 +11306,7 @@ function MainWorkspace({
 	selectedFileIndex: number;
 	selectedLocationIndex: number;
 	commandLine: CommandLineState;
+	dnsServerProposal?: DnsServerProposal;
 	fileFilter: FileFilterState;
 	fileOperationDialog: FileOperationDialogState;
 	editorPreview?: EditorBuffer;
@@ -11505,6 +11545,7 @@ function MainWorkspace({
 						selectedFileIndex,
 						selectedLocationIndex,
 						commandLine,
+						dnsServerProposal,
 						fileFilter,
 						fileOperationDialog,
 						editorPreview,
@@ -11669,6 +11710,7 @@ function renderWorkspace(
 	selectedFileIndex: number,
 	selectedLocationIndex: number,
 	commandLine: CommandLineState,
+	dnsServerProposal: DnsServerProposal | undefined,
 	fileFilter: FileFilterState,
 	fileOperationDialog: FileOperationDialogState,
 	editorPreview: EditorBuffer | undefined,
@@ -12142,7 +12184,14 @@ function renderWorkspace(
 		);
 	}
 	if (screen === "dns") {
-		return <DnsWorkspace summary={summary} t={t} />;
+		return (
+			<DnsWorkspace
+				commandLine={commandLine}
+				proposal={dnsServerProposal}
+				summary={summary}
+				t={t}
+			/>
+		);
 	}
 	if (screen === "actions") {
 		return (
@@ -14727,21 +14776,41 @@ function formatFileOpenPromptRows(
 }
 
 function DnsWorkspace({
+	commandLine,
+	proposal,
 	summary,
 	t,
 }: {
+	commandLine: CommandLineState;
+	proposal?: DnsServerProposal;
 	summary?: NetworkSummary;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const proposalRows = formatDnsServerProposalRows(proposal);
+	const promptRows =
+		commandLine.active && commandLine.prompt === "dns-servers"
+			? [
+					"DNS SERVER PROPOSAL INPUT",
+					`:dns-servers ${commandLine.value || " "}  enter=preview esc=cancel`,
+				]
+			: [];
+
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.dns")}</Text>
-			<Text color="gray">resolver visibility now, mutation later</Text>
+			<Text color="gray">
+				resolver visibility · S proposal · C clear · mutation locked
+			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text>Servers: {summary?.dnsServers.join(", ") || "-"}</Text>
 				<Text color="yellow">
 					dns.flush locked: requires preview + admin + confirm
 				</Text>
+				{[...promptRows, ...proposalRows].map((row) => (
+					<Text key={row} color={getActionPreviewRowColor(row)}>
+						{row}
+					</Text>
+				))}
 			</Box>
 		</Box>
 	);
