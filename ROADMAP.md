@@ -1,5 +1,17 @@
 # picos Roadmap
 
+## v0.4.306 - Remote Known Hosts Evidence Handoff Replay
+
+Status: local branch `codex/picos-v0.4.306-known-hosts-evidence-handoff-replay` stacked on draft PR [#380](https://github.com/uulab-official/picos/pull/380).
+
+Goal: let palette-triggered known_hosts evidence copy/export result rows become reusable Timeline replay jumps.
+
+- Status Activity result-history `I` replay now recognizes `palette remote known_hosts evidence copy` and `palette remote known_hosts evidence export` rows in addition to select/open/search.
+- Reusable audit-jump queries now target `palette remote known_hosts evidence audit action=copy|export target="<id>"`, so handoff operations can be recovered from Timeline audit search.
+- Timeline audit search rendering covers `palette remote known_hosts evidence audit action=copy` rows with the same target/query/path detail as search rows.
+- Tests cover reusable `I` jump creation for copy/export handoff origins and Timeline rendering for copy audit rows.
+- Next: add visible result-history copy/export target tokens in the compact `STATUS ACTIVITY RESULT HISTORY` rows so operators can see handoff replay targets before pressing `I`.
+
 ## v0.4.305 - Remote Known Hosts Evidence Handoff Hints
 
 Status: draft PR [#380](https://github.com/uulab-official/picos/pull/380) on `codex/picos-v0.4.305-known-hosts-evidence-handoff-hints`, stacked on draft PR [#379](https://github.com/uulab-official/picos/pull/379).
@@ -10,7 +22,7 @@ Goal: make direct known_hosts evidence handoff discovery visible inside the Stat
 - The Status copy-intent controls row now includes `palette known_hosts copy/export` whenever a recovered known_hosts evidence export is selected.
 - The hint keeps the existing `y` clipboard and `e` audit export keyboard path visible while also surfacing the command-palette keywords operators can search.
 - Tests cover the empty copy-intent shelf with recovered known_hosts evidence and verify the new handoff/palette hint rows.
-- Next: add copy/export palette actions to Timeline replay recovery for copy/export origin rows so handoff operations can become reusable `I` jumps where useful.
+- Next: completed by v0.4.306 reusable Timeline replay for known_hosts evidence copy/export origin rows.
 
 ## v0.4.304 - Remote Known Hosts Evidence Handoff Palette
 

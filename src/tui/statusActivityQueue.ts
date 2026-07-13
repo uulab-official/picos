@@ -2143,7 +2143,7 @@ function createRemoteKnownHostsSelectionHistoryEvidenceResultTimelineSearch(
 	result: StatusActivityResult,
 ): StatusActivityCopyIntentTimelineSearch | undefined {
 	const match = result.message.match(
-		/^(palette remote known_hosts evidence|status evidence remote known_hosts) (select|open|search)(?:\s|$)/,
+		/^(palette remote known_hosts evidence|status evidence remote known_hosts) (select|open|search|copy|export)(?:\s|$)/,
 	);
 	if (!match) {
 		return undefined;

@@ -3351,7 +3351,7 @@ describe("Status activity queue", () => {
 		);
 	});
 
-	test("creates reusable Timeline jumps from remote known_hosts evidence search results", () => {
+	test("creates reusable Timeline jumps from remote known_hosts evidence handoff results", () => {
 		const knownHostsEvidence = {
 			path: "/Users/bonjin/.config/picos/audit/picos-audit-filtered-2026-07-01T060000000Z.log",
 			content: "",
@@ -3376,6 +3376,41 @@ describe("Status activity queue", () => {
 			message:
 				"status activity result timeline search status remote known_hosts evidence prod",
 		});
+		const copyResult =
+			createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+				"copy",
+				knownHostsEvidence,
+				{
+					selectedIndex: 0,
+					total: 1,
+				},
+			);
+		const exportResult =
+			createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+				"export",
+				knownHostsEvidence,
+				{
+					selectedIndex: 0,
+					total: 1,
+				},
+			);
+
+		expect(createStatusActivityResultTimelineSearch([copyResult], 0)).toEqual({
+			filter: "audit",
+			query:
+				'palette remote known_hosts evidence audit action=copy target="prod"',
+			message:
+				"status activity result timeline search palette remote known_hosts evidence prod",
+		});
+		expect(createStatusActivityResultTimelineSearch([exportResult], 0)).toEqual(
+			{
+				filter: "audit",
+				query:
+					'palette remote known_hosts evidence audit action=export target="prod"',
+				message:
+					"status activity result timeline search palette remote known_hosts evidence prod",
+			},
+		);
 	});
 
 	test("creates reusable Timeline jumps from Status Evidence process search results", () => {

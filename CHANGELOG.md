@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Status Activity result-history replay now treats palette-triggered Remotes `known_hosts` evidence copy/export rows as reusable Timeline audit jumps, so `I` can recover the matching handoff audit trail instead of only select/open/search origins.
 - Status Activity copy-intent shelves now show a direct `palette=? known_hosts evidence copy/export` hint beside recovered Remotes `known_hosts` evidence `y`/`e` handoffs, making the command-palette path visible without remembering hidden keywords.
 - Command palette now exposes direct recovered Remotes `known_hosts` evidence copy/export handoff actions, previewing locked clipboard and selected audit-export paths before dispatching through the same no-local-read/no-network/no-scan/no-trust/no-write Status Activity handoff flow.
 - Status Activity copy-intent shelves can now fall back to the selected recovered Remotes `known_hosts` evidence row for direct `y` clipboard handoffs and `e` selected audit exports, preserving locked no-local-read/no-network/no-scan/no-trust/no-write guards and reopening exported handoffs through the existing `z` file-open path.
