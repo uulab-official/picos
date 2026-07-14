@@ -2,7 +2,7 @@
 
 ## v0.4.335 - SFTP Session Control
 
-Status: local development on `codex/picos-v0.4.335-sftp-session-control`, stacked on draft PR [#409](https://github.com/uulab-official/picos/pull/409).
+Status: draft PR [#410](https://github.com/uulab-official/picos/pull/410) on `codex/picos-v0.4.335-sftp-session-control`, stacked on draft PR [#409](https://github.com/uulab-official/picos/pull/409).
 
 Goal: make read-only SFTP observable and controllable during failure-prone operator workflows, and expose the same guarded provider to non-interactive CLI automation.
 
