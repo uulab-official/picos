@@ -9,6 +9,8 @@ Claude should use `AGENTS.md` as the source of truth for this repository.
 - Do not bypass `src/utils/safeExec.ts` for process execution.
 - Do not place OS-specific commands outside `src/adapters`.
 - Keep SSH/SFTP transport in `src/core/sftp.ts`; require host-key verification and exact confirmation before opening a socket.
+- Keep TUI and CLI SFTP lifecycle behavior aligned: visible cancellation, exact-confirm retry, bounded operations, structured audits, and guaranteed provider close.
+- Preserve OpenSSH revocation semantics and case-insensitive DNS host matching; never weaken trust-file, read-size, or directory-list bounds.
 - Do not add password persistence, host-key auto-accept, remote writes, or remote command execution to the read-only provider.
 - Keep OS inventory features read-only unless a write action has preview, confirmation, privilege metadata, and locked-by-default tests.
 - Prefer `bun run verify` before final responses.

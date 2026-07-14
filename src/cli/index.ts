@@ -77,7 +77,14 @@ export function createCli(): ReturnType<typeof cac> {
 		.command("remotes", "List configured remote file profiles")
 		.action(remotesCommand);
 	cli
-		.command("remote <id>", "Inspect a remote file profile provider")
+		.command("remote <id>", "Inspect or read from a remote file profile")
+		.option("--list <path>", "List a remote directory after guarded connect")
+		.option("--read <path>", "Read a remote text file after guarded connect")
+		.option("--known-hosts <path>", "Use a local OpenSSH known_hosts file")
+		.option("--fingerprint <sha256>", "Select one matching known_hosts key")
+		.option("--confirm <phrase>", "Exact phrase: connect remote <id>")
+		.option("--timeout <ms>", "Connection and operation timeout")
+		.option("--max-bytes <n>", "Maximum remote file bytes to read")
 		.action(remoteCommand);
 	cli
 		.command("drives", "List system drives and file locations")

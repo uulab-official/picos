@@ -47,16 +47,49 @@ export type ConnectReadOnlySftpOptions = {
 };
 
 export type ReadOnlySftpConnectionOutcome = {
-	status: "connected" | "failed";
+	status: "connected" | "completed" | "failed" | "cancelled";
 	id: string;
 	target: string;
 	host: string;
 	port: number;
 	fingerprint: string;
+	network?: "opened" | "closed" | "unknown";
 	message: string;
 };
 
-const DEFAULT_MAX_READ_BYTES = 256 * 1024;
+export type ReadOnlySftpConnectionDiagnosticStatus =
+	| "connecting"
+	| "cancelling"
+	| "connected"
+	| "failed"
+	| "cancelled"
+	| "disconnected";
+
+export type ReadOnlySftpConnectionDiagnostic = {
+	id: string;
+	target: string;
+	fingerprint: string;
+	status: ReadOnlySftpConnectionDiagnosticStatus;
+	attempt: number;
+	startedAt: number;
+	finishedAt?: number;
+	durationMs?: number;
+	message: string;
+};
+
+export class ReadOnlySftpConnectionCancelledError extends Error {
+	readonly code = "PICOS_SFTP_CANCELLED";
+
+	constructor(message = "SFTP connection cancelled") {
+		super(message);
+		this.name = "ReadOnlySftpConnectionCancelledError";
+	}
+}
+
+export const DEFAULT_SFTP_MAX_READ_BYTES = 256 * 1024;
+export const MAX_SFTP_READ_BYTES = 1024 * 1024;
+const MAX_SFTP_DIRECTORY_ENTRIES = 10_000;
+const MAX_SFTP_DIRECTORY_NAME_BYTES = 1024 * 1024;
 const DEFAULT_READY_TIMEOUT_MS = 10_000;
 
 export async function connectReadOnlySftpFileProvider(
@@ -72,7 +105,7 @@ export async function connectReadOnlySftpFileProvider(
 		);
 	}
 	if (options.signal?.aborted) {
-		throw new Error("SFTP connection cancelled");
+		throw new ReadOnlySftpConnectionCancelledError();
 	}
 	const connect = options.connect ?? connectSsh2Session;
 	const session = await connect(profile, {
@@ -83,11 +116,117 @@ export async function connectReadOnlySftpFileProvider(
 	});
 	try {
 		const resolvedRoot = await session.realpath(profile.root);
+		if (options.signal?.aborted) {
+			throw new ReadOnlySftpConnectionCancelledError();
+		}
 		return createReadOnlySftpFileProvider(profile, session, resolvedRoot);
 	} catch (caught) {
 		await session.close().catch(() => undefined);
+		if (options.signal?.aborted) {
+			throw new ReadOnlySftpConnectionCancelledError();
+		}
 		throw caught;
 	}
+}
+
+export function startReadOnlySftpConnectionDiagnostic(
+	profile: SftpRemoteProfile,
+	fingerprint: string,
+	previous?: ReadOnlySftpConnectionDiagnostic,
+	now = Date.now(),
+): ReadOnlySftpConnectionDiagnostic {
+	return {
+		id: profile.id,
+		target: formatSftpProfileUri(profile),
+		fingerprint,
+		status: "connecting",
+		attempt: previous?.id === profile.id ? previous.attempt + 1 : 1,
+		startedAt: now,
+		message: "opening host-verified read-only SFTP session",
+	};
+}
+
+export function requestReadOnlySftpConnectionCancellation(
+	diagnostic: ReadOnlySftpConnectionDiagnostic,
+): ReadOnlySftpConnectionDiagnostic {
+	return diagnostic.status === "connecting"
+		? {
+				...diagnostic,
+				status: "cancelling",
+				message: "cancellation requested; closing transport",
+			}
+		: diagnostic;
+}
+
+export function finishReadOnlySftpConnectionDiagnostic(
+	diagnostic: ReadOnlySftpConnectionDiagnostic,
+	status: Extract<
+		ReadOnlySftpConnectionDiagnosticStatus,
+		"connected" | "failed" | "cancelled" | "disconnected"
+	>,
+	message: string,
+	now = Date.now(),
+): ReadOnlySftpConnectionDiagnostic {
+	return {
+		...diagnostic,
+		status,
+		finishedAt: now,
+		durationMs: Math.max(0, now - diagnostic.startedAt),
+		message,
+	};
+}
+
+export function formatReadOnlySftpConnectionDiagnosticRows(
+	diagnostic?: ReadOnlySftpConnectionDiagnostic,
+): string[] {
+	if (!diagnostic) {
+		return [
+			"REMOTE SESSION CONTROL none",
+			"status=idle attempt=0 duration=- network=closed",
+			"target=none",
+			"capabilities=list,stat,read writes=locked exec=unsupported",
+			"controls=c exact-confirm connect",
+		];
+	}
+	const network =
+		diagnostic.status === "connected"
+			? "opened"
+			: diagnostic.status === "connecting"
+				? "opening"
+				: diagnostic.status === "cancelling"
+					? "closing"
+					: "closed";
+	const duration =
+		diagnostic.durationMs === undefined
+			? "running"
+			: `${diagnostic.durationMs}ms`;
+	const controls =
+		diagnostic.status === "connecting" || diagnostic.status === "cancelling"
+			? "X cancel pending connection"
+			: diagnostic.status === "failed" || diagnostic.status === "cancelled"
+				? "R retry via exact confirmation · c new connect"
+				: diagnostic.status === "connected"
+					? "Files L disconnect · remote writes locked"
+					: "c exact-confirm reconnect";
+	return [
+		`REMOTE SESSION CONTROL ${diagnostic.id}`,
+		`status=${diagnostic.status} attempt=${diagnostic.attempt} duration=${duration} network=${network}`,
+		`target=${diagnostic.target}`,
+		`hostKey=${diagnostic.fingerprint} capabilities=list,stat,read writes=locked exec=unsupported`,
+		`message=${quoteSftpAuditValue(diagnostic.message)}`,
+		`controls=${controls}`,
+	];
+}
+
+export function isReadOnlySftpConnectionCancelledError(
+	caught: unknown,
+): caught is ReadOnlySftpConnectionCancelledError {
+	return (
+		caught instanceof ReadOnlySftpConnectionCancelledError ||
+		(caught instanceof Error &&
+			"code" in caught &&
+			caught.code === "PICOS_SFTP_CANCELLED")
+	);
 }
 
 export function createReadOnlySftpFileProvider(
@@ -106,6 +245,7 @@ export function createReadOnlySftpFileProvider(
 		async list(path) {
 			const remotePath = resolveSftpProviderPath(profile, rootPath, path);
 			const entries = await session.list(remotePath);
+			assertBoundedSftpDirectory(entries);
 			return entries
 				.filter((entry) => entry.name !== "." && entry.name !== "..")
 				.map(
@@ -122,9 +262,12 @@ export function createReadOnlySftpFileProvider(
 		},
 		async read(path, readOptions = {}) {
 			const remotePath = resolveSftpProviderPath(profile, rootPath, path);
-			const maxBytes = Math.max(
-				1,
-				Math.floor(readOptions.maxBytes ?? DEFAULT_MAX_READ_BYTES),
+			const maxBytes = Math.min(
+				MAX_SFTP_READ_BYTES,
+				Math.max(
+					1,
+					Math.floor(readOptions.maxBytes ?? DEFAULT_SFTP_MAX_READ_BYTES),
+				),
 			);
 			const info = await session.stat(remotePath);
 			if (info.type !== "file") {
@@ -186,7 +329,7 @@ export function formatReadOnlySftpConnectionAuditMessage(
 		`status=${outcome.status}`,
 		`target=${quoteSftpAuditValue(outcome.target)}`,
 		`fingerprint=${outcome.fingerprint}`,
-		`network=${outcome.status === "connected" ? "opened" : "closed"}`,
+		`network=${outcome.network ?? (outcome.status === "connected" ? "opened" : "closed")}`,
 		"capabilities=list,stat,read",
 		"writes=locked",
 		`message=${quoteSftpAuditValue(outcome.message)}`,
@@ -241,9 +384,13 @@ async function connectSsh2Session(
 ): Promise<ReadOnlySftpSession> {
 	const { Client: SshClient } = await import("ssh2");
 	const client = new SshClient();
-	const auth = await createSftpAuthConfig(profile, options.agentPath);
+	const auth = await createSftpAuthConfig(
+		profile,
+		options.agentPath,
+		options.signal,
+	);
 	if (options.signal?.aborted) {
-		throw new Error("SFTP connection cancelled");
+		throw new ReadOnlySftpConnectionCancelledError();
 	}
 	let observedFingerprint = "SHA256:unknown";
 	const config: ConnectConfig = {
@@ -291,6 +438,13 @@ async function connectSsh2Session(
 				);
 				return;
 			}
+			if (
+				error instanceof ReadOnlySftpConnectionCancelledError ||
+				options.signal?.aborted
+			) {
+				reject(new ReadOnlySftpConnectionCancelledError());
+				return;
+			}
 			reject(new Error(`SFTP connection failed: ${error.message}`));
 		};
 		client.on("error", fail);
@@ -304,7 +458,7 @@ async function connectSsh2Session(
 				resolveSession(wrapper);
 			});
 		});
-		abortHandler = () => fail(new Error("SFTP connection cancelled"));
+		abortHandler = () => fail(new ReadOnlySftpConnectionCancelledError());
 		options.signal?.addEventListener("abort", abortHandler, { once: true });
 		if (options.signal?.aborted) {
 			abortHandler();
@@ -323,10 +477,11 @@ async function connectSsh2Session(
 async function createSftpAuthConfig(
 	profile: SftpRemoteProfile,
 	agentPath?: string,
+	signal?: AbortSignal,
 ): Promise<Pick<ConnectConfig, "agent" | "privateKey">> {
 	if (profile.keyPath) {
 		const keyPath = resolveHomePath(profile.keyPath);
-		const privateKey = await readFile(keyPath);
+		const privateKey = await readFile(keyPath, { signal });
 		return { privateKey };
 	}
 	const agent = agentPath ?? process.env.SSH_AUTH_SOCK;
@@ -343,6 +498,11 @@ function createSsh2ReadOnlySession(
 	sftp: SFTPWrapper,
 	detachAbortListener: () => void,
 ): ReadOnlySftpSession {
+	let transportClosed = false;
+	let closePromise: Promise<void> | undefined;
+	client.once("close", () => {
+		transportClosed = true;
+	});
 	return {
 		async realpath(path) {
 			return new Promise<string>((resolvePath, reject) =>
@@ -353,13 +513,7 @@ function createSsh2ReadOnlySession(
 			);
 		},
 		async list(path) {
-			const rows = await new Promise<FileEntryWithStats[]>(
-				(resolveRows, reject) =>
-					sftp.readdir(path, (error, entries) => {
-						if (error) reject(error);
-						else resolveRows(entries ?? []);
-					}),
-			);
+			const rows = await readBoundedSftpDirectory(sftp, path);
 			return rows.map((entry) => ({
 				name: entry.filename,
 				type: getSftpStatsType(entry.attrs),
@@ -396,9 +550,81 @@ function createSsh2ReadOnlySession(
 		},
 		async close() {
 			detachAbortListener();
-			client.end();
+			if (transportClosed) return;
+			closePromise ??= new Promise<void>((resolveClose, rejectClose) => {
+				const timeout = setTimeout(() => {
+					client.destroy();
+					rejectClose(new Error("SFTP transport close timed out"));
+				}, 2_000);
+				client.once("close", () => {
+					clearTimeout(timeout);
+					transportClosed = true;
+					resolveClose();
+				});
+				client.end();
+			});
+			await closePromise;
 		},
 	};
+}
+
+async function readBoundedSftpDirectory(
+	sftp: SFTPWrapper,
+	path: string,
+): Promise<FileEntryWithStats[]> {
+	const handle = await new Promise<Buffer>((resolveHandle, rejectHandle) =>
+		sftp.opendir(path, (error, openedHandle) => {
+			if (error) rejectHandle(error);
+			else resolveHandle(openedHandle);
+		}),
+	);
+	const entries: FileEntryWithStats[] = [];
+	let nameBytes = 0;
+	try {
+		while (true) {
+			const batch = await new Promise<FileEntryWithStats[]>(
+				(resolveEntries, rejectEntries) =>
+					sftp.readdir(handle, (error, rows) => {
+						if (error) rejectEntries(error);
+						else resolveEntries(Array.isArray(rows) ? rows : []);
+					}),
+			);
+			if (batch.length === 0) break;
+			for (const entry of batch) {
+				entries.push(entry);
+				nameBytes += Buffer.byteLength(entry.filename, "utf8");
+				if (
+					entries.length > MAX_SFTP_DIRECTORY_ENTRIES ||
+					nameBytes > MAX_SFTP_DIRECTORY_NAME_BYTES
+				) {
+					throw new Error("SFTP directory exceeds safe listing limits");
+				}
+			}
+		}
+		return entries;
+	} finally {
+		await new Promise<void>((resolveClose, rejectClose) =>
+			sftp.close(handle, (error) => {
+				if (error) rejectClose(error);
+				else resolveClose();
+			}),
+		);
+	}
+}
+
+function assertBoundedSftpDirectory(
+	entries: Awaited<ReturnType<ReadOnlySftpSession["list"]>>,
+): void {
+	const nameBytes = entries.reduce(
+		(total, entry) => total + Buffer.byteLength(entry.name, "utf8"),
+		0,
+	);
+	if (
+		entries.length > MAX_SFTP_DIRECTORY_ENTRIES ||
+		nameBytes > MAX_SFTP_DIRECTORY_NAME_BYTES
+	) {
+		throw new Error("SFTP directory exceeds safe listing limits");
+	}
 }
 
 function normalizeRemotePath(path: string): string {

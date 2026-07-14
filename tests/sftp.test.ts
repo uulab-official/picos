@@ -3,12 +3,18 @@ import {
 	connectReadOnlySftpFileProvider,
 	createReadOnlySftpFileProvider,
 	createSftpHostKeyFingerprint,
+	finishReadOnlySftpConnectionDiagnostic,
 	formatReadOnlySftpConnectionAuditMessage,
+	formatReadOnlySftpConnectionDiagnosticRows,
 	formatSftpProfileUri,
 	formatSftpUri,
+	isReadOnlySftpConnectionCancelledError,
 	normalizeSftpHostKeyFingerprint,
+	ReadOnlySftpConnectionCancelledError,
 	type ReadOnlySftpSession,
+	requestReadOnlySftpConnectionCancellation,
 	resolveSftpProviderPath,
+	startReadOnlySftpConnectionDiagnostic,
 } from "../src/core/sftp";
 import type { SftpRemoteProfile } from "../src/core/types";
 
@@ -97,6 +103,39 @@ describe("read-only SFTP provider", () => {
 		);
 		await provider.close?.();
 		expect(session.closed).toBeTrue();
+	});
+
+	test("enforces the core read ceiling even when a caller requests more", async () => {
+		const session = createSession();
+		let receivedMaxBytes = 0;
+		session.read = async (_path, maxBytes) => {
+			receivedMaxBytes = maxBytes;
+			return Buffer.from("bounded");
+		};
+		session.stat = async () => ({ type: "file", size: 2 * 1024 * 1024 });
+		const provider = createReadOnlySftpFileProvider(profile, session);
+
+		const result = await provider.read("app.log", {
+			maxBytes: 2 * 1024 * 1024,
+		});
+
+		expect(receivedMaxBytes).toBe(1024 * 1024);
+		expect(result.truncated).toBeTrue();
+	});
+
+	test("rejects oversized remote directory listings", async () => {
+		const session = createSession();
+		session.list = async () =>
+			Array.from({ length: 10_001 }, (_, index) => ({
+				name: `entry-${index}`,
+				type: "file" as const,
+				size: 0,
+			}));
+		const provider = createReadOnlySftpFileProvider(profile, session);
+
+		await expect(provider.list(".")).rejects.toThrow(
+			"exceeds safe listing limits",
+		);
 	});
 
 	test("requires a trusted fingerprint before invoking the connector", async () => {
@@ -246,5 +285,75 @@ describe("read-only SFTP provider", () => {
 				message: "remote\nerror",
 			}),
 		).toContain('message="remote\\nerror"');
+		expect(
+			formatReadOnlySftpConnectionAuditMessage({
+				status: "cancelled",
+				id: "prod",
+				target: "sftp://deploy@prod.example.com:2222/srv/app",
+				host: "prod.example.com",
+				port: 2222,
+				fingerprint,
+				message: "cancelled by operator",
+			}),
+		).toContain("status=cancelled");
+	});
+
+	test("models visible connection, cancellation, retry, and disconnect diagnostics", () => {
+		const fingerprint = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+		const first = startReadOnlySftpConnectionDiagnostic(
+			profile,
+			fingerprint,
+			undefined,
+			1_000,
+		);
+		expect(formatReadOnlySftpConnectionDiagnosticRows(first)).toContain(
+			"status=connecting attempt=1 duration=running network=opening",
+		);
+		const cancelling = requestReadOnlySftpConnectionCancellation(first);
+		expect(cancelling.status).toBe("cancelling");
+		expect(formatReadOnlySftpConnectionDiagnosticRows(cancelling)).toContain(
+			"status=cancelling attempt=1 duration=running network=closing",
+		);
+		const cancelled = finishReadOnlySftpConnectionDiagnostic(
+			cancelling,
+			"cancelled",
+			"cancelled by operator",
+			1_125,
+		);
+		expect(formatReadOnlySftpConnectionDiagnosticRows(cancelled)).toContain(
+			"status=cancelled attempt=1 duration=125ms network=closed",
+		);
+		expect(
+			formatReadOnlySftpConnectionDiagnosticRows(cancelled).at(-1),
+		).toContain("R retry");
+
+		const retry = startReadOnlySftpConnectionDiagnostic(
+			profile,
+			fingerprint,
+			cancelled,
+			2_000,
+		);
+		expect(retry.attempt).toBe(2);
+		const connected = finishReadOnlySftpConnectionDiagnostic(
+			retry,
+			"connected",
+			"entries=3",
+			2_200,
+		);
+		expect(formatReadOnlySftpConnectionDiagnosticRows(connected)).toContain(
+			"status=connected attempt=2 duration=200ms network=opened",
+		);
+		const disconnected = finishReadOnlySftpConnectionDiagnostic(
+			connected,
+			"disconnected",
+			"closed",
+			3_000,
+		);
+		expect(disconnected.status).toBe("disconnected");
+		expect(
+			isReadOnlySftpConnectionCancelledError(
+				new ReadOnlySftpConnectionCancelledError(),
+			),
+		).toBeTrue();
 	});
 });

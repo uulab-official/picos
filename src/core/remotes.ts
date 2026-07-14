@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { createFileProvider } from "./files";
 import { formatSftpProfileUri, normalizeSftpHostKeyFingerprint } from "./sftp";
 import type { SftpRemoteProfile } from "./types";
@@ -345,21 +345,26 @@ export function getSelectedRemoteKnownHostsCandidate(
 		return undefined;
 	}
 	const paste = pasteSession[profile.id];
-	if (paste?.selected !== "none") {
+	if (paste && paste.selected !== "none") {
 		const selected = paste.candidates.find(
 			(candidate) => candidate.index === paste.selected,
 		);
-		if (selected) {
-			return selected;
-		}
+		return selected?.marker === "none" &&
+			!isRemoteKnownHostsCandidateRevoked(selected, paste.candidates)
+			? selected
+			: undefined;
 	}
 	const preview = candidateSession[profile.id];
 	if (preview?.selected === "none" || preview?.selected === undefined) {
 		return undefined;
 	}
-	return preview.candidates.find(
+	const selected = preview.candidates.find(
 		(candidate) => candidate.index === preview.selected,
 	);
+	return selected?.marker === "none" &&
+		!isRemoteKnownHostsCandidateRevoked(selected, preview.candidates)
+		? selected
+		: undefined;
 }
 
 export type RemoteHostKeyTrustDecisionPreview = {
@@ -1050,7 +1055,18 @@ export function parseRemoteKnownHostsCandidates(
 		if (!parsed) {
 			continue;
 		}
+		const excluded = parsed.hostPatterns.some(
+			(hostPattern) =>
+				hostPattern.startsWith("!") &&
+				knownHostsPatternMatchesLookup(hostPattern.slice(1), normalizedLookup),
+		);
+		if (excluded) {
+			continue;
+		}
 		for (const hostPattern of parsed.hostPatterns) {
+			if (hostPattern.startsWith("!")) {
+				continue;
+			}
 			if (!knownHostsPatternMatchesLookup(hostPattern, normalizedLookup)) {
 				continue;
 			}
@@ -1068,6 +1084,58 @@ export function parseRemoteKnownHostsCandidates(
 		}
 	}
 	return candidates;
+}
+
+export function selectRemoteKnownHostsConnectCandidate(
+	profile: SftpRemoteProfile,
+	content: string,
+	requestedFingerprint?: string,
+): RemoteKnownHostsCandidate {
+	const matchedCandidates = parseRemoteKnownHostsCandidates(
+		`${profile.host}:${profile.port}`,
+		content,
+	);
+	const revokedFingerprints = new Set(
+		matchedCandidates
+			.filter((candidate) => candidate.marker === "@revoked")
+			.map((candidate) => candidate.fingerprint),
+	);
+	const candidates = matchedCandidates.filter(
+		(candidate) =>
+			candidate.marker === "none" &&
+			!revokedFingerprints.has(candidate.fingerprint),
+	);
+	if (candidates.length === 0) {
+		throw new Error(
+			`No usable known_hosts candidate matched ${profile.host}:${profile.port}`,
+		);
+	}
+
+	if (requestedFingerprint !== undefined) {
+		const normalized = normalizeSftpHostKeyFingerprint(requestedFingerprint);
+		if (!normalized) {
+			throw new Error("--fingerprint requires an OpenSSH SHA256 fingerprint");
+		}
+		const selected = candidates.find(
+			(candidate) => candidate.fingerprint === normalized,
+		);
+		if (!selected) {
+			throw new Error(
+				`Requested fingerprint does not match known_hosts for ${profile.host}:${profile.port}`,
+			);
+		}
+		return selected;
+	}
+
+	const fingerprints = new Set(
+		candidates.map((candidate) => candidate.fingerprint),
+	);
+	if (fingerprints.size > 1) {
+		throw new Error(
+			`Multiple known_hosts keys matched ${profile.host}:${profile.port}; select one with --fingerprint`,
+		);
+	}
+	return candidates[0] as RemoteKnownHostsCandidate;
 }
 
 export function createRemoteKnownHostsCandidatePreview(
@@ -1879,11 +1947,12 @@ function knownHostsPatternMatchesLookup(
 	const bracketMatch = pattern.match(/^\[([^\]]+)\]:(\d+)$/);
 	if (bracketMatch) {
 		return (
-			bracketMatch[1] === lookup.host && Number(bracketMatch[2]) === lookup.port
+			bracketMatch[1]?.toLowerCase() === lookup.host.toLowerCase() &&
+			Number(bracketMatch[2]) === lookup.port
 		);
 	}
 	if (pattern.startsWith("|")) {
-		return false;
+		return hashedKnownHostsPatternMatchesLookup(pattern, lookup);
 	}
 	if (lookup.port !== 22) {
 		return false;
@@ -1891,7 +1960,36 @@ function knownHostsPatternMatchesLookup(
 	if (pattern.includes("*") || pattern.includes("?")) {
 		return knownHostsWildcardMatches(pattern, lookup.host);
 	}
-	return pattern === lookup.host;
+	return pattern.toLowerCase() === lookup.host.toLowerCase();
+}
+
+function hashedKnownHostsPatternMatchesLookup(
+	pattern: string,
+	lookup: { host: string; port: number },
+): boolean {
+	const parts = pattern.split("|");
+	if (parts.length !== 4 || parts[1] !== "1" || !parts[2] || !parts[3]) {
+		return false;
+	}
+	try {
+		const salt = Buffer.from(parts[2], "base64");
+		const expected = Buffer.from(parts[3], "base64");
+		const hosts = new Set([lookup.host, lookup.host.toLowerCase()]);
+		for (const lookupHost of hosts) {
+			const host =
+				lookup.port === 22 ? lookupHost : `[${lookupHost}]:${lookup.port}`;
+			const actual = createHmac("sha1", salt).update(host).digest();
+			if (
+				expected.length === actual.length &&
+				timingSafeEqual(expected, actual)
+			) {
+				return true;
+			}
+		}
+		return false;
+	} catch {
+		return false;
+	}
 }
 
 function knownHostsWildcardMatches(pattern: string, host: string): boolean {
@@ -1906,7 +2004,17 @@ function knownHostsWildcardMatches(pattern: string, host: string): boolean {
 			return character.replace(/[\\^$+?.()|[\]{}]/g, "\\$&");
 		})
 		.join("");
-	return new RegExp(`^${wildcard}$`).test(host);
+	return new RegExp(`^${wildcard}$`, "i").test(host);
+}
+
+function isRemoteKnownHostsCandidateRevoked(
+	candidate: RemoteKnownHostsCandidate,
+	candidates: RemoteKnownHostsCandidate[],
+): boolean {
+	return candidates.some(
+		(item) =>
+			item.marker === "@revoked" && item.fingerprint === candidate.fingerprint,
+	);
 }
 
 function getKnownHostsPatternKind(

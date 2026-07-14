@@ -47,6 +47,9 @@ bun run smoke
 - `src/utils/safeExec.ts` is the only place that should spawn OS commands.
 - TUI and CLI must call `core` APIs rather than shelling out directly.
 - SFTP connections require a selected SHA256 host-key candidate and exact confirmation; never auto-accept or persist host trust.
+- CLI SFTP list/read must use the same core provider, local `known_hosts` verification, timeout/read bounds, audit formatting, and guaranteed close as the TUI.
+- Treat matching `@revoked` fingerprints as global blockers, preserve exact confirmation bytes, and keep trust files plus remote reads/listings bounded before presenting output.
+- Retrying a failed or cancelled connection must require the exact confirmation again; cancellation must remain visible and recoverable as audit evidence.
 - OS mutation must be represented as an action before it is executable.
 
 ## Safety Rules
@@ -70,6 +73,7 @@ The current milestone makes picos visible and navigable:
 - keyboard navigation with number keys, arrows, and `h`/`l`
 - read-only OS inventory and safe network reachability tools
 - host-key-verified read-only SFTP list/stat/read sessions with explicit close and locked remote writes
+- cancellable/retryable SFTP lifecycle diagnostics and guarded CLI remote list/read automation
 - locked action catalog for future privileged controls
 
 Actual OS mutation remains disabled by default.
