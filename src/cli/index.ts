@@ -108,7 +108,10 @@ export function createCli(): ReturnType<typeof cac> {
 		.option("--filter <query>", "Filter log rows by level, index, or text")
 		.option("--level <level>", "Filter by severity: all, warn, fail, or info")
 		.action(logsCommand);
-	cli.command("doctor", "Run network diagnostics").action(doctorCommand);
+	cli
+		.command("doctor", "Run network diagnostics")
+		.option("--json", "Emit one structured diagnostic result")
+		.action(doctorCommand);
 	cli.command("pwd", "Print current picos file root").action(pwdCommand);
 	cli
 		.command("locations", "List system file locations")
@@ -198,6 +201,7 @@ export function createCli(): ReturnType<typeof cac> {
 		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")
 		.option("--timeout <ms>", "Tool timeout in milliseconds")
 		.option("--raw", "Print raw tool output")
+		.option("--json", "Emit one structured tool result")
 		.action(toolsCommand);
 	cli
 		.command("update", "Check npm for a newer picos version")
@@ -209,7 +213,10 @@ export function createCli(): ReturnType<typeof cac> {
 	cli
 		.command("release-health", "Check release automation health")
 		.action(releaseHealthCommand);
-	cli.command("dns [action]", "Show DNS information").action(dnsCommand);
+	cli
+		.command("dns [action]", "Show DNS information")
+		.option("--json", "Emit one structured resolver result")
+		.action(dnsCommand);
 	cli
 		.command("config [action] [key] [value]", "Show or update config")
 		.action(configCommand);

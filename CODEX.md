@@ -31,5 +31,6 @@ For OS inventory features, keep read-only behavior first. All platform commands 
 - `README.md`: public project overview and usage.
 - `CHANGELOG.md`: user-visible changes.
 - `docs/HARNESS.md`: verification harness details.
+- `docs/LOCAL_AUTOMATION.md`: versioned local inspector and diagnostics contracts.
 - `AGENTS.md`: cross-agent rules.
 - `CLAUDE.md`: Claude-specific notes.

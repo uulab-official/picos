@@ -88,6 +88,7 @@ picos info
 picos info --full
 picos info --json
 picos doctor
+picos doctor --json
 picos ping google.com --count 4 --timeout 10000
 picos connect example.com 443
 picos telnet example.com 443
@@ -98,6 +99,8 @@ picos tools port-check github.com 443
 picos tools telnet github.com 443
 picos tools tls github.com:443
 picos tools traceroute 8.8.8.8
+picos tools list --json
+picos tools port-check github.com 443 --json
 picos routes
 picos routes --sort interface
 picos routes --sort=-metric
@@ -132,6 +135,7 @@ picos pwd
 picos dir
 picos type README.md
 picos dns
+picos dns --json
 picos config
 picos version
 ```
@@ -141,13 +145,13 @@ Commands:
 - `picos` or `picos ui`: open the TUI control panel.
 - `picos info`: print network and system summary.
 - `picos info --full`: print OS-style system, hardware, storage, process, network, runtime, and permission inventory.
-- Add `--json` to `picos info`, `picos routes`, `picos route`, `picos connections`, or `picos ports` for one schema-versioned local inspector result. Table commands preserve filter/sort/source success, exit, and truncation status and return at most 10,000 normalized rows with explicit counts; full inventory also reports storage/process collector status. Raw OS command output is excluded, `--raw --json` is rejected, and failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
-- `picos doctor`: run read-only network diagnostics.
+- Add `--json` to `picos info`, `routes`, `route`, `connections`, `ports`, `doctor`, `dns`, or `tools` for one schema-versioned local diagnostic result. Table commands preserve filter/sort/source status and bounded row counts; doctor exposes stable check IDs and health counts; Tools expose normalized DNS/RDAP/IP/TCP/TLS/ping/traceroute data. Raw OS/tool output is excluded, `--raw --json` is rejected, and failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
+- `picos doctor`: run all eight read-only network diagnostics; `--json` contains individual probe failures and exits non-zero when any check fails.
 - `picos ping <host>`: run a safe ping test without shell interpolation.
 - `picos ping <host> --count <n> --timeout <ms>`: run ping with bounded count and timeout options.
 - `picos connect <host> <port>`: run a safe TCP connect reachability check.
 - `picos telnet <host> <port>`: alias the TCP connect check with a familiar telnet-style command name; this is non-interactive and does not open a shell session.
-- `picos tools`: list lazyifconfig-style Tools Hub commands.
+- `picos tools`: list lazyifconfig-style Tools Hub commands; add `--json` to list contracts or return a normalized tool result without raw source output.
 - `picos tools dns <target>`: resolve DNS records and reverse DNS.
 - `picos tools whois <target>`: read public RDAP registration metadata.
 - `picos tools ip-info <ip>`: read public IP metadata.
@@ -186,8 +190,8 @@ Commands:
 - `picos pwd`: print the current local file root.
 - `picos dir [path]` or `picos ls [path]`: list local files; supports `.`, absolute paths, `/`, and `~`.
 - `picos type <path>` or `picos cat <path>`: print a local text file.
-- `picos dns`: show configured DNS servers.
-- `picos dns flush`: disabled in v0.1.
+- `picos dns`: show configured DNS servers; `--json` includes the Node resolver source contract.
+- `picos dns flush`: remains locked; `--json` returns an explicit write/admin `PICOS_ACTION_LOCKED` document and exits non-zero.
 - `picos config`: print config path and current config.
 - `picos config get <key>`: print one config value.
 - `picos config set <key> <value>`: update one config value.

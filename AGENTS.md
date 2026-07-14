@@ -54,6 +54,7 @@ bun run harness sftp
 - Remote `--json` must remain one versioned stdout document; keep audit diagnostics on stderr, preserve non-zero failure exits, and never serialize key paths or credentials.
 - Local inspector `--json` must remain one bounded versioned stdout document, omit raw OS output and process arguments, preserve source success/exit status, redact failure text, flush large pipe output without double reporting, and reject `--raw --json` before command execution.
 - The local JSON subprocess harness must run in `bun run verify` on every supported CI OS.
+- Doctor, DNS, and Tools JSON must preserve stable check/tool identities, normalized source evidence, recursive secret redaction, and locked DNS mutation; run the diagnostics JSON subprocess harness when changing them.
 - The disposable localhost SFTP harness must use public-key authentication, reject mutation/exec, and run in `bun run verify` on every supported CI OS.
 - Treat matching `@revoked` fingerprints as global blockers, preserve exact confirmation bytes, and keep trust files plus remote reads/listings bounded before presenting output.
 - Retrying a failed or cancelled connection must require the exact confirmation again; cancellation must remain visible and recoverable as audit evidence.
@@ -83,6 +84,7 @@ The current milestone makes picos visible and navigable:
 - cancellable/retryable SFTP lifecycle diagnostics and guarded CLI remote list/read automation
 - schema-versioned remote JSON automation and a credentialed cross-platform SFTP integration harness
 - schema-versioned local OS/network inspector JSON and a cross-platform subprocess integration harness
+- schema-versioned doctor/DNS/Tools automation and a localhost-backed cross-platform diagnostics harness
 - locked action catalog for future privileged controls
 
 Actual OS mutation remains disabled by default.

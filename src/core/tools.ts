@@ -35,10 +35,27 @@ export type ToolResultSection = {
 	lines: string[];
 };
 
+export type ToolAutomationSource = {
+	kind: "command" | "dns" | "http" | "tcp" | "tls";
+	success: boolean;
+	command?: string;
+	args?: string[];
+	exitCode?: number | null;
+	truncated?: boolean;
+	endpoint?: string;
+};
+
+export type ToolAutomation = {
+	data: Record<string, unknown>;
+	source: ToolAutomationSource;
+};
+
 export type ToolResult = {
+	toolId?: ToolId;
 	title: string;
 	sections: ToolResultSection[];
 	rawOutput: string;
+	automation?: ToolAutomation;
 };
 
 type ToolRuntime = {
@@ -224,7 +241,21 @@ export async function runDnsLookup(target: string): Promise<ToolResult> {
 			lines: reverse.ok ? reverse.value : [reverse.error],
 		});
 		rawLines.push(...sectionToRaw(sections.at(-1)));
-		return { title: "DNS Lookup", sections, rawOutput: rawLines.join("\n") };
+		return {
+			toolId: "dns",
+			title: "DNS Lookup",
+			sections,
+			rawOutput: rawLines.join("\n"),
+			automation: {
+				data: {
+					target: safeTarget,
+					queryType: "reverse",
+					names: reverse.ok ? reverse.value : [],
+					error: reverse.ok ? null : reverse.error,
+				},
+				source: { kind: "dns", success: reverse.ok },
+			},
+		};
 	}
 
 	const [a, aaaa, mx, cname] = await Promise.all([
@@ -268,9 +299,32 @@ export async function runDnsLookup(target: string): Promise<ToolResult> {
 	}
 
 	return {
+		toolId: "dns",
 		title: "DNS Lookup",
 		sections,
 		rawOutput: rawLines.join("\n"),
+		automation: {
+			data: {
+				target: safeTarget,
+				queryType: "forward",
+				records: {
+					a: a.ok ? a.value : [],
+					aaaa: aaaa.ok ? aaaa.value : [],
+					mx: mx.ok ? mx.value : [],
+					cname: cname.ok ? cname.value : [],
+				},
+				errors: {
+					a: a.ok ? null : a.error,
+					aaaa: aaaa.ok ? null : aaaa.error,
+					mx: mx.ok ? null : mx.error,
+					cname: cname.ok ? null : cname.error,
+				},
+			},
+			source: {
+				kind: "dns",
+				success: [a, aaaa, mx, cname].some((result) => result.ok),
+			},
+		},
 	};
 }
 
@@ -300,9 +354,21 @@ export async function runWhoisLookup(
 	];
 
 	return {
+		toolId: "whois",
 		title: "WHOIS/RDAP Lookup",
 		sections,
 		rawOutput: `$ picos tools whois ${safeTarget}\n${JSON.stringify(data, null, 2)}`,
+		automation: {
+			data: {
+				target: safeTarget,
+				protocol: "rdap",
+				httpStatus: response.status,
+				handle: nullableStringValue(data.handle),
+				name: nullableStringValue(data.name),
+				objectClass: nullableStringValue(data.objectClassName),
+			},
+			source: { kind: "http", success: response.ok, endpoint: url },
+		},
 	};
 }
 
@@ -312,7 +378,8 @@ export async function runIpInfo(
 ): Promise<ToolResult> {
 	const safeIp = normalizeToolTarget(ip);
 	const fetcher = runtime.fetch ?? fetch;
-	const response = await fetcher(`https://ipinfo.io/${safeIp}/json`, {
+	const endpoint = `https://ipinfo.io/${safeIp}/json`;
+	const response = await fetcher(endpoint, {
 		signal: AbortSignal.timeout(runtime.timeoutMs ?? 10000),
 	});
 	const data = (await response.json()) as Record<string, unknown>;
@@ -331,9 +398,21 @@ export async function runIpInfo(
 	];
 
 	return {
+		toolId: "ip-info",
 		title: "IP Information",
 		sections,
 		rawOutput: `$ picos tools ip-info ${safeIp}\n${JSON.stringify(data, null, 2)}`,
+		automation: {
+			data: {
+				ip: nullableStringValue(data.ip),
+				hostname: nullableStringValue(data.hostname),
+				organization: nullableStringValue(data.org),
+				city: nullableStringValue(data.city),
+				region: nullableStringValue(data.region),
+				country: nullableStringValue(data.country),
+			},
+			source: { kind: "http", success: response.ok, endpoint },
+		},
 	};
 }
 
@@ -371,12 +450,23 @@ export async function runPortCheck(
 	];
 
 	return {
+		toolId: commandId,
 		title: options.title ?? "TCP Port Check",
 		sections,
 		rawOutput: [
 			`$ picos tools ${commandId} ${result.host} ${result.port}`,
 			...sections.flatMap(sectionToRaw),
 		].join("\n"),
+		automation: {
+			data: {
+				host: result.host,
+				port: result.port,
+				reachable: result.reachable,
+				elapsedMs: result.elapsedMs,
+				error: result.error ?? null,
+			},
+			source: { kind: "tcp", success: result.reachable },
+		},
 	};
 }
 
@@ -423,12 +513,17 @@ export async function runTlsInspect(
 	];
 
 	return {
+		toolId: "tls",
 		title: "TLS Inspector",
 		sections,
 		rawOutput: [
 			`$ picos tools tls ${inspected.host}:${inspected.port}`,
 			...sections.flatMap(sectionToRaw),
 		].join("\n"),
+		automation: {
+			data: { ...inspected, timeoutMs },
+			source: { kind: "tls", success: inspected.authorized },
+		},
 	};
 }
 
@@ -441,7 +536,12 @@ export async function runPingTool(
 		count: 4,
 		timeoutMs: runtime.timeoutMs ?? 10000,
 	});
-	return commandResultToToolResult("Ping", result);
+	return commandResultToToolResult(
+		"ping",
+		"Ping",
+		{ target: safeTarget },
+		result,
+	);
 }
 
 export async function runTraceroute(
@@ -670,6 +770,7 @@ function tracerouteResultToToolResult(
 	];
 
 	return {
+		toolId: "traceroute",
 		title: "Traceroute",
 		sections,
 		rawOutput: [
@@ -678,6 +779,16 @@ function tracerouteResultToToolResult(
 			"[Source Output]",
 			output,
 		].join("\n"),
+		automation: {
+			data: {
+				target,
+				platform,
+				timeoutMs,
+				hopCount: hopLines.length,
+				hops: hopLines,
+			},
+			source: commandAutomationSource(result),
+		},
 	};
 }
 
@@ -690,11 +801,14 @@ function parseTracerouteHops(lines: string[]): string[] {
 }
 
 function commandResultToToolResult(
+	toolId: ToolId,
 	title: string,
+	data: Record<string, unknown>,
 	result: SafeExecResult,
 ): ToolResult {
 	const output = result.stdout || result.stderr || "(no output)";
 	return {
+		toolId,
 		title,
 		sections: [
 			{
@@ -703,5 +817,25 @@ function commandResultToToolResult(
 			},
 		],
 		rawOutput: `$ ${result.command} ${result.args.join(" ")}\n${output}`,
+		automation: {
+			data: { ...data, reachable: result.success },
+			source: commandAutomationSource(result),
+		},
 	};
+}
+
+function commandAutomationSource(result: SafeExecResult): ToolAutomationSource {
+	return {
+		kind: "command",
+		command: result.command,
+		args: result.args,
+		success: result.success,
+		exitCode: result.exitCode,
+		truncated: result.truncated ?? false,
+	};
+}
+
+function nullableStringValue(value: unknown): string | null {
+	const normalized = stringValue(value);
+	return normalized === "-" ? null : normalized;
 }

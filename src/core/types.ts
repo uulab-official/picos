@@ -189,7 +189,18 @@ export type SafeExecResult = {
 
 export type DoctorStatus = "pass" | "warn" | "fail";
 
+export type DoctorCheckId =
+	| "interface"
+	| "ipv4"
+	| "gateway"
+	| "dns-config"
+	| "dns-resolve"
+	| "internet"
+	| "default-ping"
+	| "public-ip";
+
 export type DoctorCheck = {
+	id: DoctorCheckId;
 	label: string;
 	status: DoctorStatus;
 	detail?: string;

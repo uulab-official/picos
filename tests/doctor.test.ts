@@ -47,5 +47,54 @@ describe("doctor checks", () => {
 			["Default ping host reachable", "pass"],
 			["Public IP lookup", "warn"],
 		]);
+		expect(checks.map((check) => check.id)).toEqual([
+			"interface",
+			"ipv4",
+			"gateway",
+			"dns-config",
+			"dns-resolve",
+			"internet",
+			"default-ping",
+			"public-ip",
+		]);
+	});
+
+	test("contains individual probe failures instead of aborting the report", async () => {
+		const checks = await runDoctorChecks({
+			getNetworkSummary: async () => ({
+				status: "online",
+				host: "local",
+				platform: "linux",
+				interfaces: [],
+				networkGroups: [],
+				gateway: "192.168.0.1",
+				dnsServers: [],
+			}),
+			canReachGateway: async () => {
+				throw new Error("ping unavailable");
+			},
+			canResolveDns: async () => {
+				throw new Error("resolver failed");
+			},
+			canReachInternet: async () => false,
+			canPingDefaultHost: async () => false,
+			lookupPublicIp: async () => {
+				throw new Error("lookup timed out");
+			},
+		});
+
+		expect(checks).toHaveLength(8);
+		expect(checks.find((check) => check.id === "gateway")).toMatchObject({
+			status: "fail",
+			detail: "ping unavailable",
+		});
+		expect(checks.find((check) => check.id === "dns-resolve")).toMatchObject({
+			status: "fail",
+			detail: "resolver failed",
+		});
+		expect(checks.find((check) => check.id === "public-ip")).toMatchObject({
+			status: "warn",
+			detail: "lookup timed out",
+		});
 	});
 });

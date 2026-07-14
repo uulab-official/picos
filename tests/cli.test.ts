@@ -47,12 +47,43 @@ describe("CLI command registry", () => {
 
 	test("registers JSON output on local OS inspectors", () => {
 		const cli = createCli();
-		for (const name of ["info", "routes", "route", "connections", "ports"]) {
+		for (const name of [
+			"info",
+			"routes",
+			"route",
+			"connections",
+			"ports",
+			"doctor",
+			"dns",
+			"tools",
+		]) {
 			const command = cli.commands.find((candidate) => candidate.name === name);
 			expect(
 				command?.options.some((option) => option.name === "json"),
 			).toBeTrue();
 		}
+	});
+
+	test("reports diagnostic raw-output conflicts as one JSON failure", async () => {
+		const output: string[] = [];
+		const originalLog = console.log;
+		let caught: unknown;
+		console.log = (value?: unknown) => output.push(String(value));
+		try {
+			await runCli(["tools", "ping", "example.com", "--raw", "--json"]);
+		} catch (error) {
+			caught = error;
+		} finally {
+			console.log = originalLog;
+		}
+
+		expect(isReportedCliError(caught)).toBeTrue();
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			command: "tools",
+			status: "failed",
+			error: { message: "--raw cannot be combined with --json" },
+		});
 	});
 
 	test("reports local inspector option conflicts as one JSON failure", async () => {
