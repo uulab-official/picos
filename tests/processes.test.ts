@@ -4,6 +4,8 @@ import {
 	buildProcessFilesCommand,
 	formatProcessDetail,
 	formatProcessFileSnapshot,
+	getProcessDetailWithSource,
+	getProcessFileSnapshotWithSource,
 	parseLsofProcessFiles,
 	parsePosixProcessDetail,
 	parsePsOutput,
@@ -101,6 +103,31 @@ describe("process inventory", () => {
 		});
 	});
 
+	test("returns process detail with source evidence", async () => {
+		const result = await getProcessDetailWithSource(
+			"12345",
+			"linux",
+			async (command, args) => ({
+				command,
+				args,
+				stdout: "12345 1 user S 2.5 1.1 01:23 bun app.ts",
+				stderr: "",
+				exitCode: 0,
+				success: true,
+			}),
+		);
+
+		expect(result.detail?.pid).toBe(12345);
+		expect(result.source).toMatchObject({
+			key: "process-detail",
+			command: "ps",
+			supported: true,
+			success: true,
+			exitCode: 0,
+			totalCount: 1,
+		});
+	});
+
 	test("formats process detail for CLI use", () => {
 		expect(
 			formatProcessDetail({
@@ -128,6 +155,46 @@ describe("process inventory", () => {
 		expect(buildProcessFilesCommand(12345, "win32")).toBeUndefined();
 	});
 
+	test("distinguishes unsupported and failed process file collectors", async () => {
+		const unsupported = await getProcessFileSnapshotWithSource(
+			"12345",
+			20,
+			"win32",
+		);
+		expect(unsupported).toEqual({
+			source: {
+				key: "process-files",
+				command: null,
+				args: [],
+				supported: false,
+				success: null,
+				exitCode: null,
+				truncated: false,
+				totalCount: 0,
+			},
+		});
+
+		const failed = await getProcessFileSnapshotWithSource(
+			"12345",
+			20,
+			"linux",
+			async (command, args) => ({
+				command,
+				args,
+				stdout: "",
+				stderr: "lsof unavailable",
+				exitCode: 127,
+				success: false,
+			}),
+		);
+		expect(failed.source).toMatchObject({
+			supported: true,
+			success: false,
+			exitCode: 127,
+		});
+		expect(failed.snapshot).toBeUndefined();
+	});
+
 	test("parses lsof process files with cwd first", () => {
 		const output = [
 			"p12345",
@@ -144,6 +211,7 @@ describe("process inventory", () => {
 		expect(parseLsofProcessFiles(output, 3)).toEqual({
 			pid: 12345,
 			cwd: "/Users/bonjin/Documents/workspace/uulab/picos",
+			totalCount: 2,
 			fileEntries: [
 				{
 					descriptor: "txt",
@@ -199,6 +267,16 @@ describe("process inventory", () => {
 				path: "/Users/bonjin/Documents/workspace/uulab/picos/picos.log",
 			},
 		]);
+	});
+
+	test("counts resources beyond the returned process file limit", () => {
+		const snapshot = parseLsofProcessFiles(
+			["p12345", "f1", "n/a", "f2", "n/b", "f3", "n/c"].join("\n"),
+			2,
+		);
+
+		expect(snapshot?.totalCount).toBe(3);
+		expect(snapshot?.fileEntries).toHaveLength(2);
 	});
 
 	test("classifies lsof sockets pipes and unix resources separately from files", () => {

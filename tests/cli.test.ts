@@ -56,12 +56,64 @@ describe("CLI command registry", () => {
 			"doctor",
 			"dns",
 			"tools",
+			"monitor",
+			"logs",
+			"process",
 		]) {
 			const command = cli.commands.find((candidate) => candidate.name === name);
 			expect(
 				command?.options.some((option) => option.name === "json"),
 			).toBeTrue();
 		}
+	});
+
+	test("reports invalid operations JSON requests as one failure document", async () => {
+		for (const args of [
+			["logs", "--limit", "0", "--json"],
+			["logs", "--level", "debug", "--json"],
+			["process", "0", "--json"],
+		] as const) {
+			const output: string[] = [];
+			const originalLog = console.log;
+			let caught: unknown;
+			console.log = (value?: unknown) => output.push(String(value));
+			try {
+				await runCli([...args]);
+			} catch (error) {
+				caught = error;
+			} finally {
+				console.log = originalLog;
+			}
+
+			expect(isReportedCliError(caught)).toBeTrue();
+			expect(output).toHaveLength(1);
+			expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+				command: args[0],
+				status: "failed",
+				error: { code: "PICOS_LOCAL_INSPECTOR_FAILED" },
+			});
+		}
+	});
+
+	test("reports a missing process PID as structured JSON", async () => {
+		const output: string[] = [];
+		const originalLog = console.log;
+		let caught: unknown;
+		console.log = (value?: unknown) => output.push(String(value));
+		try {
+			await runCli(["--json", "process"]);
+		} catch (error) {
+			caught = error;
+		} finally {
+			console.log = originalLog;
+		}
+
+		expect(isReportedCliError(caught)).toBeTrue();
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			command: "process",
+			status: "failed",
+		});
 	});
 
 	test("reports diagnostic raw-output conflicts as one JSON failure", async () => {

@@ -14,10 +14,11 @@ This runs:
 2. `bun test`
 3. `bun run integration:local-json`
 4. `bun run integration:diagnostics-json`
-5. `bun run integration:sftp`
-6. `bun run typecheck`
-7. `bun run build`
-8. `bun run smoke`
+5. `bun run integration:operations-json`
+6. `bun run integration:sftp`
+7. `bun run typecheck`
+8. `bun run build`
+9. `bun run smoke`
 
 `typecheck` covers `src/`, `tests/`, and `scripts/`, including the harness itself.
 
@@ -56,6 +57,14 @@ bun run harness diagnostics-json
 ```
 
 This launches the real CLI for live resolver state, the eight-entry Tools catalog, a successful TCP check against a disposable random-port localhost server, and the eight-check doctor report. Doctor may exit zero or one according to the runner's network health, but must always return a complete normalized report. Six deterministic cases verify locked DNS flush, unknown DNS/tool actions, missing tool arguments, invalid timeout, and `--raw --json`; each must emit exactly one guarded or failed document with a non-zero exit and no stderr. The check requires no public service for its success contract and runs in `bun run verify` on macOS, Linux, and Windows.
+
+## Operations JSON Integration
+
+```bash
+bun run harness operations-json
+```
+
+This launches the real CLI for monitor, current-process detail, current-process file/resource inspection, and bounded OS logs. Monitor and process must complete without command arguments or raw collector output. Logs may complete or return a structured source failure because platform log access is environment-dependent; either outcome must be one complete JSON document with matching exit status and no stderr. Five deterministic cases verify lower/upper log-limit bounds, invalid severity, invalid PID, and missing PID. The check runs in `bun run verify` on macOS, Linux, and Windows.
 
 Additional local manual checks:
 

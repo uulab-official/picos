@@ -36,6 +36,8 @@ bun run typecheck
 bun run build
 bun run smoke
 bun run harness local-json
+bun run harness diagnostics-json
+bun run harness operations-json
 bun run harness sftp
 ```
 
@@ -55,6 +57,7 @@ bun run harness sftp
 - Local inspector `--json` must remain one bounded versioned stdout document, omit raw OS output and process arguments, preserve source success/exit status, redact failure text, flush large pipe output without double reporting, and reject `--raw --json` before command execution.
 - The local JSON subprocess harness must run in `bun run verify` on every supported CI OS.
 - Doctor, DNS, and Tools JSON must preserve stable check/tool identities, normalized source evidence, recursive secret redaction, and locked DNS mutation; run the diagnostics JSON subprocess harness when changing them.
+- Monitor, Logs, and Process JSON must preserve collector support/success/exit/truncation evidence, omit process arguments and raw log/process output, bound and redact normalized log text, and distinguish optional collector gaps with `outcome=partial`; run the operations JSON subprocess harness when changing them.
 - The disposable localhost SFTP harness must use public-key authentication, reject mutation/exec, and run in `bun run verify` on every supported CI OS.
 - Treat matching `@revoked` fingerprints as global blockers, preserve exact confirmation bytes, and keep trust files plus remote reads/listings bounded before presenting output.
 - Retrying a failed or cancelled connection must require the exact confirmation again; cancellation must remain visible and recoverable as audit evidence.
@@ -85,6 +88,7 @@ The current milestone makes picos visible and navigable:
 - schema-versioned remote JSON automation and a credentialed cross-platform SFTP integration harness
 - schema-versioned local OS/network inspector JSON and a cross-platform subprocess integration harness
 - schema-versioned doctor/DNS/Tools automation and a localhost-backed cross-platform diagnostics harness
+- schema-versioned monitor/log/process automation and a cross-platform operations harness
 - locked action catalog for future privileged controls
 
 Actual OS mutation remains disabled by default.

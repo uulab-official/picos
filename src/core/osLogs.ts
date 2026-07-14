@@ -23,7 +23,10 @@ export type OsLogCommand = {
 
 export type OsLogSnapshot = OsLogCommand & {
 	status: "ok" | "warn";
+	requestedLimit?: number;
 	entries: OsLogEntry[];
+	exitCode?: number | null;
+	truncated?: boolean;
 	error?: string;
 };
 
@@ -74,10 +77,15 @@ export async function createOsLogSnapshot(
 
 	return {
 		...command,
-		status: result.success ? "ok" : "warn",
+		status: result.success && !result.truncated ? "ok" : "warn",
+		requestedLimit: limit,
 		entries,
+		exitCode: result.exitCode,
+		truncated: result.truncated ?? false,
 		error: result.success
-			? undefined
+			? result.truncated
+				? "OS log command output was truncated"
+				: undefined
 			: result.stderr || `exitCode=${result.exitCode ?? "timeout"}`,
 	};
 }

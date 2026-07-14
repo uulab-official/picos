@@ -1,7 +1,22 @@
 import { describe, expect, test } from "bun:test";
-import { logsCommand } from "../src/cli/commands/logs";
+import {
+	logsCommand,
+	parseLogsFilter,
+	parseLogsLevel,
+	parseLogsLimit,
+} from "../src/cli/commands/logs";
 
 describe("logs CLI command", () => {
+	test("validates bounded limits and severity filters", () => {
+		expect(parseLogsLimit(undefined)).toBe(50);
+		expect(parseLogsLimit("200")).toBe(200);
+		expect(() => parseLogsLimit("0")).toThrow("1 to 200");
+		expect(() => parseLogsLimit("1.5")).toThrow("1 to 200");
+		expect(parseLogsLevel("warn")).toBe("warn");
+		expect(() => parseLogsLevel("debug")).toThrow("all, warn, fail, or info");
+		expect(parseLogsFilter(" kernel ")).toBe("kernel");
+		expect(() => parseLogsFilter("x".repeat(257))).toThrow("256 characters");
+	});
 	test("prints a read-only OS log snapshot", async () => {
 		const lines: string[] = [];
 		const originalLog = console.log;

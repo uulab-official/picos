@@ -1,6 +1,6 @@
 import { cpus, freemem, loadavg, totalmem, uptime } from "node:os";
-import { getProcessSummary } from "./processes";
-import type { ProcessSummary } from "./types";
+import { getProcessSummaryWithSource } from "./processes";
+import type { InventorySourceStatus, ProcessSummary } from "./types";
 
 export type SystemMonitorSnapshot = {
 	at: string;
@@ -18,6 +18,7 @@ export type SystemMonitorSnapshot = {
 	};
 	processCount: number;
 	topProcesses: ProcessSummary[];
+	processSource?: InventorySourceStatus;
 };
 
 export function createSystemMonitorSnapshot(input: {
@@ -29,6 +30,7 @@ export function createSystemMonitorSnapshot(input: {
 	cpuModel: string;
 	cpuCount: number;
 	processes: ProcessSummary[];
+	processSource?: InventorySourceStatus;
 }): SystemMonitorSnapshot {
 	const usedBytes = Math.max(0, input.totalMemoryBytes - input.freeMemoryBytes);
 	const usedPercent =
@@ -51,14 +53,15 @@ export function createSystemMonitorSnapshot(input: {
 			model: input.cpuModel,
 			count: input.cpuCount,
 		},
-		processCount: input.processes.length,
+		processCount: input.processSource?.totalCount ?? input.processes.length,
 		topProcesses: sortTopProcesses(input.processes).slice(0, 5),
+		...(input.processSource ? { processSource: input.processSource } : {}),
 	};
 }
 
 export async function getSystemMonitorSnapshot(): Promise<SystemMonitorSnapshot> {
 	const cpuList = cpus();
-	const processes = await getProcessSummary(24);
+	const processResult = await getProcessSummaryWithSource(24);
 	return createSystemMonitorSnapshot({
 		uptimeSeconds: uptime(),
 		loadAverage: loadavg(),
@@ -66,7 +69,8 @@ export async function getSystemMonitorSnapshot(): Promise<SystemMonitorSnapshot>
 		freeMemoryBytes: freemem(),
 		cpuModel: cpuList[0]?.model ?? "unknown",
 		cpuCount: cpuList.length,
-		processes,
+		processes: processResult.processes,
+		processSource: processResult.source,
 	});
 }
 

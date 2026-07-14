@@ -5,7 +5,8 @@ type HarnessMode =
 	| "smoke"
 	| "sftp"
 	| "local-json"
-	| "diagnostics-json";
+	| "diagnostics-json"
+	| "operations-json";
 
 type Step = {
 	name: string;
@@ -41,6 +42,10 @@ const verifySteps: Step[] = [
 	{
 		name: "Diagnostics JSON integration",
 		cmd: ["bun", "run", "integration:diagnostics-json"],
+	},
+	{
+		name: "Operations JSON integration",
+		cmd: ["bun", "run", "integration:operations-json"],
 	},
 	{
 		name: "Credentialed SFTP integration",
@@ -81,6 +86,13 @@ const diagnosticsJsonSteps: Step[] = [
 	},
 ];
 
+const operationsJsonSteps: Step[] = [
+	{
+		name: "Operations JSON integration",
+		cmd: ["bun", "run", "integration:operations-json"],
+	},
+];
+
 const steps =
 	mode === "smoke"
 		? smokeSteps
@@ -90,7 +102,9 @@ const steps =
 				? localJsonSteps
 				: mode === "diagnostics-json"
 					? diagnosticsJsonSteps
-					: verifySteps;
+					: mode === "operations-json"
+						? operationsJsonSteps
+						: verifySteps;
 
 for (const step of steps) {
 	await runStep(step);
@@ -105,6 +119,7 @@ function parseMode(value: string | undefined): HarnessMode {
 		value === "sftp" ||
 		value === "local-json" ||
 		value === "diagnostics-json" ||
+		value === "operations-json" ||
 		value === undefined
 	) {
 		return value ?? "verify";

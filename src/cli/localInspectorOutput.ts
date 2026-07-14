@@ -41,7 +41,10 @@ export type LocalInspectorCommand =
 	| "ports"
 	| "doctor"
 	| "dns"
-	| "tools";
+	| "tools"
+	| "monitor"
+	| "logs"
+	| "process";
 
 type InfoJsonInput =
 	| {
@@ -59,7 +62,7 @@ type InspectorQuery = {
 	sort: { key: string; direction: "asc" | "desc" };
 };
 
-type InspectorSourceResult = {
+export type LocalInspectorSourceResult = {
 	command?: string;
 	args?: string[];
 	success?: boolean;
@@ -67,10 +70,10 @@ type InspectorSourceResult = {
 	truncated?: boolean;
 };
 
-class LocalInspectorSourceError extends Error {
+export class LocalInspectorSourceError extends Error {
 	constructor(
 		message: string,
-		readonly source: InspectorSourceResult,
+		readonly source: LocalInspectorSourceResult,
 	) {
 		super(message);
 		this.name = "LocalInspectorSourceError";
@@ -262,7 +265,7 @@ export function formatLocalInspectorJsonFailure(input: {
 	command: LocalInspectorCommand;
 	message: string;
 	request?: Record<string, unknown>;
-	source?: InspectorSourceResult;
+	source?: LocalInspectorSourceResult;
 }): string {
 	return JSON.stringify(
 		{
@@ -571,7 +574,7 @@ function formatSource(
 	};
 }
 
-function formatOptionalSource(source: InspectorSourceResult) {
+function formatOptionalSource(source: LocalInspectorSourceResult) {
 	if (!source.command || !source.args) return null;
 	return formatSource(
 		source.command,
@@ -583,7 +586,7 @@ function formatOptionalSource(source: InspectorSourceResult) {
 }
 
 function assertSourceCompleted(
-	result: InspectorSourceResult,
+	result: LocalInspectorSourceResult,
 	label: string,
 ): void {
 	if (result.truncated)
@@ -743,6 +746,20 @@ function redactSensitiveText(value: string): string {
 			"$HOME/.ssh/[REDACTED]",
 		);
 	}
+	redacted = redacted
+		.replace(
+			/(\b(?:access[_-]?token|token|password|passwd|secret|api[_-]?key)["']?\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;}\]]+)/giu,
+			"$1[REDACTED]",
+		)
+		.replace(
+			/(\bauthorization\s*[:=]\s*)(?:bearer|basic)\s+[^\s,;]+/giu,
+			"$1[REDACTED]",
+		)
+		.replace(/(\bbearer\s+)[a-z0-9._~+/=-]{8,}/giu, "$1[REDACTED]")
+		.replace(
+			/([?&](?:access[_-]?token|token|password|secret|api[_-]?key)=)[^&\s]+/giu,
+			"$1[REDACTED]",
+		);
 	return redacted;
 }
 
@@ -767,7 +784,10 @@ function isLocalInspectorCommand(
 		value === "ports" ||
 		value === "doctor" ||
 		value === "dns" ||
-		value === "tools"
+		value === "tools" ||
+		value === "monitor" ||
+		value === "logs" ||
+		value === "process"
 	);
 }
 

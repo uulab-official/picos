@@ -61,6 +61,9 @@ describe("OS log reader", () => {
 		});
 
 		expect(snapshot.status).toBe("ok");
+		expect(snapshot.requestedLimit).toBe(2);
+		expect(snapshot.exitCode).toBe(0);
+		expect(snapshot.truncated).toBeFalse();
 		expect(snapshot.entries).toEqual([
 			{
 				index: 1,
@@ -73,6 +76,29 @@ describe("OS log reader", () => {
 				message: "2026-06-30T08:00:01 host sshd[7]: accepted publickey",
 			},
 		]);
+	});
+
+	test("keeps capture truncation visible as a source warning", async () => {
+		const snapshot = await createOsLogSnapshot({
+			platform: "linux",
+			limit: 5,
+			runner: async (command, args) => ({
+				command,
+				args,
+				stdout: "partial log",
+				stderr: "",
+				exitCode: null,
+				success: false,
+				truncated: true,
+			}),
+		});
+
+		expect(snapshot).toMatchObject({
+			status: "warn",
+			requestedLimit: 5,
+			exitCode: null,
+			truncated: true,
+		});
 	});
 
 	test("formats command status and raw log rows for CLI and TUI", () => {
