@@ -2,7 +2,7 @@
 
 ## v0.4.331 - Interface Evidence Retention
 
-Status: implementation branch `codex/picos-v0.4.331-interface-evidence-retention`, stacked on draft PR [#405](https://github.com/uulab-official/picos/pull/405).
+Status: draft PR [#406](https://github.com/uulab-official/picos/pull/406) on `codex/picos-v0.4.331-interface-evidence-retention`, stacked on draft PR [#405](https://github.com/uulab-official/picos/pull/405).
 
 Goal: keep interface confirmation evidence manageable after it is archived without widening the interface mutation boundary.
 
