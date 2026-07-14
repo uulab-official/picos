@@ -14,7 +14,7 @@ Connect a reviewed remote profile to the Files workspace through a host-key-veri
 - [x] Block remote write, copy, move, delete, and command execution.
 - [x] Record connected and failed audit evidence with exact Timeline recovery.
 - [x] Cover transport-independent behavior, security guards, navigation, and activity recovery with tests.
-- [ ] Open a stacked draft PR on [#408](https://github.com/uulab-official/picos/pull/408) and confirm CI.
+- [x] Open stacked draft PR [#409](https://github.com/uulab-official/picos/pull/409) on [#408](https://github.com/uulab-official/picos/pull/408); CI status is tracked on the PR.
 
 ## Safety Boundary
 

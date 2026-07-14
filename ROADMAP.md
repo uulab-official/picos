@@ -2,7 +2,7 @@
 
 ## v0.4.334 - Read-Only SFTP
 
-Status: implementation on `codex/picos-v0.4.334-readonly-sftp`, to be stacked on draft PR [#408](https://github.com/uulab-official/picos/pull/408).
+Status: draft PR [#409](https://github.com/uulab-official/picos/pull/409) on `codex/picos-v0.4.334-readonly-sftp`, stacked on draft PR [#408](https://github.com/uulab-official/picos/pull/408).
 
 Goal: turn the long-running Remotes SFTP previews into a useful, host-key-verified, read-only Files session without widening remote mutation permissions.
 
