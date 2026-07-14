@@ -2,7 +2,7 @@
 
 ## v0.4.338 - Diagnostics JSON
 
-Status: in progress on `codex/picos-v0.4.338-diagnostics-json`, stacked on draft PR [#412](https://github.com/uulab-official/picos/pull/412).
+Status: draft PR [#413](https://github.com/uulab-official/picos/pull/413) on `codex/picos-v0.4.338-diagnostics-json`, stacked on draft PR [#412](https://github.com/uulab-official/picos/pull/412).
 
 Goal: make the lazyifconfig-style diagnostic layer directly usable from scripts, CI, and coding agents while preserving picos' read-only defaults and explicit OS mutation locks.
 

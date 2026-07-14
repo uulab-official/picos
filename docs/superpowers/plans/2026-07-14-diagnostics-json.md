@@ -19,7 +19,8 @@
 - [x] Include the diagnostics harness in `bun run verify` on macOS, Linux, and Windows.
 - [x] Update public automation, harness, roadmap, changelog, Codex, Claude, and agent documentation.
 - [x] Run gstack review and full verification.
-- [ ] Open a stacked draft PR on #412 and monitor CI/review.
+- [x] Open stacked draft PR [#413](https://github.com/uulab-official/picos/pull/413) on #412.
+- [ ] Monitor CI and automated review on #413.
 
 ## Next
 
