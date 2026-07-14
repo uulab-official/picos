@@ -46,7 +46,7 @@ Network-dependent commands such as `doctor` are useful locally but are not part 
 bun run harness local-json
 ```
 
-This launches the real CLI sequentially for summary/full `info`, `routes`, destination `route`, `connections`, and `ports` JSON snapshots. It verifies complete single-document stdout, schema version, source execution status, process sampling counts, row and byte bounds, raw-output omission, option-conflict failures, invalid sorts, inline JSON flags, missing arguments, a deterministic unavailable-utility shim, non-zero failure exits, and a near-limit document through a real subprocess pipe. Failed or capture-truncated route/connection/port platform commands must produce one failed document, while the JSON transport and schema remain valid on macOS, Linux, and Windows.
+This launches the real CLI sequentially for summary/full `info`, `routes`, destination `route`, `connections`, and `ports` JSON snapshots. It verifies complete single-document stdout, schema version, source execution status, process sampling counts, row and byte bounds, raw-output omission, option-conflict failures, invalid sorts, inline JSON flags, missing arguments, a deterministic unavailable-utility shim, non-zero failure exits, and a near-limit document through a real subprocess pipe. Optional route/connection/port utilities may be absent on a CI image; those live probes must then produce one failed document with source evidence, while summary/full info remains successful and the JSON transport/schema stays valid on macOS, Linux, and Windows.
 
 Additional local manual checks:
 

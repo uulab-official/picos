@@ -19,6 +19,7 @@ Expose the lazyifconfig-inspired local OS and network inspectors as stable, boun
 - [x] Redact remote SFTP paths in terminal audits and bound descendant process cleanup.
 - [x] Add unit, CLI-boundary, and real subprocess integration coverage.
 - [x] Include local JSON integration in `bun run verify` for macOS, Linux, and Windows CI.
+- [x] Accept evidence-backed live failures when optional platform utilities are absent from a CI image.
 - [x] Update user, package, harness, agent, Claude, changelog, and roadmap documentation.
 - [x] Run full verification and review.
 - [x] Open stacked draft PR #412 on #411.

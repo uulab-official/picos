@@ -52,12 +52,19 @@ for (const args of successfulCommands) {
 
 for (const [index, result] of results.entries()) {
 	const args = successfulCommands[index];
-	assert.equal(result.exitCode, 0, `${args?.join(" ")}: ${result.stderr}`);
 	assert.equal(result.stderr, "", `${args?.join(" ")} wrote stderr`);
 	const document = parseSingleJson(result.stdout, args?.[0] ?? "unknown");
 	assert.equal(document.schemaVersion, 1);
 	assert.equal(document.command, args?.[0]);
-	assert.equal(document.status, "completed");
+	if (index < 2 || document.status === "completed") {
+		assert.equal(result.exitCode, 0, `${args?.join(" ")}: ${result.stderr}`);
+		assert.equal(document.status, "completed");
+	} else {
+		assert.equal(result.exitCode, 1, args?.join(" "));
+		assert.equal(document.status, "failed");
+		assert.equal(document.source.success, false);
+		assert.notEqual(document.source.exitCode, 0);
+	}
 	assert.equal(result.stdout.includes('"rawOutput"'), false);
 }
 
@@ -97,11 +104,13 @@ for (const [index, key] of [
 	const document = parseSingleJson(results[index]?.stdout ?? "", key);
 	assert.equal(typeof document.source.command, "string");
 	assert.equal(typeof document.source.success, "boolean");
-	assert.ok(document.data.returnedCount <= document.data.limit);
-	assert.equal(
-		document.data.truncated,
-		document.data.visibleCount > document.data.returnedCount,
-	);
+	if (document.status === "completed") {
+		assert.ok(document.data.returnedCount <= document.data.limit);
+		assert.equal(
+			document.data.truncated,
+			document.data.visibleCount > document.data.returnedCount,
+		);
+	}
 }
 
 const route = parseSingleJson(results[5]?.stdout ?? "", "route");
@@ -163,7 +172,7 @@ assert.equal(largeDocument.data.truncated, true);
 assert.ok(largeDocument.data.returnedCount < largeDocument.data.visibleCount);
 
 console.log(
-	`Local inspector integration complete: ${results.length} success and 4 failure JSON contracts verified`,
+	`Local inspector integration complete: ${results.length} live and 4 deterministic failure JSON contracts verified`,
 );
 
 async function runPicos(
@@ -222,7 +231,9 @@ async function createUnavailableCommandPath(): Promise<string> {
 		process.platform === "win32" ? `${command}.exe` : command,
 	);
 	if (process.platform === "win32") {
-		await copyFile(process.execPath, target);
+		const commandShell = process.env.ComSpec;
+		if (!commandShell) throw new Error("Windows ComSpec is unavailable");
+		await copyFile(commandShell, target);
 	} else {
 		await writeFile(target, "#!/bin/sh\nexit 23\n", { mode: 0o755 });
 	}

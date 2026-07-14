@@ -13,7 +13,7 @@ Goal: make the lazyifconfig-inspired local OS and network inspectors safe to con
 - `--raw --json`, invalid sorts, and missing required arguments produce one bounded `PICOS_LOCAL_INSPECTOR_FAILED` document, exit non-zero, and do not append a plain-text error.
 - JSON writes use an awaited stdout path so large connection snapshots are not truncated when piped to tools such as `jq`; guarded remote JSON uses the same flush-safe writer, and output-write failures cannot append a second JSON result or duplicate terminal audits.
 - Full inventory JSON exposes process names and PIDs without command arguments, redacts credential/home/private-key patterns from failure text, and relies on the new 4 MiB default `safeExec()` stdout/stderr capture bound.
-- `bun run harness local-json` launches the real CLI sequentially for six successful and four failure contracts, including full inventory, inline JSON flags, a deterministic unavailable-utility shim, and a near-limit subprocess pipe document; `bun run verify` runs it on macOS, Linux, and Windows.
+- `bun run harness local-json` launches the real CLI sequentially for six live commands and four deterministic failure contracts, accepts structured source failures for optional platform utilities, and covers full inventory, inline JSON flags, an unavailable-utility shim, and a near-limit subprocess pipe document; `bun run verify` runs it on macOS, Linux, and Windows.
 - Tests cover schema shape, optional-field normalization, raw-output omission, filter/sort counts, 10,000-row bounds, bounded failures, CLI flags, parser errors, and output conflicts.
 - Next: add JSON output to Tools, doctor, DNS, monitor, logs, and process inspectors, then expose saved automation presets without enabling OS mutation.
 
