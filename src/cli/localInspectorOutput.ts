@@ -33,12 +33,15 @@ const LOCAL_INSPECTOR_JSON_REDACTION_SCAN_LIMIT = 16_384;
 const LOCAL_INSPECTOR_JSON_ROW_BUDGET =
 	LOCAL_INSPECTOR_JSON_MAX_BYTES - 512 * 1024;
 
-type LocalInspectorCommand =
+export type LocalInspectorCommand =
 	| "info"
 	| "routes"
 	| "route"
 	| "connections"
-	| "ports";
+	| "ports"
+	| "doctor"
+	| "dns"
+	| "tools";
 
 type InfoJsonInput =
 	| {
@@ -323,6 +326,13 @@ function stringifyCompleted(
 		);
 	}
 	return output;
+}
+
+export function stringifyLocalInspectorCompleted(
+	command: LocalInspectorCommand,
+	payload: Record<string, unknown>,
+): string {
+	return stringifyCompleted(command, payload);
 }
 
 function serializeCompleted(
@@ -676,6 +686,10 @@ function sanitizeText(value: string): string {
 	return `${redacted.slice(0, LOCAL_INSPECTOR_JSON_TEXT_LIMIT - 3)}...`;
 }
 
+export function sanitizeLocalInspectorText(value: string): string {
+	return sanitizeText(value);
+}
+
 function redactSensitiveText(value: string): string {
 	let redacted = value;
 	let lower = redacted.toLowerCase();
@@ -750,7 +764,10 @@ function isLocalInspectorCommand(
 		value === "routes" ||
 		value === "route" ||
 		value === "connections" ||
-		value === "ports"
+		value === "ports" ||
+		value === "doctor" ||
+		value === "dns" ||
+		value === "tools"
 	);
 }
 

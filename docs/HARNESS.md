@@ -13,10 +13,11 @@ This runs:
 1. `bun run lint`
 2. `bun test`
 3. `bun run integration:local-json`
-4. `bun run integration:sftp`
-5. `bun run typecheck`
-6. `bun run build`
-7. `bun run smoke`
+4. `bun run integration:diagnostics-json`
+5. `bun run integration:sftp`
+6. `bun run typecheck`
+7. `bun run build`
+8. `bun run smoke`
 
 `typecheck` covers `src/`, `tests/`, and `scripts/`, including the harness itself.
 
@@ -38,7 +39,7 @@ bun src/bin/picos.ts config set language ko
 bun src/bin/picos.ts
 ```
 
-Network-dependent commands such as `doctor` are useful locally but are not part of the cross-platform smoke gate yet.
+Network-dependent commands such as `doctor` stay outside the minimal smoke gate; their bounded JSON transport and result shape are covered by the diagnostics integration gate below.
 
 ## Local Inspector JSON Integration
 
@@ -47,6 +48,14 @@ bun run harness local-json
 ```
 
 This launches the real CLI sequentially for summary/full `info`, `routes`, destination `route`, `connections`, and `ports` JSON snapshots. It verifies complete single-document stdout, schema version, source execution status, process sampling counts, row and byte bounds, raw-output omission, option-conflict failures, invalid sorts, inline JSON flags, missing arguments, a deterministic unavailable-utility shim, non-zero failure exits, and a near-limit document through a real subprocess pipe. Optional route/connection/port utilities may be absent on a CI image; those live probes must then produce one failed document with source evidence, while summary/full info remains successful and the JSON transport/schema stays valid on macOS, Linux, and Windows.
+
+## Diagnostics JSON Integration
+
+```bash
+bun run harness diagnostics-json
+```
+
+This launches the real CLI for live resolver state, the eight-entry Tools catalog, a successful TCP check against a disposable random-port localhost server, and the eight-check doctor report. Doctor may exit zero or one according to the runner's network health, but must always return a complete normalized report. Six deterministic cases verify locked DNS flush, unknown DNS/tool actions, missing tool arguments, invalid timeout, and `--raw --json`; each must emit exactly one guarded or failed document with a non-zero exit and no stderr. The check requires no public service for its success contract and runs in `bun run verify` on macOS, Linux, and Windows.
 
 Additional local manual checks:
 

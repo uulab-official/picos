@@ -68,6 +68,16 @@ describe("lazyifconfig-style tools hub", () => {
 		expect(result.title).toBe("TCP Port Check");
 		expect(result.sections[1]?.label).toBe("Status");
 		expect(result.sections[1]?.lines).toContain("OPEN");
+		expect(result.automation).toEqual({
+			data: {
+				host: "example.com",
+				port: 443,
+				reachable: true,
+				elapsedMs: 12,
+				error: null,
+			},
+			source: { kind: "tcp", success: true },
+		});
 	});
 
 	test("includes TCP target detail rows for operators", async () => {
@@ -138,6 +148,17 @@ describe("lazyifconfig-style tools hub", () => {
 
 		expect(result.rawOutput).toContain("EXAMPLE");
 		expect(result.sections[0]?.lines).toContain("Name: example.com");
+		expect(result.automation).toMatchObject({
+			data: {
+				target: "example.com",
+				protocol: "rdap",
+				httpStatus: 200,
+				handle: "EXAMPLE",
+				name: "example.com",
+				objectClass: "domain",
+			},
+			source: { kind: "http", success: true },
+		});
 	});
 
 	test("uses injectable fetch for IP information", async () => {
@@ -156,6 +177,12 @@ describe("lazyifconfig-style tools hub", () => {
 		expect(result.sections[0]?.lines).toContain(
 			"Organization: AS15169 Google LLC",
 		);
+		expect(result.automation?.data).toMatchObject({
+			ip: "8.8.8.8",
+			hostname: "dns.google",
+			organization: "AS15169 Google LLC",
+			country: "US",
+		});
 	});
 
 	test("formats TLS inspection with target status and certificate sections", async () => {
@@ -208,6 +235,40 @@ describe("lazyifconfig-style tools hub", () => {
 		]);
 		expect(result.rawOutput).toContain("[Target]\nHost: example.com");
 		expect(result.rawOutput).toContain("[Certificate]\nSubject: *.example.com");
+		expect(result.automation).toMatchObject({
+			data: {
+				host: "example.com",
+				port: 443,
+				authorized: true,
+				protocol: "TLSv1.3",
+				certificateCount: 2,
+				timeoutMs: 1200,
+			},
+			source: { kind: "tls", success: true },
+		});
+	});
+
+	test("marks untrusted TLS certificates as failed automation evidence", async () => {
+		const result = await runTool("tls", ["self-signed.example:443"], {
+			inspectTls: async () => ({
+				host: "self-signed.example",
+				port: 443,
+				authorized: false,
+				protocol: "TLSv1.3",
+				cipher: "TLS_AES_256_GCM_SHA384",
+				subject: "self-signed.example",
+				issuer: "self-signed.example",
+				validFrom: "Jan 1 00:00:00 2026 GMT",
+				validTo: "Jan 1 23:59:59 2027 GMT",
+				subjectAltName: "DNS:self-signed.example",
+				certificateCount: 1,
+			}),
+		});
+
+		expect(result.automation).toMatchObject({
+			data: { authorized: false },
+			source: { kind: "tls", success: false },
+		});
 	});
 
 	test("formats traceroute with target status and parsed hop sections", async () => {
@@ -252,5 +313,20 @@ describe("lazyifconfig-style tools hub", () => {
 		]);
 		expect(result.rawOutput).toContain("[Target]\nHost: 8.8.8.8");
 		expect(result.rawOutput).toContain("[Hops]\n1 192.168.0.1");
+		expect(result.automation).toMatchObject({
+			data: {
+				target: "8.8.8.8",
+				platform: "darwin",
+				timeoutMs: 1500,
+				hopCount: 2,
+			},
+			source: {
+				kind: "command",
+				command: "traceroute",
+				args: ["8.8.8.8"],
+				success: true,
+				exitCode: 0,
+			},
+		});
 	});
 });

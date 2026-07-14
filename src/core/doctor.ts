@@ -6,7 +6,7 @@ import {
 	getNetworkSummary,
 	lookupPublicIp,
 } from "./network";
-import type { DoctorCheck, NetworkSummary } from "./types";
+import type { DoctorCheck, DoctorCheckId, NetworkSummary } from "./types";
 
 export type DoctorDependencies = {
 	getNetworkSummary: () => Promise<NetworkSummary>;
@@ -28,48 +28,112 @@ export async function runDoctorChecks(
 	const hasIpv4 = Boolean(summary.primaryInterface?.ipv4);
 	const hasDns = summary.dnsServers.length > 0;
 
-	checks.push(check("Interface detected", hasInterface));
-	checks.push(check("IPv4 assigned", hasIpv4));
+	checks.push(check("interface", "Interface detected", hasInterface));
+	checks.push(check("ipv4", "IPv4 assigned", hasIpv4));
 
 	if (summary.gateway) {
 		checks.push(
-			check(
+			await booleanCheck(
+				"gateway",
 				"Gateway reachable",
-				await deps.canReachGateway(summary.gateway),
+				() => deps.canReachGateway(summary.gateway as string),
 				summary.gateway,
 			),
 		);
 	} else {
 		checks.push({
+			id: "gateway",
 			label: "Gateway reachable",
 			status: "warn",
 			detail: "No gateway found",
 		});
 	}
 
-	checks.push(check("DNS configured", hasDns, summary.dnsServers.join(", ")));
-	checks.push(check("DNS resolve ok", await deps.canResolveDns()));
-	checks.push(check("Internet reachable", await deps.canReachInternet()));
 	checks.push(
-		check("Default ping host reachable", await deps.canPingDefaultHost()),
+		check(
+			"dns-config",
+			"DNS configured",
+			hasDns,
+			summary.dnsServers.join(", "),
+		),
+	);
+	checks.push(
+		await booleanCheck("dns-resolve", "DNS resolve ok", deps.canResolveDns),
+	);
+	checks.push(
+		await booleanCheck("internet", "Internet reachable", deps.canReachInternet),
+	);
+	checks.push(
+		await booleanCheck(
+			"default-ping",
+			"Default ping host reachable",
+			deps.canPingDefaultHost,
+		),
 	);
 
-	const publicIp = await deps.lookupPublicIp();
-	checks.push(
-		publicIp
-			? { label: "Public IP lookup", status: "pass", detail: publicIp }
-			: { label: "Public IP lookup", status: "warn", detail: "Lookup failed" },
-	);
+	try {
+		const publicIp = await deps.lookupPublicIp();
+		checks.push(
+			publicIp
+				? {
+						id: "public-ip",
+						label: "Public IP lookup",
+						status: "pass",
+						detail: publicIp,
+					}
+				: {
+						id: "public-ip",
+						label: "Public IP lookup",
+						status: "warn",
+						detail: "Lookup failed",
+					},
+		);
+	} catch (caught) {
+		checks.push({
+			id: "public-ip",
+			label: "Public IP lookup",
+			status: "warn",
+			detail: errorMessage(caught),
+		});
+	}
 
 	return checks;
 }
 
-function check(label: string, passed: boolean, detail?: string): DoctorCheck {
+function check(
+	id: DoctorCheckId,
+	label: string,
+	passed: boolean,
+	detail?: string,
+): DoctorCheck {
 	return {
+		id,
 		label,
 		status: passed ? "pass" : "fail",
 		detail,
 	};
+}
+
+async function booleanCheck(
+	id: DoctorCheckId,
+	label: string,
+	run: () => Promise<boolean>,
+	detail?: string,
+): Promise<DoctorCheck> {
+	try {
+		return check(id, label, await run(), detail);
+	} catch (caught) {
+		return {
+			id,
+			label,
+			status: "fail",
+			detail: errorMessage(caught),
+		};
+	}
+}
+
+function errorMessage(caught: unknown): string {
+	return caught instanceof Error ? caught.message : String(caught);
 }
 
 async function withDefaultDependencies(

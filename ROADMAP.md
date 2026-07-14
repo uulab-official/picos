@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.338 - Diagnostics JSON
+
+Status: draft PR [#413](https://github.com/uulab-official/picos/pull/413) on `codex/picos-v0.4.338-diagnostics-json`, stacked on draft PR [#412](https://github.com/uulab-official/picos/pull/412); Ubuntu, macOS, Windows, and release-readiness CI pass.
+
+Goal: make the lazyifconfig-style diagnostic layer directly usable from scripts, CI, and coding agents while preserving picos' read-only defaults and explicit OS mutation locks.
+
+- `picos doctor --json` returns all eight stable check IDs with pass/warn/fail counts and `healthy`; individual gateway, resolver, internet, ping, or public-IP probe errors stay inside their check instead of aborting the report.
+- `picos dns --json` reports configured resolver state through the Node resolver source, while `picos dns flush --json` emits `status=blocked`, write/admin risk, confirmation requirements, `executionEnabled=false`, and `PICOS_ACTION_LOCKED` with a non-zero exit.
+- `picos tools [list] --json` describes all eight Tools Hub contracts and their fields.
+- Every Tools run supports `--json` with normalized DNS, RDAP, IP, TCP/telnet, TLS, ping, or traceroute data plus DNS/HTTP/TCP/TLS/command source evidence; raw output and section-rendering text stay out of automation results.
+- Tool results retain recursive credential-field, URL, home-directory, and SSH private-key redaction under the shared 4 MiB document limit; `--raw --json`, invalid tools, missing arguments, and invalid 100-60,000 ms timeouts produce one structured failure document.
+- `bun run harness diagnostics-json` launches the real CLI for live DNS, Tools list, localhost TCP, and doctor results plus six deterministic guarded/failure contracts; `bun run verify` runs it on macOS, Linux, and Windows.
+- Next: add the same JSON contract to monitor, OS logs, and individual process inspection, then expose saved automation presets without enabling mutation.
+
 ## v0.4.337 - Local Inspector JSON
 
 Status: draft PR [#412](https://github.com/uulab-official/picos/pull/412) on `codex/picos-v0.4.337-local-inspector-json`, stacked on draft PR [#411](https://github.com/uulab-official/picos/pull/411).
