@@ -155,6 +155,17 @@ export type PermissionSummary = {
 	detail: string;
 };
 
+export type InventorySourceStatus = {
+	key: "storage" | "processes";
+	command: string | null;
+	args: string[];
+	supported: boolean;
+	success: boolean | null;
+	exitCode: number | null;
+	truncated: boolean;
+	totalCount?: number;
+};
+
 export type SystemInventory = {
 	system: SystemSummary;
 	hardware: HardwareSummary;
@@ -163,6 +174,7 @@ export type SystemInventory = {
 	network: NetworkSummary;
 	permission: PermissionSummary;
 	runtime: RuntimeSummary;
+	sources?: InventorySourceStatus[];
 };
 
 export type SafeExecResult = {
@@ -172,6 +184,7 @@ export type SafeExecResult = {
 	stderr: string;
 	exitCode: number | null;
 	success: boolean;
+	truncated?: boolean;
 };
 
 export type DoctorStatus = "pass" | "warn" | "fail";

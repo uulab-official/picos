@@ -34,6 +34,7 @@ import { routeCommand, routesCommand } from "./commands/routes";
 import { toolsCommand } from "./commands/tools";
 import { updateCommand } from "./commands/update";
 import { ReportedCliError } from "./errors";
+import { reportLocalInspectorCliParseFailure } from "./localInspectorOutput";
 
 export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	if (argv.length === 0) {
@@ -47,6 +48,12 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		cli.parse(["node", "picos", ...argv], { run: false });
 	} catch (caught) {
 		if (reportRemoteCliParseFailure(argv, caught)) {
+			throw new ReportedCliError(
+				caught instanceof Error ? caught.message : String(caught),
+				{ cause: caught },
+			);
+		}
+		if (reportLocalInspectorCliParseFailure(argv, caught)) {
 			throw new ReportedCliError(
 				caught instanceof Error ? caught.message : String(caught),
 				{ cause: caught },
@@ -70,6 +77,12 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 				{ cause: caught },
 			);
 		}
+		if (reportLocalInspectorCliParseFailure(argv, caught)) {
+			throw new ReportedCliError(
+				caught instanceof Error ? caught.message : String(caught),
+				{ cause: caught },
+			);
+		}
 		throw caught;
 	}
 }
@@ -84,6 +97,7 @@ export function createCli(): ReturnType<typeof cac> {
 	cli
 		.command("info", "Print network and system summary")
 		.option("--full", "Print full OS inventory")
+		.option("--json", "Emit one structured local inventory result")
 		.action(infoCommand);
 	cli
 		.command("monitor", "Print a live system monitor snapshot")
@@ -136,6 +150,7 @@ export function createCli(): ReturnType<typeof cac> {
 	cli
 		.command("routes", "Inspect local route table")
 		.option("--raw", "Print raw route command output")
+		.option("--json", "Emit one structured route-table result")
 		.option(
 			"--filter <query>",
 			"Filter routes by destination, gateway, interface, family, metric, protocol, or flags",
@@ -147,10 +162,12 @@ export function createCli(): ReturnType<typeof cac> {
 		.action(routesCommand);
 	cli
 		.command("route <destination>", "Inspect route path to a destination")
+		.option("--json", "Emit one structured route-path result")
 		.action(routeCommand);
 	cli
 		.command("connections", "List active network connections")
 		.option("--raw", "Print raw connections command output")
+		.option("--json", "Emit one structured connections result")
 		.option(
 			"--filter <query>",
 			"Filter connections by address, port, state, protocol, or PID",
@@ -163,6 +180,7 @@ export function createCli(): ReturnType<typeof cac> {
 	cli
 		.command("ports", "List listening TCP ports")
 		.option("--raw", "Print raw ports command output")
+		.option("--json", "Emit one structured listening-ports result")
 		.option(
 			"--filter <query>",
 			"Filter ports by address, port, process, PID, user, or protocol",

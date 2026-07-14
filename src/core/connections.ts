@@ -10,6 +10,9 @@ export type ConnectionsResult = {
 	args: string[];
 	connections: ActiveConnection[];
 	rawOutput: string;
+	success?: boolean;
+	exitCode?: number | null;
+	truncated?: boolean;
 };
 
 export type ConnectionSortKey =
@@ -57,6 +60,9 @@ export async function getActiveConnections(
 		...command,
 		connections: parseConnections(result.stdout || result.stderr),
 		rawOutput: formatRawCommand(result),
+		success: result.success,
+		exitCode: result.exitCode,
+		truncated: result.truncated ?? false,
 	};
 }
 

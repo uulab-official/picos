@@ -6,6 +6,9 @@ export type PortsResult = {
 	args: string[];
 	ports: ListeningPort[];
 	rawOutput: string;
+	success?: boolean;
+	exitCode?: number | null;
+	truncated?: boolean;
 };
 
 export type PortSortKey =
@@ -54,6 +57,9 @@ export async function getListeningPorts(
 		...command,
 		ports: parseListeningPorts(result.stdout || result.stderr),
 		rawOutput: formatRawCommand(result),
+		success: result.success,
+		exitCode: result.exitCode,
+		truncated: result.truncated ?? false,
 	};
 }
 

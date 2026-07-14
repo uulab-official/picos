@@ -12,10 +12,11 @@ This runs:
 
 1. `bun run lint`
 2. `bun test`
-3. `bun run integration:sftp`
-4. `bun run typecheck`
-5. `bun run build`
-6. `bun run smoke`
+3. `bun run integration:local-json`
+4. `bun run integration:sftp`
+5. `bun run typecheck`
+6. `bun run build`
+7. `bun run smoke`
 
 `typecheck` covers `src/`, `tests/`, and `scripts/`, including the harness itself.
 
@@ -38,6 +39,14 @@ bun src/bin/picos.ts
 ```
 
 Network-dependent commands such as `doctor` are useful locally but are not part of the cross-platform smoke gate yet.
+
+## Local Inspector JSON Integration
+
+```bash
+bun run harness local-json
+```
+
+This launches the real CLI sequentially for summary/full `info`, `routes`, destination `route`, `connections`, and `ports` JSON snapshots. It verifies complete single-document stdout, schema version, source execution status, process sampling counts, row and byte bounds, raw-output omission, option-conflict failures, invalid sorts, inline JSON flags, missing arguments, a deterministic unavailable-utility shim, non-zero failure exits, and a near-limit document through a real subprocess pipe. Optional route/connection/port utilities may be absent on a CI image; those live probes must then produce one failed document with source evidence, while summary/full info remains successful and the JSON transport/schema stays valid on macOS, Linux, and Windows.
 
 Additional local manual checks:
 

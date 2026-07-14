@@ -1,5 +1,14 @@
 import { safeExec } from "../utils/safeExec";
-import type { ProcessSummary, SupportedPlatform } from "./types";
+import type {
+	InventorySourceStatus,
+	ProcessSummary,
+	SupportedPlatform,
+} from "./types";
+
+export type ProcessSummaryResult = {
+	processes: ProcessSummary[];
+	source: InventorySourceStatus;
+};
 
 export type ProcessDetail = ProcessSummary & {
 	ppid?: number;
@@ -50,18 +59,53 @@ export function parsePsOutput(stdout: string, limit = 12): ProcessSummary[] {
 }
 
 export async function getProcessSummary(limit = 12): Promise<ProcessSummary[]> {
-	if (process.platform === "win32") {
-		return [];
+	return (await getProcessSummaryWithSource(limit)).processes;
+}
+
+export async function getProcessSummaryWithSource(
+	limit = 12,
+	platform: SupportedPlatform = process.platform,
+): Promise<ProcessSummaryResult> {
+	if (platform === "win32") {
+		return {
+			processes: [],
+			source: unsupportedProcessSource(),
+		};
 	}
 
-	const result = await safeExec("ps", ["-axo", "pid,pcpu,pmem,command"], {
+	const args = ["-axo", "pid,pcpu,pmem,command"];
+	const result = await safeExec("ps", args, {
 		timeoutMs: 5000,
 	});
-	if (!result.success) {
-		return [];
-	}
+	const parsed = result.success
+		? parsePsOutput(result.stdout, Number.MAX_SAFE_INTEGER)
+		: [];
+	return {
+		processes: parsed.slice(0, limit),
+		source: {
+			key: "processes",
+			command: "ps",
+			args,
+			supported: true,
+			success: result.success,
+			exitCode: result.exitCode,
+			truncated: result.truncated ?? false,
+			totalCount: parsed.length,
+		},
+	};
+}
 
-	return parsePsOutput(result.stdout, limit);
+function unsupportedProcessSource(): InventorySourceStatus {
+	return {
+		key: "processes",
+		command: null,
+		args: [],
+		supported: false,
+		success: null,
+		exitCode: null,
+		truncated: false,
+		totalCount: 0,
+	};
 }
 
 export function validateProcessId(value: string | number): number {

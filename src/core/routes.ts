@@ -51,6 +51,9 @@ export type RouteTableResult = {
 	routes: RouteEntry[];
 	diagnostics: RouteDiagnostic[];
 	rawOutput: string;
+	success?: boolean;
+	exitCode?: number | null;
+	truncated?: boolean;
 };
 
 export type RoutePathResult = {
@@ -59,6 +62,11 @@ export type RoutePathResult = {
 	interfaceName?: string;
 	sourceIp?: string;
 	rawOutput: string;
+	command?: string;
+	args?: string[];
+	success?: boolean;
+	exitCode?: number | null;
+	truncated?: boolean;
 };
 
 export function buildRouteTableCommand(
@@ -100,6 +108,9 @@ export async function runRouteTable(
 		routes,
 		diagnostics: diagnoseRoutes(routes),
 		rawOutput: formatRawCommand(result),
+		success: result.success,
+		exitCode: result.exitCode,
+		truncated: result.truncated ?? false,
 	};
 }
 
@@ -112,13 +123,20 @@ export async function runRoutePath(
 		timeoutMs: 10000,
 	});
 	const rawOutput = formatRawCommand(result);
-	if (platform === "linux") {
-		return parseLinuxRoutePath(destination, result.stdout || result.stderr);
-	}
-	if (platform === "darwin") {
-		return parseMacosRoutePath(destination, result.stdout || result.stderr);
-	}
-	return { destination, rawOutput };
+	const parsed =
+		platform === "linux"
+			? parseLinuxRoutePath(destination, result.stdout || result.stderr)
+			: platform === "darwin"
+				? parseMacosRoutePath(destination, result.stdout || result.stderr)
+				: { destination, rawOutput };
+	return {
+		...parsed,
+		...routeCommand,
+		rawOutput,
+		success: result.success,
+		exitCode: result.exitCode,
+		truncated: result.truncated ?? false,
+	};
 }
 
 export function parseRoutes(

@@ -15,6 +15,7 @@ Source: https://github.com/choihunchul/lazyifconfig
 - Timeline for local in-app events such as interface changes, address changes, public IP changes, copy actions, and update checks.
 - Tools Hub for DNS lookup, Whois/RDAP, IP information, TCP port check, TLS inspection, ping, and traceroute.
 - Raw output viewer so summarized views can be compared to source command output.
+- Versioned JSON snapshots so local interface, route, connection, and port state can be consumed safely by scripts and coding agents without dumping raw OS output.
 - Explicit privacy posture: local command output is parsed locally and not uploaded by the app.
 
 ## picos Adaptation

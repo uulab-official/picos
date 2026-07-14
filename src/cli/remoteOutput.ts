@@ -45,8 +45,8 @@ export function formatRemoteJsonSuccess(input: RemoteJsonSuccessInput): string {
 			? {
 					count: input.entries?.length ?? 0,
 					entries: (input.entries ?? []).map((entry) => ({
-						name: sanitizeRemoteJsonText(entry.name),
-						path: sanitizeRemoteJsonText(entry.name),
+						name: sanitizeRemoteOutputText(entry.name),
+						path: sanitizeRemoteOutputText(entry.name),
 						type: entry.type,
 						size: entry.size ?? null,
 						modifiedAt: entry.modifiedAt?.toISOString() ?? null,
@@ -56,7 +56,7 @@ export function formatRemoteJsonSuccess(input: RemoteJsonSuccessInput): string {
 			: {
 					file: input.file
 						? {
-								path: sanitizeRemoteJsonText(input.path),
+								path: sanitizeRemoteOutputText(input.path),
 								content: input.file.content,
 								encoding: input.file.encoding,
 								truncated: input.file.truncated,
@@ -74,7 +74,7 @@ export function formatRemoteJsonSuccess(input: RemoteJsonSuccessInput): string {
 			operation: input.operation,
 			profile: formatRemoteJsonProfile(input.profile),
 			request: {
-				path: sanitizeRemoteJsonText(input.path),
+				path: sanitizeRemoteOutputText(input.path),
 				timeoutMs: input.timeoutMs,
 				...(input.operation === "read" ? { maxBytes: input.maxBytes } : {}),
 			},
@@ -112,7 +112,7 @@ export function formatRemoteJsonFailure(input: RemoteJsonFailureInput): string {
 							path:
 								input.path === undefined
 									? null
-									: sanitizeRemoteJsonText(input.path),
+									: sanitizeRemoteOutputText(input.path),
 							...(input.timeoutMs === undefined
 								? {}
 								: { timeoutMs: input.timeoutMs }),
@@ -130,7 +130,7 @@ export function formatRemoteJsonFailure(input: RemoteJsonFailureInput): string {
 			}),
 			error: {
 				code: "PICOS_REMOTE_OPERATION_FAILED",
-				message: sanitizeRemoteJsonText(input.message),
+				message: sanitizeRemoteOutputText(input.message),
 			},
 		},
 		null,
@@ -145,11 +145,11 @@ function formatRemoteJsonProfile(profile: SftpRemoteProfile) {
 		host: profile.host,
 		port: profile.port,
 		username: profile.username,
-		root: sanitizeRemoteJsonText(profile.root),
+		root: sanitizeRemoteOutputText(profile.root),
 	};
 }
 
-function sanitizeRemoteJsonText(value: string): string {
+export function sanitizeRemoteOutputText(value: string): string {
 	const redacted = value.replace(
 		/sftp:\/\/([^\s/:@]+):[^\s/@]*@/giu,
 		"sftp://$1:[REDACTED]@",
@@ -161,5 +161,5 @@ function sanitizeRemoteJsonText(value: string): string {
 function formatRemoteJsonSession(
 	session: RemoteJsonSession,
 ): RemoteJsonSession {
-	return { ...session, root: sanitizeRemoteJsonText(session.root) };
+	return { ...session, root: sanitizeRemoteOutputText(session.root) };
 }

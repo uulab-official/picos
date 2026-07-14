@@ -19,8 +19,14 @@ import {
 import type { SftpRemoteProfile } from "../../core/types";
 import { ReportedCliError } from "../errors";
 import {
+	deliverCliOutput,
+	isCliOutputWriteError,
+	writeCliOutput,
+} from "../output";
+import {
 	formatRemoteJsonFailure,
 	formatRemoteJsonSuccess,
+	sanitizeRemoteOutputText,
 } from "../remoteOutput";
 
 type RemoteCommandOptionValue =
@@ -189,13 +195,13 @@ export async function runGuardedRemoteFileRequest(
 	dependencies: {
 		readKnownHosts?: (path: string, signal?: AbortSignal) => Promise<string>;
 		connect?: typeof connectReadOnlySftpFileProvider;
-		writeOutput?: (value: string) => void;
+		writeOutput?: (value: string) => unknown;
 		writeDiagnostic?: (value: string) => void;
 	} = {},
 ): Promise<void> {
 	const readKnownHosts = dependencies.readKnownHosts ?? readBoundedKnownHosts;
 	const connect = dependencies.connect ?? connectReadOnlySftpFileProvider;
-	const writeOutput = dependencies.writeOutput ?? console.log;
+	const writeOutput = dependencies.writeOutput ?? writeCliOutput;
 	const writeDiagnostic = dependencies.writeDiagnostic ?? console.error;
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), request.timeoutMs);
@@ -254,20 +260,9 @@ export async function runGuardedRemoteFileRequest(
 		if (controller.signal.aborted) {
 			throw new Error(`Remote ${request.operation} timed out`);
 		}
-		writeDiagnostic(
-			formatReadOnlySftpConnectionAuditMessage({
-				status: "completed",
-				id: profile.id,
-				target: root,
-				host: profile.host,
-				port: profile.port,
-				fingerprint,
-				network: "closed",
-				message: `CLI read-only ${request.operation} path=${JSON.stringify(request.path)}`,
-			}),
-		);
 		if (request.output === "json") jsonOutputAttempted = true;
-		writeOutput(
+		await deliverCliOutput(
+			writeOutput,
 			request.output === "json"
 				? formatRemoteJsonSuccess({
 						profile,
@@ -284,6 +279,23 @@ export async function runGuardedRemoteFileRequest(
 					? formatDirEntries(entries ?? [])
 					: (file?.content ?? ""),
 		);
+		try {
+			writeDiagnostic(
+				formatReadOnlySftpConnectionAuditMessage({
+					status: "completed",
+					id: profile.id,
+					target: root,
+					host: profile.host,
+					port: profile.port,
+					fingerprint,
+					network: "closed",
+					message: `CLI read-only ${request.operation} path=${JSON.stringify(sanitizeRemoteOutputText(request.path))}`,
+				}),
+			);
+		} catch {
+			// The completed result is already delivered; a closed diagnostic stream
+			// must not turn it into a contradictory process failure.
+		}
 	} catch (caught) {
 		const timedOut = controller.signal.aborted;
 		const baseMessage = timedOut
@@ -309,9 +321,11 @@ export async function runGuardedRemoteFileRequest(
 		} catch {
 			// JSON output remains the machine-readable terminal result.
 		}
+		if (isCliOutputWriteError(caught)) throw caught;
 		if (request.output === "json" && !jsonOutputAttempted) {
 			jsonOutputAttempted = true;
-			writeOutput(
+			await deliverCliOutput(
+				writeOutput,
 				formatRemoteJsonFailure({
 					id: profile.id,
 					profile,
@@ -369,7 +383,7 @@ export function formatGuardedRemoteFailureAuditMessage(
 		port: profile.port,
 		fingerprint: options.fingerprint ?? "SHA256:unknown",
 		network: options.network ?? "closed",
-		message,
+		message: sanitizeRemoteOutputText(message),
 	});
 }
 
@@ -524,7 +538,7 @@ function formatUnresolvedRemoteFailureAuditMessage(
 		port: 0,
 		fingerprint: "SHA256:unknown",
 		network: "closed",
-		message,
+		message: sanitizeRemoteOutputText(message),
 	});
 }
 

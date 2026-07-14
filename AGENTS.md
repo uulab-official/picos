@@ -35,6 +35,7 @@ bun test
 bun run typecheck
 bun run build
 bun run smoke
+bun run harness local-json
 bun run harness sftp
 ```
 
@@ -46,10 +47,13 @@ bun run harness sftp
 - `src/core/sftp.ts` owns SSH/SFTP transport and exposes only the shared read-only `FileProvider` surface.
 - `src/adapters` owns OS-specific command definitions.
 - `src/utils/safeExec.ts` is the only place that should spawn OS commands.
+- Keep the default `safeExec()` combined stdout/stderr byte bound; platform readers must not restore unbounded child-output buffering.
 - TUI and CLI must call `core` APIs rather than shelling out directly.
 - SFTP connections require a selected SHA256 host-key candidate and exact confirmation; never auto-accept or persist host trust.
 - CLI SFTP list/read must use the same core provider, local `known_hosts` verification, timeout/read bounds, audit formatting, and guaranteed close as the TUI.
 - Remote `--json` must remain one versioned stdout document; keep audit diagnostics on stderr, preserve non-zero failure exits, and never serialize key paths or credentials.
+- Local inspector `--json` must remain one bounded versioned stdout document, omit raw OS output and process arguments, preserve source success/exit status, redact failure text, flush large pipe output without double reporting, and reject `--raw --json` before command execution.
+- The local JSON subprocess harness must run in `bun run verify` on every supported CI OS.
 - The disposable localhost SFTP harness must use public-key authentication, reject mutation/exec, and run in `bun run verify` on every supported CI OS.
 - Treat matching `@revoked` fingerprints as global blockers, preserve exact confirmation bytes, and keep trust files plus remote reads/listings bounded before presenting output.
 - Retrying a failed or cancelled connection must require the exact confirmation again; cancellation must remain visible and recoverable as audit evidence.
@@ -78,6 +82,7 @@ The current milestone makes picos visible and navigable:
 - host-key-verified read-only SFTP list/stat/read sessions with explicit close and locked remote writes
 - cancellable/retryable SFTP lifecycle diagnostics and guarded CLI remote list/read automation
 - schema-versioned remote JSON automation and a credentialed cross-platform SFTP integration harness
+- schema-versioned local OS/network inspector JSON and a cross-platform subprocess integration harness
 - locked action catalog for future privileged controls
 
 Actual OS mutation remains disabled by default.

@@ -7,6 +7,7 @@ import {
 	formatGuardedRemoteFailureAuditMessage,
 	runGuardedRemoteFileRequest,
 } from "../src/cli/commands/remotes";
+import { isCliOutputWriteError } from "../src/cli/output";
 import type { FileProvider } from "../src/core/files";
 import { parseRemoteKnownHostsCandidates } from "../src/core/remotes";
 import type { SftpRemoteProfile } from "../src/core/types";
@@ -75,14 +76,17 @@ describe("guarded remote CLI files", () => {
 	});
 
 	test("emits one structured list result after the session closes", async () => {
+		const credentialPath =
+			"sftp://deploy:TOPSECRET@prod.example.com:2222/srv/app";
 		const request = createGuardedRemoteFileRequest("prod", {
-			list: ".",
+			list: credentialPath,
 			confirm: "connect remote prod",
 			json: true,
 		});
 		if (!request) throw new Error("expected guarded JSON list request");
 		let closed = false;
 		const output: string[] = [];
+		const diagnostics: string[] = [];
 
 		await runGuardedRemoteFileRequest(profile, request, {
 			readKnownHosts: async () => knownHosts,
@@ -118,7 +122,7 @@ describe("guarded remote CLI files", () => {
 				expect(closed).toBeTrue();
 				output.push(value);
 			},
-			writeDiagnostic: () => undefined,
+			writeDiagnostic: (value) => diagnostics.push(value),
 		});
 
 		expect(output).toHaveLength(1);
@@ -128,6 +132,49 @@ describe("guarded remote CLI files", () => {
 			data: { count: 1 },
 			session: { network: "closed", writes: "locked" },
 		});
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0]).not.toContain("TOPSECRET");
+		expect(diagnostics[0]).toContain("[REDACTED]");
+	});
+
+	test("does not fail after completed output when the audit stream is closed", async () => {
+		const request = createGuardedRemoteFileRequest("prod", {
+			list: ".",
+			confirm: "connect remote prod",
+			json: true,
+		});
+		if (!request) throw new Error("expected guarded JSON list request");
+		const output: string[] = [];
+
+		await runGuardedRemoteFileRequest(profile, request, {
+			readKnownHosts: async () => knownHosts,
+			connect: async () => ({
+				kind: "sftp",
+				async pwd() {
+					return "sftp://deploy@prod.example.com:2222/srv/app";
+				},
+				async list() {
+					return [];
+				},
+				async read() {
+					throw new Error("not used");
+				},
+				async write() {
+					throw new Error("locked");
+				},
+				async stat() {
+					throw new Error("not used");
+				},
+				async close() {},
+			}),
+			writeOutput: (value) => output.push(value),
+			writeDiagnostic: () => {
+				throw new Error("stderr closed");
+			},
+		});
+
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}").status).toBe("completed");
 	});
 
 	test("emits one structured failure before rejecting JSON requests", async () => {
@@ -155,6 +202,53 @@ describe("guarded remote CLI files", () => {
 			error: { code: "PICOS_REMOTE_OPERATION_FAILED" },
 		});
 		expect(diagnostics).toHaveLength(1);
+	});
+
+	test("does not double-report audits when stdout delivery fails", async () => {
+		const request = createGuardedRemoteFileRequest("prod", {
+			list: ".",
+			confirm: "connect remote prod",
+			json: true,
+		});
+		if (!request) throw new Error("expected guarded JSON list request");
+		const diagnostics: string[] = [];
+		let caught: unknown;
+
+		try {
+			await runGuardedRemoteFileRequest(profile, request, {
+				readKnownHosts: async () => knownHosts,
+				connect: async () => ({
+					kind: "sftp",
+					async pwd() {
+						return "sftp://deploy@prod.example.com:2222/srv/app";
+					},
+					async list() {
+						return [];
+					},
+					async read() {
+						throw new Error("not used");
+					},
+					async write() {
+						throw new Error("locked");
+					},
+					async stat() {
+						throw new Error("not used");
+					},
+					async close() {},
+				}),
+				writeOutput: () => {
+					throw new Error("stdout closed");
+				},
+				writeDiagnostic: (value) => diagnostics.push(value),
+			});
+		} catch (error) {
+			caught = error;
+		}
+
+		expect(isCliOutputWriteError(caught)).toBeTrue();
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0]).toContain("status=failed");
+		expect(diagnostics[0]).not.toContain("status=completed");
 	});
 
 	test("keeps one JSON failure when the diagnostic writer throws", async () => {

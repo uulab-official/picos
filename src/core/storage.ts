@@ -1,5 +1,14 @@
 import { safeExec } from "../utils/safeExec";
-import type { StorageVolume } from "./types";
+import type {
+	InventorySourceStatus,
+	StorageVolume,
+	SupportedPlatform,
+} from "./types";
+
+export type StorageSummaryResult = {
+	volumes: StorageVolume[];
+	source: InventorySourceStatus;
+};
 
 export function parseDfOutput(stdout: string): StorageVolume[] {
 	return stdout
@@ -24,14 +33,47 @@ export function parseDfOutput(stdout: string): StorageVolume[] {
 }
 
 export async function getStorageSummary(): Promise<StorageVolume[]> {
-	if (process.platform === "win32") {
-		return [];
+	return (await getStorageSummaryWithSource()).volumes;
+}
+
+export async function getStorageSummaryWithSource(
+	platform: SupportedPlatform = process.platform,
+): Promise<StorageSummaryResult> {
+	if (platform === "win32") {
+		return {
+			volumes: [],
+			source: unsupportedInventorySource("storage"),
+		};
 	}
 
 	const result = await safeExec("df", ["-h"], { timeoutMs: 5000 });
-	if (!result.success) {
-		return [];
-	}
+	const volumes = result.success ? parseDfOutput(result.stdout) : [];
+	return {
+		volumes,
+		source: {
+			key: "storage",
+			command: "df",
+			args: ["-h"],
+			supported: true,
+			success: result.success,
+			exitCode: result.exitCode,
+			truncated: result.truncated ?? false,
+			totalCount: volumes.length,
+		},
+	};
+}
 
-	return parseDfOutput(result.stdout);
+function unsupportedInventorySource(
+	key: InventorySourceStatus["key"],
+): InventorySourceStatus {
+	return {
+		key,
+		command: null,
+		args: [],
+		supported: false,
+		success: null,
+		exitCode: null,
+		truncated: false,
+		totalCount: 0,
+	};
 }
