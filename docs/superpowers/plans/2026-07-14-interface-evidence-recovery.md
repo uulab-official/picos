@@ -13,7 +13,7 @@ Persist frequently used interface evidence searches and recover archive or reten
 - [x] Reuse the stored audit message for exact result-history Timeline recovery.
 - [x] Focus archived evidence after a successful archive refresh.
 - [x] Cover preferences, config, panel, palette, activity results, and Timeline recovery with tests.
-- [ ] Open the stacked draft PR and record its CI result in the roadmap.
+- [x] Open stacked draft PR [#408](https://github.com/uulab-official/picos/pull/408) on [#407](https://github.com/uulab-official/picos/pull/407); CI status is tracked on the PR.
 
 ## Safety Boundary
 

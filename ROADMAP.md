@@ -2,7 +2,7 @@
 
 ## v0.4.333 - Interface Evidence Recovery
 
-Status: implementation on `codex/picos-v0.4.333-interface-evidence-recovery`, planned as a stacked draft PR on [#407](https://github.com/uulab-official/picos/pull/407).
+Status: draft PR [#408](https://github.com/uulab-official/picos/pull/408) on `codex/picos-v0.4.333-interface-evidence-recovery`, stacked on draft PR [#407](https://github.com/uulab-official/picos/pull/407).
 
 Goal: preserve interface evidence searches and make archive/retention completion outcomes directly recoverable from the OS-console activity trail.
 
