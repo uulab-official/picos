@@ -42,9 +42,11 @@ bun run smoke
 - `src/tui` owns keyboard-driven panels and visual state.
 - `src/cli` owns command parsing and output.
 - `src/core` owns platform-neutral behavior and metadata.
+- `src/core/sftp.ts` owns SSH/SFTP transport and exposes only the shared read-only `FileProvider` surface.
 - `src/adapters` owns OS-specific command definitions.
 - `src/utils/safeExec.ts` is the only place that should spawn OS commands.
 - TUI and CLI must call `core` APIs rather than shelling out directly.
+- SFTP connections require a selected SHA256 host-key candidate and exact confirmation; never auto-accept or persist host trust.
 - OS mutation must be represented as an action before it is executable.
 
 ## Safety Rules
@@ -67,6 +69,7 @@ The current milestone makes picos visible and navigable:
 - Dashboard, System, Hardware, Storage, Processes, Network, DNS, Actions, Status, Logs panels
 - keyboard navigation with number keys, arrows, and `h`/`l`
 - read-only OS inventory and safe network reachability tools
+- host-key-verified read-only SFTP list/stat/read sessions with explicit close and locked remote writes
 - locked action catalog for future privileged controls
 
 Actual OS mutation remains disabled by default.

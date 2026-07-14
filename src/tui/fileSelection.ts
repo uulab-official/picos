@@ -68,11 +68,17 @@ export function formatFileProviderBoundaryRows(options: {
 }): string[] {
 	const remote = options.remoteContext;
 	if (remote) {
+		const connected = remote.status === "connected read-only";
 		return [
 			`PROVIDER BOUNDARY ${remote.kind} ${remote.label}`,
 			`root=${remote.root}`,
-			`status=${remote.status} writes=${remote.writes} localRoot=${options.root}`,
-			"controls=enter preview · y copy path · remote writes require confirmation",
+			`status=${remote.status} writes=${remote.writes} activeRoot=${options.root}`,
+			...(remote.hostKeyFingerprint
+				? [`hostKey=${remote.hostKeyFingerprint} verified=yes`]
+				: ["hostKey=unverified verified=no"]),
+			connected
+				? "controls=enter open · y copy path · L close SFTP · writes disabled"
+				: "controls=enter preview · y copy path · c connect from Remotes",
 		];
 	}
 

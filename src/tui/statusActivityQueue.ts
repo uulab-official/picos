@@ -2468,16 +2468,19 @@ function createRemoteConnectResultTimelineSearch(
 	result: StatusActivityResult,
 ): StatusActivityCopyIntentTimelineSearch | undefined {
 	const match = result.message.match(
-		/^remote connect (confirmed-blocked|rejected) ([A-Za-z0-9._-]{1,64}) /,
+		/^remote connect (confirmed-ready|confirmed-blocked|rejected|connected|failed) ([A-Za-z0-9._-]{1,64}) /,
 	);
 	const status = match?.[1];
 	const id = match?.[2];
 	if (!id || !status) {
 		return undefined;
 	}
+	const storedAudit = result.detailRows
+		?.find((row) => row.startsWith("audit="))
+		?.slice("audit=".length);
 	return {
 		filter: "audit",
-		query: `remote connect audit id=${id} status=${status}`,
+		query: storedAudit ?? `remote connect audit id=${id} status=${status}`,
 		message: `status activity result timeline search remote connect ${id} ${status}`,
 	};
 }

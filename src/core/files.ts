@@ -1,6 +1,7 @@
 import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, resolve } from "node:path";
+import { basename, dirname, isAbsolute, posix, resolve } from "node:path";
+import { formatSftpProfileUri } from "./sftp";
 import type { SftpRemoteProfile } from "./types";
 
 export type FileProviderKind = "local" | "sftp";
@@ -38,6 +39,7 @@ export type FileProvider = {
 	read(path: string, options?: { maxBytes?: number }): Promise<FileReadResult>;
 	write(path: string, content: string): Promise<void>;
 	stat(path: string): Promise<FileEntry>;
+	close?(): Promise<void>;
 };
 
 export type LocalFileProviderOptions = {
@@ -246,7 +248,7 @@ export function withParentDirectoryEntry(
 	root: string,
 	entries: FileEntry[],
 ): FileEntry[] {
-	const parent = dirname(root);
+	const parent = getFileParentPath(root);
 	if (parent === root) {
 		return entries;
 	}
@@ -260,6 +262,29 @@ export function withParentDirectoryEntry(
 		},
 		...entries,
 	];
+}
+
+export function getFileParentPath(path: string): string {
+	const remote = parseSftpPath(path);
+	if (!remote) {
+		return dirname(path);
+	}
+	const parentPath = posix.dirname(remote.pathname);
+	return `${remote.authority}${parentPath === "/" ? "/" : parentPath}`;
+}
+
+export function resolveFilePath(root: string, path: string): string {
+	const remote = parseSftpPath(root);
+	if (!remote) {
+		return resolve(root, path);
+	}
+	if (path.startsWith("sftp://")) {
+		return path;
+	}
+	const pathname = path.startsWith("/")
+		? posix.normalize(path)
+		: posix.resolve(remote.pathname, path || ".");
+	return `${remote.authority}${pathname}`;
 }
 
 function dedupeLocations(locations: FileLocation[]): FileLocation[] {
@@ -291,8 +316,18 @@ function formatFileSize(size?: number): string {
 }
 
 function formatSftpRoot(profile: SftpRemoteProfile): string {
-	const normalizedRoot = profile.root.startsWith("/")
-		? profile.root
-		: `/${profile.root}`;
-	return `sftp://${profile.username}@${profile.host}:${profile.port}${normalizedRoot}`;
+	return formatSftpProfileUri(profile);
+}
+
+function parseSftpPath(
+	path: string,
+): { authority: string; pathname: string } | undefined {
+	const match = /^(?<authority>sftp:\/\/[^/]+)(?<pathname>\/.*)?$/i.exec(path);
+	if (!match?.groups?.authority) {
+		return undefined;
+	}
+	return {
+		authority: match.groups.authority,
+		pathname: match.groups.pathname ?? "/",
+	};
 }

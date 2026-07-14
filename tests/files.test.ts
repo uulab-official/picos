@@ -8,6 +8,7 @@ import {
 	createLocalFileProvider,
 	formatDirEntries,
 	formatFileLocations,
+	getFileParentPath,
 	getSystemFileLocations,
 	getSystemFileRoot,
 	withParentDirectoryEntry,
@@ -135,6 +136,19 @@ describe("local file provider", () => {
 		await expect(provider.write("file.txt", "content")).rejects.toThrow(
 			"Remote writes require host and path confirmation",
 		);
+	});
+
+	test("preserves SFTP authority when resolving parent directory entries", () => {
+		const root = "sftp://alice@dev.example.com:22/srv/app/releases";
+		expect(getFileParentPath(root)).toBe(
+			"sftp://alice@dev.example.com:22/srv/app",
+		);
+		expect(withParentDirectoryEntry(root, [])[0]).toEqual({
+			name: "..",
+			path: "sftp://alice@dev.example.com:22/srv/app",
+			type: "directory",
+			readonly: true,
+		});
 	});
 
 	test("adds a parent directory entry outside filesystem root", async () => {

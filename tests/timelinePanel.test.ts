@@ -383,7 +383,7 @@ describe("timeline TUI panel formatting", () => {
 		).toEqual([
 			"SUMMARY events=1/8 network=0 audit=1 action=0 raw=0 filter=audit search=remote connect prod",
 			"TIMELINE",
-			'[12:00:09] WARN audit  remote connect audit id=prod target="sftp://deploy@prod.example.com:2222/srv/app" status=confirmed-blocked dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened confirm="connect remote prod"',
+			'[12:00:09] WARN audit  remote connect audit id=prod target="sftp://deploy@prod.example.com:2222/srv/app" status=confirmed-blocked dependency=ssh2 reason=host-key-review-required network=not-opened confirm="connect remote prod"',
 			"FILTERS t cycle · j/k select · c copy selected · e export selected · E evidence · f search · P save · ] preset · D cleanup · timeline.export writes audit file",
 		]);
 	});

@@ -707,23 +707,43 @@ describe("Status activity queue", () => {
 			action: "remote-connect",
 			message: "remote connect confirmed-blocked prod prod.example.com:2222",
 			detail:
-				'target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+				'target="sftp://deploy@prod.example.com:2222/srv/app" dependency=ssh2 reason=host-key-review-required network=not-opened willExecute=false confirm="connect remote prod"',
 		});
 		expect(formatStatusActivityResultRows(result)).toEqual([
 			"STATUS ACTIVITY RESULT source=timeline action=remote-connect",
 			"> remote connect confirmed-blocked prod prod.example.com:2222",
-			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=ssh2 reason=host-key-review-required network=not-opened willExecute=false confirm="connect remote prod"',
 		]);
 		expect(formatStatusActivityResultHistoryRows([result])).toEqual([
 			"STATUS ACTIVITY RESULT HISTORY count=1 selected=1/1",
 			"> timeline remote-connect remote connect confirmed-blocked prod prod.example.com:2222",
-			'    target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+			'    target="sftp://deploy@prod.example.com:2222/srv/app" dependency=ssh2 reason=host-key-review-required network=not-opened willExecute=false confirm="connect remote prod"',
 		]);
 		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
 			filter: "audit",
 			query: "remote connect audit id=prod status=confirmed-blocked",
 			message:
 				"status activity result timeline search remote connect prod confirmed-blocked",
+		});
+	});
+
+	test("recovers the exact audit row from a connected read-only SFTP result", () => {
+		const audit =
+			'remote connect audit id=prod status=connected target="sftp://deploy@prod.example.com:2222/srv/app" fingerprint=SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA network=opened capabilities=list,stat,read writes=locked message="read-only SFTP connected entries=2"';
+		const result = {
+			source: "timeline" as const,
+			action: "remote-connect" as const,
+			message: "remote connect connected prod prod.example.com:2222",
+			detail:
+				'target="sftp://deploy@prod.example.com:2222/srv/app" network=opened writes=locked',
+			detailRows: ["read-only SFTP connected entries=2", `audit=${audit}`],
+		};
+
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query: audit,
+			message:
+				"status activity result timeline search remote connect prod connected",
 		});
 	});
 
@@ -1117,7 +1137,7 @@ describe("Status activity queue", () => {
 			"> known_hosts previous prod prod.example.com:2222 selected=1/2",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" line=1 hostPattern=[prod.example.com]:2222 keyType=ssh-rsa fingerprint=SHA256:first match=candidate-only network=not-opened scan=false trust=not-applied knownHostsWrite=false',
 			"  connect confirmed-blocked prod prod.example.com:2222",
-			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=ssh2 reason=host-key-review-required network=not-opened willExecute=false confirm="connect remote prod"',
 			"  evidence recorded-blocked prod prod.example.com:2222",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" fingerprint=SHA256:providedFingerprint parserInput=available network=not-opened scan=false trust=not-applied knownHostsWrite=false confirm="compare host key prod"',
 			"controls=enter stage · e evidence · t trust review · c connect preview · Status I timeline recovery",
@@ -1129,7 +1149,7 @@ describe("Status activity queue", () => {
 		).toEqual([
 			"REMOTE ACTIVITY recent=2 selected=dev",
 			"> connect confirmed-blocked prod prod.example.com:2222",
-			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened willExecute=false confirm="connect remote prod"',
+			'  target="sftp://deploy@prod.example.com:2222/srv/app" dependency=ssh2 reason=host-key-review-required network=not-opened willExecute=false confirm="connect remote prod"',
 			"  known_hosts previous prod prod.example.com:2222 selected=1/2",
 			'  target="sftp://deploy@prod.example.com:2222/srv/app" line=1 hostPattern=[prod.example.com]:2222 keyType=ssh-rsa fingerprint=SHA256:first match=candidate-only network=not-opened scan=false trust=not-applied knownHostsWrite=false',
 			"controls=enter stage · e evidence · t trust review · c connect preview · Status I timeline recovery",
