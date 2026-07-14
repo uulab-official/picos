@@ -17,7 +17,7 @@ Make real read-only SFTP sessions observable and interruptible in the TUI, then 
 - [x] Keep Remotes responsive at compact 80x24 and expanded 120x40 terminal sizes.
 - [x] Run full verification and gstack review.
 - [x] Open stacked draft PR #410 on #409.
-- [ ] Monitor PR #410 CI to completion.
+- [x] Monitor PR #410 CI to completion: 8/8 checks passed.
 
 ## Safety Boundary
 
