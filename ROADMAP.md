@@ -2,7 +2,7 @@
 
 ## v0.4.337 - Local Inspector JSON
 
-Status: implementation branch `codex/picos-v0.4.337-local-inspector-json`, stacked on draft PR [#411](https://github.com/uulab-official/picos/pull/411).
+Status: draft PR [#412](https://github.com/uulab-official/picos/pull/412) on `codex/picos-v0.4.337-local-inspector-json`, stacked on draft PR [#411](https://github.com/uulab-official/picos/pull/411).
 
 Goal: make the lazyifconfig-inspired local OS and network inspectors safe to consume from scripts, CI, and coding agents through one bounded, versioned output contract.
 

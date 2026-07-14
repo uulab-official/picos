@@ -21,7 +21,8 @@ Expose the lazyifconfig-inspired local OS and network inspectors as stable, boun
 - [x] Include local JSON integration in `bun run verify` for macOS, Linux, and Windows CI.
 - [x] Update user, package, harness, agent, Claude, changelog, and roadmap documentation.
 - [x] Run full verification and review.
-- [ ] Open a stacked draft PR on #411 and monitor CI/review feedback.
+- [x] Open stacked draft PR #412 on #411.
+- [ ] Monitor CI and review feedback.
 
 ## Safety Boundary
 
