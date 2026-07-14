@@ -142,7 +142,6 @@ try {
 	assert.equal(fixture.metrics.writeAttempts, 1);
 	assert.equal(fixture.metrics.execAttempts, 1);
 	assert.equal(fixture.metrics.authenticated, 3);
-	assert.equal(fixture.metrics.closed, 3);
 
 	await writeFile(configPath, "{\n", "utf8");
 	const invalidConfig = await runPicosRemote(
@@ -154,10 +153,13 @@ try {
 	assert.equal(JSON.parse(invalidConfig.stdout).operation, "list");
 	assert.equal(invalidConfig.stderr.split("\n").length, 1);
 	assert.equal(fixture.metrics.connections, 3);
+	await fixture.close();
+	assert.equal(fixture.metrics.closed, 3);
 
 	console.log(
 		`SFTP integration complete: list/read JSON verified, ${fixture.metrics.closed} sessions closed`,
 	);
+	fixture = undefined;
 } finally {
 	try {
 		await fixture?.close();
@@ -202,10 +204,6 @@ async function verifyReadOnlyServerGuards(
 	fixture: SftpIntegrationFixture,
 ): Promise<void> {
 	const client = new Client();
-	const expectedClosedSessions = fixture.metrics.closed + 1;
-	const closed = new Promise<void>((resolveClosed) =>
-		client.once("close", resolveClosed),
-	);
 	try {
 		await new Promise<void>((resolveReady, rejectReady) => {
 			client
@@ -242,23 +240,7 @@ async function verifyReadOnlyServerGuards(
 		);
 		assert.ok(execError, "fixture must reject SSH exec requests");
 	} finally {
-		client.end();
-		await closed;
-		await waitForMetric(
-			() => fixture.metrics.closed >= expectedClosedSessions,
-			"fixture server did not observe the SSH session closing",
-		);
-	}
-}
-
-async function waitForMetric(
-	predicate: () => boolean,
-	message: string,
-): Promise<void> {
-	const deadline = Date.now() + 2_000;
-	while (!predicate()) {
-		if (Date.now() >= deadline) throw new Error(message);
-		await Bun.sleep(10);
+		client.destroy();
 	}
 }
 

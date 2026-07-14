@@ -70,7 +70,14 @@ export async function startSftpIntegrationFixture(): Promise<SftpIntegrationFixt
 		const socket = connectionSocket(client);
 		if (socket) {
 			sockets.add(socket);
-			socket.once("close", () => sockets.delete(socket));
+			socket.once("close", () => {
+				sockets.delete(socket);
+				metrics.closed += 1;
+			});
+		} else {
+			client.once("close", () => {
+				metrics.closed += 1;
+			});
 		}
 		client
 			.on("authentication", (context) => {
@@ -111,7 +118,6 @@ export async function startSftpIntegrationFixture(): Promise<SftpIntegrationFixt
 				});
 			})
 			.on("close", () => {
-				metrics.closed += 1;
 				clients.delete(client);
 			});
 	});
