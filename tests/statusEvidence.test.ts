@@ -5,6 +5,8 @@ import {
 	createStatusEvidenceItemMovePlan,
 	createStatusEvidenceNumberJumpPlan,
 	createStatusEvidenceSearchPlan,
+	filterInterfaceConfirmationEvidenceExports,
+	formatInterfaceEvidenceFilterRows,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceDetailRows,
 	formatStatusEvidenceIndexRows,
@@ -13,6 +15,8 @@ import {
 	formatStatusEvidenceTableDetailRows,
 	formatStatusEvidenceTableRows,
 	moveStatusEvidenceFocus,
+	nextInterfaceEvidenceStateFilter,
+	normalizeInterfaceEvidenceQuery,
 } from "../src/tui/statusEvidence";
 
 describe("Status evidence detail rows", () => {
@@ -1287,6 +1291,57 @@ describe("Status evidence detail rows", () => {
 		).toEqual([
 			"STATUS EVIDENCE selected=0",
 			"no selected evidence; refresh Status indexes first",
+		]);
+	});
+
+	test("filters interface evidence by state and normalized text tokens", () => {
+		const active = [
+			{
+				path: "/tmp/picos/audit/disable-wifi.log",
+				content: "",
+				eventCount: 2,
+				scope: "selected" as const,
+				query:
+					"interface confirmation interface.disable status=confirmed-blocked",
+			},
+		];
+		const archived = [
+			{
+				path: "/tmp/picos/audit/archive/enable-ethernet.log",
+				content: "",
+				eventCount: 1,
+				scope: "filtered" as const,
+				query: "interface confirmation interface.enable status=rejected",
+			},
+		];
+
+		expect(
+			filterInterfaceConfirmationEvidenceExports(
+				active,
+				archived,
+				"archived",
+				" ENABLE   rejected ",
+			),
+		).toEqual([{ plan: archived[0], state: "archived" }]);
+		expect(
+			filterInterfaceConfirmationEvidenceExports(
+				active,
+				archived,
+				"active",
+				"ethernet",
+			),
+		).toEqual([]);
+		expect(normalizeInterfaceEvidenceQuery("  Wi-Fi   ACTIVE ")).toBe(
+			"wi-fi active",
+		);
+		expect(nextInterfaceEvidenceStateFilter("all")).toBe("active");
+		expect(nextInterfaceEvidenceStateFilter("active")).toBe("archived");
+		expect(nextInterfaceEvidenceStateFilter("archived")).toBe("all");
+		expect(
+			formatInterfaceEvidenceFilterRows(active, archived, "archived", "enable"),
+		).toEqual([
+			"INTERFACE EVIDENCE FILTER state=archived query=enable visible=1/2",
+			"controls=q state f find G timeline [/] select",
 		]);
 	});
 });

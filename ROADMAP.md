@@ -1,5 +1,21 @@
 # picos Roadmap
 
+## v0.4.332 - Interface Evidence Search
+
+Status: in progress on `codex/picos-v0.4.332-interface-evidence-search`, stacked on draft PR [#406](https://github.com/uulab-official/picos/pull/406).
+
+Goal: make growing active and archived interface confirmation evidence searchable without widening the interface mutation boundary.
+
+- Status Evidence `q` now cycles the selected interface family through `all`, `active`, and `archived`; other evidence families preserve their existing filter behavior.
+- Status Evidence `f` opens tokenized interface evidence search across path, original audit query, scope, state, and event count, and an empty search clears the query.
+- The interface evidence filter strip remains visible with state, query, and visible/total counts even when no exports match, so operators can recover from a zero-result search.
+- Selection, locked file-open, archive, retention, and `G` Timeline search all use the same filtered state-bearing export model instead of inferring archive state from array position.
+- Command palette exposes interface evidence filter/find actions with current and next state, query, searchable fields, and visible/total previews.
+- Filter/find outcomes append Status Activity result rows and stable audit messages that result-history `I` can replay into Timeline.
+- Interface enable/disable adapter execution remains disabled; this milestone only changes read-only evidence navigation.
+- Tests cover state cycling, normalized token search, zero matches, filter rows, palette discovery/previews, Timeline recovery, and action-catalog safety counts.
+- Next: recover archive/retention completion outcomes directly from Status Activity and add saved interface evidence search presets.
+
 ## v0.4.331 - Interface Evidence Retention
 
 Status: draft PR [#406](https://github.com/uulab-official/picos/pull/406) on `codex/picos-v0.4.331-interface-evidence-retention`, stacked on draft PR [#405](https://github.com/uulab-official/picos/pull/405).

@@ -730,6 +730,8 @@ describe("TUI command palette", () => {
 				"status.interfaceEvidence.select",
 				"status.interfaceEvidence.open",
 				"status.interfaceEvidence.search",
+				"status.interfaceEvidence.filter",
+				"status.interfaceEvidence.find",
 				"status.interfaceEvidence.archive",
 				"status.interfaceEvidence.retention",
 			]),
@@ -761,6 +763,15 @@ describe("TUI command palette", () => {
 				),
 			).map((action) => action.id),
 		).toContain("status.interfaceEvidence.retention");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"interface evidence find",
+				),
+			).map((action) => action.id),
+		).toContain("status.interfaceEvidence.find");
 	});
 
 	test("previews recovered interface evidence actions before dispatch", () => {
@@ -773,6 +784,35 @@ describe("TUI command palette", () => {
 			scope: "selected",
 		};
 
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.filter",
+				),
+				{
+					interfaceEvidenceStateFilter: "active",
+					interfaceEvidenceQuery: "disable wifi",
+					visibleInterfaceEvidenceExports: 1,
+					totalAvailableInterfaceEvidenceExports: 3,
+					nextInterfaceEvidenceStateFilter: "archived",
+				},
+			),
+		).toEqual([
+			"interface evidence state=active query=disable wifi visible=1/3",
+			"action=cycle state next=archived",
+			"controls=q state f find G timeline",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.find",
+				),
+			),
+		).toEqual([
+			"interface evidence state=all query=- visible=0/0",
+			"action=open text search fields=path,query,scope,state",
+			"controls=q state f find G timeline",
+		]);
 		expect(
 			formatCommandPaletteActionPreviewRows(
 				getActionCatalog().find(

@@ -166,7 +166,12 @@ export type CommandPalettePreviewContext = {
 	selectedInterfaceEvidenceExport?: ConsoleAuditExportPlan;
 	selectedInterfaceEvidenceExportIndex?: number;
 	totalInterfaceEvidenceExports?: number;
+	totalAvailableInterfaceEvidenceExports?: number;
 	selectedInterfaceEvidenceArchived?: boolean;
+	interfaceEvidenceStateFilter?: "all" | "active" | "archived";
+	interfaceEvidenceQuery?: string;
+	visibleInterfaceEvidenceExports?: number;
+	nextInterfaceEvidenceStateFilter?: "all" | "active" | "archived";
 	interfaceAuditArchiveRetentionPlan?: ConsoleAuditArchiveRetentionPlan;
 	selectedStatusActivityResultTimelineJump?: StatusActivityCopyIntentTimelineSearch;
 	selectedStatusActivityResultTimelineJumpIndex?: number;
@@ -211,6 +216,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.interfaceEvidence.select" &&
 		action.id !== "status.interfaceEvidence.open" &&
 		action.id !== "status.interfaceEvidence.search" &&
+		action.id !== "status.interfaceEvidence.filter" &&
+		action.id !== "status.interfaceEvidence.find" &&
 		action.id !== "status.interfaceEvidence.archive" &&
 		action.id !== "status.interfaceEvidence.retention" &&
 		action.id !== "status.resultJump.select" &&
@@ -293,6 +300,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id === "status.interfaceEvidence.select" ||
 		action.id === "status.interfaceEvidence.open" ||
 		action.id === "status.interfaceEvidence.search" ||
+		action.id === "status.interfaceEvidence.filter" ||
+		action.id === "status.interfaceEvidence.find" ||
 		action.id === "status.interfaceEvidence.archive" ||
 		action.id === "status.interfaceEvidence.retention"
 	) {
@@ -847,6 +856,32 @@ function formatInterfaceEvidencePalettePreviewRows(
 	action: PicosAction,
 	context: CommandPalettePreviewContext,
 ): string[] {
+	if (
+		action.id === "status.interfaceEvidence.filter" ||
+		action.id === "status.interfaceEvidence.find"
+	) {
+		const state = context.interfaceEvidenceStateFilter ?? "all";
+		const query = context.interfaceEvidenceQuery?.trim() ?? "";
+		const visible = Math.max(
+			0,
+			context.visibleInterfaceEvidenceExports ??
+				context.totalInterfaceEvidenceExports ??
+				0,
+		);
+		const total = Math.max(
+			0,
+			context.totalAvailableInterfaceEvidenceExports ??
+				context.totalInterfaceEvidenceExports ??
+				0,
+		);
+		return [
+			`interface evidence state=${state} query=${query || "-"} visible=${visible}/${total}`,
+			action.id === "status.interfaceEvidence.filter"
+				? `action=cycle state next=${context.nextInterfaceEvidenceStateFilter ?? "active"}`
+				: "action=open text search fields=path,query,scope,state",
+			"controls=q state f find G timeline",
+		];
+	}
 	if (action.id === "status.interfaceEvidence.retention") {
 		const plan = context.interfaceAuditArchiveRetentionPlan;
 		if (!plan) {
