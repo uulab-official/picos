@@ -170,6 +170,8 @@ export type CommandPalettePreviewContext = {
 	selectedInterfaceEvidenceArchived?: boolean;
 	interfaceEvidenceStateFilter?: "all" | "active" | "archived";
 	interfaceEvidenceQuery?: string;
+	interfaceEvidenceSearchPresets?: string[];
+	nextInterfaceEvidenceSearchPreset?: string;
 	visibleInterfaceEvidenceExports?: number;
 	nextInterfaceEvidenceStateFilter?: "all" | "active" | "archived";
 	interfaceAuditArchiveRetentionPlan?: ConsoleAuditArchiveRetentionPlan;
@@ -218,6 +220,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.interfaceEvidence.search" &&
 		action.id !== "status.interfaceEvidence.filter" &&
 		action.id !== "status.interfaceEvidence.find" &&
+		action.id !== "status.interfaceEvidence.presetSave" &&
+		action.id !== "status.interfaceEvidence.presetNext" &&
 		action.id !== "status.interfaceEvidence.archive" &&
 		action.id !== "status.interfaceEvidence.retention" &&
 		action.id !== "status.resultJump.select" &&
@@ -302,6 +306,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id === "status.interfaceEvidence.search" ||
 		action.id === "status.interfaceEvidence.filter" ||
 		action.id === "status.interfaceEvidence.find" ||
+		action.id === "status.interfaceEvidence.presetSave" ||
+		action.id === "status.interfaceEvidence.presetNext" ||
 		action.id === "status.interfaceEvidence.archive" ||
 		action.id === "status.interfaceEvidence.retention"
 	) {
@@ -856,6 +862,20 @@ function formatInterfaceEvidencePalettePreviewRows(
 	action: PicosAction,
 	context: CommandPalettePreviewContext,
 ): string[] {
+	if (
+		action.id === "status.interfaceEvidence.presetSave" ||
+		action.id === "status.interfaceEvidence.presetNext"
+	) {
+		const query = context.interfaceEvidenceQuery?.trim() ?? "";
+		const presets = context.interfaceEvidenceSearchPresets ?? [];
+		return [
+			`interface evidence search presets=${presets.length} current=${query || "-"}`,
+			action.id === "status.interfaceEvidence.presetSave"
+				? `action=save current query enabled=${Boolean(query)}`
+				: `action=cycle next=${context.nextInterfaceEvidenceSearchPreset ?? "-"}`,
+			"controls=P save N cycle",
+		];
+	}
 	if (
 		action.id === "status.interfaceEvidence.filter" ||
 		action.id === "status.interfaceEvidence.find"

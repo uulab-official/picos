@@ -9,6 +9,7 @@ import {
 	normalizeConnectionSortPreference,
 	normalizePortSortPreference,
 } from "../core/endpointSort";
+import { normalizeInterfaceEvidenceSearchPresets } from "../core/interfaceEvidencePreferences";
 import {
 	normalizeLogProfiles,
 	normalizeLogSearchPresets,
@@ -98,6 +99,20 @@ export async function setConfigLogSearchPresets(
 	const next = {
 		...config,
 		logSearchPresets: normalizeLogSearchPresets(presets),
+	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigInterfaceEvidenceSearchPresets(
+	presets: string[],
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = {
+		...config,
+		interfaceEvidenceSearchPresets:
+			normalizeInterfaceEvidenceSearchPresets(presets),
 	};
 	await writeConfig(next, path);
 	return next;

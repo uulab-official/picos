@@ -6,6 +6,7 @@ import {
 	readConfig,
 	setConfigEndpointFilterPresets,
 	setConfigEndpointSort,
+	setConfigInterfaceEvidenceSearchPresets,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
@@ -66,6 +67,22 @@ describe("config store", () => {
 			"route",
 			"boot",
 			"panic",
+		]);
+		expect(config.theme).toBe("dark");
+	});
+
+	test("persists normalized interface evidence search presets", async () => {
+		const path = await tempConfigPath();
+		await setConfigInterfaceEvidenceSearchPresets(
+			[" Wi-Fi ", "rejected", "WI-FI", "archived"],
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.interfaceEvidenceSearchPresets).toEqual([
+			"wi-fi",
+			"rejected",
+			"archived",
 		]);
 		expect(config.theme).toBe("dark");
 	});

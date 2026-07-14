@@ -746,6 +746,28 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.interfaceEvidence.presetSave",
+		title: "Save interface evidence search preset",
+		description:
+			"Persist the current interface evidence text query as a reusable Status preset.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.interfaceEvidence.presetNext",
+		title: "Next interface evidence search preset",
+		description:
+			"Cycle to the next persisted interface evidence search preset and refresh matching evidence.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.interfaceEvidence.archive",
 		title: "Archive interface evidence",
 		description:

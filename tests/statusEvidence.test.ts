@@ -1338,10 +1338,17 @@ describe("Status evidence detail rows", () => {
 		expect(nextInterfaceEvidenceStateFilter("active")).toBe("archived");
 		expect(nextInterfaceEvidenceStateFilter("archived")).toBe("all");
 		expect(
-			formatInterfaceEvidenceFilterRows(active, archived, "archived", "enable"),
+			formatInterfaceEvidenceFilterRows(
+				active,
+				archived,
+				"archived",
+				"enable",
+				["enable", "disable wifi"],
+			),
 		).toEqual([
 			"INTERFACE EVIDENCE FILTER state=archived query=enable visible=1/2",
 			"controls=q state f find G timeline [/] select",
+			"presets=2 next=disable wifi controls=P save N cycle",
 		]);
 	});
 });

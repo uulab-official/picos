@@ -33,6 +33,7 @@ import {
 	createInterfaceConfirmationEvidenceStatusActivityResult,
 	createInterfaceConfirmationStatusActivityResult,
 	createInterfaceEvidenceManagementStatusActivityResult,
+	createInterfaceEvidenceOutcomeStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
@@ -83,6 +84,7 @@ import {
 	formatInterfaceConfirmationEvidencePaletteAuditMessage,
 	formatInterfaceConfirmationEvidenceStatusAuditMessage,
 	formatInterfaceEvidenceManagementAuditMessage,
+	formatInterfaceEvidenceOutcomeAuditMessage,
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
@@ -3726,6 +3728,59 @@ describe("Status activity queue", () => {
 			query:
 				'interface evidence audit action=find state=active query="wifi rejected" visible=1/5',
 			message: "status activity result timeline search interface evidence find",
+		});
+	});
+
+	test("recovers interface evidence archive and retention outcomes in Timeline", () => {
+		const archiveInput = {
+			status: "archived" as const,
+			message: "archived audit export interface-disable.log",
+			fileName: "interface-disable.log",
+			sourcePath: "/tmp/picos/audit/interface-disable.log",
+			archivedPath: "/tmp/picos/audit/archive/interface-disable.log",
+		};
+		const archive = createInterfaceEvidenceOutcomeStatusActivityResult(
+			"archive",
+			archiveInput,
+		);
+		const archiveAudit = formatInterfaceEvidenceOutcomeAuditMessage(
+			"archive",
+			archiveInput,
+		);
+		expect(archive.detailRows).toEqual([
+			archiveInput.message,
+			`audit=${archiveAudit}`,
+		]);
+		expect(createStatusActivityResultTimelineSearch([archive], 0)).toEqual({
+			filter: "audit",
+			query: archiveAudit,
+			message:
+				"status activity result timeline search interface evidence archive",
+		});
+
+		const retentionInput = {
+			status: "blocked" as const,
+			message: "audit archive retention is locked: type confirmation",
+			removed: 0,
+			candidates: 3,
+			maxItems: 10,
+		};
+		const retention = createInterfaceEvidenceOutcomeStatusActivityResult(
+			"retention",
+			retentionInput,
+		);
+		const retentionAudit = formatInterfaceEvidenceOutcomeAuditMessage(
+			"retention",
+			retentionInput,
+		);
+		expect(retention.message).toBe(
+			"interface evidence retention blocked removed=0",
+		);
+		expect(createStatusActivityResultTimelineSearch([retention], 0)).toEqual({
+			filter: "audit",
+			query: retentionAudit,
+			message:
+				"status activity result timeline search interface evidence retention",
 		});
 	});
 

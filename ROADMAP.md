@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.333 - Interface Evidence Recovery
+
+Status: implementation on `codex/picos-v0.4.333-interface-evidence-recovery`, planned as a stacked draft PR on [#407](https://github.com/uulab-official/picos/pull/407).
+
+Goal: preserve interface evidence searches and make archive/retention completion outcomes directly recoverable from the OS-console activity trail.
+
+- Status Evidence `P` saves the normalized interface evidence query to config and `N` cycles up to six persisted presets while keeping the selected state filter.
+- The interface evidence filter strip and command palette show preset count, current query, and next preset; palette save/cycle actions dispatch through the same Status callbacks.
+- Interface archive and retention success or blocked outcomes now append structured Status Activity results carrying the exact stable audit message.
+- Result-history `I` replays those outcome rows into Timeline audit search, including blocked confirmation attempts.
+- Successful archive refreshes both indexes and focuses the first item in the archived interface evidence view instead of retaining an active-array position.
+- Interface enable/disable adapter execution remains disabled; this milestone only improves persisted search and evidence recovery.
+- Tests cover preset normalization, retention limits, config persistence, palette previews, filter-strip hints, outcome audit formatting, and Timeline replay.
+- Next: add direct outcome targeting in the compact result-jump browser, then continue the read-only interface inventory and benchmark parity roadmap.
+
 ## v0.4.332 - Interface Evidence Search
 
 Status: draft PR [#407](https://github.com/uulab-official/picos/pull/407) on `codex/picos-v0.4.332-interface-evidence-search`, stacked on draft PR [#406](https://github.com/uulab-official/picos/pull/406).

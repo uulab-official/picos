@@ -3,6 +3,7 @@ import {
 	normalizeConnectionSortPreference,
 	normalizePortSortPreference,
 } from "../core/endpointSort";
+import { normalizeInterfaceEvidenceSearchPresets } from "../core/interfaceEvidencePreferences";
 import {
 	normalizeLogProfiles,
 	normalizeLogSearchPresets,
@@ -34,6 +35,7 @@ export const defaultConfig: PicosConfig = {
 	remoteProfiles: [],
 	logProfiles: [],
 	logSearchPresets: [],
+	interfaceEvidenceSearchPresets: [],
 	routeFilterPresets: [],
 	connectionSort: "state",
 	portSort: "port",
@@ -150,6 +152,10 @@ export function mergeConfig(
 	merged.remoteProfiles = normalizeRemoteProfiles(input.remoteProfiles);
 	merged.logProfiles = normalizeLogProfiles(input.logProfiles);
 	merged.logSearchPresets = normalizeLogSearchPresets(input.logSearchPresets);
+	merged.interfaceEvidenceSearchPresets =
+		normalizeInterfaceEvidenceSearchPresets(
+			input.interfaceEvidenceSearchPresets,
+		);
 	merged.routeFilterPresets = normalizeRouteFilterPresets(
 		input.routeFilterPresets,
 	);
@@ -264,6 +270,12 @@ export function coerceConfigValue(
 
 	if (key === "logSearchPresets") {
 		throw new Error("logSearchPresets are managed from the Logs workspace");
+	}
+
+	if (key === "interfaceEvidenceSearchPresets") {
+		throw new Error(
+			"interfaceEvidenceSearchPresets are managed from Status Evidence",
+		);
 	}
 
 	if (key === "routeFilterPresets") {

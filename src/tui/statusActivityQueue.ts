@@ -125,6 +125,19 @@ export type StatusActivityToolsEvidenceSearchRecovery = {
 	items: ToolHistoryExportIndexItem[];
 };
 
+export type InterfaceEvidenceOutcomeStatus = "archived" | "pruned" | "blocked";
+
+export type InterfaceEvidenceOutcomeInput = {
+	status: InterfaceEvidenceOutcomeStatus;
+	message: string;
+	fileName?: string;
+	sourcePath?: string;
+	archivedPath?: string;
+	removed?: number;
+	candidates?: number;
+	maxItems?: number;
+};
+
 export type RemoteKnownHostsSelectionStatusActivityInput = {
 	id: string;
 	host: string;
@@ -2370,6 +2383,13 @@ export function createStatusActivityResultTimelineSearch(
 	}
 	if (
 		result.source === "evidence" &&
+		(result.action === "interface-evidence-archive" ||
+			result.action === "interface-evidence-retention")
+	) {
+		return createInterfaceEvidenceOutcomeResultTimelineSearch(result);
+	}
+	if (
+		result.source === "evidence" &&
 		result.action === "process-control-evidence"
 	) {
 		return createProcessControlEvidenceResultTimelineSearch(result);
@@ -2738,6 +2758,24 @@ function createInterfaceEvidenceManagementResultTimelineSearch(
 			visible: Number(visible?.split("/")[0] ?? 0),
 			total: Number(visible?.split("/")[1] ?? 0),
 		}),
+		message: `status activity result timeline search interface evidence ${action}`,
+	};
+}
+
+function createInterfaceEvidenceOutcomeResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const auditMessage = result.detailRows
+		?.find((row) => row.startsWith("audit="))
+		?.slice("audit=".length);
+	if (!auditMessage) {
+		return undefined;
+	}
+	const action =
+		result.action === "interface-evidence-archive" ? "archive" : "retention";
+	return {
+		filter: "audit",
+		query: auditMessage,
 		message: `status activity result timeline search interface evidence ${action}`,
 	};
 }
@@ -3739,6 +3777,30 @@ export function createInterfaceEvidenceManagementStatusActivityResult(
 	};
 }
 
+export function createInterfaceEvidenceOutcomeStatusActivityResult(
+	action: "archive" | "retention",
+	input: InterfaceEvidenceOutcomeInput,
+): StatusActivityResult {
+	const auditMessage = formatInterfaceEvidenceOutcomeAuditMessage(
+		action,
+		input,
+	);
+	const summary =
+		action === "archive"
+			? `${input.status} ${input.fileName ?? "unknown"}`
+			: `${input.status} removed=${Math.max(0, Math.floor(input.removed ?? 0))}`;
+	return {
+		source: "evidence",
+		action:
+			action === "archive"
+				? "interface-evidence-archive"
+				: "interface-evidence-retention",
+		message: `interface evidence ${action} ${summary}`,
+		detail: input.message,
+		detailRows: [input.message, `audit=${auditMessage}`],
+	};
+}
+
 export function createStatusActivityToolsEvidenceMatchResult(
 	action: "archive" | "open",
 	recovery?: StatusActivityToolsEvidenceSearchRecovery,
@@ -4209,6 +4271,32 @@ export function formatInterfaceEvidenceManagementAuditMessage(
 		`query="${formatTimelineEvidenceTrailAuditValue(query)}"`,
 		`visible=${visible}/${total}`,
 	].join(" ");
+}
+
+export function formatInterfaceEvidenceOutcomeAuditMessage(
+	action: "archive" | "retention",
+	input: InterfaceEvidenceOutcomeInput,
+): string {
+	const rows = [
+		"interface evidence outcome audit",
+		`action=${action}`,
+		`status=${input.status}`,
+	];
+	if (action === "archive") {
+		rows.push(
+			`label="${formatTimelineEvidenceTrailAuditValue(input.fileName ?? "")}"`,
+			`from="${formatTimelineEvidenceTrailAuditValue(input.sourcePath ?? "")}"`,
+			`to="${formatTimelineEvidenceTrailAuditValue(input.archivedPath ?? "")}"`,
+		);
+	} else {
+		rows.push(
+			`removed=${Math.max(0, Math.floor(input.removed ?? 0))}`,
+			`candidates=${Math.max(0, Math.floor(input.candidates ?? 0))}`,
+			`max=${Math.max(1, Math.floor(input.maxItems ?? 1))}`,
+		);
+	}
+	rows.push(`reason="${formatTimelineEvidenceTrailAuditValue(input.message)}"`);
+	return rows.join(" ");
 }
 
 export function formatStatusActivityToolsEvidenceMatchAuditMessage(
