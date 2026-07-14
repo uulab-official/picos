@@ -2,7 +2,7 @@
 
 ## v0.4.336 - SFTP Integration and JSON Automation
 
-Status: local development on `codex/picos-v0.4.336-sftp-integration-json`, stacked on draft PR [#410](https://github.com/uulab-official/picos/pull/410).
+Status: draft PR [#411](https://github.com/uulab-official/picos/pull/411) on `codex/picos-v0.4.336-sftp-integration-json`, stacked on draft PR [#410](https://github.com/uulab-official/picos/pull/410).
 
 Goal: prove the read-only SFTP path against a real credentialed protocol peer on every supported OS and give developer automation one stable machine-readable result contract.
 

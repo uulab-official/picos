@@ -16,7 +16,8 @@ Prove the real read-only SFTP transport with a disposable credentialed peer and 
 - [x] Include the SFTP harness and scripts typecheck in `bun run verify`.
 - [x] Add focused output/command tests and user, agent, Claude, changelog, roadmap, and harness documentation.
 - [x] Run full verification and gstack review.
-- [ ] Open a stacked draft PR on #410 and monitor CI.
+- [x] Open stacked draft PR #411 on #410.
+- [ ] Monitor PR #411 CI and review feedback.
 
 ## Safety Boundary
 
