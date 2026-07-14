@@ -170,6 +170,23 @@ describe("read-only SFTP provider", () => {
 		expect(called).toBeFalse();
 	});
 
+	test("does not expose configured private-key paths in read failures", async () => {
+		const secretPath = "/tmp/picos-secret-key/id_ed25519";
+		const missingKeyProfile = { ...profile, keyPath: secretPath };
+		let message = "";
+		try {
+			await connectReadOnlySftpFileProvider(missingKeyProfile, {
+				expectedHostKeyFingerprint:
+					"SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+			});
+		} catch (caught) {
+			message = caught instanceof Error ? caught.message : String(caught);
+		}
+
+		expect(message).toBe("SFTP private key could not be read");
+		expect(message).not.toContain(secretPath);
+	});
+
 	test("resolves relative profile roots before exposing provider URIs", async () => {
 		const session = createSession();
 		const provider = await connectReadOnlySftpFileProvider(

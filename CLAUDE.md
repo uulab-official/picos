@@ -11,6 +11,8 @@ Claude should use `AGENTS.md` as the source of truth for this repository.
 - Keep SSH/SFTP transport in `src/core/sftp.ts`; require host-key verification and exact confirmation before opening a socket.
 - Keep TUI and CLI SFTP lifecycle behavior aligned: visible cancellation, exact-confirm retry, bounded operations, structured audits, and guaranteed provider close.
 - Preserve OpenSSH revocation semantics and case-insensitive DNS host matching; never weaken trust-file, read-size, or directory-list bounds.
+- Keep remote `--json` output secret-free and schema-versioned on stdout, with audit diagnostics on stderr and a non-zero failure exit.
+- Run the public-key-authenticated localhost SFTP harness when changing transport, remote output, confirmation, or close behavior.
 - Do not add password persistence, host-key auto-accept, remote writes, or remote command execution to the read-only provider.
 - Keep OS inventory features read-only unless a write action has preview, confirmation, privilege metadata, and locked-by-default tests.
 - Prefer `bun run verify` before final responses.
@@ -33,6 +35,12 @@ Run a focused smoke check:
 
 ```bash
 bun run smoke
+```
+
+Run the focused credentialed SFTP harness:
+
+```bash
+bun run harness sftp
 ```
 
 ## TUI Expectations

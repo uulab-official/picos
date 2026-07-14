@@ -1,4 +1,6 @@
-type HarnessMode = "verify" | "smoke";
+export {};
+
+type HarnessMode = "verify" | "smoke" | "sftp";
 
 type Step = {
 	name: string;
@@ -28,6 +30,10 @@ const verifySteps: Step[] = [
 		cmd: ["bun", "test"],
 	},
 	{
+		name: "Credentialed SFTP integration",
+		cmd: ["bun", "run", "integration:sftp"],
+	},
+	{
 		name: "Typecheck",
 		cmd: ["bun", "run", "typecheck"],
 	},
@@ -41,7 +47,15 @@ const verifySteps: Step[] = [
 	},
 ];
 
-const steps = mode === "smoke" ? smokeSteps : verifySteps;
+const sftpSteps: Step[] = [
+	{
+		name: "Credentialed SFTP integration",
+		cmd: ["bun", "run", "integration:sftp"],
+	},
+];
+
+const steps =
+	mode === "smoke" ? smokeSteps : mode === "sftp" ? sftpSteps : verifySteps;
 
 for (const step of steps) {
 	await runStep(step);
@@ -50,7 +64,12 @@ for (const step of steps) {
 console.log(`\nHarness complete: ${mode}`);
 
 function parseMode(value: string | undefined): HarnessMode {
-	if (value === "smoke" || value === "verify" || value === undefined) {
+	if (
+		value === "smoke" ||
+		value === "verify" ||
+		value === "sftp" ||
+		value === undefined
+	) {
 		return value ?? "verify";
 	}
 

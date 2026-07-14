@@ -22,6 +22,9 @@ describe("CLI command registry", () => {
 		expect(
 			remote?.options.find((option) => option.name === "knownHosts"),
 		).toBeDefined();
+		expect(
+			remote?.options.find((option) => option.name === "json"),
+		).toBeDefined();
 		const parsed = cli.parse(
 			[
 				"node",

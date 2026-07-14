@@ -8,10 +8,12 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Fixed
 
+- Real SSH/SFTP directory listings now treat protocol `READDIR` EOF status as normal completion instead of failing after the final directory batch.
 - Config paths and exported evidence/archive plan paths now preserve the input path style across host OSes, keeping POSIX-style sample paths stable on Windows CI while retaining Windows backslash paths when provided.
 
 ### Added
 
+- Guarded `picos remote --list|--read --json` automation now emits one schema-versioned, secret-free success or failure document on stdout with operation, profile, request bounds, host fingerprint, closed/unknown network posture, locked writes, and structured entries or bounded file content. A disposable public-key-authenticated localhost SSH/SFTP fixture verifies the real CLI transport, exact-confirm no-socket rejection, list/read behavior, truncation, write/exec locks, and observed session close in `bun run verify` on all CI platforms.
 - Remotes now exposes responsive SFTP session lifecycle diagnostics with `X` cancellation and exact-confirm `R` retry; compact terminals keep session, profile, host-verification, failure reason, and security shortcuts inside the workspace, while `picos remote <id> --list|--read` provides guarded non-interactive remote reads using bounded local plain or hashed OpenSSH `known_hosts` verification, case-insensitive DNS matching, global revoked-key rejection, explicit fingerprint disambiguation, bounded timeout/read/list limits, terminal audits, and observed session close.
 - Remotes can now open an actual read-only SFTP session after a selected `known_hosts` SHA256 candidate and exact `connect remote <id>` confirmation. The Files workspace lists, stats, navigates, and bounded-reads remote files, preserves `sftp://` parent/history paths, closes with `L`, verifies the host key during the SSH handshake, records connected/failed audit evidence, and keeps write, move, copy, delete, and remote command execution disabled.
 - Interface confirmation evidence searches can now be persisted with Status `P`, cycled with `N`, and managed through matching command-palette actions; archive/retention success and blocked outcomes retain exact audit messages that result-history `I` can replay into Timeline, and successful archives focus the archived evidence view.

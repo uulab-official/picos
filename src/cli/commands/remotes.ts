@@ -17,8 +17,17 @@ import {
 	normalizeSftpHostKeyFingerprint,
 } from "../../core/sftp";
 import type { SftpRemoteProfile } from "../../core/types";
+import { ReportedCliError } from "../errors";
+import {
+	formatRemoteJsonFailure,
+	formatRemoteJsonSuccess,
+} from "../remoteOutput";
 
-type RemoteCommandOptionValue = string | number | Array<string | number>;
+type RemoteCommandOptionValue =
+	| string
+	| number
+	| boolean
+	| Array<string | number | boolean>;
 
 export type RemoteCommandOptions = {
 	list?: RemoteCommandOptionValue;
@@ -28,6 +37,7 @@ export type RemoteCommandOptions = {
 	confirm?: RemoteCommandOptionValue;
 	timeout?: RemoteCommandOptionValue;
 	maxBytes?: RemoteCommandOptionValue;
+	json?: RemoteCommandOptionValue;
 };
 
 export type GuardedRemoteFileRequest = {
@@ -38,6 +48,7 @@ export type GuardedRemoteFileRequest = {
 	confirm: string;
 	timeoutMs: number;
 	maxBytes: number;
+	output: "text" | "json";
 };
 
 const DEFAULT_REMOTE_TIMEOUT_MS = 15_000;
@@ -52,23 +63,55 @@ export async function remoteCommand(
 	id: string,
 	options: RemoteCommandOptions = {},
 ): Promise<void> {
-	const config = await readConfig();
+	let config: Awaited<ReturnType<typeof readConfig>>;
+	try {
+		config = await readConfig();
+	} catch (caught) {
+		const message = caught instanceof Error ? caught.message : String(caught);
+		if (isRemoteJsonRequested(options)) {
+			reportUnresolvedRemoteJsonFailure(id, options, message);
+			throw new ReportedCliError(message, { cause: caught });
+		}
+		throw caught;
+	}
 	const profile = config.remoteProfiles.find((item) => item.id === id);
 	if (!profile) {
-		throw new Error(`Unknown remote profile: ${id}`);
+		const message = `Unknown remote profile: ${id}`;
+		if (isRemoteJsonRequested(options)) {
+			reportUnresolvedRemoteJsonFailure(id, options, message);
+			throw new ReportedCliError(message);
+		}
+		throw new Error(message);
 	}
 
 	let request: GuardedRemoteFileRequest | undefined;
 	try {
 		request = createGuardedRemoteFileRequest(id, options);
 	} catch (caught) {
+		const message = caught instanceof Error ? caught.message : String(caught);
 		if (options.list !== undefined || options.read !== undefined) {
-			console.error(
-				formatGuardedRemoteFailureAuditMessage(
+			const audit = formatGuardedRemoteFailureAuditMessage(profile, message);
+			if (isRemoteJsonRequested(options)) {
+				try {
+					console.error(audit);
+				} catch {
+					// Preserve the JSON contract if the diagnostic stream is unavailable.
+				}
+			} else {
+				console.error(audit);
+			}
+		}
+		if (isRemoteJsonRequested(options)) {
+			console.log(
+				formatRemoteJsonFailure({
+					id,
 					profile,
-					caught instanceof Error ? caught.message : String(caught),
-				),
+					operation: inferRemoteOperation(options),
+					path: inferRemotePath(options),
+					message,
+				}),
 			);
+			throw new ReportedCliError(message, { cause: caught });
 		}
 		throw caught;
 	}
@@ -84,10 +127,18 @@ export function createGuardedRemoteFileRequest(
 	id: string,
 	options: RemoteCommandOptions,
 ): GuardedRemoteFileRequest | undefined {
+	const output = normalizeRemoteBooleanFlag(options.json, "--json")
+		? "json"
+		: "text";
 	if (options.list !== undefined && options.read !== undefined) {
 		throw new Error("Choose exactly one remote operation: --list or --read");
 	}
 	if (options.list === undefined && options.read === undefined) {
+		if (output === "json") {
+			throw new Error(
+				"--json requires exactly one remote operation: --list or --read",
+			);
+		}
 		return undefined;
 	}
 	const list = normalizeRemoteTextOption(options.list, "--list");
@@ -128,6 +179,7 @@ export function createGuardedRemoteFileRequest(
 			1,
 			MAX_SFTP_READ_BYTES,
 		),
+		output,
 	};
 }
 
@@ -148,6 +200,7 @@ export async function runGuardedRemoteFileRequest(
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), request.timeoutMs);
 	let provider: FileProvider | undefined;
+	let jsonOutputAttempted = false;
 	let fingerprint =
 		normalizeSftpHostKeyFingerprint(request.requestedFingerprint ?? "") ??
 		"SHA256:unknown";
@@ -176,23 +229,23 @@ export async function runGuardedRemoteFileRequest(
 			() => openedProvider.pwd(),
 			controller.signal,
 		);
-		const output =
+		const entries =
 			request.operation === "list"
-				? formatDirEntries(
-						await runAbortableRemoteOperation(
-							() => openedProvider.list(request.path),
-							controller.signal,
-						),
+				? await runAbortableRemoteOperation(
+						() => openedProvider.list(request.path),
+						controller.signal,
 					)
-				: (
-						await runAbortableRemoteOperation(
-							() =>
-								openedProvider.read(request.path, {
-									maxBytes: request.maxBytes,
-								}),
-							controller.signal,
-						)
-					).content;
+				: undefined;
+		const file =
+			request.operation === "read"
+				? await runAbortableRemoteOperation(
+						() =>
+							openedProvider.read(request.path, {
+								maxBytes: request.maxBytes,
+							}),
+						controller.signal,
+					)
+				: undefined;
 		if (controller.signal.aborted) {
 			throw new Error(`Remote ${request.operation} timed out`);
 		}
@@ -201,7 +254,6 @@ export async function runGuardedRemoteFileRequest(
 		if (controller.signal.aborted) {
 			throw new Error(`Remote ${request.operation} timed out`);
 		}
-		writeOutput(output);
 		writeDiagnostic(
 			formatReadOnlySftpConnectionAuditMessage({
 				status: "completed",
@@ -213,6 +265,24 @@ export async function runGuardedRemoteFileRequest(
 				network: "closed",
 				message: `CLI read-only ${request.operation} path=${JSON.stringify(request.path)}`,
 			}),
+		);
+		if (request.output === "json") jsonOutputAttempted = true;
+		writeOutput(
+			request.output === "json"
+				? formatRemoteJsonSuccess({
+						profile,
+						operation: request.operation,
+						path: request.path,
+						timeoutMs: request.timeoutMs,
+						maxBytes: request.maxBytes,
+						root,
+						fingerprint,
+						entries,
+						file,
+					})
+				: request.operation === "list"
+					? formatDirEntries(entries ?? [])
+					: (file?.content ?? ""),
 		);
 	} catch (caught) {
 		const timedOut = controller.signal.aborted;
@@ -228,17 +298,58 @@ export async function runGuardedRemoteFileRequest(
 		const message = cleanup.error
 			? `${baseMessage}; session close failed: ${cleanup.error.message}`
 			: baseMessage;
-		writeDiagnostic(
-			formatGuardedRemoteFailureAuditMessage(profile, message, {
-				cancelled: timedOut,
-				fingerprint,
-				network: cleanup.closed ? "closed" : "unknown",
-			}),
-		);
+		try {
+			writeDiagnostic(
+				formatGuardedRemoteFailureAuditMessage(profile, message, {
+					cancelled: timedOut,
+					fingerprint,
+					network: cleanup.closed ? "closed" : "unknown",
+				}),
+			);
+		} catch {
+			// JSON output remains the machine-readable terminal result.
+		}
+		if (request.output === "json" && !jsonOutputAttempted) {
+			jsonOutputAttempted = true;
+			writeOutput(
+				formatRemoteJsonFailure({
+					id: profile.id,
+					profile,
+					operation: request.operation,
+					path: request.path,
+					message,
+					timeoutMs: request.timeoutMs,
+					maxBytes: request.maxBytes,
+					fingerprint,
+					network: cleanup.closed ? "closed" : "unknown",
+				}),
+			);
+			throw new ReportedCliError(message, { cause: caught });
+		}
 		throw new Error(message, { cause: caught });
 	} finally {
 		clearTimeout(timeout);
 	}
+}
+
+export function reportRemoteCliParseFailure(
+	argv: string[],
+	caught: unknown,
+): boolean {
+	if (argv[0] !== "remote" || !argv.includes("--json")) return false;
+	const id = argv[1]?.trim() || "unknown";
+	const options: RemoteCommandOptions = {
+		json: true,
+		...(argv.includes("--list")
+			? { list: readRawOptionValue(argv, "--list") ?? [] }
+			: {}),
+		...(argv.includes("--read")
+			? { read: readRawOptionValue(argv, "--read") ?? [] }
+			: {}),
+	};
+	const message = caught instanceof Error ? caught.message : String(caught);
+	reportUnresolvedRemoteJsonFailure(id, options, message);
+	return true;
 }
 
 export function formatGuardedRemoteFailureAuditMessage(
@@ -343,6 +454,84 @@ function normalizeRemoteTextOption(
 		throw new Error(`${name} must be provided exactly once`);
 	}
 	return String(values[0]);
+}
+
+function normalizeRemoteBooleanFlag(
+	value: RemoteCommandOptionValue | undefined,
+	name: string,
+): boolean {
+	if (value === undefined || value === false) return false;
+	const values = Array.isArray(value) ? value : [value];
+	if (values.length !== 1 || values[0] !== true) {
+		throw new Error(`${name} is a boolean flag and must be provided once`);
+	}
+	return true;
+}
+
+function isRemoteJsonRequested(options: RemoteCommandOptions): boolean {
+	const values = Array.isArray(options.json) ? options.json : [options.json];
+	return values.includes(true);
+}
+
+function inferRemoteOperation(
+	options: RemoteCommandOptions,
+): "list" | "read" | undefined {
+	if (options.list !== undefined && options.read === undefined) return "list";
+	if (options.read !== undefined && options.list === undefined) return "read";
+	return undefined;
+}
+
+function inferRemotePath(options: RemoteCommandOptions): string | undefined {
+	const value = options.read ?? options.list;
+	if (Array.isArray(value))
+		return value.length === 1 ? String(value[0]) : undefined;
+	return value === undefined ? undefined : String(value);
+}
+
+function reportUnresolvedRemoteJsonFailure(
+	id: string,
+	options: RemoteCommandOptions,
+	message: string,
+): void {
+	const operation = inferRemoteOperation(options);
+	const path = inferRemotePath(options);
+	if (operation) {
+		try {
+			console.error(formatUnresolvedRemoteFailureAuditMessage(id, message));
+		} catch {
+			// Preserve the JSON contract if the diagnostic stream is unavailable.
+		}
+	}
+	console.log(
+		formatRemoteJsonFailure({
+			id,
+			operation,
+			path,
+			message,
+		}),
+	);
+}
+
+function formatUnresolvedRemoteFailureAuditMessage(
+	id: string,
+	message: string,
+): string {
+	return formatReadOnlySftpConnectionAuditMessage({
+		status: "failed",
+		id,
+		target: "unknown",
+		host: "unknown",
+		port: 0,
+		fingerprint: "SHA256:unknown",
+		network: "closed",
+		message,
+	});
+}
+
+function readRawOptionValue(argv: string[], name: string): string | undefined {
+	const index = argv.indexOf(name);
+	const value = index < 0 ? undefined : argv[index + 1];
+	return value?.startsWith("--") ? undefined : value;
 }
 
 function parseRemoteIntegerOption(

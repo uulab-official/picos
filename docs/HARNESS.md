@@ -12,9 +12,12 @@ This runs:
 
 1. `bun run lint`
 2. `bun test`
-3. `bun run typecheck`
-4. `bun run build`
-5. `bun run smoke`
+3. `bun run integration:sftp`
+4. `bun run typecheck`
+5. `bun run build`
+6. `bun run smoke`
+
+`typecheck` covers `src/`, `tests/`, and `scripts/`, including the harness itself.
 
 ## Smoke Checks
 
@@ -47,7 +50,24 @@ bun src/bin/picos.ts dir .
 bun src/bin/picos.ts type README.md
 ```
 
-Read-only SFTP needs a real SSH server and is therefore a manual integration check:
+## Credentialed SFTP Integration
+
+```bash
+bun run harness sftp
+```
+
+The focused harness is deterministic and requires no Docker image, system `sshd`, existing SSH agent, or public network. It:
+
+1. Generates disposable Ed25519 host and client keys.
+2. Starts a random-port localhost `ssh2` server with public-key authentication.
+3. Serves an in-memory read-only filesystem and rejects/counts mutation and exec requests.
+4. Launches the real picos CLI with an isolated config, private key, and matching `known_hosts` file.
+5. Verifies JSON directory list and bounded/truncated file read results after observed session close.
+6. Verifies a missing exact confirmation exits non-zero with structured output and opens no socket.
+
+The check is part of `bun run verify`, so GitHub Actions runs it on Ubuntu, macOS, and Windows.
+
+Manual TUI SFTP checks remain useful for interaction and responsive layout:
 
 1. Configure a remote profile with `keyPath`, or start picos with a working `SSH_AUTH_SOCK`.
 2. In Remotes, provide a matching `known_hosts` row with `K` or `P`.
@@ -57,11 +77,12 @@ Read-only SFTP needs a real SSH server and is therefore a manual integration che
 6. Repeat with a mismatched host-key row and verify the connection fails without opening a Files session.
 7. Run the TUI at 80x24 and 120x40. Confirm Remotes stays inside its workspace, keeps `SESSION CONTROL` and the selected profile visible, and never overwrites the event dock.
 
-The same credentialed server can verify guarded CLI reads:
+Guarded CLI reads can also be exercised against an operator-owned server:
 
 ```bash
 bun src/bin/picos.ts remote <id> --list . --known-hosts ~/.ssh/known_hosts --confirm "connect remote <id>"
 bun src/bin/picos.ts remote <id> --read README.md --max-bytes 262144 --known-hosts ~/.ssh/known_hosts --confirm "connect remote <id>"
+bun src/bin/picos.ts remote <id> --list . --known-hosts ~/.ssh/known_hosts --confirm "connect remote <id>" --json
 ```
 
 Verify that omitting, padding, or mistyping `--confirm` opens no socket; numeric-looking paths remain paths; multiple usable keys require `--fingerprint`; a normal key duplicated by a matching `@revoked` row is blocked; oversized `known_hosts`, reads, and directory listings fail before unbounded output; and every terminal outcome writes one `remote connect audit` diagnostic without enabling remote writes. Successful reads must report `status=completed network=closed` after provider close.
