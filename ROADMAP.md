@@ -2,7 +2,7 @@
 
 ## v0.4.339 - Operations JSON
 
-Status: in progress on `codex/picos-v0.4.339-operations-json`, stacked on draft PR [#413](https://github.com/uulab-official/picos/pull/413).
+Status: draft PR [#414](https://github.com/uulab-official/picos/pull/414) on `codex/picos-v0.4.339-operations-json`, stacked on draft PR [#413](https://github.com/uulab-official/picos/pull/413); local gstack review, full verification, dependency audit, and release check pass.
 
 Goal: make system monitor, OS log triage, and single-process inspection safe and reliable for scripts, CI, and coding agents without leaking process arguments or unbounded local logs.
 

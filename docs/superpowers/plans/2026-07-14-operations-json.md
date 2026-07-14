@@ -19,7 +19,8 @@
 - [x] Include the operations harness in `bun run verify` on macOS, Linux, and Windows.
 - [x] Update public automation, harness, roadmap, changelog, Codex, Claude, and agent documentation.
 - [x] Run gstack review and full verification.
-- [ ] Open a stacked draft PR on #413 and monitor CI/review.
+- [x] Open stacked draft PR #414 on #413.
+- [ ] Monitor #414 CI and review.
 
 ## Next
 
