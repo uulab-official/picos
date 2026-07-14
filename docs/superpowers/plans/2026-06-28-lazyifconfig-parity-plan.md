@@ -14,16 +14,17 @@
 
 lazyifconfig source reference: https://github.com/choihunchul/lazyifconfig
 
-- Interface inventory: picos now shows type, status, MAC, CIDR prefixes, netmask, gateway, and DNS; next add MTU and RX/TX counters from platform commands.
-- Network view: picos now groups detected addresses as LAN, loopback, VPN, container, link-local, public, or unassigned.
-- Connections view: add active endpoint parsing from `netstat -an`.
-- Ports view: add listening port parsing from `lsof` on macOS, `ss` on Linux, `netstat` on Windows.
-- Route Inspector: add route table parsing, default route diagnostics, destination path lookup, raw route output.
-- Diagnostics: add missing default route, multiple default routes, missing interfaces, down route interfaces, metric conflicts.
-- Timeline: add interface/address/status/public IP/copy/update events and timestamped export.
-- Tools Hub: add DNS lookup, WHOIS/RDAP, IP info, TCP port check, TLS inspection, ping, traceroute.
-- Raw output viewer: retain source command output for route/connection/port/tool results.
-- Self-update: add release check first, install/update later behind confirmation.
+- Interface inventory: implemented type, status, MAC, CIDR prefixes, netmask, gateway, DNS, MTU, RX/TX byte and packet counters, source evidence, and platform panes.
+- Network view: implemented LAN, loopback, VPN, container, link-local, public, and unassigned grouping.
+- Connections view: implemented `netstat` parsing, filter/sort, TUI detail/raw/process panes, presets, handoffs, and JSON automation.
+- Ports view: implemented macOS `lsof`, Linux `ss`, Windows `netstat`, process metadata, guarded control previews, filters/presets, and JSON automation.
+- Route Inspector: implemented route tables, default/VPN diagnostics, destination path lookup, raw output, filter/sort/presets, handoffs, and JSON automation.
+- Diagnostics: implemented missing/multiple default route, VPN/split-tunnel, and route consistency diagnostics.
+- Timeline: implemented local network/action/audit events, search/presets, selected/full exports, evidence recovery, archive, and retention.
+- Tools Hub: implemented DNS, WHOIS/RDAP, IP info, TCP/telnet, TLS, ping, and traceroute with TUI forms, history, raw/summary/compare, evidence, archive, and retention.
+- Raw output viewer: implemented source comparison for interface, route, connection, port, and tool results; raw output stays excluded from JSON automation.
+- Self-update: implemented npm/GitHub release checks and a locked apply dry-run preview; package mutation remains disabled by default.
+- Machine automation: implemented schema-versioned bounded JSON for local info/routes/connections/ports and guarded remote SFTP list/read.
 
 ## Files
 
@@ -45,7 +46,7 @@ lazyifconfig source reference: https://github.com/choihunchul/lazyifconfig
 - Modify: `src/cli/index.ts`
 - Test: `tests/tools.test.ts`
 
-- [ ] **Step 1: Write tool definition and validation tests**
+- [x] **Step 1: Write tool definition and validation tests**
 
 ```ts
 import { describe, expect, test } from "bun:test";
@@ -72,16 +73,16 @@ describe("tools hub", () => {
 });
 ```
 
-- [ ] **Step 2: Run failing test**
+- [x] **Step 2: Run failing test**
 
 Run: `bun test tests/tools.test.ts`
 Expected: fail because `src/core/tools.ts` does not exist.
 
-- [ ] **Step 3: Implement core tools**
+- [x] **Step 3: Implement core tools**
 
 Implement `ToolId`, `ToolDefinition`, `getToolDefinitions()`, `normalizeToolTarget()`, `runDnsLookup()`, `runWhoisLookup()`, `runIpInfo()`, `runTlsInspect()`, `runTraceroute()`, and a formatter that emits sections plus raw output.
 
-- [ ] **Step 4: Add CLI command**
+- [x] **Step 4: Add CLI command**
 
 Register:
 
@@ -113,7 +114,7 @@ Commit: `git commit -m "feat: add lazyifconfig tools hub foundation"`
 - Modify: `src/cli/index.ts`
 - Test: `tests/routes.test.ts`
 
-- [ ] **Step 1: Write parser tests**
+- [x] **Step 1: Write parser tests**
 
 ```ts
 import { describe, expect, test } from "bun:test";
@@ -146,16 +147,16 @@ describe("route inspector", () => {
 });
 ```
 
-- [ ] **Step 2: Run failing test**
+- [x] **Step 2: Run failing test**
 
 Run: `bun test tests/routes.test.ts`
 Expected: fail because `src/core/routes.ts` does not exist.
 
-- [ ] **Step 3: Implement route core**
+- [x] **Step 3: Implement route core**
 
 Implement route command builders for macOS/Linux/Windows, route parsers, default route diagnostics, route summary formatter, and `runRouteTable()`.
 
-- [ ] **Step 4: Add CLI command**
+- [x] **Step 4: Add CLI command**
 
 Register:
 
@@ -205,15 +206,15 @@ Commit: `git commit -m "feat: add connection and port inspectors"`
 - Create: `src/tui/toolsState.ts`
 - Test: `tests/navigation.test.ts`, `tests/tools.test.ts`
 
-- [ ] **Step 1: Add focused Tools child state**
+- [x] **Step 1: Add focused Tools child state**
 
 Use `Enter` to enter Tools child focus, `Tab` to move fields, `Esc`/`h` to leave child focus.
 
-- [ ] **Step 2: Add result panes**
+- [x] **Step 2: Add result panes**
 
 Show Summary, Detail, Diagnostics, and Raw Output sections for tool runs.
 
-- [ ] **Step 3: Verify and commit**
+- [x] **Step 3: Verify and commit**
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: add tools modal and raw output viewer"`
@@ -250,19 +251,19 @@ Commit: `git commit -m "feat: add interface traffic counters"`
 - Modify: `src/tui/App.tsx`
 - Test: `tests/events.test.ts`, `tests/update.test.ts`
 
-- [ ] **Step 1: Add timeline event types**
+- [x] **Step 1: Add timeline event types**
 
 Track interface appearance/removal, address changes, route changes, public IP changes, copy actions, and update checks.
 
-- [ ] **Step 2: Add export**
+- [x] **Step 2: Add export**
 
 Save `picos-timeline-YYYYMMDD-HHMMSS.txt` only when the user asks.
 
-- [ ] **Step 3: Add release check**
+- [x] **Step 3: Add release check**
 
 Check GitHub Releases for `uulab-official/picos`; do not auto-install until a later confirmation flow exists.
 
-- [ ] **Step 4: Verify and commit**
+- [x] **Step 4: Verify and commit**
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: add timeline export and update check"`
@@ -318,10 +319,38 @@ Use `:` in the Routes workspace to open a route destination prompt and run `runR
 
 Make the action open the same prompt instead of logging a queued placeholder.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `bun run verify`
 Commit: `git commit -m "feat: add route path lookup to TUI"`
+
+### Task 9: Local Inspector JSON Automation
+
+**Files:**
+- Create: `src/cli/localInspectorOutput.ts`
+- Create: `scripts/localInspectorIntegration.ts`
+- Modify: local inspector CLI commands and `scripts/harness.ts`
+- Test: `tests/localInspectorOutput.test.ts`, `tests/cli.test.ts`
+
+- [x] **Step 1: Define one versioned local inspector schema**
+
+Normalize info, route, connection, and port fields while omitting raw OS output and process arguments.
+
+- [x] **Step 2: Preserve query and source execution evidence**
+
+Include effective filter/sort plus source command, arguments, success, and exit code.
+
+- [x] **Step 3: Bound machine output**
+
+Return at most 10,000 rows under a 4 MiB document budget with total, visible, returned, limit, and truncation metadata.
+
+- [x] **Step 4: Keep failures machine-readable**
+
+Reject raw/JSON conflicts before execution and emit one bounded failure document with a non-zero exit.
+
+- [x] **Step 5: Verify real cross-platform subprocess output**
+
+Run five success and three failure contracts through `bun run harness local-json`, including large stdout pipe flushing, as part of `bun run verify`.
 
 ## Current Execution Choice
 

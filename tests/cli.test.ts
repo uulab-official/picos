@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createCli } from "../src/cli";
+import { createCli, runCli } from "../src/cli";
 import { createGuardedRemoteFileRequest } from "../src/cli/commands/remotes";
+import { isReportedCliError } from "../src/cli/errors";
 
 describe("CLI command registry", () => {
 	test("exposes telnet as a TCP connect reachability alias", () => {
@@ -42,5 +43,103 @@ describe("CLI command registry", () => {
 		expect(
 			createGuardedRemoteFileRequest("prod", parsed.options),
 		).toMatchObject({ path: "2026", confirm: "connect remote prod" });
+	});
+
+	test("registers JSON output on local OS inspectors", () => {
+		const cli = createCli();
+		for (const name of ["info", "routes", "route", "connections", "ports"]) {
+			const command = cli.commands.find((candidate) => candidate.name === name);
+			expect(
+				command?.options.some((option) => option.name === "json"),
+			).toBeTrue();
+		}
+	});
+
+	test("reports local inspector option conflicts as one JSON failure", async () => {
+		const output: string[] = [];
+		const originalLog = console.log;
+		let caught: unknown;
+		console.log = (value?: unknown) => output.push(String(value));
+		try {
+			await runCli(["routes", "--raw", "--json"]);
+		} catch (error) {
+			caught = error;
+		} finally {
+			console.log = originalLog;
+		}
+
+		expect(isReportedCliError(caught)).toBeTrue();
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			command: "routes",
+			status: "failed",
+			error: {
+				code: "PICOS_LOCAL_INSPECTOR_FAILED",
+				message: "--raw cannot be combined with --json",
+			},
+		});
+	});
+
+	test("reports missing local inspector arguments as one JSON failure", async () => {
+		const output: string[] = [];
+		const originalLog = console.log;
+		let caught: unknown;
+		console.log = (value?: unknown) => output.push(String(value));
+		try {
+			await runCli(["route", "--json=true"]);
+		} catch (error) {
+			caught = error;
+		} finally {
+			console.log = originalLog;
+		}
+
+		expect(isReportedCliError(caught)).toBeTrue();
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			command: "route",
+			status: "failed",
+			error: { code: "PICOS_LOCAL_INSPECTOR_FAILED" },
+		});
+	});
+
+	test("does not request JSON when the flag is explicitly disabled", async () => {
+		for (const jsonFlag of ["--json=false", "--no-json"]) {
+			const output: string[] = [];
+			const originalLog = console.log;
+			let caught: unknown;
+			console.log = (value?: unknown) => output.push(String(value));
+			try {
+				await runCli(["routes", jsonFlag, "--sort", "unsafe"]);
+			} catch (error) {
+				caught = error;
+			} finally {
+				console.log = originalLog;
+			}
+
+			expect(caught).toBeInstanceOf(Error);
+			expect(isReportedCliError(caught)).toBeFalse();
+			expect(output).toHaveLength(0);
+		}
+	});
+
+	test("keeps JSON parser failures structured when the flag precedes the command", async () => {
+		const output: string[] = [];
+		const originalLog = console.log;
+		let caught: unknown;
+		console.log = (value?: unknown) => output.push(String(value));
+		try {
+			await runCli(["--json", "routes", "--sort", "unsafe"]);
+		} catch (error) {
+			caught = error;
+		} finally {
+			console.log = originalLog;
+		}
+
+		expect(isReportedCliError(caught)).toBeTrue();
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			command: "routes",
+			status: "failed",
+		});
 	});
 });

@@ -104,6 +104,7 @@ describe("system inventory", () => {
 		expect(inventory.runtime.configPath).toBe("/tmp/picos/config.json");
 		expect(inventory.system.hostname).toBe("host");
 		expect(inventory.permission.detail).toBe("user");
+		expect(inventory.sources).toEqual([]);
 	});
 
 	test("formats full info with OS-like sections", () => {
@@ -156,6 +157,17 @@ describe("system inventory", () => {
 				bunVersion: "1.0.0",
 				configPath: "/tmp/config.json",
 			},
+			sources: [
+				{
+					key: "processes",
+					command: "ps",
+					args: ["-axo", "pid,pcpu,pmem,command"],
+					supported: true,
+					success: false,
+					exitCode: 1,
+					truncated: false,
+				},
+			],
 		});
 
 		expect(output).toContain("System");
@@ -165,5 +177,7 @@ describe("system inventory", () => {
 		expect(output).toContain("LAN: en0");
 		expect(output).toContain("en0 wifiOrEthernet connected 192.168.0.12/24");
 		expect(output).toContain("Permissions");
+		expect(output).toContain("Sources");
+		expect(output).toContain("processes: supported=true success=false exit=1");
 	});
 });

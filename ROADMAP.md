@@ -1,5 +1,22 @@
 # picos Roadmap
 
+## v0.4.337 - Local Inspector JSON
+
+Status: implementation branch `codex/picos-v0.4.337-local-inspector-json`, stacked on draft PR [#411](https://github.com/uulab-official/picos/pull/411).
+
+Goal: make the lazyifconfig-inspired local OS and network inspectors safe to consume from scripts, CI, and coding agents through one bounded, versioned output contract.
+
+- `picos info [--full] --json`, `routes --json`, `route <destination> --json`, `connections --json`, and `ports --json` emit one schema-versioned success or failure document on stdout.
+- Info snapshots normalize system, network, and optional full inventory sections while retaining network, storage, and process source-command status metadata without embedding raw source output; storage/process sections expose total, returned, limit, and truncation counts.
+- Route, connection, and port snapshots apply the same CLI filter/sort semantics before returning at most 10,000 rows under a 4 MiB document budget with total, visible, returned, limit, and truncation counts.
+- Source metadata distinguishes an empty result from a failed platform command through `success`, `exitCode`, and `truncated`; failed or capture-truncated route/connection/port commands produce a failed document instead of a misleading completed snapshot, while route diagnostics remain structured.
+- `--raw --json`, invalid sorts, and missing required arguments produce one bounded `PICOS_LOCAL_INSPECTOR_FAILED` document, exit non-zero, and do not append a plain-text error.
+- JSON writes use an awaited stdout path so large connection snapshots are not truncated when piped to tools such as `jq`; guarded remote JSON uses the same flush-safe writer, and output-write failures cannot append a second JSON result or duplicate terminal audits.
+- Full inventory JSON exposes process names and PIDs without command arguments, redacts credential/home/private-key patterns from failure text, and relies on the new 4 MiB default `safeExec()` stdout/stderr capture bound.
+- `bun run harness local-json` launches the real CLI sequentially for six successful and four failure contracts, including full inventory, inline JSON flags, a deterministic unavailable-utility shim, and a near-limit subprocess pipe document; `bun run verify` runs it on macOS, Linux, and Windows.
+- Tests cover schema shape, optional-field normalization, raw-output omission, filter/sort counts, 10,000-row bounds, bounded failures, CLI flags, parser errors, and output conflicts.
+- Next: add JSON output to Tools, doctor, DNS, monitor, logs, and process inspectors, then expose saved automation presets without enabling OS mutation.
+
 ## v0.4.336 - SFTP Integration and JSON Automation
 
 Status: draft PR [#411](https://github.com/uulab-official/picos/pull/411) on `codex/picos-v0.4.336-sftp-integration-json`, stacked on draft PR [#410](https://github.com/uulab-official/picos/pull/410).

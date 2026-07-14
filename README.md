@@ -86,6 +86,7 @@ picos config set auditArchiveRetentionLimit 20
 ```bash
 picos info
 picos info --full
+picos info --json
 picos doctor
 picos ping google.com --count 4 --timeout 10000
 picos connect example.com 443
@@ -100,13 +101,17 @@ picos tools traceroute 8.8.8.8
 picos routes
 picos routes --sort interface
 picos routes --sort=-metric
+picos routes --json
 picos route 8.8.8.8
+picos route 8.8.8.8 --json
 picos connections
 picos connections --filter 443 --sort remotePort
 picos connections --sort=-remotePort
+picos connections --filter 443 --json
 picos ports
 picos ports --filter node --sort process
 picos ports --sort=-pid
+picos ports --json
 picos process 12345
 picos process 12345 --files
 picos monitor
@@ -136,6 +141,7 @@ Commands:
 - `picos` or `picos ui`: open the TUI control panel.
 - `picos info`: print network and system summary.
 - `picos info --full`: print OS-style system, hardware, storage, process, network, runtime, and permission inventory.
+- Add `--json` to `picos info`, `picos routes`, `picos route`, `picos connections`, or `picos ports` for one schema-versioned local inspector result. Table commands preserve filter/sort/source success, exit, and truncation status and return at most 10,000 normalized rows with explicit counts; full inventory also reports storage/process collector status. Raw OS command output is excluded, `--raw --json` is rejected, and failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
 - `picos doctor`: run read-only network diagnostics.
 - `picos ping <host>`: run a safe ping test without shell interpolation.
 - `picos ping <host> --count <n> --timeout <ms>`: run ping with bounded count and timeout options.
@@ -228,6 +234,7 @@ Reference-inspired modules now tracked in picos:
 - Timeline with network/action/audit/raw event filters, search presets, visible selected-row cursor, locked selected-event copy, selected-row audit export, Status audit export index/open/archive/browser controls, scoped audit export, latest audit reload, and network state-change events
 - Action Center dry-run previews for locked OS-changing controls, including risk, privilege, confirmation phrase, lock reason, adapter-owned macOS/Linux/Windows command previews, blocked policy simulations, and timeline audit records
 - Raw output viewer
+- Versioned local inspector JSON automation for system/network inventory, routes, connections, and listening ports
 
 See [docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md](docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md).
 
