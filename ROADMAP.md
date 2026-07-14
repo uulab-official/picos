@@ -2,7 +2,7 @@
 
 ## v0.4.332 - Interface Evidence Search
 
-Status: in progress on `codex/picos-v0.4.332-interface-evidence-search`, stacked on draft PR [#406](https://github.com/uulab-official/picos/pull/406).
+Status: draft PR [#407](https://github.com/uulab-official/picos/pull/407) on `codex/picos-v0.4.332-interface-evidence-search`, stacked on draft PR [#406](https://github.com/uulab-official/picos/pull/406).
 
 Goal: make growing active and archived interface confirmation evidence searchable without widening the interface mutation boundary.
 
