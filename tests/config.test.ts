@@ -21,6 +21,7 @@ describe("config schema", () => {
 			remoteProfiles: [],
 			logProfiles: [],
 			logSearchPresets: [],
+			interfaceEvidenceSearchPresets: [],
 			routeFilterPresets: [],
 			connectionSort: "state",
 			portSort: "port",
@@ -120,6 +121,30 @@ describe("config schema", () => {
 				],
 			}).logSearchPresets,
 		).toEqual(["kernel", "error", "dns", "route", "boot", "panic"]);
+	});
+
+	test("normalizes persisted interface evidence search presets", () => {
+		expect(
+			mergeConfig({
+				interfaceEvidenceSearchPresets: [
+					" Wi-Fi ",
+					"",
+					"rejected",
+					"WI-FI",
+					"archived",
+					"disable",
+					"ethernet",
+					"blocked",
+				],
+			}).interfaceEvidenceSearchPresets,
+		).toEqual([
+			"wi-fi",
+			"rejected",
+			"archived",
+			"disable",
+			"ethernet",
+			"blocked",
+		]);
 	});
 
 	test("normalizes persisted route filter presets", () => {

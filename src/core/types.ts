@@ -238,6 +238,7 @@ export type PicosConfig = {
 	remoteProfiles: SftpRemoteProfile[];
 	logProfiles: LogProfile[];
 	logSearchPresets: string[];
+	interfaceEvidenceSearchPresets: string[];
 	routeFilterPresets: string[];
 	connectionSort: string;
 	portSort: string;

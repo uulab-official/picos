@@ -732,6 +732,8 @@ describe("TUI command palette", () => {
 				"status.interfaceEvidence.search",
 				"status.interfaceEvidence.filter",
 				"status.interfaceEvidence.find",
+				"status.interfaceEvidence.presetSave",
+				"status.interfaceEvidence.presetNext",
 				"status.interfaceEvidence.archive",
 				"status.interfaceEvidence.retention",
 			]),
@@ -784,6 +786,38 @@ describe("TUI command palette", () => {
 			scope: "selected",
 		};
 
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.presetSave",
+				),
+				{
+					interfaceEvidenceQuery: "wifi rejected",
+					interfaceEvidenceSearchPresets: ["archived", "ethernet"],
+					nextInterfaceEvidenceSearchPreset: "archived",
+				},
+			),
+		).toEqual([
+			"interface evidence search presets=2 current=wifi rejected",
+			"action=save current query enabled=true",
+			"controls=P save N cycle",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.presetNext",
+				),
+				{
+					interfaceEvidenceQuery: "wifi rejected",
+					interfaceEvidenceSearchPresets: ["archived", "ethernet"],
+					nextInterfaceEvidenceSearchPreset: "archived",
+				},
+			),
+		).toEqual([
+			"interface evidence search presets=2 current=wifi rejected",
+			"action=cycle next=archived",
+			"controls=P save N cycle",
+		]);
 		expect(
 			formatCommandPaletteActionPreviewRows(
 				getActionCatalog().find(

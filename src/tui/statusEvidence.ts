@@ -5,6 +5,13 @@ import type {
 } from "../core/auditLog";
 import { getSelectedConsoleAuditExport } from "../core/auditLog";
 import type { FileOpenOrigin } from "../core/fileOpen";
+import {
+	nextInterfaceEvidenceSearchPreset,
+	normalizeInterfaceEvidenceQuery,
+} from "../core/interfaceEvidencePreferences";
+
+export { normalizeInterfaceEvidenceQuery } from "../core/interfaceEvidencePreferences";
+
 import type { HandoffIndex, HandoffIndexItem } from "../core/handoffIndex";
 import { getSelectedHandoffIndexItem } from "../core/handoffIndex";
 import type {
@@ -157,10 +164,6 @@ type EvidenceEntry = {
 	state?: "active" | "archived";
 };
 
-export function normalizeInterfaceEvidenceQuery(query: string): string {
-	return query.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
 export function nextInterfaceEvidenceStateFilter(
 	filter: InterfaceEvidenceStateFilter,
 ): InterfaceEvidenceStateFilter {
@@ -203,6 +206,7 @@ export function formatInterfaceEvidenceFilterRows(
 	archived: ConsoleAuditExportPlan[],
 	stateFilter: InterfaceEvidenceStateFilter,
 	query: string,
+	presets: string[] = [],
 ): string[] {
 	const normalizedQuery = normalizeInterfaceEvidenceQuery(query);
 	const visible = filterInterfaceConfirmationEvidenceExports(
@@ -212,9 +216,14 @@ export function formatInterfaceEvidenceFilterRows(
 		normalizedQuery,
 	).length;
 	const total = active.length + archived.length;
+	const nextPreset = nextInterfaceEvidenceSearchPreset(
+		presets,
+		normalizedQuery,
+	);
 	return [
 		`INTERFACE EVIDENCE FILTER state=${stateFilter} query=${normalizedQuery || "-"} visible=${visible}/${total}`,
 		"controls=q state f find G timeline [/] select",
+		`presets=${presets.length} next=${nextPreset ?? "-"} controls=P save N cycle`,
 	];
 }
 

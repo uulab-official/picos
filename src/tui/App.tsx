@@ -7,6 +7,7 @@ import {
 	readConfig,
 	setConfigEndpointFilterPresets,
 	setConfigEndpointSort,
+	setConfigInterfaceEvidenceSearchPresets,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
 	setConfigRouteFilterPresets,
@@ -131,6 +132,11 @@ import {
 	type InterfaceStateProposalAction,
 	submitInterfaceConfirmation,
 } from "../core/interfaceControl";
+import {
+	nextInterfaceEvidenceSearchPreset,
+	normalizeInterfaceEvidenceQuery,
+	saveInterfaceEvidenceSearchPreset,
+} from "../core/interfaceEvidencePreferences";
 import { getNetworkSummary } from "../core/network";
 import {
 	createOsLogSnapshot,
@@ -488,6 +494,7 @@ import {
 	createInterfaceConfirmationEvidenceStatusActivityResult,
 	createInterfaceConfirmationStatusActivityResult,
 	createInterfaceEvidenceManagementStatusActivityResult,
+	createInterfaceEvidenceOutcomeStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
@@ -537,6 +544,7 @@ import {
 	formatInterfaceConfirmationEvidencePaletteAuditMessage,
 	formatInterfaceConfirmationEvidenceStatusAuditMessage,
 	formatInterfaceEvidenceManagementAuditMessage,
+	formatInterfaceEvidenceOutcomeAuditMessage,
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
@@ -625,7 +633,6 @@ import {
 	type InterfaceEvidenceStateFilter,
 	moveStatusEvidenceFocus,
 	nextInterfaceEvidenceStateFilter,
-	normalizeInterfaceEvidenceQuery,
 	type StatusEvidenceKind,
 } from "./statusEvidence";
 import {
@@ -962,6 +969,8 @@ export function App(): React.ReactElement {
 	const [interfaceEvidenceStateFilter, setInterfaceEvidenceStateFilter] =
 		useState<InterfaceEvidenceStateFilter>("all");
 	const [interfaceEvidenceQuery, setInterfaceEvidenceQuery] = useState("");
+	const [interfaceEvidenceSearchPresets, setInterfaceEvidenceSearchPresets] =
+		useState<string[]>([]);
 	const interfaceConfirmationEvidenceExports = useMemo(
 		() =>
 			filterInterfaceConfirmationEvidenceExports(
@@ -1251,6 +1260,7 @@ export function App(): React.ReactElement {
 				defaultPingHost,
 				editorSaveMode,
 				enableExperimentalControls,
+				interfaceEvidenceSearchPresets,
 				language,
 				logProfiles,
 				logSearchPresets,
@@ -1279,6 +1289,7 @@ export function App(): React.ReactElement {
 			defaultPingHost,
 			editorSaveMode,
 			enableExperimentalControls,
+			interfaceEvidenceSearchPresets,
 			language,
 			logProfiles,
 			logSearchPresets,
@@ -1444,6 +1455,7 @@ export function App(): React.ReactElement {
 		setStatusActivityResultTimelineJumpFilter(
 			config.statusResultJumpClassFilter,
 		);
+		setInterfaceEvidenceSearchPresets(config.interfaceEvidenceSearchPresets);
 		setCustomToolTargetPresets(config.toolTargetPresets as ToolTargetPreset[]);
 		setRemoteProfiles(config.remoteProfiles);
 	}, []);
@@ -3837,6 +3849,84 @@ export function App(): React.ReactElement {
 		log,
 		recordStatusActivityResult,
 	]);
+
+	const saveCurrentInterfaceEvidenceSearchPreset = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			if (!interfaceEvidenceQuery) {
+				log("warn", "no interface evidence query to save");
+				return;
+			}
+			const next = saveInterfaceEvidenceSearchPreset(
+				interfaceEvidenceSearchPresets,
+				interfaceEvidenceQuery,
+			);
+			setInterfaceEvidenceSearchPresets(next);
+			void setConfigInterfaceEvidenceSearchPresets(next).catch((caught) =>
+				log("fail", caught instanceof Error ? caught.message : String(caught)),
+			);
+			log(
+				"ok",
+				`interface evidence search preset saved ${interfaceEvidenceQuery} count=${next.length}${options.origin === "palette" ? " via palette" : ""}`,
+			);
+		},
+		[interfaceEvidenceQuery, interfaceEvidenceSearchPresets, log],
+	);
+
+	const cycleInterfaceEvidenceSearchPreset = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const next = nextInterfaceEvidenceSearchPreset(
+				interfaceEvidenceSearchPresets,
+				interfaceEvidenceQuery,
+			);
+			if (!next) {
+				log("warn", "no interface evidence search presets");
+				return;
+			}
+			const total =
+				interfaceConfirmationAuditExports.length +
+				interfaceConfirmationAuditArchiveExports.length;
+			const visible = filterInterfaceConfirmationEvidenceExports(
+				interfaceConfirmationAuditExports,
+				interfaceConfirmationAuditArchiveExports,
+				interfaceEvidenceStateFilter,
+				next,
+			).length;
+			const resultOptions = {
+				state: interfaceEvidenceStateFilter,
+				query: next,
+				visible,
+				total,
+			};
+			setInterfaceEvidenceQuery(next);
+			setSelectedInterfaceConfirmationAuditExportIndex(0);
+			setSelectedStatusEvidenceKind("interface");
+			setScreen("status");
+			setFocusArea("workspaces");
+			log(
+				visible > 0 ? "info" : "warn",
+				`interface evidence search preset ${next} visible=${visible}/${total}${options.origin === "palette" ? " via palette" : ""}`,
+			);
+			log(
+				"info",
+				formatInterfaceEvidenceManagementAuditMessage("find", resultOptions),
+			);
+			recordStatusActivityResult(
+				createInterfaceEvidenceManagementStatusActivityResult(
+					"find",
+					resultOptions,
+				),
+			);
+		},
+		[
+			interfaceConfirmationAuditArchiveExports,
+			interfaceConfirmationAuditExports,
+			interfaceEvidenceQuery,
+			interfaceEvidenceSearchPresets,
+			interfaceEvidenceStateFilter,
+			log,
+			recordStatusActivityResult,
+		],
+	);
 
 	const openSelectedCleanupExportArchive = useCallback(() => {
 		const item = getSelectedCleanupHandoffHistoryExport(
@@ -6573,6 +6663,14 @@ export function App(): React.ReactElement {
 					openInterfaceEvidenceSearchPrompt({ origin: "palette" });
 				}
 
+				if (action.id === "status.interfaceEvidence.presetSave") {
+					saveCurrentInterfaceEvidenceSearchPreset({ origin: "palette" });
+				}
+
+				if (action.id === "status.interfaceEvidence.presetNext") {
+					cycleInterfaceEvidenceSearchPreset({ origin: "palette" });
+				}
+
 				if (action.id === "status.interfaceEvidence.archive") {
 					openSelectedInterfaceEvidenceArchive();
 				}
@@ -6654,6 +6752,7 @@ export function App(): React.ReactElement {
 			connectionFilterPresets.length,
 			configWorkspaceItems,
 			configShelfLandingTarget,
+			cycleInterfaceEvidenceSearchPreset,
 			cycleStatusActivityResultHistoryFilter,
 			cycleStatusActivityResultTimelineJumpFilter,
 			cycleToolEvidenceFilter,
@@ -6695,6 +6794,7 @@ export function App(): React.ReactElement {
 			selectNextRemoteKnownHostsSelectionEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
+			saveCurrentInterfaceEvidenceSearchPreset,
 			timelineFilter,
 			timelineSearchQuery,
 			toolHistory,
@@ -7338,10 +7438,6 @@ export function App(): React.ReactElement {
 		const isInterfaceEvidence = interfaceConfirmationAuditExports.some(
 			(item) => item.path === auditExportArchivePlan.sourcePath,
 		);
-		const archivedInterfaceSelectionIndex = Math.max(
-			0,
-			interfaceConfirmationAuditExports.length - 1,
-		);
 		const plan = createConsoleAuditExportArchivePlan(
 			auditExportIndex.baseDir,
 			auditExportArchivePlan.sourcePath,
@@ -7354,21 +7450,35 @@ export function App(): React.ReactElement {
 			result.status === "archived" ? "ok" : "warn",
 			`${isInterfaceEvidence ? "interface evidence" : "audit export"} archive ${result.message}`,
 		);
-		recordStatusActivityResult({
-			source: "evidence",
-			action: isInterfaceEvidence
-				? "interface-evidence-archive"
-				: "audit-evidence-archive",
-			message: `${isInterfaceEvidence ? "interface evidence" : "audit export"} archive ${result.status} ${plan.fileName}`,
-			detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
-		});
+		if (isInterfaceEvidence) {
+			const outcome = {
+				status: result.status,
+				message: result.message,
+				fileName: plan.fileName,
+				sourcePath: result.sourcePath,
+				archivedPath: result.archivedPath,
+			};
+			log(
+				"info",
+				formatInterfaceEvidenceOutcomeAuditMessage("archive", outcome),
+			);
+			recordStatusActivityResult(
+				createInterfaceEvidenceOutcomeStatusActivityResult("archive", outcome),
+			);
+		} else {
+			recordStatusActivityResult({
+				source: "evidence",
+				action: "audit-evidence-archive",
+				message: `audit export archive ${result.status} ${plan.fileName}`,
+				detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
+			});
+		}
 		if (result.status === "archived") {
 			await refreshAuditExportIndex(false);
 			await refreshAuditExportArchiveIndex(false);
 			if (isInterfaceEvidence) {
-				setSelectedInterfaceConfirmationAuditExportIndex(
-					archivedInterfaceSelectionIndex,
-				);
+				setInterfaceEvidenceStateFilter("archived");
+				setSelectedInterfaceConfirmationAuditExportIndex(0);
 				setSelectedStatusEvidenceKind("interface");
 			}
 		}
@@ -7404,15 +7514,32 @@ export function App(): React.ReactElement {
 			result.status === "pruned" ? "ok" : "warn",
 			`${auditArchiveRetentionScope === "interface" ? "interface evidence" : "audit"} archive retention ${result.message}`,
 		);
-		recordStatusActivityResult({
-			source: "evidence",
-			action:
-				auditArchiveRetentionScope === "interface"
-					? "interface-evidence-retention"
-					: "audit-evidence-retention",
-			message: `${auditArchiveRetentionScope === "interface" ? "interface evidence" : "audit"} archive retention ${result.status} removed=${result.removed}`,
-			detail: result.message,
-		});
+		if (auditArchiveRetentionScope === "interface") {
+			const outcome = {
+				status: result.status,
+				message: result.message,
+				removed: result.removed,
+				candidates: plan.candidateItems.length,
+				maxItems: plan.maxItems,
+			};
+			log(
+				"info",
+				formatInterfaceEvidenceOutcomeAuditMessage("retention", outcome),
+			);
+			recordStatusActivityResult(
+				createInterfaceEvidenceOutcomeStatusActivityResult(
+					"retention",
+					outcome,
+				),
+			);
+		} else {
+			recordStatusActivityResult({
+				source: "evidence",
+				action: "audit-evidence-retention",
+				message: `audit archive retention ${result.status} removed=${result.removed}`,
+				detail: result.message,
+			});
+		}
 		if (result.status === "pruned") {
 			await refreshAuditExportArchiveIndex(false);
 		}
@@ -9000,7 +9127,9 @@ export function App(): React.ReactElement {
 				];
 			if (
 				selectedResult?.action === "interface-evidence-filter" ||
-				selectedResult?.action === "interface-evidence-find"
+				selectedResult?.action === "interface-evidence-find" ||
+				selectedResult?.action === "interface-evidence-archive" ||
+				selectedResult?.action === "interface-evidence-retention"
 			) {
 				openSelectedStatusActivityResultTimelineJump();
 				return;
@@ -9071,6 +9200,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "P") {
+			if (selectedStatusEvidenceKind === "interface") {
+				saveCurrentInterfaceEvidenceSearchPreset();
+				return;
+			}
 			if (statusActivityResultAuditJumpIntentCount === 0) {
 				log("warn", "no status activity result audit jumps");
 				return;
@@ -9242,6 +9375,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "N") {
+			if (selectedStatusEvidenceKind === "interface") {
+				cycleInterfaceEvidenceSearchPreset();
+				return;
+			}
 			jumpSelectedTimelineEvidenceTrailSearch();
 			return;
 		}
@@ -11854,6 +11991,7 @@ export function App(): React.ReactElement {
 					}
 					interfaceEvidenceStateFilter={interfaceEvidenceStateFilter}
 					interfaceEvidenceQuery={interfaceEvidenceQuery}
+					interfaceEvidenceSearchPresets={interfaceEvidenceSearchPresets}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -12121,6 +12259,7 @@ function MainWorkspace({
 	selectedInterfaceConfirmationAuditExportIndex,
 	interfaceEvidenceStateFilter,
 	interfaceEvidenceQuery,
+	interfaceEvidenceSearchPresets,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -12289,6 +12428,7 @@ function MainWorkspace({
 	selectedInterfaceConfirmationAuditExportIndex: number;
 	interfaceEvidenceStateFilter: InterfaceEvidenceStateFilter;
 	interfaceEvidenceQuery: string;
+	interfaceEvidenceSearchPresets: string[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -12535,6 +12675,7 @@ function MainWorkspace({
 						selectedInterfaceConfirmationAuditExportIndex,
 						interfaceEvidenceStateFilter,
 						interfaceEvidenceQuery,
+						interfaceEvidenceSearchPresets,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -12710,6 +12851,7 @@ function renderWorkspace(
 	selectedInterfaceConfirmationAuditExportIndex: number,
 	interfaceEvidenceStateFilter: InterfaceEvidenceStateFilter,
 	interfaceEvidenceQuery: string,
+	interfaceEvidenceSearchPresets: string[],
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -12866,6 +13008,12 @@ function renderWorkspace(
 							selectedInterfaceConfirmationEvidenceArchived,
 						interfaceEvidenceStateFilter,
 						interfaceEvidenceQuery,
+						interfaceEvidenceSearchPresets,
+						nextInterfaceEvidenceSearchPreset:
+							nextInterfaceEvidenceSearchPreset(
+								interfaceEvidenceSearchPresets,
+								interfaceEvidenceQuery,
+							),
 						visibleInterfaceEvidenceExports:
 							filteredInterfaceEvidenceExports.length,
 						nextInterfaceEvidenceStateFilter: nextInterfaceEvidenceStateFilter(
@@ -13228,6 +13376,7 @@ function renderWorkspace(
 				}
 				interfaceEvidenceStateFilter={interfaceEvidenceStateFilter}
 				interfaceEvidenceQuery={interfaceEvidenceQuery}
+				interfaceEvidenceSearchPresets={interfaceEvidenceSearchPresets}
 				configManagedShelfRows={configManagedShelfRows}
 				events={events}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
@@ -16280,6 +16429,7 @@ function StatusWorkspace({
 	selectedInterfaceConfirmationAuditExportIndex,
 	interfaceEvidenceStateFilter,
 	interfaceEvidenceQuery,
+	interfaceEvidenceSearchPresets,
 	configManagedShelfRows,
 	events,
 	selectedStatusEvidenceKind,
@@ -16343,6 +16493,7 @@ function StatusWorkspace({
 	selectedInterfaceConfirmationAuditExportIndex: number;
 	interfaceEvidenceStateFilter: InterfaceEvidenceStateFilter;
 	interfaceEvidenceQuery: string;
+	interfaceEvidenceSearchPresets: string[];
 	configManagedShelfRows: string[];
 	events: ConsoleEvent[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
@@ -16889,6 +17040,7 @@ function StatusWorkspace({
 					interfaceConfirmationAuditArchiveExports,
 					interfaceEvidenceStateFilter,
 					interfaceEvidenceQuery,
+					interfaceEvidenceSearchPresets,
 				).map((row) => (
 					<Text key={row} color={row.startsWith("INTERFACE") ? "cyan" : "gray"}>
 						{row}
