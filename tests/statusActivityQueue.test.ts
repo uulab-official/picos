@@ -32,6 +32,7 @@ import {
 	createInterfaceConfirmationEvidencePaletteStatusActivityResult,
 	createInterfaceConfirmationEvidenceStatusActivityResult,
 	createInterfaceConfirmationStatusActivityResult,
+	createInterfaceEvidenceManagementStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
@@ -81,6 +82,7 @@ import {
 	filterTimelineEvidenceTrailAuditExports,
 	formatInterfaceConfirmationEvidencePaletteAuditMessage,
 	formatInterfaceConfirmationEvidenceStatusAuditMessage,
+	formatInterfaceEvidenceManagementAuditMessage,
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
@@ -3684,6 +3686,46 @@ describe("Status activity queue", () => {
 				'palette interface evidence audit action=search target="interface.disable:confirmed-blocked"',
 			message:
 				"status activity result timeline search palette interface evidence interface.disable:confirmed-blocked",
+		});
+	});
+
+	test("records interface evidence filter and find results as Timeline jumps", () => {
+		const filter = createInterfaceEvidenceManagementStatusActivityResult(
+			"filter",
+			{ state: "archived", query: "disable", visible: 2, total: 5 },
+		);
+		const find = createInterfaceEvidenceManagementStatusActivityResult("find", {
+			state: "active",
+			query: "wifi rejected",
+			visible: 1,
+			total: 5,
+		});
+
+		expect(filter.message).toBe(
+			"interface evidence filter state=archived query=disable visible=2/5",
+		);
+		expect(
+			formatInterfaceEvidenceManagementAuditMessage("find", {
+				state: "active",
+				query: "wifi rejected",
+				visible: 1,
+				total: 5,
+			}),
+		).toBe(
+			'interface evidence audit action=find state=active query="wifi rejected" visible=1/5',
+		);
+		expect(createStatusActivityResultTimelineSearch([filter], 0)).toEqual({
+			filter: "audit",
+			query:
+				'interface evidence audit action=filter state=archived query="disable" visible=2/5',
+			message:
+				"status activity result timeline search interface evidence filter",
+		});
+		expect(createStatusActivityResultTimelineSearch([find], 0)).toEqual({
+			filter: "audit",
+			query:
+				'interface evidence audit action=find state=active query="wifi rejected" visible=1/5',
+			message: "status activity result timeline search interface evidence find",
 		});
 	});
 

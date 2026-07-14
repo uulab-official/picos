@@ -487,6 +487,7 @@ import {
 	createInterfaceConfirmationEvidencePaletteStatusActivityResult,
 	createInterfaceConfirmationEvidenceStatusActivityResult,
 	createInterfaceConfirmationStatusActivityResult,
+	createInterfaceEvidenceManagementStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
@@ -535,6 +536,7 @@ import {
 	filterTimelineEvidenceTrailAuditExports,
 	formatInterfaceConfirmationEvidencePaletteAuditMessage,
 	formatInterfaceConfirmationEvidenceStatusAuditMessage,
+	formatInterfaceEvidenceManagementAuditMessage,
 	formatProcessControlEvidencePaletteAuditMessage,
 	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
@@ -563,7 +565,6 @@ import {
 	getProcessControlAuditExports,
 	getRemoteKnownHostsSelectionHistoryAuditExports,
 	getRemoteKnownHostsSelectionHistoryClipboardPreview,
-	getSelectedInterfaceConfirmationAuditExport,
 	getSelectedProcessControlAuditExport,
 	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
 	getSelectedStatusActivityCopyIntentClipboardPreview,
@@ -614,12 +615,17 @@ import {
 	createStatusEvidenceItemMovePlan,
 	createStatusEvidenceNumberJumpPlan,
 	createStatusEvidenceSearchPlan,
+	filterInterfaceConfirmationEvidenceExports,
+	formatInterfaceEvidenceFilterRows,
 	formatStatusEvidenceCommandStripRows,
 	formatStatusEvidenceLegacyBridgeRows,
 	formatStatusEvidenceSummaryRows,
 	formatStatusEvidenceTableDetailRows,
 	formatStatusEvidenceTableRows,
+	type InterfaceEvidenceStateFilter,
 	moveStatusEvidenceFocus,
+	nextInterfaceEvidenceStateFilter,
+	normalizeInterfaceEvidenceQuery,
 	type StatusEvidenceKind,
 } from "./statusEvidence";
 import {
@@ -953,24 +959,35 @@ export function App(): React.ReactElement {
 		selectedInterfaceConfirmationAuditExportIndex,
 		setSelectedInterfaceConfirmationAuditExportIndex,
 	] = useState(0);
+	const [interfaceEvidenceStateFilter, setInterfaceEvidenceStateFilter] =
+		useState<InterfaceEvidenceStateFilter>("all");
+	const [interfaceEvidenceQuery, setInterfaceEvidenceQuery] = useState("");
 	const interfaceConfirmationEvidenceExports = useMemo(
-		() => [
-			...interfaceConfirmationAuditExports,
-			...interfaceConfirmationAuditArchiveExports,
-		],
+		() =>
+			filterInterfaceConfirmationEvidenceExports(
+				interfaceConfirmationAuditExports,
+				interfaceConfirmationAuditArchiveExports,
+				interfaceEvidenceStateFilter,
+				interfaceEvidenceQuery,
+			),
 		[
 			interfaceConfirmationAuditArchiveExports,
 			interfaceConfirmationAuditExports,
+			interfaceEvidenceQuery,
+			interfaceEvidenceStateFilter,
 		],
 	);
+	const selectedInterfaceConfirmationEvidence =
+		interfaceConfirmationEvidenceExports[
+			Math.min(
+				selectedInterfaceConfirmationAuditExportIndex,
+				Math.max(0, interfaceConfirmationEvidenceExports.length - 1),
+			)
+		];
 	const selectedInterfaceConfirmationAuditExport =
-		getSelectedInterfaceConfirmationAuditExport(
-			interfaceConfirmationEvidenceExports,
-			selectedInterfaceConfirmationAuditExportIndex,
-		);
+		selectedInterfaceConfirmationEvidence?.plan;
 	const selectedInterfaceConfirmationEvidenceArchived =
-		selectedInterfaceConfirmationAuditExportIndex >=
-		interfaceConfirmationAuditExports.length;
+		selectedInterfaceConfirmationEvidence?.state === "archived";
 	useEffect(() => {
 		setSelectedInterfaceConfirmationAuditExportIndex((current) =>
 			Math.min(
@@ -3709,6 +3726,118 @@ export function App(): React.ReactElement {
 		toolExportIndex,
 	]);
 
+	const cycleInterfaceEvidenceStateFilter = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const next = nextInterfaceEvidenceStateFilter(
+				interfaceEvidenceStateFilter,
+			);
+			const total =
+				interfaceConfirmationAuditExports.length +
+				interfaceConfirmationAuditArchiveExports.length;
+			const visible = filterInterfaceConfirmationEvidenceExports(
+				interfaceConfirmationAuditExports,
+				interfaceConfirmationAuditArchiveExports,
+				next,
+				interfaceEvidenceQuery,
+			).length;
+			const resultOptions = {
+				state: next,
+				query: interfaceEvidenceQuery,
+				visible,
+				total,
+			};
+			setInterfaceEvidenceStateFilter(next);
+			setSelectedInterfaceConfirmationAuditExportIndex(0);
+			setSelectedStatusEvidenceKind("interface");
+			setScreen("status");
+			setFocusArea("workspaces");
+			log(
+				"info",
+				`interface evidence filter ${next} visible=${visible}/${total}${options.origin === "palette" ? " via palette" : ""}`,
+			);
+			log(
+				"info",
+				formatInterfaceEvidenceManagementAuditMessage("filter", resultOptions),
+			);
+			recordStatusActivityResult(
+				createInterfaceEvidenceManagementStatusActivityResult(
+					"filter",
+					resultOptions,
+				),
+			);
+		},
+		[
+			interfaceConfirmationAuditArchiveExports,
+			interfaceConfirmationAuditExports,
+			interfaceEvidenceQuery,
+			interfaceEvidenceStateFilter,
+			log,
+			recordStatusActivityResult,
+		],
+	);
+
+	const openInterfaceEvidenceSearchPrompt = useCallback(
+		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			setCommandLine(
+				openCommandLine("interface-evidence-search", {
+					value: interfaceEvidenceQuery,
+				}),
+			);
+			setSelectedStatusEvidenceKind("interface");
+			setScreen("status");
+			setFocusArea("workspaces");
+			log(
+				"info",
+				`interface evidence search prompt opened${options.origin === "palette" ? " via palette" : ""}`,
+			);
+		},
+		[interfaceEvidenceQuery, log],
+	);
+
+	const submitInterfaceEvidenceSearchCommand = useCallback(() => {
+		const query = normalizeInterfaceEvidenceQuery(commandLine.value);
+		const total =
+			interfaceConfirmationAuditExports.length +
+			interfaceConfirmationAuditArchiveExports.length;
+		const visible = filterInterfaceConfirmationEvidenceExports(
+			interfaceConfirmationAuditExports,
+			interfaceConfirmationAuditArchiveExports,
+			interfaceEvidenceStateFilter,
+			query,
+		).length;
+		const resultOptions = {
+			state: interfaceEvidenceStateFilter,
+			query,
+			visible,
+			total,
+		};
+		setInterfaceEvidenceQuery(query);
+		setSelectedInterfaceConfirmationAuditExportIndex(0);
+		setSelectedStatusEvidenceKind("interface");
+		setCommandLine((current) => closeCommandLine(current));
+		log(
+			visible > 0 || !query ? "info" : "warn",
+			`interface evidence find ${query ? `query=${query}` : "cleared"} visible=${visible}/${total}`,
+		);
+		log(
+			"info",
+			formatInterfaceEvidenceManagementAuditMessage("find", resultOptions),
+		);
+		recordStatusActivityResult(
+			createInterfaceEvidenceManagementStatusActivityResult(
+				"find",
+				resultOptions,
+			),
+		);
+	}, [
+		commandLine.value,
+		interfaceConfirmationAuditArchiveExports,
+		interfaceConfirmationAuditExports,
+		interfaceEvidenceStateFilter,
+		log,
+		recordStatusActivityResult,
+	]);
+
 	const openSelectedCleanupExportArchive = useCallback(() => {
 		const item = getSelectedCleanupHandoffHistoryExport(
 			cleanupExportIndex,
@@ -5564,11 +5693,11 @@ export function App(): React.ReactElement {
 			}
 			setSelectedInterfaceConfirmationAuditExportIndex((current) => {
 				const next = moveInterfaceConfirmationAuditExportSelection(
-					interfaceConfirmationEvidenceExports,
+					interfaceConfirmationEvidenceExports.map(({ plan }) => plan),
 					current,
 					"next",
 				);
-				const evidence = interfaceConfirmationEvidenceExports[next];
+				const evidence = interfaceConfirmationEvidenceExports[next]?.plan;
 				log(
 					"info",
 					`interface confirmation evidence selected ${next + 1}/${interfaceConfirmationEvidenceExports.length} ${evidence ? basename(evidence.path) : "none"}`,
@@ -6436,6 +6565,14 @@ export function App(): React.ReactElement {
 					});
 				}
 
+				if (action.id === "status.interfaceEvidence.filter") {
+					cycleInterfaceEvidenceStateFilter({ origin: "palette" });
+				}
+
+				if (action.id === "status.interfaceEvidence.find") {
+					openInterfaceEvidenceSearchPrompt({ origin: "palette" });
+				}
+
 				if (action.id === "status.interfaceEvidence.archive") {
 					openSelectedInterfaceEvidenceArchive();
 				}
@@ -6520,6 +6657,7 @@ export function App(): React.ReactElement {
 			cycleStatusActivityResultHistoryFilter,
 			cycleStatusActivityResultTimelineJumpFilter,
 			cycleToolEvidenceFilter,
+			cycleInterfaceEvidenceStateFilter,
 			cycleTimelineEvidenceTrailSourceFilter,
 			events,
 			exportToolHistory,
@@ -6532,6 +6670,7 @@ export function App(): React.ReactElement {
 			log,
 			logProfiles.length,
 			openInterfaceAuditArchiveRetentionPreview,
+			openInterfaceEvidenceSearchPrompt,
 			openToolEvidenceSearchPrompt,
 			openSelectedInterfaceConfirmationEvidenceExport,
 			openSelectedInterfaceEvidenceArchive,
@@ -7681,6 +7820,8 @@ export function App(): React.ReactElement {
 					void submitToolArchiveRetentionCommand();
 				} else if (commandLine.prompt === "tools-evidence-search") {
 					submitToolEvidenceSearchCommand();
+				} else if (commandLine.prompt === "interface-evidence-search") {
+					submitInterfaceEvidenceSearchCommand();
 				} else if (commandLine.prompt === "dns-servers") {
 					submitDnsServerProposalCommand();
 				} else if (commandLine.prompt === "interface-confirm") {
@@ -7860,7 +8001,11 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "q") {
-			cycleToolEvidenceFilter();
+			if (selectedStatusEvidenceKind === "interface") {
+				cycleInterfaceEvidenceStateFilter();
+			} else {
+				cycleToolEvidenceFilter();
+			}
 			return;
 		}
 
@@ -8794,6 +8939,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "f") {
+			if (selectedStatusEvidenceKind === "interface") {
+				openInterfaceEvidenceSearchPrompt();
+				return;
+			}
 			cycleStatusActivityResultHistoryFilter();
 			return;
 		}
@@ -8842,6 +8991,20 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "I") {
+			const selectedResult =
+				statusActivityResults[
+					Math.min(
+						selectedStatusActivityResultIndex,
+						Math.max(0, statusActivityResults.length - 1),
+					)
+				];
+			if (
+				selectedResult?.action === "interface-evidence-filter" ||
+				selectedResult?.action === "interface-evidence-find"
+			) {
+				openSelectedStatusActivityResultTimelineJump();
+				return;
+			}
 			if (
 				selectedStatusEvidenceKind === "interface" &&
 				interfaceConfirmationEvidenceExports.length > 0
@@ -8993,6 +9156,8 @@ export function App(): React.ReactElement {
 						toolExportArchiveFilter,
 						toolExportQuery,
 						toolExportArchiveQuery,
+						interfaceEvidenceStateFilter,
+						interfaceEvidenceQuery,
 					},
 					selectedStatusEvidenceKind,
 				);
@@ -9269,6 +9434,8 @@ export function App(): React.ReactElement {
 					toolExportArchiveFilter,
 					toolExportQuery,
 					toolExportArchiveQuery,
+					interfaceEvidenceStateFilter,
+					interfaceEvidenceQuery,
 				},
 				input,
 			);
@@ -9340,6 +9507,8 @@ export function App(): React.ReactElement {
 					toolExportArchiveFilter,
 					toolExportQuery,
 					toolExportArchiveQuery,
+					interfaceEvidenceStateFilter,
+					interfaceEvidenceQuery,
 				},
 				selectedStatusEvidenceKind,
 				input === "]" ? "next" : "previous",
@@ -9647,6 +9816,8 @@ export function App(): React.ReactElement {
 					toolExportArchiveFilter,
 					toolExportQuery,
 					toolExportArchiveQuery,
+					interfaceEvidenceStateFilter,
+					interfaceEvidenceQuery,
 				},
 				selectedStatusEvidenceKind,
 			);
@@ -9751,6 +9922,8 @@ export function App(): React.ReactElement {
 					toolExportArchiveFilter,
 					toolExportQuery,
 					toolExportArchiveQuery,
+					interfaceEvidenceStateFilter,
+					interfaceEvidenceQuery,
 				},
 				selectedStatusEvidenceKind,
 				"archive",
@@ -9820,6 +9993,8 @@ export function App(): React.ReactElement {
 					toolExportArchiveFilter,
 					toolExportQuery,
 					toolExportArchiveQuery,
+					interfaceEvidenceStateFilter,
+					interfaceEvidenceQuery,
 				},
 				selectedStatusEvidenceKind,
 				"retention",
@@ -11677,6 +11852,8 @@ export function App(): React.ReactElement {
 					selectedInterfaceConfirmationAuditExportIndex={
 						selectedInterfaceConfirmationAuditExportIndex
 					}
+					interfaceEvidenceStateFilter={interfaceEvidenceStateFilter}
+					interfaceEvidenceQuery={interfaceEvidenceQuery}
 					selectedStatusEvidenceKind={selectedStatusEvidenceKind}
 					selectedUpdateHandoffIndex={selectedUpdateHandoffIndex}
 					handoffIndex={handoffIndex}
@@ -11942,6 +12119,8 @@ function MainWorkspace({
 	interfaceConfirmationAuditExports,
 	interfaceConfirmationAuditArchiveExports,
 	selectedInterfaceConfirmationAuditExportIndex,
+	interfaceEvidenceStateFilter,
+	interfaceEvidenceQuery,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
 	handoffIndex,
@@ -12108,6 +12287,8 @@ function MainWorkspace({
 	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[];
 	interfaceConfirmationAuditArchiveExports: ConsoleAuditExportPlan[];
 	selectedInterfaceConfirmationAuditExportIndex: number;
+	interfaceEvidenceStateFilter: InterfaceEvidenceStateFilter;
+	interfaceEvidenceQuery: string;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
 	handoffIndex: HandoffIndex;
@@ -12352,6 +12533,8 @@ function MainWorkspace({
 						interfaceConfirmationAuditExports,
 						interfaceConfirmationAuditArchiveExports,
 						selectedInterfaceConfirmationAuditExportIndex,
+						interfaceEvidenceStateFilter,
+						interfaceEvidenceQuery,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
 						handoffIndex,
@@ -12525,6 +12708,8 @@ function renderWorkspace(
 	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[],
 	interfaceConfirmationAuditArchiveExports: ConsoleAuditExportPlan[],
 	selectedInterfaceConfirmationAuditExportIndex: number,
+	interfaceEvidenceStateFilter: InterfaceEvidenceStateFilter,
+	interfaceEvidenceQuery: string,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
 	handoffIndex: HandoffIndex,
@@ -12559,6 +12744,13 @@ function renderWorkspace(
 			toolExportFilter,
 			toolExportQuery,
 		);
+		const filteredInterfaceEvidenceExports =
+			filterInterfaceConfirmationEvidenceExports(
+				interfaceConfirmationAuditExports,
+				interfaceConfirmationAuditArchiveExports,
+				interfaceEvidenceStateFilter,
+				interfaceEvidenceQuery,
+			);
 		const selectedProcessControlAuditExport =
 			getSelectedProcessControlAuditExport(
 				processControlAuditExports,
@@ -12569,17 +12761,17 @@ function renderWorkspace(
 				remoteKnownHostsSelectionAuditExports,
 				selectedRemoteKnownHostsSelectionAuditExportIndex,
 			);
+		const selectedInterfaceConfirmationEvidence =
+			filteredInterfaceEvidenceExports[
+				Math.min(
+					selectedInterfaceConfirmationAuditExportIndex,
+					Math.max(0, filteredInterfaceEvidenceExports.length - 1),
+				)
+			];
 		const selectedInterfaceConfirmationAuditExport =
-			getSelectedInterfaceConfirmationAuditExport(
-				[
-					...interfaceConfirmationAuditExports,
-					...interfaceConfirmationAuditArchiveExports,
-				],
-				selectedInterfaceConfirmationAuditExportIndex,
-			);
+			selectedInterfaceConfirmationEvidence?.plan;
 		const selectedInterfaceConfirmationEvidenceArchived =
-			selectedInterfaceConfirmationAuditExportIndex >=
-			interfaceConfirmationAuditExports.length;
+			selectedInterfaceConfirmationEvidence?.state === "archived";
 		const interfaceAuditArchiveRetentionPreviewPlan =
 			createConsoleAuditArchiveRetentionPlan(
 				filterInterfaceConfirmationAuditExportIndex(auditExportArchiveIndex),
@@ -12666,10 +12858,19 @@ function renderWorkspace(
 						selectedInterfaceEvidenceExportIndex:
 							selectedInterfaceConfirmationAuditExportIndex,
 						totalInterfaceEvidenceExports:
+							filteredInterfaceEvidenceExports.length,
+						totalAvailableInterfaceEvidenceExports:
 							interfaceConfirmationAuditExports.length +
 							interfaceConfirmationAuditArchiveExports.length,
 						selectedInterfaceEvidenceArchived:
 							selectedInterfaceConfirmationEvidenceArchived,
+						interfaceEvidenceStateFilter,
+						interfaceEvidenceQuery,
+						visibleInterfaceEvidenceExports:
+							filteredInterfaceEvidenceExports.length,
+						nextInterfaceEvidenceStateFilter: nextInterfaceEvidenceStateFilter(
+							interfaceEvidenceStateFilter,
+						),
 						interfaceAuditArchiveRetentionPlan:
 							interfaceAuditArchiveRetentionPreviewPlan,
 						selectedStatusActivityResultTimelineJump,
@@ -13025,6 +13226,8 @@ function renderWorkspace(
 				selectedInterfaceConfirmationAuditExportIndex={
 					selectedInterfaceConfirmationAuditExportIndex
 				}
+				interfaceEvidenceStateFilter={interfaceEvidenceStateFilter}
+				interfaceEvidenceQuery={interfaceEvidenceQuery}
 				configManagedShelfRows={configManagedShelfRows}
 				events={events}
 				selectedStatusEvidenceKind={selectedStatusEvidenceKind}
@@ -16075,6 +16278,8 @@ function StatusWorkspace({
 	interfaceConfirmationAuditExports,
 	interfaceConfirmationAuditArchiveExports,
 	selectedInterfaceConfirmationAuditExportIndex,
+	interfaceEvidenceStateFilter,
+	interfaceEvidenceQuery,
 	configManagedShelfRows,
 	events,
 	selectedStatusEvidenceKind,
@@ -16136,6 +16341,8 @@ function StatusWorkspace({
 	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[];
 	interfaceConfirmationAuditArchiveExports: ConsoleAuditExportPlan[];
 	selectedInterfaceConfirmationAuditExportIndex: number;
+	interfaceEvidenceStateFilter: InterfaceEvidenceStateFilter;
+	interfaceEvidenceQuery: string;
 	configManagedShelfRows: string[];
 	events: ConsoleEvent[];
 	selectedStatusEvidenceKind: StatusEvidenceKind;
@@ -16358,6 +16565,8 @@ function StatusWorkspace({
 			toolExportArchiveFilter,
 			toolExportQuery,
 			toolExportArchiveQuery,
+			interfaceEvidenceStateFilter,
+			interfaceEvidenceQuery,
 		},
 		selectedStatusEvidenceKind,
 	);
@@ -16377,7 +16586,8 @@ function StatusWorkspace({
 		toolExportArchiveIndex.items.length > 0 ||
 		processControlAuditExports.length > 0 ||
 		remoteKnownHostsSelectionAuditExports.length > 0 ||
-		interfaceConfirmationAuditExports.length > 0
+		interfaceConfirmationAuditExports.length > 0 ||
+		interfaceConfirmationAuditArchiveExports.length > 0
 			? statusEvidenceSummaryRows
 			: [];
 	const statusActivityCopyPreview =
@@ -16671,9 +16881,19 @@ function StatusWorkspace({
 			</Box>
 			<Box marginTop={1} flexDirection="column">
 				<Text color="gray">
-					STATUS EVIDENCE · tab/1..9 family · [/] item · q tools filter · ?
-					tools search · G process search · enter/a/m action
+					STATUS EVIDENCE · tab/1..9 family · [/] item · q state/tools filter ·
+					f interface find · G Timeline search · enter/a/m action
 				</Text>
+				{formatInterfaceEvidenceFilterRows(
+					interfaceConfirmationAuditExports,
+					interfaceConfirmationAuditArchiveExports,
+					interfaceEvidenceStateFilter,
+					interfaceEvidenceQuery,
+				).map((row) => (
+					<Text key={row} color={row.startsWith("INTERFACE") ? "cyan" : "gray"}>
+						{row}
+					</Text>
+				))}
 				{statusEvidenceSummaryRows.map((row) => (
 					<Text
 						key={row}
@@ -16719,6 +16939,8 @@ function StatusWorkspace({
 						toolExportArchiveFilter,
 						toolExportQuery,
 						toolExportArchiveQuery,
+						interfaceEvidenceStateFilter,
+						interfaceEvidenceQuery,
 					},
 					selectedStatusEvidenceKind,
 				).map((row) => (
@@ -16764,6 +16986,8 @@ function StatusWorkspace({
 						toolExportArchiveFilter,
 						toolExportQuery,
 						toolExportArchiveQuery,
+						interfaceEvidenceStateFilter,
+						interfaceEvidenceQuery,
 					},
 					selectedStatusEvidenceKind,
 				).map((row) => (
@@ -16811,6 +17035,8 @@ function StatusWorkspace({
 						toolExportArchiveFilter,
 						toolExportQuery,
 						toolExportArchiveQuery,
+						interfaceEvidenceStateFilter,
+						interfaceEvidenceQuery,
 					},
 					selectedStatusEvidenceKind,
 				).map((row) => (
@@ -16863,6 +17089,8 @@ function StatusWorkspace({
 						toolExportArchiveFilter,
 						toolExportQuery,
 						toolExportArchiveQuery,
+						interfaceEvidenceStateFilter,
+						interfaceEvidenceQuery,
 					},
 					selectedStatusEvidenceKind,
 				).map((row) => (

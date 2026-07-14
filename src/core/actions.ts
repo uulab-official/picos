@@ -724,6 +724,28 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.interfaceEvidence.filter",
+		title: "Filter interface evidence",
+		description:
+			"Cycle recovered interface confirmation evidence across all, active, and archived states.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.interfaceEvidence.find",
+		title: "Find interface evidence",
+		description:
+			"Open text search for recovered interface confirmation evidence paths, queries, scopes, and states.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.interfaceEvidence.archive",
 		title: "Archive interface evidence",
 		description:

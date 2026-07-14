@@ -67,6 +67,8 @@ export type StatusActivityEnterAction =
 	| "audit-evidence-retention"
 	| "interface-evidence-archive"
 	| "interface-evidence-retention"
+	| "interface-evidence-filter"
+	| "interface-evidence-find"
 	| "process-control-preview"
 	| "process-control-evidence"
 	| "remote-known-hosts-evidence"
@@ -2361,6 +2363,13 @@ export function createStatusActivityResultTimelineSearch(
 	}
 	if (
 		result.source === "evidence" &&
+		(result.action === "interface-evidence-filter" ||
+			result.action === "interface-evidence-find")
+	) {
+		return createInterfaceEvidenceManagementResultTimelineSearch(result);
+	}
+	if (
+		result.source === "evidence" &&
 		result.action === "process-control-evidence"
 	) {
 		return createProcessControlEvidenceResultTimelineSearch(result);
@@ -2706,6 +2715,30 @@ function createToolsEvidenceSearchResultTimelineSearch(
 		filter: "audit",
 		query: `palette tools evidence audit action=search target=${target}${queryToken}`,
 		message: `status activity result timeline search tools evidence search ${target}`,
+	};
+}
+
+function createInterfaceEvidenceManagementResultTimelineSearch(
+	result: StatusActivityResult,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	const action =
+		result.action === "interface-evidence-filter" ? "filter" : "find";
+	const match = result.message.match(
+		/^interface evidence (filter|find) state=(all|active|archived) query=(.*) visible=(\d+\/\d+)$/,
+	);
+	if (!match || match[1] !== action) {
+		return undefined;
+	}
+	const [, , state, query, visible] = match;
+	return {
+		filter: "audit",
+		query: formatInterfaceEvidenceManagementAuditMessage(action, {
+			state: state as "all" | "active" | "archived",
+			query: query === "-" ? "" : query,
+			visible: Number(visible?.split("/")[0] ?? 0),
+			total: Number(visible?.split("/")[1] ?? 0),
+		}),
+		message: `status activity result timeline search interface evidence ${action}`,
 	};
 }
 
@@ -3683,6 +3716,29 @@ export function createStatusActivityToolsEvidencePaletteResult(
 	};
 }
 
+export function createInterfaceEvidenceManagementStatusActivityResult(
+	action: "filter" | "find",
+	options: {
+		state: "all" | "active" | "archived";
+		query?: string;
+		visible: number;
+		total: number;
+	},
+): StatusActivityResult {
+	const query = options.query?.trim() ?? "";
+	const visible = Math.max(0, Math.floor(options.visible));
+	const total = Math.max(0, Math.floor(options.total));
+	return {
+		source: "evidence",
+		action:
+			action === "filter"
+				? "interface-evidence-filter"
+				: "interface-evidence-find",
+		message: `interface evidence ${action} state=${options.state} query=${query || "-"} visible=${visible}/${total}`,
+		detail: `controls=q state f find G timeline state=${options.state} query=${query}`,
+	};
+}
+
 export function createStatusActivityToolsEvidenceMatchResult(
 	action: "archive" | "open",
 	recovery?: StatusActivityToolsEvidenceSearchRecovery,
@@ -4132,6 +4188,27 @@ export function formatStatusActivityToolsEvidencePaletteAuditMessage(
 	]
 		.filter(Boolean)
 		.join(" ");
+}
+
+export function formatInterfaceEvidenceManagementAuditMessage(
+	action: "filter" | "find",
+	options: {
+		state: "all" | "active" | "archived";
+		query?: string;
+		visible: number;
+		total: number;
+	},
+): string {
+	const query = options.query?.trim() ?? "";
+	const visible = Math.max(0, Math.floor(options.visible));
+	const total = Math.max(0, Math.floor(options.total));
+	return [
+		"interface evidence audit",
+		`action=${action}`,
+		`state=${options.state}`,
+		`query="${formatTimelineEvidenceTrailAuditValue(query)}"`,
+		`visible=${visible}/${total}`,
+	].join(" ");
 }
 
 export function formatStatusActivityToolsEvidenceMatchAuditMessage(

@@ -12,6 +12,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- Interface confirmation evidence now supports `all`/`active`/`archived` state filtering with `q`, tokenized path/query/scope/state search with `f`, always-visible result counts, command-palette filter/find actions, and Status Activity to Timeline recovery while interface mutation remains disabled.
 - Interface confirmation evidence now stays in one Status Evidence family across active and archived files: `[`/`]` moves between both states, `a`/`A` opens the locked `archive audit export` prompt for active files, `m`/`M` opens interface-scoped `prune audit archive` retention for archived files, and command-palette archive/retention actions expose the same previews without enabling interface mutation.
 - Status Activity copy-intent shelves now show compact interface evidence target tokens such as `interface.disable:confirmed-blocked target="Wi-Fi"` and advertise the `palette interface evidence` recovery path.
 - Command palette now exposes recovered interface confirmation evidence select/open/search actions, with selected export previews, Status Activity result rows, and searchable Timeline audit recovery while interface enable/disable execution remains disabled.

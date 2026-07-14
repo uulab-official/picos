@@ -54,6 +54,15 @@ export type StatusEvidenceSelection = {
 	toolExportArchiveFilter?: ToolHistoryEvidenceFilter;
 	toolExportQuery?: string;
 	toolExportArchiveQuery?: string;
+	interfaceEvidenceStateFilter?: InterfaceEvidenceStateFilter;
+	interfaceEvidenceQuery?: string;
+};
+
+export type InterfaceEvidenceStateFilter = "all" | "active" | "archived";
+
+export type InterfaceEvidenceExport = {
+	plan: ConsoleAuditExportPlan;
+	state: Exclude<InterfaceEvidenceStateFilter, "all">;
 };
 
 export type StatusEvidenceKind =
@@ -148,10 +157,66 @@ type EvidenceEntry = {
 	state?: "active" | "archived";
 };
 
-type InterfaceEvidenceExport = {
-	plan: ConsoleAuditExportPlan;
-	state: "active" | "archived";
-};
+export function normalizeInterfaceEvidenceQuery(query: string): string {
+	return query.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+export function nextInterfaceEvidenceStateFilter(
+	filter: InterfaceEvidenceStateFilter,
+): InterfaceEvidenceStateFilter {
+	const filters: InterfaceEvidenceStateFilter[] = ["all", "active", "archived"];
+	return filters[(filters.indexOf(filter) + 1) % filters.length] ?? "all";
+}
+
+export function filterInterfaceConfirmationEvidenceExports(
+	active: ConsoleAuditExportPlan[],
+	archived: ConsoleAuditExportPlan[],
+	stateFilter: InterfaceEvidenceStateFilter = "all",
+	query = "",
+): InterfaceEvidenceExport[] {
+	const normalizedQuery = normalizeInterfaceEvidenceQuery(query);
+	const tokens = normalizedQuery.split(" ").filter(Boolean);
+	return [
+		...active.map((plan) => ({ plan, state: "active" as const })),
+		...archived.map((plan) => ({ plan, state: "archived" as const })),
+	].filter((item) => {
+		if (stateFilter !== "all" && item.state !== stateFilter) {
+			return false;
+		}
+		const haystack = normalizeInterfaceEvidenceQuery(
+			[
+				item.plan.path,
+				item.plan.query,
+				item.plan.scope,
+				item.plan.eventCount,
+				item.state,
+			]
+				.filter((value) => value !== undefined)
+				.join(" "),
+		);
+		return tokens.every((token) => haystack.includes(token));
+	});
+}
+
+export function formatInterfaceEvidenceFilterRows(
+	active: ConsoleAuditExportPlan[],
+	archived: ConsoleAuditExportPlan[],
+	stateFilter: InterfaceEvidenceStateFilter,
+	query: string,
+): string[] {
+	const normalizedQuery = normalizeInterfaceEvidenceQuery(query);
+	const visible = filterInterfaceConfirmationEvidenceExports(
+		active,
+		archived,
+		stateFilter,
+		normalizedQuery,
+	).length;
+	const total = active.length + archived.length;
+	return [
+		`INTERFACE EVIDENCE FILTER state=${stateFilter} query=${normalizedQuery || "-"} visible=${visible}/${total}`,
+		"controls=q state f find G timeline [/] select",
+	];
+}
 
 export function formatStatusEvidenceDetailRows(
 	indexes: StatusEvidenceIndexes,
@@ -773,7 +838,7 @@ function collectStatusEvidenceFamilyEntries(
 			};
 		case "interface":
 			return {
-				entries: getInterfaceConfirmationEvidenceExports(indexes)
+				entries: getInterfaceConfirmationEvidenceExports(indexes, selection)
 					.map(({ plan, state }) => formatInterfaceEvidence(plan, state))
 					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
 				selectedIndex:
@@ -1066,8 +1131,8 @@ function formatInterfaceEvidence(
 		origin: item.origin,
 		controls:
 			state === "active"
-				? "enter=open open I archive A/a retention=- search=G"
-				: "enter=open open I archive=archived retention=M/m search=G",
+				? "enter=open open I archive A/a retention=- search=G filter=q find=f"
+				: "enter=open open I archive=archived retention=M/m search=G filter=q find=f",
 		state,
 	};
 }
@@ -1153,24 +1218,21 @@ function getInterfaceConfirmationAuditExports(
 
 function getInterfaceConfirmationEvidenceExports(
 	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
 ): InterfaceEvidenceExport[] {
-	return [
-		...getInterfaceConfirmationAuditExports(indexes).map((plan) => ({
-			plan,
-			state: "active" as const,
-		})),
-		...(indexes.interfaceConfirmationAuditArchiveExports ?? []).map((plan) => ({
-			plan,
-			state: "archived" as const,
-		})),
-	];
+	return filterInterfaceConfirmationEvidenceExports(
+		getInterfaceConfirmationAuditExports(indexes),
+		indexes.interfaceConfirmationAuditArchiveExports ?? [],
+		selection.interfaceEvidenceStateFilter ?? "all",
+		selection.interfaceEvidenceQuery ?? "",
+	);
 }
 
 function getSelectedInterfaceConfirmationEvidenceExport(
 	indexes: StatusEvidenceIndexes,
 	selection: StatusEvidenceSelection,
 ): InterfaceEvidenceExport | undefined {
-	const exports = getInterfaceConfirmationEvidenceExports(indexes);
+	const exports = getInterfaceConfirmationEvidenceExports(indexes, selection);
 	if (exports.length === 0) {
 		return undefined;
 	}
