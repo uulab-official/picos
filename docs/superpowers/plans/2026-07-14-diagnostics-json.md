@@ -20,7 +20,7 @@
 - [x] Update public automation, harness, roadmap, changelog, Codex, Claude, and agent documentation.
 - [x] Run gstack review and full verification.
 - [x] Open stacked draft PR [#413](https://github.com/uulab-official/picos/pull/413) on #412.
-- [ ] Monitor CI and automated review on #413.
+- [x] Monitor CI and automated review on #413; all CI jobs pass and no automated review findings remain.
 
 ## Next
 
