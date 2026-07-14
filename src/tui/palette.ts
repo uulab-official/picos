@@ -1,5 +1,8 @@
 import type { ActionPreviewPlan, PicosAction } from "../core/actions";
-import type { ConsoleAuditExportPlan } from "../core/auditLog";
+import type {
+	ConsoleAuditArchiveRetentionPlan,
+	ConsoleAuditExportPlan,
+} from "../core/auditLog";
 import {
 	createInterfaceStateProposal,
 	formatInterfaceStateProposalRows,
@@ -163,6 +166,8 @@ export type CommandPalettePreviewContext = {
 	selectedInterfaceEvidenceExport?: ConsoleAuditExportPlan;
 	selectedInterfaceEvidenceExportIndex?: number;
 	totalInterfaceEvidenceExports?: number;
+	selectedInterfaceEvidenceArchived?: boolean;
+	interfaceAuditArchiveRetentionPlan?: ConsoleAuditArchiveRetentionPlan;
 	selectedStatusActivityResultTimelineJump?: StatusActivityCopyIntentTimelineSearch;
 	selectedStatusActivityResultTimelineJumpIndex?: number;
 	totalStatusActivityResultTimelineJumps?: number;
@@ -206,6 +211,8 @@ export function formatCommandPaletteActionPreviewRows(
 		action.id !== "status.interfaceEvidence.select" &&
 		action.id !== "status.interfaceEvidence.open" &&
 		action.id !== "status.interfaceEvidence.search" &&
+		action.id !== "status.interfaceEvidence.archive" &&
+		action.id !== "status.interfaceEvidence.retention" &&
 		action.id !== "status.resultJump.select" &&
 		action.id !== "status.resultJump.open" &&
 		action.id !== "status.resultJump.filter" &&
@@ -285,7 +292,9 @@ export function formatCommandPaletteActionPreviewRows(
 	if (
 		action.id === "status.interfaceEvidence.select" ||
 		action.id === "status.interfaceEvidence.open" ||
-		action.id === "status.interfaceEvidence.search"
+		action.id === "status.interfaceEvidence.search" ||
+		action.id === "status.interfaceEvidence.archive" ||
+		action.id === "status.interfaceEvidence.retention"
 	) {
 		return formatInterfaceEvidencePalettePreviewRows(action, context);
 	}
@@ -838,6 +847,23 @@ function formatInterfaceEvidencePalettePreviewRows(
 	action: PicosAction,
 	context: CommandPalettePreviewContext,
 ): string[] {
+	if (action.id === "status.interfaceEvidence.retention") {
+		const plan = context.interfaceAuditArchiveRetentionPlan;
+		if (!plan) {
+			return [
+				"interface evidence retention unavailable",
+				"hint=refresh archived interface confirmation evidence",
+			];
+		}
+		return [
+			`interface evidence retention max=${plan.maxItems} candidates=${plan.candidateItems.length}`,
+			`keep=${plan.retainedItems.length} remove=${plan.candidateItems.length}`,
+			...(plan.candidateItems[0]
+				? [`remove ${plan.candidateItems[0].fileName}`]
+				: ["blocked=no archived interface evidence beyond retention"]),
+			`confirm=${plan.confirmationPhrase}`,
+		];
+	}
 	const selected = context.selectedInterfaceEvidenceExport;
 	if (!selected) {
 		return [
@@ -851,6 +877,19 @@ function formatInterfaceEvidencePalettePreviewRows(
 	);
 	const total = Math.max(1, context.totalInterfaceEvidenceExports ?? 1);
 	const fileName = selected.path.split(/[\\/]/).pop() ?? selected.path;
+	if (action.id === "status.interfaceEvidence.archive") {
+		return context.selectedInterfaceEvidenceArchived
+			? [
+					`selected interface evidence ${selectedIndex + 1}/${total} ${fileName}`,
+					"archive unavailable=selected evidence already archived",
+					"hint=use interface evidence retention for archived files",
+				]
+			: [
+					`selected interface evidence ${selectedIndex + 1}/${total} ${fileName}`,
+					`target=${formatInterfaceEvidenceTarget(selected.query)} events=${selected.eventCount}`,
+					`confirm=archive audit export path=${selected.path}`,
+				];
+	}
 	const handoff =
 		action.id === "status.interfaceEvidence.select"
 			? "action=select next recovered interface evidence"

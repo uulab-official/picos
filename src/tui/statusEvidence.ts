@@ -36,6 +36,7 @@ export type StatusEvidenceIndexes = {
 	processControlAuditExports?: ConsoleAuditExportPlan[];
 	remoteKnownHostsSelectionAuditExports?: ConsoleAuditExportPlan[];
 	interfaceConfirmationAuditExports?: ConsoleAuditExportPlan[];
+	interfaceConfirmationAuditArchiveExports?: ConsoleAuditExportPlan[];
 };
 
 export type StatusEvidenceSelection = {
@@ -86,8 +87,10 @@ export type StatusEvidenceSecondaryAction =
 	| "archive-audit"
 	| "archive-cleanup"
 	| "archive-tools"
+	| "archive-interface-evidence"
 	| "preview-audit-retention"
-	| "preview-tools-retention";
+	| "preview-tools-retention"
+	| "preview-interface-retention";
 
 export type StatusEvidenceSearchAction =
 	| "search-process-evidence"
@@ -142,6 +145,12 @@ type EvidenceEntry = {
 	path: string;
 	origin?: FileOpenOrigin;
 	controls: string;
+	state?: "active" | "archived";
+};
+
+type InterfaceEvidenceExport = {
+	plan: ConsoleAuditExportPlan;
+	state: "active" | "archived";
 };
 
 export function formatStatusEvidenceDetailRows(
@@ -293,10 +302,12 @@ export function formatStatusEvidenceTableRows(
 			const archiveAction = getStatusEvidenceSecondaryAction(
 				entry.kind,
 				"archive",
+				entry.state,
 			);
 			const retentionAction = getStatusEvidenceSecondaryAction(
 				entry.kind,
 				"retention",
+				entry.state,
 			);
 			const searchAction = getStatusEvidenceSearchAction(entry.kind);
 			const itemMovement = family.entries.length > 1 ? "[/]" : "-";
@@ -364,10 +375,12 @@ export function formatStatusEvidenceCommandStripRows(
 	const archiveAction = getStatusEvidenceSecondaryAction(
 		activeEntry.kind,
 		"archive",
+		activeEntry.state,
 	);
 	const retentionAction = getStatusEvidenceSecondaryAction(
 		activeEntry.kind,
 		"retention",
+		activeEntry.state,
 	);
 	const searchAction = getStatusEvidenceSearchAction(activeEntry.kind);
 	const itemMovement =
@@ -473,7 +486,11 @@ export function createStatusEvidenceActionPlan(
 	if (!activeEntry) {
 		return undefined;
 	}
-	const action = getStatusEvidenceSecondaryAction(activeEntry.kind, intent);
+	const action = getStatusEvidenceSecondaryAction(
+		activeEntry.kind,
+		intent,
+		activeEntry.state,
+	);
 	if (!action) {
 		return undefined;
 	}
@@ -514,10 +531,8 @@ export function createStatusEvidenceSearchPlan(
 						getRemoteKnownHostsSelectionAuditExports(indexes),
 						getSelectedRemoteKnownHostsSelectionAuditExportIndex(selection),
 					)
-				: getSelectedProcessControlAuditExport(
-						getInterfaceConfirmationAuditExports(indexes),
-						getSelectedInterfaceConfirmationAuditExportIndex(selection),
-					);
+				: getSelectedInterfaceConfirmationEvidenceExport(indexes, selection)
+						?.plan;
 	if (!action || !exportPlan?.query) {
 		return undefined;
 	}
@@ -638,12 +653,7 @@ function collectStatusEvidenceEntries(
 				getSelectedRemoteKnownHostsSelectionAuditExportIndex(selection),
 			),
 		),
-		formatInterfaceEvidence(
-			getSelectedProcessControlAuditExport(
-				getInterfaceConfirmationAuditExports(indexes),
-				getSelectedInterfaceConfirmationAuditExportIndex(selection),
-			),
-		),
+		formatSelectedInterfaceEvidence(indexes, selection),
 	].filter((entry): entry is EvidenceEntry => Boolean(entry));
 }
 
@@ -763,8 +773,8 @@ function collectStatusEvidenceFamilyEntries(
 			};
 		case "interface":
 			return {
-				entries: getInterfaceConfirmationAuditExports(indexes)
-					.map(formatInterfaceEvidence)
+				entries: getInterfaceConfirmationEvidenceExports(indexes)
+					.map(({ plan, state }) => formatInterfaceEvidence(plan, state))
 					.filter((entry): entry is EvidenceEntry => Boolean(entry)),
 				selectedIndex:
 					getSelectedInterfaceConfirmationAuditExportIndex(selection),
@@ -800,8 +810,17 @@ function createStatusEvidenceSummaryRow(
 		family.entries.length,
 	);
 	const enterAction = getStatusEvidenceEnterAction(kind);
-	const archiveAction = getStatusEvidenceSecondaryAction(kind, "archive");
-	const retentionAction = getStatusEvidenceSecondaryAction(kind, "retention");
+	const selectedEntry = family.entries[selectedIndex];
+	const archiveAction = getStatusEvidenceSecondaryAction(
+		kind,
+		"archive",
+		selectedEntry?.state,
+	);
+	const retentionAction = getStatusEvidenceSecondaryAction(
+		kind,
+		"retention",
+		selectedEntry?.state,
+	);
 	const searchAction = getStatusEvidenceSearchAction(kind);
 	const cursor = kind === activeKind ? ">" : " ";
 	const movement = family.entries.length > 1 ? "[/]" : "-";
@@ -824,10 +843,13 @@ function createStatusEvidenceLegacyBridgeRow(
 	if (family.entries.length === 0) {
 		return undefined;
 	}
-	const shortcuts = getStatusEvidenceLegacyShortcuts(kind);
 	const selectedIndex = clampEvidenceSelectionIndex(
 		family.selectedIndex,
 		family.entries.length,
+	);
+	const shortcuts = getStatusEvidenceLegacyShortcuts(
+		kind,
+		family.entries[selectedIndex]?.state,
 	);
 	const cursor = kind === activeKind ? ">" : " ";
 	return `${cursor} ${kind.padEnd(15)} selected=${selectedIndex + 1}/${
@@ -837,7 +859,10 @@ function createStatusEvidenceLegacyBridgeRow(
 	} archive=${shortcuts.archive} retention=${shortcuts.retention}`;
 }
 
-function getStatusEvidenceLegacyShortcuts(kind: StatusEvidenceKind): {
+function getStatusEvidenceLegacyShortcuts(
+	kind: StatusEvidenceKind,
+	state?: "active" | "archived",
+): {
 	refresh: string;
 	select: string;
 	open: string;
@@ -922,8 +947,8 @@ function getStatusEvidenceLegacyShortcuts(kind: StatusEvidenceKind): {
 				refresh: "-",
 				select: "I",
 				open: "I",
-				archive: "-",
-				retention: "-",
+				archive: state === "active" ? "A" : "-",
+				retention: state === "archived" ? "M" : "-",
 			};
 	}
 }
@@ -1028,6 +1053,7 @@ function formatRemoteKnownHostsEvidence(
 
 function formatInterfaceEvidence(
 	item: ConsoleAuditExportPlan | undefined,
+	state: "active" | "archived",
 ): EvidenceEntry | undefined {
 	if (!item) {
 		return undefined;
@@ -1035,10 +1061,14 @@ function formatInterfaceEvidence(
 	const scope = item.scope ?? "selected";
 	return {
 		kind: "interface",
-		label: `interface ${scope} events=${item.eventCount}${item.query ? ` query=${item.query}` : ""}`,
+		label: `interface ${state} ${scope} events=${item.eventCount}${item.query ? ` query=${item.query}` : ""}`,
 		path: item.path,
 		origin: item.origin,
-		controls: "enter=open open I archive=- retention=- search=G",
+		controls:
+			state === "active"
+				? "enter=open open I archive A/a retention=- search=G"
+				: "enter=open open I archive=archived retention=M/m search=G",
+		state,
 	};
 }
 
@@ -1121,6 +1151,50 @@ function getInterfaceConfirmationAuditExports(
 	return indexes.interfaceConfirmationAuditExports ?? [];
 }
 
+function getInterfaceConfirmationEvidenceExports(
+	indexes: StatusEvidenceIndexes,
+): InterfaceEvidenceExport[] {
+	return [
+		...getInterfaceConfirmationAuditExports(indexes).map((plan) => ({
+			plan,
+			state: "active" as const,
+		})),
+		...(indexes.interfaceConfirmationAuditArchiveExports ?? []).map((plan) => ({
+			plan,
+			state: "archived" as const,
+		})),
+	];
+}
+
+function getSelectedInterfaceConfirmationEvidenceExport(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+): InterfaceEvidenceExport | undefined {
+	const exports = getInterfaceConfirmationEvidenceExports(indexes);
+	if (exports.length === 0) {
+		return undefined;
+	}
+	return exports[
+		clampEvidenceSelectionIndex(
+			getSelectedInterfaceConfirmationAuditExportIndex(selection),
+			exports.length,
+		)
+	];
+}
+
+function formatSelectedInterfaceEvidence(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+): EvidenceEntry | undefined {
+	const selected = getSelectedInterfaceConfirmationEvidenceExport(
+		indexes,
+		selection,
+	);
+	return selected
+		? formatInterfaceEvidence(selected.plan, selected.state)
+		: undefined;
+}
+
 function getSelectedProcessControlAuditExportIndex(
 	selection: StatusEvidenceSelection,
 ): number {
@@ -1193,6 +1267,7 @@ function getStatusEvidenceEnterAction(kind: StatusEvidenceKind): {
 function getStatusEvidenceSecondaryAction(
 	kind: StatusEvidenceKind,
 	intent: StatusEvidenceSecondaryIntent,
+	state?: "active" | "archived",
 ):
 	| {
 			action: StatusEvidenceSecondaryAction;
@@ -1206,6 +1281,9 @@ function getStatusEvidenceSecondaryAction(
 		if (kind === "tools-archive") {
 			return { action: "preview-tools-retention", shortcut: "M" };
 		}
+		if (kind === "interface" && state === "archived") {
+			return { action: "preview-interface-retention", shortcut: "M" };
+		}
 		return undefined;
 	}
 	switch (kind) {
@@ -1217,12 +1295,15 @@ function getStatusEvidenceSecondaryAction(
 			return { action: "archive-cleanup", shortcut: "X" };
 		case "tools":
 			return { action: "archive-tools", shortcut: "D" };
+		case "interface":
+			return state === "active"
+				? { action: "archive-interface-evidence", shortcut: "A" }
+				: undefined;
 		case "audit-archive":
 		case "cleanup-archive":
 		case "tools-archive":
 		case "process":
 		case "remote-known-hosts":
-		case "interface":
 			return undefined;
 	}
 }

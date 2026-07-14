@@ -1,5 +1,20 @@
 # picos Roadmap
 
+## v0.4.331 - Interface Evidence Retention
+
+Status: implementation branch `codex/picos-v0.4.331-interface-evidence-retention`, stacked on draft PR [#405](https://github.com/uulab-official/picos/pull/405).
+
+Goal: keep interface confirmation evidence manageable after it is archived without widening the interface mutation boundary.
+
+- Status Evidence now combines active and archived interface confirmation exports in one keyboard-selectable `interface` family.
+- `[`/`]` moves across active and archived interface evidence while `I` locked file-open and `G` Timeline audit recovery remain available in both states.
+- `a`/`A` opens the existing exact `archive audit export` confirmation only for active interface evidence.
+- `m`/`M` opens exact `prune audit archive` retention only for archived interface evidence, and the prune plan is scoped to interface confirmation exports so unrelated Timeline audit files are not candidates.
+- Command palette exposes `interface evidence archive` and `interface evidence retention` with selected-state, path, keep/remove, candidate, and confirmation previews.
+- Archive and retention results append Status Activity rows, and interface enable/disable adapter execution remains disabled.
+- Tests cover active/archive controls, archived search recovery, interface-only index filtering, palette discovery/previews, and action-catalog safety counts.
+- Next: add richer interface evidence search/filter controls and archive outcome recovery rows.
+
 ## v0.4.330 - Interface Evidence Targets
 
 Status: draft PR [#405](https://github.com/uulab-official/picos/pull/405) on `codex/picos-v0.4.330-interface-evidence-targets`, stacked on draft PR [#404](https://github.com/uulab-official/picos/pull/404).
@@ -11,7 +26,7 @@ Goal: make interface confirmation evidence easier to scan inside the Status Acti
 - Timeline audit recovery still uses the stable `interface confirmation interface.* status=*` query shape.
 - No adapter execution, dry-run execution, privileged call, interface enable/disable command, or OS mutation is added.
 - Tests cover the compact target row and controls hint in the Status Activity copy-intent shelf.
-- Next: add archive/retention controls for interface audit evidence.
+- Next: archive/retention controls for interface audit evidence are completed by v0.4.331.
 
 ## v0.4.329 - Interface Evidence Palette
 

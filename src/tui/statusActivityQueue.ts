@@ -63,6 +63,10 @@ export type StatusActivityEnterAction =
 	| "tools-evidence-search"
 	| "tools-evidence-archive"
 	| "tools-evidence-retention"
+	| "audit-evidence-archive"
+	| "audit-evidence-retention"
+	| "interface-evidence-archive"
+	| "interface-evidence-retention"
 	| "process-control-preview"
 	| "process-control-evidence"
 	| "remote-known-hosts-evidence"
@@ -4283,6 +4287,15 @@ export function getInterfaceConfirmationAuditExports(
 		scope: item.scope,
 		...(item.origin ? { origin: item.origin } : {}),
 	}));
+}
+
+export function filterInterfaceConfirmationAuditExportIndex(
+	index: ConsoleAuditExportIndex,
+): ConsoleAuditExportIndex {
+	return {
+		...index,
+		items: index.items.filter(isInterfaceConfirmationAuditExport),
+	};
 }
 
 export function getTimelineEvidenceTrailAuditExports(
