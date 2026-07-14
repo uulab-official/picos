@@ -91,6 +91,7 @@ export const MAX_SFTP_READ_BYTES = 1024 * 1024;
 const MAX_SFTP_DIRECTORY_ENTRIES = 10_000;
 const MAX_SFTP_DIRECTORY_NAME_BYTES = 1024 * 1024;
 const DEFAULT_READY_TIMEOUT_MS = 10_000;
+const SFTP_EOF_STATUS_CODE = 1;
 
 export async function connectReadOnlySftpFileProvider(
 	profile: SftpRemoteProfile,
@@ -481,8 +482,15 @@ async function createSftpAuthConfig(
 ): Promise<Pick<ConnectConfig, "agent" | "privateKey">> {
 	if (profile.keyPath) {
 		const keyPath = resolveHomePath(profile.keyPath);
-		const privateKey = await readFile(keyPath, { signal });
-		return { privateKey };
+		try {
+			const privateKey = await readFile(keyPath, { signal });
+			return { privateKey };
+		} catch (caught) {
+			if (signal?.aborted) {
+				throw new ReadOnlySftpConnectionCancelledError();
+			}
+			throw new Error("SFTP private key could not be read", { cause: caught });
+		}
 	}
 	const agent = agentPath ?? process.env.SSH_AUTH_SOCK;
 	if (!agent) {
@@ -585,7 +593,8 @@ async function readBoundedSftpDirectory(
 			const batch = await new Promise<FileEntryWithStats[]>(
 				(resolveEntries, rejectEntries) =>
 					sftp.readdir(handle, (error, rows) => {
-						if (error) rejectEntries(error);
+						if (isSftpEndOfDirectory(error)) resolveEntries([]);
+						else if (error) rejectEntries(error);
 						else resolveEntries(Array.isArray(rows) ? rows : []);
 					}),
 			);
@@ -610,6 +619,14 @@ async function readBoundedSftpDirectory(
 			}),
 		);
 	}
+}
+
+function isSftpEndOfDirectory(error: Error | undefined): boolean {
+	return (
+		error !== undefined &&
+		"code" in error &&
+		error.code === SFTP_EOF_STATUS_CODE
+	);
 }
 
 function assertBoundedSftpDirectory(

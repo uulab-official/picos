@@ -53,14 +53,131 @@ describe("guarded remote CLI files", () => {
 			createGuardedRemoteFileRequest("prod", {
 				read: 2026,
 				confirm: "connect remote prod",
+				json: true,
 			}),
-		).toMatchObject({ path: "2026" });
+		).toMatchObject({ path: "2026", output: "json" });
 		expect(() =>
 			createGuardedRemoteFileRequest("prod", {
 				read: ["one", "two"],
 				confirm: "connect remote prod",
 			}),
 		).toThrow("--read must be provided exactly once");
+		expect(() =>
+			createGuardedRemoteFileRequest("prod", { json: true }),
+		).toThrow("--json requires exactly one remote operation");
+		expect(() =>
+			createGuardedRemoteFileRequest("prod", {
+				list: ".",
+				confirm: "connect remote prod",
+				json: [true, true],
+			}),
+		).toThrow("--json is a boolean flag");
+	});
+
+	test("emits one structured list result after the session closes", async () => {
+		const request = createGuardedRemoteFileRequest("prod", {
+			list: ".",
+			confirm: "connect remote prod",
+			json: true,
+		});
+		if (!request) throw new Error("expected guarded JSON list request");
+		let closed = false;
+		const output: string[] = [];
+
+		await runGuardedRemoteFileRequest(profile, request, {
+			readKnownHosts: async () => knownHosts,
+			connect: async () => ({
+				kind: "sftp",
+				async pwd() {
+					return "sftp://deploy@prod.example.com:2222/srv/app";
+				},
+				async list() {
+					return [
+						{
+							name: "logs",
+							path: "sftp://deploy@prod.example.com:2222/srv/app/logs",
+							type: "directory",
+							readonly: true,
+						},
+					];
+				},
+				async read() {
+					throw new Error("not used");
+				},
+				async write() {
+					throw new Error("locked");
+				},
+				async stat() {
+					throw new Error("not used");
+				},
+				async close() {
+					closed = true;
+				},
+			}),
+			writeOutput: (value) => {
+				expect(closed).toBeTrue();
+				output.push(value);
+			},
+			writeDiagnostic: () => undefined,
+		});
+
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			status: "completed",
+			operation: "list",
+			data: { count: 1 },
+			session: { network: "closed", writes: "locked" },
+		});
+	});
+
+	test("emits one structured failure before rejecting JSON requests", async () => {
+		const request = createGuardedRemoteFileRequest("prod", {
+			list: "/missing",
+			confirm: "connect remote prod",
+			json: true,
+		});
+		if (!request) throw new Error("expected guarded JSON list request");
+		const output: string[] = [];
+		const diagnostics: string[] = [];
+
+		await expect(
+			runGuardedRemoteFileRequest(profile, request, {
+				readKnownHosts: async () => "invalid",
+				writeOutput: (value) => output.push(value),
+				writeDiagnostic: (value) => diagnostics.push(value),
+			}),
+		).rejects.toThrow("No usable known_hosts candidate");
+
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			status: "failed",
+			operation: "list",
+			error: { code: "PICOS_REMOTE_OPERATION_FAILED" },
+		});
+		expect(diagnostics).toHaveLength(1);
+	});
+
+	test("keeps one JSON failure when the diagnostic writer throws", async () => {
+		const request = createGuardedRemoteFileRequest("prod", {
+			list: "/missing",
+			confirm: "connect remote prod",
+			json: true,
+		});
+		if (!request) throw new Error("expected guarded JSON list request");
+		const output: string[] = [];
+
+		await expect(
+			runGuardedRemoteFileRequest(profile, request, {
+				readKnownHosts: async () => "invalid",
+				writeOutput: (value) => output.push(value),
+				writeDiagnostic: () => {
+					throw new Error("stderr unavailable");
+				},
+			}),
+		).rejects.toThrow("No usable known_hosts candidate");
+
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}").status).toBe("failed");
 	});
 
 	test("lists through a host-verified provider and always closes the session", async () => {

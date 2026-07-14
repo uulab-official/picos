@@ -120,6 +120,7 @@ picos remotes
 picos remote dev
 picos remote dev --list . --known-hosts ~/.ssh/known_hosts --confirm "connect remote dev"
 picos remote dev --read README.md --max-bytes 262144 --known-hosts ~/.ssh/known_hosts --confirm "connect remote dev"
+picos remote dev --list . --known-hosts ~/.ssh/known_hosts --confirm "connect remote dev" --json
 picos dir /
 picos dir ~
 picos pwd
@@ -175,6 +176,7 @@ Commands:
 - `picos remote <id>`: inspect the remote provider, handoff boundary, adapter boundary, transport probe, read-only adapter contract, locked file request preview, host-key evidence, known_hosts source/read preview/read result/parser/candidate previews, host-key trust decision preview, host-key compare detail, host review, and connect preview for a configured profile without opening a network session.
 - `picos remote <id> --list <path> --known-hosts <path> --confirm "connect remote <id>"`: open a bounded host-key-verified read-only session, list at most 10,000 remote entries, emit one terminal audit diagnostic, and close the session. Hashed OpenSSH hosts and case-insensitive DNS names are supported; a matching `@revoked` fingerprint blocks the same key everywhere, and `--fingerprint SHA256:...` is required when several usable keys match.
 - `picos remote <id> --read <path> --max-bytes <n> --known-hosts <path> --confirm "connect remote <id>"`: read a bounded remote text file through the same guard. The confirmation must match exactly, including whitespace; `--timeout` is limited to 1-60 seconds, `--max-bytes` to 1 MiB, and the local `known_hosts` input to a regular file no larger than 4 MiB. A successful CLI operation ends with `status=completed network=closed` only after close succeeds.
+- Add `--json` to guarded remote list/read commands for one schema-versioned success or failure document on stdout. Audit evidence remains on stderr, failures exit non-zero, and the JSON excludes private-key paths and credential material. See [docs/REMOTE_AUTOMATION.md](docs/REMOTE_AUTOMATION.md).
 - `picos pwd`: print the current local file root.
 - `picos dir [path]` or `picos ls [path]`: list local files; supports `.`, absolute paths, `/`, and `~`.
 - `picos type <path>` or `picos cat <path>`: print a local text file.
@@ -418,6 +420,7 @@ Use `picos handoffs` or the Status workspace handoff index to browse recent rout
 ```bash
 bun install
 bun run verify
+bun run harness sftp
 ```
 
 Focused commands:

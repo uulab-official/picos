@@ -25,10 +25,15 @@ import { pingCommand } from "./commands/ping";
 import { portsCommand } from "./commands/ports";
 import { processCommand } from "./commands/process";
 import { releaseHealthCommand } from "./commands/releaseHealth";
-import { remoteCommand, remotesCommand } from "./commands/remotes";
+import {
+	remoteCommand,
+	remotesCommand,
+	reportRemoteCliParseFailure,
+} from "./commands/remotes";
 import { routeCommand, routesCommand } from "./commands/routes";
 import { toolsCommand } from "./commands/tools";
 import { updateCommand } from "./commands/update";
+import { ReportedCliError } from "./errors";
 
 export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 	if (argv.length === 0) {
@@ -38,14 +43,35 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 
 	const cli = createCli();
 
-	cli.parse(["node", "picos", ...argv], { run: false });
+	try {
+		cli.parse(["node", "picos", ...argv], { run: false });
+	} catch (caught) {
+		if (reportRemoteCliParseFailure(argv, caught)) {
+			throw new ReportedCliError(
+				caught instanceof Error ? caught.message : String(caught),
+				{ cause: caught },
+			);
+		}
+		throw caught;
+	}
 	if (!cli.matchedCommand) {
 		cli.outputHelp();
 		process.exitCode = 1;
 		return;
 	}
 
-	await cli.runMatchedCommand();
+	try {
+		await cli.runMatchedCommand();
+	} catch (caught) {
+		if (caught instanceof ReportedCliError) throw caught;
+		if (reportRemoteCliParseFailure(argv, caught)) {
+			throw new ReportedCliError(
+				caught instanceof Error ? caught.message : String(caught),
+				{ cause: caught },
+			);
+		}
+		throw caught;
+	}
 }
 
 export function createCli(): ReturnType<typeof cac> {
@@ -85,6 +111,7 @@ export function createCli(): ReturnType<typeof cac> {
 		.option("--confirm <phrase>", "Exact phrase: connect remote <id>")
 		.option("--timeout <ms>", "Connection and operation timeout")
 		.option("--max-bytes <n>", "Maximum remote file bytes to read")
+		.option("--json", "Emit one structured JSON result for list/read")
 		.action(remoteCommand);
 	cli
 		.command("drives", "List system drives and file locations")

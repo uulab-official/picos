@@ -1,5 +1,21 @@
 # picos Roadmap
 
+## v0.4.336 - SFTP Integration and JSON Automation
+
+Status: local development on `codex/picos-v0.4.336-sftp-integration-json`, stacked on draft PR [#410](https://github.com/uulab-official/picos/pull/410).
+
+Goal: prove the read-only SFTP path against a real credentialed protocol peer on every supported OS and give developer automation one stable machine-readable result contract.
+
+- `picos remote <id> --list|--read ... --json` writes one schema-versioned success or failure document to stdout while keeping the terminal `remote connect audit` diagnostic on stderr.
+- JSON results expose sanitized profile identity, requested operation and bounds, selected host fingerprint, observed closed/unknown network state, read-only capabilities, and structured list/read data without exposing `keyPath` or credential material.
+- Reported JSON failures retain a non-zero process exit code without appending an extra plain-text error after the audit diagnostic.
+- A disposable localhost SSH/SFTP fixture generates fresh Ed25519 host/client keys, requires verified public-key authentication, serves an in-memory read-only filesystem, and rejects or counts every write and remote-exec attempt.
+- The integration harness launches the real picos CLI for list, bounded/truncated read, and missing-confirm rejection, verifying exact confirmation before socket open and observed close after both successful sessions.
+- Actual SFTP `READDIR` status code `EOF` is now handled as normal end-of-directory instead of a failed list operation, fixing a protocol behavior that provider doubles did not reveal.
+- `bun run harness sftp` runs the focused integration check, and `bun run verify` now includes it before typecheck/build/smoke; `scripts/` is part of TypeScript validation.
+- Tests cover the JSON schema, UTF-8 byte counts, secret omission, locked session posture, success-after-close ordering, failure output, and CLI option registration.
+- Next: add JSON output to local OS inventory/network inspectors and expose saved remote automation presets without enabling remote write, transfer, or exec.
+
 ## v0.4.335 - SFTP Session Control
 
 Status: draft PR [#410](https://github.com/uulab-official/picos/pull/410) on `codex/picos-v0.4.335-sftp-session-control`, stacked on draft PR [#409](https://github.com/uulab-official/picos/pull/409).
