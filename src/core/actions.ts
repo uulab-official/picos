@@ -724,6 +724,28 @@ const actionCatalog: PicosAction[] = [
 		confirmationRequired: false,
 	},
 	{
+		id: "status.interfaceEvidence.archive",
+		title: "Archive interface evidence",
+		description:
+			"Open the locked archive prompt for the selected active interface confirmation evidence export.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
+		id: "status.interfaceEvidence.retention",
+		title: "Prune interface evidence retention",
+		description:
+			"Open the locked retention prompt for archived interface confirmation evidence exports.",
+		category: "status",
+		risk: "read",
+		privilege: "none",
+		enabled: true,
+		confirmationRequired: false,
+	},
+	{
 		id: "status.resultJump.select",
 		title: "Select Status result Timeline jump",
 		description:

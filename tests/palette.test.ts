@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { controlPreviewCommand as macosControlPreviewCommand } from "../src/adapters/macos";
 import { createActionPreviewPlan, getActionCatalog } from "../src/core/actions";
-import type { ConsoleAuditExportPlan } from "../src/core/auditLog";
+import {
+	type ConsoleAuditExportPlan,
+	createConsoleAuditArchiveRetentionPlan,
+} from "../src/core/auditLog";
 import type { NetworkInterfaceSummary } from "../src/core/types";
 import { createConfigWorkspaceItems } from "../src/tui/configPanel";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
@@ -727,6 +730,8 @@ describe("TUI command palette", () => {
 				"status.interfaceEvidence.select",
 				"status.interfaceEvidence.open",
 				"status.interfaceEvidence.search",
+				"status.interfaceEvidence.archive",
+				"status.interfaceEvidence.retention",
 			]),
 		);
 		expect(
@@ -747,6 +752,15 @@ describe("TUI command palette", () => {
 				),
 			).map((action) => action.id),
 		).toContain("status.interfaceEvidence.search");
+		expect(
+			getFilteredPaletteActions(
+				getActionCatalog(),
+				appendCommandPaletteQuery(
+					openCommandPalette(),
+					"interface evidence retention",
+				),
+			).map((action) => action.id),
+		).toContain("status.interfaceEvidence.retention");
 	});
 
 	test("previews recovered interface evidence actions before dispatch", () => {
@@ -802,6 +816,52 @@ describe("TUI command palette", () => {
 		).toEqual([
 			"selected interface evidence unavailable",
 			"hint=export or recover an interface confirmation audit log",
+		]);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.archive",
+				),
+				{
+					selectedInterfaceEvidenceExport,
+					selectedInterfaceEvidenceExportIndex: 0,
+					totalInterfaceEvidenceExports: 2,
+					selectedInterfaceEvidenceArchived: false,
+				},
+			),
+		).toEqual([
+			"selected interface evidence 1/2 picos-audit-interface-2026-07-01T070000000Z.log",
+			"target=interface.disable confirmed-blocked events=1",
+			"confirm=archive audit export path=/Users/bonjin/.config/picos/audit/picos-audit-interface-2026-07-01T070000000Z.log",
+		]);
+		const retentionPlan = createConsoleAuditArchiveRetentionPlan(
+			{
+				baseDir: "/Users/bonjin/.config/picos",
+				items: [
+					{
+						fileName: "picos-audit-interface-old.log",
+						path: "/Users/bonjin/.config/picos/audit/archive/picos-audit-interface-old.log",
+						generatedAt: "2026-07-01T06:00:00.000Z",
+						scope: "selected",
+						query: "interface confirmation interface.disable status=rejected",
+						entryCount: 1,
+					},
+				],
+			},
+			{ maxItems: 1 },
+		);
+		expect(
+			formatCommandPaletteActionPreviewRows(
+				getActionCatalog().find(
+					(action) => action.id === "status.interfaceEvidence.retention",
+				),
+				{ interfaceAuditArchiveRetentionPlan: retentionPlan },
+			),
+		).toEqual([
+			"interface evidence retention max=1 candidates=0",
+			"keep=1 remove=0",
+			"blocked=no archived interface evidence beyond retention",
+			"confirm=prune audit archive",
 		]);
 	});
 

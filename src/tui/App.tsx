@@ -530,6 +530,7 @@ import {
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
 	createTimelineSelectedStatusActivityResult,
+	filterInterfaceConfirmationAuditExportIndex,
 	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
 	formatInterfaceConfirmationEvidencePaletteAuditMessage,
@@ -832,6 +833,9 @@ export function App(): React.ReactElement {
 		useState<ConsoleAuditExportArchivePlan>();
 	const [auditArchiveRetentionPlan, setAuditArchiveRetentionPlan] =
 		useState<ConsoleAuditArchiveRetentionPlan>();
+	const [auditArchiveRetentionScope, setAuditArchiveRetentionScope] = useState<
+		"all" | "interface"
+	>("all");
 	const [toolExportIndex, setToolExportIndex] =
 		useState<ToolHistoryExportIndex>({
 			baseDir: join(dirname(getConfigPath()), "tools"),
@@ -942,14 +946,39 @@ export function App(): React.ReactElement {
 		setInterfaceConfirmationAuditExports,
 	] = useState<ConsoleAuditExportPlan[]>([]);
 	const [
+		interfaceConfirmationAuditArchiveExports,
+		setInterfaceConfirmationAuditArchiveExports,
+	] = useState<ConsoleAuditExportPlan[]>([]);
+	const [
 		selectedInterfaceConfirmationAuditExportIndex,
 		setSelectedInterfaceConfirmationAuditExportIndex,
 	] = useState(0);
+	const interfaceConfirmationEvidenceExports = useMemo(
+		() => [
+			...interfaceConfirmationAuditExports,
+			...interfaceConfirmationAuditArchiveExports,
+		],
+		[
+			interfaceConfirmationAuditArchiveExports,
+			interfaceConfirmationAuditExports,
+		],
+	);
 	const selectedInterfaceConfirmationAuditExport =
 		getSelectedInterfaceConfirmationAuditExport(
-			interfaceConfirmationAuditExports,
+			interfaceConfirmationEvidenceExports,
 			selectedInterfaceConfirmationAuditExportIndex,
 		);
+	const selectedInterfaceConfirmationEvidenceArchived =
+		selectedInterfaceConfirmationAuditExportIndex >=
+		interfaceConfirmationAuditExports.length;
+	useEffect(() => {
+		setSelectedInterfaceConfirmationAuditExportIndex((current) =>
+			Math.min(
+				current,
+				Math.max(0, interfaceConfirmationEvidenceExports.length - 1),
+			),
+		);
+	}, [interfaceConfirmationEvidenceExports.length]);
 	const filteredTimelineEvidenceTrailAuditExports = useMemo(
 		() =>
 			filterTimelineEvidenceTrailAuditExports(
@@ -2964,9 +2993,6 @@ export function App(): React.ReactElement {
 				);
 				const interfaceExports = getInterfaceConfirmationAuditExports(index);
 				setInterfaceConfirmationAuditExports(interfaceExports);
-				setSelectedInterfaceConfirmationAuditExportIndex((current) =>
-					Math.min(current, Math.max(0, interfaceExports.length - 1)),
-				);
 				const filteredTimelineTrailExports =
 					filterTimelineEvidenceTrailAuditExports(
 						timelineTrailExports,
@@ -3002,6 +3028,9 @@ export function App(): React.ReactElement {
 			try {
 				const index = await readConsoleAuditExportArchiveIndex(baseDir);
 				setAuditExportArchiveIndex(index);
+				setInterfaceConfirmationAuditArchiveExports(
+					getInterfaceConfirmationAuditExports(index),
+				);
 				setSelectedAuditExportArchiveIndex((current) =>
 					Math.min(current, Math.max(0, index.items.length - 1)),
 				);
@@ -3121,6 +3150,7 @@ export function App(): React.ReactElement {
 			auditExportArchiveIndex,
 			{ maxItems: auditArchiveRetentionLimit },
 		);
+		setAuditArchiveRetentionScope("all");
 		setAuditArchiveRetentionPlan(plan);
 		setExternalOpenPlan(undefined);
 		setFileOpenPlan(undefined);
@@ -3131,6 +3161,28 @@ export function App(): React.ReactElement {
 		log(
 			plan.candidateItems.length > 0 ? "warn" : "info",
 			`audit archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
+		);
+	}, [auditArchiveRetentionLimit, auditExportArchiveIndex, log]);
+
+	const openInterfaceAuditArchiveRetentionPreview = useCallback(() => {
+		const interfaceArchiveIndex = filterInterfaceConfirmationAuditExportIndex(
+			auditExportArchiveIndex,
+		);
+		const plan = createConsoleAuditArchiveRetentionPlan(interfaceArchiveIndex, {
+			maxItems: auditArchiveRetentionLimit,
+		});
+		setAuditArchiveRetentionScope("interface");
+		setAuditArchiveRetentionPlan(plan);
+		setExternalOpenPlan(undefined);
+		setFileOpenPlan(undefined);
+		setAuditExportArchivePlan(undefined);
+		setCleanupExportArchivePlan(undefined);
+		setCommandLine(openCommandLine("audit-archive-retention"));
+		setScreen("status");
+		setSelectedStatusEvidenceKind("interface");
+		log(
+			plan.candidateItems.length > 0 ? "warn" : "info",
+			`interface evidence archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
 		);
 	}, [auditArchiveRetentionLimit, auditExportArchiveIndex, log]);
 
@@ -3159,6 +3211,40 @@ export function App(): React.ReactElement {
 			`audit export archive confirmation opened for ${item.fileName}`,
 		);
 	}, [auditExportIndex, log, selectedAuditExportIndex]);
+
+	const openSelectedInterfaceEvidenceArchive = useCallback(() => {
+		if (
+			!selectedInterfaceConfirmationAuditExport ||
+			selectedInterfaceConfirmationEvidenceArchived
+		) {
+			log(
+				"warn",
+				"no active interface confirmation evidence export to archive",
+			);
+			return;
+		}
+		const plan = createConsoleAuditExportArchivePlan(
+			auditExportIndex.baseDir,
+			selectedInterfaceConfirmationAuditExport.path,
+		);
+		setAuditExportArchivePlan(plan);
+		setExternalOpenPlan(undefined);
+		setFileOpenPlan(undefined);
+		setAuditArchiveRetentionPlan(undefined);
+		setCleanupExportArchivePlan(undefined);
+		setCommandLine(openCommandLine("audit-export-archive"));
+		setScreen("status");
+		setSelectedStatusEvidenceKind("interface");
+		log(
+			"info",
+			`interface evidence archive confirmation opened for ${plan.fileName}`,
+		);
+	}, [
+		auditExportIndex.baseDir,
+		log,
+		selectedInterfaceConfirmationAuditExport,
+		selectedInterfaceConfirmationEvidenceArchived,
+	]);
 
 	const openSelectedCleanupExportFile = useCallback(() => {
 		const item = getSelectedCleanupHandoffHistoryExport(
@@ -5449,10 +5535,10 @@ export function App(): React.ReactElement {
 	const getSelectedInterfaceConfirmationEvidenceResultOptions = useCallback(
 		() => ({
 			selectedIndex: selectedInterfaceConfirmationAuditExportIndex,
-			total: interfaceConfirmationAuditExports.length || 1,
+			total: interfaceConfirmationEvidenceExports.length || 1,
 		}),
 		[
-			interfaceConfirmationAuditExports.length,
+			interfaceConfirmationEvidenceExports.length,
 			selectedInterfaceConfirmationAuditExportIndex,
 		],
 	);
@@ -5461,7 +5547,7 @@ export function App(): React.ReactElement {
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
 			setSelectedStatusEvidenceKind("interface");
-			if (interfaceConfirmationAuditExports.length <= 1) {
+			if (interfaceConfirmationEvidenceExports.length <= 1) {
 				log("warn", "no alternate interface confirmation evidence exports");
 				if (options.origin === "palette") {
 					log(
@@ -5478,19 +5564,19 @@ export function App(): React.ReactElement {
 			}
 			setSelectedInterfaceConfirmationAuditExportIndex((current) => {
 				const next = moveInterfaceConfirmationAuditExportSelection(
-					interfaceConfirmationAuditExports,
+					interfaceConfirmationEvidenceExports,
 					current,
 					"next",
 				);
-				const evidence = interfaceConfirmationAuditExports[next];
+				const evidence = interfaceConfirmationEvidenceExports[next];
 				log(
 					"info",
-					`interface confirmation evidence selected ${next + 1}/${interfaceConfirmationAuditExports.length} ${evidence ? basename(evidence.path) : "none"}`,
+					`interface confirmation evidence selected ${next + 1}/${interfaceConfirmationEvidenceExports.length} ${evidence ? basename(evidence.path) : "none"}`,
 				);
 				if (options.origin === "palette") {
 					const resultOptions = {
 						selectedIndex: next,
-						total: interfaceConfirmationAuditExports.length,
+						total: interfaceConfirmationEvidenceExports.length,
 					};
 					log(
 						"info",
@@ -5511,7 +5597,7 @@ export function App(): React.ReactElement {
 				return next;
 			});
 		},
-		[interfaceConfirmationAuditExports, log, recordStatusActivityResult],
+		[interfaceConfirmationEvidenceExports, log, recordStatusActivityResult],
 	);
 
 	const jumpSelectedInterfaceConfirmationEvidenceSearch = useCallback(
@@ -5627,10 +5713,16 @@ export function App(): React.ReactElement {
 				auditExportIndex,
 				selectedInterfaceConfirmationAuditExport,
 			);
+			const archivedEvidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
+				auditExportArchiveIndex,
+				selectedInterfaceConfirmationAuditExport,
+			);
 			if (evidenceIndex !== undefined) {
 				setSelectedAuditExportIndex(evidenceIndex);
-				setSelectedStatusEvidenceKind("audit");
+			} else if (archivedEvidenceIndex !== undefined) {
+				setSelectedAuditExportArchiveIndex(archivedEvidenceIndex);
 			}
+			setSelectedStatusEvidenceKind("interface");
 			setFileOpenPlan(plan);
 			setExternalOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
@@ -5640,7 +5732,7 @@ export function App(): React.ReactElement {
 			setScreen("status");
 			log(
 				"info",
-				`interface confirmation evidence export open confirmation opened for ${selectedInterfaceConfirmationAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
+				`interface confirmation evidence export open confirmation opened for ${selectedInterfaceConfirmationAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : archivedEvidenceIndex !== undefined ? ` archivedEvidence=${archivedEvidenceIndex + 1}` : ""}`,
 			);
 			if (options.origin === "palette") {
 				const resultOptions =
@@ -5663,6 +5755,7 @@ export function App(): React.ReactElement {
 			}
 		},
 		[
+			auditExportArchiveIndex,
 			auditExportIndex,
 			getSelectedInterfaceConfirmationEvidenceResultOptions,
 			log,
@@ -6343,6 +6436,14 @@ export function App(): React.ReactElement {
 					});
 				}
 
+				if (action.id === "status.interfaceEvidence.archive") {
+					openSelectedInterfaceEvidenceArchive();
+				}
+
+				if (action.id === "status.interfaceEvidence.retention") {
+					openInterfaceAuditArchiveRetentionPreview();
+				}
+
 				if (action.id === "status.resultJump.select") {
 					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
 				}
@@ -6430,8 +6531,10 @@ export function App(): React.ReactElement {
 			jumpSelectedTimelineEvidenceTrailSearch,
 			log,
 			logProfiles.length,
+			openInterfaceAuditArchiveRetentionPreview,
 			openToolEvidenceSearchPrompt,
 			openSelectedInterfaceConfirmationEvidenceExport,
+			openSelectedInterfaceEvidenceArchive,
 			openSelectedProcessControlEvidenceExport,
 			openSelectedRemoteKnownHostsEvidenceHandoff,
 			openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff,
@@ -6575,9 +6678,6 @@ export function App(): React.ReactElement {
 			const interfaceExports =
 				getInterfaceConfirmationAuditExports(auditExports);
 			setInterfaceConfirmationAuditExports(interfaceExports);
-			setSelectedInterfaceConfirmationAuditExportIndex((current) =>
-				Math.min(current, Math.max(0, interfaceExports.length - 1)),
-			);
 			setSelectedTimelineEvidenceTrailAuditExportIndex((current) =>
 				Math.min(current, Math.max(0, timelineTrailExports.length - 1)),
 			);
@@ -6585,6 +6685,9 @@ export function App(): React.ReactElement {
 				Math.min(current, Math.max(0, auditExports.items.length - 1)),
 			);
 			setAuditExportArchiveIndex(auditArchiveExports);
+			setInterfaceConfirmationAuditArchiveExports(
+				getInterfaceConfirmationAuditExports(auditArchiveExports),
+			);
 			setSelectedAuditExportArchiveIndex((current) =>
 				Math.min(current, Math.max(0, auditArchiveExports.items.length - 1)),
 			);
@@ -7093,6 +7196,13 @@ export function App(): React.ReactElement {
 			log("warn", "audit export archive missing preview");
 			return;
 		}
+		const isInterfaceEvidence = interfaceConfirmationAuditExports.some(
+			(item) => item.path === auditExportArchivePlan.sourcePath,
+		);
+		const archivedInterfaceSelectionIndex = Math.max(
+			0,
+			interfaceConfirmationAuditExports.length - 1,
+		);
 		const plan = createConsoleAuditExportArchivePlan(
 			auditExportIndex.baseDir,
 			auditExportArchivePlan.sourcePath,
@@ -7103,17 +7213,33 @@ export function App(): React.ReactElement {
 		const result = await archiveConsoleAuditExport(plan);
 		log(
 			result.status === "archived" ? "ok" : "warn",
-			`audit export archive ${result.message}`,
+			`${isInterfaceEvidence ? "interface evidence" : "audit export"} archive ${result.message}`,
 		);
+		recordStatusActivityResult({
+			source: "evidence",
+			action: isInterfaceEvidence
+				? "interface-evidence-archive"
+				: "audit-evidence-archive",
+			message: `${isInterfaceEvidence ? "interface evidence" : "audit export"} archive ${result.status} ${plan.fileName}`,
+			detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
+		});
 		if (result.status === "archived") {
 			await refreshAuditExportIndex(false);
 			await refreshAuditExportArchiveIndex(false);
+			if (isInterfaceEvidence) {
+				setSelectedInterfaceConfirmationAuditExportIndex(
+					archivedInterfaceSelectionIndex,
+				);
+				setSelectedStatusEvidenceKind("interface");
+			}
 		}
 	}, [
 		auditExportArchivePlan,
 		auditExportIndex.baseDir,
 		commandLine.value,
+		interfaceConfirmationAuditExports,
 		log,
+		recordStatusActivityResult,
 		refreshAuditExportArchiveIndex,
 		refreshAuditExportIndex,
 	]);
@@ -7124,28 +7250,40 @@ export function App(): React.ReactElement {
 			log("warn", "audit archive retention missing preview");
 			return;
 		}
-		const plan = createConsoleAuditArchiveRetentionPlan(
-			auditExportArchiveIndex,
-			{
-				maxItems: auditArchiveRetentionPlan.maxItems,
-				confirmation: commandLine.value,
-			},
-		);
+		const retentionIndex =
+			auditArchiveRetentionScope === "interface"
+				? filterInterfaceConfirmationAuditExportIndex(auditExportArchiveIndex)
+				: auditExportArchiveIndex;
+		const plan = createConsoleAuditArchiveRetentionPlan(retentionIndex, {
+			maxItems: auditArchiveRetentionPlan.maxItems,
+			confirmation: commandLine.value,
+		});
 		setAuditArchiveRetentionPlan(plan);
 		setCommandLine((current) => closeCommandLine(current));
 		const result = await pruneConsoleAuditArchive(plan);
 		log(
 			result.status === "pruned" ? "ok" : "warn",
-			`audit archive retention ${result.message}`,
+			`${auditArchiveRetentionScope === "interface" ? "interface evidence" : "audit"} archive retention ${result.message}`,
 		);
+		recordStatusActivityResult({
+			source: "evidence",
+			action:
+				auditArchiveRetentionScope === "interface"
+					? "interface-evidence-retention"
+					: "audit-evidence-retention",
+			message: `${auditArchiveRetentionScope === "interface" ? "interface evidence" : "audit"} archive retention ${result.status} removed=${result.removed}`,
+			detail: result.message,
+		});
 		if (result.status === "pruned") {
 			await refreshAuditExportArchiveIndex(false);
 		}
 	}, [
 		auditArchiveRetentionPlan,
+		auditArchiveRetentionScope,
 		auditExportArchiveIndex,
 		commandLine.value,
 		log,
+		recordStatusActivityResult,
 		refreshAuditExportArchiveIndex,
 	]);
 
@@ -8706,7 +8844,7 @@ export function App(): React.ReactElement {
 		if (screen === "status" && focusArea === "workspaces" && input === "I") {
 			if (
 				selectedStatusEvidenceKind === "interface" &&
-				interfaceConfirmationAuditExports.length > 0
+				interfaceConfirmationEvidenceExports.length > 0
 			) {
 				openSelectedInterfaceConfirmationEvidenceExport();
 				return;
@@ -8838,6 +8976,7 @@ export function App(): React.ReactElement {
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
 						interfaceConfirmationAuditExports,
+						interfaceConfirmationAuditArchiveExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -9113,6 +9252,7 @@ export function App(): React.ReactElement {
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
 					interfaceConfirmationAuditExports,
+					interfaceConfirmationAuditArchiveExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -9183,6 +9323,7 @@ export function App(): React.ReactElement {
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
 					interfaceConfirmationAuditExports,
+					interfaceConfirmationAuditArchiveExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -9284,6 +9425,7 @@ export function App(): React.ReactElement {
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
 						interfaceConfirmationAuditExports,
+						interfaceConfirmationAuditArchiveExports,
 					},
 					current,
 					"next",
@@ -9488,6 +9630,7 @@ export function App(): React.ReactElement {
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
 					interfaceConfirmationAuditExports,
+					interfaceConfirmationAuditArchiveExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -9591,6 +9734,7 @@ export function App(): React.ReactElement {
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
 					interfaceConfirmationAuditExports,
+					interfaceConfirmationAuditArchiveExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -9631,8 +9775,12 @@ export function App(): React.ReactElement {
 				case "archive-tools":
 					openSelectedToolExportArchive();
 					break;
+				case "archive-interface-evidence":
+					openSelectedInterfaceEvidenceArchive();
+					break;
 				case "preview-audit-retention":
 				case "preview-tools-retention":
+				case "preview-interface-retention":
 					break;
 			}
 			log(
@@ -9655,6 +9803,7 @@ export function App(): React.ReactElement {
 					processControlAuditExports,
 					remoteKnownHostsSelectionAuditExports,
 					interfaceConfirmationAuditExports,
+					interfaceConfirmationAuditArchiveExports,
 				},
 				{
 					selectedHandoffIndex,
@@ -9684,6 +9833,8 @@ export function App(): React.ReactElement {
 			}
 			if (evidenceActionPlan.action === "preview-tools-retention") {
 				openToolArchiveRetentionPreview();
+			} else if (evidenceActionPlan.action === "preview-interface-retention") {
+				openInterfaceAuditArchiveRetentionPreview();
 			} else {
 				openAuditArchiveRetentionPreview();
 			}
@@ -9821,6 +9972,11 @@ export function App(): React.ReactElement {
 		if (screen === "status" && focusArea === "workspaces" && input === "M") {
 			if (selectedStatusEvidenceKind === "tools-archive") {
 				openToolArchiveRetentionPreview();
+			} else if (
+				selectedStatusEvidenceKind === "interface" &&
+				selectedInterfaceConfirmationEvidenceArchived
+			) {
+				openInterfaceAuditArchiveRetentionPreview();
 			} else {
 				openAuditArchiveRetentionPreview();
 			}
@@ -9857,6 +10013,13 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "status" && focusArea === "workspaces" && input === "A") {
+			if (
+				selectedStatusEvidenceKind === "interface" &&
+				!selectedInterfaceConfirmationEvidenceArchived
+			) {
+				openSelectedInterfaceEvidenceArchive();
+				return;
+			}
 			void archiveSelectedHandoffFile();
 			return;
 		}
@@ -11508,6 +11671,9 @@ export function App(): React.ReactElement {
 						selectedRemoteKnownHostsSelectionAuditExportIndex
 					}
 					interfaceConfirmationAuditExports={interfaceConfirmationAuditExports}
+					interfaceConfirmationAuditArchiveExports={
+						interfaceConfirmationAuditArchiveExports
+					}
 					selectedInterfaceConfirmationAuditExportIndex={
 						selectedInterfaceConfirmationAuditExportIndex
 					}
@@ -11774,6 +11940,7 @@ function MainWorkspace({
 	remoteKnownHostsSelectionAuditExports,
 	selectedRemoteKnownHostsSelectionAuditExportIndex,
 	interfaceConfirmationAuditExports,
+	interfaceConfirmationAuditArchiveExports,
 	selectedInterfaceConfirmationAuditExportIndex,
 	selectedStatusEvidenceKind,
 	selectedUpdateHandoffIndex,
@@ -11939,6 +12106,7 @@ function MainWorkspace({
 	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[];
 	selectedRemoteKnownHostsSelectionAuditExportIndex: number;
 	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[];
+	interfaceConfirmationAuditArchiveExports: ConsoleAuditExportPlan[];
 	selectedInterfaceConfirmationAuditExportIndex: number;
 	selectedStatusEvidenceKind: StatusEvidenceKind;
 	selectedUpdateHandoffIndex: number;
@@ -12182,6 +12350,7 @@ function MainWorkspace({
 						remoteKnownHostsSelectionAuditExports,
 						selectedRemoteKnownHostsSelectionAuditExportIndex,
 						interfaceConfirmationAuditExports,
+						interfaceConfirmationAuditArchiveExports,
 						selectedInterfaceConfirmationAuditExportIndex,
 						selectedStatusEvidenceKind,
 						selectedUpdateHandoffIndex,
@@ -12354,6 +12523,7 @@ function renderWorkspace(
 	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[],
 	selectedRemoteKnownHostsSelectionAuditExportIndex: number,
 	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[],
+	interfaceConfirmationAuditArchiveExports: ConsoleAuditExportPlan[],
 	selectedInterfaceConfirmationAuditExportIndex: number,
 	selectedStatusEvidenceKind: StatusEvidenceKind,
 	selectedUpdateHandoffIndex: number,
@@ -12401,8 +12571,19 @@ function renderWorkspace(
 			);
 		const selectedInterfaceConfirmationAuditExport =
 			getSelectedInterfaceConfirmationAuditExport(
-				interfaceConfirmationAuditExports,
+				[
+					...interfaceConfirmationAuditExports,
+					...interfaceConfirmationAuditArchiveExports,
+				],
 				selectedInterfaceConfirmationAuditExportIndex,
+			);
+		const selectedInterfaceConfirmationEvidenceArchived =
+			selectedInterfaceConfirmationAuditExportIndex >=
+			interfaceConfirmationAuditExports.length;
+		const interfaceAuditArchiveRetentionPreviewPlan =
+			createConsoleAuditArchiveRetentionPlan(
+				filterInterfaceConfirmationAuditExportIndex(auditExportArchiveIndex),
+				{ maxItems: toolArchiveRetentionPreviewPlan.maxItems },
 			);
 		const selectedStatusActivityResultTimelineJump =
 			createStatusActivityResultTimelineSearch(
@@ -12485,7 +12666,12 @@ function renderWorkspace(
 						selectedInterfaceEvidenceExportIndex:
 							selectedInterfaceConfirmationAuditExportIndex,
 						totalInterfaceEvidenceExports:
-							interfaceConfirmationAuditExports.length,
+							interfaceConfirmationAuditExports.length +
+							interfaceConfirmationAuditArchiveExports.length,
+						selectedInterfaceEvidenceArchived:
+							selectedInterfaceConfirmationEvidenceArchived,
+						interfaceAuditArchiveRetentionPlan:
+							interfaceAuditArchiveRetentionPreviewPlan,
 						selectedStatusActivityResultTimelineJump,
 						selectedStatusActivityResultTimelineJumpIndex:
 							selectedStatusActivityResultTimelineJumpSelection?.selectedIndex,
@@ -12833,6 +13019,9 @@ function renderWorkspace(
 					selectedRemoteKnownHostsSelectionAuditExportIndex
 				}
 				interfaceConfirmationAuditExports={interfaceConfirmationAuditExports}
+				interfaceConfirmationAuditArchiveExports={
+					interfaceConfirmationAuditArchiveExports
+				}
 				selectedInterfaceConfirmationAuditExportIndex={
 					selectedInterfaceConfirmationAuditExportIndex
 				}
@@ -15884,6 +16073,7 @@ function StatusWorkspace({
 	remoteKnownHostsSelectionAuditExports,
 	selectedRemoteKnownHostsSelectionAuditExportIndex,
 	interfaceConfirmationAuditExports,
+	interfaceConfirmationAuditArchiveExports,
 	selectedInterfaceConfirmationAuditExportIndex,
 	configManagedShelfRows,
 	events,
@@ -15944,6 +16134,7 @@ function StatusWorkspace({
 	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[];
 	selectedRemoteKnownHostsSelectionAuditExportIndex: number;
 	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[];
+	interfaceConfirmationAuditArchiveExports: ConsoleAuditExportPlan[];
 	selectedInterfaceConfirmationAuditExportIndex: number;
 	configManagedShelfRows: string[];
 	events: ConsoleEvent[];
@@ -16150,6 +16341,7 @@ function StatusWorkspace({
 			processControlAuditExports,
 			remoteKnownHostsSelectionAuditExports,
 			interfaceConfirmationAuditExports,
+			interfaceConfirmationAuditArchiveExports,
 		},
 		{
 			selectedHandoffIndex,
@@ -16510,6 +16702,7 @@ function StatusWorkspace({
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
 						interfaceConfirmationAuditExports,
+						interfaceConfirmationAuditArchiveExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -16554,6 +16747,7 @@ function StatusWorkspace({
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
 						interfaceConfirmationAuditExports,
+						interfaceConfirmationAuditArchiveExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -16600,6 +16794,7 @@ function StatusWorkspace({
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
 						interfaceConfirmationAuditExports,
+						interfaceConfirmationAuditArchiveExports,
 					},
 					{
 						selectedHandoffIndex,
@@ -16651,6 +16846,7 @@ function StatusWorkspace({
 						processControlAuditExports,
 						remoteKnownHostsSelectionAuditExports,
 						interfaceConfirmationAuditExports,
+						interfaceConfirmationAuditArchiveExports,
 					},
 					{
 						selectedHandoffIndex,

@@ -76,6 +76,7 @@ import {
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineEvidenceTrailTimelineSearch,
 	createTimelineSelectedStatusActivityResult,
+	filterInterfaceConfirmationAuditExportIndex,
 	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
 	formatInterfaceConfirmationEvidencePaletteAuditMessage,
@@ -4664,6 +4665,7 @@ describe("Status activity queue", () => {
 
 			const index = await readConsoleAuditExportIndex(root);
 			const interfaceExports = getInterfaceConfirmationAuditExports(index);
+			const interfaceIndex = filterInterfaceConfirmationAuditExportIndex(index);
 			const latest = getLatestInterfaceConfirmationAuditExport(index);
 
 			expect(interfaceExports).toEqual([
@@ -4677,6 +4679,8 @@ describe("Status activity queue", () => {
 				},
 			]);
 			expect(latest).toEqual(interfaceExports[0]);
+			expect(interfaceIndex.items).toHaveLength(1);
+			expect(interfaceIndex.items[0]?.path).toBe(interfacePlan.path);
 			expect(
 				getSelectedInterfaceConfirmationAuditExport(interfaceExports, 0),
 			).toEqual(interfaceExports[0]);
