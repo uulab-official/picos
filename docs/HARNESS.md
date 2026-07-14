@@ -47,6 +47,14 @@ bun src/bin/picos.ts dir .
 bun src/bin/picos.ts type README.md
 ```
 
+Read-only SFTP needs a real SSH server and is therefore a manual integration check:
+
+1. Configure a remote profile with `keyPath`, or start picos with a working `SSH_AUTH_SOCK`.
+2. In Remotes, provide a matching `known_hosts` row with `K` or `P`.
+3. Press `c`, enter `connect remote <id>`, and confirm Files can list and preview remote text files.
+4. Confirm `c`, `m`, and `x` stay blocked in remote Files, then press `L` and verify the local root is restored.
+5. Repeat with a mismatched host-key row and verify the connection fails without opening a Files session.
+
 `connect`, `ping`, and external network checks depend on local network availability, DNS, firewall state, and CI provider policy. Keep them out of deterministic CI smoke unless they are mocked or converted to parser-only tests.
 
 ## Local Manual Preview

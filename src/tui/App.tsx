@@ -1,4 +1,4 @@
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -108,9 +108,12 @@ import {
 	createLocalFileProvider,
 	type FileEntry,
 	type FileLocation,
+	type FileProvider,
 	type FileProviderKind,
+	getFileParentPath,
 	getSystemFileLocations,
 	getSystemFileRoot,
+	resolveFilePath,
 	withParentDirectoryEntry,
 } from "../core/files";
 import {
@@ -202,6 +205,7 @@ import {
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
+	getSelectedRemoteKnownHostsCandidate,
 	moveRemoteKnownHostsPasteReviewSelection,
 	parseRemoteKnownHostsCandidateSelectionInput,
 	parseRemoteProfileCommand,
@@ -228,6 +232,10 @@ import {
 	runRoutePath,
 	runRouteTable,
 } from "../core/routes";
+import {
+	connectReadOnlySftpFileProvider,
+	formatReadOnlySftpConnectionAuditMessage,
+} from "../core/sftp";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
 import {
@@ -758,12 +766,28 @@ export function App(): React.ReactElement {
 	const fileLocations = useMemo(() => getSystemFileLocations(), []);
 	const [editorSaveMode, setEditorSaveMode] =
 		useState<PicosConfig["editorSaveMode"]>("disabled");
-	const fileProvider = useMemo(
+	const localFileProvider = useMemo(
 		() =>
 			createLocalFileProvider(systemFileRoot, {
 				allowWrites: editorSaveMode === "local-write",
 			}),
 		[editorSaveMode, systemFileRoot],
+	);
+	const [remoteFileProvider, setRemoteFileProvider] = useState<FileProvider>();
+	const remoteFileProviderRef = useRef<FileProvider | undefined>(undefined);
+	const pendingRemoteConnectRef = useRef<AbortController | undefined>(
+		undefined,
+	);
+	const fileProvider = remoteFileProvider ?? localFileProvider;
+	useEffect(() => {
+		remoteFileProviderRef.current = remoteFileProvider;
+	}, [remoteFileProvider]);
+	useEffect(
+		() => () => {
+			pendingRemoteConnectRef.current?.abort();
+			void remoteFileProviderRef.current?.close?.().catch(() => undefined);
+		},
+		[],
 	);
 	const [screen, setScreen] = useState<Screen>("dashboard");
 	const [focusArea, setFocusArea] = useState<FocusArea>("workspaces");
@@ -1753,6 +1777,43 @@ export function App(): React.ReactElement {
 		await loadFiles(fileRoot, { keepSelection: true });
 	}, [fileRoot, loadFiles]);
 
+	const disconnectRemoteFiles = useCallback(async () => {
+		if (!remoteFileProvider) {
+			log("info", "no read-only SFTP session connected");
+			return;
+		}
+		try {
+			await remoteFileProvider.close?.();
+		} catch (caught) {
+			log(
+				"warn",
+				caught instanceof Error
+					? `SFTP session close failed ${caught.message}`
+					: `SFTP session close failed ${String(caught)}`,
+			);
+		}
+		remoteFileProviderRef.current = undefined;
+		setRemoteFileProvider(undefined);
+		setRemoteFileContext(undefined);
+		try {
+			const entries = await localFileProvider.list(systemFileRoot);
+			setFileRoot(systemFileRoot);
+			setFileEntries(entries);
+			setSelectedFileIndex(0);
+			setFileHistory([]);
+			setFileForwardHistory([]);
+			setFocusArea("files");
+			log("info", "read-only SFTP session closed; local filesystem restored");
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `local filesystem restore failed ${caught.message}`
+					: `local filesystem restore failed ${String(caught)}`,
+			);
+		}
+	}, [localFileProvider, log, remoteFileProvider, systemFileRoot]);
+
 	const openSelectedFileEntry = useCallback(async () => {
 		const entry = displayedFileEntries[selectedFileIndex];
 		if (!entry) {
@@ -1791,7 +1852,7 @@ export function App(): React.ReactElement {
 	]);
 
 	const goToParentDirectory = useCallback(async () => {
-		const parent = dirname(fileRoot);
+		const parent = getFileParentPath(fileRoot);
 		if (parent === fileRoot) {
 			log("info", "already at filesystem root");
 			return;
@@ -1850,7 +1911,7 @@ export function App(): React.ReactElement {
 		}
 
 		try {
-			const targetPath = resolve(fileRoot, path);
+			const targetPath = resolveFilePath(fileRoot, path);
 			if (targetPath !== fileRoot) {
 				setFileHistory((history) => pushFileHistory(history, fileRoot));
 				setFileForwardHistory([]);
@@ -4327,6 +4388,27 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		pendingRemoteConnectRef.current?.abort();
+		if (remoteFileProvider) {
+			try {
+				await remoteFileProvider.close?.();
+			} catch (caught) {
+				log(
+					"warn",
+					caught instanceof Error
+						? `previous SFTP session close failed ${caught.message}`
+						: `previous SFTP session close failed ${String(caught)}`,
+				);
+			}
+			remoteFileProviderRef.current = undefined;
+			setRemoteFileProvider(undefined);
+			const entries = await localFileProvider.list(systemFileRoot);
+			setFileRoot(systemFileRoot);
+			setFileEntries(entries);
+			setSelectedFileIndex(0);
+			setFileHistory([]);
+			setFileForwardHistory([]);
+		}
 		const context = await createRemoteFileContext(profile);
 		setRemoteFileContext(context);
 		setScreen("files");
@@ -4336,7 +4418,15 @@ export function App(): React.ReactElement {
 			createRemoteHostReviewStatusActivityResult(profile),
 		);
 		log("info", `remote context selected ${context.label}`);
-	}, [log, recordStatusActivityResult, remoteProfiles, selectedRemoteIndex]);
+	}, [
+		localFileProvider,
+		log,
+		recordStatusActivityResult,
+		remoteFileProvider,
+		remoteProfiles,
+		selectedRemoteIndex,
+		systemFileRoot,
+	]);
 
 	const submitRemoteProfileCommand = useCallback(async () => {
 		const profile = parseRemoteProfileCommand(commandLine.value);
@@ -4359,6 +4449,27 @@ export function App(): React.ReactElement {
 				],
 			};
 			await writeConfig(nextConfig);
+			pendingRemoteConnectRef.current?.abort();
+			if (remoteFileProvider) {
+				try {
+					await remoteFileProvider.close?.();
+				} catch (caught) {
+					log(
+						"warn",
+						caught instanceof Error
+							? `previous SFTP session close failed ${caught.message}`
+							: `previous SFTP session close failed ${String(caught)}`,
+					);
+				}
+				remoteFileProviderRef.current = undefined;
+				setRemoteFileProvider(undefined);
+				const entries = await localFileProvider.list(systemFileRoot);
+				setFileRoot(systemFileRoot);
+				setFileEntries(entries);
+				setSelectedFileIndex(0);
+				setFileHistory([]);
+				setFileForwardHistory([]);
+			}
 			syncConfigSessionState(nextConfig);
 			setSelectedRemoteIndex(0);
 			setRemoteFileContext(undefined);
@@ -4373,9 +4484,16 @@ export function App(): React.ReactElement {
 					: `remote profile save failed ${String(caught)}`,
 			);
 		}
-	}, [commandLine.value, log, syncConfigSessionState]);
+	}, [
+		commandLine.value,
+		localFileProvider,
+		log,
+		remoteFileProvider,
+		syncConfigSessionState,
+		systemFileRoot,
+	]);
 
-	const submitRemoteConnectCommand = useCallback(() => {
+	const submitRemoteConnectCommand = useCallback(async () => {
 		const profile = remoteProfiles[selectedRemoteIndex];
 		setCommandLine((current) => closeCommandLine(current));
 		if (!profile) {
@@ -4383,20 +4501,131 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		const preview = createRemoteConnectPreview(profile);
+		const candidate = getSelectedRemoteKnownHostsCandidate(
+			profile,
+			remoteKnownHostsCandidateSession,
+			remoteKnownHostsPasteReviewSession,
+		);
+		const preview = createRemoteConnectPreview(profile, {
+			hostKeyFingerprint: candidate?.fingerprint,
+		});
 		const confirmation = submitRemoteConnectConfirmation(
 			preview,
 			commandLine.value,
 		);
-		log("warn", formatRemoteConnectConfirmationAuditMessage(confirmation));
-		recordStatusActivityResult(
-			createRemoteConnectStatusActivityResult(confirmation),
-		);
-		log("warn", confirmation.message);
+		if (confirmation.status !== "confirmed-ready" || !candidate) {
+			log("warn", formatRemoteConnectConfirmationAuditMessage(confirmation));
+			recordStatusActivityResult(
+				createRemoteConnectStatusActivityResult(confirmation),
+			);
+			log(
+				"warn",
+				candidate
+					? confirmation.message
+					: `remote connect blocked ${profile.id}: select a known_hosts candidate with K or P before connecting`,
+			);
+			return;
+		}
+
+		pendingRemoteConnectRef.current?.abort();
+		const connectController = new AbortController();
+		pendingRemoteConnectRef.current = connectController;
+		setCommandStatus("running");
+		let pendingProvider: FileProvider | undefined;
+		try {
+			pendingProvider = await connectReadOnlySftpFileProvider(profile, {
+				expectedHostKeyFingerprint: candidate.fingerprint,
+				signal: connectController.signal,
+			});
+			const root = await pendingProvider.pwd();
+			const entries = await pendingProvider.list(root);
+			if (remoteFileProvider) {
+				try {
+					await remoteFileProvider.close?.();
+				} catch (caught) {
+					log(
+						"warn",
+						caught instanceof Error
+							? `previous SFTP session close failed ${caught.message}`
+							: `previous SFTP session close failed ${String(caught)}`,
+					);
+				}
+			}
+			remoteFileProviderRef.current = pendingProvider;
+			setRemoteFileProvider(pendingProvider);
+			pendingProvider = undefined;
+			setRemoteFileContext({
+				id: profile.id,
+				kind: "sftp",
+				label: profile.id,
+				root,
+				status: "connected read-only",
+				writes: "locked",
+				hostKeyFingerprint: candidate.fingerprint,
+			});
+			setFileRoot(root);
+			setFileEntries(entries);
+			setSelectedFileIndex(0);
+			setFileHistory([]);
+			setFileForwardHistory([]);
+			setScreen("files");
+			setFocusArea("files");
+			const outcome = {
+				status: "connected" as const,
+				id: profile.id,
+				target: root,
+				host: profile.host,
+				port: profile.port,
+				fingerprint: candidate.fingerprint,
+				message: `read-only SFTP connected entries=${entries.length}`,
+			};
+			const auditMessage = formatReadOnlySftpConnectionAuditMessage(outcome);
+			log("ok", auditMessage);
+			recordStatusActivityResult({
+				source: "timeline",
+				action: "remote-connect",
+				message: `remote connect connected ${profile.id} ${profile.host}:${profile.port}`,
+				detail: `target="${root}" fingerprint=${candidate.fingerprint} network=opened capabilities=list,stat,read writes=locked`,
+				detailRows: [outcome.message, `audit=${auditMessage}`],
+			});
+		} catch (caught) {
+			try {
+				await pendingProvider?.close?.();
+			} catch {
+				// The original connection failure is the useful diagnostic.
+			}
+			const message = caught instanceof Error ? caught.message : String(caught);
+			const outcome = {
+				status: "failed" as const,
+				id: profile.id,
+				target: preview.target,
+				host: profile.host,
+				port: profile.port,
+				fingerprint: candidate.fingerprint,
+				message,
+			};
+			const auditMessage = formatReadOnlySftpConnectionAuditMessage(outcome);
+			log("fail", auditMessage);
+			recordStatusActivityResult({
+				source: "timeline",
+				action: "remote-connect",
+				message: `remote connect failed ${profile.id} ${profile.host}:${profile.port}`,
+				detail: `target="${preview.target}" fingerprint=${candidate.fingerprint} network=closed writes=locked reason=${JSON.stringify(message)}`,
+				detailRows: [message, `audit=${auditMessage}`],
+			});
+		} finally {
+			if (pendingRemoteConnectRef.current === connectController) {
+				pendingRemoteConnectRef.current = undefined;
+			}
+			setCommandStatus("idle");
+		}
 	}, [
 		commandLine.value,
 		log,
 		recordStatusActivityResult,
+		remoteFileProvider,
+		remoteKnownHostsCandidateSession,
+		remoteKnownHostsPasteReviewSession,
 		remoteProfiles,
 		selectedRemoteIndex,
 	]);
@@ -7902,7 +8131,7 @@ export function App(): React.ReactElement {
 				} else if (commandLine.prompt === "remote-profile") {
 					void submitRemoteProfileCommand();
 				} else if (commandLine.prompt === "remote-connect") {
-					submitRemoteConnectCommand();
+					void submitRemoteConnectCommand();
 				} else if (commandLine.prompt === "remote-host-trust") {
 					submitRemoteHostTrustReviewCommand();
 				} else if (commandLine.prompt === "remote-host-key-evidence") {
@@ -8290,25 +8519,49 @@ export function App(): React.ReactElement {
 		}
 
 		if (focusArea === "files" && input === "c") {
+			if (remoteFileProvider) {
+				log("warn", "remote SFTP copy is disabled in read-only sessions");
+				return;
+			}
 			openSelectedFileOperation("copy");
 			return;
 		}
 
 		if (focusArea === "files" && input === "m") {
+			if (remoteFileProvider) {
+				log("warn", "remote SFTP move is disabled in read-only sessions");
+				return;
+			}
 			openSelectedFileOperation("move");
 			return;
 		}
 
 		if (focusArea === "files" && input === "x") {
+			if (remoteFileProvider) {
+				log("warn", "remote SFTP delete is disabled in read-only sessions");
+				return;
+			}
 			openSelectedFileOperation("delete");
 			return;
 		}
 
+		if (focusArea === "files" && input === "L" && remoteFileProvider) {
+			void disconnectRemoteFiles();
+			return;
+		}
+
 		if (focusArea === "files" && input === "g") {
+			if (remoteFileProvider) {
+				log(
+					"warn",
+					"close the SFTP session with L before using local locations",
+				);
+				return;
+			}
 			void jumpToNextLocation();
 		}
 
-		if (focusArea === "files") {
+		if (focusArea === "files" && !remoteFileProvider) {
 			const locationIndex = getLocationShortcutIndex(
 				input,
 				fileLocations.length,
@@ -11552,7 +11805,14 @@ export function App(): React.ReactElement {
 				log("warn", "no remote profile selected");
 				return;
 			}
-			const preview = createRemoteConnectPreview(profile);
+			const candidate = getSelectedRemoteKnownHostsCandidate(
+				profile,
+				remoteKnownHostsCandidateSession,
+				remoteKnownHostsPasteReviewSession,
+			);
+			const preview = createRemoteConnectPreview(profile, {
+				hostKeyFingerprint: candidate?.fingerprint,
+			});
 			setCommandLine(openCommandLine("remote-connect"));
 			log("info", `remote connect preview opened ${preview.confirm}`);
 			return;
@@ -13943,12 +14203,19 @@ function FilesWorkspace({
 			<Box marginTop={1} flexDirection="column">
 				<Text color="cyan">COMMAND LINE</Text>
 				<Text>
-					1-9 locations · f filter · y path · b back · B forward · c copy · m
-					move · x delete · : path
+					{remoteContext
+						? "enter open · u parent · f filter · y path · b back · B forward · L close SFTP · : path"
+						: "1-9 locations · f filter · y path · b back · B forward · c copy · m move · x delete · : path"}
 				</Text>
-				<Text>picos type /path/to/file</Text>
+				<Text>
+					{remoteContext
+						? "SFTP text preview opens in the read-only Editor buffer"
+						: "picos type /path/to/file"}
+				</Text>
 				<Text color="gray">
-					file operations are preview-only until confirmation wiring lands
+					{remoteContext
+						? "remote list/stat/read only · writes and commands disabled"
+						: "file operations are preview-only until confirmation wiring lands"}
 				</Text>
 			</Box>
 		</Box>
@@ -14215,8 +14482,17 @@ function RemotesWorkspace({
 		),
 	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
+	const selectedKnownHostCandidate =
+		knownHostsCandidatePreview.selected === "none"
+			? undefined
+			: knownHostsCandidatePreview.candidates.find(
+					(candidate) =>
+						candidate.index === knownHostsCandidatePreview.selected,
+				);
 	const connectPreview = selectedProfile
-		? createRemoteConnectPreview(selectedProfile)
+		? createRemoteConnectPreview(selectedProfile, {
+				hostKeyFingerprint: selectedKnownHostCandidate?.fingerprint,
+			})
 		: undefined;
 	const connectPreviewRows = formatRemoteConnectPreviewRows(connectPreview);
 	const activityRows = formatRemoteActivityShelfRows(activityResults, {

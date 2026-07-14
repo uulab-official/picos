@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { createFileProvider } from "./files";
+import { formatSftpProfileUri, normalizeSftpHostKeyFingerprint } from "./sftp";
 import type { SftpRemoteProfile } from "./types";
 
 type RemoteProfileInput = Record<string, unknown>;
@@ -11,8 +12,9 @@ export type RemoteFileContext = {
 	kind: "sftp";
 	label: string;
 	root: string;
-	status: "adapter pending";
+	status: "adapter pending" | "connected read-only";
 	writes: "locked";
+	hostKeyFingerprint?: string;
 };
 
 export type RemoteConnectPreview = {
@@ -22,11 +24,11 @@ export type RemoteConnectPreview = {
 	port: number;
 	username: string;
 	key: "configured" | "none";
-	hostKey: "unverified";
+	hostKey: "unverified" | string;
 	transport: "sftp";
-	dependency: "@uulab/picos-sftp";
-	status: "blocked";
-	reason: "sftp-adapter-not-installed";
+	dependency: "ssh2";
+	status: "blocked" | "ready";
+	reason: "host-key-review-required" | "verified-host-key-candidate";
 	risk: "read";
 	privilege: "user";
 	confirm: string;
@@ -37,7 +39,7 @@ export type RemoteConnectPreview = {
 
 export type RemoteConnectConfirmation = {
 	preview: RemoteConnectPreview;
-	status: "confirmed-blocked" | "rejected";
+	status: "confirmed-ready" | "confirmed-blocked" | "rejected";
 	input: string;
 	networkOpened: false;
 	message: string;
@@ -45,21 +47,21 @@ export type RemoteConnectConfirmation = {
 
 export type RemoteTransportProbe = {
 	id: string;
-	dependency: "@uulab/picos-sftp";
-	installed: false;
-	status: "missing";
+	dependency: "ssh2";
+	installed: true;
+	status: "available";
 	probe: "static";
 	target: string;
 	auth: "user";
 	key: "configured" | "none";
 	hostKey: "unverified";
 	capabilities: {
-		list: "planned";
-		read: "planned";
+		list: "available";
+		read: "available";
 		write: "locked";
 		destructive: "locked";
 	};
-	execution: "blocked";
+	execution: "guarded";
 	networkOpened: false;
 	willImport: false;
 	willConnect: false;
@@ -69,14 +71,14 @@ export type RemoteTransportProbe = {
 export type RemoteReadOnlyAdapterContract = {
 	id: string;
 	provider: "sftp";
-	dependency: "@uulab/picos-sftp";
+	dependency: "ssh2";
 	adapter: "read-only";
 	target: string;
-	lifecycle: "planned";
+	lifecycle: "available";
 	methods: {
-		list: "planned";
-		read: "planned";
-		stat: "planned";
+		list: "available";
+		read: "available";
+		stat: "available";
 		write: "locked";
 		delete: "locked";
 		exec: "unsupported";
@@ -334,6 +336,32 @@ export type RemoteKnownHostsPasteReviewSession = Record<
 
 export type RemoteKnownHostsPasteReviewSelectionDirection = "next" | "previous";
 
+export function getSelectedRemoteKnownHostsCandidate(
+	profile: SftpRemoteProfile | undefined,
+	candidateSession: RemoteKnownHostsCandidateSession = {},
+	pasteSession: RemoteKnownHostsPasteReviewSession = {},
+): RemoteKnownHostsCandidate | undefined {
+	if (!profile) {
+		return undefined;
+	}
+	const paste = pasteSession[profile.id];
+	if (paste?.selected !== "none") {
+		const selected = paste.candidates.find(
+			(candidate) => candidate.index === paste.selected,
+		);
+		if (selected) {
+			return selected;
+		}
+	}
+	const preview = candidateSession[profile.id];
+	if (preview?.selected === "none" || preview?.selected === undefined) {
+		return undefined;
+	}
+	return preview.candidates.find(
+		(candidate) => candidate.index === preview.selected,
+	);
+}
+
 export type RemoteHostKeyTrustDecisionPreview = {
 	id: string;
 	provider: "sftp";
@@ -478,11 +506,14 @@ export function formatRemoteHandoffBoundaryRows(options: {
 	const root = context?.root ?? formatSftpRoot(profile);
 	const staged = context?.id === profile.id;
 	const status = context && staged ? context.status : "profile ready";
+	const connected = staged && context?.status === "connected read-only";
 	return [
 		`REMOTE HANDOFF ${profile.id}`,
 		`provider=${profile.kind} root=${root}`,
-		`status=${status} writes=locked session=${staged ? "staged" : "not staged"}`,
-		`controls=enter ${staged ? "restage" : "stage"} · files opens locked SFTP boundary · no network session`,
+		`status=${status} writes=locked session=${connected ? "connected" : staged ? "staged" : "not staged"}`,
+		connected
+			? "controls=Files enter list/read · L close session · remote writes disabled"
+			: `controls=enter ${staged ? "restage" : "stage"} · c exact-confirm connect · no network session`,
 	];
 }
 
@@ -504,23 +535,23 @@ export function formatRemoteHostReviewRows(
 		`REMOTE HOST REVIEW ${profile.id}`,
 		`target=${formatSftpRoot(profile)}`,
 		`identity user=${profile.username} host=${profile.host} port=${profile.port} key=${profile.keyPath ? "configured" : "none"}`,
-		"policy=read-only adapter=pending writes=locked network=not opened",
+		"policy=read-only adapter=available writes=locked network=not opened",
 		`confirm=connect remote ${profile.id}`,
-		"controls=review host · enter stage context · future connect requires exact confirmation",
+		"controls=K/P provide known_hosts · c exact-confirm read-only connect",
 	];
 }
 
 export function formatRemoteAdapterBoundaryRows(
 	profile?: SftpRemoteProfile,
 ): string[] {
-	const dependency = "@uulab/picos-sftp";
+	const dependency = "ssh2";
 	if (!profile) {
 		return [
 			"REMOTE ADAPTER BOUNDARY none",
-			`transport=sftp dependency=${dependency} status=not installed session=not opened`,
+			`transport=sftp dependency=${dependency} status=available session=not opened`,
 			"target=none",
 			"auth=user=- key=none hostKey=unverified",
-			"capabilities=list/read planned write locked destructive locked",
+			"capabilities=list/read/stat available write locked destructive locked",
 			"policy=read-only network=blocked-until-profile confirm=select remote profile",
 			"controls=j/k select · enter stage context · config remotes create profile",
 		];
@@ -528,12 +559,12 @@ export function formatRemoteAdapterBoundaryRows(
 
 	return [
 		`REMOTE ADAPTER BOUNDARY ${profile.id}`,
-		`transport=sftp dependency=${dependency} status=not installed session=not opened`,
+		`transport=sftp dependency=${dependency} status=available session=not opened`,
 		`target=${formatSftpRoot(profile)}`,
 		`auth=user=${profile.username} key=${profile.keyPath ? "configured" : "none"} hostKey=unverified`,
-		"capabilities=list/read planned write locked destructive locked",
+		"capabilities=list/read/stat available write locked destructive locked",
 		`policy=read-only network=blocked-until-confirm confirm=connect remote ${profile.id}`,
-		"controls=enter stage context · future connect opens host review dialog first",
+		"controls=K/P known_hosts · c connect · exact host-key verification required",
 	];
 }
 
@@ -542,26 +573,26 @@ export function createRemoteTransportProbe(
 ): RemoteTransportProbe {
 	return {
 		id: profile?.id ?? "none",
-		dependency: "@uulab/picos-sftp",
-		installed: false,
-		status: "missing",
+		dependency: "ssh2",
+		installed: true,
+		status: "available",
 		probe: "static",
 		target: profile ? formatSftpRoot(profile) : "none",
 		auth: "user",
 		key: profile?.keyPath ? "configured" : "none",
 		hostKey: "unverified",
 		capabilities: {
-			list: "planned",
-			read: "planned",
+			list: "available",
+			read: "available",
 			write: "locked",
 			destructive: "locked",
 		},
-		execution: "blocked",
+		execution: "guarded",
 		networkOpened: false,
 		willImport: false,
 		willConnect: false,
 		next: profile
-			? "install optional adapter · then host review exact confirm"
+			? "select known_hosts candidate · exact confirm opens read-only session"
 			: "select remote profile · no socket opened",
 	};
 }
@@ -586,14 +617,14 @@ export function createRemoteReadOnlyAdapterContract(
 	return {
 		id: profile?.id ?? "none",
 		provider: "sftp",
-		dependency: "@uulab/picos-sftp",
+		dependency: "ssh2",
 		adapter: "read-only",
 		target: profile ? formatSftpRoot(profile) : "none",
-		lifecycle: "planned",
+		lifecycle: "available",
 		methods: {
-			list: "planned",
-			read: "planned",
-			stat: "planned",
+			list: "available",
+			read: "available",
+			stat: "available",
 			write: "locked",
 			delete: "locked",
 			exec: "unsupported",
@@ -626,7 +657,7 @@ export function formatRemoteReadOnlyAdapterContractRows(
 		`execution=willImport=${contract.execution.importsTransport} willConnect=${contract.execution.opensSocket} willMutate=${contract.execution.mutatesRemote}`,
 		contract.id === "none"
 			? "next=select remote profile · no adapter import"
-			: "next=implement adapter behind transport probe and host review",
+			: "next=select known_hosts candidate · exact confirm read-only connect",
 	];
 }
 
@@ -670,7 +701,7 @@ export function formatRemoteFileRequestPreviewRows(
 		`execution=willImport=${preview.execution.importsTransport} willConnect=${preview.execution.opensSocket} willRead=${preview.execution.readsRemote} willMutate=${preview.execution.mutatesRemote}`,
 		preview.id === "none"
 			? "next=select remote profile · no adapter import"
-			: "next=host review and adapter install before remote list/read",
+			: "next=select known_hosts candidate and exact-confirm before remote list/read",
 	];
 }
 
@@ -1476,7 +1507,12 @@ export function submitRemoteHostKeyTrustReview(
 
 export function createRemoteConnectPreview(
 	profile: SftpRemoteProfile,
+	options: { hostKeyFingerprint?: string } = {},
 ): RemoteConnectPreview {
+	const hostKeyFingerprint = options.hostKeyFingerprint
+		? normalizeSftpHostKeyFingerprint(options.hostKeyFingerprint)
+		: undefined;
+	const ready = Boolean(hostKeyFingerprint);
 	return {
 		id: profile.id,
 		target: formatSftpRoot(profile),
@@ -1484,11 +1520,11 @@ export function createRemoteConnectPreview(
 		port: profile.port,
 		username: profile.username,
 		key: profile.keyPath ? "configured" : "none",
-		hostKey: "unverified",
+		hostKey: hostKeyFingerprint ?? "unverified",
 		transport: "sftp",
-		dependency: "@uulab/picos-sftp",
-		status: "blocked",
-		reason: "sftp-adapter-not-installed",
+		dependency: "ssh2",
+		status: ready ? "ready" : "blocked",
+		reason: ready ? "verified-host-key-candidate" : "host-key-review-required",
 		risk: "read",
 		privilege: "user",
 		confirm: `connect remote ${profile.id}`,
@@ -1519,8 +1555,10 @@ export function formatRemoteConnectPreviewRows(
 		`target=${preview.target}`,
 		`identity user=${preview.username} host=${preview.host} port=${preview.port} key=${preview.key} hostKey=${preview.hostKey}`,
 		`risk=${preview.risk} privilege=${preview.privilege} writes=${preview.writes} destructive=${preview.destructive}`,
-		`confirm="${preview.confirm}" willExecute=false reason=${preview.reason}`,
-		"controls=future c confirm host review · enter stage context · no socket opened",
+		`confirm="${preview.confirm}" willExecute=${preview.status === "ready" ? "after-exact-confirm" : "false"} reason=${preview.reason}`,
+		preview.status === "ready"
+			? "controls=c exact-confirm connect · host key verified at handshake · writes disabled"
+			: "controls=K/P provide known_hosts candidate · no socket opened",
 	];
 }
 
@@ -1530,14 +1568,21 @@ export function submitRemoteConnectConfirmation(
 ): RemoteConnectConfirmation {
 	const normalizedInput = input.trim();
 	const confirmed = normalizedInput === preview.confirm;
+	const ready = confirmed && preview.status === "ready";
 	return {
 		preview,
-		status: confirmed ? "confirmed-blocked" : "rejected",
+		status: ready
+			? "confirmed-ready"
+			: confirmed
+				? "confirmed-blocked"
+				: "rejected",
 		input: normalizedInput,
 		networkOpened: false,
-		message: confirmed
-			? `remote connect blocked ${preview.id} ${preview.target}`
-			: `remote connect confirmation rejected ${preview.id}`,
+		message: ready
+			? `remote connect approved ${preview.id} ${preview.target}`
+			: confirmed
+				? `remote connect blocked ${preview.id} ${preview.target}`
+				: `remote connect confirmation rejected ${preview.id}`,
 	};
 }
 
@@ -1631,7 +1676,7 @@ export async function formatRemoteProviderStatus(
 		`Provider: ${context.kind}`,
 		`Root: ${context.root}`,
 		`Status: ${context.status}`,
-		"Writes: locked until host and path confirmation",
+		"Writes: disabled in read-only sessions",
 		"",
 		...formatRemoteHandoffBoundaryRows({ profile, context }),
 		"",
@@ -1757,8 +1802,7 @@ function normalizePort(value: unknown): number | undefined {
 }
 
 function formatSftpRoot(profile: SftpRemoteProfile): string {
-	const root = profile.root.startsWith("/") ? profile.root : `/${profile.root}`;
-	return `sftp://${profile.username}@${profile.host}:${profile.port}${root}`;
+	return formatSftpProfileUri(profile);
 }
 
 type ParsedKnownHostsLine = {

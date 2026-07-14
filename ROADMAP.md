@@ -1,5 +1,22 @@
 # picos Roadmap
 
+## v0.4.334 - Read-Only SFTP
+
+Status: implementation on `codex/picos-v0.4.334-readonly-sftp`, to be stacked on draft PR [#408](https://github.com/uulab-official/picos/pull/408).
+
+Goal: turn the long-running Remotes SFTP previews into a useful, host-key-verified, read-only Files session without widening remote mutation permissions.
+
+- `ssh2` provides the cross-platform SSH/SFTP transport and remains an external runtime dependency in the package build.
+- Remotes requires a selected, valid SHA256 `known_hosts` candidate plus the exact phrase `connect remote <id>` before opening a socket.
+- The SSH handshake hashes the server's raw host key and rejects any mismatch with the selected candidate.
+- Authentication uses a configured private-key path or `SSH_AUTH_SOCK`; passwords are neither accepted nor persisted.
+- Files can list, stat, navigate, and bounded-read remote paths with stable `sftp://user@host:port/path` breadcrumbs, parent traversal, and back/forward history.
+- `L` closes the SFTP session and restores the local filesystem; profile changes and TUI shutdown also close active sessions.
+- Remote write, copy, move, delete, and command execution remain disabled, including at provider and keyboard boundaries.
+- Connected and failed attempts emit structured audit rows that Status Activity can replay exactly into Timeline.
+- Tests cover fingerprint validation, candidate selection, URI authority isolation, list/stat/bounded-read behavior, write locks, session close, preview state, and audit recovery.
+- Next: add cancellable/retryable connection diagnostics and a guarded non-interactive CLI list/read surface before considering any remote write proposal.
+
 ## v0.4.333 - Interface Evidence Recovery
 
 Status: draft PR [#408](https://github.com/uulab-official/picos/pull/408) on `codex/picos-v0.4.333-interface-evidence-recovery`, stacked on draft PR [#407](https://github.com/uulab-official/picos/pull/407).

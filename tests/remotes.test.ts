@@ -43,6 +43,7 @@ import {
 	formatRemoteProviderStatus,
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
+	getSelectedRemoteKnownHostsCandidate,
 	moveRemoteKnownHostsPasteReviewSelection,
 	normalizeRemoteProfiles,
 	parseRemoteKnownHostsCandidateSelectionInput,
@@ -186,18 +187,16 @@ describe("remote profiles", () => {
 		expect(output).toContain("REMOTE HANDOFF dev");
 		expect(output).toContain("session=staged");
 		expect(output).toContain("REMOTE ADAPTER BOUNDARY dev");
-		expect(output).toContain(
-			"dependency=@uulab/picos-sftp status=not installed",
-		);
+		expect(output).toContain("dependency=ssh2 status=available");
 		expect(output).toContain("REMOTE TRANSPORT PROBE dev");
 		expect(output).toContain(
-			"execution=blocked network=not-opened willImport=false willConnect=false",
+			"execution=guarded network=not-opened willImport=false willConnect=false",
 		);
 		expect(output).toContain("REMOTE HOST REVIEW dev");
 		expect(output).toContain("network=not opened");
 		expect(output).toContain("REMOTE CONNECT PREVIEW dev");
 		expect(output).toContain(
-			"willExecute=false reason=sftp-adapter-not-installed",
+			"willExecute=false reason=host-key-review-required",
 		);
 	});
 
@@ -235,7 +234,7 @@ describe("remote profiles", () => {
 			"REMOTE HANDOFF dev",
 			"provider=sftp root=sftp://alice@dev.example.com:22/srv/app",
 			"status=profile ready writes=locked session=not staged",
-			"controls=enter stage · files opens locked SFTP boundary · no network session",
+			"controls=enter stage · c exact-confirm connect · no network session",
 		]);
 
 		expect(
@@ -254,7 +253,7 @@ describe("remote profiles", () => {
 			"REMOTE HANDOFF dev",
 			"provider=sftp root=sftp://alice@dev.example.com:22/srv/app",
 			"status=adapter pending writes=locked session=staged",
-			"controls=enter restage · files opens locked SFTP boundary · no network session",
+			"controls=enter restage · c exact-confirm connect · no network session",
 		]);
 	});
 
@@ -273,9 +272,9 @@ describe("remote profiles", () => {
 			"REMOTE HOST REVIEW prod",
 			"target=sftp://deploy@prod.example.com:2222/srv/app",
 			"identity user=deploy host=prod.example.com port=2222 key=configured",
-			"policy=read-only adapter=pending writes=locked network=not opened",
+			"policy=read-only adapter=available writes=locked network=not opened",
 			"confirm=connect remote prod",
-			"controls=review host · enter stage context · future connect requires exact confirmation",
+			"controls=K/P provide known_hosts · c exact-confirm read-only connect",
 		]);
 
 		expect(
@@ -303,21 +302,21 @@ describe("remote profiles", () => {
 			}),
 		).toEqual([
 			"REMOTE ADAPTER BOUNDARY prod",
-			"transport=sftp dependency=@uulab/picos-sftp status=not installed session=not opened",
+			"transport=sftp dependency=ssh2 status=available session=not opened",
 			"target=sftp://deploy@prod.example.com:2222/srv/app",
 			"auth=user=deploy key=configured hostKey=unverified",
-			"capabilities=list/read planned write locked destructive locked",
+			"capabilities=list/read/stat available write locked destructive locked",
 			"policy=read-only network=blocked-until-confirm confirm=connect remote prod",
-			"controls=enter stage context · future connect opens host review dialog first",
+			"controls=K/P known_hosts · c connect · exact host-key verification required",
 		]);
 
 		expect(formatRemoteAdapterBoundaryRows().join("\n")).toBe(
 			[
 				"REMOTE ADAPTER BOUNDARY none",
-				"transport=sftp dependency=@uulab/picos-sftp status=not installed session=not opened",
+				"transport=sftp dependency=ssh2 status=available session=not opened",
 				"target=none",
 				"auth=user=- key=none hostKey=unverified",
-				"capabilities=list/read planned write locked destructive locked",
+				"capabilities=list/read/stat available write locked destructive locked",
 				"policy=read-only network=blocked-until-profile confirm=select remote profile",
 				"controls=j/k select · enter stage context · config remotes create profile",
 			].join("\n"),
@@ -337,46 +336,46 @@ describe("remote profiles", () => {
 
 		expect(createRemoteTransportProbe(profile)).toEqual({
 			id: "prod",
-			dependency: "@uulab/picos-sftp",
-			installed: false,
-			status: "missing",
+			dependency: "ssh2",
+			installed: true,
+			status: "available",
 			probe: "static",
 			target: "sftp://deploy@prod.example.com:2222/srv/app",
 			auth: "user",
 			key: "configured",
 			hostKey: "unverified",
 			capabilities: {
-				list: "planned",
-				read: "planned",
+				list: "available",
+				read: "available",
 				write: "locked",
 				destructive: "locked",
 			},
-			execution: "blocked",
+			execution: "guarded",
 			networkOpened: false,
 			willImport: false,
 			willConnect: false,
-			next: "install optional adapter · then host review exact confirm",
+			next: "select known_hosts candidate · exact confirm opens read-only session",
 		});
 		expect(
 			formatRemoteTransportProbeRows(createRemoteTransportProbe(profile)),
 		).toEqual([
 			"REMOTE TRANSPORT PROBE prod",
-			"dependency=@uulab/picos-sftp installed=false status=missing probe=static",
+			"dependency=ssh2 installed=true status=available probe=static",
 			"target=sftp://deploy@prod.example.com:2222/srv/app",
 			"auth=user key=configured hostKey=unverified",
-			"capabilities=list/read planned write locked destructive locked",
-			"execution=blocked network=not-opened willImport=false willConnect=false",
-			"next=install optional adapter · then host review exact confirm",
+			"capabilities=list/read available write locked destructive locked",
+			"execution=guarded network=not-opened willImport=false willConnect=false",
+			"next=select known_hosts candidate · exact confirm opens read-only session",
 		]);
 
 		expect(formatRemoteTransportProbeRows().join("\n")).toBe(
 			[
 				"REMOTE TRANSPORT PROBE none",
-				"dependency=@uulab/picos-sftp installed=false status=missing probe=static",
+				"dependency=ssh2 installed=true status=available probe=static",
 				"target=none",
 				"auth=user=- key=none hostKey=unverified",
-				"capabilities=list/read planned write locked destructive locked",
-				"execution=blocked network=not-opened willImport=false willConnect=false",
+				"capabilities=list/read available write locked destructive locked",
+				"execution=guarded network=not-opened willImport=false willConnect=false",
 				"next=select remote profile · no socket opened",
 			].join("\n"),
 		);
@@ -396,14 +395,14 @@ describe("remote profiles", () => {
 		expect(createRemoteReadOnlyAdapterContract(profile)).toEqual({
 			id: "prod",
 			provider: "sftp",
-			dependency: "@uulab/picos-sftp",
+			dependency: "ssh2",
 			adapter: "read-only",
 			target: "sftp://deploy@prod.example.com:2222/srv/app",
-			lifecycle: "planned",
+			lifecycle: "available",
 			methods: {
-				list: "planned",
-				read: "planned",
-				stat: "planned",
+				list: "available",
+				read: "available",
+				stat: "available",
 				write: "locked",
 				delete: "locked",
 				exec: "unsupported",
@@ -426,20 +425,20 @@ describe("remote profiles", () => {
 			),
 		).toEqual([
 			"REMOTE READ ADAPTER CONTRACT prod",
-			"provider=sftp dependency=@uulab/picos-sftp adapter=read-only lifecycle=planned",
+			"provider=sftp dependency=ssh2 adapter=read-only lifecycle=available",
 			"target=sftp://deploy@prod.example.com:2222/srv/app",
-			"methods=list planned read planned stat planned write locked delete locked exec unsupported",
+			"methods=list available read available stat available write locked delete locked exec unsupported",
 			'guards=hostReview exactConfirm="connect remote prod" writeConfirm=disabled destructiveConfirm=disabled',
 			"execution=willImport=false willConnect=false willMutate=false",
-			"next=implement adapter behind transport probe and host review",
+			"next=select known_hosts candidate · exact confirm read-only connect",
 		]);
 
 		expect(formatRemoteReadOnlyAdapterContractRows().join("\n")).toBe(
 			[
 				"REMOTE READ ADAPTER CONTRACT none",
-				"provider=sftp dependency=@uulab/picos-sftp adapter=read-only lifecycle=planned",
+				"provider=sftp dependency=ssh2 adapter=read-only lifecycle=available",
 				"target=none",
-				"methods=list planned read planned stat planned write locked delete locked exec unsupported",
+				"methods=list available read available stat available write locked delete locked exec unsupported",
 				'guards=hostReview exactConfirm="select remote profile" writeConfirm=disabled destructiveConfirm=disabled',
 				"execution=willImport=false willConnect=false willMutate=false",
 				"next=select remote profile · no adapter import",
@@ -459,7 +458,7 @@ describe("remote profiles", () => {
 
 		expect(output).toContain("REMOTE READ ADAPTER CONTRACT dev");
 		expect(output).toContain(
-			"methods=list planned read planned stat planned write locked delete locked exec unsupported",
+			"methods=list available read available stat available write locked delete locked exec unsupported",
 		);
 		expect(output).toContain(
 			"execution=willImport=false willConnect=false willMutate=false",
@@ -511,7 +510,7 @@ describe("remote profiles", () => {
 			"risk=read privilege=user contract=read-adapter-required",
 			'guards=hostReview exactConfirm="connect remote prod" writes=locked destructive=locked exec=unsupported',
 			"execution=willImport=false willConnect=false willRead=false willMutate=false",
-			"next=host review and adapter install before remote list/read",
+			"next=select known_hosts candidate and exact-confirm before remote list/read",
 		]);
 
 		expect(formatRemoteFileRequestPreviewRows().join("\n")).toBe(
@@ -1175,6 +1174,40 @@ describe("remote profiles", () => {
 				"next=select remote profile · no candidate parsing",
 			].join("\n"),
 		);
+	});
+
+	test("prefers the selected paste candidate for guarded SFTP connect", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+		};
+		const fallback = createRemoteKnownHostsCandidatePreview(
+			profile,
+			"[prod.example.com]:2222 ssh-rsa AAAAB3NzaFallback",
+		);
+		const paste = createRemoteKnownHostsPasteReview(
+			profile,
+			"[prod.example.com]:2222 ssh-ed25519 AAAAC3NzaPaste",
+		);
+
+		expect(
+			getSelectedRemoteKnownHostsCandidate(
+				profile,
+				{ prod: fallback },
+				{ prod: paste },
+			)?.keyType,
+		).toBe("ssh-ed25519");
+		expect(
+			getSelectedRemoteKnownHostsCandidate(
+				profile,
+				{ prod: fallback },
+				{ prod: { ...paste, selected: "none" } },
+			)?.keyType,
+		).toBe("ssh-rsa");
 	});
 
 	test("applies selected known_hosts candidates from session to compare detail", () => {
@@ -1963,9 +1996,9 @@ describe("remote profiles", () => {
 			key: "configured",
 			hostKey: "unverified",
 			transport: "sftp",
-			dependency: "@uulab/picos-sftp",
+			dependency: "ssh2",
 			status: "blocked",
-			reason: "sftp-adapter-not-installed",
+			reason: "host-key-review-required",
 			risk: "read",
 			privilege: "user",
 			confirm: "connect remote prod",
@@ -1979,8 +2012,8 @@ describe("remote profiles", () => {
 			"target=sftp://deploy@prod.example.com:2222/srv/app",
 			"identity user=deploy host=prod.example.com port=2222 key=configured hostKey=unverified",
 			"risk=read privilege=user writes=locked destructive=locked",
-			'confirm="connect remote prod" willExecute=false reason=sftp-adapter-not-installed',
-			"controls=future c confirm host review · enter stage context · no socket opened",
+			'confirm="connect remote prod" willExecute=false reason=host-key-review-required',
+			"controls=K/P provide known_hosts candidate · no socket opened",
 		]);
 
 		expect(formatRemoteConnectPreviewRows().join("\n")).toBe(
@@ -2008,7 +2041,7 @@ describe("remote profiles", () => {
 				"remote connect blocked prod sftp://deploy@prod.example.com:2222/srv/app",
 		});
 		expect(formatRemoteConnectConfirmationAuditMessage(confirmed)).toBe(
-			'remote connect audit id=prod target="sftp://deploy@prod.example.com:2222/srv/app" status=confirmed-blocked dependency=@uulab/picos-sftp reason=sftp-adapter-not-installed network=not-opened confirm="connect remote prod"',
+			'remote connect audit id=prod target="sftp://deploy@prod.example.com:2222/srv/app" status=confirmed-blocked dependency=ssh2 reason=host-key-review-required network=not-opened confirm="connect remote prod"',
 		);
 
 		expect(submitRemoteConnectConfirmation(preview, "connect prod")).toEqual({
@@ -2018,6 +2051,28 @@ describe("remote profiles", () => {
 			networkOpened: false,
 			message: "remote connect confirmation rejected prod",
 		});
+
+		const trustedProfile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+		};
+		const trusted = createRemoteConnectPreview(trustedProfile, {
+			hostKeyFingerprint: "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		});
+		expect(trusted.status).toBe("ready");
+		expect(trusted.reason).toBe("verified-host-key-candidate");
+		expect(
+			submitRemoteConnectConfirmation(trusted, "connect remote prod").status,
+		).toBe("confirmed-ready");
+		expect(
+			createRemoteConnectPreview(trustedProfile, {
+				hostKeyFingerprint: "SHA256:too-short",
+			}).status,
+		).toBe("blocked");
 	});
 
 	test("formats remote host review audit messages without opening sessions", () => {

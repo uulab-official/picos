@@ -131,8 +131,9 @@ describe("TUI file selection", () => {
 		).toEqual([
 			"PROVIDER BOUNDARY sftp dev",
 			"root=sftp://alice@dev.example.com:22/srv/app",
-			"status=adapter pending writes=locked localRoot=/Users/bonjin/Documents/workspace/uulab/picos",
-			"controls=enter preview · y copy path · remote writes require confirmation",
+			"status=adapter pending writes=locked activeRoot=/Users/bonjin/Documents/workspace/uulab/picos",
+			"hostKey=unverified verified=no",
+			"controls=enter preview · y copy path · c connect from Remotes",
 		]);
 	});
 });
