@@ -63,9 +63,15 @@ export async function startSftpIntegrationFixture(): Promise<SftpIntegrationFixt
 		execAttempts: 0,
 	};
 	const clients = new Set<Connection>();
+	const sockets = new Set<Socket>();
 	const server = new Server({ hostKeys: [hostKey.private] }, (client) => {
 		metrics.connections += 1;
 		clients.add(client);
+		const socket = connectionSocket(client);
+		if (socket) {
+			sockets.add(socket);
+			socket.once("close", () => sockets.delete(socket));
+		}
 		client
 			.on("authentication", (context) => {
 				if (
@@ -123,7 +129,8 @@ export async function startSftpIntegrationFixture(): Promise<SftpIntegrationFixt
 		metrics,
 		async close() {
 			for (const client of clients) client.end();
-			await closeServer(server, clients);
+			for (const socket of sockets) socket.destroy();
+			await closeServer(server, clients, sockets);
 		},
 	};
 }
@@ -336,10 +343,15 @@ function listen(server: NetServer): Promise<number> {
 	});
 }
 
-function closeServer(server: Server, clients: Set<Connection>): Promise<void> {
+function closeServer(
+	server: Server,
+	clients: Set<Connection>,
+	sockets: Set<Socket>,
+): Promise<void> {
 	return new Promise((resolveClose, rejectClose) => {
 		const timeout = setTimeout(() => {
 			for (const client of clients) connectionSocket(client)?.destroy();
+			for (const socket of sockets) socket.destroy();
 			server.unref();
 			rejectClose(
 				new Error(
