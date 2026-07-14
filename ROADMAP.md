@@ -1,5 +1,23 @@
 # picos Roadmap
 
+## v0.4.335 - SFTP Session Control
+
+Status: draft PR [#410](https://github.com/uulab-official/picos/pull/410) on `codex/picos-v0.4.335-sftp-session-control`, stacked on draft PR [#409](https://github.com/uulab-official/picos/pull/409).
+
+Goal: make read-only SFTP observable and controllable during failure-prone operator workflows, and expose the same guarded provider to non-interactive CLI automation.
+
+- Remotes shows a top-level `REMOTE SESSION CONTROL` console with idle, connecting, cancelling, connected, failed, cancelled, and disconnected lifecycle evidence.
+- Remotes uses a bounded compact layout on ordinary terminal heights so session control, profile, host verification, and activity remain visible without colliding with the event dock; the full diagnostic deck remains available on very tall consoles.
+- `X` cancels a pending handshake or initial root/list request; `R` reopens the failed profile's exact `connect remote <id>` confirmation instead of silently reconnecting.
+- Attempts retain profile, target, selected SHA256 host key, attempt number, duration, message, network posture, capabilities, and locked write/exec posture.
+- `picos remote <id> --list <path>` and `--read <path>` use the same host-key-verified read-only `FileProvider`, bounded timeouts, bounded reads, and guaranteed session close.
+- CLI network reads require a bounded regular local OpenSSH `known_hosts` file plus byte-for-byte `--confirm "connect remote <id>"`; multiple matching keys require explicit `--fingerprint` selection.
+- OpenSSH `|1|...` hashed host entries now match through HMAC-SHA1 lookup verification, DNS names match without case sensitivity, CA marker rows cannot become direct connection keys, and any matching `@revoked` fingerprint invalidates the same ordinary key.
+- Core SFTP reads stay under 1 MiB and directory listings stop at 10,000 entries or 1 MiB of filename data; CLI trust files stop at 4 MiB before transport opens.
+- Completed, failed, timed-out, and operator-cancelled operations emit one terminal `remote connect audit` diagnostic after cleanup with explicit closed/unknown network posture; cancelled TUI attempts are recoverable in Timeline.
+- Tests cover lifecycle state, retry increments, cancellation classification, hashed hosts, ambiguous keys, exact-confirm and size bounds, provider close/close failure, operation timeout, CLI list/read/failure, and cancelled audit recovery; PTY checks cover compact 80x24 and expanded 120x40 layouts.
+- Next: add a disposable credentialed SSH/SFTP integration harness plus structured CLI JSON output before proposing any remote transfer or write capability.
+
 ## v0.4.334 - Read-Only SFTP
 
 Status: draft PR [#409](https://github.com/uulab-official/picos/pull/409) on `codex/picos-v0.4.334-readonly-sftp`, stacked on draft PR [#408](https://github.com/uulab-official/picos/pull/408).

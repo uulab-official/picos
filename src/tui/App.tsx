@@ -234,7 +234,14 @@ import {
 } from "../core/routes";
 import {
 	connectReadOnlySftpFileProvider,
+	finishReadOnlySftpConnectionDiagnostic,
 	formatReadOnlySftpConnectionAuditMessage,
+	formatReadOnlySftpConnectionDiagnosticRows,
+	isReadOnlySftpConnectionCancelledError,
+	ReadOnlySftpConnectionCancelledError,
+	type ReadOnlySftpConnectionDiagnostic,
+	requestReadOnlySftpConnectionCancellation,
+	startReadOnlySftpConnectionDiagnostic,
 } from "../core/sftp";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
@@ -775,7 +782,15 @@ export function App(): React.ReactElement {
 	);
 	const [remoteFileProvider, setRemoteFileProvider] = useState<FileProvider>();
 	const remoteFileProviderRef = useRef<FileProvider | undefined>(undefined);
+	const [remoteConnectionDiagnostic, setRemoteConnectionDiagnostic] =
+		useState<ReadOnlySftpConnectionDiagnostic>();
+	const remoteConnectionDiagnosticRef = useRef<
+		ReadOnlySftpConnectionDiagnostic | undefined
+	>(undefined);
 	const pendingRemoteConnectRef = useRef<AbortController | undefined>(
+		undefined,
+	);
+	const pendingRemoteFileProviderRef = useRef<FileProvider | undefined>(
 		undefined,
 	);
 	const fileProvider = remoteFileProvider ?? localFileProvider;
@@ -785,6 +800,9 @@ export function App(): React.ReactElement {
 	useEffect(
 		() => () => {
 			pendingRemoteConnectRef.current?.abort();
+			void pendingRemoteFileProviderRef.current
+				?.close?.()
+				.catch(() => undefined);
 			void remoteFileProviderRef.current?.close?.().catch(() => undefined);
 		},
 		[],
@@ -1795,6 +1813,16 @@ export function App(): React.ReactElement {
 		remoteFileProviderRef.current = undefined;
 		setRemoteFileProvider(undefined);
 		setRemoteFileContext(undefined);
+		const diagnostic = remoteConnectionDiagnosticRef.current;
+		if (diagnostic?.status === "connected") {
+			const disconnected = finishReadOnlySftpConnectionDiagnostic(
+				diagnostic,
+				"disconnected",
+				"read-only SFTP session closed by operator",
+			);
+			remoteConnectionDiagnosticRef.current = disconnected;
+			setRemoteConnectionDiagnostic(disconnected);
+		}
 		try {
 			const entries = await localFileProvider.list(systemFileRoot);
 			setFileRoot(systemFileRoot);
@@ -4387,7 +4415,6 @@ export function App(): React.ReactElement {
 			log("warn", "no remote profile selected");
 			return;
 		}
-
 		pendingRemoteConnectRef.current?.abort();
 		if (remoteFileProvider) {
 			try {
@@ -4526,10 +4553,50 @@ export function App(): React.ReactElement {
 			);
 			return;
 		}
+		if (remoteFileProvider) {
+			try {
+				await remoteFileProvider.close?.();
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `existing SFTP session close failed; replacement blocked ${caught.message}`
+						: `existing SFTP session close failed; replacement blocked ${String(caught)}`,
+				);
+				return;
+			}
+			remoteFileProviderRef.current = undefined;
+			setRemoteFileProvider(undefined);
+			setRemoteFileContext(undefined);
+			try {
+				const localEntries = await localFileProvider.list(systemFileRoot);
+				setFileRoot(systemFileRoot);
+				setFileEntries(localEntries);
+				setSelectedFileIndex(0);
+				setFileHistory([]);
+				setFileForwardHistory([]);
+			} catch (caught) {
+				setFileRoot(systemFileRoot);
+				setFileEntries([]);
+				log(
+					"warn",
+					caught instanceof Error
+						? `local filesystem restore failed ${caught.message}`
+						: `local filesystem restore failed ${String(caught)}`,
+				);
+			}
+		}
 
 		pendingRemoteConnectRef.current?.abort();
 		const connectController = new AbortController();
 		pendingRemoteConnectRef.current = connectController;
+		const attemptDiagnostic = startReadOnlySftpConnectionDiagnostic(
+			profile,
+			candidate.fingerprint,
+			remoteConnectionDiagnosticRef.current,
+		);
+		remoteConnectionDiagnosticRef.current = attemptDiagnostic;
+		setRemoteConnectionDiagnostic(attemptDiagnostic);
 		setCommandStatus("running");
 		let pendingProvider: FileProvider | undefined;
 		try {
@@ -4537,22 +4604,24 @@ export function App(): React.ReactElement {
 				expectedHostKeyFingerprint: candidate.fingerprint,
 				signal: connectController.signal,
 			});
+			pendingRemoteFileProviderRef.current = pendingProvider;
 			const root = await pendingProvider.pwd();
 			const entries = await pendingProvider.list(root);
-			if (remoteFileProvider) {
-				try {
-					await remoteFileProvider.close?.();
-				} catch (caught) {
-					log(
-						"warn",
-						caught instanceof Error
-							? `previous SFTP session close failed ${caught.message}`
-							: `previous SFTP session close failed ${String(caught)}`,
-					);
-				}
+			if (
+				connectController.signal.aborted ||
+				pendingRemoteConnectRef.current !== connectController
+			) {
+				throw new ReadOnlySftpConnectionCancelledError();
+			}
+			if (
+				connectController.signal.aborted ||
+				pendingRemoteConnectRef.current !== connectController
+			) {
+				throw new ReadOnlySftpConnectionCancelledError();
 			}
 			remoteFileProviderRef.current = pendingProvider;
 			setRemoteFileProvider(pendingProvider);
+			pendingRemoteFileProviderRef.current = undefined;
 			pendingProvider = undefined;
 			setRemoteFileContext({
 				id: profile.id,
@@ -4580,6 +4649,13 @@ export function App(): React.ReactElement {
 				message: `read-only SFTP connected entries=${entries.length}`,
 			};
 			const auditMessage = formatReadOnlySftpConnectionAuditMessage(outcome);
+			const connectedDiagnostic = finishReadOnlySftpConnectionDiagnostic(
+				attemptDiagnostic,
+				"connected",
+				outcome.message,
+			);
+			remoteConnectionDiagnosticRef.current = connectedDiagnostic;
+			setRemoteConnectionDiagnostic(connectedDiagnostic);
 			log("ok", auditMessage);
 			recordStatusActivityResult({
 				source: "timeline",
@@ -4594,9 +4670,19 @@ export function App(): React.ReactElement {
 			} catch {
 				// The original connection failure is the useful diagnostic.
 			}
-			const message = caught instanceof Error ? caught.message : String(caught);
+			if (pendingRemoteFileProviderRef.current === pendingProvider) {
+				pendingRemoteFileProviderRef.current = undefined;
+			}
+			const cancelled =
+				connectController.signal.aborted ||
+				isReadOnlySftpConnectionCancelledError(caught);
+			const message = cancelled
+				? "SFTP connection cancelled by operator"
+				: caught instanceof Error
+					? caught.message
+					: String(caught);
 			const outcome = {
-				status: "failed" as const,
+				status: cancelled ? ("cancelled" as const) : ("failed" as const),
 				id: profile.id,
 				target: preview.target,
 				host: profile.host,
@@ -4605,22 +4691,37 @@ export function App(): React.ReactElement {
 				message,
 			};
 			const auditMessage = formatReadOnlySftpConnectionAuditMessage(outcome);
-			log("fail", auditMessage);
+			const currentDiagnostic = remoteConnectionDiagnosticRef.current;
+			if (
+				currentDiagnostic?.id === attemptDiagnostic.id &&
+				currentDiagnostic.attempt === attemptDiagnostic.attempt &&
+				currentDiagnostic.startedAt === attemptDiagnostic.startedAt
+			) {
+				const finishedDiagnostic = finishReadOnlySftpConnectionDiagnostic(
+					attemptDiagnostic,
+					cancelled ? "cancelled" : "failed",
+					message,
+				);
+				remoteConnectionDiagnosticRef.current = finishedDiagnostic;
+				setRemoteConnectionDiagnostic(finishedDiagnostic);
+			}
+			log(cancelled ? "warn" : "fail", auditMessage);
 			recordStatusActivityResult({
 				source: "timeline",
 				action: "remote-connect",
-				message: `remote connect failed ${profile.id} ${profile.host}:${profile.port}`,
+				message: `remote connect ${outcome.status} ${profile.id} ${profile.host}:${profile.port}`,
 				detail: `target="${preview.target}" fingerprint=${candidate.fingerprint} network=closed writes=locked reason=${JSON.stringify(message)}`,
 				detailRows: [message, `audit=${auditMessage}`],
 			});
 		} finally {
 			if (pendingRemoteConnectRef.current === connectController) {
 				pendingRemoteConnectRef.current = undefined;
+				setCommandStatus("idle");
 			}
-			setCommandStatus("idle");
 		}
 	}, [
 		commandLine.value,
+		localFileProvider,
 		log,
 		recordStatusActivityResult,
 		remoteFileProvider,
@@ -4628,7 +4729,28 @@ export function App(): React.ReactElement {
 		remoteKnownHostsPasteReviewSession,
 		remoteProfiles,
 		selectedRemoteIndex,
+		systemFileRoot,
 	]);
+
+	const cancelPendingRemoteConnect = useCallback(() => {
+		const controller = pendingRemoteConnectRef.current;
+		if (!controller || controller.signal.aborted) {
+			log("info", "no pending SFTP connection to cancel");
+			return;
+		}
+		controller.abort();
+		void pendingRemoteFileProviderRef.current?.close?.().catch(() => undefined);
+		const diagnostic = remoteConnectionDiagnosticRef.current;
+		if (diagnostic) {
+			const cancelling = requestReadOnlySftpConnectionCancellation(diagnostic);
+			remoteConnectionDiagnosticRef.current = cancelling;
+			setRemoteConnectionDiagnostic(cancelling);
+			log(
+				"warn",
+				`remote connect cancellation requested ${diagnostic.id} attempt=${diagnostic.attempt}`,
+			);
+		}
+	}, [log]);
 
 	const submitRemoteHostKeyEvidenceInputCommand = useCallback(() => {
 		const profile = remoteProfiles[selectedRemoteIndex];
@@ -11799,6 +11921,30 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (focusArea === "remotes" && input === "X") {
+			cancelPendingRemoteConnect();
+			return;
+		}
+
+		if (
+			focusArea === "remotes" &&
+			input === "R" &&
+			(remoteConnectionDiagnostic?.status === "failed" ||
+				remoteConnectionDiagnostic?.status === "cancelled")
+		) {
+			const profile = remoteProfiles[selectedRemoteIndex];
+			if (!profile || profile.id !== remoteConnectionDiagnostic.id) {
+				log("warn", "select the failed remote profile before retrying");
+				return;
+			}
+			setCommandLine(openCommandLine("remote-connect"));
+			log(
+				"info",
+				`remote retry requires exact confirmation connect remote ${profile.id}`,
+			);
+			return;
+		}
+
 		if (focusArea === "remotes" && input === "c") {
 			const profile = remoteProfiles[selectedRemoteIndex];
 			if (!profile) {
@@ -12112,6 +12258,7 @@ export function App(): React.ReactElement {
 						remoteKnownHostsPasteReviewSession
 					}
 					remoteFileContext={remoteFileContext}
+					remoteConnectionDiagnostic={remoteConnectionDiagnostic}
 					connections={connections}
 					ports={ports}
 					connectionsResult={connectionsResult}
@@ -12410,6 +12557,7 @@ function MainWorkspace({
 	remoteKnownHostsCandidateSession,
 	remoteKnownHostsPasteReviewSession,
 	remoteFileContext,
+	remoteConnectionDiagnostic,
 	connections,
 	ports,
 	connectionsResult,
@@ -12579,6 +12727,7 @@ function MainWorkspace({
 	remoteKnownHostsCandidateSession: RemoteKnownHostsCandidateSession;
 	remoteKnownHostsPasteReviewSession: RemoteKnownHostsPasteReviewSession;
 	remoteFileContext?: RemoteFileContext;
+	remoteConnectionDiagnostic?: ReadOnlySftpConnectionDiagnostic;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
 	connectionsResult?: ConnectionsResult;
@@ -12827,6 +12976,7 @@ function MainWorkspace({
 						remoteKnownHostsCandidateSession,
 						remoteKnownHostsPasteReviewSession,
 						remoteFileContext,
+						remoteConnectionDiagnostic,
 						connections,
 						ports,
 						connectionsResult,
@@ -13001,6 +13151,7 @@ function renderWorkspace(
 	remoteKnownHostsCandidateSession: RemoteKnownHostsCandidateSession,
 	remoteKnownHostsPasteReviewSession: RemoteKnownHostsPasteReviewSession,
 	remoteFileContext: RemoteFileContext | undefined,
+	remoteConnectionDiagnostic: ReadOnlySftpConnectionDiagnostic | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
 	connectionsResult: ConnectionsResult | undefined,
@@ -13368,6 +13519,7 @@ function renderWorkspace(
 				knownHostsCandidateSession={remoteKnownHostsCandidateSession}
 				knownHostsPasteReviewSession={remoteKnownHostsPasteReviewSession}
 				selectedContext={remoteFileContext}
+				connectionDiagnostic={remoteConnectionDiagnostic}
 				activityResults={statusActivityResults}
 				focused={focusArea === "remotes"}
 				commandLine={commandLine}
@@ -14379,6 +14531,9 @@ function getConfigShelfFocusRowColor(row: string): string {
 	return "yellow";
 }
 
+const FULL_REMOTE_WORKSPACE_FIXED_ROWS = 117;
+const FULL_REMOTE_WORKSPACE_MIN_ROWS = 128;
+
 function RemotesWorkspace({
 	profiles,
 	selectedIndex,
@@ -14386,6 +14541,7 @@ function RemotesWorkspace({
 	knownHostsCandidateSession,
 	knownHostsPasteReviewSession,
 	selectedContext,
+	connectionDiagnostic,
 	activityResults,
 	focused,
 	commandLine,
@@ -14399,6 +14555,7 @@ function RemotesWorkspace({
 	knownHostsCandidateSession: RemoteKnownHostsCandidateSession;
 	knownHostsPasteReviewSession: RemoteKnownHostsPasteReviewSession;
 	selectedContext?: RemoteFileContext;
+	connectionDiagnostic?: ReadOnlySftpConnectionDiagnostic;
 	activityResults: StatusActivityResult[];
 	focused: boolean;
 	commandLine: CommandLineState;
@@ -14411,13 +14568,159 @@ function RemotesWorkspace({
 		configShelfFocusTarget,
 		visibleRows,
 	);
-	const profileRows = Math.max(1, visibleRows - focusRows.length - 109);
+	const sessionControlRows =
+		formatReadOnlySftpConnectionDiagnosticRows(connectionDiagnostic);
+	const profileRows = Math.max(
+		1,
+		visibleRows - focusRows.length - FULL_REMOTE_WORKSPACE_FIXED_ROWS,
+	);
 	const window = getVisibleWindow(profiles.length, selectedIndex, profileRows);
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
 	const hiddenBelow = profiles.length - window.end;
 	const selectedProfile =
 		profiles[Math.min(selectedIndex, profiles.length - 1)];
+	const knownHostsPasteReview = createRemoteKnownHostsPasteReviewFromSession(
+		selectedProfile,
+		knownHostsPasteReviewSession,
+	);
+	const knownHostsCandidatePreview =
+		knownHostsPasteReview.status === "parsed-injected"
+			? createRemoteKnownHostsCandidatePreviewFromPasteReview(
+					knownHostsPasteReview,
+				)
+			: createRemoteKnownHostsCandidatePreviewFromSession(
+					selectedProfile,
+					knownHostsCandidateSession,
+				);
+	const knownHostsCandidatePreviewRows =
+		formatRemoteKnownHostsCandidatePreviewRows(knownHostsCandidatePreview);
+	const selectedKnownHostCandidate = getSelectedRemoteKnownHostsCandidate(
+		selectedProfile,
+		knownHostsCandidateSession,
+		knownHostsPasteReviewSession,
+	);
+	const connectPreview = selectedProfile
+		? createRemoteConnectPreview(selectedProfile, {
+				hostKeyFingerprint: selectedKnownHostCandidate?.fingerprint,
+			})
+		: undefined;
+	const connectPreviewRows = formatRemoteConnectPreviewRows(connectPreview);
+	const activityRows = formatRemoteActivityShelfRows(activityResults, {
+		selectedProfileId: selectedProfile?.id,
+	});
+	if (visibleRows < FULL_REMOTE_WORKSPACE_MIN_ROWS) {
+		const sessionStatus =
+			sessionControlRows.find((row) => row.startsWith("status=")) ??
+			"status=idle attempt=0 duration=- network=closed";
+		const sessionDetail =
+			sessionControlRows.find((row) => row.startsWith("message=")) ??
+			sessionControlRows.at(-1) ??
+			"controls=c exact-confirm connect";
+		const selectedProfileRow = selectedProfile
+			? `PROFILE ${focused ? ">" : " "} ${String(selectedIndex + 1).padEnd(3)}${selectedProfile.id.padEnd(12)} ${clip(selectedProfile.host, 22)} root ${clip(selectedProfile.root, 12)}`
+			: "PROFILE none · configure a remote before connecting";
+		const promptRow = commandLine.active
+			? `:${commandLine.prompt} ${commandLine.value || " "} · enter submit · esc cancel`
+			: undefined;
+		const candidateSummary = knownHostsCandidatePreviewRows.find((row) =>
+			row.startsWith("candidates="),
+		);
+		const connectSummary = connectPreviewRows.find((row) =>
+			row.startsWith("status="),
+		);
+		const compactRows = [
+			{
+				key: "title",
+				text: `${t("screen.remotes")} · SESSION CONTROL`,
+				color: "cyan",
+				bold: true,
+			},
+			{
+				key: "hint-primary",
+				text: focused
+					? "j/k select · c connect · X cancel · R retry · h/esc"
+					: "enter opens remote focus · sessions locked",
+				color: focused ? "cyan" : "gray",
+			},
+			{
+				key: "hint-security",
+				text: "K/P hosts · [ ]/1-9/S key · e evidence · t trust",
+				color: focused ? "cyan" : "gray",
+				bold: false,
+			},
+			...(promptRow
+				? [
+						{
+							key: `prompt:${commandLine.prompt}`,
+							text: promptRow,
+							color: "yellow",
+							bold: false,
+						},
+					]
+				: []),
+			{
+				key: "session-status",
+				text: `SESSION ${sessionStatus}`,
+				color:
+					sessionStatus.includes("failed") || sessionStatus.includes("cancel")
+						? "yellow"
+						: "gray",
+				bold: false,
+			},
+			{
+				key: "session-detail",
+				text: sessionDetail,
+				color:
+					sessionDetail.includes("failed") ||
+					sessionDetail.includes("cancel") ||
+					sessionDetail.includes("locked")
+						? "yellow"
+						: "gray",
+				bold: false,
+			},
+			{
+				key: "selected-profile",
+				text: selectedProfileRow,
+				color: selectedProfile && focused ? "cyan" : "gray",
+				bold: false,
+			},
+			{
+				key: "candidate-summary",
+				text: `HOST ${candidateSummary ?? "candidates=0 selected=none decision=blocked"}`,
+				color: "yellow",
+				bold: false,
+			},
+			{
+				key: "connect-summary",
+				text: `CONNECT ${connectSummary ?? "status=blocked network=not-opened writes=locked"}`,
+				color: "yellow",
+				bold: false,
+			},
+			...activityRows.slice(0, 2).map((row) => ({
+				key: `activity:${row}`,
+				text: row,
+				color: "gray",
+				bold: false,
+			})),
+			...focusRows.map((row) => ({
+				key: `focus:${row}`,
+				text: row,
+				color: getConfigShelfFocusRowColor(row),
+				bold: false,
+			})),
+		];
+		return (
+			<Box flexDirection="column">
+				{compactRows.slice(0, visibleRows).map((row) => (
+					<Text key={row.key} color={row.color} bold={row.bold}>
+						{clip(row.text, 56)}
+					</Text>
+				))}
+			</Box>
+		);
+	}
+
 	const handoffRows = formatRemoteHandoffBoundaryRows({
 		profile: selectedProfile,
 		context: selectedContext,
@@ -14453,24 +14756,9 @@ function RemotesWorkspace({
 	const knownHostsParserPreviewRows = formatRemoteKnownHostsParserPreviewRows(
 		createRemoteKnownHostsParserPreview(selectedProfile),
 	);
-	const knownHostsPasteReview = createRemoteKnownHostsPasteReviewFromSession(
-		selectedProfile,
-		knownHostsPasteReviewSession,
-	);
 	const knownHostsPasteReviewRows = formatRemoteKnownHostsPasteReviewRows(
 		knownHostsPasteReview,
 	);
-	const knownHostsCandidatePreview =
-		knownHostsPasteReview.status === "parsed-injected"
-			? createRemoteKnownHostsCandidatePreviewFromPasteReview(
-					knownHostsPasteReview,
-				)
-			: createRemoteKnownHostsCandidatePreviewFromSession(
-					selectedProfile,
-					knownHostsCandidateSession,
-				);
-	const knownHostsCandidatePreviewRows =
-		formatRemoteKnownHostsCandidatePreviewRows(knownHostsCandidatePreview);
 	const hostKeyTrustDecisionRows = formatRemoteHostKeyTrustDecisionPreviewRows(
 		createRemoteHostKeyTrustDecisionPreview(selectedProfile),
 	);
@@ -14482,22 +14770,6 @@ function RemotesWorkspace({
 		),
 	);
 	const hostReviewRows = formatRemoteHostReviewRows(selectedProfile);
-	const selectedKnownHostCandidate =
-		knownHostsCandidatePreview.selected === "none"
-			? undefined
-			: knownHostsCandidatePreview.candidates.find(
-					(candidate) =>
-						candidate.index === knownHostsCandidatePreview.selected,
-				);
-	const connectPreview = selectedProfile
-		? createRemoteConnectPreview(selectedProfile, {
-				hostKeyFingerprint: selectedKnownHostCandidate?.fingerprint,
-			})
-		: undefined;
-	const connectPreviewRows = formatRemoteConnectPreviewRows(connectPreview);
-	const activityRows = formatRemoteActivityShelfRows(activityResults, {
-		selectedProfileId: selectedProfile?.id,
-	});
 	const knownHostsSelectionHistoryRows =
 		formatRemoteKnownHostsSelectionHistoryRows(activityResults, {
 			selectedProfileId: selectedProfile?.id,
@@ -14511,9 +14783,28 @@ function RemotesWorkspace({
 			</Text>
 			<Text color={focused ? "cyan" : "gray"}>
 				{focused
-					? "remote focus · j/k select · enter stage · e evidence · K known_hosts · P paste · [ ]/1-9/S candidate · y copy · E export · t trust review · c connect preview · h/esc"
+					? "remote focus · j/k select · c connect · X cancel · R retry · K/P known_hosts · y copy · E export · h/esc"
 					: "enter opens remote focus · sessions locked"}
 			</Text>
+			<Box marginTop={1} flexDirection="column">
+				<Text color="cyan">SESSION CONTROL</Text>
+				{sessionControlRows.map((row) => (
+					<Text
+						key={row}
+						color={
+							row.startsWith("REMOTE")
+								? "cyan"
+								: row.includes("failed") ||
+										row.includes("cancel") ||
+										row.includes("locked")
+									? "yellow"
+									: "gray"
+						}
+					>
+						{clip(row, 92)}
+					</Text>
+				))}
+			</Box>
 			{focusRows.length > 0 ? (
 				<Box marginTop={1} flexDirection="column">
 					{focusRows.map((row) => (

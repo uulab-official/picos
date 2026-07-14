@@ -747,6 +747,25 @@ describe("Status activity queue", () => {
 		});
 	});
 
+	test("recovers the exact audit row from a cancelled SFTP result", () => {
+		const audit =
+			'remote connect audit id=prod status=cancelled target="sftp://deploy@prod.example.com:2222/srv/app" fingerprint=SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA network=closed capabilities=list,stat,read writes=locked message="SFTP connection cancelled by operator"';
+		const result = {
+			source: "timeline" as const,
+			action: "remote-connect" as const,
+			message: "remote connect cancelled prod prod.example.com:2222",
+			detail: "network=closed writes=locked",
+			detailRows: ["cancelled by operator", `audit=${audit}`],
+		};
+
+		expect(createStatusActivityResultTimelineSearch([result], 0)).toEqual({
+			filter: "audit",
+			query: audit,
+			message:
+				"status activity result timeline search remote connect prod cancelled",
+		});
+	});
+
 	test("creates recoverable status activity results for interface confirmations", () => {
 		const proposal = createInterfaceStateProposal(
 			{

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createHmac } from "node:crypto";
 import { defaultConfig, mergeConfig } from "../src/config/schema";
 import {
 	createRemoteConnectPreview,
@@ -52,6 +53,7 @@ import {
 	parseRemoteProfileCommand,
 	recordRemoteHostKeyEvidenceInputSession,
 	recordRemoteKnownHostsCandidateSession,
+	selectRemoteKnownHostsConnectCandidate,
 	selectRemoteKnownHostsPasteReviewCandidate,
 	selectRemoteKnownHostsPasteReviewCandidateFromInput,
 	submitRemoteConnectConfirmation,
@@ -1108,6 +1110,85 @@ describe("remote profiles", () => {
 		).toEqual([]);
 	});
 
+	test("matches OpenSSH hashed hosts and requires explicit selection for multiple keys", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+		};
+		const salt = Buffer.from("picos-known-host-salt");
+		const hostHash = createHmac("sha1", salt)
+			.update("[prod.example.com]:2222")
+			.digest("base64");
+		const hashedHost = `|1|${salt.toString("base64")}|${hostHash}`;
+		const firstKey = Buffer.from("first-host-key").toString("base64");
+		const secondKey = Buffer.from("second-host-key").toString("base64");
+		const revokedKey = Buffer.from("revoked-host-key").toString("base64");
+		const content = [
+			`${hashedHost} ssh-ed25519 ${firstKey}`,
+			`[prod.example.com]:2222 ssh-ed25519 ${secondKey}`,
+			`@revoked [prod.example.com]:2222 ssh-ed25519 ${revokedKey}`,
+		].join("\n");
+		const candidates = parseRemoteKnownHostsCandidates(
+			"prod.example.com:2222",
+			content,
+		);
+		expect(candidates[0]?.hostKind).toBe("hashed");
+		expect(candidates).toHaveLength(3);
+		expect(() =>
+			selectRemoteKnownHostsConnectCandidate(profile, content),
+		).toThrow("Multiple known_hosts keys matched");
+		const selected = selectRemoteKnownHostsConnectCandidate(
+			profile,
+			content,
+			candidates[1]?.fingerprint,
+		);
+		expect(selected.sourceLine).toBe(2);
+		expect(selected.marker).toBe("none");
+		expect(
+			parseRemoteKnownHostsCandidates(
+				"prod.example.com:22",
+				`*.example.com,!prod.example.com ssh-ed25519 ${firstKey}`,
+			),
+		).toEqual([]);
+		expect(() =>
+			selectRemoteKnownHostsConnectCandidate(
+				profile,
+				`@revoked [prod.example.com]:2222 ssh-ed25519 ${firstKey}`,
+			),
+		).toThrow("No usable known_hosts candidate");
+	});
+
+	test("matches DNS hosts case-insensitively and rejects globally revoked keys", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 22,
+			username: "deploy",
+			root: "/srv/app",
+		};
+		const key = Buffer.from("revoked-host-key").toString("base64");
+		expect(
+			selectRemoteKnownHostsConnectCandidate(
+				profile,
+				`PROD.Example.COM ssh-ed25519 ${Buffer.from("mixed-case-key").toString("base64")}`,
+			).hostPattern,
+		).toBe("PROD.Example.COM");
+		expect(() =>
+			selectRemoteKnownHostsConnectCandidate(
+				profile,
+				[
+					`prod.example.com ssh-ed25519 ${key}`,
+					`@revoked *.example.com ssh-ed25519 ${key}`,
+				].join("\n"),
+			),
+		).toThrow("No usable known_hosts candidate");
+	});
+
 	test("formats remote known_hosts candidate previews without mutating trust", () => {
 		const profile = {
 			id: "prod",
@@ -1208,6 +1289,45 @@ describe("remote profiles", () => {
 				{ prod: { ...paste, selected: "none" } },
 			)?.keyType,
 		).toBe("ssh-rsa");
+	});
+
+	test("never returns revoked or certificate-authority candidates for connect", () => {
+		const profile = {
+			id: "prod",
+			kind: "sftp" as const,
+			host: "prod.example.com",
+			port: 2222,
+			username: "deploy",
+			root: "/srv/app",
+		};
+		const revoked = createRemoteKnownHostsCandidatePreview(
+			profile,
+			"@revoked [prod.example.com]:2222 ssh-ed25519 AAAAC3NzaRevoked",
+		);
+		const authority = createRemoteKnownHostsPasteReview(
+			profile,
+			"@cert-authority [prod.example.com]:2222 ssh-ed25519 AAAAC3NzaAuthority",
+		);
+		const duplicatedRevokedKey = "AAAAC3NzaDuplicatedRevoked";
+		const globallyRevoked = createRemoteKnownHostsCandidatePreview(
+			profile,
+			[
+				`[prod.example.com]:2222 ssh-ed25519 ${duplicatedRevokedKey}`,
+				`@revoked [prod.example.com]:2222 ssh-ed25519 ${duplicatedRevokedKey}`,
+			].join("\n"),
+		);
+
+		expect(
+			getSelectedRemoteKnownHostsCandidate(profile, { prod: revoked }),
+		).toBeUndefined();
+		expect(
+			getSelectedRemoteKnownHostsCandidate(profile, {}, { prod: authority }),
+		).toBeUndefined();
+		expect(
+			getSelectedRemoteKnownHostsCandidate(profile, {
+				prod: globallyRevoked,
+			}),
+		).toBeUndefined();
 	});
 
 	test("applies selected known_hosts candidates from session to compare detail", () => {
