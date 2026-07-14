@@ -70,4 +70,29 @@ describe("system monitor", () => {
 			"top pid=42 cpu=17.5 mem=4.2 cmd=node server.js",
 		]);
 	});
+
+	test("uses collector total count instead of the bounded process sample", () => {
+		const snapshot = createSystemMonitorSnapshot({
+			uptimeSeconds: 1,
+			loadAverage: [0, 0, 0],
+			totalMemoryBytes: 1,
+			freeMemoryBytes: 1,
+			cpuModel: "cpu",
+			cpuCount: 1,
+			processes: [{ pid: 1, command: "init" }],
+			processSource: {
+				key: "processes",
+				command: "ps",
+				args: [],
+				supported: true,
+				success: true,
+				exitCode: 0,
+				truncated: false,
+				totalCount: 120,
+			},
+		});
+
+		expect(snapshot.processCount).toBe(120);
+		expect(snapshot.processSource?.totalCount).toBe(120);
+	});
 });

@@ -20,6 +20,27 @@ export type ProcessDetail = ProcessSummary & {
 	started?: string;
 };
 
+export type ProcessInspectionSource = {
+	key: "process-detail" | "process-files";
+	command: string | null;
+	args: string[];
+	supported: boolean;
+	success: boolean | null;
+	exitCode: number | null;
+	truncated: boolean;
+	totalCount: number;
+};
+
+export type ProcessDetailResult = {
+	detail?: ProcessDetail;
+	source: ProcessInspectionSource;
+};
+
+export type ProcessFileSnapshotResult = {
+	snapshot?: ProcessFileSnapshot;
+	source: ProcessInspectionSource;
+};
+
 export type ProcessOpenFile = {
 	descriptor: string;
 	label: string;
@@ -30,6 +51,7 @@ export type ProcessOpenFile = {
 export type ProcessFileSnapshot = {
 	pid: number;
 	cwd?: string;
+	totalCount?: number;
 	fileEntries: ProcessOpenFile[];
 	openFiles: string[];
 	rawOutput: string;
@@ -160,37 +182,87 @@ export async function getProcessDetail(
 	pidInput: string | number,
 ): Promise<ProcessDetail> {
 	const pid = validateProcessId(pidInput);
-	const { command, args } = buildProcessDetailCommand(pid);
-	const result = await safeExec(command, args, { timeoutMs: 5000 });
-	if (!result.success) {
+	const result = await getProcessDetailWithSource(pid);
+	if (result.source.success === false) {
 		throw new Error(`Process detail lookup failed for pid ${pid}`);
 	}
-	const detail =
-		process.platform === "win32"
-			? parseWindowsProcessDetail(result.stdout)
-			: parsePosixProcessDetail(result.stdout);
-	if (!detail) {
+	if (!result.detail) {
 		throw new Error(`Process not found: ${pid}`);
 	}
-	return detail;
+	return result.detail;
+}
+
+export async function getProcessDetailWithSource(
+	pidInput: string | number,
+	platform: SupportedPlatform = process.platform,
+	runner: typeof safeExec = safeExec,
+): Promise<ProcessDetailResult> {
+	const pid = validateProcessId(pidInput);
+	const { command, args } = buildProcessDetailCommand(pid, platform);
+	const result = await runner(command, args, { timeoutMs: 5000 });
+	const detail =
+		result.success && platform === "win32"
+			? parseWindowsProcessDetail(result.stdout)
+			: result.success
+				? parsePosixProcessDetail(result.stdout)
+				: undefined;
+	return {
+		detail,
+		source: inspectionSource(
+			"process-detail",
+			command,
+			args,
+			result,
+			detail ? 1 : 0,
+		),
+	};
 }
 
 export async function getProcessFileSnapshot(
 	pidInput: string | number,
 	limit = 20,
 ): Promise<ProcessFileSnapshot | undefined> {
+	return (await getProcessFileSnapshotWithSource(pidInput, limit)).snapshot;
+}
+
+export async function getProcessFileSnapshotWithSource(
+	pidInput: string | number,
+	limit = 20,
+	platform: SupportedPlatform = process.platform,
+	runner: typeof safeExec = safeExec,
+): Promise<ProcessFileSnapshotResult> {
 	const pid = validateProcessId(pidInput);
-	const command = buildProcessFilesCommand(pid);
+	const command = buildProcessFilesCommand(pid, platform);
 	if (!command) {
-		return undefined;
+		return {
+			source: {
+				key: "process-files",
+				command: null,
+				args: [],
+				supported: false,
+				success: null,
+				exitCode: null,
+				truncated: false,
+				totalCount: 0,
+			},
+		};
 	}
-	const result = await safeExec(command.command, command.args, {
+	const result = await runner(command.command, command.args, {
 		timeoutMs: 5000,
 	});
-	if (!result.success) {
-		return undefined;
-	}
-	return parseLsofProcessFiles(result.stdout, limit);
+	const snapshot = result.success
+		? parseLsofProcessFiles(result.stdout, limit)
+		: undefined;
+	return {
+		snapshot,
+		source: inspectionSource(
+			"process-files",
+			command.command,
+			command.args,
+			result,
+			snapshot?.totalCount ?? snapshot?.fileEntries.length ?? 0,
+		),
+	};
 }
 
 export function parsePosixProcessDetail(
@@ -269,6 +341,7 @@ export function parseLsofProcessFiles(
 	};
 	let fileKind = "";
 	const seen = new Set<string>();
+	let totalCount = 0;
 	for (const line of lines) {
 		if (line.startsWith("f")) {
 			fileKind = line.slice(1);
@@ -285,8 +358,14 @@ export function parseLsofProcessFiles(
 			snapshot.cwd = path;
 			continue;
 		}
-		if (!seen.has(path) && snapshot.openFiles.length < limit) {
+		if (!seen.has(path)) {
 			seen.add(path);
+			totalCount += 1;
+		}
+		if (
+			snapshot.openFiles.length < limit &&
+			!snapshot.openFiles.includes(path)
+		) {
 			snapshot.openFiles.push(path);
 			snapshot.fileEntries.push({
 				descriptor: fileKind,
@@ -295,6 +374,7 @@ export function parseLsofProcessFiles(
 			});
 		}
 	}
+	snapshot.totalCount = totalCount;
 	return snapshot;
 }
 
@@ -376,4 +456,23 @@ export function formatProcessFileSnapshot(
 		"  Open:",
 		...files,
 	].join("\n");
+}
+
+function inspectionSource(
+	key: ProcessInspectionSource["key"],
+	command: string,
+	args: string[],
+	result: Awaited<ReturnType<typeof safeExec>>,
+	totalCount: number,
+): ProcessInspectionSource {
+	return {
+		key,
+		command,
+		args,
+		supported: true,
+		success: result.success,
+		exitCode: result.exitCode,
+		truncated: result.truncated ?? false,
+		totalCount,
+	};
 }

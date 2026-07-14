@@ -26,6 +26,8 @@ Use `codex/` branch names for Codex-authored work unless the user requests anoth
 
 For OS inventory features, keep read-only behavior first. All platform commands must stay in adapters or core helpers that call `safeExec()`. Do not add write/destructive system controls without preview, confirmation, privilege metadata, and tests proving the action is locked by default.
 
+Monitor, Logs, and Process automation must remain bounded and source-aware. Omit process command arguments and raw collector output, redact normalized log text, preserve optional collector support/failure state, and run `bun run harness operations-json` when changing those paths.
+
 ## Files Codex Should Keep Fresh
 
 - `README.md`: public project overview and usage.

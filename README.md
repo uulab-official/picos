@@ -117,10 +117,13 @@ picos ports --sort=-pid
 picos ports --json
 picos process 12345
 picos process 12345 --files
+picos process 12345 --files --json
 picos monitor
+picos monitor --json
 picos logs --limit 20
 picos logs --limit 50 --filter kernel
 picos logs --level warn
+picos logs --limit 20 --level warn --json
 picos update
 picos release-health
 picos locations
@@ -145,7 +148,7 @@ Commands:
 - `picos` or `picos ui`: open the TUI control panel.
 - `picos info`: print network and system summary.
 - `picos info --full`: print OS-style system, hardware, storage, process, network, runtime, and permission inventory.
-- Add `--json` to `picos info`, `routes`, `route`, `connections`, `ports`, `doctor`, `dns`, or `tools` for one schema-versioned local diagnostic result. Table commands preserve filter/sort/source status and bounded row counts; doctor exposes stable check IDs and health counts; Tools expose normalized DNS/RDAP/IP/TCP/TLS/ping/traceroute data. Raw OS/tool output is excluded, `--raw --json` is rejected, and failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
+- Add `--json` to `picos info`, `routes`, `route`, `connections`, `ports`, `doctor`, `dns`, `tools`, `monitor`, `logs`, or `process` for one schema-versioned local diagnostic result. Table commands preserve filter/sort/source status and bounded row counts; doctor exposes stable check IDs and health counts; Tools expose normalized DNS/RDAP/IP/TCP/TLS/ping/traceroute data; monitor/log/process results retain collector evidence while omitting process arguments and raw command output. Failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
 - `picos doctor`: run all eight read-only network diagnostics; `--json` contains individual probe failures and exits non-zero when any check fails.
 - `picos ping <host>`: run a safe ping test without shell interpolation.
 - `picos ping <host> --count <n> --timeout <ms>`: run ping with bounded count and timeout options.
@@ -175,8 +178,9 @@ Commands:
 - `picos ports --raw`: print raw listening-port command output.
 - `picos process <pid>`: inspect one local process with parent PID, user, state, CPU, memory, elapsed time, path, and command where the OS exposes them.
 - `picos process <pid> --files`: include current working directory and open file snapshot where available.
-- `picos monitor`: print a read-only system monitor snapshot with load average, memory usage, CPU, and top process rows.
-- `picos logs --limit <n> --level <all|warn|fail|info> --filter <query>`: read recent local OS log entries through the platform adapter; macOS uses unified logs, Linux uses `journalctl`, Windows uses the System event log, and filters can match severity, row number, or text.
+- `picos process <pid> [--files] --json`: return process identity and optional bounded file/resource evidence without command arguments or raw collector output; unsupported optional file inspection is reported separately from collector failure.
+- `picos monitor`: print a read-only system monitor snapshot with load average, memory usage, CPU, and top process rows; `--json` returns normalized metrics and collector source evidence without process arguments.
+- `picos logs --limit <n> --level <all|warn|fail|info> --filter <query>`: read recent local OS log entries through the platform adapter; macOS uses unified logs, Linux uses `journalctl`, Windows uses the System event log, and filters can match severity, row number, or text. `--json` accepts limits from 1-200 and filters up to 256 characters, redacts common credential patterns, and never embeds raw command output.
 - `picos update`: check npm registry metadata and GitHub Releases for the latest `@uulab/picos` version, then print install, npm package, GitHub Release, and CHANGELOG handoff links without running an installer; the TUI `picos.update` action also stages a locked apply preview when an update exists, and `picos.update.apply` can route that preview through the Action Center confirmation plus control execution policy for npm `--dry-run`.
 - `picos handoffs`: list recent route and endpoint evidence handoff files from the picos config directory.
 - `picos handoffs --archive <path>`: move a picos-owned route/endpoint handoff file into `archive/routes` or `archive/endpoints` under the config directory.

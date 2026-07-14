@@ -27,6 +27,7 @@
 		"smoke": "bun scripts/harness.ts smoke",
 		"integration:local-json": "bun scripts/localInspectorIntegration.ts",
 		"integration:diagnostics-json": "bun scripts/diagnosticsJsonIntegration.ts",
+		"integration:operations-json": "bun scripts/operationsJsonIntegration.ts",
 		"integration:sftp": "bun scripts/sftpIntegration.ts",
 		"verify": "bun scripts/harness.ts verify",
 		"release:check": "bun run build && bun scripts/releaseCheck.ts && npm pack --dry-run",

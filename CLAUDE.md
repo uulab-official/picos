@@ -15,6 +15,7 @@ Claude should use `AGENTS.md` as the source of truth for this repository.
 - Keep local inspector `--json` output bounded and schema-versioned, omit raw OS output and process arguments, redact failure text, retain source success/exit evidence, and use the awaited stdout writer without double-reporting write failures.
 - Run the local JSON subprocess harness when changing `info`, routes, connections, ports, CLI output, or parser failure behavior.
 - Run the diagnostics JSON subprocess harness when changing doctor, DNS, Tools, normalized tool evidence, timeout validation, or diagnostic failure behavior.
+- Run the operations JSON subprocess harness when changing monitor, OS logs, process detail/files, log option validation, redaction, or operational source evidence; never serialize process arguments or raw log/process collector output.
 - Run the public-key-authenticated localhost SFTP harness when changing transport, remote output, confirmation, or close behavior.
 - Do not add password persistence, host-key auto-accept, remote writes, or remote command execution to the read-only provider.
 - Keep OS inventory features read-only unless a write action has preview, confirmation, privilege metadata, and locked-by-default tests.
@@ -56,6 +57,12 @@ Run the focused diagnostics JSON harness:
 
 ```bash
 bun run harness diagnostics-json
+```
+
+Run the focused operations JSON harness:
+
+```bash
+bun run harness operations-json
 ```
 
 ## TUI Expectations

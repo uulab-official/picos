@@ -1,5 +1,19 @@
 # picos Roadmap
 
+## v0.4.339 - Operations JSON
+
+Status: draft PR [#414](https://github.com/uulab-official/picos/pull/414) on `codex/picos-v0.4.339-operations-json`, stacked on draft PR [#413](https://github.com/uulab-official/picos/pull/413); local gstack review, full verification, dependency audit, release check, and Ubuntu/macOS/Windows CI pass with no unresolved review comments.
+
+Goal: make system monitor, OS log triage, and single-process inspection safe and reliable for scripts, CI, and coding agents without leaking process arguments or unbounded local logs.
+
+- `picos monitor --json` returns normalized uptime, load, memory, CPU, total process count, and top-process names with Node API and process collector evidence; process command arguments are omitted.
+- `picos logs --json` supports validated 1-200 entry limits, 256-character filters, and `all|warn|fail|info` levels; normalized entries are bounded and redact assignments, authorization headers, bearer tokens, URL credentials, query credentials, home paths, and private-key paths.
+- Failed or capture-truncated OS log collectors emit one `PICOS_LOCAL_INSPECTOR_FAILED` document with bounded source evidence instead of a misleading completed snapshot.
+- `picos process <pid> [--files] --json` returns normalized process identity/resource fields without command arguments and can include bounded cwd/open-resource records without `lsof` raw output.
+- Process detail and optional file collectors now retain command, support, success, exit, truncation, and total-count evidence; unsupported Windows file inspection remains distinct from a failed collector and marks the result `partial`.
+- `bun run harness operations-json` launches the real CLI for four live contracts and five deterministic invalid/missing-input failures; `bun run verify` runs it on macOS, Linux, and Windows.
+- Next: add bounded monitor sampling plus saved monitor/log/process automation presets, then make those presets first-class coding-agent workflows.
+
 ## v0.4.338 - Diagnostics JSON
 
 Status: draft PR [#413](https://github.com/uulab-official/picos/pull/413) on `codex/picos-v0.4.338-diagnostics-json`, stacked on draft PR [#412](https://github.com/uulab-official/picos/pull/412); Ubuntu, macOS, Windows, and release-readiness CI pass.

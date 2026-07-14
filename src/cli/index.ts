@@ -101,12 +101,14 @@ export function createCli(): ReturnType<typeof cac> {
 		.action(infoCommand);
 	cli
 		.command("monitor", "Print a live system monitor snapshot")
+		.option("--json", "Emit one structured system-monitor result")
 		.action(monitorCommand);
 	cli
 		.command("logs", "Read recent OS log entries")
 		.option("--limit <n>", "Maximum number of log entries")
 		.option("--filter <query>", "Filter log rows by level, index, or text")
 		.option("--level <level>", "Filter by severity: all, warn, fail, or info")
+		.option("--json", "Emit one structured OS-log result")
 		.action(logsCommand);
 	cli
 		.command("doctor", "Run network diagnostics")
@@ -196,6 +198,7 @@ export function createCli(): ReturnType<typeof cac> {
 	cli
 		.command("process <pid>", "Inspect one local process by PID")
 		.option("--files", "Include cwd and open file snapshot where available")
+		.option("--json", "Emit one structured process-inspection result")
 		.action(processCommand);
 	cli
 		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")
