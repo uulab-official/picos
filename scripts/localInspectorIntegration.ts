@@ -231,9 +231,9 @@ async function createUnavailableCommandPath(): Promise<string> {
 		process.platform === "win32" ? `${command}.exe` : command,
 	);
 	if (process.platform === "win32") {
-		const commandShell = process.env.ComSpec;
-		if (!commandShell) throw new Error("Windows ComSpec is unavailable");
-		await copyFile(commandShell, target);
+		const systemRoot = process.env.SystemRoot;
+		if (!systemRoot) throw new Error("Windows SystemRoot is unavailable");
+		await copyFile(join(systemRoot, "System32", "findstr.exe"), target);
 	} else {
 		await writeFile(target, "#!/bin/sh\nexit 23\n", { mode: 0o755 });
 	}
