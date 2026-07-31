@@ -45,6 +45,7 @@ bun run harness sftp
 ## Architecture Rules
 
 - `src/tui` owns keyboard-driven panels and visual state.
+- Describe a key by the shape of what it does, not by listing every instance. The `enter` and `j/k` entries in the README went stale the moment a workspace was added, the same way a hand-listed union member goes stale; prefer "act on the current selection" over an enumeration that has to be revisited.
 - Clamp a list index with `clampIndex()` from `src/tui/navigation.ts` rather than inline arithmetic. The inline form was spelled three ways, two of which omitted the lower bound and one of which indexed an empty list at `-1`; all three happened to work, for different reasons.
 - Nothing under `tests/` touches `src/tui/App.tsx`, so any decision left inside a component callback is unverified by construction. Put guards, selection resolution, state transitions, and message wording in a sibling `src/tui/*.ts` module with a test, and keep the component to wiring and I/O. Every defect found reviewing the Operations workspace lived in logic that had been written inline.
 - State written by more than one async callback needs one shared sequence, not a token each. Both writers must check they are still the newest before publishing, including in their `catch`, or the slower request wins and the workspace shows one process's detail beside another's files. Separate counters do not fix this: each writer would consider itself current while overwriting the other.
