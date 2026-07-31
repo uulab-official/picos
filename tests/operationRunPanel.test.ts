@@ -4,6 +4,7 @@ import {
 	finishOperationRun,
 	formatOperationRunAuditMessage,
 	formatOperationRunProgressRows,
+	formatOperationsWorkspaceRows,
 	requestOperationRunCancellation,
 	startOperationRun,
 } from "../src/tui/operationRunPanel";
@@ -155,5 +156,57 @@ describe("operations run control", () => {
 				),
 			),
 		).toBe("operations run completed pulse samples=10/10");
+	});
+});
+
+describe("operations workspace rows", () => {
+	test("lists saved presets with the CLI description and a run control block", () => {
+		expect(
+			formatOperationsWorkspaceRows([monitorPreset, logsPreset], {
+				selectedIndex: 0,
+				visibleRows: 20,
+			}),
+		).toEqual([
+			"OPERATIONS PRESETS saved=2 max=12",
+			"> 001 pulse monitor samples=10 interval=500ms",
+			"  002 errors logs limit=20 level=fail filter=-",
+			"managed-by=picos operations · run only · edits are CLI-only",
+			"OPERATIONS RUN CONTROL none",
+			"status=idle preset=none sample=0/0 interval=- elapsed=-",
+			"controls=enter run selected preset",
+		]);
+	});
+
+	test("points an empty shelf at the CLI that owns it", () => {
+		expect(
+			formatOperationsWorkspaceRows([], { selectedIndex: 0, visibleRows: 20 }),
+		).toEqual([
+			"OPERATIONS PRESETS saved=0 max=12",
+			"no saved operation presets · picos operations save <id> <kind>",
+			"managed-by=picos operations · run only · edits are CLI-only",
+			"OPERATIONS RUN CONTROL none",
+			"status=idle preset=none sample=0/0 interval=- elapsed=-",
+			"controls=enter run selected preset",
+		]);
+	});
+
+	test("shows the active run beneath the list", () => {
+		const run = advanceOperationRun(startOperationRun(monitorPreset, 1000), 4);
+
+		expect(
+			formatOperationsWorkspaceRows([monitorPreset], {
+				selectedIndex: 0,
+				visibleRows: 20,
+				run,
+			}),
+		).toEqual([
+			"OPERATIONS PRESETS saved=1 max=12",
+			"> 001 pulse monitor samples=10 interval=500ms",
+			"managed-by=picos operations · run only · edits are CLI-only",
+			"OPERATIONS RUN CONTROL pulse",
+			"status=running preset=pulse sample=4/10 interval=500 elapsed=running",
+			"kind=monitor running read-only inspector",
+			"controls=X cancel run",
+		]);
 	});
 });

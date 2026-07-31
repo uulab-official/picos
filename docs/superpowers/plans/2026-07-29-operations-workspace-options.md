@@ -1,8 +1,10 @@
 # Operations Workspace Design Options
 
-> **Not a plan yet.** This records the four decisions a TUI Operations workspace needs before it can be written, each with the repo precedent that constrains it and a recommended default. It exists so the decisions can be agreed rather than invented mid-implementation.
+> **Decisions taken and implemented.** This records the four decisions a TUI Operations workspace needed, each with the repo precedent that constrained it and the option that was chosen. It is kept as the rationale record rather than rewritten, so a later reader can see which alternatives were rejected and why.
 
-**Status:** Blocked on agreement. The one prerequisite that could be settled without UX decisions is done and verified: `collectSystemMonitorSeries()` accepts an optional `shouldContinue` predicate and reports `cancelled`, published as `data.cancelled`. Nothing calls it yet.
+**Status:** Built and verified. All four recommended defaults were taken. The workspace is registered as the `operations` screen, lists saved presets, runs the selected one with `enter`, and stops a monitor run with `X`. Verified with 815 tests across 85 files, `tsc --noEmit` clean, and no Biome findings across 219 files.
+
+One deviation from the recommendations below was made during implementation and is called out where it applies: the in-flight status is `running`, not `sampling`, because the workspace runs all three preset kinds and only one of them samples.
 
 **Why a workspace needs decisions at all:** `picos operations` is the only editor for operation presets, and the Config workspace deliberately reports them as coverage rather than as a managed shelf, because a managed shelf implies a workspace to jump to and an `enter` action. Adding that workspace means `enter` on a saved preset runs an inspector, and a maximal monitor preset occupies the full 300,000 ms interval span plus one process collector per sample under its own 5,000 ms timeout. Blocking the TUI for that long is only acceptable with a way out.
 

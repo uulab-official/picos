@@ -1,4 +1,9 @@
+import {
+	formatOperationPreset,
+	MAX_OPERATION_PRESETS,
+} from "../core/operationPresets";
 import type { OperationPreset } from "../core/types";
+import { getVisibleWindow } from "./navigation";
 
 // Run state for the Operations workspace, shaped after the read-only SFTP session
 // diagnostic in `src/core/sftp.ts`: every transition returns a new value rather
@@ -144,4 +149,47 @@ function formatOperationRunControls(progress: OperationRunProgress): string {
 	return progress.status === "completed"
 		? "enter run again"
 		: "R retry via exact confirmation · enter run again";
+}
+
+// Preset descriptions reuse the CLI formatter rather than a second layout, so the
+// workspace can never describe a preset differently from `picos operations list`.
+export function formatOperationsWorkspaceRows(
+	presets: OperationPreset[],
+	options: {
+		selectedIndex: number;
+		visibleRows: number;
+		run?: OperationRunProgress;
+	},
+): string[] {
+	const controlRows = formatOperationRunProgressRows(options.run);
+	const listRows = Math.max(1, options.visibleRows - controlRows.length - 3);
+	const window = getVisibleWindow(
+		presets.length,
+		options.selectedIndex,
+		listRows,
+	);
+	const rows = [
+		`OPERATIONS PRESETS saved=${presets.length} max=${MAX_OPERATION_PRESETS}`,
+	];
+	if (presets.length === 0) {
+		rows.push("no saved operation presets · picos operations save <id> <kind>");
+	} else {
+		for (const [offset, preset] of presets
+			.slice(window.start, window.end)
+			.entries()) {
+			const index = window.start + offset;
+			const marker = index === options.selectedIndex ? "> " : "  ";
+			rows.push(
+				`${marker}${String(index + 1).padStart(3, "0")} ${formatOperationPreset(preset)}`,
+			);
+		}
+		if (window.start > 0) {
+			rows.push(`hidden above=${window.start}`);
+		}
+		if (presets.length > window.end) {
+			rows.push(`hidden below=${presets.length - window.end}`);
+		}
+	}
+	rows.push("managed-by=picos operations · run only · edits are CLI-only");
+	return [...rows, ...controlRows];
 }

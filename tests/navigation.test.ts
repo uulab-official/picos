@@ -48,10 +48,12 @@ describe("TUI navigation", () => {
 			"status",
 			"config",
 			"logs",
+			"operations",
 		]);
 		expect(moveScreen("dashboard", "next")).toBe("files");
-		expect(moveScreen("logs", "next")).toBe("dashboard");
-		expect(moveScreen("dashboard", "previous")).toBe("logs");
+		expect(moveScreen("operations", "next")).toBe("dashboard");
+		expect(moveScreen("dashboard", "previous")).toBe("operations");
+		expect(moveScreen("logs", "next")).toBe("operations");
 	});
 
 	test("returns stable screen indexes for labels", () => {
@@ -59,6 +61,8 @@ describe("TUI navigation", () => {
 		expect(getScreenIndex("remotes")).toBe(2);
 		expect(getScreenIndex("status")).toBe(18);
 		expect(getScreenIndex("config")).toBe(19);
+		// Appended last on purpose, which is what keeps the indexes above stable.
+		expect(getScreenIndex("operations")).toBe(21);
 	});
 
 	test("enters and leaves child focus for workspace panels", () => {

@@ -1,5 +1,18 @@
 # picos Roadmap
 
+## v0.4.343 - Operations Workspace
+
+Status: implemented and verified locally on branch `codex/picos-v0.4.342-operations-presets`; 815 tests across 85 files, `tsc --noEmit` clean, no Biome findings across 219 files. Not yet pushed as its own slice.
+
+- The TUI gained an `operations` screen that lists saved presets, runs the selected one with `enter`, and stops a monitor run with `X`. It is appended last in `screenOrder` on purpose, so every existing screen index stays stable for the callers and tests that hardcode them.
+- Run state, the progress row, and the audit row live in `src/tui/operationRunPanel.ts` as pure functions, shaped after the read-only SFTP session diagnostic: every transition returns a new value rather than mutating, so a row can re-render while a run is still in flight. App.tsx holds the run in a ref beside its state for the same reason the SFTP connect flow does.
+- Preset rows reuse `formatOperationPreset()` from the core rather than a second layout, so the workspace can never describe a preset differently from `picos operations list`.
+- Cancellation is offered only where there is a window to stop. A monitor run transitions running to cancelling and keeps the samples it already paid for; a logs or process run is one collector call already bounded by its own timeout, so the control row reads `run is a single bounded call · no cancel` instead of advertising a key that would do nothing. A finished run cannot be cancelled either.
+- `shouldContinue` doubles as the progress hook, because it is already consulted after each sample and that is the only point where progress is observable. This avoided widening the core sampling API with a second callback.
+- Audit rows keep a fixed two-word prefix and a closed status set, so the Status Activity parser reads them with the shape it already uses for `remote connect`. The `started` row is emitted on its own, because without it a run cancelled before its second sample would leave no trace that it ran; the transient `cancelling` state emits nothing, since a terminal row always follows.
+- The workspace is run-only. No preset can be created, edited, or removed from the TUI, so the Config workspace decision from v0.4.342 stands and no `ConfigManagedShelfTarget` was added.
+- Next: the remaining follow-on is a stored start-time fingerprint for process presets, which would make PID reuse detectable on POSIX as well as Windows but changes the preset schema.
+
 ## v0.4.342 - Operations Preset Visibility
 
 Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes with 812 tests across 84 files, `tsc --noEmit` clean, all five integrations, release check clean, and no Biome fixes across 219 files. This slice ships in the same PR as v0.4.341 and v0.4.340, because several files carry changes from more than one of them and could not be split mechanically. CI not yet observed.

@@ -78,6 +78,7 @@ export type StatusActivityEnterAction =
 	| "remote-known-hosts-selection"
 	| "remote-connect"
 	| "interface-confirmation"
+	| "operations-run"
 	| "none";
 
 export type StatusActivityEnterPlan = {

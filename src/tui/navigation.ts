@@ -19,7 +19,8 @@ export type Screen =
 	| "actions"
 	| "status"
 	| "config"
-	| "logs";
+	| "logs"
+	| "operations";
 
 export const screenOrder: Screen[] = [
 	"dashboard",
@@ -43,6 +44,9 @@ export const screenOrder: Screen[] = [
 	"status",
 	"config",
 	"logs",
+	// Appended rather than inserted next to `config`, so every existing screen
+	// index stays stable for callers and tests that hardcode them.
+	"operations",
 ];
 
 export type FocusArea = "workspaces" | "actions" | "files" | "remotes";

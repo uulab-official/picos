@@ -246,6 +246,7 @@ import {
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
 import {
+	collectSystemMonitorSeries,
 	formatSystemMonitorRows,
 	getSystemMonitorSnapshot,
 	type SystemMonitorSnapshot,
@@ -466,6 +467,15 @@ import {
 	screenOrder,
 } from "./navigation";
 import { createNetworkTimelineEvents } from "./networkTimeline";
+import {
+	advanceOperationRun,
+	finishOperationRun,
+	formatOperationRunAuditMessage,
+	formatOperationsWorkspaceRows,
+	type OperationRunProgress,
+	requestOperationRunCancellation,
+	startOperationRun,
+} from "./operationRunPanel";
 import {
 	appendCommandPaletteQuery,
 	backspaceCommandPaletteQuery,
@@ -1016,6 +1026,13 @@ export function App(): React.ReactElement {
 	const [operationPresets, setOperationPresets] = useState<
 		PicosConfig["operationPresets"]
 	>([]);
+	const [selectedOperationPresetIndex, setSelectedOperationPresetIndex] =
+		useState(0);
+	const [operationRun, setOperationRun] = useState<OperationRunProgress>();
+	// Mirrored into a ref so the sampling loop can read the latest run without
+	// re-subscribing, the same way the SFTP connect flow tracks its diagnostic.
+	const operationRunRef = useRef<OperationRunProgress | undefined>(undefined);
+	const operationRunCancelRef = useRef(false);
 	const interfaceConfirmationEvidenceExports = useMemo(
 		() =>
 			filterInterfaceConfirmationEvidenceExports(
@@ -4757,6 +4774,152 @@ export function App(): React.ReactElement {
 			);
 		}
 	}, [log]);
+
+	const cancelOperationRun = useCallback(() => {
+		const current = operationRunRef.current;
+		if (current?.status !== "running") {
+			log("info", "no operation run to cancel");
+			return;
+		}
+		const cancelling = requestOperationRunCancellation(current);
+		if (cancelling === current) {
+			log("warn", `${current.kind} preset runs are a single bounded call`);
+			return;
+		}
+		operationRunCancelRef.current = true;
+		operationRunRef.current = cancelling;
+		setOperationRun(cancelling);
+		log("warn", `operation run cancellation requested ${current.presetId}`);
+	}, [log]);
+
+	const runSelectedOperationPreset = useCallback(async () => {
+		if (operationRunRef.current?.status === "running") {
+			log("warn", "an operation run is already in flight");
+			return;
+		}
+		const preset = operationPresets[selectedOperationPresetIndex];
+		if (!preset) {
+			log("warn", "no operation preset selected");
+			return;
+		}
+		operationRunCancelRef.current = false;
+		const started = startOperationRun(preset);
+		operationRunRef.current = started;
+		setOperationRun(started);
+		setCommandStatus("running");
+		const startedAudit = formatOperationRunAuditMessage(started);
+		if (startedAudit) {
+			log("run", startedAudit);
+		}
+		const publish = (next: OperationRunProgress) => {
+			operationRunRef.current = next;
+			setOperationRun(next);
+		};
+		try {
+			let returned = 0;
+			if (preset.kind === "monitor") {
+				const series = await collectSystemMonitorSeries(
+					{ samples: preset.samples, intervalMs: preset.intervalMs },
+					getSystemMonitorSnapshot,
+					undefined,
+					undefined,
+					// `shouldContinue` runs after each sample, which is also the only
+					// point where progress is observable, so it doubles as the progress
+					// hook rather than widening the core API with a second callback.
+					() => {
+						returned += 1;
+						const current = operationRunRef.current;
+						if (current) {
+							publish(advanceOperationRun(current, returned));
+						}
+						return !operationRunCancelRef.current;
+					},
+				);
+				returned = series.samples.length;
+				setSystemMonitor(series.samples.at(-1));
+				const outcome = series.cancelled
+					? ("cancelled" as const)
+					: ("completed" as const);
+				const finished = finishOperationRun(
+					advanceOperationRun(operationRunRef.current ?? started, returned),
+					outcome,
+					series.cancelled
+						? `stopped after ${returned} of ${series.requestedCount} samples`
+						: `collected ${returned} samples`,
+				);
+				publish(finished);
+				const audit = formatOperationRunAuditMessage(finished);
+				if (audit) {
+					log(series.cancelled ? "warn" : "ok", audit);
+					recordStatusActivityResult({
+						source: "timeline",
+						action: "operations-run",
+						message: audit,
+						detail: `kind=monitor interval=${preset.intervalMs} duration=${finished.durationMs ?? 0}ms`,
+						detailRows: [finished.message],
+					});
+				}
+				return;
+			}
+			if (preset.kind === "logs") {
+				const snapshot = await createOsLogSnapshot({ limit: preset.limit });
+				setOsLogs(snapshot);
+				setLogLevelFilter(preset.level);
+				setLogSearchQuery(preset.filter);
+				returned = 1;
+			} else {
+				const detail = await getProcessDetail(String(preset.pid));
+				setSelectedProcessDetail(detail);
+				returned = 1;
+			}
+			const finished = finishOperationRun(
+				advanceOperationRun(operationRunRef.current ?? started, returned),
+				"completed",
+				preset.kind === "logs"
+					? `applied logs preset level=${preset.level}`
+					: `inspected pid=${preset.pid}`,
+			);
+			publish(finished);
+			const audit = formatOperationRunAuditMessage(finished);
+			if (audit) {
+				log("ok", audit);
+				recordStatusActivityResult({
+					source: "timeline",
+					action: "operations-run",
+					message: audit,
+					detail: `kind=${preset.kind} duration=${finished.durationMs ?? 0}ms`,
+					detailRows: [finished.message],
+				});
+			}
+		} catch (caught) {
+			const message = caught instanceof Error ? caught.message : String(caught);
+			const failed = finishOperationRun(
+				operationRunRef.current ?? started,
+				"failed",
+				message,
+			);
+			publish(failed);
+			const audit = formatOperationRunAuditMessage(failed);
+			if (audit) {
+				log("fail", audit);
+				recordStatusActivityResult({
+					source: "timeline",
+					action: "operations-run",
+					message: audit,
+					detail: `kind=${preset.kind} reason=${JSON.stringify(message)}`,
+					detailRows: [message],
+				});
+			}
+		} finally {
+			operationRunCancelRef.current = false;
+			setCommandStatus("idle");
+		}
+	}, [
+		log,
+		operationPresets,
+		recordStatusActivityResult,
+		selectedOperationPresetIndex,
+	]);
 
 	const submitRemoteHostKeyEvidenceInputCommand = useCallback(() => {
 		const profile = remoteProfiles[selectedRemoteIndex];
@@ -8599,6 +8762,8 @@ export function App(): React.ReactElement {
 				void inspectSelectedEndpointProcess();
 			} else if (screen === "processes" && focusArea === "workspaces") {
 				void openSelectedProcessFile();
+			} else if (screen === "operations" && focusArea === "workspaces") {
+				void runSelectedOperationPreset();
 			} else if (screen === "files" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "files focus entered");
@@ -11117,6 +11282,15 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (
+			screen === "operations" &&
+			focusArea === "workspaces" &&
+			input === "X"
+		) {
+			cancelOperationRun();
+			return;
+		}
+
 		if (screen === "logs" && focusArea === "workspaces" && input === "e") {
 			setLogLevelFilter((current) => {
 				const next = nextOsLogLevelFilter(current);
@@ -12099,6 +12273,10 @@ export function App(): React.ReactElement {
 				);
 				setPortCopyPreview(false);
 				setPortProcessControlPreview(false);
+			} else if (screen === "operations") {
+				setSelectedOperationPresetIndex((index) =>
+					getNextIndex(index, operationPresets.length, "next"),
+				);
 			} else if (screen === "interfaces") {
 				setSelectedInterfaceIndex((index) =>
 					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "down"),
@@ -12161,6 +12339,10 @@ export function App(): React.ReactElement {
 				);
 				setPortCopyPreview(false);
 				setPortProcessControlPreview(false);
+			} else if (screen === "operations") {
+				setSelectedOperationPresetIndex((index) =>
+					getNextIndex(index, operationPresets.length, "previous"),
+				);
 			} else if (screen === "interfaces") {
 				setSelectedInterfaceIndex((index) =>
 					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "up"),
@@ -12265,6 +12447,9 @@ export function App(): React.ReactElement {
 					}
 					remoteFileContext={remoteFileContext}
 					remoteConnectionDiagnostic={remoteConnectionDiagnostic}
+					operationPresets={operationPresets}
+					selectedOperationPresetIndex={selectedOperationPresetIndex}
+					operationRun={operationRun}
 					connections={connections}
 					ports={ports}
 					connectionsResult={connectionsResult}
@@ -12564,6 +12749,9 @@ function MainWorkspace({
 	remoteKnownHostsPasteReviewSession,
 	remoteFileContext,
 	remoteConnectionDiagnostic,
+	operationPresets,
+	selectedOperationPresetIndex,
+	operationRun,
 	connections,
 	ports,
 	connectionsResult,
@@ -12734,6 +12922,9 @@ function MainWorkspace({
 	remoteKnownHostsPasteReviewSession: RemoteKnownHostsPasteReviewSession;
 	remoteFileContext?: RemoteFileContext;
 	remoteConnectionDiagnostic?: ReadOnlySftpConnectionDiagnostic;
+	operationPresets: PicosConfig["operationPresets"];
+	selectedOperationPresetIndex: number;
+	operationRun?: OperationRunProgress;
 	connections: ActiveConnection[];
 	ports: ListeningPort[];
 	connectionsResult?: ConnectionsResult;
@@ -12983,6 +13174,9 @@ function MainWorkspace({
 						remoteKnownHostsPasteReviewSession,
 						remoteFileContext,
 						remoteConnectionDiagnostic,
+						operationPresets,
+						selectedOperationPresetIndex,
+						operationRun,
 						connections,
 						ports,
 						connectionsResult,
@@ -13158,6 +13352,9 @@ function renderWorkspace(
 	remoteKnownHostsPasteReviewSession: RemoteKnownHostsPasteReviewSession,
 	remoteFileContext: RemoteFileContext | undefined,
 	remoteConnectionDiagnostic: ReadOnlySftpConnectionDiagnostic | undefined,
+	operationPresets: PicosConfig["operationPresets"],
+	selectedOperationPresetIndex: number,
+	operationRun: OperationRunProgress | undefined,
 	connections: ActiveConnection[],
 	ports: ListeningPort[],
 	connectionsResult: ConnectionsResult | undefined,
@@ -13833,6 +14030,17 @@ function renderWorkspace(
 				commandLine={commandLine}
 				visibleRows={Math.max(6, height - 7)}
 				configShelfFocusTarget={configShelfFocusTarget}
+			/>
+		);
+	}
+	if (screen === "operations") {
+		return (
+			<OperationsWorkspace
+				presets={operationPresets}
+				selectedIndex={selectedOperationPresetIndex}
+				run={operationRun}
+				visibleRows={Math.max(6, height - 7)}
+				t={t}
 			/>
 		);
 	}
@@ -17988,6 +18196,71 @@ function getOsLogRowColor(row: string): string {
 		return "gray";
 	}
 	return "white";
+}
+
+function OperationsWorkspace({
+	presets,
+	selectedIndex,
+	run,
+	visibleRows,
+	t,
+}: {
+	presets: PicosConfig["operationPresets"];
+	selectedIndex: number;
+	run?: OperationRunProgress;
+	visibleRows: number;
+	t: (key: string) => string;
+}): React.ReactElement {
+	const rows = formatOperationsWorkspaceRows(presets, {
+		selectedIndex,
+		visibleRows,
+		run,
+	});
+	const rowCounts = new Map<string, number>();
+	const keyedRows = rows.map((row) => {
+		const count = rowCounts.get(row) ?? 0;
+		rowCounts.set(row, count + 1);
+		return { key: `${row}:${count}`, row };
+	});
+	return (
+		<Box flexDirection="column">
+			<Text bold>{t("screen.operations")}</Text>
+			<Text color="gray">
+				saved monitor/logs/process presets · j/k select · enter run · X cancel a
+				monitor run · create and remove with picos operations
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				{keyedRows.map(({ key, row }) => (
+					<Text key={key} color={getOperationRunRowColor(row)}>
+						{clip(row, 110)}
+					</Text>
+				))}
+			</Box>
+		</Box>
+	);
+}
+
+function getOperationRunRowColor(row: string): string {
+	if (row.startsWith("OPERATIONS ")) {
+		return "cyan";
+	}
+	if (row.startsWith(">")) {
+		return "green";
+	}
+	if (row.startsWith("status=cancelled") || row.startsWith("status=failed")) {
+		return "red";
+	}
+	if (
+		row.startsWith("status=cancelling") ||
+		row.startsWith("hidden ") ||
+		row.startsWith("no saved")
+	) {
+		return "yellow";
+	}
+	if (row.startsWith("status=completed")) {
+		return "green";
+	}
+	return "gray";
 }
 
 function Inspector({
