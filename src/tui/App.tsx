@@ -499,6 +499,10 @@ import {
 	openCommandPalette,
 } from "./palette";
 import {
+	beginProcessInspection,
+	isStaleProcessInspection,
+} from "./processInspection";
+import {
 	formatProcessWorkspaceRows,
 	getProcessFileSelectionCount,
 	getSelectedProcessClipboardPreview,
@@ -1040,6 +1044,10 @@ export function App(): React.ReactElement {
 	const [operationRun, setOperationRun] = useState<OperationRunProgress>();
 	// Mirrored into a ref so the sampling loop can read the latest run without
 	// re-subscribing, the same way the SFTP connect flow tracks its diagnostic.
+	// Shared by both callbacks that write process detail and file snapshot state, so
+	// the newest request is the only one allowed to publish regardless of which one
+	// issued it.
+	const processInspectionTokenRef = useRef(0);
 	const operationRunRef = useRef<OperationRunProgress | undefined>(undefined);
 	// Runs are identified by a token rather than tracked with a shared boolean. A
 	// boolean let a second run clear the first run's cancellation and then let the
@@ -5254,12 +5262,20 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		const token = beginProcessInspection(processInspectionTokenRef.current);
+		processInspectionTokenRef.current = token;
 		beginCommand();
 		try {
 			const [detail, files] = await Promise.all([
 				getProcessDetail(request.pid),
 				getProcessFileSnapshot(request.pid),
 			]);
+			// A newer request started while these collectors ran. Publishing now would
+			// pair this process's detail with the newer request's files.
+			if (isStaleProcessInspection(processInspectionTokenRef.current, token)) {
+				log("info", `process inspection superseded ${request.command}`);
+				return;
+			}
 			setSelectedProcessDetail(detail);
 			setSelectedProcessFiles(files);
 			setSelectedProcessFileIndex(0);
@@ -9492,10 +9508,19 @@ export function App(): React.ReactElement {
 			setPortProcessControlInspector(next);
 			if (next) {
 				void (async () => {
+					const token = beginProcessInspection(
+						processInspectionTokenRef.current,
+					);
+					processInspectionTokenRef.current = token;
 					beginCommand();
 					setSelectedProcessFileEvidenceIssue(undefined);
 					try {
 						const files = await getProcessFileSnapshot(preview.port.pid);
+						if (
+							isStaleProcessInspection(processInspectionTokenRef.current, token)
+						) {
+							return;
+						}
 						setSelectedProcessFiles(files);
 						setSelectedProcessFileEvidenceIssue(
 							files
@@ -9519,6 +9544,11 @@ export function App(): React.ReactElement {
 								? `ports file evidence failed ${caught.message}`
 								: `ports file evidence failed ${String(caught)}`,
 						);
+						if (
+							isStaleProcessInspection(processInspectionTokenRef.current, token)
+						) {
+							return;
+						}
 						setSelectedProcessFiles(undefined);
 						setSelectedProcessFileEvidenceIssue({
 							status: "error",
