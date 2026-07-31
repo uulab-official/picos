@@ -270,6 +270,12 @@ export type ProcessOperationPreset = {
 	kind: "process";
 	pid: number;
 	files: boolean;
+	// Wall-clock instant this preset was saved. A PID is ephemeral, so this is the
+	// reference point that makes reuse detectable without an absolute process start
+	// time: a process younger than the preset cannot be the one that was saved.
+	// Required rather than optional because it is defaulted at construction, which
+	// keeps every consumer from having to handle its absence.
+	savedAtMs: number;
 };
 
 export type OperationPreset =

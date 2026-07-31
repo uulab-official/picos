@@ -63,7 +63,13 @@ describe("operation presets", () => {
 				level: "fail",
 				filter: " disk ",
 			},
-			{ id: "worker", kind: "process", pid: 42, files: true },
+			{
+				id: "worker",
+				kind: "process",
+				pid: 42,
+				files: true,
+				savedAtMs: 1_700_000_000_000,
+			},
 			{ id: "health", kind: "monitor", samples: 2, intervalMs: 250 },
 			{ id: "unsafe id", kind: "logs", limit: 1, level: "all", filter: "" },
 			{ id: "too-long", kind: "monitor", samples: 60, intervalMs: 60_000 },
@@ -72,7 +78,15 @@ describe("operation presets", () => {
 		expect(presets).toEqual([
 			{ id: "health", kind: "monitor", samples: 3, intervalMs: 500 },
 			{ id: "errors", kind: "logs", limit: 20, level: "fail", filter: "disk" },
-			{ id: "worker", kind: "process", pid: 42, files: true },
+			// The saved instant round-trips rather than being restamped on load, which
+			// is what keeps PID reuse detectable across sessions.
+			{
+				id: "worker",
+				kind: "process",
+				pid: 42,
+				files: true,
+				savedAtMs: 1_700_000_000_000,
+			},
 		]);
 	});
 

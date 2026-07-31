@@ -1,8 +1,20 @@
 # picos Roadmap
 
+## v0.4.344 - Process Preset Identity
+
+Status: implemented and verified locally on branch `codex/picos-v0.4.342-operations-presets`; 817 tests across 85 files, `tsc --noEmit` clean, no Biome findings across 219 files. Ships in the same PR as v0.4.340 through v0.4.343.
+
+- A saved process preset records the instant it was written as `savedAtMs`, and running one publishes `data.identity` plus an `identity=reused` text row for the proof case. This closes the last documented follow-on from v0.4.341.
+- The earlier plan was to store an absolute process start time, which would have required `save` to inspect the process and would have worked properly only on Windows, the one platform that exposes a creation date. Recording the save instant instead needs no I/O at save time and only the `elapsed` column, which every platform provides, so the check works on macOS and Linux too.
+- The test is deliberately one-directional and named to say so. `reused` is a proof of difference, because a process younger than the preset cannot be the one that was saved. `consistent` is not proof of sameness; it only records that no contradiction was found. `unknown` covers a missing elapsed column.
+- The comparison tolerates two seconds, because `ps` reports elapsed time at one-second resolution and a preset saved in the same second a process started would otherwise read as reused.
+- `savedAtMs` is required on the type rather than optional, and defaulted at construction, so no consumer has to handle its absence. It round-trips through `normalizeOperationPresets()` rather than being restamped, which is what keeps the reference point stable across config writes; a preset saved before the field existed is stamped once on first load, which loses nothing because an unknown baseline can only read as consistent.
+- It is metadata rather than an option, so it is not published as a contract field in `operations kinds`; it appears in the serialized preset instead.
+- Next: no outstanding follow-ons from the operations preset work.
+
 ## v0.4.343 - Operations Workspace
 
-Status: implemented and verified locally on branch `codex/picos-v0.4.342-operations-presets`; 815 tests across 85 files, `tsc --noEmit` clean, no Biome findings across 219 files. Not yet pushed as its own slice.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); 815 tests across 85 files, `tsc --noEmit` clean, no Biome findings across 219 files, and Ubuntu, macOS, Windows, and release-readiness CI all pass. Ships in the same PR as v0.4.340 through v0.4.342 rather than as its own slice, because several files carry changes from more than one of them.
 
 - The TUI gained an `operations` screen that lists saved presets, runs the selected one with `enter`, and stops a monitor run with `X`. It is appended last in `screenOrder` on purpose, so every existing screen index stays stable for the callers and tests that hardcode them.
 - Run state, the progress row, and the audit row live in `src/tui/operationRunPanel.ts` as pure functions, shaped after the read-only SFTP session diagnostic: every transition returns a new value rather than mutating, so a row can re-render while a run is still in flight. App.tsx holds the run in a ref beside its state for the same reason the SFTP connect flow does.
@@ -11,11 +23,11 @@ Status: implemented and verified locally on branch `codex/picos-v0.4.342-operati
 - `shouldContinue` doubles as the progress hook, because it is already consulted after each sample and that is the only point where progress is observable. This avoided widening the core sampling API with a second callback.
 - Audit rows keep a fixed two-word prefix and a closed status set, so the Status Activity parser reads them with the shape it already uses for `remote connect`. The `started` row is emitted on its own, because without it a run cancelled before its second sample would leave no trace that it ran; the transient `cancelling` state emits nothing, since a terminal row always follows.
 - The workspace is run-only. No preset can be created, edited, or removed from the TUI, so the Config workspace decision from v0.4.342 stands and no `ConfigManagedShelfTarget` was added.
-- Next: the remaining follow-on is a stored start-time fingerprint for process presets, which would make PID reuse detectable on POSIX as well as Windows but changes the preset schema.
+- Next: completed by v0.4.344 process preset identity, which made PID reuse detectable on every platform.
 
 ## v0.4.342 - Operations Preset Visibility
 
-Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes with 812 tests across 84 files, `tsc --noEmit` clean, all five integrations, release check clean, and no Biome fixes across 219 files. This slice ships in the same PR as v0.4.341 and v0.4.340, because several files carry changes from more than one of them and could not be split mechanically. CI not yet observed.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes with 815 tests across 85 files, `tsc --noEmit` clean, all five integrations, release check clean, and no Biome findings across 219 files, and Ubuntu, macOS, Windows, and release-readiness CI all pass. This slice ships in the same PR as v0.4.340, v0.4.341, and v0.4.343, because several files carry changes from more than one of them and could not be split mechanically.
 
 Goal: make saved operation presets visible from the TUI Config workspace without pretending a workspace owns them and without adding a preset execution path.
 
@@ -30,7 +42,7 @@ Goal: make saved operation presets visible from the TUI Config workspace without
 
 ## v0.4.341 - Operations Preset Contracts
 
-Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes with 812 tests across 84 files, `tsc --noEmit` clean, all five integrations, release check clean, and no Biome fixes across 219 files. This slice ships in the same PR as v0.4.341 and v0.4.340, because several files carry changes from more than one of them and could not be split mechanically. CI not yet observed.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes with 815 tests across 85 files, `tsc --noEmit` clean, all five integrations, release check clean, and no Biome findings across 219 files, and Ubuntu, macOS, Windows, and release-readiness CI all pass. This slice ships in the same PR as v0.4.340, v0.4.341, and v0.4.343, because several files carry changes from more than one of them and could not be split mechanically.
 
 Goal: make saved operation presets a first-class coding-agent workflow by publishing the preset contract itself, so an agent can construct a valid save call and its exact confirmation phrase without reading prose docs.
 
@@ -64,7 +76,7 @@ Goal: make saved operation presets a first-class coding-agent workflow by publis
 
 ## v0.4.340 - Automation Presets
 
-Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes and the automation presets harness is wired into `bun run verify`, which CI runs on Ubuntu, macOS, and Windows. Ships in the same PR as v0.4.341 and v0.4.342. CI not yet observed.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes and the automation presets harness is wired into `bun run verify`, which CI runs on Ubuntu, macOS, and Windows; all three plus release readiness pass. Ships in the same PR as v0.4.341 through v0.4.343.
 
 Goal: let scripts, CI, and coding agents replay the same bounded monitor, OS log, and process inspection without restating every option, and add bounded monitor sampling, while keeping picos read-only by default.
 

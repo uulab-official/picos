@@ -118,5 +118,6 @@ export function normalizeOperationPreset(preset: OperationPreset) {
 		kind: preset.kind,
 		pid: preset.pid,
 		files: preset.files,
+		savedAtMs: preset.savedAtMs,
 	};
 }

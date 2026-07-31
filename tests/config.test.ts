@@ -143,7 +143,13 @@ describe("config schema", () => {
 		).toEqual([
 			{ id: "pulse", kind: "monitor", samples: 3, intervalMs: 500 },
 			{ id: "errors", kind: "logs", limit: 25, level: "fail", filter: "disk" },
-			{ id: "worker", kind: "process", pid: 42, files: true },
+			{
+				id: "worker",
+				kind: "process",
+				pid: 42,
+				files: true,
+				savedAtMs: expect.any(Number),
+			},
 		]);
 		expect(() => coerceConfigValue("operationPresets", "[]")).toThrow(
 			"managed by picos operations",

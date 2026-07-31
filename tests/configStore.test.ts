@@ -85,7 +85,13 @@ describe("config store", () => {
 					level: "warn",
 					filter: "kernel",
 				},
-				{ id: "worker", kind: "process", pid: 42, files: true },
+				{
+					id: "worker",
+					kind: "process",
+					pid: 42,
+					files: true,
+					savedAtMs: 1_700_000_000_000,
+				},
 			],
 			path,
 		);

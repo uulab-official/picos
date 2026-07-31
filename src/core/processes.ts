@@ -476,3 +476,47 @@ function inspectionSource(
 		totalCount,
 	};
 }
+
+// `ps -o etime` renders an elapsed time as [[DD-]HH:]MM:SS. Returned in
+// milliseconds so a caller can compare a relative age against a wall clock.
+export function parseProcessElapsedMs(elapsed?: string): number | undefined {
+	const trimmed = elapsed?.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+	const match = trimmed.match(/^(?:(\d+)-)?(?:(\d+):)?(\d{1,2}):(\d{2})$/);
+	if (!match) {
+		return undefined;
+	}
+	const days = Number(match[1] ?? 0);
+	const hours = Number(match[2] ?? 0);
+	const minutes = Number(match[3]);
+	const seconds = Number(match[4]);
+	return (((days * 24 + hours) * 60 + minutes) * 60 + seconds) * 1000;
+}
+
+export type ProcessIdentityVerdict = "consistent" | "reused" | "unknown";
+
+// `ps` reports elapsed time at one-second resolution, so a process recorded
+// immediately after it started can round to an apparent start slightly after the
+// recorded instant. Tolerate that rather than reporting a false reuse.
+const PROCESS_ELAPSED_TOLERANCE_MS = 2_000;
+
+// Sound in one direction only. If the process now holding this PID started after
+// the instant something was recorded about it, it cannot be the same process, so
+// the PID was reused. The converse is not proof of sameness, only of consistency,
+// which is why the verdict is named that way. Needs only `elapsed`, so it works
+// on POSIX where no absolute start time is available.
+export function detectProcessIdReuse(
+	elapsed: string | undefined,
+	recordedAtMs: number,
+	nowMs: number,
+): ProcessIdentityVerdict {
+	const elapsedMs = parseProcessElapsedMs(elapsed);
+	if (elapsedMs === undefined) {
+		return "unknown";
+	}
+	return nowMs - elapsedMs > recordedAtMs + PROCESS_ELAPSED_TOLERANCE_MS
+		? "reused"
+		: "consistent";
+}

@@ -22,6 +22,7 @@ import {
 	type OsLogSnapshot,
 } from "../../core/osLogs";
 import {
+	detectProcessIdReuse,
 	formatProcessDetail,
 	formatProcessFileSnapshot,
 	getProcessDetailWithSource,
@@ -285,6 +286,14 @@ async function runPreset(
 		seams.readProcessFileSnapshotResult ?? getProcessFileSnapshotWithSource;
 	const detailResult = await readDetail(pid);
 	const fileResult = preset.files ? await readFiles(pid) : undefined;
+	// A stored PID is ephemeral, so compare the running process against the instant
+	// the preset was saved. Only `reused` is a proof, and it is a proof of
+	// difference: a process younger than the preset cannot be the one saved.
+	const identity = detectProcessIdReuse(
+		detailResult.detail?.elapsed,
+		preset.savedAtMs,
+		Date.now(),
+	);
 	if (json) {
 		await writeCliOutput(
 			formatProcessJson({
@@ -293,6 +302,7 @@ async function runPreset(
 				filesRequested: preset.files,
 				detailResult,
 				fileResult,
+				identity,
 			}),
 		);
 		return;
@@ -300,6 +310,11 @@ async function runPreset(
 	if (!detailResult.detail) throw new Error(`Process not found: ${preset.pid}`);
 	console.log(formatPresetHeader(preset));
 	console.log(formatProcessDetail(detailResult.detail));
+	if (identity === "reused") {
+		console.log(
+			"identity=reused this process started after the preset was saved, so the PID was reused",
+		);
+	}
 	if (preset.files) {
 		console.log(formatProcessFileSnapshot(fileResult?.snapshot));
 	}

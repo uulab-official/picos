@@ -2,12 +2,14 @@ import { describe, expect, test } from "bun:test";
 import {
 	buildProcessDetailCommand,
 	buildProcessFilesCommand,
+	detectProcessIdReuse,
 	formatProcessDetail,
 	formatProcessFileSnapshot,
 	getProcessDetailWithSource,
 	getProcessFileSnapshotWithSource,
 	parseLsofProcessFiles,
 	parsePosixProcessDetail,
+	parseProcessElapsedMs,
 	parsePsOutput,
 	parseWindowsProcessDetail,
 	validateProcessId,
@@ -340,5 +342,46 @@ describe("process inventory", () => {
 			"CWD:      /Users/bonjin/Documents/workspace/uulab/picos",
 		);
 		expect(output).toContain("txt  executable  /usr/local/bin/bun");
+	});
+});
+
+describe("process identity across runs", () => {
+	test("parses the ps elapsed formats into milliseconds", () => {
+		expect(parseProcessElapsedMs("01:23")).toBe(83_000);
+		expect(parseProcessElapsedMs("02:03:04")).toBe(7_384_000);
+		expect(parseProcessElapsedMs("5-06:07:08")).toBe(454_028_000);
+		expect(parseProcessElapsedMs(" 00:05 ")).toBe(5_000);
+		expect(parseProcessElapsedMs(undefined)).toBeUndefined();
+		expect(parseProcessElapsedMs("")).toBeUndefined();
+		// Windows reports an absolute creation date instead, which this parser
+		// deliberately does not accept.
+		expect(parseProcessElapsedMs("2026-07-29T00:00:00")).toBeUndefined();
+	});
+
+	test("detects a reused PID from elapsed time alone", () => {
+		const recordedAt = 1_000_000_000;
+
+		// Running for an hour, recorded a minute ago: it predates the record, so it
+		// is consistent with being the same process.
+		expect(detectProcessIdReuse("60:00", recordedAt, recordedAt + 60_000)).toBe(
+			"consistent",
+		);
+
+		// Running for five seconds, recorded an hour ago: it started long after the
+		// record, so this cannot be the process that was recorded.
+		expect(
+			detectProcessIdReuse("00:05", recordedAt, recordedAt + 3_600_000),
+		).toBe("reused");
+
+		// One-second elapsed resolution must not produce a false positive for a
+		// process recorded the moment it started.
+		expect(detectProcessIdReuse("00:00", recordedAt, recordedAt + 1_000)).toBe(
+			"consistent",
+		);
+
+		// Without an elapsed column there is nothing to compare.
+		expect(detectProcessIdReuse(undefined, recordedAt, recordedAt)).toBe(
+			"unknown",
+		);
 	});
 });

@@ -6,6 +6,7 @@ import {
 import type {
 	ProcessDetailResult,
 	ProcessFileSnapshotResult,
+	ProcessIdentityVerdict,
 	ProcessInspectionSource,
 } from "../core/processes";
 import type {
@@ -185,6 +186,7 @@ export function formatProcessJson(input: {
 	presetId?: string;
 	detailResult: ProcessDetailResult;
 	fileResult?: ProcessFileSnapshotResult;
+	identity?: ProcessIdentityVerdict;
 }): string {
 	assertProcessDetailCompleted(input.pid, input.detailResult);
 	const detail = input.detailResult.detail;
@@ -224,6 +226,10 @@ export function formatProcessJson(input: {
 					input.fileResult.source.truncated)
 					? "partial"
 					: "ok",
+			// Only meaningful for a preset run, which has a saved instant to compare
+			// against. `reused` is a proof that this is a different process; the other
+			// values are not proof of sameness, only the absence of that proof.
+			identity: input.identity ?? null,
 			detail: {
 				pid: detail.pid,
 				ppid: detail.ppid ?? null,

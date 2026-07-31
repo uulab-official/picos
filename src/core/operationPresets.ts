@@ -183,6 +183,7 @@ export type OperationPresetInput = {
 	filter?: unknown;
 	pid?: unknown;
 	files?: unknown;
+	savedAtMs?: unknown;
 };
 
 export function normalizeOperationPresets(input: unknown): OperationPreset[] {
@@ -224,7 +225,20 @@ export function createOperationPreset(
 		kind,
 		pid: parseOperationProcessId(input.pid),
 		files: parseOperationFiles(input.files),
+		savedAtMs: parseOperationSavedAt(input.savedAtMs),
 	};
+}
+
+// Preserved when it is already present, which is what makes a round trip through
+// the config keep the original reference point instead of resetting it on every
+// write. A preset saved before this field existed is stamped once, on first load,
+// which loses nothing: an unknown baseline can only ever read as consistent.
+export function parseOperationSavedAt(
+	value: unknown,
+	now = Date.now(),
+): number {
+	const savedAt = Number(value);
+	return Number.isSafeInteger(savedAt) && savedAt > 0 ? savedAt : now;
 }
 
 export function parseOperationPresetKind(
