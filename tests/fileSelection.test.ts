@@ -133,7 +133,9 @@ describe("TUI file selection", () => {
 			"root=sftp://alice@dev.example.com:22/srv/app",
 			"status=adapter pending writes=locked activeRoot=/Users/bonjin/Documents/workspace/uulab/picos",
 			"hostKey=unverified verified=no",
-			"controls=enter preview · y copy path · c connect from Remotes",
+			// Names the workspace, not a key: this row renders inside Files, where `c`
+			// is the copy operation rather than connect.
+			"controls=enter preview · y copy path · connect from the Remotes workspace",
 		]);
 	});
 });

@@ -78,7 +78,10 @@ export function formatFileProviderBoundaryRows(options: {
 				: ["hostKey=unverified verified=no"]),
 			connected
 				? "controls=enter open · y copy path · L close SFTP · writes disabled"
-				: "controls=enter preview · y copy path · c connect from Remotes",
+				: // Names the workspace rather than the key. This row renders inside
+					// Files, where `c` is the copy operation, so advertising `c` here sent
+					// a reader to the wrong action.
+					"controls=enter preview · y copy path · connect from the Remotes workspace",
 		];
 	}
 
