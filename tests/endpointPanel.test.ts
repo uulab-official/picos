@@ -8,11 +8,13 @@ import {
 	createEndpointHandoffPlan,
 	createSelectedPortProcessControlPreview,
 	formatConnectionsWorkspaceRows,
+	formatEndpointWorkspaceHintRow,
 	formatPortProcessControlConfirmationAuditMessage,
 	formatPortProcessControlExecutionRows,
 	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
 	getEndpointDetailViewShortcut,
+	getEndpointWorkspaceHintKeys,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
 	getSelectedPortClipboardPreview,
@@ -1155,5 +1157,29 @@ describe("endpoint TUI panel formatting", () => {
 		} finally {
 			await rm(root, { force: true, recursive: true });
 		}
+	});
+});
+
+describe("endpoint workspace hint rows", () => {
+	test("advertises every key the ports workspace binds", () => {
+		expect(formatEndpointWorkspaceHintRow("ports")).toBe(
+			"listening ports · f filter · P save · ] preset · D cleanup · e export · o open · enter process · I inspector · K control · tab/1-3 detail · home/end · j/k select",
+		);
+	});
+
+	test("advertises enter on connections, which binds the same process inspection", () => {
+		expect(formatEndpointWorkspaceHintRow("connections")).toBe(
+			"active endpoints · f filter · P save · ] preset · D cleanup · e export · o open · enter process · tab/1-3 detail · home/end · j/k select",
+		);
+	});
+
+	test("scopes inspector and control to ports and shares the rest", () => {
+		const connections = getEndpointWorkspaceHintKeys("connections");
+		const ports = getEndpointWorkspaceHintKeys("ports");
+		expect(connections.every((key) => ports.includes(key))).toBe(true);
+		expect(ports.filter((key) => !connections.includes(key))).toEqual([
+			"I",
+			"K",
+		]);
 	});
 });

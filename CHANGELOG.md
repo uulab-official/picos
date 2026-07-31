@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Fixed
 
+- The Connections workspace hint row now advertises `enter process`. `enter` has always run the same process inspection there that the Ports row documents, but the Connections row omitted it, so the feature was undiscoverable from one of the two screens that offer it. Both rows are now built from one table, so the two screens can no longer describe a shared binding differently.
 - The running indicator no longer clears while work is still in flight. Five long-running actions shared it and three reset it unconditionally, so with two overlapping, the first to finish reported idle while the second was still working. It is now reference counted, so it stays running until the last action returns.
 - Real SSH/SFTP directory listings now treat protocol `READDIR` EOF status as normal completion instead of failing after the final directory batch.
 - Config paths and exported evidence/archive plan paths now preserve the input path style across host OSes, keeping POSIX-style sample paths stable on Windows CI while retaining Windows backslash paths when provided.

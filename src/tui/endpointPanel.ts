@@ -144,6 +144,43 @@ export function getEndpointDetailViewShortcut(
 	return undefined;
 }
 
+const ENDPOINT_WORKSPACE_HINT_ENTRIES: readonly {
+	key: string;
+	label?: string;
+	kinds?: readonly EndpointHandoffKind[];
+}[] = [
+	{ key: "f", label: "filter" },
+	{ key: "P", label: "save" },
+	{ key: "]", label: "preset" },
+	{ key: "D", label: "cleanup" },
+	{ key: "e", label: "export" },
+	{ key: "o", label: "open" },
+	{ key: "enter", label: "process" },
+	{ key: "I", label: "inspector", kinds: ["ports"] },
+	{ key: "K", label: "control", kinds: ["ports"] },
+	{ key: "tab/1-3", label: "detail" },
+	{ key: "home/end" },
+	{ key: "j/k", label: "select" },
+];
+
+export function getEndpointWorkspaceHintKeys(
+	kind: EndpointHandoffKind,
+): string[] {
+	return ENDPOINT_WORKSPACE_HINT_ENTRIES.filter(
+		(entry) => !entry.kinds || entry.kinds.includes(kind),
+	).map((entry) => entry.key);
+}
+
+export function formatEndpointWorkspaceHintRow(
+	kind: EndpointHandoffKind,
+): string {
+	const lead = kind === "connections" ? "active endpoints" : "listening ports";
+	const hints = ENDPOINT_WORKSPACE_HINT_ENTRIES.filter(
+		(entry) => !entry.kinds || entry.kinds.includes(kind),
+	).map((entry) => (entry.label ? `${entry.key} ${entry.label}` : entry.key));
+	return [lead, ...hints].join(" · ");
+}
+
 export function saveEndpointFilterPreset(
 	presets: string[],
 	query: string,

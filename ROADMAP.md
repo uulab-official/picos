@@ -1,10 +1,23 @@
 # picos Roadmap
 
-## Open PR - v0.4.340 through v0.4.344
+## Open PR - v0.4.340 through v0.4.345
 
-Draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414), carries every slice from v0.4.340 through v0.4.344 as one PR, because several files carry changes from more than one of them and could not be split mechanically. Verification on the branch head: 830 tests across 86 files pass, `tsc --noEmit` clean, all five integration harnesses and the release check clean, no Biome findings across 223 files, and Ubuntu, macOS, Windows, and release-readiness CI pass on every commit.
+Draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414), carries every slice from v0.4.340 through v0.4.345 as one PR, because several files carry changes from more than one of them and could not be split mechanically. Verification on the branch head: 833 tests across 86 files pass, `tsc --noEmit` clean, all five integration harnesses and the release check clean, no Biome findings across 223 files, and Ubuntu, macOS, Windows, and release-readiness CI pass on every commit.
 
 The slices below do not restate any of that. Each previously carried its own copy of the PR link, the test and file counts, and a hand-written list of its sibling slices. The counts had gone stale in all four places that stated them, and disagreed with each other; three of the five sibling lists were wrong, one of them listing its own slice. That is the same stale-enumeration failure the architecture rules in `AGENTS.md` target in code, so the fix is the same one: state the shared fact once, and let each slice reference it.
+
+## v0.4.345 - Endpoint Hint Row Derivation
+
+Status: in the open PR above.
+
+- The Connections and Ports workspaces bind nearly the same keys and each described them in its own hand-written hint row. Both rows now come from one table in `src/tui/endpointPanel.ts`, the module that already owns both screens, with the two ports-only entries scoped to `ports` instead of the whole row being duplicated.
+- That surfaced a real omission. `enter` calls `inspectSelectedEndpointProcess()` for both screens through a shared guard, and the Ports row documents it as `enter process`, but the Connections row never mentioned it, so process inspection was undiscoverable from one of the two workspaces that offer it. The derived row advertises it on both.
+- The ports row is asserted byte for byte against its previous wording, so the extraction is provably faithful for the screen that was already correct, and Connections is the only rendered change.
+- This came out of auditing the advertised-key rule by hand, and the audit cleared both rows on the binding question: every key either row advertises is bound. That includes the `e` and `o` pair, which an incomplete search had suggested was missing for Ports. Reading the complete guard list is what settled it, at lines 9597 and 9611, and reporting on the search alone would have produced a false defect. Searches that truncate cannot support a negative conclusion.
+- The rule this enforces is narrower than it looks, and the docs should not overstate it. Deriving the rows makes the two screens unable to disagree about a shared binding and puts the wording under test for the first time. It does not prove a key is bound, because dispatch still lives in `useInput` inside `App.tsx`.
+- `F`, `s`, and `c` are bound on both screens and deliberately stay unadvertised. The rule forbids advertising a key that cannot act, not leaving a key undocumented, and the rows have a finite width.
+- The README already described `enter` as opening the selected PID in Processes for both screens, which is what makes the Connections omission a row defect rather than a missing feature: two of the three places that describe this binding agreed, and the hint row was the one that drifted. The same README line was missing `e`, `o`, and the Ports `I` inspector, each of them bound and advertised, so they are listed now as well.
+- Next: drive dispatch from the same table, so an advertised key that nothing handles fails to compile. That requires the endpoint handlers to move out of `useInput`, which is the open half of the decisions-in-components rule.
 
 ## v0.4.344 - Process Preset Identity
 

@@ -394,6 +394,7 @@ import {
 	type EndpointDetailView,
 	type EndpointHandoffKind,
 	formatConnectionsWorkspaceRows,
+	formatEndpointWorkspaceHintRow,
 	formatPortProcessControlConfirmationAuditMessage,
 	formatPortProcessControlExecutionRows,
 	formatPortProcessControlInspectorRows,
@@ -15988,10 +15989,7 @@ function ConnectionsWorkspace({
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
-			<Text color="gray">
-				active endpoints · f filter · P save · ] preset · D cleanup · e export ·
-				o open · tab/1-3 detail · home/end · j/k select
-			</Text>
+			<Text color="gray">{formatEndpointWorkspaceHintRow("connections")}</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
 					<Text key={key} color={getEndpointRowColor(row, "ACTIVE")}>
@@ -16104,11 +16102,7 @@ function PortsWorkspace({
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
-			<Text color="gray">
-				listening ports · f filter · P save · ] preset · D cleanup · e export ·
-				o open · enter process · I inspector · K control · tab/1-3 detail ·
-				home/end · j/k select
-			</Text>
+			<Text color="gray">{formatEndpointWorkspaceHintRow("ports")}</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
 					<Text key={key} color={getEndpointRowColor(row, "LISTENING")}>
