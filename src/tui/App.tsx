@@ -336,6 +336,12 @@ import {
 	openCommandLine,
 } from "./commandLine";
 import {
+	beginCommandStatusCount,
+	type CommandStatus,
+	endCommandStatusCount,
+	resolveCommandStatus,
+} from "./commandStatus";
+import {
 	adjustConfigWorkspaceItem,
 	applyConfigPolicyPreset,
 	type ConfigManagedShelfTarget,
@@ -751,8 +757,6 @@ import {
 	updateToolFormFieldValue,
 	writeToolHistoryExport,
 } from "./toolHistory";
-
-type CommandStatus = "idle" | "running";
 
 const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
@@ -1503,6 +1507,23 @@ export function App(): React.ReactElement {
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
 	}, []);
+	// Counted rather than set directly, because several long-running actions share
+	// this indicator and any of them can overlap. Every `beginCommand()` must be
+	// paired with exactly one `endCommand()` in a `finally`.
+	const runningCommandCountRef = useRef(0);
+	const beginCommand = useCallback(() => {
+		runningCommandCountRef.current = beginCommandStatusCount(
+			runningCommandCountRef.current,
+		);
+		setCommandStatus(resolveCommandStatus(runningCommandCountRef.current));
+	}, []);
+	const endCommand = useCallback(() => {
+		runningCommandCountRef.current = endCommandStatusCount(
+			runningCommandCountRef.current,
+		);
+		setCommandStatus(resolveCommandStatus(runningCommandCountRef.current));
+	}, []);
+
 	const recordStatusActivityResult = useCallback(
 		(result: StatusActivityResult) => {
 			setStatusActivityResults((history) =>
@@ -4629,7 +4650,7 @@ export function App(): React.ReactElement {
 		);
 		remoteConnectionDiagnosticRef.current = attemptDiagnostic;
 		setRemoteConnectionDiagnostic(attemptDiagnostic);
-		setCommandStatus("running");
+		beginCommand();
 		let pendingProvider: FileProvider | undefined;
 		try {
 			pendingProvider = await connectReadOnlySftpFileProvider(profile, {
@@ -4748,11 +4769,16 @@ export function App(): React.ReactElement {
 		} finally {
 			if (pendingRemoteConnectRef.current === connectController) {
 				pendingRemoteConnectRef.current = undefined;
-				setCommandStatus("idle");
 			}
+			// Unconditional, unlike the pointer cleanup above: the count has to
+			// balance even when a newer connect superseded this one, or the shared
+			// indicator strands on running for the rest of the session.
+			endCommand();
 		}
 	}, [
+		beginCommand,
 		commandLine.value,
+		endCommand,
 		localFileProvider,
 		log,
 		recordStatusActivityResult,
@@ -4822,7 +4848,7 @@ export function App(): React.ReactElement {
 		const started = startOperationRun(preset);
 		operationRunRef.current = started;
 		setOperationRun(started);
-		setCommandStatus("running");
+		beginCommand();
 		const startedAudit = formatOperationRunAuditMessage(started);
 		if (startedAudit) {
 			log("run", startedAudit);
@@ -4937,12 +4963,11 @@ export function App(): React.ReactElement {
 				});
 			}
 		} finally {
-			// Only the current run owns the shared command status.
-			if (operationRunTokenRef.current === token) {
-				setCommandStatus("idle");
-			}
+			endCommand();
 		}
 	}, [
+		beginCommand,
+		endCommand,
 		log,
 		operationPresets,
 		recordStatusActivityResult,
@@ -5239,7 +5264,7 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		setCommandStatus("running");
+		beginCommand();
 		try {
 			const [detail, files] = await Promise.all([
 				getProcessDetail(request.pid),
@@ -5254,7 +5279,7 @@ export function App(): React.ReactElement {
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		} finally {
-			setCommandStatus("idle");
+			endCommand();
 		}
 	}, [
 		log,
@@ -5263,6 +5288,8 @@ export function App(): React.ReactElement {
 		selectedPortIndex,
 		sortedConnections,
 		sortedPorts,
+		beginCommand,
+		endCommand,
 	]);
 
 	const openSelectedProcessFile = useCallback(async () => {
@@ -6877,7 +6904,7 @@ export function App(): React.ReactElement {
 			setActionConfirmation(undefined);
 			setActionSimulation(undefined);
 			setActionExecutionPlan(undefined);
-			setCommandStatus("running");
+			beginCommand();
 			log("run", `${action.id} started`);
 
 			try {
@@ -7293,7 +7320,7 @@ export function App(): React.ReactElement {
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			} finally {
-				setCommandStatus("idle");
+				endCommand();
 			}
 		},
 		[
@@ -7314,6 +7341,8 @@ export function App(): React.ReactElement {
 			jumpSelectedProcessControlEvidenceSearch,
 			jumpSelectedRemoteKnownHostsSelectionEvidenceSearch,
 			jumpSelectedTimelineEvidenceTrailSearch,
+			beginCommand,
+			endCommand,
 			log,
 			logProfiles.length,
 			openInterfaceAuditArchiveRetentionPreview,
@@ -9473,7 +9502,7 @@ export function App(): React.ReactElement {
 			setPortProcessControlInspector(next);
 			if (next) {
 				void (async () => {
-					setCommandStatus("running");
+					beginCommand();
 					setSelectedProcessFileEvidenceIssue(undefined);
 					try {
 						const files = await getProcessFileSnapshot(preview.port.pid);
@@ -9507,7 +9536,7 @@ export function App(): React.ReactElement {
 							reason: caught instanceof Error ? caught.message : String(caught),
 						});
 					} finally {
-						setCommandStatus("idle");
+						endCommand();
 					}
 				})();
 			}

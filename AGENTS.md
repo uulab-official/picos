@@ -49,6 +49,7 @@ bun run harness sftp
 - A long-running TUI action must be identified by a token, not tracked with a shared boolean. A boolean let a superseded run clear the current run's cancellation and publish onto its progress; comparing tokens makes a superseded loop unable to do either.
 - An in-flight status set is not just the obvious one. Treat every non-terminal status as busy, including a `cancelling` state, or a second action will start while the first is still running.
 - A control row must never advertise a key that cannot act. If a run has no interruptible window, say so in the row instead of offering the cancel key.
+- Shared status that several actions can set must be counted, not assigned. With two actions in flight, the first to return would otherwise report idle while the second was still working. Pair every begin with exactly one end in a `finally`, keep the end unconditional even when a newer action superseded this one, and floor the count at zero so an unbalanced end cannot strand the indicator.
 - `src/cli` owns command parsing and output.
 - `src/core` owns platform-neutral behavior and metadata.
 - `src/core/sftp.ts` owns SSH/SFTP transport and exposes only the shared read-only `FileProvider` surface.
