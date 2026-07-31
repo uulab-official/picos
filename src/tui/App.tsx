@@ -499,16 +499,13 @@ import {
 	openCommandPalette,
 } from "./palette";
 import {
-	beginProcessInspection,
-	isStaleProcessInspection,
-} from "./processInspection";
-import {
 	formatProcessWorkspaceRows,
 	getProcessFileSelectionCount,
 	getSelectedProcessClipboardPreview,
 	getSelectedProcessFileRequest,
 	getSelectedProcessResourceRequest,
 } from "./processPanel";
+import { beginRequest, isStaleRequest } from "./requestSequence";
 import {
 	createRouteFilterCleanupPreview,
 	createRouteRawHandoffPlan,
@@ -1048,6 +1045,9 @@ export function App(): React.ReactElement {
 	// the newest request is the only one allowed to publish regardless of which one
 	// issued it.
 	const processInspectionTokenRef = useRef(0);
+	// Separate from the inspection sequence on purpose: a slow inspection must not
+	// discard a fresh refresh, or the reverse.
+	const refreshTokenRef = useRef(0);
 	const operationRunRef = useRef<OperationRunProgress | undefined>(undefined);
 	// Runs are identified by a token rather than tracked with a shared boolean. A
 	// boolean let a second run clear the first run's cancellation and then let the
@@ -5262,7 +5262,7 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		const token = beginProcessInspection(processInspectionTokenRef.current);
+		const token = beginRequest(processInspectionTokenRef.current);
 		processInspectionTokenRef.current = token;
 		beginCommand();
 		try {
@@ -5272,7 +5272,7 @@ export function App(): React.ReactElement {
 			]);
 			// A newer request started while these collectors ran. Publishing now would
 			// pair this process's detail with the newer request's files.
-			if (isStaleProcessInspection(processInspectionTokenRef.current, token)) {
+			if (isStaleRequest(processInspectionTokenRef.current, token)) {
 				log("info", `process inspection superseded ${request.command}`);
 				return;
 			}
@@ -5365,6 +5365,8 @@ export function App(): React.ReactElement {
 	}, [editorPreview, fileEntries, previewFile]);
 
 	const refresh = useCallback(async () => {
+		const token = beginRequest(refreshTokenRef.current);
+		refreshTokenRef.current = token;
 		try {
 			setError(undefined);
 			const [
@@ -5384,6 +5386,20 @@ export function App(): React.ReactElement {
 					() => undefined,
 				),
 			]);
+			// Awaited before any write so the batch lands together or not at all. A
+			// partial update would pair a fresh summary with a stale inventory, which
+			// is how a listening port comes to resolve to the wrong process.
+			const nextInventory = await createSystemInventory({
+				network: nextSummary,
+			});
+			// `setInterval` does not wait for the previous run and this batch can
+			// exceed the interval, so an older refresh finishing late must not write.
+			// The diff below is why it matters most: computing it against a ref that a
+			// newer refresh already advanced describes a change that never happened,
+			// and those become audit events.
+			if (isStaleRequest(refreshTokenRef.current, token)) {
+				return;
+			}
 			const networkEvents = createNetworkTimelineEvents(
 				summaryRef.current,
 				nextSummary,
@@ -5398,7 +5414,7 @@ export function App(): React.ReactElement {
 					),
 				);
 			}
-			setInventory(await createSystemInventory({ network: nextSummary }));
+			setInventory(nextInventory);
 			if (nextMonitor) {
 				setSystemMonitor(nextMonitor);
 			}
@@ -5416,7 +5432,13 @@ export function App(): React.ReactElement {
 			}
 		} catch (caught) {
 			const message = caught instanceof Error ? caught.message : String(caught);
-			setError(message);
+			// The event log is a history, so it records every failure. `error` is
+			// current state, so only the newest refresh may set it: showing a
+			// superseded refresh's failure beside a newer success would misdescribe
+			// the machine.
+			if (!isStaleRequest(refreshTokenRef.current, token)) {
+				setError(message);
+			}
 			log("fail", message);
 		}
 	}, [log]);
@@ -9508,17 +9530,13 @@ export function App(): React.ReactElement {
 			setPortProcessControlInspector(next);
 			if (next) {
 				void (async () => {
-					const token = beginProcessInspection(
-						processInspectionTokenRef.current,
-					);
+					const token = beginRequest(processInspectionTokenRef.current);
 					processInspectionTokenRef.current = token;
 					beginCommand();
 					setSelectedProcessFileEvidenceIssue(undefined);
 					try {
 						const files = await getProcessFileSnapshot(preview.port.pid);
-						if (
-							isStaleProcessInspection(processInspectionTokenRef.current, token)
-						) {
+						if (isStaleRequest(processInspectionTokenRef.current, token)) {
 							return;
 						}
 						setSelectedProcessFiles(files);
@@ -9544,9 +9562,7 @@ export function App(): React.ReactElement {
 								? `ports file evidence failed ${caught.message}`
 								: `ports file evidence failed ${String(caught)}`,
 						);
-						if (
-							isStaleProcessInspection(processInspectionTokenRef.current, token)
-						) {
+						if (isStaleRequest(processInspectionTokenRef.current, token)) {
 							return;
 						}
 						setSelectedProcessFiles(undefined);
