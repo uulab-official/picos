@@ -123,4 +123,5 @@ Actual OS mutation remains disabled by default.
 - Prefer tested pure functions for navigation, action metadata, parsing, and permission decisions.
 - Update `CHANGELOG.md` for user-visible changes.
 - Update `README.md` when commands, setup, or product scope changes.
+- State a fact that several `ROADMAP.md` slices share once, and let each slice reference it. Five slices each restated the PR link, the verification counts, and a hand-written list of their sibling slices; the counts were stale in all four places that stated them and disagreed with each other, and three of the five sibling lists were wrong, one listing its own slice. A restated fact is an enumeration and goes stale the same way, so the same fix applies in prose as in code.
 - Do not commit build output from `dist/`.
