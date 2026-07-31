@@ -2,7 +2,7 @@
 
 ## v0.4.344 - Process Preset Identity
 
-Status: implemented and verified locally on branch `codex/picos-v0.4.342-operations-presets`; 817 tests across 85 files, `tsc --noEmit` clean, no Biome findings across 219 files. Ships in the same PR as v0.4.340 through v0.4.343.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); 817 tests across 85 files, `tsc --noEmit` clean, no Biome findings across 219 files, and Ubuntu, macOS, Windows, and release-readiness CI all pass. Ships in the same PR as v0.4.340 through v0.4.343.
 
 - A saved process preset records the instant it was written as `savedAtMs`, and running one publishes `data.identity` plus an `identity=reused` text row for the proof case. This closes the last documented follow-on from v0.4.341.
 - The earlier plan was to store an absolute process start time, which would have required `save` to inspect the process and would have worked properly only on Windows, the one platform that exposes a creation date. Recording the save instant instead needs no I/O at save time and only the `elapsed` column, which every platform provides, so the check works on macOS and Linux too.
@@ -14,7 +14,7 @@ Status: implemented and verified locally on branch `codex/picos-v0.4.342-operati
 
 ## v0.4.343 - Operations Workspace
 
-Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); 815 tests across 85 files, `tsc --noEmit` clean, no Biome findings across 219 files, and Ubuntu, macOS, Windows, and release-readiness CI all pass. Ships in the same PR as v0.4.340 through v0.4.342 rather than as its own slice, because several files carry changes from more than one of them.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); 817 tests across 85 files, `tsc --noEmit` clean, no Biome findings across 219 files, and Ubuntu, macOS, Windows, and release-readiness CI all pass. Ships in the same PR as v0.4.340 through v0.4.344 rather than as its own slice, because several files carry changes from more than one of them.
 
 - The TUI gained an `operations` screen that lists saved presets, runs the selected one with `enter`, and stops a monitor run with `X`. It is appended last in `screenOrder` on purpose, so every existing screen index stays stable for the callers and tests that hardcode them.
 - Run state, the progress row, and the audit row live in `src/tui/operationRunPanel.ts` as pure functions, shaped after the read-only SFTP session diagnostic: every transition returns a new value rather than mutating, so a row can re-render while a run is still in flight. App.tsx holds the run in a ref beside its state for the same reason the SFTP connect flow does.
