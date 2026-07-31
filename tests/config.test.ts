@@ -21,6 +21,7 @@ describe("config schema", () => {
 			remoteProfiles: [],
 			logProfiles: [],
 			logSearchPresets: [],
+			operationPresets: [],
 			interfaceEvidenceSearchPresets: [],
 			routeFilterPresets: [],
 			connectionSort: "state",
@@ -121,6 +122,32 @@ describe("config schema", () => {
 				],
 			}).logSearchPresets,
 		).toEqual(["kernel", "error", "dns", "route", "boot", "panic"]);
+	});
+
+	test("normalizes persisted operation presets", () => {
+		expect(
+			mergeConfig({
+				operationPresets: [
+					{ id: " Pulse ", kind: "monitor", samples: 3, intervalMs: 500 },
+					{
+						id: "errors",
+						kind: "logs",
+						limit: 25,
+						level: "fail",
+						filter: " disk ",
+					},
+					{ id: "worker", kind: "process", pid: 42, files: true },
+					{ id: "bad", kind: "process", pid: 0, files: false },
+				],
+			}).operationPresets,
+		).toEqual([
+			{ id: "pulse", kind: "monitor", samples: 3, intervalMs: 500 },
+			{ id: "errors", kind: "logs", limit: 25, level: "fail", filter: "disk" },
+			{ id: "worker", kind: "process", pid: 42, files: true },
+		]);
+		expect(() => coerceConfigValue("operationPresets", "[]")).toThrow(
+			"managed by picos operations",
+		);
 	});
 
 	test("normalizes persisted interface evidence search presets", () => {

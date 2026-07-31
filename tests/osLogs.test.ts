@@ -6,6 +6,7 @@ import {
 	formatOsLogRows,
 	nextOsLogLevelFilter,
 	type OsLogLevelFilter,
+	type OsLogSnapshot,
 	parseOsLogLines,
 } from "../src/core/osLogs";
 
@@ -199,5 +200,46 @@ describe("OS log reader", () => {
 			"note=recent unified system log entries",
 			"003 warn kernel: warning thermal pressure",
 		]);
+	});
+
+	test("warns that a filtered result was capped before filtering", () => {
+		const entries = parseOsLogLines(
+			"kernel: error disk pressure\nlaunchd: service started",
+			2,
+		);
+		const snapshot: OsLogSnapshot = {
+			source: "macos-unified-log",
+			status: "ok",
+			command: "log",
+			args: ["show", "--last", "2m"],
+			note: "recent unified system log entries",
+			requestedLimit: 2,
+			entries,
+		};
+
+		// Window is full and a level filter is active, so matches could exist older
+		// than the two entries the collector was allowed to fetch.
+		expect(formatOsLogRows(snapshot, { level: "warn" })).toEqual([
+			"PICOS OS LOGS",
+			"source=macos-unified-log status=ok entries=0/2 level=warn",
+			"command=log show --last 2m",
+			"note=recent unified system log entries",
+			"no matching log entries",
+			"limit=2 reached before filtering; raise --limit to search further back",
+		]);
+
+		// Same saturated window, but with nothing narrowing the result the limit is
+		// just an ordinary page size and the warning would be noise.
+		expect(formatOsLogRows(snapshot)).not.toContain(
+			"limit=2 reached before filtering; raise --limit to search further back",
+		);
+
+		// Room left in the window means nothing was cut off, so no warning either.
+		expect(
+			formatOsLogRows(
+				{ ...snapshot, requestedLimit: 10 },
+				{ filter: "nothing-matches" },
+			).at(-1),
+		).toBe("no matching log entries");
 	});
 });

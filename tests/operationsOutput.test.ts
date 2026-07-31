@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
 	formatLogsJson,
 	formatMonitorJson,
+	formatMonitorSeriesJson,
 	formatProcessJson,
 } from "../src/cli/operationsOutput";
+import type { OsLogSnapshot } from "../src/core/osLogs";
 
 describe("operations JSON output", () => {
 	test("normalizes monitor metrics without exposing process arguments", () => {
@@ -50,6 +52,69 @@ describe("operations JSON output", () => {
 		expect(output).not.toContain("monitor-secret");
 	});
 
+	test("formats bounded monitor series with aggregate metrics", () => {
+		const base = {
+			uptimeSeconds: 100,
+			loadAverage: [1, 0.5, 0.25] as [number, number, number],
+			memory: {
+				totalBytes: 1000,
+				freeBytes: 250,
+				usedBytes: 750,
+				usedPercent: 75,
+			},
+			cpu: { model: "CPU", count: 4 },
+			processCount: 20,
+			topProcesses: [
+				{ pid: 7, command: "node worker.js --token=hidden", cpu: "5" },
+			],
+		};
+		const output = formatMonitorSeriesJson(
+			{
+				startedAt: "2026-07-14T12:00:00.000Z",
+				completedAt: "2026-07-14T12:00:01.000Z",
+				requestedCount: 2,
+				intervalMs: 1000,
+				cancelled: false,
+				samples: [
+					{ ...base, at: "2026-07-14T12:00:00.000Z" },
+					{
+						...base,
+						at: "2026-07-14T12:00:01.000Z",
+						memory: { ...base.memory, usedPercent: 85 },
+						loadAverage: [3, 1, 0.5],
+						processCount: 30,
+					},
+				],
+			},
+			{ presetId: "pulse" },
+		);
+		const document = JSON.parse(output);
+
+		expect(document.request).toMatchObject({
+			operation: "sample",
+			presetId: "pulse",
+			samples: 2,
+			intervalMs: 1000,
+		});
+		expect(document.data.durationMs).toBe(1000);
+		expect(document.data.aggregate.memoryUsedPercent).toEqual({
+			min: 75,
+			max: 85,
+			average: 80,
+			last: 85,
+		});
+		expect(document.data.aggregate.loadOneMinute.average).toBe(2);
+		expect(document.data.aggregate.processCount.last).toBe(30);
+		// A completed run reports both counts equal and says so explicitly, so a
+		// consumer never has to infer a short run from the count difference alone.
+		expect(document.data.requestedCount).toBe(2);
+		expect(document.data.returnedCount).toBe(2);
+		expect(document.data.cancelled).toBeFalse();
+		expect(document.data.samples).toHaveLength(2);
+		expect(output).not.toContain("worker.js");
+		expect(output).not.toContain("hidden");
+	});
+
 	test("returns filtered log entries with credential redaction", () => {
 		const output = formatLogsJson(
 			{
@@ -84,6 +149,39 @@ describe("operations JSON output", () => {
 		expect(output).not.toContain("query-secret");
 		expect(output).not.toContain("json-secret");
 		expect(output).not.toContain("https://u:p@");
+	});
+
+	test("reports whether the log window was filled before filtering", () => {
+		const snapshot: OsLogSnapshot = {
+			source: "systemd-journal",
+			status: "ok",
+			command: "journalctl",
+			args: ["-n", "2"],
+			note: "recent systemd journal entries",
+			exitCode: 0,
+			truncated: false,
+			entries: [
+				{ index: 1, level: "info", message: "service ready" },
+				{ index: 2, level: "info", message: "unit loaded" },
+			],
+		};
+
+		// Two entries fetched against a limit of two, so the collector filled the
+		// window. A `fail` filter returning nothing does not prove there are no
+		// failures, only none among the two most recent entries.
+		const capped = JSON.parse(
+			formatLogsJson(snapshot, { level: "fail", limit: 2 }),
+		);
+
+		expect(capped.data.limitReached).toBeTrue();
+		expect(capped.data.totalCount).toBe(2);
+		expect(capped.data.visibleCount).toBe(0);
+
+		const roomLeft = JSON.parse(
+			formatLogsJson(snapshot, { level: "fail", limit: 50 }),
+		);
+
+		expect(roomLeft.data.limitReached).toBeFalse();
 	});
 
 	test("redacts complete quoted and spaced credential assignments", () => {

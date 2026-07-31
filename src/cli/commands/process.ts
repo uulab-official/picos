@@ -24,26 +24,34 @@ type ProcessCommandOptions = {
 	json?: unknown;
 };
 
+// Seams live in their own parameter rather than inside the cac-populated options
+// object, matching monitorCommand(), logsCommand(), and operationsCommand(). The
+// parameter must sit immediately after `options`, which itself sits after the one
+// bracket that `process <pid>` declares, because cac pushes one argument per
+// declared bracket and then the options object.
+type ProcessCommandSeams = {
+	readProcessDetail?: (pid: string) => Promise<ProcessDetail>;
+	readProcessFileSnapshot?: (
+		pid: string,
+	) => Promise<ProcessFileSnapshot | undefined>;
+	readProcessDetailResult?: (pid: string) => Promise<ProcessDetailResult>;
+	readProcessFileSnapshotResult?: (
+		pid: string,
+	) => Promise<ProcessFileSnapshotResult>;
+};
+
 export async function processCommand(
 	pid: string,
-	optionsOrReadProcessDetail:
-		| ProcessCommandOptions
-		| ((pid: string) => Promise<ProcessDetail>) = {},
-	readProcessDetail: (pid: string) => Promise<ProcessDetail> = getProcessDetail,
-	readProcessFileSnapshot: (
-		pid: string,
-	) => Promise<ProcessFileSnapshot | undefined> = getProcessFileSnapshot,
-	readProcessDetailResult: (
-		pid: string,
-	) => Promise<ProcessDetailResult> = getProcessDetailWithSource,
-	readProcessFileSnapshotResult: (
-		pid: string,
-	) => Promise<ProcessFileSnapshotResult> = getProcessFileSnapshotWithSource,
+	options: ProcessCommandOptions = {},
+	seams: ProcessCommandSeams = {},
 ): Promise<void> {
-	const options =
-		typeof optionsOrReadProcessDetail === "function"
-			? {}
-			: optionsOrReadProcessDetail;
+	const readProcessDetail = seams.readProcessDetail ?? getProcessDetail;
+	const readProcessFileSnapshot =
+		seams.readProcessFileSnapshot ?? getProcessFileSnapshot;
+	const readProcessDetailResult =
+		seams.readProcessDetailResult ?? getProcessDetailWithSource;
+	const readProcessFileSnapshotResult =
+		seams.readProcessFileSnapshotResult ?? getProcessFileSnapshotWithSource;
 	const jsonRequested = isLocalJsonRequested(options.json);
 	try {
 		const json = assertLocalJsonOptions(options);
@@ -64,11 +72,7 @@ export async function processCommand(
 			return;
 		}
 
-		const reader =
-			typeof optionsOrReadProcessDetail === "function"
-				? optionsOrReadProcessDetail
-				: readProcessDetail;
-		const detailOutput = formatProcessDetail(await reader(pid));
+		const detailOutput = formatProcessDetail(await readProcessDetail(pid));
 		const fileOutput = options.files
 			? formatProcessFileSnapshot(await readProcessFileSnapshot(pid))
 			: "";

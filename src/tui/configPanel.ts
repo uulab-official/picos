@@ -142,7 +142,8 @@ type ConfigManagedShelfCoverageKey =
 	| "toolTargets"
 	| "logProfiles"
 	| "logSearches"
-	| "remotes";
+	| "remotes"
+	| "operationPresets";
 
 const configPolicyPresets: ConfigPolicyPresetPreview[] = [
 	{
@@ -566,6 +567,7 @@ export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
 		logProfiles: config.logProfiles.length,
 		logSearches: config.logSearchPresets.length,
 		remotes: config.remoteProfiles.length,
+		operationPresets: config.operationPresets.length,
 	};
 	const saved = Object.values(shelfCounts).reduce(
 		(total, count) => total + count,
@@ -579,10 +581,10 @@ export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
 		`network defaults host=${config.defaultPingHost} routeFilters=${config.routeFilterPresets.length} connectionFilters=${config.connectionFilterPresets.length} portFilters=${config.portFilterPresets.length}`,
 		`tools defaults targets=${config.toolTargetPresets.length} filters=${config.toolHistoryFilterPresets.length} sort=${config.toolHistorySort} group=${config.toolHistoryGroup} detail=${config.toolHistoryDetailView}`,
 		`workspace behavior logs=${config.logProfiles.length} searches=${config.logSearchPresets.length} remotes=${config.remoteProfiles.length} publicIp=${config.showPublicIp} experimental=${config.enableExperimentalControls} statusJumpClass=${config.statusResultJumpClassFilter}`,
-		`shelf coverage saved=${saved} empty=${emptyShelves.length} routeFilters=${shelfCounts.routeFilters} connectionFilters=${shelfCounts.connectionFilters} portFilters=${shelfCounts.portFilters} toolTargets=${shelfCounts.toolTargets} logProfiles=${shelfCounts.logProfiles} logSearches=${shelfCounts.logSearches} remotes=${shelfCounts.remotes}`,
+		`shelf coverage saved=${saved} empty=${emptyShelves.length} routeFilters=${shelfCounts.routeFilters} connectionFilters=${shelfCounts.connectionFilters} portFilters=${shelfCounts.portFilters} toolTargets=${shelfCounts.toolTargets} logProfiles=${shelfCounts.logProfiles} logSearches=${shelfCounts.logSearches} remotes=${shelfCounts.remotes} operationPresets=${shelfCounts.operationPresets}`,
 		`empty shelves ${emptyShelves.length > 0 ? emptyShelves.join(",") : "none"}`,
 		...formatConfigManagedShelfRecoveryRows(emptyShelves),
-		"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
+		"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces + operationPresets via picos operations",
 	];
 }
 
@@ -1012,6 +1014,9 @@ function formatConfigManagedShelfRecoveryRows(
 		return ["recovery all shelves ready"];
 	}
 	return emptyShelves.map((shelf) => {
+		if (shelf === "operationPresets") {
+			return "recovery operationPresets -> picos operations kinds";
+		}
 		const target = getConfigManagedShelfRecoveryTarget(shelf);
 		const handoff = getConfigManagedShelfHandoff(target);
 		return `recovery ${shelf} -> ${handoff.label} ${formatConfigManagedShelfFocusActionHint(target).replace("  ", " ")}`;
@@ -1019,7 +1024,7 @@ function formatConfigManagedShelfRecoveryRows(
 }
 
 function getConfigManagedShelfRecoveryTarget(
-	shelf: ConfigManagedShelfCoverageKey,
+	shelf: Exclude<ConfigManagedShelfCoverageKey, "operationPresets">,
 ): ConfigManagedShelfTarget {
 	if (shelf === "routeFilters") {
 		return "routes";

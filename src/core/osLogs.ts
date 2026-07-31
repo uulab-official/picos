@@ -2,11 +2,17 @@ import * as linux from "../adapters/linux";
 import * as macos from "../adapters/macos";
 import * as windows from "../adapters/windows";
 import { safeExec } from "../utils/safeExec";
-import type { SafeExecResult, SupportedPlatform } from "./types";
+import type {
+	OsLogLevel,
+	OsLogLevelFilter,
+	SafeExecResult,
+	SupportedPlatform,
+} from "./types";
 
-export type OsLogLevel = "info" | "warn" | "fail";
-
-export type OsLogLevelFilter = "all" | OsLogLevel;
+// Re-exported so the existing consumers keep importing these from the module that
+// owns the log collectors, while `types.ts` holds the single declaration that
+// `LogProfile` and `LogsOperationPreset` also use.
+export type { OsLogLevel, OsLogLevelFilter };
 
 export type OsLogEntry = {
 	index: number;
@@ -131,12 +137,26 @@ export function filterOsLogEntries(
 	});
 }
 
+// Keyed by the filter union so adding a severity stops compiling until the cycle
+// order lists it, rather than silently dropping it from the keyboard rotation.
+const OS_LOG_LEVEL_FILTER_PRESENCE: Record<OsLogLevelFilter, true> = {
+	all: true,
+	warn: true,
+	fail: true,
+	info: true,
+};
+
+// Object literal key order above is the keyboard cycle order.
+const OS_LOG_LEVEL_FILTER_CYCLE = Object.keys(
+	OS_LOG_LEVEL_FILTER_PRESENCE,
+) as OsLogLevelFilter[];
+
 export function nextOsLogLevelFilter(
 	current: OsLogLevelFilter,
 ): OsLogLevelFilter {
-	const filters: OsLogLevelFilter[] = ["all", "warn", "fail", "info"];
-	const index = filters.indexOf(current);
-	return filters[(index + 1) % filters.length] ?? "all";
+	const cycle = OS_LOG_LEVEL_FILTER_CYCLE;
+	const index = cycle.indexOf(current);
+	return cycle[(index + 1) % cycle.length] ?? "all";
 }
 
 export function formatOsLogRows(
@@ -163,12 +183,22 @@ export function formatOsLogRows(
 	if (snapshot.error) {
 		rows.push(`error=${snapshot.error}`);
 	}
+	// The platform command applies the limit before `level` and `filter` narrow
+	// anything locally, so a saturated window means matching entries may exist
+	// further back that were never fetched. Only worth saying when a filter is
+	// active, since otherwise the limit is just an ordinary page size.
+	const narrowed = query !== "" || level !== "all";
+	const windowHint =
+		narrowed &&
+		snapshot.requestedLimit !== undefined &&
+		snapshot.entries.length >= snapshot.requestedLimit
+			? `limit=${snapshot.requestedLimit} reached before filtering; raise --limit to search further back`
+			: undefined;
 	if (entries.length === 0) {
-		rows.push(
-			query || level !== "all"
-				? "no matching log entries"
-				: "no recent log entries",
-		);
+		rows.push(narrowed ? "no matching log entries" : "no recent log entries");
+		if (windowHint) {
+			rows.push(windowHint);
+		}
 		return rows;
 	}
 	return [
@@ -177,6 +207,7 @@ export function formatOsLogRows(
 			(entry) =>
 				`${String(entry.index).padStart(3, "0")} ${entry.level} ${entry.message}`,
 		),
+		...(windowHint ? [windowHint] : []),
 	];
 }
 

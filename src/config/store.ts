@@ -14,6 +14,7 @@ import {
 	normalizeLogProfiles,
 	normalizeLogSearchPresets,
 } from "../core/logProfiles";
+import { normalizeOperationPresets } from "../core/operationPresets";
 import type { PortSort } from "../core/ports";
 import { normalizeRouteFilterPresets } from "../core/routePresets";
 import {
@@ -26,7 +27,7 @@ import {
 	type ToolHistoryGroupPreference,
 	type ToolHistorySortPreference,
 } from "../core/toolHistoryPreferences";
-import type { LogProfile, PicosConfig } from "../core/types";
+import type { LogProfile, OperationPreset, PicosConfig } from "../core/types";
 import {
 	coerceConfigValue,
 	defaultConfig,
@@ -99,6 +100,19 @@ export async function setConfigLogSearchPresets(
 	const next = {
 		...config,
 		logSearchPresets: normalizeLogSearchPresets(presets),
+	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function setConfigOperationPresets(
+	presets: OperationPreset[],
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = {
+		...config,
+		operationPresets: normalizeOperationPresets(presets),
 	};
 	await writeConfig(next, path);
 	return next;

@@ -238,10 +238,44 @@ export type SftpRemoteProfile = {
 	keyPath?: string;
 };
 
+// Canonical log severity union. Declared here because this module is the lowest
+// layer, so `osLogs.ts` can re-export it without a cycle, and every consumer that
+// stores or filters a level shares one declaration instead of a copy.
+export type OsLogLevel = "info" | "warn" | "fail";
+
+export type OsLogLevelFilter = "all" | OsLogLevel;
+
 export type LogProfile = {
-	level: "all" | "info" | "warn" | "fail";
+	level: OsLogLevelFilter;
 	query: string;
 };
+
+export type MonitorOperationPreset = {
+	id: string;
+	kind: "monitor";
+	samples: number;
+	intervalMs: number;
+};
+
+export type LogsOperationPreset = {
+	id: string;
+	kind: "logs";
+	limit: number;
+	level: OsLogLevelFilter;
+	filter: string;
+};
+
+export type ProcessOperationPreset = {
+	id: string;
+	kind: "process";
+	pid: number;
+	files: boolean;
+};
+
+export type OperationPreset =
+	| MonitorOperationPreset
+	| LogsOperationPreset
+	| ProcessOperationPreset;
 
 export type PicosConfig = {
 	theme: "dark" | "light";
@@ -262,6 +296,7 @@ export type PicosConfig = {
 	remoteProfiles: SftpRemoteProfile[];
 	logProfiles: LogProfile[];
 	logSearchPresets: string[];
+	operationPresets: OperationPreset[];
 	interfaceEvidenceSearchPresets: string[];
 	routeFilterPresets: string[];
 	connectionSort: string;

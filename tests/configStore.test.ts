@@ -9,10 +9,12 @@ import {
 	setConfigInterfaceEvidenceSearchPresets,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
+	setConfigOperationPresets,
 	setConfigRouteFilterPresets,
 	setConfigToolHistoryPreferences,
 	setConfigToolTargetPresets,
 	setConfigValue,
+	writeConfig,
 } from "../src/config/store";
 
 const tempDirs: string[] = [];
@@ -69,6 +71,53 @@ describe("config store", () => {
 			"panic",
 		]);
 		expect(config.theme).toBe("dark");
+	});
+
+	test("persists normalized operation presets without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await setConfigOperationPresets(
+			[
+				{ id: "pulse", kind: "monitor", samples: 3, intervalMs: 500 },
+				{
+					id: "errors",
+					kind: "logs",
+					limit: 20,
+					level: "warn",
+					filter: "kernel",
+				},
+				{ id: "worker", kind: "process", pid: 42, files: true },
+			],
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.operationPresets).toHaveLength(3);
+		expect(config.operationPresets[0]).toMatchObject({
+			id: "pulse",
+			kind: "monitor",
+		});
+		expect(config.theme).toBe("dark");
+		const raw = JSON.parse(await readFile(path, "utf8"));
+		expect(raw.operationPresets).toEqual(config.operationPresets);
+	});
+
+	test("keeps operation presets across a whole-config write", async () => {
+		const path = await tempConfigPath();
+		const preset = {
+			id: "pulse",
+			kind: "monitor" as const,
+			samples: 3,
+			intervalMs: 500,
+		};
+		await setConfigOperationPresets([preset], path);
+		const config = await readConfig(path);
+
+		await writeConfig({ ...config, theme: "light" }, path);
+
+		const next = await readConfig(path);
+
+		expect(next.theme).toBe("light");
+		expect(next.operationPresets).toEqual([preset]);
 	});
 
 	test("persists normalized interface evidence search presets", async () => {

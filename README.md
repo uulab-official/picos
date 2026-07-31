@@ -64,7 +64,7 @@ Keyboard controls:
 - Process evidence actions: recovered process-control audit exports now appear as a first-class `process` family in Status Evidence, can be focused with `Tab`/`1..9`, moved with `[`/`]`, opened through the locked `:file-open` flow with `enter`/`F`, searched in Timeline with `G`, and selected/opened/searched through command palette `process evidence` actions; Status Evidence and palette searches both preview the selected export, PID/status target, query, path, and locked file-open or Timeline search handoff, then record Status Activity and searchable Timeline audit rows with distinct keyboard/palette origins; Status Evidence process search results can also be converted into reusable Status Activity Timeline audit jumps, so `I`/replay returns to the matching `status evidence process audit ...` PID search after rapid keyboard sessions.
 - Interface evidence actions: recovered interface confirmation audit exports now appear as a first-class `interface` family in Status Evidence, can be focused with `Tab`/`1..9`, filtered by state with `q`, searched by evidence metadata with `f`, saved as config-backed search presets with `P`, cycled with `N`, moved with `[`/`]`, opened through locked `:file-open` with `enter`/`I`, searched in Timeline with `G`, and managed through command palette `interface evidence` actions; filter/find and archive/retention outcome rows retain exact searchable Timeline audit recovery, including blocked confirmations, while interface enable/disable execution remains disabled.
 - Remote known_hosts evidence actions: exported Remotes known_hosts selection-history audit files now appear as a first-class `remote-known-hosts` family in Status Evidence after audit refresh or boot, can be focused with `Tab`/`1..9`, moved with `[`/`]`, opened through locked `:file-open` with `enter`/`R`, searched in Timeline with `G`, copied through locked `:clipboard`, exported as a selected audit handoff, and selected/opened/searched/copied/exported through command palette `known_hosts evidence` actions; palette and Status Evidence actions preview the selected export target/query/path, append Status Activity result rows with compact `target=remote-known-hosts id:... action=copy/export` replay tokens, and leave searchable Timeline audit events, while result-history `I` can replay select/open/search/copy/export origins back into the matching audit trail without local trust-file reads, network transport, host scans, trust writes, or remote mutation.
-- Config workspace: settings are grouped into retention, display, connectivity, and safety sections; `1..4` jumps to a section, the detail pane shows the selected section, shortcut, config path, active safety posture, persistence hint, available section actions, and managed shelf summaries for workspace-owned presets plus the saved Status result jump class, now including `shelf coverage saved=... empty=...`, exact empty shelf names, and recovery rows pointing each empty shelf to its owning workspace action, `? jump class config` or `? status jump config` focuses the `statusResultJumpClassFilter` row directly with a preview of the current class and `+/-` controls, `? safety policy config`, `? editor save config`, `? audit retention config`, and `? tools retention config` focus the matching OS settings rows with current-value previews, `? route filters config`, `? connection filters config`, `? port filters config`, `? tools shelf config`, `? tool target presets config`, `? log profiles config`, and `? remote profiles config` jump into Config-origin managed shelf landings with live saved-count preview rows, and `? empty route filters` / `? recover tools targets` / `? missing log profiles` style recovery actions show the missing shelf target before dispatching into the owning workspace, `g/G` cycles managed shelf handoff targets, `j/k` selects rows, `+/-` adjusts and persists numeric, language, result jump class, boolean, dry-run policy, and `editorSaveMode` values, `enter` edits `defaultPingHost`, jumps to the selected shelf workspace with a destination landing banner, shelf-specific focus preset, workspace-local focus rows, selected shelf-control cursor rows for Routes, Connections, Ports, Tools, and Logs presets/profiles, and Config-origin breadcrumbs inside destination filter/search, cleanup confirmation, and locked file-open prompts; file-open plans preserve that Config-origin metadata after moving into Status, then the destination `enter` action cycles presets, opens filter/search prompts, jumps into Interfaces, or enters Remotes focus, `P` cycles safe/user dry-run/admin dry-run policy presets, `R` opens an exact `reset config` confirmation preview for restoring core controls to defaults, and `esc` clears the destination shelf landing banner
+- Config workspace: settings are grouped into retention, display, connectivity, and safety sections; `1..4` jumps to a section, the detail pane shows the selected section, shortcut, config path, active safety posture, persistence hint, available section actions, and managed shelf summaries for workspace-owned presets plus the saved Status result jump class, now including `shelf coverage saved=... empty=...`, exact empty shelf names, and recovery rows pointing each empty shelf to its owning workspace action; the same coverage row also counts CLI-owned `operationPresets` and recovers an empty preset shelf with `picos operations kinds` instead of a workspace jump, since the TUI neither edits nor runs presets, `? jump class config` or `? status jump config` focuses the `statusResultJumpClassFilter` row directly with a preview of the current class and `+/-` controls, `? safety policy config`, `? editor save config`, `? audit retention config`, and `? tools retention config` focus the matching OS settings rows with current-value previews, `? route filters config`, `? connection filters config`, `? port filters config`, `? tools shelf config`, `? tool target presets config`, `? log profiles config`, and `? remote profiles config` jump into Config-origin managed shelf landings with live saved-count preview rows, and `? empty route filters` / `? recover tools targets` / `? missing log profiles` style recovery actions show the missing shelf target before dispatching into the owning workspace, `g/G` cycles managed shelf handoff targets, `j/k` selects rows, `+/-` adjusts and persists numeric, language, result jump class, boolean, dry-run policy, and `editorSaveMode` values, `enter` edits `defaultPingHost`, jumps to the selected shelf workspace with a destination landing banner, shelf-specific focus preset, workspace-local focus rows, selected shelf-control cursor rows for Routes, Connections, Ports, Tools, and Logs presets/profiles, and Config-origin breadcrumbs inside destination filter/search, cleanup confirmation, and locked file-open prompts; file-open plans preserve that Config-origin metadata after moving into Status, then the destination `enter` action cycles presets, opens filter/search prompts, jumps into Interfaces, or enters Remotes focus, `P` cycles safe/user dry-run/admin dry-run policy presets, `R` opens an exact `reset config` confirmation preview for restoring core controls to defaults, and `esc` clears the destination shelf landing banner
 - Config recovery actions skip the extra destination Enter for empty route filters, endpoint filters, port filters, log profiles, Tools target presets, and Remotes profiles by opening their creation/search prompt as soon as the palette action dispatches.
 - `d`: run doctor
 - `p`: ping the default host
@@ -120,10 +120,23 @@ picos process 12345 --files
 picos process 12345 --files --json
 picos monitor
 picos monitor --json
+picos monitor --samples 5 --interval 1000
+picos monitor --samples 5 --interval 1000 --json
 picos logs --limit 20
 picos logs --limit 50 --filter kernel
 picos logs --level warn
 picos logs --limit 20 --level warn --json
+picos operations
+picos operations kinds
+picos operations kinds monitor
+picos operations kinds --json
+picos operations save pulse monitor --samples 5 --interval 1000 --confirm "save operation preset pulse"
+picos operations save errors logs --limit 50 --level fail --filter kernel --confirm "save operation preset errors"
+picos operations save worker process --pid 12345 --files --confirm "save operation preset worker"
+picos operations show pulse
+picos operations run pulse
+picos operations run pulse --json
+picos operations remove pulse --confirm "remove operation preset pulse"
 picos update
 picos release-health
 picos locations
@@ -148,7 +161,7 @@ Commands:
 - `picos` or `picos ui`: open the TUI control panel.
 - `picos info`: print network and system summary.
 - `picos info --full`: print OS-style system, hardware, storage, process, network, runtime, and permission inventory.
-- Add `--json` to `picos info`, `routes`, `route`, `connections`, `ports`, `doctor`, `dns`, `tools`, `monitor`, `logs`, or `process` for one schema-versioned local diagnostic result. Table commands preserve filter/sort/source status and bounded row counts; doctor exposes stable check IDs and health counts; Tools expose normalized DNS/RDAP/IP/TCP/TLS/ping/traceroute data; monitor/log/process results retain collector evidence while omitting process arguments and raw command output. Failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
+- Add `--json` to `picos info`, `routes`, `route`, `connections`, `ports`, `doctor`, `dns`, `tools`, `monitor`, `logs`, `process`, or `operations` for one schema-versioned local diagnostic result. Table commands preserve filter/sort/source status and bounded row counts; doctor exposes stable check IDs and health counts; Tools expose normalized DNS/RDAP/IP/TCP/TLS/ping/traceroute data; monitor/log/process results retain collector evidence while omitting process arguments and raw command output; saved operation presets replay those same contracts. Failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
 - `picos doctor`: run all eight read-only network diagnostics; `--json` contains individual probe failures and exits non-zero when any check fails.
 - `picos ping <host>`: run a safe ping test without shell interpolation.
 - `picos ping <host> --count <n> --timeout <ms>`: run ping with bounded count and timeout options.
@@ -180,7 +193,14 @@ Commands:
 - `picos process <pid> --files`: include current working directory and open file snapshot where available.
 - `picos process <pid> [--files] --json`: return process identity and optional bounded file/resource evidence without command arguments or raw collector output; unsupported optional file inspection is reported separately from collector failure.
 - `picos monitor`: print a read-only system monitor snapshot with load average, memory usage, CPU, and top process rows; `--json` returns normalized metrics and collector source evidence without process arguments.
-- `picos logs --limit <n> --level <all|warn|fail|info> --filter <query>`: read recent local OS log entries through the platform adapter; macOS uses unified logs, Linux uses `journalctl`, Windows uses the System event log, and filters can match severity, row number, or text. `--json` accepts limits from 1-200 and filters up to 256 characters, redacts common credential patterns, and never embeds raw command output.
+- `picos monitor --samples <n> --interval <ms>`: collect a bounded monitor time series instead of one reading. Samples are limited to 1-60, intervals to 250-60000 ms, and the scheduled span between samples to 300000 ms. That span cap is not a wall-clock guarantee, because each sample also runs a process collector bounded by its own timeout; read the reported duration instead. `--json` adds requested/returned counts, duration, per-sample collector evidence, and min/max/average/last aggregates for memory, load, and process count.
+- `picos logs --limit <n> --level <all|warn|fail|info> --filter <query>`: read recent local OS log entries through the platform adapter; macOS uses unified logs, Linux uses `journalctl`, Windows uses the System event log, and filters can match severity, row number, or text. `--limit` bounds what the platform command reads before `--level` and `--filter` narrow it, so a small limit with a narrow filter can return nothing while matching entries exist further back; raise the limit instead of reading an empty result as "no failures". `--json` accepts limits from 1-200 and filters up to 256 characters, reports read and post-filter counts separately, redacts common credential patterns, and never embeds raw command output.
+- `picos operations [list]`: list saved monitor, OS log, and process automation presets from the picos config directory.
+- `picos operations kinds [monitor|logs|process]`: print the preset contract, including every accepted flag with its type, default, and bounds, the saved-preset/id/monitor-duration limits, and the exact save/remove confirmation templates. Rows quote the real flag names and bracket optional flags, so `[--interval=250..60000]` names the flag and its accepted range instead of a field name that is not a flag. Naming a kind narrows the output; an unknown kind or an extra argument fails instead of being ignored, and kind names are matched without case or surrounding whitespace. The contract is generated from the same validators that enforce those bounds and reads no config file. Add `--json` for the machine-readable form.
+- `picos operations show <id>`: print one saved preset and its validated bounds.
+- `picos operations save <id> <monitor|logs|process> ... --confirm "save operation preset <id>"`: save a reusable preset from the same options the direct command accepts, such as `--samples`/`--interval` for monitor, `--limit`/`--level`/`--filter` for logs, and `--pid`/`--files` for process. A process preset stores an ephemeral PID, so it can go stale or describe a different process after the OS reuses that PID; monitor and logs presets store a policy and stay valid. Preset ids allow 1-32 lowercase letters, digits, dot, underscore, or dash, and at most 12 presets are kept newest-first. Ids are trimmed and lowercased before storage, so the confirmation phrase must repeat the stored id: saving `PULSE` requires `--confirm "save operation preset pulse"`. A mismatch prints the exact phrase it expected. Saving while 12 presets already exist evicts the oldest and reports which id was dropped.
+- `picos operations run <id>`: re-run a saved preset through the same read-only inspector. `--json` returns the underlying `monitor`, `logs`, or `process` document with `request.presetId` for correlation.
+- `picos operations remove <id> --confirm "remove operation preset <id>"`: delete one saved preset. Save and remove are the only config writes in this flow, so both require the exact phrase; a mismatch leaves saved presets unchanged.
 - `picos update`: check npm registry metadata and GitHub Releases for the latest `@uulab/picos` version, then print install, npm package, GitHub Release, and CHANGELOG handoff links without running an installer; the TUI `picos.update` action also stages a locked apply preview when an update exists, and `picos.update.apply` can route that preview through the Action Center confirmation plus control execution policy for npm `--dry-run`.
 - `picos handoffs`: list recent route and endpoint evidence handoff files from the picos config directory.
 - `picos handoffs --archive <path>`: move a picos-owned route/endpoint handoff file into `archive/routes` or `archive/endpoints` under the config directory.
@@ -242,7 +262,7 @@ Reference-inspired modules now tracked in picos:
 - Timeline with network/action/audit/raw event filters, search presets, visible selected-row cursor, locked selected-event copy, selected-row audit export, Status audit export index/open/archive/browser controls, scoped audit export, latest audit reload, and network state-change events
 - Action Center dry-run previews for locked OS-changing controls, including risk, privilege, confirmation phrase, lock reason, adapter-owned macOS/Linux/Windows command previews, blocked policy simulations, and timeline audit records
 - Raw output viewer
-- Versioned local inspector JSON automation for system/network inventory, routes, connections, and listening ports
+- Versioned local inspector JSON automation for system/network inventory, routes, connections, listening ports, diagnostics, Tools runs, monitor snapshots and bounded sampling, OS logs, process inspection, and saved monitor/log/process automation presets
 
 See [docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md](docs/superpowers/plans/2026-06-28-lazyifconfig-parity-plan.md).
 
@@ -308,6 +328,7 @@ Default config:
 	"remoteProfiles": [],
 	"logProfiles": [],
 	"logSearchPresets": [],
+	"operationPresets": [],
 	"interfaceEvidenceSearchPresets": [],
 	"routeFilterPresets": [],
 	"connectionSort": "state",
@@ -379,6 +400,24 @@ Log profiles and search presets are managed from the Logs workspace. Press `P` t
 }
 ```
 
+Operation presets are managed by `picos operations` and are rejected by `picos config set`. Each preset stores validated inspector options only, never a command string, and every value is re-validated when it is loaded, so a hand-edited entry that breaks a bound is dropped instead of trusted:
+
+```json
+{
+	"operationPresets": [
+		{ "id": "pulse", "kind": "monitor", "samples": 5, "intervalMs": 1000 },
+		{
+			"id": "errors",
+			"kind": "logs",
+			"limit": 50,
+			"level": "fail",
+			"filter": "kernel"
+		},
+		{ "id": "worker", "kind": "process", "pid": 12345, "files": true }
+	]
+}
+```
+
 Route filter presets are managed from the Routes workspace. Press `P` to persist the current route filter, `]` to cycle saved filters, and `D` to open an exact `clear routes` cleanup confirmation:
 
 ```json
@@ -436,6 +475,7 @@ Use `picos handoffs` or the Status workspace handoff index to browse recent rout
 bun install
 bun run verify
 bun run harness sftp
+bun run harness automation-presets
 ```
 
 Focused commands:

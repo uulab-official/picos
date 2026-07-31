@@ -8,6 +8,7 @@ import {
 	normalizeLogProfiles,
 	normalizeLogSearchPresets,
 } from "../core/logProfiles";
+import { normalizeOperationPresets } from "../core/operationPresets";
 import { normalizeRemoteProfiles } from "../core/remotes";
 import { normalizeRouteFilterPresets } from "../core/routePresets";
 import {
@@ -35,6 +36,7 @@ export const defaultConfig: PicosConfig = {
 	remoteProfiles: [],
 	logProfiles: [],
 	logSearchPresets: [],
+	operationPresets: [],
 	interfaceEvidenceSearchPresets: [],
 	routeFilterPresets: [],
 	connectionSort: "state",
@@ -152,6 +154,7 @@ export function mergeConfig(
 	merged.remoteProfiles = normalizeRemoteProfiles(input.remoteProfiles);
 	merged.logProfiles = normalizeLogProfiles(input.logProfiles);
 	merged.logSearchPresets = normalizeLogSearchPresets(input.logSearchPresets);
+	merged.operationPresets = normalizeOperationPresets(input.operationPresets);
 	merged.interfaceEvidenceSearchPresets =
 		normalizeInterfaceEvidenceSearchPresets(
 			input.interfaceEvidenceSearchPresets,
@@ -270,6 +273,10 @@ export function coerceConfigValue(
 
 	if (key === "logSearchPresets") {
 		throw new Error("logSearchPresets are managed from the Logs workspace");
+	}
+
+	if (key === "operationPresets") {
+		throw new Error("operationPresets are managed by picos operations");
 	}
 
 	if (key === "interfaceEvidenceSearchPresets") {

@@ -21,6 +21,7 @@ import { handoffsCommand } from "./commands/handoffs";
 import { infoCommand } from "./commands/info";
 import { logsCommand } from "./commands/logs";
 import { monitorCommand } from "./commands/monitor";
+import { operationsCommand } from "./commands/operations";
 import { pingCommand } from "./commands/ping";
 import { portsCommand } from "./commands/ports";
 import { processCommand } from "./commands/process";
@@ -101,6 +102,8 @@ export function createCli(): ReturnType<typeof cac> {
 		.action(infoCommand);
 	cli
 		.command("monitor", "Print a live system monitor snapshot")
+		.option("--samples <n>", "Collect 1-60 bounded monitor samples")
+		.option("--interval <ms>", "Sampling interval from 250 to 60000 ms")
 		.option("--json", "Emit one structured system-monitor result")
 		.action(monitorCommand);
 	cli
@@ -200,6 +203,21 @@ export function createCli(): ReturnType<typeof cac> {
 		.option("--files", "Include cwd and open file snapshot where available")
 		.option("--json", "Emit one structured process-inspection result")
 		.action(processCommand);
+	cli
+		.command(
+			"operations [action] [id] [kind]",
+			"Discover, manage, and run monitor, logs, and process presets",
+		)
+		.option("--samples <n>", "Monitor sample count for save")
+		.option("--interval <ms>", "Monitor interval for save")
+		.option("--limit <n>", "Log entry limit for save")
+		.option("--level <level>", "Log level for save")
+		.option("--filter <query>", "Log filter for save")
+		.option("--pid <pid>", "Process PID for save")
+		.option("--files", "Include process cwd/open resources")
+		.option("--confirm <phrase>", "Exact confirmation for save/remove")
+		.option("--json", "Emit one structured operation result")
+		.action(operationsCommand);
 	cli
 		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")
 		.option("--timeout <ms>", "Tool timeout in milliseconds")

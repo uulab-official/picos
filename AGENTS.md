@@ -38,6 +38,7 @@ bun run smoke
 bun run harness local-json
 bun run harness diagnostics-json
 bun run harness operations-json
+bun run harness automation-presets
 bun run harness sftp
 ```
 
@@ -58,6 +59,14 @@ bun run harness sftp
 - The local JSON subprocess harness must run in `bun run verify` on every supported CI OS.
 - Doctor, DNS, and Tools JSON must preserve stable check/tool identities, normalized source evidence, recursive secret redaction, and locked DNS mutation; run the diagnostics JSON subprocess harness when changing them.
 - Monitor, Logs, and Process JSON must preserve collector support/success/exit/truncation evidence, omit process arguments and raw log/process output, bound and redact normalized log text, and distinguish optional collector gaps with `outcome=partial`; run the operations JSON subprocess harness when changing them.
+- Saved operation presets must stay declarative: store validated inspector options only, never a command string, re-validate on load, keep the preset shelf bounded, require exact `save operation preset <id>` / `remove operation preset <id>` confirmation for config writes, keep `operationPresets` out of generic `picos config set`, and never let a preset run something the direct command cannot.
+- Bounded monitor sampling must stay inside its sample-count, interval, and interval-span limits so no preset or CLI flag can turn picos into a long-running background collector. The span cap is not a wall-clock guarantee, because each sample also runs a collector bounded by its own `safeExec()` timeout; never document it as one.
+- A preset write that drops another saved preset must report what it dropped in both the JSON and plain-text forms; the bounded shelf may evict, but never silently.
+- The published operation preset contract must be derived from the same constants the preset validators enforce, never hand-copied; changing a bound or default requires updating the contract test in the same change. The published id pattern must come from the enforcing regular expression's `source`, not a copied string.
+- The contract catalog must stay keyed by the preset kind union so a new preset kind cannot ship without its published contract, and published field names must keep matching the preset input keys.
+- `picos operations kinds` must answer from the built-in catalog without reading config, and must keep returning copies so callers cannot mutate the catalog.
+- Exact confirmation phrases must come from the shared core formatter so the CLI write guard and the published contract cannot disagree.
+- Run the automation presets subprocess harness when changing preset parsing, storage, run dispatch, monitor sampling, the published contract, or their confirmation and failure behavior; it must stay pointed at an isolated temporary config directory so it never reads or writes real operator presets.
 - The disposable localhost SFTP harness must use public-key authentication, reject mutation/exec, and run in `bun run verify` on every supported CI OS.
 - Treat matching `@revoked` fingerprints as global blockers, preserve exact confirmation bytes, and keep trust files plus remote reads/listings bounded before presenting output.
 - Retrying a failed or cancelled connection must require the exact confirmation again; cancellation must remain visible and recoverable as audit evidence.
@@ -89,6 +98,7 @@ The current milestone makes picos visible and navigable:
 - schema-versioned local OS/network inspector JSON and a cross-platform subprocess integration harness
 - schema-versioned doctor/DNS/Tools automation and a localhost-backed cross-platform diagnostics harness
 - schema-versioned monitor/log/process automation and a cross-platform operations harness
+- bounded monitor sampling plus exact-confirm saved monitor/log/process automation presets and a cross-platform presets harness
 - locked action catalog for future privileged controls
 
 Actual OS mutation remains disabled by default.

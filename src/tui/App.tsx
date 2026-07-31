@@ -1013,6 +1013,9 @@ export function App(): React.ReactElement {
 	const [interfaceEvidenceQuery, setInterfaceEvidenceQuery] = useState("");
 	const [interfaceEvidenceSearchPresets, setInterfaceEvidenceSearchPresets] =
 		useState<string[]>([]);
+	const [operationPresets, setOperationPresets] = useState<
+		PicosConfig["operationPresets"]
+	>([]);
 	const interfaceConfirmationEvidenceExports = useMemo(
 		() =>
 			filterInterfaceConfirmationEvidenceExports(
@@ -1306,6 +1309,7 @@ export function App(): React.ReactElement {
 				language,
 				logProfiles,
 				logSearchPresets,
+				operationPresets,
 				portFilterPresets,
 				portSort: formatPortSortPreference(portSort),
 				refreshInterval,
@@ -1335,6 +1339,7 @@ export function App(): React.ReactElement {
 			language,
 			logProfiles,
 			logSearchPresets,
+			operationPresets,
 			portFilterPresets,
 			portSort,
 			refreshInterval,
@@ -1498,6 +1503,7 @@ export function App(): React.ReactElement {
 			config.statusResultJumpClassFilter,
 		);
 		setInterfaceEvidenceSearchPresets(config.interfaceEvidenceSearchPresets);
+		setOperationPresets(config.operationPresets);
 		setCustomToolTargetPresets(config.toolTargetPresets as ToolTargetPreset[]);
 		setRemoteProfiles(config.remoteProfiles);
 	}, []);

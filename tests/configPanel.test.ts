@@ -222,26 +222,32 @@ describe("config TUI panel", () => {
 						root: "/srv/app",
 					},
 				],
+				operationPresets: [
+					{ id: "pulse", kind: "monitor", samples: 3, intervalMs: 500 },
+				],
 			}),
 		).toEqual([
 			"CONFIG MANAGED SHELVES",
 			"network defaults host=internal.example routeFilters=2 connectionFilters=1 portFilters=1",
 			"tools defaults targets=1 filters=1 sort=status group=tool detail=summary",
 			"workspace behavior logs=1 searches=1 remotes=1 publicIp=true experimental=false statusJumpClass=process",
-			"shelf coverage saved=8 empty=0 routeFilters=2 connectionFilters=1 portFilters=1 toolTargets=1 logProfiles=1 logSearches=1 remotes=1",
+			"shelf coverage saved=9 empty=0 routeFilters=2 connectionFilters=1 portFilters=1 toolTargets=1 logProfiles=1 logSearches=1 remotes=1 operationPresets=1",
 			"empty shelves none",
 			"recovery all shelves ready",
-			"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
+			"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces + operationPresets via picos operations",
 		]);
 		const sparseRows = formatConfigManagedShelfRows({
 			...defaultConfig,
 			defaultPingHost: "internal.example",
 		});
 		expect(sparseRows).toContain(
-			"shelf coverage saved=0 empty=7 routeFilters=0 connectionFilters=0 portFilters=0 toolTargets=0 logProfiles=0 logSearches=0 remotes=0",
+			"shelf coverage saved=0 empty=8 routeFilters=0 connectionFilters=0 portFilters=0 toolTargets=0 logProfiles=0 logSearches=0 remotes=0 operationPresets=0",
 		);
 		expect(sparseRows).toContain(
-			"empty shelves routeFilters,connectionFilters,portFilters,toolTargets,logProfiles,logSearches,remotes",
+			"empty shelves routeFilters,connectionFilters,portFilters,toolTargets,logProfiles,logSearches,remotes,operationPresets",
+		);
+		expect(sparseRows).toContain(
+			"recovery operationPresets -> picos operations kinds",
 		);
 		expect(sparseRows).toContain(
 			"recovery routeFilters -> Routes enter=cycle route filter presets fallback=open filter prompt",

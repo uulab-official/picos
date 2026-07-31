@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	collectSystemMonitorSeries,
 	createSystemMonitorSnapshot,
 	formatSystemMonitorRows,
 } from "../src/core/systemMonitor";
@@ -94,5 +95,79 @@ describe("system monitor", () => {
 
 		expect(snapshot.processCount).toBe(120);
 		expect(snapshot.processSource?.totalCount).toBe(120);
+	});
+
+	test("collects bounded monitor samples with waits only between reads", async () => {
+		const waits: number[] = [];
+		let reads = 0;
+		const snapshot = createSystemMonitorSnapshot({
+			now: "2026-07-14T12:00:00.000Z",
+			uptimeSeconds: 1,
+			loadAverage: [1, 0, 0],
+			totalMemoryBytes: 100,
+			freeMemoryBytes: 25,
+			cpuModel: "cpu",
+			cpuCount: 2,
+			processes: [],
+		});
+		const times = ["2026-07-14T12:00:00.000Z", "2026-07-14T12:00:01.000Z"];
+		const series = await collectSystemMonitorSeries(
+			{ samples: 3, intervalMs: 500 },
+			async () => {
+				reads += 1;
+				return snapshot;
+			},
+			async (milliseconds) => {
+				waits.push(milliseconds);
+			},
+			() => times.shift() ?? "",
+		);
+
+		expect(reads).toBe(3);
+		expect(waits).toEqual([500, 500]);
+		expect(series).toMatchObject({
+			startedAt: "2026-07-14T12:00:00.000Z",
+			completedAt: "2026-07-14T12:00:01.000Z",
+			requestedCount: 3,
+			intervalMs: 500,
+		});
+		expect(series.samples).toHaveLength(3);
+		expect(series.cancelled).toBeFalse();
+	});
+
+	test("stops sampling early when the caller withdraws", async () => {
+		const snapshot = createSystemMonitorSnapshot({
+			now: "2026-07-14T12:00:00.000Z",
+			uptimeSeconds: 1,
+			loadAverage: [1, 0, 0],
+			totalMemoryBytes: 100,
+			freeMemoryBytes: 25,
+			cpuModel: "cpu",
+			cpuCount: 2,
+			processes: [],
+		});
+		const waits: number[] = [];
+		let reads = 0;
+		const series = await collectSystemMonitorSeries(
+			{ samples: 10, intervalMs: 500 },
+			async () => {
+				reads += 1;
+				return snapshot;
+			},
+			async (milliseconds) => {
+				waits.push(milliseconds);
+			},
+			() => "2026-07-14T12:00:00.000Z",
+			() => reads < 2,
+		);
+
+		// Withdrawn after the second sample: the two already collected are kept, the
+		// remaining eight intervals are never slept through, and the requested count
+		// is still reported so a consumer can see the run was cut short.
+		expect(reads).toBe(2);
+		expect(waits).toEqual([500]);
+		expect(series.samples).toHaveLength(2);
+		expect(series.requestedCount).toBe(10);
+		expect(series.cancelled).toBeTrue();
 	});
 });

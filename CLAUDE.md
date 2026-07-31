@@ -16,6 +16,9 @@ Claude should use `AGENTS.md` as the source of truth for this repository.
 - Run the local JSON subprocess harness when changing `info`, routes, connections, ports, CLI output, or parser failure behavior.
 - Run the diagnostics JSON subprocess harness when changing doctor, DNS, Tools, normalized tool evidence, timeout validation, or diagnostic failure behavior.
 - Run the operations JSON subprocess harness when changing monitor, OS logs, process detail/files, log option validation, redaction, or operational source evidence; never serialize process arguments or raw log/process collector output.
+- Keep saved operation presets declarative and bounded: validated inspector options only, re-validated on load, exact `save operation preset <id>` / `remove operation preset <id>` confirmation before any config write, `operationPresets` excluded from generic `picos config set`, and bounded monitor sampling inside its interval-span limit, which caps scheduled waiting rather than wall-clock time.
+- Derive the published `picos operations kinds` contract from the preset validators' own constants, keep confirmation phrases in the shared core formatter, answer `kinds` without reading config, and return catalog copies rather than shared objects.
+- Run the automation presets subprocess harness when changing preset parsing, storage, run dispatch, monitor sampling, or their confirmation and failure behavior; it must stay isolated to a temporary config directory.
 - Run the public-key-authenticated localhost SFTP harness when changing transport, remote output, confirmation, or close behavior.
 - Do not add password persistence, host-key auto-accept, remote writes, or remote command execution to the read-only provider.
 - Keep OS inventory features read-only unless a write action has preview, confirmation, privilege metadata, and locked-by-default tests.
@@ -63,6 +66,12 @@ Run the focused operations JSON harness:
 
 ```bash
 bun run harness operations-json
+```
+
+Run the focused automation presets harness:
+
+```bash
+bun run harness automation-presets
 ```
 
 ## TUI Expectations

@@ -44,7 +44,8 @@ export type LocalInspectorCommand =
 	| "tools"
 	| "monitor"
 	| "logs"
-	| "process";
+	| "process"
+	| "operations";
 
 type InfoJsonInput =
 	| {
@@ -787,7 +788,8 @@ function isLocalInspectorCommand(
 		value === "tools" ||
 		value === "monitor" ||
 		value === "logs" ||
-		value === "process"
+		value === "process" ||
+		value === "operations"
 	);
 }
 
