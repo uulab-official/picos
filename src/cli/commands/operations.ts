@@ -128,6 +128,10 @@ export async function operationsCommand(
 			const preset = createOperationPreset({
 				id: idInput,
 				kind,
+				// The clock lives here rather than in the constructor, so a preset
+				// gets its reference point exactly when it is written and loading one
+				// never fabricates a baseline it does not have.
+				savedAtMs: Date.now(),
 				samples: options.samples,
 				intervalMs: options.interval,
 				limit: options.limit,
@@ -290,7 +294,7 @@ async function runPreset(
 	// the preset was saved. Only `reused` is a proof, and it is a proof of
 	// difference: a process younger than the preset cannot be the one saved.
 	const identity = detectProcessIdReuse(
-		detailResult.detail?.elapsed,
+		detailResult.detail,
 		preset.savedAtMs,
 		Date.now(),
 	);

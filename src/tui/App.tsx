@@ -158,6 +158,7 @@ import {
 	sortListeningPorts,
 } from "../core/ports";
 import {
+	detectProcessIdReuse,
 	getProcessDetail,
 	getProcessFileSnapshot,
 	type ProcessDetail,
@@ -1032,7 +1033,12 @@ export function App(): React.ReactElement {
 	// Mirrored into a ref so the sampling loop can read the latest run without
 	// re-subscribing, the same way the SFTP connect flow tracks its diagnostic.
 	const operationRunRef = useRef<OperationRunProgress | undefined>(undefined);
-	const operationRunCancelRef = useRef(false);
+	// Runs are identified by a token rather than tracked with a shared boolean. A
+	// boolean let a second run clear the first run's cancellation and then let the
+	// superseded loop publish onto the second run's progress; comparing tokens makes
+	// a superseded loop unable to do either.
+	const operationRunTokenRef = useRef(0);
+	const operationRunCancelledTokenRef = useRef(0);
 	const interfaceConfirmationEvidenceExports = useMemo(
 		() =>
 			filterInterfaceConfirmationEvidenceExports(
@@ -4783,26 +4789,39 @@ export function App(): React.ReactElement {
 		}
 		const cancelling = requestOperationRunCancellation(current);
 		if (cancelling === current) {
-			log("warn", `${current.kind} preset runs are a single bounded call`);
+			log(
+				"warn",
+				`${current.presetId} has no interruptible sampling window to stop`,
+			);
 			return;
 		}
-		operationRunCancelRef.current = true;
+		operationRunCancelledTokenRef.current = operationRunTokenRef.current;
 		operationRunRef.current = cancelling;
 		setOperationRun(cancelling);
 		log("warn", `operation run cancellation requested ${current.presetId}`);
 	}, [log]);
 
 	const runSelectedOperationPreset = useCallback(async () => {
-		if (operationRunRef.current?.status === "running") {
+		// `cancelling` is an in-flight status, not an idle one. Treating it as idle
+		// let `X` then `enter` start a second run while the first was still sampling.
+		const inFlight = operationRunRef.current?.status;
+		if (inFlight === "running" || inFlight === "cancelling") {
 			log("warn", "an operation run is already in flight");
 			return;
 		}
-		const preset = operationPresets[selectedOperationPresetIndex];
+		const preset =
+			operationPresets[
+				Math.min(
+					Math.max(selectedOperationPresetIndex, 0),
+					Math.max(0, operationPresets.length - 1),
+				)
+			];
 		if (!preset) {
 			log("warn", "no operation preset selected");
 			return;
 		}
-		operationRunCancelRef.current = false;
+		const token = operationRunTokenRef.current + 1;
+		operationRunTokenRef.current = token;
 		const started = startOperationRun(preset);
 		operationRunRef.current = started;
 		setOperationRun(started);
@@ -4812,6 +4831,10 @@ export function App(): React.ReactElement {
 			log("run", startedAudit);
 		}
 		const publish = (next: OperationRunProgress) => {
+			// A superseded run must not write onto the current run's progress.
+			if (operationRunTokenRef.current !== token) {
+				return;
+			}
 			operationRunRef.current = next;
 			setOperationRun(next);
 		};
@@ -4832,7 +4855,7 @@ export function App(): React.ReactElement {
 						if (current) {
 							publish(advanceOperationRun(current, returned));
 						}
-						return !operationRunCancelRef.current;
+						return operationRunCancelledTokenRef.current !== token;
 					},
 				);
 				returned = series.samples.length;
@@ -4870,6 +4893,17 @@ export function App(): React.ReactElement {
 			} else {
 				const detail = await getProcessDetail(String(preset.pid));
 				setSelectedProcessDetail(detail);
+				// Same check the CLI publishes as `data.identity`. Without it the
+				// workspace would silently describe whatever process now holds the PID.
+				if (
+					detectProcessIdReuse(detail, preset.savedAtMs, Date.now()) ===
+					"reused"
+				) {
+					log(
+						"warn",
+						`operations run identity=reused ${preset.id} pid=${preset.pid} started after the preset was saved`,
+					);
+				}
 				returned = 1;
 			}
 			const finished = finishOperationRun(
@@ -4911,8 +4945,10 @@ export function App(): React.ReactElement {
 				});
 			}
 		} finally {
-			operationRunCancelRef.current = false;
-			setCommandStatus("idle");
+			// Only the current run owns the shared command status.
+			if (operationRunTokenRef.current === token) {
+				setCommandStatus("idle");
+			}
 		}
 	}, [
 		log,

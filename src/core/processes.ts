@@ -497,22 +497,50 @@ export function parseProcessElapsedMs(elapsed?: string): number | undefined {
 
 export type ProcessIdentityVerdict = "consistent" | "reused" | "unknown";
 
-// `ps` reports elapsed time at one-second resolution, so a process recorded
-// immediately after it started can round to an apparent start slightly after the
-// recorded instant. Tolerate that rather than reporting a false reuse.
+// `ps` reports elapsed time at one-second resolution, which biases the estimated
+// start later and so toward a false `reused`. Adding the slack to the recorded
+// instant is therefore the correct side.
 const PROCESS_ELAPSED_TOLERANCE_MS = 2_000;
 
-// Sound in one direction only. If the process now holding this PID started after
-// the instant something was recorded about it, it cannot be the same process, so
-// the PID was reused. The converse is not proof of sameness, only of consistency,
-// which is why the verdict is named that way. Needs only `elapsed`, so it works
-// on POSIX where no absolute start time is available.
+// Windows reports an absolute creation date instead of an elapsed column. Parsed
+// permissively because the value arrives as whatever PowerShell serialized; an
+// unparseable one falls through and ends as `unknown`, which is no worse than
+// having no absolute time at all.
+export function parseProcessStartedAtMs(started?: string): number | undefined {
+	const trimmed = started?.trim();
+	if (!trimmed) {
+		return undefined;
+	}
+	const parsed = Date.parse(trimmed);
+	return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+// Evidence in one direction only: if the process now holding this PID started
+// after the instant something was recorded about it, it is not the same process.
+// `consistent` is not the converse. It records that no contradiction was found,
+// which is also what a long-lived reused PID looks like.
+//
+// This is evidence rather than proof, and the difference matters. The absolute
+// path, from a Windows creation date, compares two wall-clock instants and is
+// sound. The elapsed path compares a kernel-measured age against two `Date.now()`
+// readings, so a forward wall-clock step larger than the tolerance, such as an NTP
+// correction after a resume, inflates the estimated start and can produce a false
+// `reused`. Prefer the absolute value when the platform supplies one.
 export function detectProcessIdReuse(
-	elapsed: string | undefined,
-	recordedAtMs: number,
+	detail: { elapsed?: string; started?: string } | undefined,
+	recordedAtMs: number | undefined,
 	nowMs: number,
 ): ProcessIdentityVerdict {
-	const elapsedMs = parseProcessElapsedMs(elapsed);
+	if (recordedAtMs === undefined || !detail) {
+		return "unknown";
+	}
+	const startedAtMs = parseProcessStartedAtMs(detail.started);
+	if (startedAtMs !== undefined) {
+		return startedAtMs > recordedAtMs + PROCESS_ELAPSED_TOLERANCE_MS
+			? "reused"
+			: "consistent";
+	}
+	const elapsedMs = parseProcessElapsedMs(detail.elapsed);
 	if (elapsedMs === undefined) {
 		return "unknown";
 	}

@@ -229,16 +229,15 @@ export function createOperationPreset(
 	};
 }
 
-// Preserved when it is already present, which is what makes a round trip through
-// the config keep the original reference point instead of resetting it on every
-// write. A preset saved before this field existed is stamped once, on first load,
-// which loses nothing: an unknown baseline can only ever read as consistent.
-export function parseOperationSavedAt(
-	value: unknown,
-	now = Date.now(),
-): number {
+// Never synthesized, so a round trip through the config keeps the original
+// reference point and a preset saved before this field existed stays without one.
+// That distinction matters: a fabricated baseline is not persisted anywhere, so it
+// would be re-derived on every invocation and always read as consistent, silently
+// disabling reuse detection. Absent instead lets the verdict report `unknown`. The
+// clock therefore lives at the CLI boundary, which also keeps this deterministic.
+export function parseOperationSavedAt(value: unknown): number | undefined {
 	const savedAt = Number(value);
-	return Number.isSafeInteger(savedAt) && savedAt > 0 ? savedAt : now;
+	return Number.isSafeInteger(savedAt) && savedAt > 0 ? savedAt : undefined;
 }
 
 export function parseOperationPresetKind(

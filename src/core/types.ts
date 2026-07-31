@@ -273,9 +273,13 @@ export type ProcessOperationPreset = {
 	// Wall-clock instant this preset was saved. A PID is ephemeral, so this is the
 	// reference point that makes reuse detectable without an absolute process start
 	// time: a process younger than the preset cannot be the one that was saved.
-	// Required rather than optional because it is defaulted at construction, which
-	// keeps every consumer from having to handle its absence.
-	savedAtMs: number;
+	//
+	// Optional on purpose. An earlier revision made it required and defaulted it at
+	// construction, which quietly broke the feature for presets saved before the
+	// field existed: nothing persists a synthesized value, so it was re-derived to
+	// "now" on every invocation and the verdict was permanently `consistent`.
+	// Leaving it absent lets the verdict report `unknown`, which is the truth.
+	savedAtMs?: number;
 };
 
 export type OperationPreset =

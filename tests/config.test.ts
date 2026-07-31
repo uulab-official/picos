@@ -143,13 +143,10 @@ describe("config schema", () => {
 		).toEqual([
 			{ id: "pulse", kind: "monitor", samples: 3, intervalMs: 500 },
 			{ id: "errors", kind: "logs", limit: 25, level: "fail", filter: "disk" },
-			{
-				id: "worker",
-				kind: "process",
-				pid: 42,
-				files: true,
-				savedAtMs: expect.any(Number),
-			},
+			// No savedAtMs: this entry was persisted without one and none is
+			// fabricated on load, so the identity check reports unknown rather than
+			// comparing against a baseline invented at read time.
+			{ id: "worker", kind: "process", pid: 42, files: true },
 		]);
 		expect(() => coerceConfigValue("operationPresets", "[]")).toThrow(
 			"managed by picos operations",

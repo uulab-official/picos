@@ -67,13 +67,20 @@ export function advanceOperationRun(
 		: { ...progress, returnedCount: clamped };
 }
 
-// Only monitor sampling has a window to interrupt. A logs or process run is a
-// single collector call already bounded by its own timeout, with no partial
-// result worth keeping, so asking to stop one is a no-op rather than an error.
+// Only monitor sampling has a window to interrupt, and only when more than one
+// sample was requested: the predicate that observes cancellation runs between
+// samples, so a single-sample run has nowhere to check. A logs or process run is
+// likewise one collector call already bounded by its own timeout, with no partial
+// result worth keeping. In all those cases asking to stop is a no-op rather than
+// an error, and `formatOperationRunControls` says so instead of offering the key.
+export function canCancelOperationRun(progress: OperationRunProgress): boolean {
+	return progress.kind === "monitor" && progress.requestedCount > 1;
+}
+
 export function requestOperationRunCancellation(
 	progress: OperationRunProgress,
 ): OperationRunProgress {
-	return progress.status === "running" && progress.kind === "monitor"
+	return progress.status === "running" && canCancelOperationRun(progress)
 		? {
 				...progress,
 				status: "cancelling",
@@ -142,7 +149,7 @@ function auditStatus(status: OperationRunStatus): string | undefined {
 
 function formatOperationRunControls(progress: OperationRunProgress): string {
 	if (progress.status === "running" || progress.status === "cancelling") {
-		return progress.kind === "monitor"
+		return canCancelOperationRun(progress)
 			? "X cancel run"
 			: "run is a single bounded call · no cancel";
 	}
@@ -163,11 +170,13 @@ export function formatOperationsWorkspaceRows(
 ): string[] {
 	const controlRows = formatOperationRunProgressRows(options.run);
 	const listRows = Math.max(1, options.visibleRows - controlRows.length - 3);
-	const window = getVisibleWindow(
-		presets.length,
-		options.selectedIndex,
-		listRows,
+	// Clamped here rather than trusted, because the shelf can shrink underneath a
+	// held selection when a preset is removed through the CLI while the TUI is open.
+	const selectedIndex = Math.min(
+		Math.max(options.selectedIndex, 0),
+		Math.max(0, presets.length - 1),
 	);
+	const window = getVisibleWindow(presets.length, selectedIndex, listRows);
 	const rows = [
 		`OPERATIONS PRESETS saved=${presets.length} max=${MAX_OPERATION_PRESETS}`,
 	];
@@ -178,7 +187,7 @@ export function formatOperationsWorkspaceRows(
 			.slice(window.start, window.end)
 			.entries()) {
 			const index = window.start + offset;
-			const marker = index === options.selectedIndex ? "> " : "  ";
+			const marker = index === selectedIndex ? "> " : "  ";
 			rows.push(
 				`${marker}${String(index + 1).padStart(3, "0")} ${formatOperationPreset(preset)}`,
 			);

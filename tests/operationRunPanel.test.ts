@@ -210,3 +210,50 @@ describe("operations workspace rows", () => {
 		]);
 	});
 });
+
+describe("operations run cancellation window", () => {
+	const singleSamplePreset = {
+		id: "once",
+		kind: "monitor",
+		samples: 1,
+		intervalMs: 500,
+	} as const;
+
+	test("does not offer cancellation for a single-sample monitor run", () => {
+		const run = startOperationRun(singleSamplePreset, 1000);
+
+		// The predicate that observes cancellation runs between samples, so a
+		// one-sample run has nowhere to check. Offering the key would advertise
+		// something that cannot happen.
+		expect(requestOperationRunCancellation(run)).toBe(run);
+		expect(formatOperationRunProgressRows(run).at(-1)).toBe(
+			"controls=run is a single bounded call · no cancel",
+		);
+	});
+
+	test("offers cancellation as soon as more than one sample is requested", () => {
+		const run = startOperationRun({ ...singleSamplePreset, samples: 2 }, 1000);
+
+		expect(requestOperationRunCancellation(run).status).toBe("cancelling");
+		expect(formatOperationRunProgressRows(run).at(-1)).toBe(
+			"controls=X cancel run",
+		);
+	});
+
+	test("clamps a selection that outlived the preset it pointed at", () => {
+		// A preset removed through the CLI while the TUI is open shrinks the list
+		// under a held selection. Without clamping the cursor marks nothing.
+		const rows = formatOperationsWorkspaceRows([monitorPreset], {
+			selectedIndex: 5,
+			visibleRows: 20,
+		});
+
+		expect(rows[1]).toBe("> 001 pulse monitor samples=10 interval=500ms");
+		expect(
+			formatOperationsWorkspaceRows([], {
+				selectedIndex: 5,
+				visibleRows: 20,
+			})[1],
+		).toBe("no saved operation presets · picos operations save <id> <kind>");
+	});
+});

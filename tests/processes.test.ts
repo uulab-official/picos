@@ -10,6 +10,7 @@ import {
 	parseLsofProcessFiles,
 	parsePosixProcessDetail,
 	parseProcessElapsedMs,
+	parseProcessStartedAtMs,
 	parsePsOutput,
 	parseWindowsProcessDetail,
 	validateProcessId,
@@ -363,25 +364,86 @@ describe("process identity across runs", () => {
 
 		// Running for an hour, recorded a minute ago: it predates the record, so it
 		// is consistent with being the same process.
-		expect(detectProcessIdReuse("60:00", recordedAt, recordedAt + 60_000)).toBe(
-			"consistent",
-		);
+		expect(
+			detectProcessIdReuse(
+				{ elapsed: "60:00" },
+				recordedAt,
+				recordedAt + 60_000,
+			),
+		).toBe("consistent");
 
 		// Running for five seconds, recorded an hour ago: it started long after the
 		// record, so this cannot be the process that was recorded.
 		expect(
-			detectProcessIdReuse("00:05", recordedAt, recordedAt + 3_600_000),
+			detectProcessIdReuse(
+				{ elapsed: "00:05" },
+				recordedAt,
+				recordedAt + 3_600_000,
+			),
 		).toBe("reused");
 
 		// One-second elapsed resolution must not produce a false positive for a
 		// process recorded the moment it started.
-		expect(detectProcessIdReuse("00:00", recordedAt, recordedAt + 1_000)).toBe(
-			"consistent",
-		);
+		expect(
+			detectProcessIdReuse(
+				{ elapsed: "00:00" },
+				recordedAt,
+				recordedAt + 1_000,
+			),
+		).toBe("consistent");
 
-		// Without an elapsed column there is nothing to compare.
+		// Without an elapsed column, or without a baseline to compare against, there
+		// is nothing to conclude. A fabricated baseline would always read consistent
+		// and silently disable the check, so absence is reported as unknown.
+		expect(detectProcessIdReuse({}, recordedAt, recordedAt)).toBe("unknown");
 		expect(detectProcessIdReuse(undefined, recordedAt, recordedAt)).toBe(
 			"unknown",
+		);
+		expect(
+			detectProcessIdReuse({ elapsed: "00:05" }, undefined, recordedAt),
+		).toBe("unknown");
+	});
+
+	test("prefers an absolute start time when the platform supplies one", () => {
+		const recordedAt = Date.parse("2026-07-29T12:00:00.000Z");
+
+		// Windows reports a creation date and no elapsed column, which is why the
+		// check previously never fired there. Comparing two wall-clock instants also
+		// needs no clock arithmetic on our side, so it wins when both are present.
+		expect(
+			detectProcessIdReuse(
+				{ started: "2026-07-29T11:00:00.000Z" },
+				recordedAt,
+				recordedAt,
+			),
+		).toBe("consistent");
+		expect(
+			detectProcessIdReuse(
+				{ started: "2026-07-29T13:00:00.000Z" },
+				recordedAt,
+				recordedAt,
+			),
+		).toBe("reused");
+		expect(
+			detectProcessIdReuse(
+				{ started: "2026-07-29T13:00:00.000Z", elapsed: "60:00" },
+				recordedAt,
+				recordedAt,
+			),
+		).toBe("reused");
+
+		// An unparseable creation date falls through to elapsed rather than guessing.
+		expect(
+			detectProcessIdReuse(
+				{ started: "not-a-date", elapsed: "60:00" },
+				recordedAt,
+				recordedAt,
+			),
+		).toBe("consistent");
+		expect(parseProcessStartedAtMs("not-a-date")).toBeUndefined();
+		expect(parseProcessStartedAtMs(undefined)).toBeUndefined();
+		expect(parseProcessStartedAtMs("2026-07-29T13:00:00.000Z")).toBe(
+			Date.parse("2026-07-29T13:00:00.000Z"),
 		);
 	});
 });
