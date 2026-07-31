@@ -23,8 +23,8 @@
 - [x] Add a real subprocess harness against an isolated temporary config directory.
 - [x] Include the automation presets harness in `bun run verify` on macOS, Linux, and Windows.
 - [x] Update public automation, harness, README, roadmap, changelog, Codex, Claude, and agent documentation.
-- [ ] Run gstack review and full verification.
-- [ ] Open the stacked draft PR on #414.
+- [ ] Run gstack review. Full verification is done: 812 tests across 84 files, `tsc --noEmit` clean, five integrations, release check clean, no Biome fixes across 219 files.
+- [x] Open the stacked draft PR on #414.
 - [ ] Monitor CI and review.
 
 ## Next

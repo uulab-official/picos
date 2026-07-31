@@ -232,7 +232,7 @@ git diff --check
 
 - Commit all modified source, tests, scripts, and docs.
 
-- [ ] **Step 1: Commit**
+- [x] **Step 1: Commit**
 
 Run:
 
@@ -241,18 +241,25 @@ git add docs/superpowers/plans/2026-07-29-operations-preset-contracts.md src/cor
 git commit -m "feat(operations): publish preset contracts for agents"
 ```
 
-- [ ] **Step 2: Push and open draft PR**
+- [x] **Step 2: Push and open draft PR**
 
 Run:
 
+Done as a single stacked PR covering v0.4.340 through v0.4.342, because several files carry changes from more than one slice and could not be split without interactive staging. The branch was renamed from the v0.4.340 name it was created under, and the base is the branch below it rather than `main`, which is 475 commits behind:
+
 ```bash
-git push -u origin codex/picos-v0.4.341-operations-preset-contracts
-gh pr create --draft --title "feat(operations): publish preset contracts for agents"
+git branch -m codex/picos-v0.4.342-operations-presets
+git push -u origin codex/picos-v0.4.342-operations-presets
+gh pr create --draft \
+  --base codex/picos-v0.4.339-operations-json \
+  --title "feat(operations): publish preset contracts and add run control"
 ```
 
-- [ ] **Step 3: Update roadmap with PR link**
+Result: draft PR [#415](https://github.com/uulab-official/picos/pull/415).
 
-Replace the local status line with the draft PR URL, rerun verification, amend the commit, and force-push with lease.
+- [x] **Step 3: Update roadmap with PR link**
+
+The three affected `Status:` lines now carry the PR link and the local verification result. The original instruction here said to amend the commit and force-push with lease; that was written for a pre-push edit and does not apply once the branch is published, so this went in as a separate `docs:` commit instead, matching the `docs: track … pull request` commits on the slices below.
 
 ## Out Of Scope
 

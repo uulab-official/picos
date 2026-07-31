@@ -2,7 +2,7 @@
 
 ## v0.4.342 - Operations Preset Visibility
 
-Status: implemented and documented; unreleased. Local verification is still pending because the authoring session had no shell access.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes with 812 tests across 84 files, `tsc --noEmit` clean, all five integrations, release check clean, and no Biome fixes across 219 files. This slice ships in the same PR as v0.4.341 and v0.4.340, because several files carry changes from more than one of them and could not be split mechanically. CI not yet observed.
 
 Goal: make saved operation presets visible from the TUI Config workspace without pretending a workspace owns them and without adding a preset execution path.
 
@@ -17,7 +17,7 @@ Goal: make saved operation presets visible from the TUI Config workspace without
 
 ## v0.4.341 - Operations Preset Contracts
 
-Status: implemented and documented; unreleased. Local verification is still pending because the authoring session had no shell access.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes with 812 tests across 84 files, `tsc --noEmit` clean, all five integrations, release check clean, and no Biome fixes across 219 files. This slice ships in the same PR as v0.4.341 and v0.4.340, because several files carry changes from more than one of them and could not be split mechanically. CI not yet observed.
 
 Goal: make saved operation presets a first-class coding-agent workflow by publishing the preset contract itself, so an agent can construct a valid save call and its exact confirmation phrase without reading prose docs.
 
@@ -51,7 +51,7 @@ Goal: make saved operation presets a first-class coding-agent workflow by publis
 
 ## v0.4.340 - Automation Presets
 
-Status: implemented and documented; unreleased. The automation presets harness is wired into `bun run verify`, which CI runs on Ubuntu, macOS, and Windows.
+Status: draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414); local verification passes and the automation presets harness is wired into `bun run verify`, which CI runs on Ubuntu, macOS, and Windows. Ships in the same PR as v0.4.341 and v0.4.342. CI not yet observed.
 
 Goal: let scripts, CI, and coding agents replay the same bounded monitor, OS log, and process inspection without restating every option, and add bounded monitor sampling, while keeping picos read-only by default.
 
