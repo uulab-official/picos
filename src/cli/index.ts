@@ -230,6 +230,7 @@ export function createCli(): ReturnType<typeof cac> {
 	cli
 		.command("handoffs", "List route and endpoint handoff files")
 		.option("--archive <path>", "Archive a picos route/endpoint handoff file")
+		.option("--json", "Emit one structured handoff index or archive result")
 		.action(handoffsCommand);
 	cli
 		.command("release-health", "Check release automation health")

@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
 	assertLocalJsonOptions,
 	formatConnectionsJson,
+	formatHandoffArchiveJson,
+	formatHandoffsJson,
 	formatInfoJson,
 	formatLocalInspectorJsonFailure,
 	formatPortsJson,
@@ -12,6 +14,7 @@ import {
 	LOCAL_INSPECTOR_JSON_MAX_BYTES,
 	LOCAL_INSPECTOR_JSON_SCHEMA_VERSION,
 	parseLocalJsonFlag,
+	reportLocalInspectorCliParseFailure,
 	reportLocalInspectorJsonFailure,
 } from "../src/cli/localInspectorOutput";
 import type { NetworkSummary } from "../src/core/types";
@@ -505,5 +508,133 @@ describe("local inspector JSON output", () => {
 		expect(JSON.stringify(result)).not.toContain("SECRET_TOKEN=abc");
 		expect(JSON.stringify(result)).not.toContain("alice:password");
 		expect(JSON.stringify(result)).not.toContain("topsecret");
+	});
+});
+
+describe("handoff index JSON", () => {
+	const index = {
+		baseDir: "/tmp/picos",
+		items: [
+			{
+				source: "endpoint-handoff" as const,
+				kind: "ports" as const,
+				view: "raw",
+				label: "ports raw output",
+				command: "lsof -nP -iTCP -sTCP:LISTEN",
+				generatedAt: "2026-07-29T10:00:00.000Z",
+				path: "/tmp/picos/endpoints/picos-ports-raw-2026-07-29T100000000Z.md",
+			},
+			{
+				source: "route-handoff" as const,
+				kind: "routes" as const,
+				view: "summary",
+				label: "routes summary",
+				command: "netstat -rn",
+				generatedAt: "2026-07-29T09:00:00.000Z",
+				origin: {
+					kind: "config-shelf" as const,
+					target: "ports",
+					label: "Ports",
+					scope: "ports.filters",
+				},
+				path: "/tmp/picos/routes/picos-routes-summary-2026-07-29T090000000Z.md",
+			},
+		],
+	};
+
+	test("publishes one schema-versioned listing document", () => {
+		const document = JSON.parse(formatHandoffsJson(index, { limit: 20 }));
+		expect(document.schemaVersion).toBe(LOCAL_INSPECTOR_JSON_SCHEMA_VERSION);
+		expect(document.command).toBe("handoffs");
+		expect(document.status).toBe("completed");
+		expect(document.limits.maxBytes).toBe(LOCAL_INSPECTOR_JSON_MAX_BYTES);
+		expect(document.source.kind).toBe("picos-handoff-index");
+		expect(document.data.action).toBe("list");
+		expect(document.data.returnedCount).toBe(2);
+		expect(document.data.entryLimit).toBe(LOCAL_INSPECTOR_JSON_ENTRY_LIMIT);
+		expect(document.data.handoffs[0].kind).toBe("ports");
+		expect(document.data.handoffs[1].origin.scope).toBe("ports.filters");
+		expect(document.data.handoffs[0].origin).toBeNull();
+	});
+
+	test("separates the read limit from byte truncation", () => {
+		const atLimit = JSON.parse(formatHandoffsJson(index, { limit: 2 }));
+		expect(atLimit.data.atRequestedLimit).toBe(true);
+		expect(atLimit.data.truncated).toBe(false);
+		const belowLimit = JSON.parse(formatHandoffsJson(index, { limit: 20 }));
+		expect(belowLimit.data.atRequestedLimit).toBe(false);
+		expect(belowLimit.data.truncated).toBe(false);
+	});
+
+	test("reports a blocked archive as a completed command", () => {
+		const document = JSON.parse(
+			formatHandoffArchiveJson(
+				{
+					status: "blocked",
+					sourcePath: "/tmp/other/notes.txt",
+					archivedPath: "",
+					message: "handoff archive is limited to picos-owned handoff files",
+				},
+				{ archive: "/tmp/other/notes.txt" },
+			),
+		);
+		expect(document.status).toBe("completed");
+		expect(document.data.action).toBe("archive");
+		expect(document.data.status).toBe("blocked");
+		expect(document.data.archivedPath).toBeNull();
+	});
+
+	test("reports an archived file with its new path", () => {
+		const document = JSON.parse(
+			formatHandoffArchiveJson(
+				{
+					status: "archived",
+					sourcePath: "/tmp/picos/routes/picos-routes-summary.md",
+					archivedPath: "/tmp/picos/archive/routes/picos-routes-summary.md",
+					message: "archived picos-routes-summary.md",
+				},
+				{ archive: "/tmp/picos/routes/picos-routes-summary.md" },
+			),
+		);
+		expect(document.data.status).toBe("archived");
+		expect(document.data.archivedPath).toBe(
+			"/tmp/picos/archive/routes/picos-routes-summary.md",
+		);
+	});
+});
+
+describe("local inspector command recognition", () => {
+	function captureParseFailure(argv: string[]): {
+		handled: boolean;
+		output: string;
+	} {
+		const writes: string[] = [];
+		const originalLog = console.log;
+		console.log = (value?: unknown) => {
+			writes.push(String(value));
+		};
+		try {
+			const handled = reportLocalInspectorCliParseFailure(
+				argv,
+				new Error("unknown option"),
+			);
+			return { handled, output: writes.join("\n") };
+		} finally {
+			console.log = originalLog;
+		}
+	}
+
+	test("maps a handoffs parse failure onto the handoffs contract", () => {
+		const { handled, output } = captureParseFailure(["handoffs", "--json"]);
+		expect(handled).toBe(true);
+		const document = JSON.parse(output);
+		expect(document.command).toBe("handoffs");
+		expect(document.status).toBe("failed");
+		expect(document.error.code).toBe("PICOS_LOCAL_INSPECTOR_FAILED");
+	});
+
+	test("does not treat inherited object keys as commands", () => {
+		expect(captureParseFailure(["toString", "--json"]).handled).toBe(false);
+		expect(captureParseFailure(["constructor", "--json"]).handled).toBe(false);
 	});
 });

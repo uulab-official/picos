@@ -20,8 +20,9 @@ type LocalInspectorDocument = {
 		success: boolean;
 		exitCode: number | null;
 		truncated: boolean;
+		kind: string;
 	};
-	request: { destination: string };
+	request: { destination: string; action: string };
 	error: { code: string };
 	data: {
 		system: { hostname: string };
@@ -30,6 +31,15 @@ type LocalInspectorDocument = {
 		visibleCount: number;
 		limit: number;
 		truncated: boolean;
+		action: string;
+		status: string;
+		message: string;
+		baseDir: string;
+		requestedLimit: number;
+		indexedCount: number;
+		atRequestedLimit: boolean;
+		archivedPath: string | null;
+		handoffs: { path: string; generatedAt: string; kind: string }[];
 	};
 };
 
@@ -43,6 +53,7 @@ const successfulCommands = [
 	["ports", "--json", "--sort", "port"],
 	["routes", "--json", "--sort", "default"],
 	["route", "8.8.8.8", "--json"],
+	["handoffs", "--json"],
 ] as const;
 
 const results: CommandResult[] = [];
@@ -117,6 +128,44 @@ const route = parseSingleJson(results[5]?.stdout ?? "", "route");
 assert.equal(route.request.destination, "8.8.8.8");
 assert.equal(typeof route.source.success, "boolean");
 
+const handoffs = parseSingleJson(results[6]?.stdout ?? "", "handoffs");
+assert.equal(handoffs.request.action, "list");
+assert.equal(handoffs.data.action, "list");
+assert.equal(handoffs.source.kind, "picos-handoff-index");
+assert.equal(typeof handoffs.data.baseDir, "string");
+assert.ok(Array.isArray(handoffs.data.handoffs));
+assert.equal(handoffs.data.returnedCount, handoffs.data.handoffs.length);
+assert.equal(
+	handoffs.data.atRequestedLimit,
+	handoffs.data.indexedCount >= handoffs.data.requestedLimit,
+);
+assert.equal(handoffs.data.truncated, false);
+for (const item of handoffs.data.handoffs) {
+	assert.equal(typeof item.path, "string");
+	assert.equal(typeof item.generatedAt, "string");
+	assert.ok(
+		["interfaces", "routes", "connections", "ports"].includes(item.kind),
+	);
+}
+
+const blockedArchive = await runPicos([
+	"handoffs",
+	"--json",
+	"--archive",
+	"picos-not-a-handoff.txt",
+]);
+assert.equal(blockedArchive.exitCode, 0, blockedArchive.stderr);
+assert.equal(blockedArchive.stderr, "");
+const blockedArchiveDocument = parseSingleJson(
+	blockedArchive.stdout,
+	"handoffs",
+);
+assert.equal(blockedArchiveDocument.status, "completed");
+assert.equal(blockedArchiveDocument.data.action, "archive");
+assert.equal(blockedArchiveDocument.data.status, "blocked");
+assert.equal(blockedArchiveDocument.data.archivedPath, null);
+assert.ok(blockedArchiveDocument.data.message.length > 0);
+
 for (const args of [
 	["routes", "--raw", "--json"],
 	["routes", "--sort", "unsafe", "--json"],
@@ -172,7 +221,7 @@ assert.equal(largeDocument.data.truncated, true);
 assert.ok(largeDocument.data.returnedCount < largeDocument.data.visibleCount);
 
 console.log(
-	`Local inspector integration complete: ${results.length} live and 4 deterministic failure JSON contracts verified`,
+	`Local inspector integration complete: ${results.length} live, 1 blocked handoff archive, and 4 deterministic failure JSON contracts verified`,
 );
 
 async function runPicos(

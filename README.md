@@ -206,6 +206,7 @@ Commands:
 - `picos update`: check npm registry metadata and GitHub Releases for the latest `@uulab/picos` version, then print install, npm package, GitHub Release, and CHANGELOG handoff links without running an installer; the TUI `picos.update` action also stages a locked apply preview when an update exists, and `picos.update.apply` can route that preview through the Action Center confirmation plus control execution policy for npm `--dry-run`.
 - `picos handoffs`: list recent route and endpoint evidence handoff files from the picos config directory.
 - `picos handoffs --archive <path>`: move a picos-owned route/endpoint handoff file into `archive/routes` or `archive/endpoints` under the config directory.
+- `picos handoffs --json`: return the handoff index as one schema-versioned document with `source.kind=picos-handoff-index`, each entry's source, kind, view, label, originating command, `generatedAt`, Config-shelf origin, and path. Two bounds are reported separately, because they mean different things: `atRequestedLimit` says the directory read filled `requestedLimit`, so more evidence files may exist on disk, while `truncated` says rows were dropped to stay inside the byte limit. Adding `--archive <path>` returns the archive outcome instead, where `data.status` is `archived` or `blocked`; a blocked archive is a completed command that exits zero, since refusing to touch a file that picos does not own is the guard working rather than a failure.
 - `picos release-health`: print package metadata, dist artifact, CI, and manual release workflow health rows before publishing.
 - `picos locations` or `picos drives`: list filesystem entry points such as root, home, workspace, and temp.
 - `picos remotes`: list configured remote file profiles without opening a network session.
@@ -469,7 +470,7 @@ Routes can also export the active table/raw/diagnostics/path detail view with `e
 
 Connections and Ports use the same `e`/`o` handoff flow for active endpoint evidence. Their files are written under `endpoints/*.md`.
 
-Use `picos handoffs` or the Status workspace handoff index to browse recent route/endpoint evidence files after they are exported. Archive old evidence with `picos handoffs --archive <path>` or `A` in the Status workspace; archive moves are limited to picos-owned route/endpoint handoff files under the config directory.
+Use `picos handoffs` or the Status workspace handoff index to browse recent route/endpoint evidence files after they are exported, or `picos handoffs --json` when a script or agent needs to enumerate them. Archive old evidence with `picos handoffs --archive <path>` or `A` in the Status workspace; archive moves are limited to picos-owned route/endpoint handoff files under the config directory.
 
 ## Development
 

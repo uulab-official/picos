@@ -1,10 +1,26 @@
 # picos Roadmap
 
-## Open PR - v0.4.340 through v0.4.345
+## Open PR - v0.4.340 through v0.4.346
 
-Draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414), carries every slice from v0.4.340 through v0.4.345 as one PR, because several files carry changes from more than one of them and could not be split mechanically. Verification on the branch head: 833 tests across 86 files pass, `tsc --noEmit` clean, all five integration harnesses and the release check clean, no Biome findings across 223 files, and Ubuntu, macOS, Windows, and release-readiness CI pass on every commit.
+Draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414), carries every slice from v0.4.340 through v0.4.346 as one PR, because several files carry changes from more than one of them and could not be split mechanically. Verification on the branch head: 839 tests across 86 files pass, `tsc --noEmit` clean, all five integration harnesses and the release check clean, no Biome findings across 223 files, and Ubuntu, macOS, Windows, and release-readiness CI pass on every commit.
 
 The slices below do not restate any of that. Each previously carried its own copy of the PR link, the test and file counts, and a hand-written list of its sibling slices. The counts had gone stale in all four places that stated them, and disagreed with each other; three of the five sibling lists were wrong, one of them listing its own slice. That is the same stale-enumeration failure the architecture rules in `AGENTS.md` target in code, so the fix is the same one: state the shared fact once, and let each slice reference it.
+
+## v0.4.346 - Handoff Index Automation
+
+Status: in the open PR above.
+
+Goal: let a script or coding agent enumerate exported route and endpoint evidence without parsing text rows, closing the last read-only listing that had no machine-readable form.
+
+- `picos handoffs --json` returns the handoff index as one schema-versioned document with `source.kind=picos-handoff-index`, publishing each entry's source, kind, view, label, originating command, `generatedAt`, Config-shelf origin, and path. `--archive <path> --json` returns the archive outcome instead.
+- The listing is bounded twice and says so twice. `atRequestedLimit` reports that the directory read filled the requested limit, so more evidence files may exist on disk; `truncated` reports that rows were dropped to stay inside the byte budget. Collapsing those into one flag would leave a consumer unable to tell the two apart, which the bounded-result rule forbids.
+- A blocked archive is a completed command that exits zero, with `data.status=blocked`. Refusing to move a file picos does not own is the guard working, not a failure, and the JSON form keeps the same exit status the text form already had.
+- Paths are redacted by the existing inspector sanitizer, so a home directory appears as `$HOME`. That behaviour came for free by reusing `sanitizeText()` rather than serializing the raw strings.
+- Adding the command to `LocalInspectorCommand` surfaced a real gap rather than just widening a union. The command guard was a hand-written chain of twelve comparisons, so growing the union did not fail to compile and the new command's argv parse failures would have fallen back to a non-JSON error while `--json` was requested. The guard is now derived from an exhaustive `Record` over the union, which is the same fix the preset contract catalog already uses.
+- That guard uses `Object.hasOwn` rather than `in`, because `in` reports inherited keys and would have accepted `toString` and `constructor` as inspector commands. A test asserts both are rejected, so the distinction cannot be undone by a later simplification.
+- The harness covers it end to end: the live listing contract joins the existing six commands, and a blocked archive against a path outside the handoff directories is asserted as a completed document. That case is deterministic on every platform, because the guard compares the resolved parent directory and the filename pattern without needing the file to exist.
+- One process note worth keeping: `bun run harness local-json` does not typecheck, so the harness passed while `tsc` still failed on the script's own document type. Only `bun run verify` proves a change; a green harness alone does not.
+- Next: `locations`, `drives`, `remotes`, and `release-health` remain text-only. They are candidates for the same treatment, but each needs a bounded contract of its own rather than a shared one, so they are not a single slice.
 
 ## v0.4.345 - Endpoint Hint Row Derivation
 
