@@ -461,6 +461,7 @@ import {
 	submitLogCleanupConfirmation,
 } from "./logPanel";
 import {
+	clampIndex,
 	enterFocus,
 	type FocusArea,
 	getLocationShortcutIndex,
@@ -1063,9 +1064,9 @@ export function App(): React.ReactElement {
 	);
 	const selectedInterfaceConfirmationEvidence =
 		interfaceConfirmationEvidenceExports[
-			Math.min(
+			clampIndex(
 				selectedInterfaceConfirmationAuditExportIndex,
-				Math.max(0, interfaceConfirmationEvidenceExports.length - 1),
+				interfaceConfirmationEvidenceExports.length,
 			)
 		];
 	const selectedInterfaceConfirmationAuditExport =
@@ -1074,10 +1075,7 @@ export function App(): React.ReactElement {
 		selectedInterfaceConfirmationEvidence?.state === "archived";
 	useEffect(() => {
 		setSelectedInterfaceConfirmationAuditExportIndex((current) =>
-			Math.min(
-				current,
-				Math.max(0, interfaceConfirmationEvidenceExports.length - 1),
-			),
+			clampIndex(current, interfaceConfirmationEvidenceExports.length),
 		);
 	}, [interfaceConfirmationEvidenceExports.length]);
 	const filteredTimelineEvidenceTrailAuditExports = useMemo(
@@ -1389,10 +1387,7 @@ export function App(): React.ReactElement {
 		: [];
 	useEffect(() => {
 		setSelectedConfigIndex((index) =>
-			Math.min(
-				Math.max(index, 0),
-				Math.max(0, configWorkspaceItems.length - 1),
-			),
+			clampIndex(index, configWorkspaceItems.length),
 		);
 	}, [configWorkspaceItems.length]);
 	const portProcessControlInspectorRows = useMemo(() => {
@@ -1497,10 +1492,7 @@ export function App(): React.ReactElement {
 	);
 	useEffect(() => {
 		setSelectedTimelineIndex((index) =>
-			Math.min(
-				Math.max(index, 0),
-				Math.max(0, visibleTimelineEvents.length - 1),
-			),
+			clampIndex(index, visibleTimelineEvents.length),
 		);
 	}, [visibleTimelineEvents.length]);
 
@@ -1836,9 +1828,7 @@ export function App(): React.ReactElement {
 				setSelectedLocationIndex(matchedLocationIndex);
 			}
 			setSelectedFileIndex((index) =>
-				options.keepSelection
-					? Math.min(index, Math.max(0, entries.length - 1))
-					: 0,
+				options.keepSelection ? clampIndex(index, entries.length) : 0,
 			);
 		},
 		[fileLocations, fileProvider],
@@ -16441,9 +16431,7 @@ function ToolsWorkspace({
 			})
 		: [];
 	const selectedTargetPreset =
-		targetPresets[
-			Math.min(Math.max(selectedTargetPresetIndex, 0), targetPresets.length - 1)
-		];
+		targetPresets[clampIndex(selectedTargetPresetIndex, targetPresets.length)];
 	const cleanupPreview =
 		commandLine.active && commandLine.prompt === "tool-target-cleanup"
 			? createToolTargetCleanupPreview(

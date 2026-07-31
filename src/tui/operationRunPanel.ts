@@ -3,7 +3,7 @@ import {
 	MAX_OPERATION_PRESETS,
 } from "../core/operationPresets";
 import type { OperationPreset } from "../core/types";
-import { getVisibleWindow } from "./navigation";
+import { clampIndex, getVisibleWindow } from "./navigation";
 
 // Run state for the Operations workspace, shaped after the read-only SFTP session
 // diagnostic in `src/core/sftp.ts`: every transition returns a new value rather
@@ -68,9 +68,7 @@ export function selectOperationPreset(
 	presets: OperationPreset[],
 	selectedIndex: number,
 ): OperationPreset | undefined {
-	return presets.length === 0
-		? undefined
-		: presets[Math.min(Math.max(selectedIndex, 0), presets.length - 1)];
+	return presets[clampIndex(selectedIndex, presets.length)];
 }
 
 // Terminal state for a monitor run, including the wording. Kept here rather than
@@ -214,10 +212,7 @@ export function formatOperationsWorkspaceRows(
 	const listRows = Math.max(1, options.visibleRows - controlRows.length - 3);
 	// Clamped here rather than trusted, because the shelf can shrink underneath a
 	// held selection when a preset is removed through the CLI while the TUI is open.
-	const selectedIndex = Math.min(
-		Math.max(options.selectedIndex, 0),
-		Math.max(0, presets.length - 1),
-	);
+	const selectedIndex = clampIndex(options.selectedIndex, presets.length);
 	const window = getVisibleWindow(presets.length, selectedIndex, listRows);
 	const rows = [
 		`OPERATIONS PRESETS saved=${presets.length} max=${MAX_OPERATION_PRESETS}`,

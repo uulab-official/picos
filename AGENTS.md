@@ -45,6 +45,7 @@ bun run harness sftp
 ## Architecture Rules
 
 - `src/tui` owns keyboard-driven panels and visual state.
+- Clamp a list index with `clampIndex()` from `src/tui/navigation.ts` rather than inline arithmetic. The inline form was spelled three ways, two of which omitted the lower bound and one of which indexed an empty list at `-1`; all three happened to work, for different reasons.
 - Nothing under `tests/` touches `src/tui/App.tsx`, so any decision left inside a component callback is unverified by construction. Put guards, selection resolution, state transitions, and message wording in a sibling `src/tui/*.ts` module with a test, and keep the component to wiring and I/O. Every defect found reviewing the Operations workspace lived in logic that had been written inline.
 - A long-running TUI action must be identified by a token, not tracked with a shared boolean. A boolean let a superseded run clear the current run's cancellation and publish onto its progress; comparing tokens makes a superseded loop unable to do either.
 - An in-flight status set is not just the obvious one. Treat every non-terminal status as busy, including a `cancelling` state, or a second action will start while the first is still running.

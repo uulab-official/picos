@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	clampIndex,
 	enterFocus,
 	getLocationShortcutIndex,
 	getNextIndex,
@@ -100,5 +101,22 @@ describe("TUI navigation", () => {
 		expect(getLocationShortcutIndex("0", 4)).toBeUndefined();
 		expect(getLocationShortcutIndex("x", 4)).toBeUndefined();
 		expect(getLocationShortcutIndex("1", 0)).toBeUndefined();
+	});
+});
+
+describe("index clamping", () => {
+	test("keeps an index inside the list and survives an empty one", () => {
+		expect(clampIndex(0, 3)).toBe(0);
+		expect(clampIndex(2, 3)).toBe(2);
+		expect(clampIndex(9, 3)).toBe(2);
+		// The lower bound two of the replaced spellings omitted. A negative index
+		// used to survive, which would have indexed past the start of the list.
+		expect(clampIndex(-1, 3)).toBe(0);
+		expect(clampIndex(-99, 3)).toBe(0);
+		// Zero for an empty list, so a caller can index straight into it and get
+		// undefined rather than having to guard the length separately.
+		expect(clampIndex(0, 0)).toBe(0);
+		expect(clampIndex(5, 0)).toBe(0);
+		expect(clampIndex(-5, 0)).toBe(0);
 	});
 });
