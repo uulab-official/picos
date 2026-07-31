@@ -1,0 +1,159 @@
+import { describe, expect, test } from "bun:test";
+import {
+	advanceOperationRun,
+	finishOperationRun,
+	formatOperationRunAuditMessage,
+	formatOperationRunProgressRows,
+	requestOperationRunCancellation,
+	startOperationRun,
+} from "../src/tui/operationRunPanel";
+
+const monitorPreset = {
+	id: "pulse",
+	kind: "monitor",
+	samples: 10,
+	intervalMs: 500,
+} as const;
+
+const logsPreset = {
+	id: "errors",
+	kind: "logs",
+	limit: 20,
+	level: "fail",
+	filter: "",
+} as const;
+
+describe("operations run control", () => {
+	test("starts a monitor run with the preset sample window", () => {
+		const run = startOperationRun(monitorPreset, 1000);
+
+		expect(run).toEqual({
+			presetId: "pulse",
+			kind: "monitor",
+			status: "running",
+			requestedCount: 10,
+			returnedCount: 0,
+			intervalMs: 500,
+			startedAt: 1000,
+			message: "running read-only inspector",
+		});
+		expect(formatOperationRunProgressRows(run)).toEqual([
+			"OPERATIONS RUN CONTROL pulse",
+			"status=running preset=pulse sample=0/10 interval=500 elapsed=running",
+			"kind=monitor running read-only inspector",
+			"controls=X cancel run",
+		]);
+	});
+
+	test("reports a single unit of work for kinds that take one reading", () => {
+		const run = startOperationRun(logsPreset, 1000);
+
+		expect(run.requestedCount).toBe(1);
+		expect(run.intervalMs).toBe(0);
+		expect(formatOperationRunProgressRows(run)[1]).toBe(
+			"status=running preset=errors sample=0/1 interval=- elapsed=running",
+		);
+		// A logs run is one collector call bounded by its own timeout, so there is
+		// no window to interrupt and the control row says so instead of offering a
+		// key that would do nothing.
+		expect(formatOperationRunProgressRows(run).at(-1)).toBe(
+			"controls=run is a single bounded call · no cancel",
+		);
+	});
+
+	test("advances the sample counter monotonically within the window", () => {
+		const run = startOperationRun(monitorPreset, 1000);
+
+		expect(advanceOperationRun(run, 3).returnedCount).toBe(3);
+		// Never walks backwards, even if a later report arrives out of order.
+		expect(
+			advanceOperationRun(advanceOperationRun(run, 3), 2).returnedCount,
+		).toBe(3);
+		// Never exceeds what was requested.
+		expect(advanceOperationRun(run, 99).returnedCount).toBe(10);
+		// An unchanged count returns the same value rather than a new object, so a
+		// re-render is not triggered for every no-op report.
+		const advanced = advanceOperationRun(run, 3);
+		expect(advanceOperationRun(advanced, 3)).toBe(advanced);
+	});
+
+	test("only offers cancellation for the kind that has a window to stop", () => {
+		const monitorRun = startOperationRun(monitorPreset, 1000);
+		const cancelling = requestOperationRunCancellation(monitorRun);
+
+		expect(cancelling.status).toBe("cancelling");
+		expect(cancelling.message).toBe(
+			"cancellation requested; finishing current sample",
+		);
+		// Still cancellable-looking in the control row, because the current sample
+		// is still in flight until the collector returns.
+		expect(formatOperationRunProgressRows(cancelling).at(-1)).toBe(
+			"controls=X cancel run",
+		);
+
+		const logsRun = startOperationRun(logsPreset, 1000);
+
+		expect(requestOperationRunCancellation(logsRun)).toBe(logsRun);
+		// A finished run cannot be cancelled either.
+		const done = finishOperationRun(monitorRun, "completed", "done", 1500);
+		expect(requestOperationRunCancellation(done)).toBe(done);
+	});
+
+	test("records duration and a retry control on a stopped run", () => {
+		const stopped = finishOperationRun(
+			advanceOperationRun(startOperationRun(monitorPreset, 1000), 3),
+			"cancelled",
+			"stopped by operator",
+			1750,
+		);
+
+		expect(stopped.durationMs).toBe(750);
+		expect(formatOperationRunProgressRows(stopped)).toEqual([
+			"OPERATIONS RUN CONTROL pulse",
+			"status=cancelled preset=pulse sample=3/10 interval=500 elapsed=750ms",
+			"kind=monitor stopped by operator",
+			"controls=R retry via exact confirmation · enter run again",
+		]);
+	});
+
+	test("formats an idle control block when nothing has run", () => {
+		expect(formatOperationRunProgressRows()).toEqual([
+			"OPERATIONS RUN CONTROL none",
+			"status=idle preset=none sample=0/0 interval=- elapsed=-",
+			"controls=enter run selected preset",
+		]);
+	});
+
+	test("emits audit rows with a fixed prefix and a closed status set", () => {
+		const run = startOperationRun(monitorPreset, 1000);
+
+		// `started` is its own row so a run cancelled before its second sample still
+		// leaves a trace that it ran.
+		expect(formatOperationRunAuditMessage(run)).toBe(
+			"operations run started pulse samples=0/10",
+		);
+
+		const partial = advanceOperationRun(run, 3);
+
+		// `cancelling` is transient and is followed by a terminal row, so it would
+		// only duplicate the trail.
+		expect(
+			formatOperationRunAuditMessage(requestOperationRunCancellation(partial)),
+		).toBeUndefined();
+		expect(
+			formatOperationRunAuditMessage(
+				finishOperationRun(partial, "cancelled", "stopped", 1750),
+			),
+		).toBe("operations run cancelled pulse samples=3/10");
+		expect(
+			formatOperationRunAuditMessage(
+				finishOperationRun(
+					advanceOperationRun(run, 10),
+					"completed",
+					"done",
+					1750,
+				),
+			),
+		).toBe("operations run completed pulse samples=10/10");
+	});
+});

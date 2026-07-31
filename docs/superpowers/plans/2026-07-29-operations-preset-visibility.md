@@ -153,3 +153,5 @@ The first of those now exists in the core, which is the part that had to be sett
 - `cancelled` is explicit even though `samples.length < requestedCount` implies it, for the same reason `data.limitReached` is explicit on the logs side: the derivation is only sound for a reader who already knows the two counts are otherwise always equal.
 
 What is deliberately **not** done: nothing calls it yet. Both CLI callers still pass four arguments and take the default predicate, so cancellation is dormant capability rather than reachable behaviour. That is the intended state, because the caller that needs it is the workspace, and the workspace still needs its remaining three prerequisites.
+
+Those three are UX decisions rather than engineering ones, so they are written up separately as options with precedent and recommended defaults in [2026-07-29-operations-workspace-options.md](2026-07-29-operations-workspace-options.md), to be agreed before any of it is built. That document also records why monitor cancellation is partial-result based while the SFTP session is error-based, since the two modules would otherwise look inconsistent.
