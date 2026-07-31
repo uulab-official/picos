@@ -470,11 +470,14 @@ import {
 import { createNetworkTimelineEvents } from "./networkTimeline";
 import {
 	advanceOperationRun,
+	canStartOperationRun,
+	finishMonitorOperationRun,
 	finishOperationRun,
 	formatOperationRunAuditMessage,
 	formatOperationsWorkspaceRows,
 	type OperationRunProgress,
 	requestOperationRunCancellation,
+	selectOperationPreset,
 	startOperationRun,
 } from "./operationRunPanel";
 import {
@@ -4802,20 +4805,14 @@ export function App(): React.ReactElement {
 	}, [log]);
 
 	const runSelectedOperationPreset = useCallback(async () => {
-		// `cancelling` is an in-flight status, not an idle one. Treating it as idle
-		// let `X` then `enter` start a second run while the first was still sampling.
-		const inFlight = operationRunRef.current?.status;
-		if (inFlight === "running" || inFlight === "cancelling") {
+		if (!canStartOperationRun(operationRunRef.current)) {
 			log("warn", "an operation run is already in flight");
 			return;
 		}
-		const preset =
-			operationPresets[
-				Math.min(
-					Math.max(selectedOperationPresetIndex, 0),
-					Math.max(0, operationPresets.length - 1),
-				)
-			];
+		const preset = selectOperationPreset(
+			operationPresets,
+			selectedOperationPresetIndex,
+		);
 		if (!preset) {
 			log("warn", "no operation preset selected");
 			return;
@@ -4860,15 +4857,10 @@ export function App(): React.ReactElement {
 				);
 				returned = series.samples.length;
 				setSystemMonitor(series.samples.at(-1));
-				const outcome = series.cancelled
-					? ("cancelled" as const)
-					: ("completed" as const);
-				const finished = finishOperationRun(
-					advanceOperationRun(operationRunRef.current ?? started, returned),
-					outcome,
-					series.cancelled
-						? `stopped after ${returned} of ${series.requestedCount} samples`
-						: `collected ${returned} samples`,
+				const finished = finishMonitorOperationRun(
+					operationRunRef.current ?? started,
+					returned,
+					series.cancelled,
 				);
 				publish(finished);
 				const audit = formatOperationRunAuditMessage(finished);

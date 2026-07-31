@@ -45,6 +45,10 @@ bun run harness sftp
 ## Architecture Rules
 
 - `src/tui` owns keyboard-driven panels and visual state.
+- Nothing under `tests/` touches `src/tui/App.tsx`, so any decision left inside a component callback is unverified by construction. Put guards, selection resolution, state transitions, and message wording in a sibling `src/tui/*.ts` module with a test, and keep the component to wiring and I/O. Every defect found reviewing the Operations workspace lived in logic that had been written inline.
+- A long-running TUI action must be identified by a token, not tracked with a shared boolean. A boolean let a superseded run clear the current run's cancellation and publish onto its progress; comparing tokens makes a superseded loop unable to do either.
+- An in-flight status set is not just the obvious one. Treat every non-terminal status as busy, including a `cancelling` state, or a second action will start while the first is still running.
+- A control row must never advertise a key that cannot act. If a run has no interruptible window, say so in the row instead of offering the cancel key.
 - `src/cli` owns command parsing and output.
 - `src/core` owns platform-neutral behavior and metadata.
 - `src/core/sftp.ts` owns SSH/SFTP transport and exposes only the shared read-only `FileProvider` surface.
@@ -62,6 +66,9 @@ bun run harness sftp
 - Saved operation presets must stay declarative: store validated inspector options only, never a command string, re-validate on load, keep the preset shelf bounded, require exact `save operation preset <id>` / `remove operation preset <id>` confirmation for config writes, keep `operationPresets` out of generic `picos config set`, and never let a preset run something the direct command cannot.
 - Bounded monitor sampling must stay inside its sample-count, interval, and interval-span limits so no preset or CLI flag can turn picos into a long-running background collector. The span cap is not a wall-clock guarantee, because each sample also runs a collector bounded by its own `safeExec()` timeout; never document it as one.
 - A preset write that drops another saved preset must report what it dropped in both the JSON and plain-text forms; the bounded shelf may evict, but never silently.
+- A reference point used to judge identity must never be fabricated when it is missing. A synthesized baseline is not persisted, so it is re-derived on every read and always reports agreement, which silently disables the check; leave it absent and report `unknown` instead.
+- State an identity verdict no more strongly than its weakest path supports. Comparing two wall-clock instants is sound; comparing a kernel-reported age against the wall clock can invert under a clock step, so document that as evidence rather than proof and prefer the absolute value where a platform supplies one.
+- A result that could be read as reassuring must say when it is bounded rather than complete. A log query capped before filtering, or an identity check with no baseline, has to publish that fact rather than leaving a consumer to infer it from counts.
 - The published operation preset contract must be derived from the same constants the preset validators enforce, never hand-copied; changing a bound or default requires updating the contract test in the same change. The published id pattern must come from the enforcing regular expression's `source`, not a copied string.
 - The contract catalog must stay keyed by the preset kind union so a new preset kind cannot ship without its published contract, and published field names must keep matching the preset input keys.
 - `picos operations kinds` must answer from the built-in catalog without reading config, and must keep returning copies so callers cannot mutate the catalog.

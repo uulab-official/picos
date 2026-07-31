@@ -51,6 +51,48 @@ export function startOperationRun(
 	};
 }
 
+// Extracted from the run callback in `App.tsx` on purpose. Nothing under `tests/`
+// touches that file, so any decision left inside it is unverified by construction,
+// and three of the defects found reviewing this feature lived exactly there. The
+// I/O stays in the component; the decisions live here.
+//
+// `cancelling` is in-flight, not idle. Reading it as idle let a second run start
+// while the first was still sampling, and the second run then un-cancelled it.
+export function canStartOperationRun(current?: OperationRunProgress): boolean {
+	return current?.status !== "running" && current?.status !== "cancelling";
+}
+
+// Clamped rather than indexed directly, because the shelf shrinks underneath a
+// held selection when a preset is removed through the CLI while the TUI is open.
+export function selectOperationPreset(
+	presets: OperationPreset[],
+	selectedIndex: number,
+): OperationPreset | undefined {
+	return presets.length === 0
+		? undefined
+		: presets[Math.min(Math.max(selectedIndex, 0), presets.length - 1)];
+}
+
+// Terminal state for a monitor run, including the wording. Kept here rather than
+// composed inline at the call site so the outcome selection and the message are
+// both covered by a test.
+export function finishMonitorOperationRun(
+	progress: OperationRunProgress,
+	returnedCount: number,
+	cancelled: boolean,
+	now = Date.now(),
+): OperationRunProgress {
+	const advanced = advanceOperationRun(progress, returnedCount);
+	return finishOperationRun(
+		advanced,
+		cancelled ? "cancelled" : "completed",
+		cancelled
+			? `stopped after ${advanced.returnedCount} of ${advanced.requestedCount} samples`
+			: `collected ${advanced.returnedCount} samples`,
+		now,
+	);
+}
+
 export function advanceOperationRun(
 	progress: OperationRunProgress,
 	returnedCount: number,

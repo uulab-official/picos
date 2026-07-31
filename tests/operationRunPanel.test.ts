@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
 	advanceOperationRun,
+	canStartOperationRun,
+	finishMonitorOperationRun,
 	finishOperationRun,
 	formatOperationRunAuditMessage,
 	formatOperationRunProgressRows,
 	formatOperationsWorkspaceRows,
 	requestOperationRunCancellation,
+	selectOperationPreset,
 	startOperationRun,
 } from "../src/tui/operationRunPanel";
 
@@ -255,5 +258,61 @@ describe("operations run cancellation window", () => {
 				visibleRows: 20,
 			})[1],
 		).toBe("no saved operation presets · picos operations save <id> <kind>");
+	});
+});
+
+describe("operations run decisions", () => {
+	test("treats a cancelling run as in flight, not as idle", () => {
+		const running = startOperationRun(monitorPreset, 1000);
+
+		expect(canStartOperationRun(undefined)).toBeTrue();
+		expect(canStartOperationRun(running)).toBeFalse();
+		// The defect this guards: `cancelling` read as idle allowed a second run to
+		// start and clear the first run's cancellation.
+		expect(
+			canStartOperationRun(requestOperationRunCancellation(running)),
+		).toBeFalse();
+		expect(
+			canStartOperationRun(
+				finishOperationRun(running, "completed", "done", 1500),
+			),
+		).toBeTrue();
+		expect(
+			canStartOperationRun(
+				finishOperationRun(running, "cancelled", "stopped", 1500),
+			),
+		).toBeTrue();
+	});
+
+	test("resolves a selection that outran the shelf", () => {
+		expect(selectOperationPreset([monitorPreset, logsPreset], 1)?.id).toBe(
+			"errors",
+		);
+		expect(selectOperationPreset([monitorPreset, logsPreset], 9)?.id).toBe(
+			"errors",
+		);
+		expect(selectOperationPreset([monitorPreset], -1)?.id).toBe("pulse");
+		expect(selectOperationPreset([], 0)).toBeUndefined();
+	});
+
+	test("words a monitor outcome from what was actually collected", () => {
+		const running = startOperationRun(monitorPreset, 1000);
+
+		expect(finishMonitorOperationRun(running, 10, false, 1750)).toMatchObject({
+			status: "completed",
+			returnedCount: 10,
+			message: "collected 10 samples",
+			durationMs: 750,
+		});
+		expect(finishMonitorOperationRun(running, 3, true, 1750)).toMatchObject({
+			status: "cancelled",
+			returnedCount: 3,
+			message: "stopped after 3 of 10 samples",
+		});
+		// A count beyond the request is clamped before it reaches the wording, so the
+		// row can never read "collected 99 samples" for a ten-sample window.
+		expect(finishMonitorOperationRun(running, 99, false, 1750).message).toBe(
+			"collected 10 samples",
+		);
 	});
 });
