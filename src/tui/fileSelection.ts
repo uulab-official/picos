@@ -4,6 +4,7 @@ import {
 	type ClipboardPreview,
 	createClipboardPreview,
 } from "./clipboardPreview";
+import { clampIndex } from "./navigation";
 
 export function formatSelectedFilePathRows(
 	entries: FileEntry[],
@@ -97,7 +98,7 @@ function getSelectedFileEntry(
 	entries: FileEntry[],
 	selectedIndex: number,
 ): FileEntry | undefined {
-	return entries[Math.min(Math.max(selectedIndex, 0), entries.length - 1)];
+	return entries[clampIndex(selectedIndex, entries.length)];
 }
 
 function formatPathBreadcrumb(path: string, maxSegments = 5): string {

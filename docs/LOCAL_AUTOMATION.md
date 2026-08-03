@@ -7,6 +7,10 @@ picos exposes versioned JSON snapshots for its primary read-only local OS and ne
 ```bash
 picos info --json
 picos info --full --json
+picos locations --json
+picos drives --json
+picos remotes --json
+picos release-health --json
 picos routes --json
 picos routes --filter utun --sort interface --json
 picos route 8.8.8.8 --json
@@ -58,6 +62,18 @@ Every successful document contains `schemaVersion`, `command`, and `status=compl
 - route diagnostics where applicable
 
 `route` records the requested destination, source-command status, gateway, interface, and source IP when the platform exposes them.
+
+`locations` and `drives` return the same bounded file-location entries with
+`label`, redacted `path`, and `kind`. Their `data` blocks include
+`totalCount`, `returnedCount`, `limit`, `byteLimit`, and `truncated`.
+
+`remotes` returns configured SFTP profile metadata without private-key paths or
+credentials. The response is bounded by an entry limit and a 4 MiB document
+limit, and reports `totalCount`, `returnedCount`, and `truncated`.
+
+`release-health` returns normalized package, artifact, CI, and release workflow
+check rows. A completed but unhealthy report keeps `status=completed` in the
+document and exits non-zero, matching the plain-text command's failure status.
 
 `doctor` returns eight stable check IDs under `data.checks`, plus `passCount`, `warnCount`, `failCount`, `checkCount`, and `healthy`. A failed individual network probe remains a normalized check instead of aborting the full report.
 

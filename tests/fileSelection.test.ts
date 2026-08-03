@@ -53,6 +53,15 @@ describe("TUI file selection", () => {
 		expect(getSelectedFilePathClipboardPreview([], 0)).toBeUndefined();
 	});
 
+	test("clamps file selection indexes through the shared navigation guard", () => {
+		expect(formatSelectedFilePathRows(entries, -10)[0]).toBe(
+			"SELECTED PATH ..",
+		);
+		expect(formatSelectedFilePathRows(entries, 99)[0]).toBe(
+			"SELECTED PATH README.md",
+		);
+	});
+
 	test("formats compact root and selected breadcrumbs", () => {
 		expect(
 			formatFileBreadcrumbRows(

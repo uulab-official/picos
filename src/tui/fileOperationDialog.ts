@@ -7,6 +7,7 @@ export type FileOperationPreview = {
 	kind: FileOperationKind;
 	title: string;
 	path: string;
+	destination?: string;
 	targetHint: string;
 	risk: ActionRisk;
 	privilege: ActionPrivilege;
@@ -90,4 +91,28 @@ export function clearFileOperationDialog(
 	_state: FileOperationDialogState,
 ): FileOperationDialogState {
 	return { active: false };
+}
+
+export function setFileOperationDestination(
+	state: FileOperationDialogState,
+	destination: string,
+): FileOperationDialogState {
+	if (!state.active || state.preview.kind === "delete") {
+		return state;
+	}
+
+	const nextDestination = destination.trim();
+	if (!nextDestination) {
+		return state;
+	}
+
+	return {
+		active: true,
+		preview: {
+			...state.preview,
+			destination: nextDestination,
+			targetHint: nextDestination,
+			reason: "locked until exact confirmation",
+		},
+	};
 }

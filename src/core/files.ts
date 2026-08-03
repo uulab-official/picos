@@ -1,4 +1,13 @@
-import { lstat, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import {
+	cp,
+	lstat,
+	readdir,
+	readFile,
+	rename,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, posix, resolve } from "node:path";
 import { formatSftpProfileUri } from "./sftp";
@@ -38,6 +47,9 @@ export type FileProvider = {
 	list(path: string): Promise<FileEntry[]>;
 	read(path: string, options?: { maxBytes?: number }): Promise<FileReadResult>;
 	write(path: string, content: string): Promise<void>;
+	copy?(path: string, destination: string): Promise<void>;
+	move?(path: string, destination: string): Promise<void>;
+	remove?(path: string): Promise<void>;
 	stat(path: string): Promise<FileEntry>;
 	close?(): Promise<void>;
 };
@@ -146,6 +158,34 @@ export function createLocalFileProvider(
 			}
 			await writeFile(resolvePath(path), content, "utf8");
 		},
+		async copy(path: string, destination: string) {
+			assertLocalWriteAllowed(options.allowWrites);
+			const source = resolvePath(path);
+			const target = resolvePath(destination);
+			assertDistinctPaths(source, target);
+			await cp(source, target, {
+				recursive: true,
+				errorOnExist: true,
+			});
+		},
+		async move(path: string, destination: string) {
+			assertLocalWriteAllowed(options.allowWrites);
+			const source = resolvePath(path);
+			const target = resolvePath(destination);
+			assertDistinctPaths(source, target);
+			await assertDestinationAvailable(target);
+			await rename(source, target);
+		},
+		async remove(path: string) {
+			assertLocalWriteAllowed(options.allowWrites);
+			const target = resolvePath(path);
+			if (target === resolvedRoot || isFilesystemRoot(target)) {
+				throw new Error(
+					"File removal cannot target a provider or filesystem root",
+				);
+			}
+			await rm(target, { recursive: true, force: false });
+		},
 		async stat(path: string) {
 			const fullPath = resolvePath(path);
 			const info = await stat(fullPath);
@@ -184,10 +224,41 @@ export function createSftpFileProviderPlaceholder(
 		async write() {
 			throw new Error("Remote writes require host and path confirmation");
 		},
+		async copy() {
+			throw new Error("Remote SFTP copy is disabled in read-only sessions");
+		},
+		async move() {
+			throw new Error("Remote SFTP move is disabled in read-only sessions");
+		},
+		async remove() {
+			throw new Error("Remote SFTP delete is disabled in read-only sessions");
+		},
 		async stat() {
 			throw new Error("SFTP adapter is not connected yet");
 		},
 	};
+}
+
+function assertLocalWriteAllowed(allowWrites = false): void {
+	if (!allowWrites) {
+		throw new Error("File writes require editor confirmation");
+	}
+}
+
+function assertDistinctPaths(source: string, destination: string): void {
+	if (source === destination) {
+		throw new Error("File operation source and destination must differ");
+	}
+}
+
+async function assertDestinationAvailable(destination: string): Promise<void> {
+	if (await lstat(destination).then(() => true, () => false)) {
+		throw new Error("File operation destination already exists");
+	}
+}
+
+function isFilesystemRoot(path: string): boolean {
+	return dirname(path) === path;
 }
 
 export function getSystemFileRoot(

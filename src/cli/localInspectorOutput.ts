@@ -40,6 +40,10 @@ const LOCAL_INSPECTOR_JSON_ROW_BUDGET =
 
 export type LocalInspectorCommand =
 	| "info"
+	| "locations"
+	| "drives"
+	| "remotes"
+	| "release-health"
 	| "routes"
 	| "route"
 	| "connections"
@@ -123,6 +127,35 @@ export function formatInfoJson(input: InfoJsonInput): string {
 	return stringifyCompleted("info", {
 		scope: input.scope,
 		data,
+	});
+}
+
+export function formatFileLocationsJson(
+	locations: Array<{ label: string; path: string; kind: string }>,
+	command: "locations" | "drives",
+): string {
+	const entries = locations
+		.slice(0, LOCAL_INSPECTOR_JSON_ENTRY_LIMIT)
+		.map((location) => ({
+			label: sanitizeText(location.label),
+			path: sanitizeText(location.path),
+			kind: sanitizeText(location.kind),
+		}));
+
+	return stringifyCompleted(command, {
+		request: { action: "list" },
+		source: {
+			kind: "picos-file-locations",
+			success: true,
+		},
+		data: {
+			totalCount: locations.length,
+			returnedCount: entries.length,
+			limit: LOCAL_INSPECTOR_JSON_ENTRY_LIMIT,
+			byteLimit: LOCAL_INSPECTOR_JSON_MAX_BYTES,
+			truncated: entries.length < locations.length,
+			locations: entries,
+		},
 	});
 }
 
@@ -857,13 +890,17 @@ const localInspectorCommands: Record<LocalInspectorCommand, true> = {
 	connections: true,
 	dns: true,
 	doctor: true,
+	drives: true,
 	handoffs: true,
 	info: true,
 	logs: true,
+	locations: true,
 	monitor: true,
 	operations: true,
 	ports: true,
 	process: true,
+	remotes: true,
+	"release-health": true,
 	route: true,
 	routes: true,
 	tools: true,

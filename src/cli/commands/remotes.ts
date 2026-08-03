@@ -19,12 +19,18 @@ import {
 import type { SftpRemoteProfile } from "../../core/types";
 import { ReportedCliError } from "../errors";
 import {
+	assertLocalJsonOptions,
+	isLocalJsonRequested,
+	reportLocalInspectorJsonFailure,
+} from "../localInspectorOutput";
+import {
 	deliverCliOutput,
 	isCliOutputWriteError,
 	writeCliOutput,
 } from "../output";
 import {
 	formatRemoteJsonFailure,
+	formatRemoteProfilesJson,
 	formatRemoteJsonSuccess,
 	sanitizeRemoteOutputText,
 } from "../remoteOutput";
@@ -60,9 +66,27 @@ export type GuardedRemoteFileRequest = {
 const DEFAULT_REMOTE_TIMEOUT_MS = 15_000;
 const MAX_KNOWN_HOSTS_BYTES = 4 * 1024 * 1024;
 
-export async function remotesCommand(): Promise<void> {
-	const config = await readConfig();
-	console.log(formatRemoteProfiles(config.remoteProfiles));
+export async function remotesCommand(
+	options: { json?: unknown } = {},
+): Promise<void> {
+	const jsonRequested = isLocalJsonRequested(options.json);
+	try {
+		const json = assertLocalJsonOptions(options);
+		const config = await readConfig();
+		if (json) {
+			await writeCliOutput(formatRemoteProfilesJson(config.remoteProfiles));
+			return;
+		}
+		console.log(formatRemoteProfiles(config.remoteProfiles));
+	} catch (caught) {
+		if (isCliOutputWriteError(caught)) throw caught;
+		if (jsonRequested) {
+			reportLocalInspectorJsonFailure("remotes", caught, {
+				request: { action: "list" },
+			});
+		}
+		throw caught;
+	}
 }
 
 export async function remoteCommand(

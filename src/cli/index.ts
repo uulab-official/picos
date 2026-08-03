@@ -120,9 +120,11 @@ export function createCli(): ReturnType<typeof cac> {
 	cli.command("pwd", "Print current picos file root").action(pwdCommand);
 	cli
 		.command("locations", "List system file locations")
+		.option("--json", "Emit one structured file-location result")
 		.action(locationsCommand);
 	cli
 		.command("remotes", "List configured remote file profiles")
+		.option("--json", "Emit one structured remote-profile result")
 		.action(remotesCommand);
 	cli
 		.command("remote <id>", "Inspect or read from a remote file profile")
@@ -137,6 +139,7 @@ export function createCli(): ReturnType<typeof cac> {
 		.action(remoteCommand);
 	cli
 		.command("drives", "List system drives and file locations")
+		.option("--json", "Emit one structured file-location result")
 		.action(drivesCommand);
 	cli.command("dir [path]", "List local files in DOS style").action(dirCommand);
 	cli.command("ls [path]", "List local files").action(lsCommand);
@@ -234,6 +237,7 @@ export function createCli(): ReturnType<typeof cac> {
 		.action(handoffsCommand);
 	cli
 		.command("release-health", "Check release automation health")
+		.option("--json", "Emit one structured release-health result")
 		.action(releaseHealthCommand);
 	cli
 		.command("dns [action]", "Show DNS information")

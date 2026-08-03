@@ -4,6 +4,7 @@ import {
 	clearFileOperationDialog,
 	createFileOperationPreview,
 	openFileOperationDialog,
+	setFileOperationDestination,
 } from "../src/tui/fileOperationDialog";
 
 const fileEntry: FileEntry = {
@@ -65,6 +66,23 @@ describe("TUI file operation dialog", () => {
 		expect(openFileOperationDialog("copy", parentEntry)).toEqual({
 			active: false,
 			error: "Select a real file or directory before opening an operation.",
+		});
+	});
+
+	test("records a destination before the exact confirmation step", () => {
+		const opened = openFileOperationDialog("copy", fileEntry);
+		const withDestination = setFileOperationDestination(
+			opened,
+			" /tmp/copy.md ",
+		);
+
+		expect(withDestination).toMatchObject({
+			active: true,
+			preview: {
+				destination: "/tmp/copy.md",
+				targetHint: "/tmp/copy.md",
+				reason: "locked until exact confirmation",
+			},
 		});
 	});
 });

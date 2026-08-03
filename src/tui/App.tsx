@@ -117,6 +117,10 @@ import {
 	withParentDirectoryEntry,
 } from "../core/files";
 import {
+	createFileOperationExecutionPlan,
+	runFileOperationExecutionPlan,
+} from "../core/fileOperations";
+import {
 	createEditorWritePreview,
 	formatEditorWritePreviewRows,
 } from "../core/fileWritePreview";
@@ -430,6 +434,7 @@ import {
 } from "./fileHistory";
 import {
 	clearFileOperationDialog,
+	setFileOperationDestination,
 	type FileOperationDialogState,
 	type FileOperationKind,
 	openFileOperationDialog,
@@ -1049,6 +1054,7 @@ export function App(): React.ReactElement {
 	// Separate from the inspection sequence on purpose: a slow inspection must not
 	// discard a fresh refresh, or the reverse.
 	const refreshTokenRef = useRef(0);
+	const fileOperationTokenRef = useRef(0);
 	const operationRunRef = useRef<OperationRunProgress | undefined>(undefined);
 	// Runs are identified by a token rather than tracked with a shared boolean. A
 	// boolean let a second run clear the first run's cancellation and then let the
@@ -2994,13 +3000,88 @@ export function App(): React.ReactElement {
 			);
 			setFileOperationDialog(dialog);
 			if (dialog.active) {
-				log("warn", `${dialog.preview.title} preview locked`);
+				setCommandLine(
+					openCommandLine(
+						kind === "delete"
+							? "file-operation-confirm"
+							: "file-operation-destination",
+					),
+				);
+				log(
+					"warn",
+					kind === "delete"
+						? `${dialog.preview.title} confirmation opened`
+						: `${dialog.preview.title} destination opened`,
+				);
 			} else if (dialog.error) {
 				log("warn", dialog.error);
 			}
 		},
 		[displayedFileEntries, log, selectedFileIndex],
 	);
+
+	const submitFileOperationDestinationCommand = useCallback(() => {
+		if (!fileOperationDialog.active) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "file operation destination missing preview");
+			return;
+		}
+		const destination = commandLine.value.trim();
+		if (!destination) {
+			log("warn", "file operation destination is required");
+			return;
+		}
+		const nextDialog = setFileOperationDestination(
+			fileOperationDialog,
+			destination,
+		);
+		setFileOperationDialog(nextDialog);
+		setCommandLine(openCommandLine("file-operation-confirm"));
+		log("info", `file operation destination set ${destination}`);
+	}, [commandLine.value, fileOperationDialog, log]);
+
+	const submitFileOperationConfirmCommand = useCallback(async () => {
+		if (!fileOperationDialog.active) {
+			setCommandLine((current) => closeCommandLine(current));
+			log("warn", "file operation confirmation missing preview");
+			return;
+		}
+
+		const plan = createFileOperationExecutionPlan({
+			kind: fileOperationDialog.preview.kind,
+			path: fileOperationDialog.preview.path,
+			destination: fileOperationDialog.preview.destination,
+			providerKind: fileProvider.kind,
+			confirmation: commandLine.value,
+			policy: { mode: editorSaveMode },
+		});
+		setCommandLine((current) => closeCommandLine(current));
+		setFileOperationDialog((current) => clearFileOperationDialog(current));
+
+		const token = beginRequest(fileOperationTokenRef.current);
+		fileOperationTokenRef.current = token;
+		const result = await runFileOperationExecutionPlan(plan, fileProvider);
+		if (isStaleRequest(fileOperationTokenRef.current, token)) {
+			return;
+		}
+		log(
+			result.success ? "ok" : "fail",
+			`file operation ${plan.kind} status=${result.audit.status} path=${plan.path}`,
+		);
+		if (result.error) {
+			log("warn", result.error);
+		}
+		if (result.success) {
+			await refreshFiles();
+		}
+	}, [
+		commandLine.value,
+		editorSaveMode,
+		fileOperationDialog,
+		fileProvider,
+		log,
+		refreshFiles,
+	]);
 
 	const openClipboardConfirmation = useCallback(
 		(preview: ClipboardConfirmationState["preview"]) => {
@@ -8332,6 +8413,14 @@ export function App(): React.ReactElement {
 				if (commandLine.prompt === "file-open") {
 					setFileOpenPlan(undefined);
 				}
+				if (
+					commandLine.prompt === "file-operation-destination" ||
+					commandLine.prompt === "file-operation-confirm"
+				) {
+					setFileOperationDialog((current) =>
+						clearFileOperationDialog(current),
+					);
+				}
 				if (commandLine.prompt === portProcessControlPrompt) {
 					setPortProcessControlPreview(false);
 				}
@@ -8383,9 +8472,13 @@ export function App(): React.ReactElement {
 																? "control confirmation cancelled"
 																: commandLine.prompt === "external-open"
 																	? "external open confirmation cancelled"
-																	: commandLine.prompt === "file-open"
-																		? "file open confirmation cancelled"
-																		: commandLine.prompt ===
+							: commandLine.prompt === "file-open"
+								? "file open confirmation cancelled"
+								: commandLine.prompt === "file-operation-destination"
+									? "file operation destination cancelled"
+									: commandLine.prompt === "file-operation-confirm"
+										? "file operation confirmation cancelled"
+								: commandLine.prompt ===
 																				"cleanup-export-archive"
 																			? "cleanup export archive cancelled"
 																			: commandLine.prompt ===
@@ -8541,6 +8634,10 @@ export function App(): React.ReactElement {
 					void submitExternalOpenCommand();
 				} else if (commandLine.prompt === "file-open") {
 					void submitFileOpenCommand();
+				} else if (commandLine.prompt === "file-operation-destination") {
+					submitFileOperationDestinationCommand();
+				} else if (commandLine.prompt === "file-operation-confirm") {
+					void submitFileOperationConfirmCommand();
 				} else if (commandLine.prompt === "cleanup-export-archive") {
 					void submitCleanupExportArchiveCommand();
 				} else if (commandLine.prompt === "tool-export-archive") {
@@ -14583,8 +14680,9 @@ function FilesWorkspace({
 					<Text>path {clip(fileOperationDialog.preview.path, 64)}</Text>
 					<Text>target {fileOperationDialog.preview.targetHint}</Text>
 					<Text color="yellow">
-						locked · confirm {fileOperationDialog.preview.confirmationPhrase} ·
-						enter reports lock · esc closes
+						{commandLine.prompt === "file-operation-destination"
+							? "enter destination path · enter continues · esc cancels"
+							: `locked · type ${fileOperationDialog.preview.confirmationPhrase} · enter confirms · esc cancels`}
 					</Text>
 				</Box>
 			) : null}

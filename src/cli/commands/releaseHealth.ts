@@ -4,6 +4,13 @@ import {
 	formatReleaseHealthRows,
 } from "../../core/release";
 import { VERSION } from "../../core/version";
+import {
+	assertLocalJsonOptions,
+	isLocalJsonRequested,
+	reportLocalInspectorJsonFailure,
+} from "../localInspectorOutput";
+import { formatReleaseHealthJson } from "../diagnosticOutput";
+import { isCliOutputWriteError, writeCliOutput } from "../output";
 
 type ReleaseHealthPackageJson = {
 	name: string;
@@ -20,30 +27,47 @@ export async function releaseHealthCommand(
 		ciWorkflow?: string;
 		releaseWorkflow?: string;
 		distExists?: boolean;
+		json?: unknown;
 	} = {},
 ): Promise<void> {
-	const packageJson =
-		options.packageJson ??
-		((await Bun.file("package.json").json()) as ReleaseHealthPackageJson);
-	const ciWorkflow =
-		options.ciWorkflow ?? readOptionalTextFile(".github/workflows/ci.yml");
-	const releaseWorkflow =
-		options.releaseWorkflow ??
-		readOptionalTextFile(".github/workflows/release.yml");
-	const report = createReleaseHealthReport({
-		packageName: packageJson.name,
-		packageVersion: packageJson.version,
-		runtimeVersion: VERSION,
-		publishAccess: packageJson.publishConfig?.access,
-		files: packageJson.files ?? [],
-		distExists: options.distExists ?? existsSync("dist/bin/picos.js"),
-		ciWorkflow,
-		releaseWorkflow,
-	});
+	const jsonRequested = isLocalJsonRequested(options.json);
+	try {
+		const json = assertLocalJsonOptions(options);
+		const packageJson =
+			options.packageJson ??
+			((await Bun.file("package.json").json()) as ReleaseHealthPackageJson);
+		const ciWorkflow =
+			options.ciWorkflow ?? readOptionalTextFile(".github/workflows/ci.yml");
+		const releaseWorkflow =
+			options.releaseWorkflow ??
+			readOptionalTextFile(".github/workflows/release.yml");
+		const report = createReleaseHealthReport({
+			packageName: packageJson.name,
+			packageVersion: packageJson.version,
+			runtimeVersion: VERSION,
+			publishAccess: packageJson.publishConfig?.access,
+			files: packageJson.files ?? [],
+			distExists: options.distExists ?? existsSync("dist/bin/picos.js"),
+			ciWorkflow,
+			releaseWorkflow,
+		});
 
-	console.log(formatReleaseHealthRows(report).join("\n"));
-	if (report.status === "fail") {
-		process.exitCode = 1;
+		if (json) {
+			await writeCliOutput(formatReleaseHealthJson(report));
+		} else {
+			console.log(formatReleaseHealthRows(report).join("\n"));
+		}
+		if (report.status === "fail") {
+			process.exitCode = 1;
+		}
+	} catch (caught) {
+		if (isCliOutputWriteError(caught)) throw caught;
+		if (jsonRequested) {
+			reportLocalInspectorJsonFailure("release-health", caught, {
+				request: { action: "check" },
+			});
+		}
+		throw caught;
 	}
 }
 
