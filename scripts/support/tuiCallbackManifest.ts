@@ -691,10 +691,10 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 				name,
 				owner:
 					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts",
-				classification: "delegated",
+				classification: "inline-decision",
 				slice: "network-panel-transitions",
 				reason:
-					"Panel modules delegate filter, section, selection, proposal, confirmation, preset, cleanup, and notice decisions; App applies state and performs I/O",
+					"Interface and DNS panel decisions are delegated, but unrelated dispatcher decisions remain inline in App",
 			};
 		}
 		return reason

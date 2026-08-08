@@ -50,6 +50,37 @@ export type SelectedInterface = {
 	selectedIndex: number;
 };
 
+export type InterfaceControlUnavailableReason =
+	| "no-interface"
+	| "selection-out-of-range"
+	| "missing-control-target"
+	| "unsupported-platform";
+
+export type InterfaceControlIntent =
+	| {
+			kind: "available";
+			keys: ["D", "U", "K", "enter", "C"];
+			row: "K locked controls";
+			selectedIndex: number;
+	  }
+	| {
+			kind: "unavailable";
+			keys: [];
+			reason: InterfaceControlUnavailableReason;
+			row: string;
+			selectedIndex: number;
+	  };
+
+export type InterfaceSelectionTransition =
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			copyPreview: false;
+			proposal: undefined;
+			confirmationResult: undefined;
+	  }
+	| { kind: "no-op"; selectedIndex: number };
+
 export type InterfaceSourceHandoffTransition =
 	| { kind: "handoff"; plan: InterfaceSourceHandoffPlan; selectedIndex: number }
 	| { kind: "notice"; notice: InterfacePanelNotice };
@@ -97,6 +128,65 @@ export function resolveSelectedInterface(
 	return {
 		selected: total ? summary?.interfaces[index] : undefined,
 		selectedIndex: index,
+	};
+}
+
+export function getInterfaceControlIntent(input: {
+	selectedIndex: number;
+	summary: NetworkSummary | undefined;
+}): InterfaceControlIntent {
+	const total = input.summary?.interfaces.length ?? 0;
+	if (!input.summary || total <= 0) {
+		return createUnavailableInterfaceControlIntent("no-interface");
+	}
+	if (input.selectedIndex < 0 || input.selectedIndex >= total) {
+		return createUnavailableInterfaceControlIntent("selection-out-of-range");
+	}
+	const selected = input.summary.interfaces[input.selectedIndex];
+	const proposal = createInterfaceStateProposal(selected, "disable", {
+		platform: input.summary.platform,
+		primaryInterfaceName: input.summary.primaryInterface?.name,
+		macosServiceNamesByDevice: input.summary.macosServiceNamesByDevice,
+	});
+	if (proposal.controlTarget?.confidence === "exact") {
+		return {
+			kind: "available",
+			keys: ["D", "U", "K", "enter", "C"],
+			row: "K locked controls",
+			selectedIndex: input.selectedIndex,
+		};
+	}
+	return createUnavailableInterfaceControlIntent(
+		proposal.controlTarget?.source === "unsupported-platform"
+			? "unsupported-platform"
+			: "missing-control-target",
+		input.selectedIndex,
+	);
+}
+
+export function prepareInterfaceSelectionTransition(input: {
+	direction: "up" | "down";
+	selectedIndex: number;
+	summary: NetworkSummary | undefined;
+}): InterfaceSelectionTransition {
+	const total = input.summary?.interfaces.length ?? 0;
+	if (total <= 0) {
+		return { kind: "no-op", selectedIndex: 0 };
+	}
+	const current = clampIndex(input.selectedIndex, total);
+	const selectedIndex =
+		input.direction === "down"
+			? (current + 1) % total
+			: (current - 1 + total) % total;
+	if (selectedIndex === input.selectedIndex) {
+		return { kind: "no-op", selectedIndex };
+	}
+	return {
+		kind: "selection",
+		selectedIndex,
+		copyPreview: false,
+		proposal: undefined,
+		confirmationResult: undefined,
 	};
 }
 
@@ -194,20 +284,18 @@ export function prepareInterfacePanelInput(input: {
 	if (input.input === "D" || input.input === "U") {
 		const action: InterfaceStateProposalAction =
 			input.input === "D" ? "disable" : "enable";
-		const selected = resolveSelectedInterface(
-			input.summary,
-			input.selectedIndex,
-		);
-		if (!selected.selected) {
+		const control = getInterfaceControlIntent(input);
+		if (control.kind === "unavailable") {
 			return {
 				kind: "no-op",
 				notice: {
 					level: "warn",
-					message: `no interface available for ${action} proposal`,
+					message: `interface ${action} proposal unavailable ${control.reason}`,
 				},
 			};
 		}
-		const proposal = createInterfaceStateProposal(selected.selected, action, {
+		const selected = input.summary?.interfaces[control.selectedIndex];
+		const proposal = createInterfaceStateProposal(selected, action, {
 			platform: input.summary?.platform,
 			primaryInterfaceName: input.summary?.primaryInterface?.name,
 			macosServiceNamesByDevice: input.summary?.macosServiceNamesByDevice,
@@ -216,7 +304,7 @@ export function prepareInterfacePanelInput(input: {
 			kind: "proposal",
 			proposal,
 			confirmationResult: undefined,
-			selectedIndex: selected.selectedIndex,
+			selectedIndex: control.selectedIndex,
 			notice: {
 				level: proposal.status === "ready" ? "warn" : "info",
 				message: `interface ${action} proposal ${proposal.status} target=${proposal.target?.name ?? "-"}`,
@@ -224,6 +312,16 @@ export function prepareInterfacePanelInput(input: {
 		};
 	}
 	if (input.input === "K" || input.input === "\r") {
+		const control = getInterfaceControlIntent(input);
+		if (control.kind === "unavailable") {
+			return {
+				kind: "no-op",
+				notice: {
+					level: "warn",
+					message: `interface confirmation unavailable ${control.reason}`,
+				},
+			};
+		}
 		return input.proposal
 			? {
 					kind: "confirmation",
@@ -241,6 +339,16 @@ export function prepareInterfacePanelInput(input: {
 				};
 	}
 	if (input.input === "C") {
+		const control = getInterfaceControlIntent(input);
+		if (control.kind === "unavailable") {
+			return {
+				kind: "no-op",
+				notice: {
+					level: "warn",
+					message: `interface controls unavailable ${control.reason}`,
+				},
+			};
+		}
 		return {
 			kind: "clear",
 			proposal: undefined,
@@ -364,12 +472,16 @@ export function formatInterfaceWorkspaceRows(
 		? selection.selectedIndex
 		: undefined;
 	const selected = selection.selected;
+	const control = getInterfaceControlIntent({
+		selectedIndex: options.selectedIndex ?? 0,
+		summary,
+	});
 	const header = `SUMMARY interfaces=${summary.interfaces.length} selected=${selected?.name ?? "-"} view=${view}`;
 
 	if (view === "detail") {
 		return [
 			header,
-			...formatSelectedInterfaceSummaryRows(summary, selected),
+			...formatSelectedInterfaceSummaryRows(summary, selected, control.row),
 			...formatInterfaceDetailRows(summary, selected),
 			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 			...formatInterfaceConfirmationResultRows(options.confirmationResult),
@@ -378,7 +490,7 @@ export function formatInterfaceWorkspaceRows(
 	if (view === "stats") {
 		return [
 			header,
-			...formatSelectedInterfaceSummaryRows(summary, selected),
+			...formatSelectedInterfaceSummaryRows(summary, selected, control.row),
 			...formatInterfaceStatsRows(selected),
 			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 			...formatInterfaceConfirmationResultRows(options.confirmationResult),
@@ -387,7 +499,7 @@ export function formatInterfaceWorkspaceRows(
 	if (view === "platform") {
 		return [
 			header,
-			...formatSelectedInterfaceSummaryRows(summary, selected),
+			...formatSelectedInterfaceSummaryRows(summary, selected, control.row),
 			...formatInterfacePlatformRows(summary),
 			...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 			...formatInterfaceConfirmationResultRows(options.confirmationResult),
@@ -396,7 +508,7 @@ export function formatInterfaceWorkspaceRows(
 	if (view === "source") {
 		return [
 			header,
-			...formatSelectedInterfaceSummaryRows(summary, selected),
+			...formatSelectedInterfaceSummaryRows(summary, selected, control.row),
 			...formatInterfaceSourceRows(summary, selected),
 			...(options.copyPreview
 				? formatInterfaceSourceClipboardPreviewRows(summary, selected)
@@ -408,7 +520,7 @@ export function formatInterfaceWorkspaceRows(
 
 	return [
 		header,
-		...formatSelectedInterfaceSummaryRows(summary, selected),
+		...formatSelectedInterfaceSummaryRows(summary, selected, control.row),
 		...formatInterfaceListRows(summary, selectedIndex),
 		...formatOptionalInterfaceStateProposalRows(options.stateProposal),
 		...formatInterfaceConfirmationResultRows(options.confirmationResult),
@@ -418,6 +530,7 @@ export function formatInterfaceWorkspaceRows(
 export function formatSelectedInterfaceSummaryRows(
 	summary: NetworkSummary,
 	selected: NetworkInterfaceSummary | undefined,
+	controlRow = "K locked controls",
 ): string[] {
 	if (!selected) {
 		return ["SELECTED none"];
@@ -431,8 +544,21 @@ export function formatSelectedInterfaceSummaryRows(
 		`ADDR ipv4=${selected.ipv4Cidr ?? selected.ipv4 ?? "-"} ipv6=${selected.ipv6Cidr ?? selected.ipv6 ?? "-"} mac=${selected.mac ?? "-"} netmask=${selected.netmask ?? "-"}`,
 		`LINK mtu=${selected.mtu ?? "-"} rx=${formatTraffic(selected.rxBytes, selected.rxPackets)} tx=${formatTraffic(selected.txBytes, selected.txPackets)}`,
 		`ROUTE gateway=${summary.gateway ?? "-"} dns=${formatDnsCompact(summary.dnsServers)} public=${summary.publicIp ?? "-"}`,
-		`SOURCE os=${summary.platform} stats=${platformStatsSource(summary.platform)} actions=R refresh Tab panes K locked controls`,
+		`SOURCE os=${summary.platform} stats=${platformStatsSource(summary.platform)} actions=R refresh Tab panes ${controlRow}`,
 	];
+}
+
+function createUnavailableInterfaceControlIntent(
+	reason: InterfaceControlUnavailableReason,
+	selectedIndex = 0,
+): InterfaceControlIntent {
+	return {
+		kind: "unavailable",
+		keys: [],
+		reason,
+		row: `controls unavailable ${reason}`,
+		selectedIndex,
+	};
 }
 
 export function formatInterfaceSourceRows(

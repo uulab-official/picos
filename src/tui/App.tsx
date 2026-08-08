@@ -438,11 +438,13 @@ import {
 } from "./fileWorkspaceTransitions";
 import {
 	formatInterfaceWorkspaceRows,
-	getNextInterfaceIndex,
+	getInterfaceControlIntent,
 	type InterfaceDetailView,
 	prepareInterfaceConfirmationTransition,
 	prepareInterfacePanelInput,
+	prepareInterfaceSelectionTransition,
 	prepareInterfaceSourceHandoff,
+	resolveSelectedInterface,
 	writeInterfaceSourceHandoffPlan,
 } from "./interfacePanel";
 import {
@@ -11612,11 +11614,17 @@ export function App(): React.ReactElement {
 					getNextIndex(index, operationPresets.length, "next"),
 				);
 			} else if (screen === "interfaces") {
-				setSelectedInterfaceIndex((index) =>
-					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "down"),
-				);
-				setInterfaceSourceCopyPreview(false);
-				setInterfaceStateProposal(undefined);
+				const transition = prepareInterfaceSelectionTransition({
+					direction: "down",
+					selectedIndex: selectedInterfaceIndex,
+					summary,
+				});
+				if (transition.kind === "selection") {
+					setSelectedInterfaceIndex(transition.selectedIndex);
+					setInterfaceSourceCopyPreview(transition.copyPreview);
+					setInterfaceStateProposal(transition.proposal);
+					setInterfaceConfirmationResult(transition.confirmationResult);
+				}
 			} else if (screen === "processes") {
 				setSelectedProcessFileIndex((index) =>
 					getNextIndex(
@@ -11666,11 +11674,17 @@ export function App(): React.ReactElement {
 					getNextIndex(index, operationPresets.length, "previous"),
 				);
 			} else if (screen === "interfaces") {
-				setSelectedInterfaceIndex((index) =>
-					getNextInterfaceIndex(index, summary?.interfaces.length ?? 0, "up"),
-				);
-				setInterfaceSourceCopyPreview(false);
-				setInterfaceStateProposal(undefined);
+				const transition = prepareInterfaceSelectionTransition({
+					direction: "up",
+					selectedIndex: selectedInterfaceIndex,
+					summary,
+				});
+				if (transition.kind === "selection") {
+					setSelectedInterfaceIndex(transition.selectedIndex);
+					setInterfaceSourceCopyPreview(transition.copyPreview);
+					setInterfaceStateProposal(transition.proposal);
+					setInterfaceConfirmationResult(transition.confirmationResult);
+				}
 			} else if (screen === "processes") {
 				setSelectedProcessFileIndex((index) =>
 					getNextIndex(
@@ -12980,13 +12994,10 @@ function renderWorkspace(
 						visibleStatusActivityResultTimelineJumps,
 						allStatusActivityResultTimelineJumps:
 							totalStatusActivityResultTimelineJumps,
-						selectedInterface:
-							summary?.interfaces[
-								Math.min(
-									Math.max(selectedInterfaceIndex, 0),
-									Math.max(0, (summary?.interfaces.length ?? 0) - 1),
-								)
-							],
+						selectedInterface: resolveSelectedInterface(
+							summary,
+							selectedInterfaceIndex,
+						).selected,
 						selectedInterfacePlatform: summary?.platform,
 						primaryInterfaceName: summary?.primaryInterface?.name,
 						macosServiceNamesByDevice: summary?.macosServiceNamesByDevice,
@@ -15085,6 +15096,7 @@ function InterfacesWorkspace({
 	visibleRows: number;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const control = getInterfaceControlIntent({ selectedIndex, summary });
 	const promptRows =
 		commandLine.active && commandLine.prompt === "interface-confirm"
 			? formatInterfaceConfirmationPromptRows(stateProposal, commandLine.value)
@@ -15110,8 +15122,11 @@ function InterfacesWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.interfaces")}</Text>
 			<Text color="gray">
-				interface console · j/k select · tab panes · D disable U enable ·
-				K/enter confirm-audit · C clear · source: c copy e export o open
+				interface console · j/k select · tab panes ·
+				{control.kind === "available"
+					? " D disable U enable · K/enter confirm-audit · C clear ·"
+					: ` ${control.row} ·`}
+				source: c copy e export o open
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{rows.map((row) => (
