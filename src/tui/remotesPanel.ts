@@ -620,7 +620,7 @@ export function prepareRemoteKnownHostsPasteSelection(input: {
 				closeCommandLine: true,
 				notice: {
 					level: "warn",
-					message: `remote known_hosts paste candidate command invalid ${profile.id} input=${input.selection.value || "empty"}`,
+					message: "remote known_hosts paste candidate selection invalid",
 				},
 			};
 		}
@@ -1083,21 +1083,43 @@ export function prepareRemoteConnectionCancellation(input: {
 }
 
 export type RemoteDisconnectTransition =
-	| { kind: "restore-local" }
+	| {
+			kind: "restore-local";
+			cancelActiveAttempt: boolean;
+			ownerRunToken?: number;
+	  }
 	| { kind: "notice"; notice: RemotesPanelNotice };
 
-export function prepareRemoteDisconnect(
-	hasRemoteSession: boolean,
-): RemoteDisconnectTransition {
-	return hasRemoteSession
-		? { kind: "restore-local" }
-		: {
-				kind: "notice",
-				notice: {
-					level: "info",
-					message: "no read-only SFTP session connected",
-				},
-			};
+export function prepareRemoteDisconnect(input: {
+	hasRemoteSession: boolean;
+	diagnostic?: ReadOnlySftpConnectionDiagnostic;
+	activeRunToken?: number;
+	currentRunToken: number;
+	hasPendingConnection: boolean;
+}): RemoteDisconnectTransition {
+	const hasLiveAttempt =
+		input.diagnostic?.status === "connecting" ||
+		input.diagnostic?.status === "cancelling";
+	if (!input.hasRemoteSession && !hasLiveAttempt) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "info",
+				message: "no read-only SFTP session connected",
+			},
+		};
+	}
+	const ownsActiveAttempt = Boolean(
+		hasLiveAttempt &&
+			input.hasPendingConnection &&
+			input.activeRunToken !== undefined &&
+			input.activeRunToken === input.currentRunToken,
+	);
+	return {
+		kind: "restore-local",
+		cancelActiveAttempt: ownsActiveAttempt,
+		...(ownsActiveAttempt ? { ownerRunToken: input.activeRunToken } : {}),
+	};
 }
 
 export type RemoteDisconnectPublication =
@@ -1118,15 +1140,40 @@ export function classifyRemoteDisconnectPublication(input: {
 	currentDiagnosticSequence: number;
 	requestDiagnosticSequence: number;
 	diagnostic?: ReadOnlySftpConnectionDiagnostic;
+	localRestored?: boolean;
 }): RemoteDisconnectPublication {
 	if (input.currentDiagnosticSequence !== input.requestDiagnosticSequence) {
 		return { status: "stale", publishCurrent: false };
+	}
+	if (
+		input.diagnostic?.status === "connecting" ||
+		input.diagnostic?.status === "cancelling"
+	) {
+		return {
+			status: "current",
+			publishCurrent: true,
+			diagnostic: finishReadOnlySftpConnectionDiagnostic(
+				input.diagnostic,
+				"cancelled",
+				"SFTP connection cancelled by operator during disconnect",
+			),
+			notice: {
+				level: "warn",
+				message:
+					input.localRestored === false
+						? "pending read-only SFTP connection cancelled; local filesystem restore failed"
+						: "pending read-only SFTP connection cancelled; local filesystem restored",
+			},
+		};
 	}
 	const notice = {
 		level: "info",
 		message: "read-only SFTP session closed; local filesystem restored",
 	} as const;
-	if (input.diagnostic?.status !== "connected") {
+	if (
+		input.diagnostic?.status !== "connected" ||
+		input.localRestored === false
+	) {
 		return { status: "current", publishCurrent: false, notice };
 	}
 	return {
@@ -1157,19 +1204,29 @@ export function classifyRemoteConnectionPublication(input: {
 	requestRunToken: number;
 	attempt: ReadOnlySftpConnectionDiagnostic;
 	currentDiagnostic?: ReadOnlySftpConnectionDiagnostic;
+	connectionAborted?: boolean;
+	ownsPendingConnection?: boolean;
 	outcome: ReadOnlySftpConnectionOutcome & {
 		status: "connected" | "failed" | "cancelled";
 	};
 }): RemoteConnectionPublication {
 	const sameAttempt =
-		input.currentDiagnostic === undefined ||
-		(input.currentDiagnostic.id === input.attempt.id &&
-			input.currentDiagnostic.attempt === input.attempt.attempt &&
-			input.currentDiagnostic.startedAt === input.attempt.startedAt);
+		input.currentDiagnostic !== undefined &&
+		input.currentDiagnostic.id === input.attempt.id &&
+		input.currentDiagnostic.attempt === input.attempt.attempt &&
+		input.currentDiagnostic.startedAt === input.attempt.startedAt;
+	const currentStatusAllowsOutcome =
+		input.outcome.status === "connected"
+			? input.currentDiagnostic?.status === "connecting" &&
+				!input.connectionAborted &&
+				input.ownsPendingConnection !== false
+			: input.currentDiagnostic?.status === "connecting" ||
+				input.currentDiagnostic?.status === "cancelling";
 	const publishCurrent =
 		input.currentDiagnosticSequence === input.requestDiagnosticSequence &&
 		input.currentRunToken === input.requestRunToken &&
-		sameAttempt;
+		sameAttempt &&
+		currentStatusAllowsOutcome;
 	const auditMessage = formatReadOnlySftpConnectionAuditMessage(input.outcome);
 	const activityResult: StatusActivityResult = {
 		source: "timeline",

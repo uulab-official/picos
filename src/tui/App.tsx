@@ -2240,7 +2240,16 @@ export function App(): React.ReactElement {
 	}, [loadFiles]);
 
 	const disconnectRemoteFiles = useCallback(async () => {
-		const intent = prepareRemoteDisconnect(Boolean(remoteFileProvider));
+		const pendingController = pendingRemoteConnectRef.current;
+		const pendingProvider = pendingRemoteFileProviderRef.current;
+		const diagnostic = remoteConnectionDiagnosticRef.current;
+		const intent = prepareRemoteDisconnect({
+			hasRemoteSession: Boolean(remoteFileProvider),
+			diagnostic,
+			activeRunToken: activeRemoteConnectionRunTokenRef.current,
+			currentRunToken: remoteConnectionRunTokenRef.current,
+			hasPendingConnection: Boolean(pendingController),
+		});
 		if (intent.kind === "notice") {
 			log(intent.notice.level, intent.notice.message);
 			return;
@@ -2249,6 +2258,28 @@ export function App(): React.ReactElement {
 			remoteConnectionDiagnosticSequenceRef.current,
 		);
 		remoteConnectionDiagnosticSequenceRef.current = diagnosticSequence;
+		if (intent.cancelActiveAttempt) {
+			pendingController?.abort();
+			try {
+				await pendingProvider?.close?.();
+			} catch (caught) {
+				log(
+					"warn",
+					caught instanceof Error
+						? `pending SFTP session close failed ${caught.message}`
+						: `pending SFTP session close failed ${String(caught)}`,
+				);
+			}
+			if (pendingRemoteConnectRef.current === pendingController) {
+				pendingRemoteConnectRef.current = undefined;
+			}
+			if (pendingRemoteFileProviderRef.current === pendingProvider) {
+				pendingRemoteFileProviderRef.current = undefined;
+			}
+			if (activeRemoteConnectionRunTokenRef.current === intent.ownerRunToken) {
+				activeRemoteConnectionRunTokenRef.current = undefined;
+			}
+		}
 		const restored = await loadFiles(
 			{
 				path: systemFileRoot,
@@ -2273,20 +2304,22 @@ export function App(): React.ReactElement {
 						: `SFTP session close failed ${String(caught)}`,
 				);
 			}
-			const publication = classifyRemoteDisconnectPublication({
-				currentDiagnosticSequence:
-					remoteConnectionDiagnosticSequenceRef.current,
-				requestDiagnosticSequence: diagnosticSequence,
-				diagnostic: remoteConnectionDiagnosticRef.current,
-			});
-			if (publication.status === "current") {
-				if (publication.publishCurrent) {
-					remoteConnectionDiagnosticRef.current = publication.diagnostic;
-					setRemoteConnectionDiagnostic(publication.diagnostic);
-				}
-				setFocusArea("files");
-				log(publication.notice.level, publication.notice.message);
+		}
+		const publication = classifyRemoteDisconnectPublication({
+			currentDiagnosticSequence: remoteConnectionDiagnosticSequenceRef.current,
+			requestDiagnosticSequence: diagnosticSequence,
+			diagnostic,
+			localRestored: restored,
+		});
+		if (publication.status === "current") {
+			if (publication.publishCurrent) {
+				remoteConnectionDiagnosticRef.current = publication.diagnostic;
+				setRemoteConnectionDiagnostic(publication.diagnostic);
 			}
+			if (restored) {
+				setFocusArea("files");
+			}
+			log(publication.notice.level, publication.notice.message);
 		}
 	}, [loadFiles, localFileProvider, log, remoteFileProvider, systemFileRoot]);
 
@@ -4932,6 +4965,29 @@ export function App(): React.ReactElement {
 		);
 		remoteConnectionDiagnosticRef.current = attemptDiagnostic;
 		setRemoteConnectionDiagnostic(attemptDiagnostic);
+		const classifyConnectedAttempt = (target: string, message: string) =>
+			classifyRemoteConnectionPublication({
+				currentDiagnosticSequence:
+					remoteConnectionDiagnosticSequenceRef.current,
+				requestDiagnosticSequence: diagnosticSequence,
+				currentRunToken:
+					activeRemoteConnectionRunTokenRef.current ?? Number.NaN,
+				requestRunToken: runToken,
+				attempt: attemptDiagnostic,
+				currentDiagnostic: remoteConnectionDiagnosticRef.current,
+				connectionAborted: connectController.signal.aborted,
+				ownsPendingConnection:
+					pendingRemoteConnectRef.current === connectController,
+				outcome: {
+					status: "connected",
+					id: profile.id,
+					target,
+					host: profile.host,
+					port: profile.port,
+					fingerprint: candidate.fingerprint,
+					message,
+				},
+			});
 		beginCommand();
 		let pendingProvider: FileProvider | undefined;
 		try {
@@ -4939,17 +4995,28 @@ export function App(): React.ReactElement {
 				expectedHostKeyFingerprint: candidate.fingerprint,
 				signal: connectController.signal,
 			});
+			if (
+				!classifyConnectedAttempt(
+					preview.target,
+					"read-only SFTP transport connected",
+				).publishCurrent
+			) {
+				throw new ReadOnlySftpConnectionCancelledError();
+			}
 			pendingRemoteFileProviderRef.current = pendingProvider;
 			const root = await pendingProvider.pwd();
+			if (
+				!classifyConnectedAttempt(root, "read-only SFTP root resolved")
+					.publishCurrent
+			) {
+				throw new ReadOnlySftpConnectionCancelledError();
+			}
 			const entries = await pendingProvider.list(root);
 			if (
-				connectController.signal.aborted ||
-				pendingRemoteConnectRef.current !== connectController ||
-				activeRemoteConnectionRunTokenRef.current !== runToken ||
-				classifyRequestPublication(
-					remoteConnectionDiagnosticSequenceRef.current,
-					diagnosticSequence,
-				) === "stale"
+				!classifyConnectedAttempt(
+					root,
+					`read-only SFTP listing loaded entries=${entries.length}`,
+				).publishCurrent
 			) {
 				throw new ReadOnlySftpConnectionCancelledError();
 			}
@@ -4976,40 +5043,25 @@ export function App(): React.ReactElement {
 			if (!switched) {
 				throw new Error("SFTP provider switch was superseded or failed");
 			}
+			const publication = classifyConnectedAttempt(
+				root,
+				`read-only SFTP connected entries=${entries.length}`,
+			);
+			if (!publication.publishCurrent || !publication.diagnostic) {
+				throw new ReadOnlySftpConnectionCancelledError();
+			}
 			if (pendingRemoteFileProviderRef.current === pendingProvider) {
 				pendingRemoteFileProviderRef.current = undefined;
 			}
 			pendingProvider = undefined;
-			const outcome = {
-				status: "connected" as const,
-				id: profile.id,
-				target: root,
-				host: profile.host,
-				port: profile.port,
-				fingerprint: candidate.fingerprint,
-				message: `read-only SFTP connected entries=${entries.length}`,
-			};
-			const publication = classifyRemoteConnectionPublication({
-				currentDiagnosticSequence:
-					remoteConnectionDiagnosticSequenceRef.current,
-				requestDiagnosticSequence: diagnosticSequence,
-				currentRunToken:
-					activeRemoteConnectionRunTokenRef.current ?? Number.NaN,
-				requestRunToken: runToken,
-				attempt: attemptDiagnostic,
-				currentDiagnostic: remoteConnectionDiagnosticRef.current,
-				outcome,
-			});
-			if (publication.publishCurrent && publication.diagnostic) {
-				pendingRemoteConnectRef.current = undefined;
-				activeRemoteConnectionRunTokenRef.current = undefined;
-				setScreen("files");
-				setFocusArea("files");
-				remoteConnectionDiagnosticRef.current = publication.diagnostic;
-				setRemoteConnectionDiagnostic(publication.diagnostic);
-				log(publication.notice.level, publication.notice.message);
-				recordStatusActivityResult(publication.activityResult);
-			}
+			pendingRemoteConnectRef.current = undefined;
+			activeRemoteConnectionRunTokenRef.current = undefined;
+			setScreen("files");
+			setFocusArea("files");
+			remoteConnectionDiagnosticRef.current = publication.diagnostic;
+			setRemoteConnectionDiagnostic(publication.diagnostic);
+			log(publication.notice.level, publication.notice.message);
+			recordStatusActivityResult(publication.activityResult);
 			if (remoteFileProvider) {
 				try {
 					await remoteFileProvider.close?.();

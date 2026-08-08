@@ -248,6 +248,39 @@ describe("Remotes panel transitions", () => {
 		});
 	});
 
+	test("redacts arbitrary input from invalid paste candidate selection results", () => {
+		const submitted = prepareRemoteKnownHostsPasteSubmission({
+			profiles: [profile],
+			selectedIndex: 0,
+			value: knownHostsLine,
+		});
+		if (submitted.kind !== "review") {
+			throw new Error("expected parsed paste review");
+		}
+		const sensitiveInput =
+			"credential-user password=super-secret-password -----BEGIN OPENSSH PRIVATE KEY-----";
+		const invalid = prepareRemoteKnownHostsPasteSelection({
+			profiles: [profile],
+			selectedIndex: 0,
+			candidateSession: submitted.candidateSession,
+			pasteReviewSession: submitted.pasteReviewSession,
+			selection: { kind: "input", value: sensitiveInput },
+		});
+
+		expect(invalid).toEqual({
+			kind: "notice",
+			closeCommandLine: true,
+			notice: {
+				level: "warn",
+				message: "remote known_hosts paste candidate selection invalid",
+			},
+		});
+		const published = JSON.stringify(invalid);
+		expect(published).not.toContain("credential-user");
+		expect(published).not.toContain("super-secret-password");
+		expect(published).not.toContain("PRIVATE KEY");
+	});
+
 	test("owns provided host-key evidence and one-line known_hosts candidate state", () => {
 		const evidence = prepareRemoteHostKeyEvidenceSubmission({
 			profiles: [profile],
@@ -399,16 +432,66 @@ describe("Remotes panel transitions", () => {
 		});
 	});
 
-	test("guards disconnect I/O and suppresses stale disconnected diagnostics", () => {
-		expect(prepareRemoteDisconnect(false)).toEqual({
+	test("disconnect takes ownership only of the current pending attempt", () => {
+		expect(
+			prepareRemoteDisconnect({
+				hasRemoteSession: false,
+				diagnostic: undefined,
+				activeRunToken: undefined,
+				currentRunToken: 7,
+				hasPendingConnection: false,
+			}),
+		).toEqual({
 			kind: "notice",
 			notice: {
 				level: "info",
 				message: "no read-only SFTP session connected",
 			},
 		});
-		expect(prepareRemoteDisconnect(true)).toEqual({ kind: "restore-local" });
+		expect(
+			prepareRemoteDisconnect({
+				hasRemoteSession: true,
+				diagnostic: createDiagnostic("connecting"),
+				activeRunToken: 7,
+				currentRunToken: 7,
+				hasPendingConnection: true,
+			}),
+		).toEqual({
+			kind: "restore-local",
+			cancelActiveAttempt: true,
+			ownerRunToken: 7,
+		});
+		expect(
+			prepareRemoteDisconnect({
+				hasRemoteSession: true,
+				diagnostic: createDiagnostic("connecting"),
+				activeRunToken: 6,
+				currentRunToken: 7,
+				hasPendingConnection: true,
+			}),
+		).toEqual({
+			kind: "restore-local",
+			cancelActiveAttempt: false,
+		});
+	});
 
+	test("disconnect publishes terminal diagnostics for every live session state", () => {
+		for (const status of ["connecting", "cancelling"] as const) {
+			expect(
+				classifyRemoteDisconnectPublication({
+					currentDiagnosticSequence: 4,
+					requestDiagnosticSequence: 4,
+					diagnostic: createDiagnostic(status),
+				}),
+			).toMatchObject({
+				status: "current",
+				publishCurrent: true,
+				diagnostic: {
+					status: "cancelled",
+					message: "SFTP connection cancelled by operator during disconnect",
+				},
+			});
+		}
 		const connected = createDiagnostic("connected");
 		expect(
 			classifyRemoteDisconnectPublication({
@@ -435,6 +518,76 @@ describe("Remotes panel transitions", () => {
 				message: "read-only SFTP session closed; local filesystem restored",
 			},
 		});
+
+		const cancelled = classifyRemoteDisconnectPublication({
+			currentDiagnosticSequence: 4,
+			requestDiagnosticSequence: 4,
+			diagnostic: createDiagnostic("cancelling"),
+		});
+		if (!cancelled.publishCurrent) {
+			throw new Error("expected current terminal disconnect diagnostic");
+		}
+		expect(
+			prepareRemoteRetry({
+				profiles: [profile],
+				selectedIndex: 0,
+				diagnostic: cancelled.diagnostic,
+			}),
+		).toMatchObject({
+			kind: "prompt",
+			value: "",
+			expectedConfirmation: "connect remote prod",
+		});
+	});
+
+	test("connected publication requires a live connecting attempt at every checkpoint", () => {
+		const attempt = createDiagnostic("connecting");
+		const outcome = {
+			status: "connected" as const,
+			id: profile.id,
+			target: attempt.target,
+			host: profile.host,
+			port: profile.port,
+			fingerprint: attempt.fingerprint,
+			message: "read-only SFTP connected entries=1",
+		};
+		const base = {
+			currentDiagnosticSequence: 4,
+			requestDiagnosticSequence: 4,
+			currentRunToken: 7,
+			requestRunToken: 7,
+			attempt,
+			outcome,
+			connectionAborted: false,
+			ownsPendingConnection: true,
+		};
+
+		expect(
+			classifyRemoteConnectionPublication({
+				...base,
+				currentDiagnostic: attempt,
+			}),
+		).toMatchObject({ status: "current", publishCurrent: true });
+		expect(
+			classifyRemoteConnectionPublication({
+				...base,
+				currentDiagnostic: { ...attempt, status: "cancelling" },
+			}),
+		).toMatchObject({ status: "stale", publishCurrent: false });
+		expect(
+			classifyRemoteConnectionPublication({
+				...base,
+				currentDiagnostic: attempt,
+				connectionAborted: true,
+			}),
+		).toMatchObject({ status: "stale", publishCurrent: false });
+		expect(
+			classifyRemoteConnectionPublication({
+				...base,
+				currentRunToken: 8,
+				currentDiagnostic: attempt,
+			}),
+		).toMatchObject({ status: "stale", publishCurrent: false });
 	});
 
 	test("suppresses stale success and keeps stale failures as audit evidence", () => {

@@ -170,7 +170,7 @@ const delegatedCallbacks = {
 	disconnectRemoteFiles: {
 		owner: "src/tui/remotesPanel.ts",
 		reason:
-			"delegates remote-session guard, shared-sequence disconnect publication, and exact notice while App retains restore and close I/O",
+			"delegates remote-session guard, active-attempt ownership, shared-sequence terminal publication, and exact notice while App retains restore, abort, and close I/O",
 	},
 	previewFile: {
 		owner: "src/tui/fileWorkspaceTransitions.ts",

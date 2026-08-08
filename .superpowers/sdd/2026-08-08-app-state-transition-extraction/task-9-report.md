@@ -83,3 +83,52 @@
 
 - Local commit: `refactor(tui): extract remote lifecycle transitions`
 - Push: intentionally not performed; review remains pending.
+
+## Fix round 1/5
+
+### RED / GREEN evidence
+
+- RED: `bun test tests/remotesPanel.test.ts` produced 18 passes and 4 intended failures. The failures reproduced raw invalid-selection input in a notice, missing active disconnect ownership, missing terminal publication for `connecting`, and accepted `connected` publication over a current `cancelling` diagnostic.
+- GREEN: the focused owner suite passed with 22 tests / 58 expectations after the minimal fixes.
+- Related GREEN: `bun test tests/remotesPanel.test.ts tests/remotes.test.ts tests/connect.test.ts tests/sftp.test.ts tests/statusEvidence.test.ts tests/statusActivityQueue.test.ts tests/fileWorkspaceTransitions.test.ts` passed with 244 tests / 815 expectations.
+
+### Critical — disconnect during replacement connection
+
+- Root cause: disconnect advanced the diagnostic sequence but only terminalized `connected`; the pending controller/provider and run-token ownership were not part of the disconnect intent. The superseded connection then correctly suppressed its stale cancellation, leaving the visible diagnostic at `connecting` or `cancelling`.
+- `prepareRemoteDisconnect()` now identifies a live `connecting`/`cancelling` attempt and returns cancellation ownership only when the active run token matches the current token and a pending controller exists.
+- App advances the shared diagnostic sequence, aborts and closes only the captured owning controller/provider, and clears controller/provider/token refs only while they still identify that owner. The connect callback keeps its unconditional counted `endCommand()` in `finally`.
+- Disconnect publication maps `connecting` and `cancelling` to terminal `cancelled`, maps a restored `connected` session to `disconnected`, and remains sequence-guarded. A cancelled disconnect is immediately eligible for an empty exact-confirm retry prompt.
+- Regression coverage includes connecting, cancelling, connected, stale owner token, sequence-stale disconnect, and retry eligibility.
+
+### Important — late connected publication
+
+- Root cause: the final live-attempt check occurred before `await loadFiles(...)`, and same-attempt identity accepted a current `cancelling` diagnostic.
+- Every connect await boundary—transport connect, `pwd`, `list`, and provider switch—is now followed by the same pure publication classifier using the shared sequence, active run token, exact attempt identity, controller ownership, abort state, and current diagnostic status.
+- A `connected` outcome is publishable only while the exact current diagnostic remains `connecting`; `cancelling`, aborted, lost-controller, and superseded-token attempts are stale. Failure/cancellation history remains recordable while stale outcomes cannot replace current state.
+- Regression coverage includes normal success, cancellation before publication, cancellation during switch cleanup, and a superseded run token.
+
+### Important — invalid paste-selection redaction
+
+- Root cause: the invalid typed candidate notice interpolated the raw command-line value.
+- Invalid selection now returns the constant `remote known_hosts paste candidate selection invalid` notice and no activity/audit payload containing the supplied value.
+- The regression uses credential-, password-, and private-key-like input and verifies the complete serialized transition contains none of those substrings.
+
+### Safety recheck
+
+- Exact connect and host-trust confirmation mismatch tests still preserve the original received bytes.
+- Cross-session matching `@revoked` fingerprints remain global blockers.
+- SFTP remains list/stat/read-only; no trust-file write, remote mutation, or remote command path was introduced.
+- Pending and established providers retain guaranteed close paths, and command status begin/end remains counted with unconditional final cleanup.
+- No App test or new React callback was added; the inventory remains 154 callbacks plus one `useInput` dispatcher.
+
+### Fix-round verification
+
+- `bun run audit:tui-callbacks` — pass (`callbacks=154`, `useInput=1`, `total=155`, `inlineDecisions=45`)
+- `bun run typecheck` — pass
+- `git diff --check` — pass
+- `bun run verify` — pass (998 tests / 3,183 expectations across 91 files, all five integration harnesses, typecheck, build, and smoke)
+
+### Fix-round commit
+
+- Local commit: `fix(tui): harden remote lifecycle transitions`
+- Push: intentionally not performed; review remains pending.
