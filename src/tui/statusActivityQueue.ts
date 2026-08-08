@@ -26,10 +26,13 @@ import {
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
 import type { PortProcessControlPreview } from "./endpointPanel";
+import type { ConsoleEvent } from "./events";
 import { clampIndex } from "./navigation";
-import type {
-	TimelineFilter,
-	TimelineFocusEvidenceTrailPlan,
+import {
+	prepareTimelineSearchJumpTransition,
+	type TimelineFilter,
+	type TimelineFocusEvidenceTrailPlan,
+	type TimelineSearchJumpTransition,
 } from "./timelinePanel";
 import {
 	createToolHistoryExportArchivePlan,
@@ -153,6 +156,7 @@ export type StatusActivityToolsEvidenceSearchRecovery = {
 export type StatusActivityToolsEvidenceMatchOpenTransition =
 	| {
 			kind: "notice";
+			selectedIndex: number;
 			notice: { level: "warn"; message: string };
 			auditMessage: string;
 			result: StatusActivityResult;
@@ -170,6 +174,7 @@ export type StatusActivityToolsEvidenceMatchOpenTransition =
 export type StatusActivityToolsEvidenceMatchArchiveTransition =
 	| {
 			kind: "notice";
+			selectedIndex: number;
 			notice: { level: "warn"; message: string };
 			auditMessage: string;
 			result: StatusActivityResult;
@@ -254,19 +259,67 @@ export type RecoveredEvidenceFamily =
 	| "remote-known-hosts"
 	| "interface";
 
+export type RecoveredEvidenceActionOrigin =
+	| "keyboard"
+	| "palette"
+	| "status-evidence";
+
+type RecoveredEvidenceActivity = {
+	auditMessage?: string;
+	activityResult?: StatusActivityResult;
+};
+
 export type RecoveredEvidenceSelectionTransition =
-	| {
+	| ({
 			kind: "notice";
 			selectedIndex: number;
 			notice: { level: "warn"; message: string };
-	  }
-	| {
+			statusEvidenceKind?: "remote-known-hosts" | "interface";
+	  } & RecoveredEvidenceActivity)
+	| ({
 			kind: "selection";
 			selectedIndex: number;
 			item: ConsoleAuditExportPlan;
 			total: number;
 			notice: { level: "info"; message: string };
-	  };
+			statusEvidenceKind?: "remote-known-hosts" | "interface";
+	  } & RecoveredEvidenceActivity);
+
+export type RecoveredEvidenceSearchTransition =
+	| ({
+			kind: "notice";
+			selectedIndex: number;
+			notice: { level: "warn"; message: string };
+	  } & RecoveredEvidenceActivity)
+	| ({
+			kind: "search";
+			selectedIndex: number;
+			item: ConsoleAuditExportPlan;
+			total: number;
+			timeline: TimelineSearchJumpTransition;
+	  } & RecoveredEvidenceActivity);
+
+export type RecoveredEvidenceMasterSelection = {
+	state: "active" | "archived";
+	selectedIndex: number;
+};
+
+export type RecoveredEvidenceOpenTransition =
+	| ({
+			kind: "notice";
+			selectedIndex: number;
+			notice: { level: "warn"; message: string };
+	  } & RecoveredEvidenceActivity)
+	| ({
+			kind: "open";
+			selectedIndex: number;
+			item: ConsoleAuditExportPlan;
+			total: number;
+			plan: FileOpenPlan;
+			masterSelection?: RecoveredEvidenceMasterSelection;
+			statusEvidenceKind?: "audit" | "interface";
+			notice: { level: "info"; message: string };
+	  } & RecoveredEvidenceActivity);
 
 export type StatusActivityResultTimelineHandoffReplayTransition =
 	| {
@@ -279,6 +332,18 @@ export type StatusActivityResultTimelineHandoffReplayTransition =
 			intent?: StatusActivityCopyIntentRecord;
 			notice: { level: "info"; message: string };
 	  };
+
+export type StatusActivityResultTimelineHandoffOpenTransition =
+	| ({
+			kind: "notice";
+			notice: { level: "warn"; message: string };
+	  } & RecoveredEvidenceActivity)
+	| ({
+			kind: "open";
+			jump: StatusActivityCopyIntentTimelineSearch;
+			intent?: StatusActivityCopyIntentRecord;
+			timeline: TimelineSearchJumpTransition;
+	  } & RecoveredEvidenceActivity);
 
 type StatusActivityQueueSource = {
 	key: StatusActivitySource;
@@ -2122,6 +2187,7 @@ export function prepareStatusActivityToolsEvidenceMatchOpen(
 	if (!item) {
 		return {
 			kind: "notice",
+			selectedIndex: resolvedIndex,
 			notice: {
 				level: "warn",
 				message: "no recovered tools evidence match selected",
@@ -2176,6 +2242,7 @@ export function prepareStatusActivityToolsEvidenceMatchArchive(
 	if (!item || unavailableReason) {
 		return {
 			kind: "notice",
+			selectedIndex: resolvedIndex,
 			notice: {
 				level: "warn",
 				message: unavailableReason
@@ -2449,6 +2516,7 @@ export function prepareRecoveredEvidenceSelectionTransition(input: {
 	exports: ConsoleAuditExportPlan[];
 	selectedIndex: number;
 	direction: "next" | "previous";
+	origin?: RecoveredEvidenceActionOrigin;
 }): RecoveredEvidenceSelectionTransition {
 	const selectedIndex = clampIndex(input.selectedIndex, input.exports.length);
 	const labels: Record<
@@ -2478,6 +2546,15 @@ export function prepareRecoveredEvidenceSelectionTransition(input: {
 			kind: "notice",
 			selectedIndex,
 			notice: { level: "warn", message: label.unavailable },
+			...getRecoveredEvidenceStatusKind(input.family),
+			...createRecoveredEvidenceActivity(
+				input.family,
+				"select",
+				undefined,
+				selectedIndex,
+				Math.max(1, input.exports.length),
+				input.origin,
+			),
 		};
 	}
 	const offset = input.direction === "next" ? 1 : -1;
@@ -2489,6 +2566,15 @@ export function prepareRecoveredEvidenceSelectionTransition(input: {
 			kind: "notice",
 			selectedIndex,
 			notice: { level: "warn", message: label.unavailable },
+			...getRecoveredEvidenceStatusKind(input.family),
+			...createRecoveredEvidenceActivity(
+				input.family,
+				"select",
+				undefined,
+				selectedIndex,
+				Math.max(1, input.exports.length),
+				input.origin,
+			),
 		};
 	}
 	return {
@@ -2496,11 +2582,354 @@ export function prepareRecoveredEvidenceSelectionTransition(input: {
 		selectedIndex: nextIndex,
 		item,
 		total: input.exports.length,
+		...getRecoveredEvidenceStatusKind(input.family),
+		...createRecoveredEvidenceActivity(
+			input.family,
+			"select",
+			item,
+			nextIndex,
+			input.exports.length,
+			input.origin,
+		),
 		notice: {
 			level: "info",
 			message: `${label.selection} selected ${nextIndex + 1}/${input.exports.length} ${basename(item.path)}`,
 		},
 	};
+}
+
+export function prepareRecoveredEvidenceSearchTransition(input: {
+	family: RecoveredEvidenceFamily;
+	exports: ConsoleAuditExportPlan[];
+	selectedIndex: number;
+	events: ConsoleEvent[];
+	origin?: RecoveredEvidenceActionOrigin;
+}): RecoveredEvidenceSearchTransition {
+	const selectedIndex = clampIndex(input.selectedIndex, input.exports.length);
+	const item = input.exports[selectedIndex];
+	const jump = createRecoveredEvidenceTimelineSearch(input.family, item);
+	if (!item || !jump) {
+		return {
+			kind: "notice",
+			selectedIndex,
+			notice: {
+				level: "warn",
+				message: getMissingRecoveredEvidenceSearchMessage(input.family),
+			},
+			...createRecoveredEvidenceActivity(
+				input.family,
+				"search",
+				undefined,
+				selectedIndex,
+				Math.max(1, input.exports.length),
+				input.origin,
+			),
+		};
+	}
+	const timeline = prepareTimelineSearchJumpTransition(input.events, jump);
+	return {
+		kind: "search",
+		selectedIndex,
+		item,
+		total: input.exports.length,
+		timeline,
+		...createRecoveredEvidenceActivity(
+			input.family,
+			"search",
+			item,
+			selectedIndex,
+			input.exports.length,
+			input.origin,
+		),
+	};
+}
+
+export function prepareRecoveredEvidenceOpenTransition(input: {
+	family: RecoveredEvidenceFamily;
+	exports: ConsoleAuditExportPlan[];
+	selectedIndex: number;
+	activeIndex: ConsoleAuditExportIndex;
+	archiveIndex: ConsoleAuditExportIndex;
+	baseDir: string;
+	platform: SupportedPlatform;
+	origin?: RecoveredEvidenceActionOrigin;
+}): RecoveredEvidenceOpenTransition {
+	const selectedIndex = clampIndex(input.selectedIndex, input.exports.length);
+	const item = input.exports[selectedIndex];
+	if (!item) {
+		return {
+			kind: "notice",
+			selectedIndex,
+			notice: {
+				level: "warn",
+				message: getMissingRecoveredEvidenceOpenMessage(input.family),
+			},
+			...createRecoveredEvidenceActivity(
+				input.family,
+				"open",
+				undefined,
+				selectedIndex,
+				Math.max(1, input.exports.length),
+				input.origin,
+			),
+		};
+	}
+	const activeIndex = getStatusActivityCopyIntentAuditExportIndex(
+		input.activeIndex,
+		item,
+	);
+	const archiveIndex = getStatusActivityCopyIntentAuditExportIndex(
+		input.archiveIndex,
+		item,
+	);
+	const masterSelection =
+		activeIndex !== undefined
+			? { state: "active" as const, selectedIndex: activeIndex }
+			: archiveIndex !== undefined
+				? { state: "archived" as const, selectedIndex: archiveIndex }
+				: undefined;
+	return {
+		kind: "open",
+		selectedIndex,
+		item,
+		total: input.exports.length,
+		plan: createRecoveredEvidenceOpenPlan(input.family, item, {
+			baseDir: input.baseDir,
+			platform: input.platform,
+		}),
+		...(masterSelection ? { masterSelection } : {}),
+		statusEvidenceKind: input.family === "interface" ? "interface" : "audit",
+		notice: {
+			level: "info",
+			message: getRecoveredEvidenceOpenMessage(
+				input.family,
+				item,
+				masterSelection,
+			),
+		},
+		...createRecoveredEvidenceActivity(
+			input.family,
+			"open",
+			item,
+			selectedIndex,
+			input.exports.length,
+			input.origin,
+		),
+	};
+}
+
+function getRecoveredEvidenceStatusKind(family: RecoveredEvidenceFamily): {
+	statusEvidenceKind?: "remote-known-hosts" | "interface";
+} {
+	if (family === "remote-known-hosts" || family === "interface") {
+		return { statusEvidenceKind: family };
+	}
+	return {};
+}
+
+function createRecoveredEvidenceActivity(
+	family: RecoveredEvidenceFamily,
+	action: "select" | "open" | "search",
+	item: ConsoleAuditExportPlan | undefined,
+	selectedIndex: number,
+	total: number,
+	origin: RecoveredEvidenceActionOrigin | undefined,
+): RecoveredEvidenceActivity {
+	const options = { selectedIndex, total };
+	if (origin === "palette") {
+		switch (family) {
+			case "timeline":
+				return {
+					auditMessage: formatTimelineEvidenceTrailPaletteAuditMessage(
+						action,
+						item,
+						options,
+					),
+					activityResult:
+						createTimelineEvidenceTrailPaletteStatusActivityResult(
+							action,
+							item,
+							options,
+						),
+				};
+			case "process":
+				return {
+					auditMessage: formatProcessControlEvidencePaletteAuditMessage(
+						action,
+						item,
+						options,
+					),
+					activityResult:
+						createProcessControlEvidencePaletteStatusActivityResult(
+							action,
+							item,
+							options,
+						),
+				};
+			case "remote-known-hosts":
+				return {
+					auditMessage:
+						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+							action,
+							item,
+							options,
+						),
+					activityResult:
+						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+							action,
+							item,
+							options,
+						),
+				};
+			case "interface":
+				return {
+					auditMessage: formatInterfaceConfirmationEvidencePaletteAuditMessage(
+						action,
+						item,
+						options,
+					),
+					activityResult:
+						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+							action,
+							item,
+							options,
+						),
+				};
+		}
+	}
+	if (origin !== "status-evidence" || action !== "search") {
+		return {};
+	}
+	switch (family) {
+		case "process":
+			return {
+				auditMessage: formatProcessControlEvidenceStatusAuditMessage(
+					"search",
+					item,
+					options,
+				),
+				activityResult: createProcessControlEvidenceStatusActivityResult(
+					"search",
+					item,
+					options,
+				),
+			};
+		case "remote-known-hosts":
+			return {
+				auditMessage:
+					formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage(
+						"search",
+						item,
+						options,
+					),
+				activityResult:
+					createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
+						"search",
+						item,
+						options,
+					),
+			};
+		case "interface":
+			return {
+				auditMessage: formatInterfaceConfirmationEvidenceStatusAuditMessage(
+					"search",
+					item,
+					options,
+				),
+				activityResult: createInterfaceConfirmationEvidenceStatusActivityResult(
+					"search",
+					item,
+					options,
+				),
+			};
+		case "timeline":
+			return {};
+	}
+}
+
+function createRecoveredEvidenceTimelineSearch(
+	family: RecoveredEvidenceFamily,
+	item: ConsoleAuditExportPlan | undefined,
+): StatusActivityCopyIntentTimelineSearch | undefined {
+	switch (family) {
+		case "timeline":
+			return createTimelineEvidenceTrailTimelineSearch(item);
+		case "process":
+			return createProcessControlAuditExportTimelineSearch(item);
+		case "remote-known-hosts":
+			return createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch(
+				item,
+			);
+		case "interface":
+			return createInterfaceConfirmationAuditExportTimelineSearch(item);
+	}
+}
+
+function createRecoveredEvidenceOpenPlan(
+	family: RecoveredEvidenceFamily,
+	item: ConsoleAuditExportPlan,
+	options: { baseDir: string; platform: SupportedPlatform },
+): FileOpenPlan {
+	switch (family) {
+		case "timeline":
+			return createTimelineEvidenceTrailAuditExportOpenPlan(item, options);
+		case "process":
+			return createProcessControlAuditExportOpenPlan(item, options);
+		case "remote-known-hosts":
+			return createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan(
+				item,
+				options,
+			);
+		case "interface":
+			return createInterfaceConfirmationAuditExportOpenPlan(item, options);
+	}
+}
+
+function getMissingRecoveredEvidenceSearchMessage(
+	family: RecoveredEvidenceFamily,
+): string {
+	switch (family) {
+		case "timeline":
+			return "no timeline evidence trail export for timeline";
+		case "process":
+			return "no process control evidence export for timeline";
+		case "remote-known-hosts":
+			return "no remote known_hosts selection evidence export for timeline";
+		case "interface":
+			return "no interface confirmation evidence export for timeline";
+	}
+}
+
+function getMissingRecoveredEvidenceOpenMessage(
+	family: RecoveredEvidenceFamily,
+): string {
+	switch (family) {
+		case "timeline":
+			return "no timeline evidence trail export to open";
+		case "process":
+			return "no process control evidence export to open";
+		case "remote-known-hosts":
+			return "no remote known_hosts selection evidence export to open";
+		case "interface":
+			return "no interface confirmation evidence export to open";
+	}
+}
+
+function getRecoveredEvidenceOpenMessage(
+	family: RecoveredEvidenceFamily,
+	item: ConsoleAuditExportPlan,
+	masterSelection: RecoveredEvidenceMasterSelection | undefined,
+): string {
+	switch (family) {
+		case "timeline":
+			return `timeline evidence trail export open confirmation opened for ${item.path}${masterSelection ? ` evidence=${masterSelection.selectedIndex + 1}` : ""}`;
+		case "process":
+			return `process control evidence export open confirmation opened for ${item.path}`;
+		case "remote-known-hosts":
+			return `remote known_hosts selection evidence export open confirmation opened for ${item.path}`;
+		case "interface":
+			return `interface confirmation evidence export open confirmation opened for ${item.path}`;
+	}
 }
 
 export function moveTimelineEvidenceTrailSelection(
@@ -3238,6 +3667,69 @@ export function prepareStatusActivityResultTimelineHandoffReplay(input: {
 		jump,
 		intent: createStatusActivityResultTimelineSearchIntent(jump),
 		notice: { level: "info", message: jump.message },
+	};
+}
+
+export function prepareStatusActivityResultTimelineHandoffOpenTransition(input: {
+	history: StatusActivityResult[];
+	selectedIndex: number;
+	latestAuditJumpIntent?: StatusActivityCopyIntentRecord;
+	selectedAuditJumpIntent?: StatusActivityCopyIntentRecord;
+	events: ConsoleEvent[];
+	origin?: "keyboard" | "palette";
+	filter?: StatusActivityResultTimelineJumpFilter;
+}): StatusActivityResultTimelineHandoffOpenTransition {
+	const replay = prepareStatusActivityResultTimelineHandoffReplay(input);
+	if (replay.kind === "notice") {
+		return {
+			...replay,
+			...(input.origin === "palette"
+				? {
+						auditMessage:
+							formatStatusActivityResultTimelineJumpPaletteAuditMessage("open"),
+						activityResult:
+							createStatusActivityResultTimelineJumpPaletteResult("open"),
+					}
+				: {}),
+		};
+	}
+	const timeline = prepareTimelineSearchJumpTransition(
+		input.events,
+		replay.jump,
+		{
+			messageSuffix: input.origin === "palette" ? " origin=palette" : "",
+		},
+	);
+	const selection = getStatusActivityResultTimelineJumpSelection(
+		input.history,
+		input.selectedIndex,
+		input.filter ?? "all",
+	);
+	const activityOptions = {
+		historyIndex: input.selectedIndex,
+		jump: replay.jump,
+		matches: timeline.matches,
+		selectedIndex: selection?.selectedIndex,
+		total: selection?.total,
+	};
+	return {
+		kind: "open",
+		jump: replay.jump,
+		...(replay.intent ? { intent: replay.intent } : {}),
+		timeline,
+		...(input.origin === "palette"
+			? {
+					auditMessage:
+						formatStatusActivityResultTimelineJumpPaletteAuditMessage(
+							"open",
+							activityOptions,
+						),
+					activityResult: createStatusActivityResultTimelineJumpPaletteResult(
+						"open",
+						activityOptions,
+					),
+				}
+			: {}),
 	};
 }
 

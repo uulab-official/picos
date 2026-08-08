@@ -56,7 +56,7 @@
 - [x] 상태: 완료 — 파일 작업 dialog launch·provider guard·active input·destination·confirmation·command-line 전이를 `fileOperationDialog.ts`에서 소유하고 빈 selection/parent/SFTP read-only 회귀 테스트를 보강
 - [x] 상태: 완료 — Config session/edit/reset, managed shelf landing·focus·jump, cleanup-history reopen 및 Palette input을 순수 전이로 분리하고 Config I/O의 공유 status count begin/end를 `finally`에서 정확히 쌍으로 유지
 - [x] 상태: 완료 — Routes·Connections·Ports·Timeline·Logs의 filter/cleanup/section shortcut/selection/preset/notice 전이를 panel 모듈로 분리하고, endpoint 공유 binding table에서 화면별 intent를 파생하며 모든 selection/refresh repair와 Timeline newest 선택을 `clampIndex()` 기반 helper로 통일
-- [x] 상태: 완료 — Status evidence의 handoff·audit·cleanup·Tools·process·remote known_hosts·interface·Timeline·status-activity export/open/archive/retention/recovery 전이를 순수 owner로 분리하고, 독립 갱신 그룹 7개에 별도 request sequence를 적용해 stale 성공·실패가 현재 index/selection/error를 publish하지 않도록 검증
+- [x] 상태: 완료 — Status evidence의 handoff·audit·cleanup·Tools·process·remote known_hosts·interface·Timeline·status-activity export/open/archive/retention/recovery 전이를 순수 owner로 분리하고, Tools 검색 match open/archive와 네 evidence family의 select/search/open 및 master-index handoff를 owner가 결정하도록 보강; active/archive interface refresh는 서로의 최신 목록을 포함한 결합 domain에서 selection을 원자적으로 repair하며 독립 request sequence의 stale 성공·실패는 현재 index/selection/error를 publish하지 않도록 검증
 - [x] 상태: 완료 — 사용되지 않는 `src/tui/screens/*` legacy placeholder 6개 제거; 실제 workspace 경로는 `App.tsx`에 있으며 `src/tui` 순수 모듈이 상태 전이를 담당
 - [x] 상태: 완료 — `src/core/roadmap.ts`, README, CHANGELOG, LOCAL_AUTOMATION의 구현 상태 동기화
 - [x] 상태: 완료 — `package.json`과 `src/core/version.ts`는 `0.2.0`으로 동기화되고 release check가 통과함. ROADMAP의 v0.4.340~346은 공개 버전을 자동 변경하지 않는 개발 slice이며, npm 미게시·원격 태그 없음 상태에서 실제 공개 버전 선택은 maintainer release 절차로 유지

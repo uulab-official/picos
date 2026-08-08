@@ -343,6 +343,9 @@ export function classifyAuditExportIndexRefresh(input: {
 	selectedIndex: number;
 	announce?: boolean;
 	timelineSourceFilter?: TimelineEvidenceTrailSourceFilter;
+	interfaceConfirmationAuditArchiveExports?: ConsoleAuditExportPlan[];
+	interfaceStateFilter?: InterfaceEvidenceStateFilter;
+	interfaceQuery?: string;
 	recoveredSelections?: {
 		timeline: number;
 		process: number;
@@ -379,6 +382,12 @@ export function classifyAuditExportIndexRefresh(input: {
 		selectedRemoteKnownHostsIndex: recoveredSelections.remoteKnownHosts,
 		selectedInterfaceIndex: recoveredSelections.interface,
 	});
+	const visibleInterfaceExports = filterInterfaceConfirmationEvidenceExports(
+		recovered.interfaceConfirmationAuditExports,
+		input.interfaceConfirmationAuditArchiveExports ?? [],
+		input.interfaceStateFilter ?? "all",
+		input.interfaceQuery ?? "",
+	);
 	return {
 		status: "success",
 		index: input.outcome.index,
@@ -387,6 +396,10 @@ export function classifyAuditExportIndexRefresh(input: {
 			input.outcome.index.items.length,
 		),
 		...recovered,
+		selectedInterfaceIndex: clampIndex(
+			recoveredSelections.interface,
+			visibleInterfaceExports.length,
+		),
 		...(input.announce
 			? {
 					notice: {
@@ -403,6 +416,7 @@ export function classifyAuditExportArchiveIndexRefresh(input: {
 	requestToken: number;
 	selectedIndex: number;
 	selectedInterfaceIndex?: number;
+	interfaceConfirmationAuditExports?: ConsoleAuditExportPlan[];
 	interfaceStateFilter?: InterfaceEvidenceStateFilter;
 	interfaceQuery?: string;
 	announce?: boolean;
@@ -432,7 +446,7 @@ export function classifyAuditExportArchiveIndexRefresh(input: {
 			selectedInterfaceIndex: input.selectedInterfaceIndex ?? 0,
 		}).interfaceConfirmationAuditExports;
 	const visibleInterfaceExports = filterInterfaceConfirmationEvidenceExports(
-		[],
+		input.interfaceConfirmationAuditExports ?? [],
 		interfaceConfirmationAuditArchiveExports,
 		input.interfaceStateFilter ?? "all",
 		input.interfaceQuery ?? "",
@@ -1105,9 +1119,9 @@ export function createStatusEvidenceItemMovePlan(
 		return undefined;
 	}
 	const offset = direction === "next" ? 1 : -1;
+	const baseIndex = clampIndex(family.selectedIndex, family.entries.length);
 	const selectedIndex =
-		(family.selectedIndex + offset + family.entries.length) %
-		family.entries.length;
+		(baseIndex + offset + family.entries.length) % family.entries.length;
 	const entry = family.entries[selectedIndex];
 	if (!entry) {
 		return undefined;

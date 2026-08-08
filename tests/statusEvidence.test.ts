@@ -1406,6 +1406,205 @@ describe("Status evidence detail rows", () => {
 		});
 	});
 
+	test("publishes combined interface selection atomically from either audit refresh", () => {
+		const activePlans = [
+			{
+				path: "/tmp/picos/audit/interface-active-1.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "interface confirmation interface.disable status=rejected",
+			},
+			{
+				path: "/tmp/picos/audit/interface-active-2.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "interface confirmation interface.enable status=rejected",
+			},
+		];
+		const archivedPlans = [
+			{
+				path: "/tmp/picos/audit/archive/interface-archived.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "interface confirmation interface.disable status=rejected",
+			},
+		];
+		const activeIndex = {
+			baseDir: "/tmp/picos/audit",
+			items: activePlans.map((plan, index) => ({
+				fileName: `interface-active-${index + 1}.log`,
+				path: plan.path,
+				generatedAt: `2026-07-01T0${index + 1}:00:00.000Z`,
+				scope: plan.scope,
+				query: plan.query,
+				entryCount: plan.eventCount,
+			})),
+		};
+		const archiveIndex = {
+			baseDir: "/tmp/picos/audit/archive",
+			items: archivedPlans.map((plan) => ({
+				fileName: "interface-archived.log",
+				path: plan.path,
+				generatedAt: "2026-07-01T03:00:00.000Z",
+				scope: plan.scope,
+				query: plan.query,
+				entryCount: plan.eventCount,
+			})),
+		};
+
+		const activeRefresh = classifyAuditExportIndexRefresh({
+			currentRequestToken: 3,
+			requestToken: 3,
+			selectedIndex: 0,
+			interfaceConfirmationAuditArchiveExports: archivedPlans,
+			interfaceStateFilter: "all",
+			interfaceQuery: "",
+			recoveredSelections: {
+				timeline: 0,
+				process: 0,
+				remoteKnownHosts: 0,
+				interface: 2,
+			},
+			outcome: { status: "success", index: activeIndex },
+		});
+		expect(activeRefresh).toMatchObject({
+			status: "success",
+			selectedInterfaceIndex: 2,
+			interfaceConfirmationAuditExports: activePlans,
+		});
+
+		const archiveRefresh = classifyAuditExportArchiveIndexRefresh({
+			currentRequestToken: 5,
+			requestToken: 5,
+			selectedIndex: 0,
+			selectedInterfaceIndex: 1,
+			interfaceConfirmationAuditExports: activePlans,
+			interfaceStateFilter: "all",
+			interfaceQuery: "",
+			outcome: { status: "success", index: archiveIndex },
+		});
+		expect(archiveRefresh).toMatchObject({
+			status: "success",
+			selectedInterfaceIndex: 1,
+			interfaceConfirmationAuditArchiveExports: archivedPlans,
+		});
+	});
+
+	test("repairs combined interface selection for deletion, empty, and stale refreshes", () => {
+		const archived = [
+			{
+				path: "/tmp/picos/audit/archive/interface.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "interface confirmation interface.disable status=rejected",
+			},
+		];
+		const emptyIndex = { baseDir: "/tmp/picos/audit", items: [] };
+		expect(
+			classifyAuditExportIndexRefresh({
+				currentRequestToken: 4,
+				requestToken: 4,
+				selectedIndex: 7,
+				interfaceConfirmationAuditArchiveExports: archived,
+				recoveredSelections: {
+					timeline: 7,
+					process: 7,
+					remoteKnownHosts: 7,
+					interface: 9,
+				},
+				outcome: { status: "success", index: emptyIndex },
+			}),
+		).toMatchObject({ status: "success", selectedInterfaceIndex: 0 });
+		expect(
+			classifyAuditExportArchiveIndexRefresh({
+				currentRequestToken: 6,
+				requestToken: 6,
+				selectedIndex: 7,
+				selectedInterfaceIndex: 9,
+				interfaceConfirmationAuditExports: [],
+				outcome: { status: "success", index: emptyIndex },
+			}),
+		).toMatchObject({ status: "success", selectedInterfaceIndex: 0 });
+		expect(
+			classifyAuditExportIndexRefresh({
+				currentRequestToken: 8,
+				requestToken: 7,
+				selectedIndex: 0,
+				interfaceConfirmationAuditArchiveExports: archived,
+				outcome: { status: "success", index: emptyIndex },
+			}),
+		).toEqual({ status: "stale" });
+		expect(
+			classifyAuditExportArchiveIndexRefresh({
+				currentRequestToken: 8,
+				requestToken: 7,
+				selectedIndex: 0,
+				interfaceConfirmationAuditExports: [],
+				outcome: { status: "failure", error: "old archive" },
+			}),
+		).toEqual({
+			status: "stale",
+			notice: {
+				level: "fail",
+				message: "audit archive index failed old archive",
+			},
+		});
+	});
+
+	test("normalizes stale evidence selection before next movement", () => {
+		const auditItems = [
+			...populatedIndexes.auditExportIndex.items,
+			{
+				fileName: "picos-audit-second.log",
+				path: "/tmp/picos/audit/picos-audit-second.log",
+				generatedAt: "2026-07-01T06:00:00.000Z",
+				scope: "all" as const,
+				entryCount: 2,
+			},
+			{
+				fileName: "picos-audit-third.log",
+				path: "/tmp/picos/audit/picos-audit-third.log",
+				generatedAt: "2026-07-01T07:00:00.000Z",
+				scope: "all" as const,
+				entryCount: 3,
+			},
+		];
+		const indexes = {
+			...populatedIndexes,
+			auditExportIndex: {
+				...populatedIndexes.auditExportIndex,
+				items: auditItems,
+			},
+		};
+		const move = (selectedAuditExportIndex: number) =>
+			createStatusEvidenceItemMovePlan(
+				indexes,
+				{ ...selection, selectedAuditExportIndex },
+				"audit",
+				"next",
+			);
+
+		expect(move(99)?.selectedIndex).toBe(0);
+		expect(move(-4)?.selectedIndex).toBe(1);
+		expect(move(2)?.selectedIndex).toBe(0);
+		expect(move(1)?.selectedIndex).toBe(2);
+		expect(
+			createStatusEvidenceItemMovePlan(
+				{
+					...indexes,
+					auditExportIndex: { ...indexes.auditExportIndex, items: [] },
+				},
+				selection,
+				"audit",
+				"next",
+			),
+		).toBeUndefined();
+	});
+
 	test("owns empty open and archive-retention mismatch notices", () => {
 		const emptyIndexes = {
 			handoffIndex: { baseDir: "/tmp/picos", items: [] },

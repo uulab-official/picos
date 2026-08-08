@@ -520,15 +520,9 @@ import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
 	createInterfaceConfirmationAuditExportPlan,
-	createInterfaceConfirmationAuditExportTimelineSearch,
-	createInterfaceConfirmationEvidencePaletteStatusActivityResult,
-	createInterfaceConfirmationEvidenceStatusActivityResult,
 	createInterfaceConfirmationStatusActivityResult,
 	createInterfaceEvidenceManagementStatusActivityResult,
 	createInterfaceEvidenceOutcomeStatusActivityResult,
-	createProcessControlAuditExportTimelineSearch,
-	createProcessControlEvidencePaletteStatusActivityResult,
-	createProcessControlEvidenceStatusActivityResult,
 	createRemoteConnectStatusActivityResult,
 	createRemoteHostKeyEvidenceInputStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
@@ -536,11 +530,9 @@ import {
 	createRemoteKnownHostsEvidenceHandoffOpenCopyIntent,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
-	createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch,
 	createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan,
 	createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview,
 	createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult,
-	createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -556,27 +548,19 @@ import {
 	createStatusActivityResultTimelineJumpPaletteResult,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchReplay,
-	createStatusActivityToolsEvidenceMatchResult,
 	createStatusActivityToolsEvidencePaletteResult,
 	createStatusActivityToolsEvidenceSearchRecovery,
-	createTimelineEvidenceTrailAuditExportOpenPlan,
 	createTimelineEvidenceTrailAuditExportPlan,
 	createTimelineEvidenceTrailPaletteStatusActivityResult,
 	createTimelineEvidenceTrailStatusActivityResult,
-	createTimelineEvidenceTrailTimelineSearch,
 	createTimelineSelectedStatusActivityResult,
 	filterInterfaceConfirmationAuditExportIndex,
 	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
-	formatInterfaceConfirmationEvidencePaletteAuditMessage,
-	formatInterfaceConfirmationEvidenceStatusAuditMessage,
 	formatInterfaceEvidenceManagementAuditMessage,
 	formatInterfaceEvidenceOutcomeAuditMessage,
-	formatProcessControlEvidencePaletteAuditMessage,
-	formatProcessControlEvidenceStatusAuditMessage,
 	formatRemoteActivityShelfRows,
 	formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage,
-	formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage,
 	formatRemoteKnownHostsSelectionHistoryRows,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -589,7 +573,6 @@ import {
 	formatStatusActivityResultRows,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityResultTimelineJumpRows,
-	formatStatusActivityToolsEvidenceMatchAuditMessage,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityResultAuditJumpIntent,
@@ -601,7 +584,6 @@ import {
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
 	getSelectedStatusActivityToolsEvidenceSearchMatch,
-	getSelectedTimelineEvidenceTrailAuditExport,
 	getStatusActivityCopyIntentAuditExportIndex,
 	getStatusActivityResultAuditJumpIntentCount,
 	getStatusActivityResultHistoryFilteredSelection,
@@ -618,8 +600,12 @@ import {
 	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
 	prepareCleanupHandoffHistoryReopen,
+	prepareRecoveredEvidenceOpenTransition,
+	prepareRecoveredEvidenceSearchTransition,
 	prepareRecoveredEvidenceSelectionTransition,
-	prepareStatusActivityResultTimelineHandoffReplay,
+	prepareStatusActivityResultTimelineHandoffOpenTransition,
+	prepareStatusActivityToolsEvidenceMatchArchive,
+	prepareStatusActivityToolsEvidenceMatchOpen,
 	type StatusActivityCopyIntentEvidenceFocusPlan,
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
@@ -681,7 +667,6 @@ import {
 	createToolFormState,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
-	createToolHistoryExportArchivePlan,
 	createToolRunPlan,
 	createToolRunPlanFromForm,
 	createToolTargetCleanupPreview,
@@ -715,9 +700,9 @@ import {
 	nextToolHistorySort,
 	nextToolSectionClipboardSelection,
 	normalizeToolHistoryEvidenceQuery,
+	prepareSelectedToolHistoryExport,
 	prepareSelectedToolHistoryExportArchive,
 	prepareToolHistoryArchiveRetentionConfirmation,
-	prepareToolHistoryExport,
 	prepareToolHistoryExportArchiveConfirmation,
 	promoteToolTargetPresetTransition,
 	pruneToolHistoryExportArchive,
@@ -1087,11 +1072,6 @@ export function App(): React.ReactElement {
 		selectedProcessControlAuditExportIndex,
 		setSelectedProcessControlAuditExportIndex,
 	] = useState(0);
-	const selectedProcessControlAuditExport =
-		getSelectedProcessControlAuditExport(
-			processControlAuditExports,
-			selectedProcessControlAuditExportIndex,
-		);
 	const [
 		remoteKnownHostsSelectionAuditExports,
 		setRemoteKnownHostsSelectionAuditExports,
@@ -1179,6 +1159,16 @@ export function App(): React.ReactElement {
 	);
 	selectedInterfaceConfirmationAuditExportIndexRef.current =
 		selectedInterfaceConfirmationAuditExportIndex;
+	const interfaceConfirmationAuditExportsRef = useRef(
+		interfaceConfirmationAuditExports,
+	);
+	interfaceConfirmationAuditExportsRef.current =
+		interfaceConfirmationAuditExports;
+	const interfaceConfirmationAuditArchiveExportsRef = useRef(
+		interfaceConfirmationAuditArchiveExports,
+	);
+	interfaceConfirmationAuditArchiveExportsRef.current =
+		interfaceConfirmationAuditArchiveExports;
 	const timelineEvidenceTrailSourceFilterRef = useRef(
 		timelineEvidenceTrailSourceFilter,
 	);
@@ -1251,8 +1241,6 @@ export function App(): React.ReactElement {
 				interfaceConfirmationEvidenceExports.length,
 			)
 		];
-	const selectedInterfaceConfirmationAuditExport =
-		selectedInterfaceConfirmationEvidence?.plan;
 	const selectedInterfaceConfirmationEvidenceArchived =
 		selectedInterfaceConfirmationEvidence?.state === "archived";
 	const statusEvidenceIndexes = useMemo(
@@ -1321,11 +1309,6 @@ export function App(): React.ReactElement {
 			toolExportQuery,
 		],
 	);
-	useEffect(() => {
-		setSelectedInterfaceConfirmationAuditExportIndex((current) =>
-			clampIndex(current, interfaceConfirmationEvidenceExports.length),
-		);
-	}, [interfaceConfirmationEvidenceExports.length]);
 	const filteredTimelineEvidenceTrailAuditExports = useMemo(
 		() =>
 			filterTimelineEvidenceTrailAuditExports(
@@ -1334,14 +1317,6 @@ export function App(): React.ReactElement {
 			),
 		[timelineEvidenceTrailAuditExports, timelineEvidenceTrailSourceFilter],
 	);
-	const selectedTimelineEvidenceTrailAuditExport =
-		getSelectedTimelineEvidenceTrailAuditExport(
-			filteredTimelineEvidenceTrailAuditExports,
-			selectedTimelineEvidenceTrailAuditExportIndex,
-			timelineEvidenceTrailSourceFilter === "all"
-				? lastTimelineEvidenceTrailAuditExport
-				: undefined,
-		);
 	const [
 		lastStatusActivityEvidenceFocusPlan,
 		setLastStatusActivityEvidenceFocusPlan,
@@ -3496,6 +3471,10 @@ export function App(): React.ReactElement {
 							: selectedAuditExportIndexRef.current,
 					announce,
 					timelineSourceFilter: timelineEvidenceTrailSourceFilterRef.current,
+					interfaceConfirmationAuditArchiveExports:
+						interfaceConfirmationAuditArchiveExportsRef.current,
+					interfaceStateFilter: interfaceEvidenceStateFilterRef.current,
+					interfaceQuery: interfaceEvidenceQueryRef.current,
 					recoveredSelections: {
 						timeline: selectedTimelineEvidenceTrailAuditExportIndexRef.current,
 						process: selectedProcessControlAuditExportIndexRef.current,
@@ -3533,6 +3512,10 @@ export function App(): React.ReactElement {
 					setInterfaceConfirmationAuditExports(
 						transition.interfaceConfirmationAuditExports,
 					);
+					interfaceConfirmationAuditExportsRef.current =
+						transition.interfaceConfirmationAuditExports;
+					selectedInterfaceConfirmationAuditExportIndexRef.current =
+						transition.selectedInterfaceIndex;
 					setSelectedInterfaceConfirmationAuditExportIndex(
 						transition.selectedInterfaceIndex,
 					);
@@ -3576,6 +3559,8 @@ export function App(): React.ReactElement {
 						selectedInterfaceConfirmationAuditExportIndexRef.current,
 					interfaceStateFilter: interfaceEvidenceStateFilterRef.current,
 					interfaceQuery: interfaceEvidenceQueryRef.current,
+					interfaceConfirmationAuditExports:
+						interfaceConfirmationAuditExportsRef.current,
 					announce,
 					outcome: { status: "success", index },
 				});
@@ -3584,6 +3569,13 @@ export function App(): React.ReactElement {
 					setSelectedAuditExportArchiveIndex(transition.selectedIndex);
 					setInterfaceConfirmationAuditArchiveExports(
 						transition.interfaceConfirmationAuditArchiveExports,
+					);
+					interfaceConfirmationAuditArchiveExportsRef.current =
+						transition.interfaceConfirmationAuditArchiveExports;
+					selectedInterfaceConfirmationAuditExportIndexRef.current =
+						transition.selectedInterfaceIndex;
+					setSelectedInterfaceConfirmationAuditExportIndex(
+						transition.selectedInterfaceIndex,
 					);
 				}
 				if (transition.notice) {
@@ -3896,28 +3888,24 @@ export function App(): React.ReactElement {
 
 	const openSelectedStatusActivityToolsEvidenceSearchMatchFile =
 		useCallback(() => {
-			const item = getSelectedStatusActivityToolsEvidenceSearchMatch(
+			const transition = prepareStatusActivityToolsEvidenceMatchOpen(
 				statusActivityToolsEvidenceSearchRecovery,
 				selectedStatusActivityToolsEvidenceSearchMatchIndex,
+				{
+					baseDir: dirname(getConfigPath()),
+					platform: currentPlatform(),
+				},
 			);
-			if (!item) {
-				log("warn", "no recovered tools evidence match selected");
-				log("info", formatStatusActivityToolsEvidenceMatchAuditMessage("open"));
-				recordStatusActivityResult(
-					createStatusActivityToolsEvidenceMatchResult("open"),
-				);
+			setSelectedStatusActivityToolsEvidenceSearchMatchIndex(
+				transition.selectedIndex,
+			);
+			log(transition.notice.level, transition.notice.message);
+			log("info", transition.auditMessage);
+			recordStatusActivityResult(transition.result);
+			if (transition.kind === "notice") {
 				return;
 			}
-			const archived =
-				statusActivityToolsEvidenceSearchRecovery?.target === "archive";
-			const plan = buildFileOpenPlan({
-				baseDir: dirname(getConfigPath()),
-				source: "tools-export",
-				label: `${archived ? "archived " : ""}tools export ${item.scope} ${item.generatedAt}`,
-				path: item.path,
-				platform: currentPlatform(),
-			});
-			setFileOpenPlan(plan);
+			setFileOpenPlan(transition.plan);
 			setExternalOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
 			setCleanupExportArchivePlan(undefined);
@@ -3925,25 +3913,6 @@ export function App(): React.ReactElement {
 			setToolArchiveRetentionPlan(undefined);
 			setCommandLine(openCommandLine("file-open"));
 			setScreen("status");
-			log(
-				"info",
-				`recovered tools evidence open confirmation opened for ${item.fileName}`,
-			);
-			log(
-				"info",
-				formatStatusActivityToolsEvidenceMatchAuditMessage(
-					"open",
-					statusActivityToolsEvidenceSearchRecovery,
-					selectedStatusActivityToolsEvidenceSearchMatchIndex,
-				),
-			);
-			recordStatusActivityResult(
-				createStatusActivityToolsEvidenceMatchResult(
-					"open",
-					statusActivityToolsEvidenceSearchRecovery,
-					selectedStatusActivityToolsEvidenceSearchMatchIndex,
-				),
-			);
 		}, [
 			log,
 			recordStatusActivityResult,
@@ -3953,45 +3922,21 @@ export function App(): React.ReactElement {
 
 	const openSelectedStatusActivityToolsEvidenceSearchMatchArchive =
 		useCallback(() => {
-			const item = getSelectedStatusActivityToolsEvidenceSearchMatch(
+			const transition = prepareStatusActivityToolsEvidenceMatchArchive(
 				statusActivityToolsEvidenceSearchRecovery,
 				selectedStatusActivityToolsEvidenceSearchMatchIndex,
+				{ baseDir: dirname(getConfigPath()) },
 			);
-			if (!item) {
-				log("warn", "no recovered tools evidence match selected");
-				log(
-					"info",
-					formatStatusActivityToolsEvidenceMatchAuditMessage("archive"),
-				);
-				recordStatusActivityResult(
-					createStatusActivityToolsEvidenceMatchResult("archive"),
-				);
+			setSelectedStatusActivityToolsEvidenceSearchMatchIndex(
+				transition.selectedIndex,
+			);
+			log(transition.notice.level, transition.notice.message);
+			log("info", transition.auditMessage);
+			recordStatusActivityResult(transition.result);
+			if (transition.kind === "notice") {
 				return;
 			}
-			if (statusActivityToolsEvidenceSearchRecovery?.target !== "active") {
-				log("warn", "archived tools evidence matches are already archived");
-				log(
-					"info",
-					formatStatusActivityToolsEvidenceMatchAuditMessage(
-						"archive",
-						statusActivityToolsEvidenceSearchRecovery,
-						selectedStatusActivityToolsEvidenceSearchMatchIndex,
-					),
-				);
-				recordStatusActivityResult(
-					createStatusActivityToolsEvidenceMatchResult(
-						"archive",
-						statusActivityToolsEvidenceSearchRecovery,
-						selectedStatusActivityToolsEvidenceSearchMatchIndex,
-					),
-				);
-				return;
-			}
-			const plan = createToolHistoryExportArchivePlan(
-				dirname(getConfigPath()),
-				item.path,
-			);
-			setToolExportArchivePlan(plan);
+			setToolExportArchivePlan(transition.plan);
 			setExternalOpenPlan(undefined);
 			setFileOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
@@ -4000,25 +3945,6 @@ export function App(): React.ReactElement {
 			setToolArchiveRetentionPlan(undefined);
 			setCommandLine(openCommandLine("tool-export-archive"));
 			setScreen("status");
-			log(
-				"info",
-				`recovered tools evidence archive confirmation opened for ${item.fileName}`,
-			);
-			log(
-				"info",
-				formatStatusActivityToolsEvidenceMatchAuditMessage(
-					"archive",
-					statusActivityToolsEvidenceSearchRecovery,
-					selectedStatusActivityToolsEvidenceSearchMatchIndex,
-				),
-			);
-			recordStatusActivityResult(
-				createStatusActivityToolsEvidenceMatchResult(
-					"archive",
-					statusActivityToolsEvidenceSearchRecovery,
-					selectedStatusActivityToolsEvidenceSearchMatchIndex,
-				),
-			);
 		}, [
 			log,
 			recordStatusActivityResult,
@@ -4493,18 +4419,14 @@ export function App(): React.ReactElement {
 
 	const exportToolHistory = useCallback(
 		async (scope: ToolHistoryExportScope) => {
-			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
-				toolHistory,
-				selectedToolHistoryIndex,
-				toolHistoryFilter,
-				toolHistorySort,
-			);
-			const transition = prepareToolHistoryExport(
-				toolHistory,
-				visibleToolHistoryIndex,
+			const transition = prepareSelectedToolHistoryExport({
+				history: toolHistory,
+				selectedIndex: selectedToolHistoryIndex,
+				filter: toolHistoryFilter,
+				sort: toolHistorySort,
 				scope,
-				{ baseDir: dirname(getConfigPath()) },
-			);
+				baseDir: dirname(getConfigPath()),
+			});
 			log(transition.notice.level, transition.notice.message);
 			if (transition.kind === "notice") {
 				return;
@@ -5983,51 +5905,27 @@ export function App(): React.ReactElement {
 			const transition = prepareRecoveredEvidenceSelectionTransition({
 				family: "timeline",
 				exports: filteredTimelineEvidenceTrailAuditExports,
-				selectedIndex: selectedTimelineEvidenceTrailAuditExportIndex,
+				selectedIndex:
+					getSelectedTimelineEvidenceTrailResultOptions().selectedIndex,
 				direction: "next",
+				origin: options.origin,
 			});
 			setSelectedTimelineEvidenceTrailAuditExportIndex(
 				transition.selectedIndex,
 			);
 			log(transition.notice.level, transition.notice.message);
-			if (transition.kind === "notice") {
-				if (options.origin === "palette") {
-					log("info", formatTimelineEvidenceTrailPaletteAuditMessage("select"));
-					recordStatusActivityResult(
-						createTimelineEvidenceTrailPaletteStatusActivityResult("select"),
-					);
-				}
-				return;
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
 			}
-			if (options.origin === "palette") {
-				log(
-					"info",
-					formatTimelineEvidenceTrailPaletteAuditMessage(
-						"select",
-						transition.item,
-						{
-							selectedIndex: transition.selectedIndex,
-							total: transition.total,
-						},
-					),
-				);
-				recordStatusActivityResult(
-					createTimelineEvidenceTrailPaletteStatusActivityResult(
-						"select",
-						transition.item,
-						{
-							selectedIndex: transition.selectedIndex,
-							total: transition.total,
-						},
-					),
-				);
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
 			}
 		},
 		[
 			filteredTimelineEvidenceTrailAuditExports,
+			getSelectedTimelineEvidenceTrailResultOptions,
 			log,
 			recordStatusActivityResult,
-			selectedTimelineEvidenceTrailAuditExportIndex,
 		],
 	);
 
@@ -6079,115 +5977,100 @@ export function App(): React.ReactElement {
 
 	const jumpSelectedTimelineEvidenceTrailSearch = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const jump = createTimelineEvidenceTrailTimelineSearch(
-				selectedTimelineEvidenceTrailAuditExport,
+			const transition = prepareRecoveredEvidenceSearchTransition({
+				family: "timeline",
+				exports: filteredTimelineEvidenceTrailAuditExports,
+				selectedIndex:
+					getSelectedTimelineEvidenceTrailResultOptions().selectedIndex,
+				events,
+				origin: options.origin,
+			});
+			setSelectedTimelineEvidenceTrailAuditExportIndex(
+				transition.selectedIndex,
 			);
-			if (!jump) {
-				log("warn", "no timeline evidence trail export for timeline");
-				if (options.origin === "palette") {
-					log("info", formatTimelineEvidenceTrailPaletteAuditMessage("search"));
-					recordStatusActivityResult(
-						createTimelineEvidenceTrailPaletteStatusActivityResult("search"),
-					);
-				}
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+			} else {
+				setTimelineFilter(transition.timeline.filter);
+				setTimelineSearchQuery(transition.timeline.query);
+				setSelectedTimelineIndex(transition.timeline.selectedIndex);
+				log(
+					transition.timeline.notice.level,
+					transition.timeline.notice.message,
+				);
+			}
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
+			}
+			if (transition.kind === "notice") {
 				return;
 			}
-			const transition = prepareTimelineSearchJumpTransition(events, jump);
-			setTimelineFilter(transition.filter);
-			setTimelineSearchQuery(transition.query);
-			setSelectedTimelineIndex(transition.selectedIndex);
 			setScreen("timeline");
-			log(transition.notice.level, transition.notice.message);
-			if (options.origin === "palette") {
-				log(
-					"info",
-					formatTimelineEvidenceTrailPaletteAuditMessage(
-						"search",
-						selectedTimelineEvidenceTrailAuditExport,
-						getSelectedTimelineEvidenceTrailResultOptions(),
-					),
-				);
-				recordStatusActivityResult(
-					createTimelineEvidenceTrailPaletteStatusActivityResult(
-						"search",
-						selectedTimelineEvidenceTrailAuditExport,
-						getSelectedTimelineEvidenceTrailResultOptions(),
-					),
-				);
-			}
 		},
 		[
 			events,
+			filteredTimelineEvidenceTrailAuditExports,
 			getSelectedTimelineEvidenceTrailResultOptions,
 			log,
 			recordStatusActivityResult,
-			selectedTimelineEvidenceTrailAuditExport,
 		],
 	);
 
 	const openSelectedTimelineEvidenceTrailExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (!selectedTimelineEvidenceTrailAuditExport) {
-				log("warn", "no timeline evidence trail export to open");
+			const transition = prepareRecoveredEvidenceOpenTransition({
+				family: "timeline",
+				exports: filteredTimelineEvidenceTrailAuditExports,
+				selectedIndex:
+					getSelectedTimelineEvidenceTrailResultOptions().selectedIndex,
+				activeIndex: auditExportIndex,
+				archiveIndex: auditExportArchiveIndex,
+				baseDir: dirname(getConfigPath()),
+				platform: currentPlatform(),
+				origin: options.origin,
+			});
+			setSelectedTimelineEvidenceTrailAuditExportIndex(
+				transition.selectedIndex,
+			);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
+			}
+			if (transition.kind === "notice") {
 				setScreen("status");
-				if (options.origin === "palette") {
-					log("info", formatTimelineEvidenceTrailPaletteAuditMessage("open"));
-					recordStatusActivityResult(
-						createTimelineEvidenceTrailPaletteStatusActivityResult("open"),
-					);
-				}
 				return;
 			}
-			const plan = createTimelineEvidenceTrailAuditExportOpenPlan(
-				selectedTimelineEvidenceTrailAuditExport,
-				{
-					baseDir: dirname(getConfigPath()),
-					platform: currentPlatform(),
-				},
-			);
-			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
-				auditExportIndex,
-				selectedTimelineEvidenceTrailAuditExport,
-			);
-			if (evidenceIndex !== undefined) {
-				setSelectedAuditExportIndex(evidenceIndex);
-				setSelectedStatusEvidenceKind("audit");
+			if (transition.masterSelection?.state === "active") {
+				setSelectedAuditExportIndex(transition.masterSelection.selectedIndex);
+			} else if (transition.masterSelection?.state === "archived") {
+				setSelectedAuditExportArchiveIndex(
+					transition.masterSelection.selectedIndex,
+				);
 			}
-			setFileOpenPlan(plan);
+			if (transition.statusEvidenceKind) {
+				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
+			}
+			setFileOpenPlan(transition.plan);
 			setExternalOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
 			setAuditArchiveRetentionPlan(undefined);
 			setCleanupExportArchivePlan(undefined);
 			setCommandLine(openCommandLine("file-open"));
 			setScreen("status");
-			log(
-				"info",
-				`timeline evidence trail export open confirmation opened for ${selectedTimelineEvidenceTrailAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
-			);
-			if (options.origin === "palette") {
-				log(
-					"info",
-					formatTimelineEvidenceTrailPaletteAuditMessage(
-						"open",
-						selectedTimelineEvidenceTrailAuditExport,
-						getSelectedTimelineEvidenceTrailResultOptions(),
-					),
-				);
-				recordStatusActivityResult(
-					createTimelineEvidenceTrailPaletteStatusActivityResult(
-						"open",
-						selectedTimelineEvidenceTrailAuditExport,
-						getSelectedTimelineEvidenceTrailResultOptions(),
-					),
-				);
-			}
 		},
 		[
+			auditExportArchiveIndex,
 			auditExportIndex,
+			filteredTimelineEvidenceTrailAuditExports,
 			getSelectedTimelineEvidenceTrailResultOptions,
 			log,
 			recordStatusActivityResult,
-			selectedTimelineEvidenceTrailAuditExport,
 		],
 	);
 
@@ -6205,159 +6088,101 @@ export function App(): React.ReactElement {
 			const transition = prepareRecoveredEvidenceSelectionTransition({
 				family: "process",
 				exports: processControlAuditExports,
-				selectedIndex: selectedProcessControlAuditExportIndex,
+				selectedIndex:
+					getSelectedProcessControlEvidenceResultOptions().selectedIndex,
 				direction: "next",
+				origin: options.origin,
 			});
 			setSelectedProcessControlAuditExportIndex(transition.selectedIndex);
 			log(transition.notice.level, transition.notice.message);
-			if (transition.kind === "notice") {
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatProcessControlEvidencePaletteAuditMessage("select"),
-					);
-					recordStatusActivityResult(
-						createProcessControlEvidencePaletteStatusActivityResult("select"),
-					);
-				}
-				return;
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
 			}
-			if (options.origin === "palette") {
-				log(
-					"info",
-					formatProcessControlEvidencePaletteAuditMessage(
-						"select",
-						transition.item,
-						{
-							selectedIndex: transition.selectedIndex,
-							total: transition.total,
-						},
-					),
-				);
-				recordStatusActivityResult(
-					createProcessControlEvidencePaletteStatusActivityResult(
-						"select",
-						transition.item,
-						{
-							selectedIndex: transition.selectedIndex,
-							total: transition.total,
-						},
-					),
-				);
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
 			}
 		},
 		[
+			getSelectedProcessControlEvidenceResultOptions,
 			log,
 			processControlAuditExports,
 			recordStatusActivityResult,
-			selectedProcessControlAuditExportIndex,
 		],
 	);
 
 	const jumpSelectedProcessControlEvidenceSearch = useCallback(
 		(options: { origin?: "keyboard" | "palette" | "status-evidence" } = {}) => {
-			const resultOptions = getSelectedProcessControlEvidenceResultOptions();
-			const jump = createProcessControlAuditExportTimelineSearch(
-				selectedProcessControlAuditExport,
-			);
-			if (!jump) {
-				log("warn", "no process control evidence export for timeline");
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatProcessControlEvidencePaletteAuditMessage("search"),
-					);
-					recordStatusActivityResult(
-						createProcessControlEvidencePaletteStatusActivityResult("search"),
-					);
-				}
-				if (options.origin === "status-evidence") {
-					log("info", formatProcessControlEvidenceStatusAuditMessage("search"));
-					recordStatusActivityResult(
-						createProcessControlEvidenceStatusActivityResult("search"),
-					);
-				}
-				return;
-			}
-			const transition = prepareTimelineSearchJumpTransition(events, jump);
-			setTimelineFilter(transition.filter);
-			setTimelineSearchQuery(transition.query);
-			setSelectedTimelineIndex(transition.selectedIndex);
-			setScreen("timeline");
-			log(transition.notice.level, transition.notice.message);
-			if (options.origin === "palette") {
+			const transition = prepareRecoveredEvidenceSearchTransition({
+				family: "process",
+				exports: processControlAuditExports,
+				selectedIndex:
+					getSelectedProcessControlEvidenceResultOptions().selectedIndex,
+				events,
+				origin: options.origin,
+			});
+			setSelectedProcessControlAuditExportIndex(transition.selectedIndex);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+			} else {
+				setTimelineFilter(transition.timeline.filter);
+				setTimelineSearchQuery(transition.timeline.query);
+				setSelectedTimelineIndex(transition.timeline.selectedIndex);
+				setScreen("timeline");
 				log(
-					"info",
-					formatProcessControlEvidencePaletteAuditMessage(
-						"search",
-						selectedProcessControlAuditExport,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createProcessControlEvidencePaletteStatusActivityResult(
-						"search",
-						selectedProcessControlAuditExport,
-						resultOptions,
-					),
+					transition.timeline.notice.level,
+					transition.timeline.notice.message,
 				);
 			}
-			if (options.origin === "status-evidence") {
-				log(
-					"info",
-					formatProcessControlEvidenceStatusAuditMessage(
-						"search",
-						selectedProcessControlAuditExport,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createProcessControlEvidenceStatusActivityResult(
-						"search",
-						selectedProcessControlAuditExport,
-						resultOptions,
-					),
-				);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
 			}
 		},
 		[
 			events,
 			getSelectedProcessControlEvidenceResultOptions,
 			log,
+			processControlAuditExports,
 			recordStatusActivityResult,
-			selectedProcessControlAuditExport,
 		],
 	);
 
 	const openSelectedProcessControlEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const transition = prepareStatusEvidenceOpenTransition({
-				indexes: statusEvidenceIndexes,
-				selection: statusEvidenceSelection,
-				kind: "process",
+			const transition = prepareRecoveredEvidenceOpenTransition({
+				family: "process",
+				exports: processControlAuditExports,
+				selectedIndex:
+					getSelectedProcessControlEvidenceResultOptions().selectedIndex,
+				activeIndex: auditExportIndex,
+				archiveIndex: auditExportArchiveIndex,
 				baseDir: dirname(getConfigPath()),
 				platform: currentPlatform(),
+				origin: options.origin,
 			});
+			setSelectedProcessControlAuditExportIndex(transition.selectedIndex);
 			log(transition.notice.level, transition.notice.message);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
+			}
 			if (transition.kind === "notice") {
 				setScreen("status");
-				if (options.origin === "palette") {
-					log("info", formatProcessControlEvidencePaletteAuditMessage("open"));
-					recordStatusActivityResult(
-						createProcessControlEvidencePaletteStatusActivityResult("open"),
-					);
-				}
 				return;
 			}
-			const selected = processControlAuditExports[transition.selectedIndex];
-			setSelectedProcessControlAuditExportIndex(transition.selectedIndex);
-			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
-				auditExportIndex,
-				selected,
-			);
-			if (evidenceIndex !== undefined) {
-				setSelectedAuditExportIndex(evidenceIndex);
-				setSelectedStatusEvidenceKind("audit");
+			if (transition.masterSelection?.state === "active") {
+				setSelectedAuditExportIndex(transition.masterSelection.selectedIndex);
+			} else if (transition.masterSelection?.state === "archived") {
+				setSelectedAuditExportArchiveIndex(
+					transition.masterSelection.selectedIndex,
+				);
+			}
+			if (transition.statusEvidenceKind) {
+				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
 			}
 			setFileOpenPlan(transition.plan);
 			setExternalOpenPlan(undefined);
@@ -6366,33 +6191,14 @@ export function App(): React.ReactElement {
 			setCleanupExportArchivePlan(undefined);
 			setCommandLine(openCommandLine("file-open"));
 			setScreen("status");
-			if (options.origin === "palette") {
-				const resultOptions = getSelectedProcessControlEvidenceResultOptions();
-				log(
-					"info",
-					formatProcessControlEvidencePaletteAuditMessage(
-						"open",
-						selected,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createProcessControlEvidencePaletteStatusActivityResult(
-						"open",
-						selected,
-						resultOptions,
-					),
-				);
-			}
 		},
 		[
+			auditExportArchiveIndex,
 			auditExportIndex,
 			getSelectedProcessControlEvidenceResultOptions,
 			log,
 			recordStatusActivityResult,
 			processControlAuditExports,
-			statusEvidenceIndexes,
-			statusEvidenceSelection,
 		],
 	);
 
@@ -6410,53 +6216,25 @@ export function App(): React.ReactElement {
 	const selectNextRemoteKnownHostsSelectionEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
-			setSelectedStatusEvidenceKind("remote-known-hosts");
 			const transition = prepareRecoveredEvidenceSelectionTransition({
 				family: "remote-known-hosts",
 				exports: remoteKnownHostsSelectionAuditExports,
 				selectedIndex: selectedRemoteKnownHostsSelectionAuditExportIndex,
 				direction: "next",
+				origin: options.origin,
 			});
 			setSelectedRemoteKnownHostsSelectionAuditExportIndex(
 				transition.selectedIndex,
 			);
-			log(transition.notice.level, transition.notice.message);
-			if (transition.kind === "notice") {
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-							"select",
-						),
-					);
-					recordStatusActivityResult(
-						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-							"select",
-						),
-					);
-				}
-				return;
+			if (transition.statusEvidenceKind) {
+				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
 			}
-			if (options.origin === "palette") {
-				const resultOptions = {
-					selectedIndex: transition.selectedIndex,
-					total: transition.total,
-				};
-				log(
-					"info",
-					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-						"select",
-						transition.item,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-						"select",
-						transition.item,
-						resultOptions,
-					),
-				);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
 			}
 		},
 		[
@@ -6469,134 +6247,79 @@ export function App(): React.ReactElement {
 
 	const jumpSelectedRemoteKnownHostsSelectionEvidenceSearch = useCallback(
 		(options: { origin?: "keyboard" | "palette" | "status-evidence" } = {}) => {
-			const resultOptions =
-				getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
-			const jump =
-				createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch(
-					selectedRemoteKnownHostsSelectionAuditExport,
-				);
-			if (!jump) {
+			const transition = prepareRecoveredEvidenceSearchTransition({
+				family: "remote-known-hosts",
+				exports: remoteKnownHostsSelectionAuditExports,
+				selectedIndex: selectedRemoteKnownHostsSelectionAuditExportIndex,
+				events,
+				origin: options.origin,
+			});
+			setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+				transition.selectedIndex,
+			);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+			} else {
+				setTimelineFilter(transition.timeline.filter);
+				setTimelineSearchQuery(transition.timeline.query);
+				setSelectedTimelineIndex(transition.timeline.selectedIndex);
+				setScreen("timeline");
 				log(
-					"warn",
-					"no remote known_hosts selection evidence export for timeline",
-				);
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-							"search",
-						),
-					);
-					recordStatusActivityResult(
-						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-							"search",
-						),
-					);
-				}
-				if (options.origin === "status-evidence") {
-					log(
-						"info",
-						formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage(
-							"search",
-						),
-					);
-					recordStatusActivityResult(
-						createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
-							"search",
-						),
-					);
-				}
-				return;
-			}
-			const transition = prepareTimelineSearchJumpTransition(events, jump);
-			setTimelineFilter(transition.filter);
-			setTimelineSearchQuery(transition.query);
-			setSelectedTimelineIndex(transition.selectedIndex);
-			setScreen("timeline");
-			log(transition.notice.level, transition.notice.message);
-			if (options.origin === "palette") {
-				log(
-					"info",
-					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-						"search",
-						selectedRemoteKnownHostsSelectionAuditExport,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-						"search",
-						selectedRemoteKnownHostsSelectionAuditExport,
-						resultOptions,
-					),
+					transition.timeline.notice.level,
+					transition.timeline.notice.message,
 				);
 			}
-			if (options.origin === "status-evidence") {
-				log(
-					"info",
-					formatRemoteKnownHostsSelectionHistoryEvidenceStatusAuditMessage(
-						"search",
-						selectedRemoteKnownHostsSelectionAuditExport,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createRemoteKnownHostsSelectionHistoryEvidenceStatusActivityResult(
-						"search",
-						selectedRemoteKnownHostsSelectionAuditExport,
-						resultOptions,
-					),
-				);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
 			}
 		},
 		[
 			events,
-			getSelectedRemoteKnownHostsSelectionEvidenceResultOptions,
 			log,
 			recordStatusActivityResult,
-			selectedRemoteKnownHostsSelectionAuditExport,
+			remoteKnownHostsSelectionAuditExports,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
 		],
 	);
 
 	const openSelectedRemoteKnownHostsSelectionEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const transition = prepareStatusEvidenceOpenTransition({
-				indexes: statusEvidenceIndexes,
-				selection: statusEvidenceSelection,
-				kind: "remote-known-hosts",
+			const transition = prepareRecoveredEvidenceOpenTransition({
+				family: "remote-known-hosts",
+				exports: remoteKnownHostsSelectionAuditExports,
+				selectedIndex: selectedRemoteKnownHostsSelectionAuditExportIndex,
+				activeIndex: auditExportIndex,
+				archiveIndex: auditExportArchiveIndex,
 				baseDir: dirname(getConfigPath()),
 				platform: currentPlatform(),
+				origin: options.origin,
 			});
-			log(transition.notice.level, transition.notice.message);
-			if (transition.kind === "notice") {
-				setScreen("status");
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-							"open",
-						),
-					);
-					recordStatusActivityResult(
-						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-							"open",
-						),
-					);
-				}
-				return;
-			}
-			const selected =
-				remoteKnownHostsSelectionAuditExports[transition.selectedIndex];
 			setSelectedRemoteKnownHostsSelectionAuditExportIndex(
 				transition.selectedIndex,
 			);
-			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
-				auditExportIndex,
-				selected,
-			);
-			if (evidenceIndex !== undefined) {
-				setSelectedAuditExportIndex(evidenceIndex);
-				setSelectedStatusEvidenceKind("audit");
+			log(transition.notice.level, transition.notice.message);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
+			}
+			if (transition.kind === "notice") {
+				setScreen("status");
+				return;
+			}
+			if (transition.masterSelection?.state === "active") {
+				setSelectedAuditExportIndex(transition.masterSelection.selectedIndex);
+			} else if (transition.masterSelection?.state === "archived") {
+				setSelectedAuditExportArchiveIndex(
+					transition.masterSelection.selectedIndex,
+				);
+			}
+			if (transition.statusEvidenceKind) {
+				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
 			}
 			setFileOpenPlan(transition.plan);
 			setExternalOpenPlan(undefined);
@@ -6605,34 +6328,14 @@ export function App(): React.ReactElement {
 			setCleanupExportArchivePlan(undefined);
 			setCommandLine(openCommandLine("file-open"));
 			setScreen("status");
-			if (options.origin === "palette") {
-				const resultOptions =
-					getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
-				log(
-					"info",
-					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-						"open",
-						selected,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-						"open",
-						selected,
-						resultOptions,
-					),
-				);
-			}
 		},
 		[
+			auditExportArchiveIndex,
 			auditExportIndex,
-			getSelectedRemoteKnownHostsSelectionEvidenceResultOptions,
 			log,
 			recordStatusActivityResult,
 			remoteKnownHostsSelectionAuditExports,
-			statusEvidenceIndexes,
-			statusEvidenceSelection,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
 		],
 	);
 
@@ -6794,189 +6497,123 @@ export function App(): React.ReactElement {
 	const selectNextInterfaceConfirmationEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
-			setSelectedStatusEvidenceKind("interface");
 			const exports = interfaceConfirmationEvidenceExports.map(
 				({ plan }) => plan,
 			);
 			const transition = prepareRecoveredEvidenceSelectionTransition({
 				family: "interface",
 				exports,
-				selectedIndex: selectedInterfaceConfirmationAuditExportIndex,
+				selectedIndex:
+					getSelectedInterfaceConfirmationEvidenceResultOptions().selectedIndex,
 				direction: "next",
+				origin: options.origin,
 			});
 			setSelectedInterfaceConfirmationAuditExportIndex(
 				transition.selectedIndex,
 			);
-			log(transition.notice.level, transition.notice.message);
-			if (transition.kind === "notice") {
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatInterfaceConfirmationEvidencePaletteAuditMessage("select"),
-					);
-					recordStatusActivityResult(
-						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
-							"select",
-						),
-					);
-				}
-				return;
+			if (transition.statusEvidenceKind) {
+				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
 			}
-			if (options.origin === "palette") {
-				const resultOptions = {
-					selectedIndex: transition.selectedIndex,
-					total: transition.total,
-				};
-				log(
-					"info",
-					formatInterfaceConfirmationEvidencePaletteAuditMessage(
-						"select",
-						transition.item,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createInterfaceConfirmationEvidencePaletteStatusActivityResult(
-						"select",
-						transition.item,
-						resultOptions,
-					),
-				);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
 			}
 		},
 		[
+			getSelectedInterfaceConfirmationEvidenceResultOptions,
 			interfaceConfirmationEvidenceExports,
 			log,
 			recordStatusActivityResult,
-			selectedInterfaceConfirmationAuditExportIndex,
 		],
 	);
 
 	const jumpSelectedInterfaceConfirmationEvidenceSearch = useCallback(
 		(options: { origin?: "keyboard" | "palette" | "status-evidence" } = {}) => {
-			const resultOptions =
-				getSelectedInterfaceConfirmationEvidenceResultOptions();
-			const jump = createInterfaceConfirmationAuditExportTimelineSearch(
-				selectedInterfaceConfirmationAuditExport,
+			const exports = interfaceConfirmationEvidenceExports.map(
+				({ plan }) => plan,
 			);
-			if (!jump) {
-				log("warn", "no interface confirmation evidence export for timeline");
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatInterfaceConfirmationEvidencePaletteAuditMessage("search"),
-					);
-					recordStatusActivityResult(
-						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
-							"search",
-						),
-					);
-				}
-				if (options.origin === "status-evidence") {
-					log(
-						"info",
-						formatInterfaceConfirmationEvidenceStatusAuditMessage("search"),
-					);
-					recordStatusActivityResult(
-						createInterfaceConfirmationEvidenceStatusActivityResult("search"),
-					);
-				}
-				return;
-			}
-			const transition = prepareTimelineSearchJumpTransition(events, jump);
-			setTimelineFilter(transition.filter);
-			setTimelineSearchQuery(transition.query);
-			setSelectedTimelineIndex(transition.selectedIndex);
-			setScreen("timeline");
-			log(transition.notice.level, transition.notice.message);
-			if (options.origin === "palette") {
+			const transition = prepareRecoveredEvidenceSearchTransition({
+				family: "interface",
+				exports,
+				selectedIndex:
+					getSelectedInterfaceConfirmationEvidenceResultOptions().selectedIndex,
+				events,
+				origin: options.origin,
+			});
+			setSelectedInterfaceConfirmationAuditExportIndex(
+				transition.selectedIndex,
+			);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+			} else {
+				setTimelineFilter(transition.timeline.filter);
+				setTimelineSearchQuery(transition.timeline.query);
+				setSelectedTimelineIndex(transition.timeline.selectedIndex);
+				setScreen("timeline");
 				log(
-					"info",
-					formatInterfaceConfirmationEvidencePaletteAuditMessage(
-						"search",
-						selectedInterfaceConfirmationAuditExport,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createInterfaceConfirmationEvidencePaletteStatusActivityResult(
-						"search",
-						selectedInterfaceConfirmationAuditExport,
-						resultOptions,
-					),
+					transition.timeline.notice.level,
+					transition.timeline.notice.message,
 				);
 			}
-			if (options.origin === "status-evidence") {
-				log(
-					"info",
-					formatInterfaceConfirmationEvidenceStatusAuditMessage(
-						"search",
-						selectedInterfaceConfirmationAuditExport,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createInterfaceConfirmationEvidenceStatusActivityResult(
-						"search",
-						selectedInterfaceConfirmationAuditExport,
-						resultOptions,
-					),
-				);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
 			}
 		},
 		[
 			events,
 			getSelectedInterfaceConfirmationEvidenceResultOptions,
+			interfaceConfirmationEvidenceExports,
 			log,
 			recordStatusActivityResult,
-			selectedInterfaceConfirmationAuditExport,
 		],
 	);
 
 	const openSelectedInterfaceConfirmationEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const transition = prepareStatusEvidenceOpenTransition({
-				indexes: statusEvidenceIndexes,
-				selection: statusEvidenceSelection,
-				kind: "interface",
+			const exports = interfaceConfirmationEvidenceExports.map(
+				({ plan }) => plan,
+			);
+			const transition = prepareRecoveredEvidenceOpenTransition({
+				family: "interface",
+				exports,
+				selectedIndex:
+					getSelectedInterfaceConfirmationEvidenceResultOptions().selectedIndex,
+				activeIndex: auditExportIndex,
+				archiveIndex: auditExportArchiveIndex,
 				baseDir: dirname(getConfigPath()),
 				platform: currentPlatform(),
+				origin: options.origin,
 			});
-			log(transition.notice.level, transition.notice.message);
-			if (transition.kind === "notice") {
-				setScreen("status");
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatInterfaceConfirmationEvidencePaletteAuditMessage("open"),
-					);
-					recordStatusActivityResult(
-						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
-							"open",
-						),
-					);
-				}
-				return;
-			}
-			const selected =
-				interfaceConfirmationEvidenceExports[transition.selectedIndex]?.plan;
 			setSelectedInterfaceConfirmationAuditExportIndex(
 				transition.selectedIndex,
 			);
-			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
-				auditExportIndex,
-				selected,
-			);
-			const archivedEvidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
-				auditExportArchiveIndex,
-				selected,
-			);
-			if (evidenceIndex !== undefined) {
-				setSelectedAuditExportIndex(evidenceIndex);
-			} else if (archivedEvidenceIndex !== undefined) {
-				setSelectedAuditExportArchiveIndex(archivedEvidenceIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
 			}
-			setSelectedStatusEvidenceKind("interface");
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
+			}
+			if (transition.kind === "notice") {
+				setScreen("status");
+				return;
+			}
+			if (transition.masterSelection?.state === "active") {
+				setSelectedAuditExportIndex(transition.masterSelection.selectedIndex);
+			} else if (transition.masterSelection?.state === "archived") {
+				setSelectedAuditExportArchiveIndex(
+					transition.masterSelection.selectedIndex,
+				);
+			}
+			if (transition.statusEvidenceKind) {
+				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
+			}
 			setFileOpenPlan(transition.plan);
 			setExternalOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
@@ -6984,35 +6621,14 @@ export function App(): React.ReactElement {
 			setCleanupExportArchivePlan(undefined);
 			setCommandLine(openCommandLine("file-open"));
 			setScreen("status");
-			if (options.origin === "palette") {
-				const resultOptions =
-					getSelectedInterfaceConfirmationEvidenceResultOptions();
-				log(
-					"info",
-					formatInterfaceConfirmationEvidencePaletteAuditMessage(
-						"open",
-						selected,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createInterfaceConfirmationEvidencePaletteStatusActivityResult(
-						"open",
-						selected,
-						resultOptions,
-					),
-				);
-			}
 		},
 		[
 			auditExportArchiveIndex,
 			auditExportIndex,
 			getSelectedInterfaceConfirmationEvidenceResultOptions,
+			interfaceConfirmationEvidenceExports,
 			log,
 			recordStatusActivityResult,
-			interfaceConfirmationEvidenceExports,
-			statusEvidenceIndexes,
-			statusEvidenceSelection,
 		],
 	);
 
@@ -7219,26 +6835,27 @@ export function App(): React.ReactElement {
 					statusActivityCopyIntentHistory,
 					selectedStatusActivityResultAuditJumpIndex,
 				);
-			const replay = prepareStatusActivityResultTimelineHandoffReplay({
-				history: statusActivityResults,
-				selectedIndex: selectedStatusActivityResultIndex,
-				latestAuditJumpIntent: latestStatusActivityResultAuditJumpIntent,
-				selectedAuditJumpIntent,
-			});
-			if (replay.kind === "notice") {
-				log(replay.notice.level, replay.notice.message);
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatStatusActivityResultTimelineJumpPaletteAuditMessage("open"),
-					);
-					recordStatusActivityResult(
-						createStatusActivityResultTimelineJumpPaletteResult("open"),
-					);
-				}
+			const transition =
+				prepareStatusActivityResultTimelineHandoffOpenTransition({
+					history: statusActivityResults,
+					selectedIndex: selectedStatusActivityResultIndex,
+					latestAuditJumpIntent: latestStatusActivityResultAuditJumpIntent,
+					selectedAuditJumpIntent,
+					events,
+					origin: options.origin,
+					filter: statusActivityResultTimelineJumpFilter,
+				});
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
+			}
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-			const { intent, jump } = replay;
+			const { intent, timeline } = transition;
 			setStatusActivityCopyIntentHistory((current) =>
 				intent
 					? appendStatusActivityCopyIntentHistory(current, intent)
@@ -7248,44 +6865,11 @@ export function App(): React.ReactElement {
 			if (intent) {
 				log("info", intent.auditMessage);
 			}
-			const timelineTransition = prepareTimelineSearchJumpTransition(
-				events,
-				jump,
-				{
-					messageSuffix: options.origin === "palette" ? " origin=palette" : "",
-				},
-			);
-			setTimelineFilter(timelineTransition.filter);
-			setTimelineSearchQuery(timelineTransition.query);
-			setSelectedTimelineIndex(timelineTransition.selectedIndex);
+			setTimelineFilter(timeline.filter);
+			setTimelineSearchQuery(timeline.query);
+			setSelectedTimelineIndex(timeline.selectedIndex);
 			setScreen("timeline");
-			log(timelineTransition.notice.level, timelineTransition.notice.message);
-			if (options.origin === "palette") {
-				const selection = getStatusActivityResultTimelineJumpSelection(
-					statusActivityResults,
-					selectedStatusActivityResultIndex,
-					statusActivityResultTimelineJumpFilter,
-				);
-				log(
-					"info",
-					formatStatusActivityResultTimelineJumpPaletteAuditMessage("open", {
-						historyIndex: selectedStatusActivityResultIndex,
-						jump,
-						matches: timelineTransition.matches,
-						selectedIndex: selection?.selectedIndex,
-						total: selection?.total,
-					}),
-				);
-				recordStatusActivityResult(
-					createStatusActivityResultTimelineJumpPaletteResult("open", {
-						historyIndex: selectedStatusActivityResultIndex,
-						jump,
-						matches: timelineTransition.matches,
-						selectedIndex: selection?.selectedIndex,
-						total: selection?.total,
-					}),
-				);
-			}
+			log(timeline.notice.level, timeline.notice.message);
 		},
 		[
 			events,

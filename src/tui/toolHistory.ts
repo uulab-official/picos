@@ -2425,6 +2425,27 @@ export function prepareToolHistoryExport(
 	};
 }
 
+export function prepareSelectedToolHistoryExport(input: {
+	history: ToolHistoryItem[];
+	selectedIndex: number;
+	filter: string;
+	sort: ToolHistorySort;
+	scope: ToolHistoryExportScope;
+	baseDir: string;
+	generatedAt?: Date;
+}): PrepareToolHistoryExportTransition {
+	const selectedIndex = getVisibleToolHistoryIndex(
+		input.history,
+		input.selectedIndex,
+		input.filter,
+		input.sort,
+	);
+	return prepareToolHistoryExport(input.history, selectedIndex, input.scope, {
+		baseDir: input.baseDir,
+		...(input.generatedAt ? { generatedAt: input.generatedAt } : {}),
+	});
+}
+
 export function prepareSelectedToolHistoryExportOpen(input: {
 	index: ToolHistoryExportIndex;
 	selectedIndex: number;

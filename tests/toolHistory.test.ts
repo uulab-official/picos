@@ -56,6 +56,7 @@ import {
 	nextToolSectionClipboardSelection,
 	normalizeToolTargetPresets,
 	parseToolTargetPresetCommand,
+	prepareSelectedToolHistoryExport,
 	prepareSelectedToolHistoryExportArchive,
 	prepareSelectedToolHistoryExportOpen,
 	prepareToolHistoryArchiveRetentionConfirmation,
@@ -3649,5 +3650,63 @@ describe("TUI tool history", () => {
 			kind: "execute",
 			plan: { confirmed: false, enabled: false },
 		});
+	});
+
+	test("resolves filtered selected Tool history inside the export owner", () => {
+		const dns = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result,
+			},
+			"12:00:00",
+		)[0];
+		const tcp = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "port-check",
+					args: ["api.example.com", "443"],
+					label: "network.connect api.example.com:443",
+				},
+				result: {
+					...result,
+					title: "TCP Port Check",
+					rawOutput: "$ picos tools port-check api.example.com 443",
+				},
+			},
+			"12:00:01",
+		)[0];
+		if (!dns || !tcp) {
+			throw new Error("expected tool history fixtures");
+		}
+
+		const transition = prepareSelectedToolHistoryExport({
+			history: [dns, tcp],
+			selectedIndex: 0,
+			filter: "TCP",
+			sort: "time",
+			scope: "selected",
+			baseDir: "/tmp/picos",
+			generatedAt: new Date("2026-07-01T04:00:00.000Z"),
+		});
+		expect(transition).toMatchObject({
+			kind: "export",
+			selectedIndex: 1,
+			plan: { scope: "selected", itemCount: 1 },
+			notice: {
+				level: "ok",
+				message: "tools export selected prepared 1 run(s)",
+			},
+		});
+		expect(
+			transition.kind === "export" ? transition.plan.content : "",
+		).toContain("network.connect api.example.com:443");
 	});
 });

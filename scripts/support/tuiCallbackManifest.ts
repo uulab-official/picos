@@ -348,12 +348,12 @@ const delegatedCallbacks = {
 	refreshAuditExportIndex: {
 		owner: "src/tui/statusEvidence.ts + src/tui/statusActivityQueue.ts",
 		reason:
-			"delegates sequenced audit refresh publication and atomic recovered-family selection repair",
+			"delegates sequenced audit refresh publication and atomic active-plus-archive recovered-family selection repair",
 	},
 	refreshAuditExportArchiveIndex: {
 		owner: "src/tui/statusEvidence.ts",
 		reason:
-			"delegates sequenced audit archive refresh publication and selection repair",
+			"delegates sequenced audit archive refresh publication and atomic active-plus-archive interface selection repair",
 	},
 	openSelectedHandoffFile: {
 		owner: "src/tui/statusEvidence.ts",
@@ -403,6 +403,16 @@ const delegatedCallbacks = {
 		reason:
 			"delegates selected archived Tools export open eligibility, plan, and notice",
 	},
+	openSelectedStatusActivityToolsEvidenceSearchMatchFile: {
+		owner: "src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates recovered Tools match selection, open eligibility, plan, activity result, and exact notice",
+	},
+	openSelectedStatusActivityToolsEvidenceSearchMatchArchive: {
+		owner: "src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates recovered Tools match selection, archive eligibility, confirmation, activity result, and exact notice",
+	},
 	openSelectedToolExportArchive: {
 		owner: "src/tui/toolHistory.ts",
 		reason:
@@ -425,31 +435,35 @@ const delegatedCallbacks = {
 	exportToolHistory: {
 		owner: "src/tui/toolHistory.ts",
 		reason:
-			"delegates selected Tools history export eligibility, plan, and notice",
+			"delegates filtered selected Tools history resolution, export eligibility, plan, and notice",
 	},
 	selectNextTimelineEvidenceTrailExport: {
 		owner: "src/tui/statusActivityQueue.ts",
 		reason: "delegates recovered Timeline evidence selection and exact notice",
 	},
 	jumpSelectedTimelineEvidenceTrailSearch: {
-		owner: "src/tui/timelinePanel.ts",
-		reason: "delegates Timeline evidence search jump and newest-result notice",
+		owner: "src/tui/statusActivityQueue.ts + src/tui/timelinePanel.ts",
+		reason:
+			"delegates clamped Timeline evidence selection, search jump, activity result, and newest-result notice",
 	},
 	openSelectedTimelineEvidenceTrailExport: {
-		owner: "src/tui/statusEvidence.ts",
-		reason: "delegates recovered Timeline export open eligibility and plan",
+		owner: "src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates recovered Timeline selection, master index, open eligibility, plan, activity result, and exact notice",
 	},
 	selectNextProcessControlEvidenceExport: {
 		owner: "src/tui/statusActivityQueue.ts",
 		reason: "delegates recovered process evidence selection and exact notice",
 	},
 	jumpSelectedProcessControlEvidenceSearch: {
-		owner: "src/tui/timelinePanel.ts",
-		reason: "delegates process evidence search jump and newest-result notice",
+		owner: "src/tui/statusActivityQueue.ts + src/tui/timelinePanel.ts",
+		reason:
+			"delegates clamped process evidence selection, search jump, activity result, and newest-result notice",
 	},
 	openSelectedProcessControlEvidenceExport: {
-		owner: "src/tui/statusEvidence.ts",
-		reason: "delegates recovered process export open eligibility and plan",
+		owner: "src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates recovered process selection, master index, open eligibility, plan, activity result, and exact notice",
 	},
 	selectNextRemoteKnownHostsSelectionEvidenceExport: {
 		owner: "src/tui/statusActivityQueue.ts",
@@ -457,31 +471,33 @@ const delegatedCallbacks = {
 			"delegates recovered remote known_hosts evidence selection and exact notice",
 	},
 	jumpSelectedRemoteKnownHostsSelectionEvidenceSearch: {
-		owner: "src/tui/timelinePanel.ts",
+		owner: "src/tui/statusActivityQueue.ts + src/tui/timelinePanel.ts",
 		reason:
-			"delegates remote known_hosts evidence search jump and newest-result notice",
+			"delegates clamped remote known_hosts selection, search jump, activity result, and newest-result notice",
 	},
 	openSelectedRemoteKnownHostsSelectionEvidenceExport: {
-		owner: "src/tui/statusEvidence.ts",
+		owner: "src/tui/statusActivityQueue.ts",
 		reason:
-			"delegates recovered remote known_hosts export open eligibility and plan",
+			"delegates recovered remote known_hosts selection, master index, open eligibility, plan, activity result, and exact notice",
 	},
 	selectNextInterfaceConfirmationEvidenceExport: {
 		owner: "src/tui/statusActivityQueue.ts",
 		reason: "delegates recovered interface evidence selection and exact notice",
 	},
 	jumpSelectedInterfaceConfirmationEvidenceSearch: {
-		owner: "src/tui/timelinePanel.ts",
-		reason: "delegates interface evidence search jump and newest-result notice",
+		owner: "src/tui/statusActivityQueue.ts + src/tui/timelinePanel.ts",
+		reason:
+			"delegates combined clamped interface selection, search jump, activity result, and newest-result notice",
 	},
 	openSelectedInterfaceConfirmationEvidenceExport: {
-		owner: "src/tui/statusEvidence.ts",
-		reason: "delegates recovered interface export open eligibility and plan",
+		owner: "src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates combined interface selection, active-or-archive master index, open eligibility, plan, activity result, and exact notice",
 	},
 	openSelectedStatusActivityResultTimelineJump: {
 		owner: "src/tui/statusActivityQueue.ts + src/tui/timelinePanel.ts",
 		reason:
-			"delegates status-activity handoff replay and newest Timeline result selection",
+			"delegates status-activity handoff guard, replay intent, Timeline state, activity result, and newest-result notice",
 	},
 	refreshCleanupExportIndex: {
 		owner: "src/tui/cleanupIndex.ts",
@@ -570,6 +586,8 @@ const evidenceLifecycleDelegatedCallbacks = new Set([
 	"openSelectedCleanupExportFile",
 	"openSelectedToolExportFile",
 	"openSelectedToolExportArchiveFile",
+	"openSelectedStatusActivityToolsEvidenceSearchMatchFile",
+	"openSelectedStatusActivityToolsEvidenceSearchMatchArchive",
 	"openSelectedToolExportArchive",
 	"openToolArchiveRetentionPreview",
 	"openSelectedCleanupExportArchive",
