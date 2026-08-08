@@ -167,6 +167,26 @@ const wiringReasons = {
 } as const;
 
 const delegatedCallbacks = {
+	submitEditorAppendLineCommand: {
+		owner: "src/tui/editorBuffer.ts",
+		reason: "delegates editor append transition",
+	},
+	submitEditorInsertLineCommand: {
+		owner: "src/tui/editorBuffer.ts",
+		reason: "delegates editor insert transition",
+	},
+	submitEditorReplaceLineCommand: {
+		owner: "src/tui/editorBuffer.ts",
+		reason: "delegates editor replace transition",
+	},
+	undoEditorEdit: {
+		owner: "src/tui/editorBuffer.ts",
+		reason: "delegates editor undo transition",
+	},
+	deleteSelectedEditorLine: {
+		owner: "src/tui/editorBuffer.ts",
+		reason: "delegates editor delete transition",
+	},
 	applyToolPromptCommandLineInput: {
 		owner: "src/tui/commandLine.ts",
 		reason: "delegates typed tool prompt input transition",
@@ -203,7 +223,12 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 				name,
 				owner: delegated.owner,
 				classification: "delegated",
-				slice: "tool-target-transitions",
+				slice:
+					name.startsWith("submitEditor") ||
+					name === "undoEditorEdit" ||
+					name === "deleteSelectedEditorLine"
+						? "editor-transitions"
+						: "tool-target-transitions",
 				reason: delegated.reason,
 			};
 		}

@@ -376,16 +376,16 @@ import {
 	withConfigManagedShelfFocusRows,
 } from "./configPanel";
 import {
-	appendEditorBufferLine,
 	createEditorBuffer,
-	deleteEditorBufferLine,
 	type EditorBuffer,
 	formatEditorBufferLines,
 	getEditorBufferState,
-	insertEditorBufferLine,
-	moveEditorBufferLineSelection,
-	replaceEditorBufferLine,
-	undoEditorBufferEdit,
+	transitionEditorAppendLine,
+	transitionEditorDeleteLine,
+	transitionEditorInsertLine,
+	transitionEditorMoveCursor,
+	transitionEditorReplaceLine,
+	transitionEditorUndo,
 } from "./editorBuffer";
 import {
 	createEndpointFilterCleanupPreview,
@@ -2115,48 +2115,41 @@ export function App(): React.ReactElement {
 		const line = commandLine.value;
 		setCommandLine((current) => closeCommandLine(current));
 		setEditorPreview((current) => {
-			if (!current) {
-				log("warn", "open a text file before editing");
-				return current;
+			const transition = transitionEditorAppendLine({
+				buffer: current,
+				selectedLineIndex: selectedEditorLineIndex,
+				line,
+			});
+			setSelectedEditorLineIndex(transition.selectedLineIndex);
+			if (transition.clearSaveResult) {
+				setEditorSaveResult(undefined);
 			}
-			const next = appendEditorBufferLine(current, line);
-			setEditorSaveResult(undefined);
-			const state = getEditorBufferState(next);
-			setSelectedEditorLineIndex(Math.max(0, state.lineCount - 1));
-			log("ok", `editor appended line ${state.lineCount} dirty=${state.dirty}`);
-			return next;
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
+			}
+			return transition.buffer;
 		});
-	}, [commandLine.value, log]);
+	}, [commandLine.value, log, selectedEditorLineIndex]);
 
 	const submitEditorInsertLineCommand = useCallback(
 		(position: "before" | "after") => {
 			const line = commandLine.value;
 			setCommandLine((current) => closeCommandLine(current));
 			setEditorPreview((current) => {
-				if (!current) {
-					log("warn", "open a text file before inserting lines");
-					return current;
-				}
-				const next = insertEditorBufferLine(
-					current,
-					selectedEditorLineIndex,
+				const transition = transitionEditorInsertLine({
+					buffer: current,
+					selectedLineIndex: selectedEditorLineIndex,
 					line,
 					position,
-				);
-				setEditorSaveResult(undefined);
-				const state = getEditorBufferState(next);
-				const insertedIndex =
-					position === "before"
-						? selectedEditorLineIndex
-						: selectedEditorLineIndex + 1;
-				setSelectedEditorLineIndex(
-					Math.min(insertedIndex, Math.max(0, state.lineCount - 1)),
-				);
-				log(
-					"ok",
-					`editor inserted ${position} line ${selectedEditorLineIndex + 1} dirty=${state.dirty}`,
-				);
-				return next;
+				});
+				setSelectedEditorLineIndex(transition.selectedLineIndex);
+				if (transition.clearSaveResult) {
+					setEditorSaveResult(undefined);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
+				return transition.buffer;
 			});
 		},
 		[commandLine.value, log, selectedEditorLineIndex],
@@ -2166,66 +2159,53 @@ export function App(): React.ReactElement {
 		const line = commandLine.value;
 		setCommandLine((current) => closeCommandLine(current));
 		setEditorPreview((current) => {
-			if (!current) {
-				log("warn", "open a text file before replacing lines");
-				return current;
-			}
-			const next = replaceEditorBufferLine(
-				current,
-				selectedEditorLineIndex,
+			const transition = transitionEditorReplaceLine({
+				buffer: current,
+				selectedLineIndex: selectedEditorLineIndex,
 				line,
-			);
-			setEditorSaveResult(undefined);
-			const state = getEditorBufferState(next);
-			setSelectedEditorLineIndex((index) =>
-				Math.min(index, Math.max(0, state.lineCount - 1)),
-			);
-			log(
-				"ok",
-				`editor replaced line ${selectedEditorLineIndex + 1} dirty=${state.dirty}`,
-			);
-			return next;
+			});
+			setSelectedEditorLineIndex(transition.selectedLineIndex);
+			if (transition.clearSaveResult) {
+				setEditorSaveResult(undefined);
+			}
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
+			}
+			return transition.buffer;
 		});
 	}, [commandLine.value, log, selectedEditorLineIndex]);
 
 	const undoEditorEdit = useCallback(() => {
 		setEditorPreview((current) => {
-			if (!current) {
-				log("warn", "open a text file before undo");
-				return current;
+			const transition = transitionEditorUndo({
+				buffer: current,
+				selectedLineIndex: selectedEditorLineIndex,
+			});
+			setSelectedEditorLineIndex(transition.selectedLineIndex);
+			if (transition.clearSaveResult) {
+				setEditorSaveResult(undefined);
 			}
-			if (current.editHistory.length <= 0) {
-				log("info", "editor undo history empty");
-				return current;
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
 			}
-			const next = undoEditorBufferEdit(current);
-			setEditorSaveResult(undefined);
-			const state = getEditorBufferState(next);
-			setSelectedEditorLineIndex((index) =>
-				Math.min(index, Math.max(0, state.lineCount - 1)),
-			);
-			log("info", `editor undo dirty=${state.dirty}`);
-			return next;
+			return transition.buffer;
 		});
-	}, [log]);
+	}, [log, selectedEditorLineIndex]);
 
 	const deleteSelectedEditorLine = useCallback(() => {
 		setEditorPreview((current) => {
-			if (!current) {
-				log("warn", "open a text file before deleting lines");
-				return current;
+			const transition = transitionEditorDeleteLine({
+				buffer: current,
+				selectedLineIndex: selectedEditorLineIndex,
+			});
+			setSelectedEditorLineIndex(transition.selectedLineIndex);
+			if (transition.clearSaveResult) {
+				setEditorSaveResult(undefined);
 			}
-			const next = deleteEditorBufferLine(current, selectedEditorLineIndex);
-			setEditorSaveResult(undefined);
-			const state = getEditorBufferState(next);
-			setSelectedEditorLineIndex((index) =>
-				Math.min(index, Math.max(0, state.lineCount - 1)),
-			);
-			log(
-				"warn",
-				`editor deleted line ${selectedEditorLineIndex + 1} dirty=${state.dirty}`,
-			);
-			return next;
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
+			}
+			return transition.buffer;
 		});
 	}, [log, selectedEditorLineIndex]);
 
@@ -12214,9 +12194,12 @@ export function App(): React.ReactElement {
 					getNextIndex(index, remoteProfiles.length, "next"),
 				);
 			} else if (screen === "editor" && editorPreview) {
-				setSelectedEditorLineIndex((index) =>
-					moveEditorBufferLineSelection(editorPreview, index, "next"),
-				);
+				const transition = transitionEditorMoveCursor({
+					buffer: editorPreview,
+					selectedLineIndex: selectedEditorLineIndex,
+					direction: "next",
+				});
+				setSelectedEditorLineIndex(transition.selectedLineIndex);
 			} else if (screen === "connections") {
 				setSelectedConnectionIndex((index) =>
 					getNextIndex(index, sortedConnections.length, "next"),
@@ -12280,9 +12263,12 @@ export function App(): React.ReactElement {
 					getNextIndex(index, remoteProfiles.length, "previous"),
 				);
 			} else if (screen === "editor" && editorPreview) {
-				setSelectedEditorLineIndex((index) =>
-					moveEditorBufferLineSelection(editorPreview, index, "previous"),
-				);
+				const transition = transitionEditorMoveCursor({
+					buffer: editorPreview,
+					selectedLineIndex: selectedEditorLineIndex,
+					direction: "previous",
+				});
+				setSelectedEditorLineIndex(transition.selectedLineIndex);
 			} else if (screen === "connections") {
 				setSelectedConnectionIndex((index) =>
 					getNextIndex(index, sortedConnections.length, "previous"),

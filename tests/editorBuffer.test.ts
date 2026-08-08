@@ -8,6 +8,12 @@ import {
 	insertEditorBufferLine,
 	moveEditorBufferLineSelection,
 	replaceEditorBufferLine,
+	transitionEditorAppendLine,
+	transitionEditorDeleteLine,
+	transitionEditorInsertLine,
+	transitionEditorMoveCursor,
+	transitionEditorReplaceLine,
+	transitionEditorUndo,
 	undoEditorBufferEdit,
 } from "../src/tui/editorBuffer";
 
@@ -131,5 +137,187 @@ describe("editor buffer", () => {
 		const clean = undoEditorBufferEdit(undoEditorBufferEdit(undone));
 		expect(clean.content).toBe("one\ntwo\n");
 		expect(getEditorBufferState(clean).dirty).toBe(false);
+	});
+
+	describe("editor mutation transitions", () => {
+		test("reports a missing buffer without applying an append", () => {
+			const transition = transitionEditorAppendLine({
+				buffer: undefined,
+				selectedLineIndex: 4,
+				line: "new line",
+			});
+
+			expect(transition).toEqual({
+				buffer: undefined,
+				selectedLineIndex: 0,
+				applies: false,
+				clearSaveResult: false,
+				notice: { level: "warn", message: "open a text file before editing" },
+			});
+		});
+
+		test("appends an empty line and moves the cursor to it", () => {
+			const buffer = createEditorBuffer({
+				path: "/workspace/picos/notes.txt",
+				content: "one\n",
+				truncated: false,
+			});
+
+			const transition = transitionEditorAppendLine({
+				buffer,
+				selectedLineIndex: 0,
+				line: "",
+			});
+
+			expect(transition).toEqual({
+				buffer: {
+					...buffer,
+					content: "one\n\n",
+					editHistory: ["one\n"],
+				},
+				selectedLineIndex: 1,
+				applies: true,
+				clearSaveResult: true,
+				notice: { level: "ok", message: "editor appended line 2 dirty=true" },
+			});
+		});
+
+		test("inserts before a cursor before the first line", () => {
+			const buffer = createEditorBuffer({
+				path: "/workspace/picos/README.md",
+				content: "one\ntwo\n",
+				truncated: false,
+			});
+
+			const transition = transitionEditorInsertLine({
+				buffer,
+				selectedLineIndex: -4,
+				line: "zero",
+				position: "before",
+			});
+
+			expect(transition.selectedLineIndex).toBe(0);
+			expect(transition.buffer?.content).toBe("zero\none\ntwo\n");
+			expect(transition.notice).toEqual({
+				level: "ok",
+				message: "editor inserted before line 1 dirty=true",
+			});
+		});
+
+		test("inserts after a cursor past the final line", () => {
+			const buffer = createEditorBuffer({
+				path: "/workspace/picos/README.md",
+				content: "one\ntwo\n",
+				truncated: false,
+			});
+
+			const transition = transitionEditorInsertLine({
+				buffer,
+				selectedLineIndex: 9,
+				line: "three",
+				position: "after",
+			});
+
+			expect(transition.selectedLineIndex).toBe(2);
+			expect(transition.buffer?.content).toBe("one\ntwo\nthree\n");
+			expect(transition.notice).toEqual({
+				level: "ok",
+				message: "editor inserted after line 2 dirty=true",
+			});
+		});
+
+		test("repairs a cursor past the final line when replacing", () => {
+			const buffer = createEditorBuffer({
+				path: "/workspace/picos/README.md",
+				content: "one\ntwo\n",
+				truncated: false,
+			});
+
+			const transition = transitionEditorReplaceLine({
+				buffer,
+				selectedLineIndex: 3,
+				line: "TWO",
+			});
+
+			expect(transition.selectedLineIndex).toBe(1);
+			expect(transition.buffer?.content).toBe("one\nTWO\n");
+			expect(transition.notice).toEqual({
+				level: "ok",
+				message: "editor replaced line 2 dirty=true",
+			});
+		});
+
+		test("deletes at either cursor bound and repairs the cursor", () => {
+			const buffer = createEditorBuffer({
+				path: "/workspace/picos/README.md",
+				content: "one\ntwo\nthree\n",
+				truncated: false,
+			});
+
+			const first = transitionEditorDeleteLine({
+				buffer,
+				selectedLineIndex: -1,
+			});
+			const last = transitionEditorDeleteLine({
+				buffer,
+				selectedLineIndex: 8,
+			});
+
+			expect(first.buffer?.content).toBe("two\nthree\n");
+			expect(first.selectedLineIndex).toBe(0);
+			expect(first.notice).toEqual({
+				level: "warn",
+				message: "editor deleted line 1 dirty=true",
+			});
+			expect(last.buffer?.content).toBe("one\ntwo\n");
+			expect(last.selectedLineIndex).toBe(1);
+			expect(last.notice).toEqual({
+				level: "warn",
+				message: "editor deleted line 3 dirty=true",
+			});
+		});
+
+		test("reports an empty undo history without applying an edit", () => {
+			const buffer = createEditorBuffer({
+				path: "/workspace/picos/README.md",
+				content: "one\n",
+				truncated: false,
+			});
+
+			const transition = transitionEditorUndo({
+				buffer,
+				selectedLineIndex: 6,
+			});
+
+			expect(transition).toEqual({
+				buffer,
+				selectedLineIndex: 0,
+				applies: false,
+				clearSaveResult: false,
+				notice: { level: "info", message: "editor undo history empty" },
+			});
+		});
+
+		test("moves the cursor through a typed transition", () => {
+			const buffer = createEditorBuffer({
+				path: "/workspace/picos/README.md",
+				content: "one\ntwo\n",
+				truncated: false,
+			});
+
+			const transition = transitionEditorMoveCursor({
+				buffer,
+				selectedLineIndex: 8,
+				direction: "next",
+			});
+
+			expect(transition).toEqual({
+				buffer,
+				selectedLineIndex: 0,
+				applies: true,
+				clearSaveResult: false,
+				notice: undefined,
+			});
+		});
 	});
 });
