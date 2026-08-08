@@ -53,13 +53,12 @@
 - [ ] 상태: 대기 — 분리된 TUI 로직의 단위 테스트 보강
 - [x] 상태: 완료 — 사용되지 않는 `src/tui/screens/*` legacy placeholder 6개 제거; 실제 workspace 경로는 `App.tsx`에 있으며 `src/tui` 순수 모듈이 상태 전이를 담당
 - [x] 상태: 완료 — `src/core/roadmap.ts`, README, CHANGELOG, LOCAL_AUTOMATION의 구현 상태 동기화
-- [ ] 상태: 대기 — `VERSION`/package version은 `0.2.0`인데 `ROADMAP.md`는 v0.4.346 작업 상태를 가리키므로, 공개 release version과 Unreleased changelog 확정 필요
+- [x] 상태: 완료 — `package.json`과 `src/core/version.ts`는 `0.2.0`으로 동기화되고 release check가 통과함. ROADMAP의 v0.4.340~346은 공개 버전을 자동 변경하지 않는 개발 slice이며, npm 미게시·원격 태그 없음 상태에서 실제 공개 버전 선택은 maintainer release 절차로 유지
 - [x] 완료 조건 — `bun run verify`, lint, typecheck, build, smoke 및 지원 harness가 통과
 
 ## 우선순위
 
-1. release/version 상태 동기화
-2. App.tsx 구조 및 테스트 공백
-3. plugin registry와 Docker/SSH 확장
-4. 실제 OS mutation 정책 및 구현
-5. SFTP remote write 위험 검토
+1. App.tsx 구조 및 테스트 공백
+2. plugin registry와 Docker/SSH 확장
+3. 실제 OS mutation 정책 및 구현
+4. SFTP remote write 위험 검토
