@@ -2,10 +2,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { getControlPreviewCommand } from "../core/controlPreview";
 import {
+	createInterfaceStateProposal,
+	formatInterfaceConfirmationAuditMessage,
 	formatInterfaceConfirmationResultRows,
 	formatInterfaceStateProposalRows,
 	type InterfaceConfirmationResult,
 	type InterfaceStateProposal,
+	type InterfaceStateProposalAction,
+	submitInterfaceConfirmation,
 } from "../core/interfaceControl";
 import type {
 	NetworkGroupSummary,
@@ -20,6 +24,7 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
+import { clampIndex } from "./navigation";
 
 export type InterfaceDetailView =
 	| "list"
@@ -34,6 +39,277 @@ export type InterfaceSourceHandoffPlan = {
 	label: string;
 	view: "source";
 };
+
+export type InterfacePanelNotice = {
+	level: "info" | "warn" | "fail";
+	message: string;
+};
+
+export type SelectedInterface = {
+	selected: NetworkInterfaceSummary | undefined;
+	selectedIndex: number;
+};
+
+export type InterfaceSourceHandoffTransition =
+	| { kind: "handoff"; plan: InterfaceSourceHandoffPlan; selectedIndex: number }
+	| { kind: "notice"; notice: InterfacePanelNotice };
+
+export type InterfaceConfirmationTransition =
+	| {
+			kind: "confirmation";
+			result: InterfaceConfirmationResult;
+			notice: InterfacePanelNotice;
+	  }
+	| { kind: "notice"; notice: InterfacePanelNotice };
+
+export type InterfacePanelInputDecision =
+	| { kind: "no-op"; notice?: InterfacePanelNotice }
+	| { kind: "notice"; notice: InterfacePanelNotice }
+	| {
+			kind: "detail";
+			view: InterfaceDetailView;
+			copyPreview: false;
+			notice: InterfacePanelNotice;
+	  }
+	| {
+			kind: "proposal";
+			proposal: InterfaceStateProposal;
+			confirmationResult: undefined;
+			selectedIndex: number;
+			notice: InterfacePanelNotice;
+	  }
+	| { kind: "confirmation"; notice: InterfacePanelNotice }
+	| {
+			kind: "clear";
+			proposal: undefined;
+			confirmationResult: undefined;
+			notice: InterfacePanelNotice;
+	  }
+	| { kind: "copy"; preview: ClipboardPreview }
+	| { kind: "source-handoff"; action: "export" | "open" };
+
+export function resolveSelectedInterface(
+	summary: NetworkSummary | undefined,
+	selectedIndex: number,
+): SelectedInterface {
+	const total = summary?.interfaces.length ?? 0;
+	const index = clampIndex(selectedIndex, total);
+	return {
+		selected: total ? summary?.interfaces[index] : undefined,
+		selectedIndex: index,
+	};
+}
+
+export function prepareInterfaceSourceHandoff(input: {
+	action: "export" | "open";
+	baseDir: string;
+	selectedIndex: number;
+	summary: NetworkSummary | undefined;
+	view: InterfaceDetailView;
+}): InterfaceSourceHandoffTransition {
+	if (!input.summary) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no interface summary loaded" },
+		};
+	}
+	if (input.view !== "source") {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: `interface source ${input.action} is available from source pane`,
+			},
+		};
+	}
+	const selected = resolveSelectedInterface(input.summary, input.selectedIndex);
+	if (!selected.selected) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: `no interface source evidence to ${input.action}`,
+			},
+		};
+	}
+	const plan = createInterfaceSourceHandoffPlan(input.summary, {
+		baseDir: input.baseDir,
+		selected: selected.selected,
+	});
+	return plan
+		? { kind: "handoff", plan, selectedIndex: selected.selectedIndex }
+		: {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: `no interface source evidence to ${input.action}`,
+				},
+			};
+}
+
+export function prepareInterfaceConfirmationTransition(input: {
+	proposal: InterfaceStateProposal | undefined;
+	receivedPhrase: string;
+}): InterfaceConfirmationTransition {
+	if (!input.proposal) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "interface confirmation missing proposal",
+			},
+		};
+	}
+	const result = submitInterfaceConfirmation(
+		input.proposal,
+		input.receivedPhrase,
+	);
+	return {
+		kind: "confirmation",
+		result,
+		notice: {
+			level: result.confirmed ? "warn" : "fail",
+			message: formatInterfaceConfirmationAuditMessage(result),
+		},
+	};
+}
+
+export function prepareInterfacePanelInput(input: {
+	input: string;
+	selectedIndex: number;
+	summary: NetworkSummary | undefined;
+	view: InterfaceDetailView;
+	proposal?: InterfaceStateProposal;
+	tab?: boolean;
+}): InterfacePanelInputDecision {
+	if (input.tab) {
+		const view = nextInterfaceDetailView(input.view);
+		return {
+			kind: "detail",
+			view,
+			copyPreview: false,
+			notice: { level: "info", message: `interfaces detail ${view}` },
+		};
+	}
+	if (input.input === "D" || input.input === "U") {
+		const action: InterfaceStateProposalAction =
+			input.input === "D" ? "disable" : "enable";
+		const selected = resolveSelectedInterface(
+			input.summary,
+			input.selectedIndex,
+		);
+		if (!selected.selected) {
+			return {
+				kind: "no-op",
+				notice: {
+					level: "warn",
+					message: `no interface available for ${action} proposal`,
+				},
+			};
+		}
+		const proposal = createInterfaceStateProposal(selected.selected, action, {
+			platform: input.summary?.platform,
+			primaryInterfaceName: input.summary?.primaryInterface?.name,
+			macosServiceNamesByDevice: input.summary?.macosServiceNamesByDevice,
+		});
+		return {
+			kind: "proposal",
+			proposal,
+			confirmationResult: undefined,
+			selectedIndex: selected.selectedIndex,
+			notice: {
+				level: proposal.status === "ready" ? "warn" : "info",
+				message: `interface ${action} proposal ${proposal.status} target=${proposal.target?.name ?? "-"}`,
+			},
+		};
+	}
+	if (input.input === "K" || input.input === "\r") {
+		return input.proposal
+			? {
+					kind: "confirmation",
+					notice: {
+						level: "warn",
+						message: `interface confirmation prompt opened type ${input.proposal.confirmationDraft.phrase}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "open an interface proposal with D or U first",
+					},
+				};
+	}
+	if (input.input === "C") {
+		return {
+			kind: "clear",
+			proposal: undefined,
+			confirmationResult: undefined,
+			notice: { level: "info", message: "interface state proposal cleared" },
+		};
+	}
+	if (input.input === "c") {
+		if (!input.summary || input.view !== "source") {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: "interface source copy is available from source pane",
+				},
+			};
+		}
+		const selected = resolveSelectedInterface(
+			input.summary,
+			input.selectedIndex,
+		);
+		const preview = selected.selected
+			? getInterfaceSourceClipboardPreview(input.summary, selected.selected)
+			: undefined;
+		return preview
+			? { kind: "copy", preview }
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no interface source evidence selected",
+					},
+				};
+	}
+	if (input.input === "e" || input.input === "o") {
+		const action = input.input === "e" ? "export" : "open";
+		if (!input.summary) {
+			return {
+				kind: "no-op",
+				notice: { level: "warn", message: "no interface summary loaded" },
+			};
+		}
+		if (input.view !== "source") {
+			return {
+				kind: "no-op",
+				notice: {
+					level: "warn",
+					message: `interface source ${action} is available from source pane`,
+				},
+			};
+		}
+		if (
+			!resolveSelectedInterface(input.summary, input.selectedIndex).selected
+		) {
+			return {
+				kind: "no-op",
+				notice: {
+					level: "warn",
+					message: `no interface source evidence to ${action}`,
+				},
+			};
+		}
+		return {
+			kind: "source-handoff",
+			action,
+		};
+	}
+	return { kind: "no-op" };
+}
 
 export function nextInterfaceDetailView(
 	view: InterfaceDetailView,
@@ -61,7 +337,7 @@ export function getNextInterfaceIndex(
 	if (total <= 0) {
 		return 0;
 	}
-	const current = Math.min(Math.max(selectedIndex, 0), total - 1);
+	const current = clampIndex(selectedIndex, total);
 	if (direction === "down") {
 		return (current + 1) % total;
 	}
@@ -80,12 +356,14 @@ export function formatInterfaceWorkspaceRows(
 	} = {},
 ): string[] {
 	const view = options.view ?? "list";
-	const selectedIndex = getSelectedIndex(
-		summary.interfaces.length,
-		options.selectedIndex,
+	const selection = resolveSelectedInterface(
+		summary,
+		options.selectedIndex ?? 0,
 	);
-	const selected =
-		selectedIndex === undefined ? undefined : summary.interfaces[selectedIndex];
+	const selectedIndex = summary.interfaces.length
+		? selection.selectedIndex
+		: undefined;
+	const selected = selection.selected;
 	const header = `SUMMARY interfaces=${summary.interfaces.length} selected=${selected?.name ?? "-"} view=${view}`;
 
 	if (view === "detail") {
@@ -249,16 +527,6 @@ export async function writeInterfaceSourceHandoffPlan(
 	await mkdir(dirname(plan.path), { recursive: true });
 	await writeFile(plan.path, plan.content, "utf8");
 	return plan;
-}
-
-function getSelectedIndex(
-	total: number,
-	selectedIndex: number | undefined,
-): number | undefined {
-	if (total <= 0) {
-		return undefined;
-	}
-	return Math.min(Math.max(selectedIndex ?? 0, 0), total - 1);
 }
 
 function formatOptionalInterfaceStateProposalRows(

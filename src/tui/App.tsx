@@ -70,13 +70,7 @@ import {
 	runControlExecutionPlan,
 } from "../core/controlExecution";
 import { getControlPreviewCommand } from "../core/controlPreview";
-import {
-	createDnsServerProposal,
-	createDnsServerProposalTarget,
-	type DnsServerProposal,
-	formatDnsServerProposalRows,
-	formatDnsServerProposalTargetRows,
-} from "../core/dnsControl";
+import type { DnsServerProposal } from "../core/dnsControl";
 import { runDoctorChecks } from "../core/doctor";
 import {
 	createEditorSaveExecutionPlan,
@@ -123,13 +117,10 @@ import {
 	readHandoffIndex,
 } from "../core/handoffIndex";
 import {
-	createInterfaceStateProposal,
-	formatInterfaceConfirmationAuditMessage,
 	formatInterfaceConfirmationPromptRows,
 	type InterfaceConfirmationResult,
 	type InterfaceStateProposal,
 	type InterfaceStateProposalAction,
-	submitInterfaceConfirmation,
 } from "../core/interfaceControl";
 import {
 	nextInterfaceEvidenceSearchPreset,
@@ -369,6 +360,11 @@ import {
 	withConfigManagedShelfFocusRows,
 } from "./configPanel";
 import {
+	formatDnsPanelWorkspaceRows,
+	prepareDnsPanelInput,
+	prepareDnsServerProposalTransition,
+} from "./dnsPanel";
+import {
 	type EditorBuffer,
 	formatEditorBufferLines,
 	getEditorBufferState,
@@ -441,12 +437,12 @@ import {
 	prepareSelectedFileOpen,
 } from "./fileWorkspaceTransitions";
 import {
-	createInterfaceSourceHandoffPlan,
 	formatInterfaceWorkspaceRows,
-	getInterfaceSourceClipboardPreview,
 	getNextInterfaceIndex,
 	type InterfaceDetailView,
-	nextInterfaceDetailView,
+	prepareInterfaceConfirmationTransition,
+	prepareInterfacePanelInput,
+	prepareInterfaceSourceHandoff,
 	writeInterfaceSourceHandoffPlan,
 } from "./interfacePanel";
 import {
@@ -4509,32 +4505,21 @@ export function App(): React.ReactElement {
 	]);
 
 	const exportInterfaceSourceHandoff = useCallback(async () => {
-		if (!summary) {
-			log("warn", "no interface summary loaded");
-			return;
-		}
-		if (interfaceDetailView !== "source") {
-			log("warn", "interface source export is available from source pane");
-			return;
-		}
-		const selected =
-			summary.interfaces[
-				Math.min(
-					Math.max(selectedInterfaceIndex, 0),
-					Math.max(0, summary.interfaces.length - 1),
-				)
-			];
-		const plan = createInterfaceSourceHandoffPlan(summary, {
+		const transition = prepareInterfaceSourceHandoff({
+			action: "export",
 			baseDir: dirname(getConfigPath()),
-			selected,
+			selectedIndex: selectedInterfaceIndex,
+			summary,
+			view: interfaceDetailView,
 		});
-		if (!plan) {
-			log("warn", "no interface source evidence to export");
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
+		setSelectedInterfaceIndex(transition.selectedIndex);
 
 		try {
-			const written = await writeInterfaceSourceHandoffPlan(plan);
+			const written = await writeInterfaceSourceHandoffPlan(transition.plan);
 			await refreshHandoffIndex(false);
 			setScreen("interfaces");
 			log("ok", `interfaces exported source ${written.path}`);
@@ -4550,33 +4535,22 @@ export function App(): React.ReactElement {
 	]);
 
 	const openInterfaceSourceHandoff = useCallback(async () => {
-		if (!summary) {
-			log("warn", "no interface summary loaded");
-			return;
-		}
-		if (interfaceDetailView !== "source") {
-			log("warn", "interface source open is available from source pane");
-			return;
-		}
-		const selected =
-			summary.interfaces[
-				Math.min(
-					Math.max(selectedInterfaceIndex, 0),
-					Math.max(0, summary.interfaces.length - 1),
-				)
-			];
 		const baseDir = dirname(getConfigPath());
-		const handoff = createInterfaceSourceHandoffPlan(summary, {
+		const transition = prepareInterfaceSourceHandoff({
+			action: "open",
 			baseDir,
-			selected,
+			selectedIndex: selectedInterfaceIndex,
+			summary,
+			view: interfaceDetailView,
 		});
-		if (!handoff) {
-			log("warn", "no interface source evidence to open");
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
+		setSelectedInterfaceIndex(transition.selectedIndex);
 
 		try {
-			const written = await writeInterfaceSourceHandoffPlan(handoff);
+			const written = await writeInterfaceSourceHandoffPlan(transition.plan);
 			await refreshHandoffIndex(false);
 			const plan = buildFileOpenPlan({
 				baseDir,
@@ -8121,77 +8095,57 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitDnsServerProposalCommand = useCallback(() => {
-		const summary = summaryRef.current;
-		const resolvedTargetIndex = summary?.interfaces.length
-			? Math.min(
-					Math.max(selectedDnsTargetIndex, 0),
-					Math.max(0, summary.interfaces.length - 1),
-				)
-			: undefined;
-		const selectedInterface =
-			resolvedTargetIndex === undefined
-				? undefined
-				: summary?.interfaces[resolvedTargetIndex];
-		const target = createDnsServerProposalTarget(selectedInterface, {
-			platform: summary?.platform,
-			primaryInterfaceName: summary?.primaryInterface?.name,
+		const transition = prepareDnsServerProposalTransition({
+			input: commandLine.value,
+			selectedIndex: selectedDnsTargetIndex,
+			summary: summaryRef.current,
 		});
-		const proposal = createDnsServerProposal(
-			commandLine.value,
-			summary?.dnsServers ?? [],
-			target,
-		);
-		setDnsServerProposal(proposal);
 		setCommandLine((current) => closeCommandLine(current));
-		log(
-			proposal.status === "ready" ? "warn" : "fail",
-			`dns server proposal ${proposal.status} target=${proposal.target.name} proposed=${proposal.proposedServers.join(",") || "-"}`,
-		);
+		if (transition.kind === "no-op") {
+			log(transition.notice.level, transition.notice.message);
+			return;
+		}
+		setSelectedDnsTargetIndex(transition.selectedIndex);
+		setDnsServerProposal(transition.proposal);
+		log(transition.notice.level, transition.notice.message);
 	}, [commandLine.value, log, selectedDnsTargetIndex]);
 
 	const openInterfaceStateProposal = useCallback(
 		(action: InterfaceStateProposalAction) => {
-			const summary = summaryRef.current;
-			const selected =
-				summary?.interfaces[
-					Math.min(
-						Math.max(selectedInterfaceIndex, 0),
-						Math.max(0, (summary?.interfaces.length ?? 0) - 1),
-					)
-				];
-			const proposal = createInterfaceStateProposal(selected, action, {
-				platform: summary?.platform,
-				primaryInterfaceName: summary?.primaryInterface?.name,
-				macosServiceNamesByDevice: summary?.macosServiceNamesByDevice,
+			const transition = prepareInterfacePanelInput({
+				input: action === "disable" ? "D" : "U",
+				selectedIndex: selectedInterfaceIndex,
+				summary: summaryRef.current,
+				view: interfaceDetailView,
 			});
-			setInterfaceStateProposal(proposal);
-			setInterfaceConfirmationResult(undefined);
-			log(
-				proposal.status === "ready" ? "warn" : "info",
-				`interface ${action} proposal ${proposal.status} target=${proposal.target?.name ?? "-"}`,
-			);
+			if (transition.kind === "proposal") {
+				setSelectedInterfaceIndex(transition.selectedIndex);
+				setInterfaceStateProposal(transition.proposal);
+				setInterfaceConfirmationResult(transition.confirmationResult);
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			if ("notice" in transition && transition.notice) {
+				log(transition.notice.level, transition.notice.message);
+			}
 		},
-		[log, selectedInterfaceIndex],
+		[interfaceDetailView, log, selectedInterfaceIndex],
 	);
 
 	const submitInterfaceConfirmationCommand = useCallback(() => {
-		if (!interfaceStateProposal) {
-			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "interface confirmation missing proposal");
+		const transition = prepareInterfaceConfirmationTransition({
+			proposal: interfaceStateProposal,
+			receivedPhrase: commandLine.value,
+		});
+		setCommandLine((current) => closeCommandLine(current));
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-		const result = submitInterfaceConfirmation(
-			interfaceStateProposal,
-			commandLine.value,
-		);
-		setInterfaceConfirmationResult(result);
-		setCommandLine((current) => closeCommandLine(current));
-		log(
-			result.confirmed ? "warn" : "fail",
-			formatInterfaceConfirmationAuditMessage(result),
-		);
+		setInterfaceConfirmationResult(transition.result);
+		log(transition.notice.level, transition.notice.message);
 		recordStatusActivityResult(
-			createInterfaceConfirmationStatusActivityResult(result),
+			createInterfaceConfirmationStatusActivityResult(transition.result),
 		);
 	}, [
 		commandLine.value,
@@ -8692,27 +8646,27 @@ export function App(): React.ReactElement {
 			}
 		}
 
-		if (screen === "dns" && focusArea === "workspaces" && input === "S") {
-			setCommandLine(openCommandLine("dns-servers"));
-			log("info", "dns server proposal opened");
-			return;
-		}
-
-		if (screen === "dns" && focusArea === "workspaces" && input === "T") {
-			setSelectedDnsTargetIndex((index) => {
-				const total = summary?.interfaces.length ?? 0;
-				const next = getNextInterfaceIndex(index, total, "down");
-				const targetName = summary?.interfaces[next]?.name ?? "system";
-				log("info", `dns target ${targetName}`);
-				return next;
+		if (
+			screen === "dns" &&
+			focusArea === "workspaces" &&
+			["S", "T", "C"].includes(input)
+		) {
+			const decision = prepareDnsPanelInput({
+				input,
+				selectedIndex: selectedDnsTargetIndex,
+				summary,
 			});
-			setDnsServerProposal(undefined);
-			return;
-		}
-
-		if (screen === "dns" && focusArea === "workspaces" && input === "C") {
-			setDnsServerProposal(undefined);
-			log("info", "dns server proposal cleared");
+			if (decision.kind === "command") {
+				setCommandLine(openCommandLine("dns-servers"));
+			} else if (decision.kind === "selection") {
+				setSelectedDnsTargetIndex(decision.selectedIndex);
+				setDnsServerProposal(decision.proposal);
+			} else if (decision.kind === "clear") {
+				setDnsServerProposal(decision.proposal);
+			}
+			if (decision.notice) {
+				log(decision.notice.level, decision.notice.message);
+			}
 			return;
 		}
 
@@ -8966,103 +8920,46 @@ export function App(): React.ReactElement {
 			}
 		}
 
-		if (screen === "interfaces" && focusArea === "workspaces" && key.tab) {
-			setInterfaceDetailView((current) => {
-				const next = nextInterfaceDetailView(current);
-				log("info", `interfaces detail ${next}`);
-				return next;
+		if (
+			screen === "interfaces" &&
+			focusArea === "workspaces" &&
+			(key.tab ||
+				key.return ||
+				["D", "U", "K", "C", "c", "e", "o"].includes(input))
+		) {
+			const decision = prepareInterfacePanelInput({
+				input: key.return ? "\r" : input,
+				proposal: interfaceStateProposal,
+				selectedIndex: selectedInterfaceIndex,
+				summary,
+				tab: key.tab,
+				view: interfaceDetailView,
 			});
-			setInterfaceSourceCopyPreview(false);
-			return;
-		}
-
-		if (
-			screen === "interfaces" &&
-			focusArea === "workspaces" &&
-			input === "D"
-		) {
-			openInterfaceStateProposal("disable");
-			return;
-		}
-
-		if (
-			screen === "interfaces" &&
-			focusArea === "workspaces" &&
-			input === "U"
-		) {
-			openInterfaceStateProposal("enable");
-			return;
-		}
-
-		if (
-			screen === "interfaces" &&
-			focusArea === "workspaces" &&
-			(key.return || input === "K")
-		) {
-			if (!interfaceStateProposal) {
-				log("warn", "open an interface proposal with D or U first");
-				return;
+			if (decision.kind === "detail") {
+				setInterfaceDetailView(decision.view);
+				setInterfaceSourceCopyPreview(decision.copyPreview);
+			} else if (decision.kind === "proposal") {
+				setSelectedInterfaceIndex(decision.selectedIndex);
+				setInterfaceStateProposal(decision.proposal);
+				setInterfaceConfirmationResult(decision.confirmationResult);
+			} else if (decision.kind === "confirmation") {
+				setCommandLine(openCommandLine("interface-confirm"));
+			} else if (decision.kind === "clear") {
+				setInterfaceStateProposal(decision.proposal);
+				setInterfaceConfirmationResult(decision.confirmationResult);
+			} else if (decision.kind === "copy") {
+				setInterfaceSourceCopyPreview(true);
+				openClipboardConfirmation(decision.preview);
+			} else if (decision.kind === "source-handoff") {
+				if (decision.action === "export") {
+					void exportInterfaceSourceHandoff();
+				} else {
+					void openInterfaceSourceHandoff();
+				}
 			}
-			setCommandLine(openCommandLine("interface-confirm"));
-			log(
-				"warn",
-				`interface confirmation prompt opened type ${interfaceStateProposal.confirmationDraft.phrase}`,
-			);
-			return;
-		}
-
-		if (
-			screen === "interfaces" &&
-			focusArea === "workspaces" &&
-			input === "C"
-		) {
-			setInterfaceStateProposal(undefined);
-			setInterfaceConfirmationResult(undefined);
-			log("info", "interface state proposal cleared");
-			return;
-		}
-
-		if (
-			screen === "interfaces" &&
-			focusArea === "workspaces" &&
-			input === "c"
-		) {
-			if (!summary || interfaceDetailView !== "source") {
-				log("warn", "interface source copy is available from source pane");
-				return;
+			if ("notice" in decision && decision.notice) {
+				log(decision.notice.level, decision.notice.message);
 			}
-			const selected =
-				summary.interfaces[
-					Math.min(
-						Math.max(selectedInterfaceIndex, 0),
-						Math.max(0, summary.interfaces.length - 1),
-					)
-				];
-			const preview = getInterfaceSourceClipboardPreview(summary, selected);
-			if (!preview) {
-				log("warn", "no interface source evidence selected");
-				return;
-			}
-			setInterfaceSourceCopyPreview(true);
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (
-			screen === "interfaces" &&
-			focusArea === "workspaces" &&
-			input === "e"
-		) {
-			void exportInterfaceSourceHandoff();
-			return;
-		}
-
-		if (
-			screen === "interfaces" &&
-			focusArea === "workspaces" &&
-			input === "o"
-		) {
-			void openInterfaceSourceHandoff();
 			return;
 		}
 
@@ -16100,27 +15997,15 @@ function DnsWorkspace({
 	summary?: NetworkSummary;
 	t: (key: string) => string;
 }): React.ReactElement {
-	const resolvedTargetIndex = summary?.interfaces.length
-		? Math.min(
-				Math.max(selectedTargetIndex, 0),
-				Math.max(0, summary.interfaces.length - 1),
-			)
-		: undefined;
-	const selectedInterface =
-		resolvedTargetIndex === undefined
-			? undefined
-			: summary?.interfaces[resolvedTargetIndex];
-	const target = createDnsServerProposalTarget(selectedInterface, {
-		platform: summary?.platform,
-		primaryInterfaceName: summary?.primaryInterface?.name,
+	const workspace = formatDnsPanelWorkspaceRows({
+		proposal,
+		selectedIndex: selectedTargetIndex,
+		summary,
 	});
-	const targetRows = formatDnsServerProposalTargetRows(target, {
-		selectedIndex: resolvedTargetIndex,
-		totalTargets: summary?.interfaces.length,
-	});
-	const proposalRows = formatDnsServerProposalRows(proposal);
 	const promptRows =
-		commandLine.active && commandLine.prompt === "dns-servers"
+		workspace.available &&
+		commandLine.active &&
+		commandLine.prompt === "dns-servers"
 			? [
 					"DNS SERVER PROPOSAL INPUT",
 					`:dns-servers ${commandLine.value || " "}  enter=preview esc=cancel`,
@@ -16131,14 +16016,16 @@ function DnsWorkspace({
 		<Box flexDirection="column">
 			<Text bold>{t("screen.dns")}</Text>
 			<Text color="gray">
-				resolver visibility · T target · S proposal · C clear · mutation locked
+				{workspace.available
+					? "resolver visibility · T target · S proposal · C clear · mutation locked"
+					: "resolver visibility · no DNS interface target · mutation locked"}
 			</Text>
 			<Box marginTop={1} flexDirection="column">
 				<Text>Servers: {summary?.dnsServers.join(", ") || "-"}</Text>
 				<Text color="yellow">
 					dns.flush locked: requires preview + admin + confirm
 				</Text>
-				{[...targetRows, ...promptRows, ...proposalRows].map((row) => (
+				{[...workspace.rows, ...promptRows].map((row) => (
 					<Text key={row} color={getActionPreviewRowColor(row)}>
 						{row}
 					</Text>

@@ -437,6 +437,16 @@ const delegatedCallbacks = {
 		reason:
 			"delegates filtered selected Tools history resolution, export eligibility, plan, and notice",
 	},
+	exportInterfaceSourceHandoff: {
+		owner: "src/tui/interfacePanel.ts",
+		reason:
+			"delegates selected interface source-handoff eligibility, selection repair, plan, and notice",
+	},
+	openInterfaceSourceHandoff: {
+		owner: "src/tui/interfacePanel.ts",
+		reason:
+			"delegates selected interface source-handoff eligibility, selection repair, plan, and notice",
+	},
 	selectNextTimelineEvidenceTrailExport: {
 		owner: "src/tui/statusActivityQueue.ts",
 		reason: "delegates recovered Timeline evidence selection and exact notice",
@@ -541,6 +551,21 @@ const delegatedCallbacks = {
 		owner: "src/tui/toolHistory.ts",
 		reason: "delegates exact Tools retention confirmation and execution plan",
 	},
+	submitDnsServerProposalCommand: {
+		owner: "src/tui/dnsPanel.ts",
+		reason:
+			"delegates DNS target resolution, locked proposal intent, confirmation eligibility, and notice",
+	},
+	openInterfaceStateProposal: {
+		owner: "src/tui/interfacePanel.ts",
+		reason:
+			"delegates selected interface resolution, locked state-proposal eligibility, and notice",
+	},
+	submitInterfaceConfirmationCommand: {
+		owner: "src/tui/interfacePanel.ts",
+		reason:
+			"delegates interface confirmation eligibility, exact audit result, and notice",
+	},
 } as const;
 
 const filesDelegatedCallbacks = new Set([
@@ -618,6 +643,8 @@ const evidenceLifecycleDelegatedCallbacks = new Set([
 ]);
 
 const networkPanelDelegatedCallbacks = new Set([
+	"exportInterfaceSourceHandoff",
+	"openInterfaceSourceHandoff",
 	"submitRouteFilterCommand",
 	"submitRouteFilterCleanupCommand",
 	"submitEndpointFilterCommand",
@@ -626,6 +653,9 @@ const networkPanelDelegatedCallbacks = new Set([
 	"submitTimelineSearchCleanupCommand",
 	"submitLogSearchCommand",
 	"submitLogsCleanupCommand",
+	"submitDnsServerProposalCommand",
+	"openInterfaceStateProposal",
+	"submitInterfaceConfirmationCommand",
 ]);
 
 export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
@@ -660,11 +690,11 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 			return {
 				name,
 				owner:
-					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts",
-				classification: "inline-decision",
+					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts",
+				classification: "delegated",
 				slice: "network-panel-transitions",
 				reason:
-					"Routes, Connections, Ports, Timeline, and Logs delegate filter, section, selection, preset, cleanup, and notice decisions; App applies state and performs I/O",
+					"Panel modules delegate filter, section, selection, proposal, confirmation, preset, cleanup, and notice decisions; App applies state and performs I/O",
 			};
 		}
 		return reason

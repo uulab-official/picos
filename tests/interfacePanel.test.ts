@@ -15,6 +15,10 @@ import {
 	getInterfaceSourceClipboardPreview,
 	getNextInterfaceIndex,
 	nextInterfaceDetailView,
+	prepareInterfaceConfirmationTransition,
+	prepareInterfacePanelInput,
+	prepareInterfaceSourceHandoff,
+	resolveSelectedInterface,
 	writeInterfaceSourceHandoffPlan,
 } from "../src/tui/interfacePanel";
 
@@ -149,6 +153,167 @@ const fixture: NetworkSummary = {
 };
 
 describe("interface TUI panel formatting", () => {
+	test("clamps selected interfaces and leaves an empty inventory unselected", () => {
+		expect(resolveSelectedInterface(fixture, -4)).toEqual({
+			selected: fixture.interfaces[0],
+			selectedIndex: 0,
+		});
+		expect(resolveSelectedInterface(fixture, 99)).toEqual({
+			selected: fixture.interfaces[1],
+			selectedIndex: 1,
+		});
+		expect(
+			resolveSelectedInterface({ ...fixture, interfaces: [] }, 99),
+		).toEqual({ selected: undefined, selectedIndex: 0 });
+	});
+
+	test("keeps interface proposals locked and no-ops when no interface can be selected", () => {
+		const locked = prepareInterfacePanelInput({
+			input: "D",
+			selectedIndex: 99,
+			summary: fixture,
+			view: "detail",
+		});
+		expect(locked).toMatchObject({
+			kind: "proposal",
+			proposal: {
+				enabled: false,
+				status: "ready",
+				target: { name: "utun4" },
+			},
+			notice: {
+				level: "warn",
+				message: "interface disable proposal ready target=utun4",
+			},
+		});
+
+		expect(
+			prepareInterfacePanelInput({
+				input: "D",
+				selectedIndex: 0,
+				summary: { ...fixture, interfaces: [] },
+				view: "detail",
+			}),
+		).toEqual({
+			kind: "no-op",
+			notice: {
+				level: "warn",
+				message: "no interface available for disable proposal",
+			},
+		});
+	});
+
+	test("keeps unsupported interface adapters preview-only", () => {
+		const transition = prepareInterfacePanelInput({
+			input: "D",
+			selectedIndex: 0,
+			summary: { ...fixture, macosServiceNamesByDevice: undefined },
+			view: "detail",
+		});
+
+		expect(transition).toMatchObject({
+			kind: "proposal",
+			proposal: {
+				enabled: false,
+				controlTarget: { confidence: "missing" },
+				dryRunPreview: {
+					policy: "proposal-only",
+					willExecute: false,
+				},
+			},
+		});
+	});
+
+	test("prepares source handoffs only for a selected source-pane interface", () => {
+		expect(
+			prepareInterfaceSourceHandoff({
+				action: "export",
+				baseDir: "/tmp/picos",
+				selectedIndex: -4,
+				summary: fixture,
+				view: "source",
+			}),
+		).toMatchObject({
+			kind: "handoff",
+			selectedIndex: 0,
+			plan: { label: "interface source evidence en0" },
+		});
+		expect(
+			prepareInterfaceSourceHandoff({
+				action: "open",
+				baseDir: "/tmp/picos",
+				selectedIndex: 0,
+				summary: fixture,
+				view: "detail",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "interface source open is available from source pane",
+			},
+		});
+		expect(
+			prepareInterfacePanelInput({
+				input: "e",
+				selectedIndex: 0,
+				summary: { ...fixture, interfaces: [] },
+				view: "source",
+			}),
+		).toEqual({
+			kind: "no-op",
+			notice: {
+				level: "warn",
+				message: "no interface source evidence to export",
+			},
+		});
+	});
+
+	test("requires a proposal and preserves exact confirmation mismatch audit", () => {
+		expect(
+			prepareInterfacePanelInput({
+				input: "K",
+				selectedIndex: 0,
+				summary: fixture,
+				view: "detail",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "open an interface proposal with D or U first",
+			},
+		});
+
+		const proposal = createInterfaceStateProposal(
+			fixture.interfaces[0],
+			"disable",
+			{
+				platform: fixture.platform,
+				primaryInterfaceName: fixture.primaryInterface?.name,
+				macosServiceNamesByDevice: fixture.macosServiceNamesByDevice,
+			},
+		);
+		expect(
+			prepareInterfaceConfirmationTransition({
+				proposal,
+				receivedPhrase: "disable adapter",
+			}),
+		).toMatchObject({
+			kind: "confirmation",
+			result: {
+				status: "rejected",
+				confirmed: false,
+				willExecute: false,
+				reason: "confirmation-mismatch",
+			},
+			notice: {
+				level: "fail",
+				message:
+					'interface confirmation interface.disable status=rejected confirmed=false willExecute=false target=Wi-Fi reason=confirmation-mismatch blockers=confirmation-mismatch,interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off"',
+			},
+		});
+	});
 	test("cycles interface detail tabs and selection indexes", () => {
 		expect(nextInterfaceDetailView("list")).toBe("detail");
 		expect(nextInterfaceDetailView("detail")).toBe("stats");
