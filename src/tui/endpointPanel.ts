@@ -72,18 +72,28 @@ export type EndpointFilterCleanupPreview = {
 	rows: string[];
 };
 
-export type EndpointFilterCleanupConfirmation = {
-	action: "apply" | "notice";
-	confirmed: boolean;
-	copyPreview: false;
-	kind: EndpointHandoffKind;
-	message: string;
-	notice: EndpointPanelNotice;
-	presets: string[];
-	processControlPreview: false;
-	removed: number;
-	selectedIndex: number;
-};
+export type EndpointFilterCleanupConfirmation =
+	| {
+			action: "notice";
+			confirmed: false;
+			kind: EndpointHandoffKind;
+			message: string;
+			notice: EndpointPanelNotice;
+			presets: string[];
+			removed: 0;
+	  }
+	| {
+			action: "apply";
+			confirmed: true;
+			copyPreview: false;
+			kind: EndpointHandoffKind;
+			message: string;
+			notice: EndpointPanelNotice;
+			presets: string[];
+			processControlPreview: false;
+			removed: number;
+			selectedIndex: number;
+	  };
 
 export type EndpointPanelNotice = {
 	level: "info" | "warn";
@@ -112,6 +122,9 @@ export type EndpointPanelInputDecision =
 			kind: "inspect-policy";
 			scope: "ports";
 			port: ListeningPort;
+			inspectorVisible: boolean;
+			io: { kind: "load-process-files"; pid: string } | { kind: "none" };
+			notice: EndpointPanelNotice;
 	  }
 	| {
 			kind: "control";
@@ -348,6 +361,7 @@ export function prepareEndpointPanelInput(input: {
 	tab?: boolean;
 	upArrow?: boolean;
 	downArrow?: boolean;
+	processControlInspector?: boolean;
 }): EndpointPanelInputDecision {
 	const visibleRows = input.visibleRows ?? input.rows;
 	const normalizedInput = input.downArrow
@@ -524,7 +538,22 @@ export function prepareEndpointPanelInput(input: {
 			};
 		}
 		if (entry.intent === "inspect-policy") {
-			return { kind: "inspect-policy", scope: "ports", port };
+			const inspectorVisible = !input.processControlInspector;
+			return {
+				kind: "inspect-policy",
+				scope: "ports",
+				port,
+				inspectorVisible,
+				io: inspectorVisible
+					? { kind: "load-process-files", pid: port.pid }
+					: { kind: "none" },
+				notice: {
+					level: "info",
+					message: inspectorVisible
+						? `ports process policy inspector ${port.pid}`
+						: "ports process policy inspector hidden",
+				},
+			};
 		}
 		const preview = createPortProcessControlPreview(port);
 		return {
@@ -634,21 +663,17 @@ export function submitEndpointFilterCleanupConfirmation(
 	confirmation: string,
 	rowCount = 0,
 ): EndpointFilterCleanupConfirmation {
-	const selectedIndex = selectFirstEndpointResult(rowCount);
 	const preview = createEndpointFilterCleanupPreview(kind, presets);
 	if (!preview) {
 		const message = `${kind} filter cleanup unavailable`;
 		return {
 			action: "notice",
 			confirmed: false,
-			copyPreview: false,
 			kind,
 			message,
 			notice: { level: "warn", message },
 			presets,
-			processControlPreview: false,
 			removed: 0,
-			selectedIndex,
 		};
 	}
 	const cleanupConfirmation = submitConfigCleanupConfirmation(
@@ -660,14 +685,11 @@ export function submitEndpointFilterCleanupConfirmation(
 		return {
 			action: "notice",
 			confirmed: false,
-			copyPreview: false,
 			kind,
 			message,
 			notice: { level: "warn", message },
 			presets,
-			processControlPreview: false,
 			removed: 0,
-			selectedIndex,
 		};
 	}
 	const message = `${kind} filter cleanup removed ${preview.count} presets`;
@@ -681,7 +703,7 @@ export function submitEndpointFilterCleanupConfirmation(
 		presets: [],
 		processControlPreview: false,
 		removed: preview.count,
-		selectedIndex,
+		selectedIndex: selectFirstEndpointResult(rowCount),
 	};
 }
 

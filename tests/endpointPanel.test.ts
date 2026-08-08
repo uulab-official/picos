@@ -234,11 +234,18 @@ describe("endpoint TUI panel formatting", () => {
 				kind: "ports",
 				input: "I",
 				rows: [selectedPort],
+				processControlInspector: false,
 			}),
 		).toEqual({
 			kind: "inspect-policy",
 			scope: "ports",
 			port: selectedPort,
+			inspectorVisible: true,
+			io: { kind: "load-process-files", pid: "123" },
+			notice: {
+				level: "info",
+				message: "ports process policy inspector 123",
+			},
 		});
 		expect(
 			prepareEndpointPanelInput({ ...base, kind: "ports", input: "4" }),
@@ -275,7 +282,12 @@ describe("endpoint TUI panel formatting", () => {
 		});
 		for (const pid of ["-", "abc", "12x"]) {
 			expect(
-				prepareEndpointPanelInput({ ...base, input: "I", rows: [port(pid)] }),
+				prepareEndpointPanelInput({
+					...base,
+					input: "I",
+					rows: [port(pid)],
+					processControlInspector: true,
+				}),
 			).toEqual({
 				kind: "notice",
 				notice: {
@@ -292,8 +304,41 @@ describe("endpoint TUI panel formatting", () => {
 		}
 		const selected = port("123");
 		expect(
-			prepareEndpointPanelInput({ ...base, input: "I", rows: [selected] }),
-		).toEqual({ kind: "inspect-policy", scope: "ports", port: selected });
+			prepareEndpointPanelInput({
+				...base,
+				input: "I",
+				rows: [selected],
+				processControlInspector: false,
+			}),
+		).toEqual({
+			kind: "inspect-policy",
+			scope: "ports",
+			port: selected,
+			inspectorVisible: true,
+			io: { kind: "load-process-files", pid: "123" },
+			notice: {
+				level: "info",
+				message: "ports process policy inspector 123",
+			},
+		});
+		expect(
+			prepareEndpointPanelInput({
+				...base,
+				input: "I",
+				rows: [selected],
+				processControlInspector: true,
+			}),
+		).toEqual({
+			kind: "inspect-policy",
+			scope: "ports",
+			port: selected,
+			inspectorVisible: false,
+			io: { kind: "none" },
+			notice: {
+				level: "info",
+				message: "ports process policy inspector hidden",
+			},
+		});
 		expect(
 			prepareEndpointPanelInput({ ...base, input: "K", rows: [selected] }),
 		).toMatchObject({
@@ -462,12 +507,23 @@ describe("endpoint TUI panel formatting", () => {
 			message: "connections filter cleanup rejected",
 			presets,
 			removed: 0,
-			selectedIndex: 0,
-			copyPreview: false,
-			processControlPreview: false,
 			notice: {
 				level: "warn",
 				message: "connections filter cleanup rejected",
+			},
+		});
+		expect(
+			submitEndpointFilterCleanupConfirmation("ports", [], "clear ports", 3),
+		).toEqual({
+			action: "notice",
+			confirmed: false,
+			kind: "ports",
+			message: "ports filter cleanup unavailable",
+			presets: [],
+			removed: 0,
+			notice: {
+				level: "warn",
+				message: "ports filter cleanup unavailable",
 			},
 		});
 		expect(

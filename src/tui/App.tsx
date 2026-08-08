@@ -2827,22 +2827,19 @@ export function App(): React.ReactElement {
 			kind === "connections" ? sortedConnections.length : sortedPorts.length,
 		);
 		setCommandLine((current) => closeCommandLine(current));
-		if (kind === "connections") {
-			setConnectionCopyPreview(confirmation.copyPreview);
-			setSelectedConnectionIndex(confirmation.selectedIndex);
-		} else {
-			setPortCopyPreview(confirmation.copyPreview);
-			setPortProcessControlPreview(confirmation.processControlPreview);
-			setSelectedPortIndex(confirmation.selectedIndex);
-		}
 		log(confirmation.notice.level, confirmation.notice.message);
 		if (confirmation.action === "notice") {
 			return;
 		}
 		if (kind === "connections") {
 			setConnectionFilterPresets(confirmation.presets);
+			setConnectionCopyPreview(confirmation.copyPreview);
+			setSelectedConnectionIndex(confirmation.selectedIndex);
 		} else {
 			setPortFilterPresets(confirmation.presets);
+			setPortCopyPreview(confirmation.copyPreview);
+			setPortProcessControlPreview(confirmation.processControlPreview);
+			setSelectedPortIndex(confirmation.selectedIndex);
 		}
 		void setConfigEndpointFilterPresets(kind, confirmation.presets).catch(
 			(caught) =>
@@ -9306,6 +9303,7 @@ export function App(): React.ReactElement {
 				tab: key.tab,
 				upArrow: key.upArrow,
 				downArrow: key.downArrow,
+				processControlInspector: portProcessControlInspector,
 			});
 			if (decision.kind === "detail") {
 				if (kind === "connections") {
@@ -9359,16 +9357,16 @@ export function App(): React.ReactElement {
 				setPortCopyPreview(decision.copyPreview);
 				setCommandLine(openCommandLine(portProcessControlPrompt));
 			} else if (decision.kind === "inspect-policy") {
-				const next = !portProcessControlInspector;
-				setPortProcessControlInspector(next);
-				if (next) {
+				setPortProcessControlInspector(decision.inspectorVisible);
+				const io = decision.io;
+				if (io.kind === "load-process-files") {
 					void (async () => {
 						const token = beginRequest(processInspectionTokenRef.current);
 						processInspectionTokenRef.current = token;
 						beginCommand();
 						setSelectedProcessFileEvidenceIssue(undefined);
 						try {
-							const files = await getProcessFileSnapshot(decision.port.pid);
+							const files = await getProcessFileSnapshot(io.pid);
 							if (isStaleRequest(processInspectionTokenRef.current, token)) {
 								return;
 							}
@@ -9378,15 +9376,15 @@ export function App(): React.ReactElement {
 									? undefined
 									: {
 											status: "unavailable",
-											pid: decision.port.pid,
+											pid: io.pid,
 											reason: "no snapshot returned",
 										},
 							);
 							log(
 								files ? "info" : "warn",
 								files
-									? `ports file evidence loaded pid ${decision.port.pid}`
-									: `ports file evidence unavailable pid=${decision.port.pid} reason=no snapshot returned`,
+									? `ports file evidence loaded pid ${io.pid}`
+									: `ports file evidence unavailable pid=${io.pid} reason=no snapshot returned`,
 							);
 						} catch (caught) {
 							log(
@@ -9401,7 +9399,7 @@ export function App(): React.ReactElement {
 							setSelectedProcessFiles(undefined);
 							setSelectedProcessFileEvidenceIssue({
 								status: "error",
-								pid: decision.port.pid,
+								pid: io.pid,
 								reason:
 									caught instanceof Error ? caught.message : String(caught),
 							});
@@ -9410,12 +9408,6 @@ export function App(): React.ReactElement {
 						}
 					})();
 				}
-				log(
-					"info",
-					next
-						? `ports process policy inspector ${decision.port.pid}`
-						: "ports process policy inspector hidden",
-				);
 			} else if (decision.kind === "command") {
 				if (decision.command === "filter") {
 					setCommandLine(
