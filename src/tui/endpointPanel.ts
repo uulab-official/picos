@@ -22,7 +22,6 @@ import {
 	type ControlExecutionPolicy,
 	createControlExecutionPlan,
 	defaultControlExecutionPolicy,
-	formatControlExecutionAuditMessage,
 	formatControlExecutionRows,
 } from "../core/controlExecution";
 import type { FileOpenOrigin } from "../core/fileOpen";
@@ -208,6 +207,11 @@ export type PortProcessControlNotice = {
 	message: string;
 };
 
+export type PortProcessControlExecutionRequest = {
+	preview: PortProcessControlPreview;
+	confirmation: PortProcessControlConfirmation;
+};
+
 export type PortProcessControlSubmissionTransition =
 	| {
 			kind: "blocked";
@@ -220,7 +224,7 @@ export type PortProcessControlSubmissionTransition =
 			closeCommandLine: true;
 			processControlPreview: false;
 			confirmation: PortProcessControlConfirmation;
-			executionPlan: ControlExecutionPlan;
+			executionRequest: PortProcessControlExecutionRequest;
 			notices: PortProcessControlNotice[];
 	  };
 
@@ -636,38 +640,30 @@ export function getEndpointWorkspaceHintKeys(
 export function formatEndpointWorkspaceHintRow(
 	kind: EndpointHandoffKind,
 	options: {
-		rows?: readonly (ActiveConnection | ListeningPort)[];
-		filter?: string;
-		sort?: ConnectionSort | PortSort;
-		selectedIndex?: number;
-	} = {},
+		snapshotLoaded: boolean;
+		filter: string;
+		presetCount: number;
+		visibleRows: readonly (ActiveConnection | ListeningPort)[];
+		selectedIndex: number;
+	},
 ): string {
 	const lead = kind === "connections" ? "active endpoints" : "listening ports";
-	const visibleRows =
-		kind === "connections"
-			? sortConnections(
-					filterConnections(
-						[...(options.rows ?? [])] as ActiveConnection[],
-						options.filter,
-					),
-					options.sort as ConnectionSort | undefined,
-				)
-			: sortListeningPorts(
-					filterListeningPorts(
-						[...(options.rows ?? [])] as ListeningPort[],
-						options.filter,
-					),
-					options.sort as PortSort | undefined,
-				);
 	const selected = resolveEndpointSelectedRow(
-		visibleRows as readonly (ActiveConnection | ListeningPort)[],
-		options.selectedIndex ?? 0,
+		options.visibleRows,
+		options.selectedIndex,
 	);
 	const hasProcessTarget = Boolean(createProcessRequest(selected?.pid));
+	const hasFilter = options.filter.trim().length > 0;
+	const hasPresets = options.presetCount > 0;
+	const canMoveSelection = options.visibleRows.length > 1;
 	const hints = ENDPOINT_WORKSPACE_HINT_ENTRIES.filter(
 		(entry) =>
 			entry.hint !== false &&
 			(!entry.kinds || entry.kinds.includes(kind)) &&
+			(entry.intent !== "save-preset" || hasFilter) &&
+			(!["preset", "cleanup"].includes(entry.intent) || hasPresets) &&
+			(!["export", "open"].includes(entry.intent) || options.snapshotLoaded) &&
+			(entry.intent !== "select" || canMoveSelection) &&
 			(!["inspect-process", "inspect-policy", "control"].includes(
 				entry.intent,
 			) ||
@@ -820,8 +816,6 @@ export function preparePortProcessControlSubmission(input: {
 	ports: ListeningPort[];
 	selectedIndex: number;
 	input: string;
-	commandPreview: ActionPreviewCommand | undefined;
-	policy: ControlExecutionPolicy;
 }): PortProcessControlSubmissionTransition {
 	const preview = createSelectedPortProcessControlPreview(
 		input.ports,
@@ -841,26 +835,16 @@ export function preparePortProcessControlSubmission(input: {
 		preview,
 		input.input,
 	);
-	const executionPlan = createPortProcessControlExecutionPlan(
-		preview,
-		confirmation,
-		input.commandPreview,
-		input.policy,
-	);
 	return {
 		kind: "confirmation",
 		closeCommandLine: true,
 		processControlPreview: false,
 		confirmation,
-		executionPlan,
+		executionRequest: { preview, confirmation },
 		notices: [
 			{
 				level: confirmation.confirmed ? "warn" : "fail",
 				message: formatPortProcessControlConfirmationAuditMessage(confirmation),
-			},
-			{
-				level: "warn",
-				message: formatControlExecutionAuditMessage(executionPlan),
 			},
 		],
 	};

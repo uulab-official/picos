@@ -1127,8 +1127,6 @@ describe("endpoint TUI panel formatting", () => {
 				ports: [],
 				selectedIndex: 0,
 				input: "kill pid 123",
-				commandPreview: undefined,
-				policy: { mode: "disabled", allowAdminDryRun: false },
 			}),
 		).toEqual({
 			kind: "blocked",
@@ -1151,13 +1149,6 @@ describe("endpoint TUI panel formatting", () => {
 			ports: [port],
 			selectedIndex: 0,
 			input: "kill pid 123",
-			commandPreview: {
-				adapter: "linux",
-				command: "kill",
-				args: ["-TERM", "<pid>"],
-				note: "terminate a selected user-owned process",
-			},
-			policy: { mode: "disabled", allowAdminDryRun: false },
 		});
 		expect(transition).toMatchObject({
 			kind: "confirmation",
@@ -1167,10 +1158,15 @@ describe("endpoint TUI panel formatting", () => {
 				confirmed: true,
 				executionEnabled: false,
 			},
-			executionPlan: {
-				status: "blocked",
-				willExecute: false,
-				reason: "mutation-controls-disabled",
+			executionRequest: {
+				preview: {
+					actionId: "process.terminate",
+					port,
+				},
+				confirmation: {
+					confirmed: true,
+					executionEnabled: false,
+				},
 			},
 			notices: [
 				{
@@ -1178,13 +1174,9 @@ describe("endpoint TUI panel formatting", () => {
 					message:
 						"port process control process.terminate status=confirmed-disabled risk=destructive privilege=user executionEnabled=false port=*:3000 pid=123 process=node user=alice",
 				},
-				{
-					level: "warn",
-					message:
-						'control execution process.terminate status=blocked policy=disabled confirmed=true dryRun=true willExecute=false blockers=mutation-controls-disabled adapter=linux command="kill -TERM 123"',
-				},
 			],
 		});
+		expect(transition).not.toHaveProperty("executionPlan");
 	});
 
 	test("owns palette control availability and actionable prompt routing", () => {
@@ -1617,10 +1609,39 @@ describe("endpoint TUI panel formatting", () => {
 });
 
 describe("endpoint workspace hint rows", () => {
-	test("advertises actionable port controls and names the Processes handoff", () => {
+	test("shows only always-actionable controls while a snapshot is loading", () => {
+		expect(
+			formatEndpointWorkspaceHintRow("connections", {
+				snapshotLoaded: false,
+				filter: "",
+				presetCount: 0,
+				visibleRows: [],
+				selectedIndex: 0,
+			}),
+		).toBe("active endpoints · f filter · tab/1-3 detail · home/end");
+	});
+
+	test("keeps loaded-empty export and open but hides filter and selection actions", () => {
 		expect(
 			formatEndpointWorkspaceHintRow("ports", {
-				rows: [
+				snapshotLoaded: true,
+				filter: "   ",
+				presetCount: 0,
+				visibleRows: [],
+				selectedIndex: 0,
+			}),
+		).toBe(
+			"listening ports · f filter · e export · o open · tab/1-3 detail · home/end",
+		);
+	});
+
+	test("shows filter and preset actions for one selected row without immobile j/k", () => {
+		expect(
+			formatEndpointWorkspaceHintRow("ports", {
+				snapshotLoaded: true,
+				filter: " node ",
+				presetCount: 2,
+				visibleRows: [
 					{
 						protocol: "tcp",
 						localAddress: "*",
@@ -1633,7 +1654,62 @@ describe("endpoint workspace hint rows", () => {
 				selectedIndex: 0,
 			}),
 		).toBe(
-			"listening ports · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · I inspector · K control · tab/1-3 detail · home/end · j/k select",
+			"listening ports · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · I inspector · K control · tab/1-3 detail · home/end",
+		);
+	});
+
+	test("shows j/k for a movable multi-row domain without inventing filter presets", () => {
+		const rows = [
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52000",
+				pid: "4242",
+			},
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3001",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52001",
+				pid: undefined,
+			},
+		];
+		const hint = formatEndpointWorkspaceHintRow("connections", {
+			snapshotLoaded: true,
+			filter: "",
+			presetCount: 0,
+			visibleRows: rows,
+			selectedIndex: 0,
+		});
+
+		expect(hint).toBe(
+			"active endpoints · f filter · e export · o open · enter Processes / picos process · tab/1-3 detail · home/end · j/k select",
+		);
+	});
+
+	test("advertises actionable port controls and names the Processes handoff", () => {
+		expect(
+			formatEndpointWorkspaceHintRow("ports", {
+				snapshotLoaded: true,
+				filter: "node",
+				presetCount: 1,
+				visibleRows: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "123",
+						command: "node",
+						user: "alice",
+					},
+				],
+				selectedIndex: 0,
+			}),
+		).toBe(
+			"listening ports · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · I inspector · K control · tab/1-3 detail · home/end",
 		);
 	});
 
@@ -1648,15 +1724,21 @@ describe("endpoint workspace hint rows", () => {
 		};
 		expect(
 			formatEndpointWorkspaceHintRow("connections", {
-				rows: [selected],
+				snapshotLoaded: true,
+				filter: "tcp4",
+				presetCount: 1,
+				visibleRows: [selected],
 				selectedIndex: 0,
 			}),
 		).toBe(
-			"active endpoints · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · tab/1-3 detail · home/end · j/k select",
+			"active endpoints · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · tab/1-3 detail · home/end",
 		);
 		expect(
 			formatEndpointWorkspaceHintRow("connections", {
-				rows: [{ ...selected, pid: undefined }],
+				snapshotLoaded: true,
+				filter: "",
+				presetCount: 0,
+				visibleRows: [{ ...selected, pid: undefined }],
 				selectedIndex: 0,
 			}),
 		).not.toContain("enter");
@@ -1664,7 +1746,10 @@ describe("endpoint workspace hint rows", () => {
 
 	test("omits port inspector and control keys when no numeric PID can act", () => {
 		const hint = formatEndpointWorkspaceHintRow("ports", {
-			rows: [
+			snapshotLoaded: true,
+			filter: "",
+			presetCount: 0,
+			visibleRows: [
 				{
 					protocol: "tcp",
 					localAddress: "*",
@@ -1681,17 +1766,12 @@ describe("endpoint workspace hint rows", () => {
 		expect(hint).not.toContain("K control");
 	});
 
-	test("derives control availability from the filtered and sorted endpoint domain", () => {
+	test("derives control availability from the supplied visible endpoint domain", () => {
 		const hint = formatEndpointWorkspaceHintRow("ports", {
-			rows: [
-				{
-					protocol: "tcp",
-					localAddress: "*",
-					localPort: "3000",
-					pid: "-",
-					command: "node",
-					user: "alice",
-				},
+			snapshotLoaded: true,
+			filter: "postgres",
+			presetCount: 0,
+			visibleRows: [
 				{
 					protocol: "tcp",
 					localAddress: "127.0.0.1",
@@ -1701,8 +1781,6 @@ describe("endpoint workspace hint rows", () => {
 					user: "alice",
 				},
 			],
-			filter: "postgres",
-			sort: { key: "process", direction: "asc" },
 			selectedIndex: 0,
 		});
 		expect(hint).toContain("enter Processes / picos process");

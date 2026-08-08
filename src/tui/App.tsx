@@ -18,7 +18,6 @@ import {
 } from "../config/store";
 import {
 	type ActionControlSimulation,
-	type ActionPreviewConfirmation,
 	type ActionPreviewPlan,
 	createActionPreviewPlan,
 	formatActionPreviewRows,
@@ -56,6 +55,7 @@ import {
 	type ControlExecutionPlan,
 	type ControlExecutionPolicy,
 	defaultControlExecutionPolicy,
+	formatControlExecutionAuditMessage,
 	formatControlExecutionPolicyRows,
 	formatControlExecutionRows,
 	getControlExecutionPolicyFromConfig,
@@ -237,12 +237,14 @@ import { VERSION } from "../core/version";
 import { createTranslator } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
 import {
+	type ActionControlConfirmation,
 	classifyControlExecutionFailure,
 	classifyControlExecutionResult,
 	prepareActionDispatch,
 	prepareControlConfirmationPrompt,
 	prepareControlExecutionStart,
 	prepareControlExecutionTransition,
+	prepareControlPolicySync,
 	submitControlConfirmationTransition,
 } from "./actionControlTransitions";
 import {
@@ -358,6 +360,7 @@ import {
 import {
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
+	createPortProcessControlExecutionPlan,
 	createSelectedPortProcessControlPreview,
 	type EndpointDetailView,
 	type EndpointHandoffKind,
@@ -917,7 +920,7 @@ export function App(): React.ReactElement {
 	const [actionPreviewPlan, setActionPreviewPlan] =
 		useState<ActionPreviewPlan>();
 	const [actionConfirmation, setActionConfirmation] =
-		useState<ActionPreviewConfirmation>();
+		useState<ActionControlConfirmation>();
 	const [actionSimulation, setActionSimulation] =
 		useState<ActionControlSimulation>();
 	const [actionExecutionPlan, setActionExecutionPlan] =
@@ -1806,7 +1809,12 @@ export function App(): React.ReactElement {
 		setEnableExperimentalControls(intent.enableExperimentalControls);
 		setEditorSaveMode(intent.editorSaveMode);
 		setShowPublicIp(intent.showPublicIp);
-		setControlExecutionPolicy(getControlExecutionPolicyFromConfig(intent));
+		const controlPolicySync = prepareControlPolicySync({
+			currentToken: actionControlSequenceRef.current,
+			policy: getControlExecutionPolicyFromConfig(intent),
+		});
+		actionControlSequenceRef.current = controlPolicySync.requestToken;
+		setControlExecutionPolicy(controlPolicySync.policy);
 		setStatusActivityResultTimelineJumpFilter(
 			intent.statusResultJumpClassFilter,
 		);
@@ -3020,16 +3028,20 @@ export function App(): React.ReactElement {
 			ports: sortedPorts,
 			selectedIndex: selectedPortIndex,
 			input: commandLine.value,
-			commandPreview: getControlPreviewCommand(
-				"process.terminate",
-				currentPlatform(),
-			),
-			policy: controlExecutionPolicy,
 		});
 		setCommandLine((current) => closeCommandLine(current));
 		setPortProcessControlPreview(transition.processControlPreview);
 		for (const notice of transition.notices) {
 			log(notice.level, notice.message);
+		}
+		if (transition.kind === "confirmation") {
+			const executionPlan = createPortProcessControlExecutionPlan(
+				transition.executionRequest.preview,
+				transition.executionRequest.confirmation,
+				getControlPreviewCommand("process.terminate", currentPlatform()),
+				controlExecutionPolicy,
+			);
+			log("warn", formatControlExecutionAuditMessage(executionPlan));
 		}
 	}, [
 		commandLine.value,
@@ -3143,6 +3155,8 @@ export function App(): React.ReactElement {
 		actionControlSequenceRef.current = requestToken;
 		const transition = submitControlConfirmationTransition({
 			previewPlan: actionPreviewPlan,
+			platform: currentPlatform(),
+			updateCheckResult,
 			input: commandLine.value,
 		});
 		setCommandLine((current) => closeCommandLine(current));
@@ -3154,12 +3168,16 @@ export function App(): React.ReactElement {
 		for (const notice of transition.notices) {
 			log(notice.level, notice.message);
 		}
-	}, [actionPreviewPlan, commandLine.value, log]);
+	}, [actionPreviewPlan, commandLine.value, log, updateCheckResult]);
 
 	const runControlExecutionAttempt = useCallback(async () => {
 		const requestToken = beginRequest(actionControlSequenceRef.current);
 		actionControlSequenceRef.current = requestToken;
-		const start = prepareControlExecutionStart(actionPreviewPlan);
+		const start = prepareControlExecutionStart({
+			previewPlan: actionPreviewPlan,
+			platform: currentPlatform(),
+			updateCheckResult,
+		});
 		if (start.kind === "blocked") {
 			log(start.notice.level, start.notice.message);
 			return;
@@ -3170,6 +3188,8 @@ export function App(): React.ReactElement {
 			const transition = prepareControlExecutionTransition({
 				previewPlan: actionPreviewPlan,
 				confirmation: actionConfirmation,
+				platform: currentPlatform(),
+				updateCheckResult,
 				policy,
 				requestToken,
 				currentToken: actionControlSequenceRef.current,
@@ -3205,7 +3225,7 @@ export function App(): React.ReactElement {
 			});
 			log(publication.historyNotice.level, publication.historyNotice.message);
 		}
-	}, [actionConfirmation, actionPreviewPlan, log]);
+	}, [actionConfirmation, actionPreviewPlan, log, updateCheckResult]);
 
 	const submitClipboardCommand = useCallback(async () => {
 		try {
@@ -6762,7 +6782,6 @@ export function App(): React.ReactElement {
 			actionControlSequenceRef.current = requestToken;
 			const transition = prepareActionDispatch({
 				actionId: requestedAction.id,
-				actions,
 				platform: currentPlatform(),
 				updateCheckResult,
 			});
@@ -7192,7 +7211,6 @@ export function App(): React.ReactElement {
 			}
 		},
 		[
-			actions,
 			configManagedShelfStateEffectSetters,
 			connectionFilterPresets.length,
 			configWorkspaceItems,
@@ -8541,7 +8559,11 @@ export function App(): React.ReactElement {
 			focusArea === "actions" &&
 			(input === "c" || input === "C")
 		) {
-			const transition = prepareControlConfirmationPrompt(actionPreviewPlan);
+			const transition = prepareControlConfirmationPrompt({
+				previewPlan: actionPreviewPlan,
+				platform: currentPlatform(),
+				updateCheckResult,
+			});
 			if (transition.kind === "prompt") {
 				setCommandLine(openCommandLine(transition.prompt));
 			}
@@ -15056,6 +15078,9 @@ function ConnectionsWorkspace({
 	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const visibleDomain = result
+		? sortConnections(filterConnections(result.connections, filter), sort)
+		: [];
 	const promptRows = [
 		...formatClipboardPromptRows(commandLine),
 		...(configShelfFocusTarget === "connections" &&
@@ -15108,9 +15133,10 @@ function ConnectionsWorkspace({
 			<Text bold>{t("screen.connections")}</Text>
 			<Text color="gray">
 				{formatEndpointWorkspaceHintRow("connections", {
-					rows: result?.connections ?? [],
+					snapshotLoaded: Boolean(result),
 					filter,
-					sort,
+					presetCount: filterPresets.length,
+					visibleRows: visibleDomain,
 					selectedIndex,
 				})}
 			</Text>
@@ -15163,6 +15189,9 @@ function PortsWorkspace({
 	configShelfFocusTarget?: ConfigManagedShelfTarget;
 	t: (key: string) => string;
 }): React.ReactElement {
+	const visibleDomain = result
+		? sortListeningPorts(filterListeningPorts(result.ports, filter), sort)
+		: [];
 	const processControlPromptRows = formatPortProcessControlPromptRows(
 		commandLine,
 		result,
@@ -15228,9 +15257,10 @@ function PortsWorkspace({
 			<Text bold>{t("screen.ports")}</Text>
 			<Text color="gray">
 				{formatEndpointWorkspaceHintRow("ports", {
-					rows: result?.ports ?? [],
+					snapshotLoaded: Boolean(result),
 					filter,
-					sort,
+					presetCount: filterPresets.length,
+					visibleRows: visibleDomain,
 					selectedIndex,
 				})}
 			</Text>

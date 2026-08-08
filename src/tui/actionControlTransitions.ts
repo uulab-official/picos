@@ -7,6 +7,7 @@ import {
 	formatActionConfirmationAuditMessage,
 	formatActionPreviewAuditMessage,
 	formatActionSimulationAuditMessage,
+	getActionCatalog,
 	type PicosAction,
 	submitActionPreviewConfirmation,
 } from "../core/actions";
@@ -25,16 +26,20 @@ import {
 	createUpdateApplyPreview,
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
-import { classifyRequestPublication } from "./requestSequence";
+import { beginRequest, classifyRequestPublication } from "./requestSequence";
 
 export type ActionControlNotice = {
 	level: "run" | "info" | "ok" | "warn" | "fail";
 	message: string;
 };
 
+export type ActionControlConfirmation = ActionPreviewConfirmation & {
+	previewFingerprint: string;
+};
+
 export type ActionControlState = {
 	previewPlan: ActionPreviewPlan | undefined;
-	confirmation: ActionPreviewConfirmation | undefined;
+	confirmation: ActionControlConfirmation | undefined;
 	simulation: ActionControlSimulation | undefined;
 	executionPlan: ControlExecutionPlan | undefined;
 };
@@ -56,7 +61,8 @@ export type ActionDispatchBlocker =
 	| "dry-run-preview-missing"
 	| "preview-metadata-mismatch"
 	| "adapter-command-missing"
-	| "adapter-platform-mismatch";
+	| "adapter-platform-mismatch"
+	| "preview-canonical-mismatch";
 
 export type ActionDispatchTransition =
 	| {
@@ -94,7 +100,7 @@ export type ControlConfirmationTransition =
 	| {
 			kind: "confirmation";
 			closeCommandLine: true;
-			confirmation: ActionPreviewConfirmation;
+			confirmation: ActionControlConfirmation;
 			simulation: ActionControlSimulation;
 			executionPlan: undefined;
 			notices: ActionControlNotice[];
@@ -141,24 +147,22 @@ const ACTION_CATEGORIES = new Set([
 ]);
 
 export function prepareActionDispatch(input: {
-	actionId: string;
-	actions: readonly unknown[];
-	platform: string;
-	previewPlan?: ActionPreviewPlan;
+	actionId: unknown;
+	platform: unknown;
 	updateCheckResult?: PackageUpdateCheckResult;
 }): ActionDispatchTransition {
-	const candidate = input.actions.find(
-		(action) => isRecord(action) && action.id === input.actionId,
-	);
-	if (!candidate || !isRecord(candidate)) {
-		return blockedAction(input.actionId, ["action-not-found"]);
+	const actionId =
+		typeof input.actionId === "string" ? input.actionId : "<invalid>";
+	const candidate = getActionCatalog().find((action) => action.id === actionId);
+	if (!candidate) {
+		return blockedAction(actionId, ["action-not-found"]);
 	}
 
-	const metadataBlockers = validateActionMetadata(candidate);
+	const metadataBlockers = getActionMetadataBlockers(candidate);
 	if (metadataBlockers.length > 0) {
-		return blockedAction(input.actionId, metadataBlockers);
+		return blockedAction(actionId, metadataBlockers);
 	}
-	const action = candidate as PicosAction;
+	const action = candidate;
 
 	if (action.risk === "read") {
 		if (!action.enabled) {
@@ -181,11 +185,14 @@ export function prepareActionDispatch(input: {
 	if (!action.confirmationRequired || !action.confirmationPhrase?.trim()) {
 		return blockedAction(action.id, ["confirmation-phrase-missing"]);
 	}
-	if (!isSupportedPlatform(input.platform)) {
+	if (
+		typeof input.platform !== "string" ||
+		!isSupportedPlatform(input.platform)
+	) {
 		return blockedAction(action.id, ["unsupported-platform"]);
 	}
 
-	if (action.id === "picos.update.apply" && !input.previewPlan) {
+	if (action.id === "picos.update.apply") {
 		if (!input.updateCheckResult) {
 			return blockedAction(action.id, ["update-check-required"], {
 				screen: "status",
@@ -202,9 +209,11 @@ export function prepareActionDispatch(input: {
 	}
 
 	const platform = input.platform as SupportedPlatform;
-	const previewPlan =
-		input.previewPlan ??
-		resolveActionPreviewPlan(action, platform, input.updateCheckResult);
+	const previewPlan = resolveActionPreviewPlan(
+		action,
+		platform,
+		input.updateCheckResult,
+	);
 	const previewBlockers = validateMutablePreview(action, platform, previewPlan);
 	if (previewBlockers.length > 0) {
 		return blockedAction(action.id, previewBlockers, { screen: "actions" });
@@ -235,12 +244,14 @@ export function prepareActionDispatch(input: {
 	};
 }
 
-export function prepareControlConfirmationPrompt(
-	previewPlan: ActionPreviewPlan | undefined,
-):
+export function prepareControlConfirmationPrompt(input: {
+	previewPlan: unknown;
+	platform: unknown;
+	updateCheckResult?: PackageUpdateCheckResult;
+}):
 	| { kind: "prompt"; prompt: "control-confirm"; notice: ActionControlNotice }
 	| { kind: "blocked"; notice: ActionControlNotice } {
-	if (!previewPlan) {
+	if (!input.previewPlan) {
 		return {
 			kind: "blocked",
 			notice: {
@@ -249,26 +260,13 @@ export function prepareControlConfirmationPrompt(
 			},
 		};
 	}
-	if (!previewPlan.confirmationPhrase?.trim()) {
+	const resolution = resolveCanonicalMutablePreview(input);
+	if (resolution.kind === "blocked") {
 		return {
 			kind: "blocked",
 			notice: {
 				level: "warn",
-				message: `${previewPlan.actionId} has no confirmation phrase`,
-			},
-		};
-	}
-	if (
-		previewPlan.risk === "read" ||
-		previewPlan.enabled ||
-		!previewPlan.dryRun ||
-		!hasAdapterCommand(previewPlan)
-	) {
-		return {
-			kind: "blocked",
-			notice: {
-				level: "warn",
-				message: `control confirmation unavailable ${previewPlan.actionId}`,
+				message: `control confirmation ${resolution.actionId} blocked: ${resolution.blocker}`,
 			},
 		};
 	}
@@ -277,14 +275,16 @@ export function prepareControlConfirmationPrompt(
 		prompt: "control-confirm",
 		notice: {
 			level: "info",
-			message: `control confirmation opened for ${previewPlan.actionId}`,
+			message: `control confirmation opened for ${resolution.previewPlan.actionId}`,
 		},
 	};
 }
 
 export function submitControlConfirmationTransition(input: {
-	previewPlan: ActionPreviewPlan | undefined;
-	input: string;
+	previewPlan: unknown;
+	platform: unknown;
+	updateCheckResult?: PackageUpdateCheckResult;
+	input: unknown;
 }): ControlConfirmationTransition {
 	if (!input.previewPlan) {
 		return {
@@ -295,7 +295,7 @@ export function submitControlConfirmationTransition(input: {
 			],
 		};
 	}
-	const eligibility = prepareControlConfirmationPrompt(input.previewPlan);
+	const eligibility = prepareControlConfirmationPrompt(input);
 	if (eligibility.kind === "blocked") {
 		return {
 			kind: "blocked",
@@ -303,12 +303,39 @@ export function submitControlConfirmationTransition(input: {
 			notices: [eligibility.notice],
 		};
 	}
-	const confirmation = submitActionPreviewConfirmation(
-		input.previewPlan,
+	if (typeof input.input !== "string") {
+		return {
+			kind: "blocked",
+			closeCommandLine: true,
+			notices: [
+				{ level: "warn", message: "control confirmation invalid input" },
+			],
+		};
+	}
+	const resolution = resolveCanonicalMutablePreview(input);
+	if (resolution.kind === "blocked") {
+		return {
+			kind: "blocked",
+			closeCommandLine: true,
+			notices: [
+				{
+					level: "warn",
+					message: `control confirmation ${resolution.actionId} blocked: ${resolution.blocker}`,
+				},
+			],
+		};
+	}
+	const submitted = submitActionPreviewConfirmation(
+		resolution.previewPlan,
 		input.input,
 	);
+	const confirmation: ActionControlConfirmation = {
+		...submitted,
+		commandPreview: cloneCommandPreview(submitted.commandPreview),
+		previewFingerprint: resolution.fingerprint,
+	};
 	const simulation = createActionControlSimulation(
-		input.previewPlan,
+		resolution.previewPlan,
 		confirmation,
 	);
 	return {
@@ -330,16 +357,18 @@ export function submitControlConfirmationTransition(input: {
 	};
 }
 
-export function prepareControlExecutionStart(
-	previewPlan: ActionPreviewPlan | undefined,
-):
+export function prepareControlExecutionStart(input: {
+	previewPlan: unknown;
+	platform: unknown;
+	updateCheckResult?: PackageUpdateCheckResult;
+}):
 	| { kind: "blocked"; notice: ActionControlNotice }
 	| {
 			kind: "read-policy";
 			actionId: string;
 			io: { kind: "read-control-policy" };
 	  } {
-	if (!previewPlan) {
+	if (!input.previewPlan) {
 		return {
 			kind: "blocked",
 			notice: {
@@ -348,16 +377,38 @@ export function prepareControlExecutionStart(
 			},
 		};
 	}
+	const resolution = resolveCanonicalMutablePreview(input);
+	if (resolution.kind === "blocked") {
+		return {
+			kind: "blocked",
+			notice: {
+				level: "warn",
+				message: `control execution ${resolution.actionId} blocked: ${resolution.blocker}`,
+			},
+		};
+	}
 	return {
 		kind: "read-policy",
-		actionId: previewPlan.actionId,
+		actionId: resolution.previewPlan.actionId,
 		io: { kind: "read-control-policy" },
 	};
 }
 
+export function prepareControlPolicySync(input: {
+	currentToken: number;
+	policy: ControlExecutionPolicy;
+}): { requestToken: number; policy: ControlExecutionPolicy } {
+	return {
+		requestToken: beginRequest(input.currentToken),
+		policy: input.policy,
+	};
+}
+
 export function prepareControlExecutionTransition(input: {
-	previewPlan: ActionPreviewPlan | undefined;
-	confirmation: ActionPreviewConfirmation | undefined;
+	previewPlan: unknown;
+	confirmation: unknown;
+	platform: unknown;
+	updateCheckResult?: PackageUpdateCheckResult;
 	policy: ControlExecutionPolicy;
 	requestToken: number;
 	currentToken: number;
@@ -378,35 +429,51 @@ export function prepareControlExecutionTransition(input: {
 			},
 		};
 	}
-	if (
-		input.confirmation &&
-		input.confirmation.actionId !== input.previewPlan.actionId
-	) {
+	const resolution = resolveCanonicalMutablePreview(input);
+	if (resolution.kind === "blocked") {
 		return {
 			kind: "blocked",
 			publishCurrent: true,
 			notice: {
 				level: "warn",
-				message: `control execution ${input.previewPlan.actionId} blocked: confirmation-action-mismatch`,
+				message: `control execution ${resolution.actionId} blocked: ${resolution.blocker}`,
 			},
 		};
 	}
 	if (
-		input.confirmation?.confirmed &&
-		!confirmationMatchesPreview(input.confirmation, input.previewPlan)
+		isRecord(input.confirmation) &&
+		input.confirmation.actionId !== resolution.previewPlan.actionId
 	) {
 		return {
 			kind: "blocked",
 			publishCurrent: true,
 			notice: {
 				level: "warn",
-				message: `control execution ${input.previewPlan.actionId} blocked: confirmation-preview-mismatch`,
+				message: `control execution ${resolution.previewPlan.actionId} blocked: confirmation-action-mismatch`,
+			},
+		};
+	}
+	if (
+		isRecord(input.confirmation) &&
+		input.confirmation.confirmed === true &&
+		(!isBoundConfirmation(input.confirmation) ||
+			input.confirmation.previewFingerprint !== resolution.fingerprint ||
+			!confirmationMatchesPreview(input.confirmation, resolution.previewPlan))
+	) {
+		return {
+			kind: "blocked",
+			publishCurrent: true,
+			notice: {
+				level: "warn",
+				message: `control execution ${resolution.previewPlan.actionId} blocked: confirmation-preview-mismatch`,
 			},
 		};
 	}
 	const executionPlan = createControlExecutionPlan(
-		input.previewPlan,
-		input.confirmation,
+		resolution.previewPlan,
+		isActionPreviewConfirmation(input.confirmation)
+			? input.confirmation
+			: undefined,
 		input.policy,
 	);
 	if (executionPlan.status !== "dry-run-ready") {
@@ -524,9 +591,12 @@ function resolveActionPreviewPlan(
 	);
 }
 
-function validateActionMetadata(
-	action: Record<string, unknown>,
+export function getActionMetadataBlockers(
+	action: unknown,
 ): ActionDispatchBlocker[] {
+	if (!isRecord(action)) {
+		return ["action-metadata-incomplete"];
+	}
 	if (
 		typeof action.id !== "string" ||
 		!action.id.trim() ||
@@ -550,6 +620,22 @@ function validateActionMetadata(
 	}
 	if (typeof action.confirmationRequired !== "boolean") {
 		return ["confirmation-metadata-missing"];
+	}
+	if (action.risk === "read") {
+		if (action.confirmationRequired) {
+			return ["read-confirmation-invalid"];
+		}
+		return [];
+	}
+	if (action.enabled) {
+		return ["mutable-action-enabled"];
+	}
+	if (
+		!action.confirmationRequired ||
+		typeof action.confirmationPhrase !== "string" ||
+		!action.confirmationPhrase.trim()
+	) {
+		return ["confirmation-phrase-missing"];
 	}
 	return [];
 }
@@ -629,10 +715,189 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+type CanonicalMutablePreviewResolution =
+	| {
+			kind: "ready";
+			previewPlan: ActionPreviewPlan;
+			fingerprint: string;
+	  }
+	| {
+			kind: "blocked";
+			actionId: string;
+			blocker: ActionDispatchBlocker;
+	  };
+
+function resolveCanonicalMutablePreview(input: {
+	previewPlan: unknown;
+	platform: unknown;
+	updateCheckResult?: PackageUpdateCheckResult;
+}): CanonicalMutablePreviewResolution {
+	const actionId =
+		isRecord(input.previewPlan) &&
+		typeof input.previewPlan.actionId === "string"
+			? input.previewPlan.actionId
+			: "<invalid>";
+	const action = getActionCatalog().find(
+		(candidate) => candidate.id === actionId,
+	);
+	if (!action) {
+		return { kind: "blocked", actionId, blocker: "action-not-found" };
+	}
+	const metadataBlockers = getActionMetadataBlockers(action);
+	if (metadataBlockers.length > 0 || action.risk === "read") {
+		return {
+			kind: "blocked",
+			actionId,
+			blocker: metadataBlockers[0] ?? "preview-canonical-mismatch",
+		};
+	}
+	if (
+		typeof input.platform !== "string" ||
+		!isSupportedPlatform(input.platform)
+	) {
+		return { kind: "blocked", actionId, blocker: "unsupported-platform" };
+	}
+	if (action.id === "picos.update.apply") {
+		if (!input.updateCheckResult) {
+			return { kind: "blocked", actionId, blocker: "update-check-required" };
+		}
+		if (!createUpdateApplyPreview(input.updateCheckResult)) {
+			return { kind: "blocked", actionId, blocker: "update-unavailable" };
+		}
+	}
+	const canonicalPreview = resolveActionPreviewPlan(
+		action,
+		input.platform,
+		input.updateCheckResult,
+	);
+	const canonicalBlockers = validateMutablePreview(
+		action,
+		input.platform,
+		canonicalPreview,
+	);
+	if (!canonicalPreview || canonicalBlockers.length > 0) {
+		return {
+			kind: "blocked",
+			actionId,
+			blocker: canonicalBlockers[0] ?? "dry-run-preview-missing",
+		};
+	}
+	const canonicalFingerprint = createPreviewFingerprint(canonicalPreview);
+	const candidateFingerprint = createPreviewFingerprint(input.previewPlan);
+	if (
+		!canonicalFingerprint ||
+		!candidateFingerprint ||
+		candidateFingerprint !== canonicalFingerprint
+	) {
+		return {
+			kind: "blocked",
+			actionId,
+			blocker: "preview-canonical-mismatch",
+		};
+	}
+	return {
+		kind: "ready",
+		previewPlan: canonicalPreview,
+		fingerprint: canonicalFingerprint,
+	};
+}
+
+function createPreviewFingerprint(previewPlan: unknown): string | undefined {
+	if (
+		!isRecord(previewPlan) ||
+		typeof previewPlan.actionId !== "string" ||
+		typeof previewPlan.title !== "string" ||
+		typeof previewPlan.risk !== "string" ||
+		typeof previewPlan.privilege !== "string" ||
+		typeof previewPlan.enabled !== "boolean" ||
+		typeof previewPlan.dryRun !== "boolean" ||
+		(previewPlan.confirmationPhrase !== undefined &&
+			typeof previewPlan.confirmationPhrase !== "string") ||
+		!isActionPreviewCommand(previewPlan.commandPreview)
+	) {
+		return undefined;
+	}
+	const command = previewPlan.commandPreview;
+	return JSON.stringify({
+		actionId: previewPlan.actionId,
+		title: previewPlan.title,
+		risk: previewPlan.risk,
+		privilege: previewPlan.privilege,
+		enabled: previewPlan.enabled,
+		dryRun: previewPlan.dryRun,
+		confirmationPhrase: previewPlan.confirmationPhrase,
+		adapter: command.adapter,
+		command: command.command,
+		args: command.args,
+		note: command.note,
+		dryRunExecutable: command.dryRunExecutable,
+	});
+}
+
+function cloneCommandPreview(
+	command: ActionPreviewPlan["commandPreview"],
+): ActionPreviewPlan["commandPreview"] {
+	return command ? { ...command, args: [...command.args] } : undefined;
+}
+
+function isBoundConfirmation(
+	confirmation: unknown,
+): confirmation is ActionControlConfirmation {
+	return (
+		isRecord(confirmation) &&
+		typeof confirmation.previewFingerprint === "string" &&
+		isActionPreviewConfirmation(confirmation)
+	);
+}
+
+function isActionPreviewConfirmation(
+	confirmation: unknown,
+): confirmation is ActionPreviewConfirmation {
+	return (
+		isRecord(confirmation) &&
+		typeof confirmation.actionId === "string" &&
+		(confirmation.status === "confirmed-disabled" ||
+			confirmation.status === "rejected") &&
+		typeof confirmation.expectedPhrase === "string" &&
+		typeof confirmation.receivedPhrase === "string" &&
+		typeof confirmation.confirmed === "boolean" &&
+		confirmation.executionEnabled === false &&
+		(confirmation.risk === "read" ||
+			confirmation.risk === "write" ||
+			confirmation.risk === "destructive") &&
+		(confirmation.privilege === "none" ||
+			confirmation.privilege === "user" ||
+			confirmation.privilege === "admin") &&
+		confirmation.dryRun === true &&
+		(confirmation.commandPreview === undefined ||
+			isActionPreviewCommand(confirmation.commandPreview))
+	);
+}
+
+function isActionPreviewCommand(
+	command: unknown,
+): command is NonNullable<ActionPreviewPlan["commandPreview"]> {
+	return (
+		isRecord(command) &&
+		(command.adapter === "macos" ||
+			command.adapter === "linux" ||
+			command.adapter === "windows") &&
+		typeof command.command === "string" &&
+		Array.isArray(command.args) &&
+		command.args.every((arg) => typeof arg === "string") &&
+		typeof command.note === "string" &&
+		(command.dryRunExecutable === undefined ||
+			typeof command.dryRunExecutable === "boolean")
+	);
+}
+
 function confirmationMatchesPreview(
-	confirmation: ActionPreviewConfirmation,
+	confirmation: unknown,
 	previewPlan: ActionPreviewPlan,
 ): boolean {
+	if (!isActionPreviewConfirmation(confirmation)) {
+		return false;
+	}
 	const phrase = previewPlan.confirmationPhrase?.trim() ?? "";
 	return (
 		confirmation.status === "confirmed-disabled" &&
@@ -650,11 +915,17 @@ function confirmationMatchesPreview(
 }
 
 function commandPreviewsMatch(
-	confirmation: ActionPreviewPlan["commandPreview"],
-	preview: ActionPreviewPlan["commandPreview"],
+	confirmation: unknown,
+	preview: unknown,
 ): boolean {
-	if (!confirmation || !preview) {
+	if (confirmation === undefined || preview === undefined) {
 		return confirmation === preview;
+	}
+	if (
+		!isActionPreviewCommand(confirmation) ||
+		!isActionPreviewCommand(preview)
+	) {
+		return false;
 	}
 	return (
 		confirmation.adapter === preview.adapter &&
