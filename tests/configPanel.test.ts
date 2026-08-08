@@ -1,12 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { defaultConfig } from "../src/config/schema";
+import type { PicosConfig } from "../src/core/types";
 import {
 	adjustConfigWorkspaceItem,
 	applyConfigPolicyPreset,
+	type ConfigManagedShelfFocusActionInput,
 	createConfigManagedShelfFileOpenOrigin,
 	createConfigManagedShelfFocusActionPlan,
 	createConfigManagedShelfJumpTransition,
 	createConfigRecoveryDirectPromptPlan,
+	createConfigSessionSyncIntent,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfCleanupBreadcrumbRows,
@@ -28,8 +31,12 @@ import {
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
 	prepareConfigManagedShelfFocusAction,
+	prepareConfigManagedShelfLandingDismissal,
 	prepareConfigWorkspaceAdjustment,
+	prepareConfigWorkspaceResetOpenTransition,
 	prepareConfigWorkspaceResetSubmission,
+	prepareConfigWorkspaceTextSubmission,
+	prepareNextConfigPolicyPresetTransition,
 	submitConfigWorkspaceResetConfirmation,
 	withConfigManagedShelfFocusRows,
 } from "../src/tui/configPanel";
@@ -695,87 +702,610 @@ describe("config TUI panel", () => {
 		});
 	});
 
-	test("creates every managed-shelf landing and focus intent", () => {
+	test("synchronizes every config session value consumed by the TUI", () => {
+		const config: PicosConfig = {
+			...defaultConfig,
+			auditArchiveRetentionLimit: 17,
+			toolTargetPresetLimit: 4,
+			language: "ko" as const,
+			refreshInterval: 5000,
+			defaultPingHost: "internal.example",
+			enableExperimentalControls: true,
+			editorSaveMode: "local-write" as const,
+			showPublicIp: false,
+			controlExecutionMode: "dry-run" as const,
+			allowAdminDryRun: true,
+			statusResultJumpClassFilter: "tools" as const,
+			interfaceEvidenceSearchPresets: ["gateway"],
+			operationPresets: [
+				{ id: "pulse", kind: "monitor", samples: 2, intervalMs: 500 },
+			],
+			toolTargetPresets: [
+				{
+					id: "dns-example",
+					label: "DNS example",
+					actionId: "tools.dns" as const,
+					target: "example.com",
+					hint: "lookup",
+				},
+			],
+			remoteProfiles: [
+				{
+					id: "host",
+					kind: "sftp" as const,
+					host: "example.com",
+					port: 22,
+					username: "picos",
+					root: "/",
+				},
+			],
+		};
+
+		expect(createConfigSessionSyncIntent(config)).toEqual({
+			auditArchiveRetentionLimit: 17,
+			toolTargetPresetLimit: 4,
+			language: "ko",
+			refreshInterval: 5000,
+			defaultPingHost: "internal.example",
+			enableExperimentalControls: true,
+			editorSaveMode: "local-write",
+			showPublicIp: false,
+			controlExecutionMode: "dry-run",
+			allowAdminDryRun: true,
+			statusResultJumpClassFilter: "tools",
+			interfaceEvidenceSearchPresets: ["gateway"],
+			operationPresets: [
+				{ id: "pulse", kind: "monitor", samples: 2, intervalMs: 500 },
+			],
+			toolTargetPresets: [
+				{
+					id: "dns-example",
+					label: "DNS example",
+					actionId: "tools.dns",
+					target: "example.com",
+					hint: "lookup",
+				},
+			],
+			remoteProfiles: [
+				{
+					id: "host",
+					kind: "sftp",
+					host: "example.com",
+					port: 22,
+					username: "picos",
+					root: "/",
+				},
+			],
+		});
+	});
+
+	test("submits trimmed text only for the selected editable config row", () => {
+		const transition = prepareConfigWorkspaceTextSubmission({
+			items: createConfigWorkspaceItems(defaultConfig),
+			selectedIndex: 5,
+			value: "  picos.dev  ",
+		});
+
+		expect(transition).toEqual({
+			kind: "write",
+			key: "defaultPingHost",
+			value: "picos.dev",
+			notice: { level: "ok", message: "config defaultPingHost=picos.dev" },
+		});
+	});
+
+	test("dismisses a managed-shelf landing only in its workspace", () => {
 		expect(
-			[
-				"network",
-				"routes",
-				"connections",
-				"ports",
-				"tools",
-				"logs",
-				"remotes",
-			].map((target) =>
-				createConfigManagedShelfJumpTransition(target as never),
-			),
-		).toEqual([
-			{
-				target: "network",
-				screen: "network",
-				focusArea: "workspaces",
-				cursor: "interfaceList",
-				index: 0,
-			},
-			{
+			prepareConfigManagedShelfLandingDismissal({
 				target: "routes",
 				screen: "routes",
-				focusArea: "workspaces",
-				cursor: "routeFilters",
-				index: 0,
-				detailView: "table",
+			}),
+		).toEqual({
+			kind: "clear",
+			notice: {
+				level: "info",
+				message: "config shelf landing cleared Routes",
+			},
+		});
+	});
+
+	test("creates complete managed-shelf jump intents", () => {
+		expect(
+			(
+				[
+					"network",
+					"routes",
+					"connections",
+					"ports",
+					"tools",
+					"logs",
+					"remotes",
+				] as const
+			).map((target) => createConfigManagedShelfJumpTransition(target)),
+		).toEqual([
+			{
+				kind: "apply",
+				effects: [
+					{ kind: "screen", screen: "network" },
+					{ kind: "focus-area", focusArea: "workspaces" },
+					{ kind: "shelf-landing", target: "network" },
+					{ kind: "interface-selection", index: 0 },
+				],
+				notice: {
+					level: "info",
+					message: "config shelf jump network -> Network focus=interfaceList",
+				},
 			},
 			{
-				target: "connections",
-				screen: "connections",
-				focusArea: "workspaces",
-				cursor: "connectionFilters",
-				index: 0,
+				kind: "apply",
+				effects: [
+					{ kind: "screen", screen: "routes" },
+					{ kind: "focus-area", focusArea: "workspaces" },
+					{ kind: "shelf-landing", target: "routes" },
+					{ kind: "route-detail-view", view: "table" },
+					{ kind: "route-copy-preview", value: false },
+				],
+				notice: {
+					level: "info",
+					message: "config shelf jump routes -> Routes focus=routeFilters",
+				},
 			},
 			{
-				target: "ports",
-				screen: "ports",
-				focusArea: "workspaces",
-				cursor: "portFilters",
-				index: 0,
+				kind: "apply",
+				effects: [
+					{ kind: "screen", screen: "connections" },
+					{ kind: "focus-area", focusArea: "workspaces" },
+					{ kind: "shelf-landing", target: "connections" },
+					{ kind: "connection-selection", index: 0 },
+				],
+				notice: {
+					level: "info",
+					message:
+						"config shelf jump connections -> Connections focus=connectionFilters",
+				},
 			},
 			{
-				target: "tools",
-				screen: "tools",
-				focusArea: "workspaces",
-				cursor: "toolTargetPresets",
-				index: 0,
-				detailView: "summary",
+				kind: "apply",
+				effects: [
+					{ kind: "screen", screen: "ports" },
+					{ kind: "focus-area", focusArea: "workspaces" },
+					{ kind: "shelf-landing", target: "ports" },
+					{ kind: "port-selection", index: 0 },
+				],
+				notice: {
+					level: "info",
+					message: "config shelf jump ports -> Ports focus=portFilters",
+				},
 			},
 			{
-				target: "logs",
-				screen: "logs",
-				focusArea: "workspaces",
-				cursor: "logProfiles",
-				index: 0,
+				kind: "apply",
+				effects: [
+					{ kind: "screen", screen: "tools" },
+					{ kind: "focus-area", focusArea: "workspaces" },
+					{ kind: "shelf-landing", target: "tools" },
+					{ kind: "tool-target-selection", index: 0 },
+					{ kind: "tool-detail-view", view: "summary" },
+				],
+				notice: {
+					level: "info",
+					message: "config shelf jump tools -> Tools focus=toolTargetPresets",
+				},
 			},
 			{
-				target: "remotes",
-				screen: "remotes",
-				focusArea: "remotes",
-				cursor: "remoteProfiles",
-				index: 0,
+				kind: "apply",
+				effects: [
+					{ kind: "screen", screen: "logs" },
+					{ kind: "focus-area", focusArea: "workspaces" },
+					{ kind: "shelf-landing", target: "logs" },
+				],
+				notice: {
+					level: "info",
+					message: "config shelf jump logs -> Logs focus=logProfiles",
+				},
+			},
+			{
+				kind: "apply",
+				effects: [
+					{ kind: "screen", screen: "remotes" },
+					{ kind: "focus-area", focusArea: "remotes" },
+					{ kind: "shelf-landing", target: "remotes" },
+					{ kind: "remote-selection", index: 0 },
+				],
+				notice: {
+					level: "info",
+					message: "config shelf jump remotes -> Remotes focus=remoteProfiles",
+				},
 			},
 		]);
 	});
 
-	test("opens the empty managed route shelf at its recovery prompt", () => {
-		const transition = prepareConfigManagedShelfFocusAction({
-			target: "routes",
-			screen: "routes",
-			itemCount: 0,
-		});
+	test("creates complete focus effects for every managed-shelf family", () => {
+		const base = {
+			routes: {
+				presets: ["10.0"],
+				query: "",
+				entries: [
+					{
+						destination: "10.0.0.0/8",
+						gateway: "10.0.0.1",
+						interfaceName: "en0",
+						family: "ipv4",
+					},
+				],
+			},
+			connections: {
+				presets: ["443"],
+				query: "",
+				entries: [
+					{
+						protocol: "tcp",
+						localAddress: "127.0.0.1",
+						localPort: "50100",
+						remoteAddress: "10.0.0.1",
+						remotePort: "443",
+					},
+				],
+			},
+			ports: {
+				presets: ["3000"],
+				query: "",
+				entries: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "12",
+						command: "bun",
+						user: "picos",
+					},
+				],
+			},
+			tools: {
+				presets: [
+					{
+						id: "dns-example",
+						label: "DNS example",
+						actionId: "tools.dns",
+						target: "example.com",
+						hint: "lookup",
+					},
+				],
+				selectedIndex: 99,
+			},
+			logs: {
+				profiles: [{ level: "warn", query: "kernel" }],
+				level: "all",
+				query: "",
+				entries: [{ index: 1, level: "warn", message: "kernel warning" }],
+			},
+			remotes: { profileCount: 1 },
+		} satisfies Omit<ConfigManagedShelfFocusActionInput, "target" | "screen">;
 
-		expect(transition).toEqual({
-			kind: "prompt",
-			prompt: "route-filter",
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "network",
+				screen: "network",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "screen", screen: "interfaces" },
+				{ kind: "interface-selection", index: 0 },
+			],
+			notice: { level: "info", message: "config shelf action open interfaces" },
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "routes",
+				screen: "routes",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "route-copy-preview", value: false },
+				{ kind: "route-filter", value: "10.0" },
+			],
+			notice: {
+				level: "info",
+				message: "config shelf action route preset 10.0 matches 1",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "connections",
+				screen: "connections",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "connection-copy-preview", value: false },
+				{ kind: "connection-filter", value: "443" },
+				{ kind: "connection-selection", index: 0 },
+			],
+			notice: {
+				level: "info",
+				message: "config shelf action connections preset 443 matches 1",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "ports",
+				screen: "ports",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "port-copy-preview", value: false },
+				{ kind: "port-process-preview", value: false },
+				{ kind: "port-filter", value: "3000" },
+				{ kind: "port-selection", index: 0 },
+			],
+			notice: {
+				level: "info",
+				message: "config shelf action ports preset 3000 matches 1",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "tools",
+				screen: "tools",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "tool-target-selection", index: 0 },
+				{ kind: "tool-detail-view", view: "summary" },
+				{ kind: "tool-copy-preview", value: false },
+			],
+			notice: {
+				level: "info",
+				message: "config shelf action tool target DNS example example.com",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "logs",
+				screen: "logs",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "log-level", value: "warn" },
+				{ kind: "log-query", value: "kernel" },
+			],
+			notice: {
+				level: "info",
+				message: "config shelf action logs profile warn:kernel matches 1",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "remotes",
+				screen: "remotes",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "focus-area", focusArea: "remotes" },
+				{ kind: "remote-selection", index: 0 },
+			],
+			notice: {
+				level: "info",
+				message: "config shelf action remote profile focus",
+			},
+		});
+	});
+
+	test("creates every empty-shelf recovery and rejects mismatched shelf focus", () => {
+		const base = {
+			routes: { presets: [], query: "", entries: [] },
+			connections: { presets: [], query: "", entries: [] },
+			ports: { presets: [], query: "", entries: [] },
+			tools: { presets: [], selectedIndex: 2 },
+			logs: { profiles: [], level: "all", query: "", entries: [] },
+			remotes: { profileCount: 0 },
+		} satisfies Omit<ConfigManagedShelfFocusActionInput, "target" | "screen">;
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "routes",
+				screen: "routes",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [{ kind: "command-line", prompt: "route-filter" }],
 			notice: {
 				level: "warn",
 				message: "config shelf action route filter prompt",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "connections",
+				screen: "connections",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "command-line", prompt: "endpoint-filter:connections" },
+			],
+			notice: {
+				level: "warn",
+				message: "config shelf action connections filter prompt",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "ports",
+				screen: "ports",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [{ kind: "command-line", prompt: "endpoint-filter:ports" }],
+			notice: {
+				level: "warn",
+				message: "config shelf action ports filter prompt",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "tools",
+				screen: "tools",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "tool-target-selection", index: 0 },
+				{ kind: "tool-detail-view", view: "summary" },
+				{ kind: "tool-copy-preview", value: false },
+			],
+			notice: {
+				level: "warn",
+				message: "config shelf action no tool target presets",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "logs",
+				screen: "logs",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [{ kind: "command-line", prompt: "log-search" }],
+			notice: {
+				level: "warn",
+				message: "config shelf action logs search prompt",
+			},
+		});
+		expect(
+			prepareConfigManagedShelfFocusAction({
+				...base,
+				target: "remotes",
+				screen: "remotes",
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "focus-area", focusArea: "remotes" },
+				{ kind: "remote-selection", index: 0 },
+			],
+			notice: {
+				level: "warn",
+				message: "config shelf action no remote profiles",
+			},
+		});
+
+		for (const target of [
+			"network",
+			"routes",
+			"connections",
+			"ports",
+			"tools",
+			"logs",
+			"remotes",
+		] as const) {
+			expect(
+				prepareConfigManagedShelfFocusAction({
+					...base,
+					target,
+					screen: "config",
+				}),
+			).toEqual({ kind: "no-op" });
+		}
+	});
+
+	test("prepares complete policy and reset-open intents", () => {
+		const config = { ...defaultConfig };
+
+		expect(prepareNextConfigPolicyPresetTransition(config)).toEqual({
+			kind: "write",
+			config: {
+				...config,
+				controlExecutionMode: "dry-run",
+				enableExperimentalControls: true,
+			},
+			notices: [
+				{ level: "info", message: "CONFIG POLICY PRESET" },
+				{ level: "ok", message: "preset=User dry-run" },
+				{ level: "ok", message: "controlExecutionMode=dry-run" },
+				{ level: "ok", message: "allowAdminDryRun=false" },
+				{ level: "ok", message: "enableExperimentalControls=true" },
+				{ level: "ok", message: "editorSaveMode=disabled" },
+			],
+		});
+
+		expect(
+			prepareConfigWorkspaceResetOpenTransition({
+				auditArchiveRetentionLimit: 7,
+				toolTargetPresetLimit: 4,
+				language: "ko",
+				refreshInterval: 10000,
+				defaultPingHost: "example.com",
+				controlExecutionMode: "dry-run",
+				allowAdminDryRun: true,
+				enableExperimentalControls: true,
+				editorSaveMode: "local-write",
+				statusResultJumpClassFilter: "tools",
+			}),
+		).toEqual({
+			commandLinePrompt: "config-reset",
+			notice: {
+				level: "warn",
+				message: "config reset preview opened 10 values",
+			},
+			preview: {
+				scope: "core controls",
+				confirmationPhrase: "reset config",
+				values: {
+					auditArchiveRetentionLimit: 10,
+					toolTargetPresetLimit: 8,
+					language: "en",
+					refreshInterval: 3000,
+					defaultPingHost: "google.com",
+					controlExecutionMode: "disabled",
+					allowAdminDryRun: false,
+					enableExperimentalControls: false,
+					editorSaveMode: "disabled",
+					statusResultJumpClassFilter: "all",
+				},
+				changedKeys: [
+					"auditArchiveRetentionLimit",
+					"toolTargetPresetLimit",
+					"language",
+					"refreshInterval",
+					"defaultPingHost",
+					"controlExecutionMode",
+					"allowAdminDryRun",
+					"enableExperimentalControls",
+					"editorSaveMode",
+					"statusResultJumpClassFilter",
+				],
+				rows: [
+					"CONFIG RESET",
+					"scope=core controls changed=10",
+					"confirm reset config locked",
+					"auditArchiveRetentionLimit 7 -> 10",
+					"toolTargetPresetLimit 4 -> 8",
+					"language ko -> en",
+					"refreshInterval 10000 -> 3000",
+					"defaultPingHost example.com -> google.com",
+					"controlExecutionMode dry-run -> disabled",
+					"allowAdminDryRun true -> false",
+					"enableExperimentalControls true -> false",
+					"editorSaveMode local-write -> disabled",
+					"statusResultJumpClassFilter tools -> all",
+				],
 			},
 		});
 	});

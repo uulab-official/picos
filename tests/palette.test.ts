@@ -1590,5 +1590,15 @@ describe("TUI command palette", () => {
 			kind: "no-op",
 			state: { active: false, selectedIndex: 0, query: "" },
 		});
+		expect(
+			prepareCommandPaletteInput({
+				actions,
+				state: openCommandPalette(),
+				input: "\u0003",
+			}),
+		).toEqual({
+			kind: "no-op",
+			state: { active: true, selectedIndex: 0, query: "" },
+		});
 	});
 });

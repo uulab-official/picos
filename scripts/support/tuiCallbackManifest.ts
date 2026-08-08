@@ -135,6 +135,7 @@ const callbackNames = [
 	"selectNextRemoteKnownHostsEvidenceHandoff",
 	"openSelectedRemoteKnownHostsEvidenceHandoff",
 	"openSelectedStatusActivityResultTimelineJump",
+	"applyConfigManagedShelfStateEffects",
 	"runAction",
 	"openCleanupHandoffPrompt",
 	"dismissCleanupHandoff",
@@ -162,6 +163,7 @@ const wiringReasons = {
 	log: "React setter/event publication",
 	beginCommand: "React setter/event publication",
 	endCommand: "React setter/event publication",
+	applyConfigManagedShelfStateEffects: "React setter/event publication",
 	refreshFiles: "direct I/O invocation",
 	refresh: "direct I/O invocation",
 } as const;
@@ -274,15 +276,18 @@ const delegatedCallbacks = {
 	},
 	applyNextConfigPolicyPreset: {
 		owner: "src/tui/configPanel.ts",
-		reason: "delegates policy preset selection and preview",
+		reason:
+			"delegates policy selection, full config merge, and per-row notice levels",
 	},
 	openConfigResetConfirmation: {
 		owner: "src/tui/configPanel.ts",
-		reason: "delegates reset preview and exact-confirmation contract",
+		reason:
+			"delegates reset preview, command-line prompt, and preview-open notice",
 	},
 	submitConfigResetCommand: {
 		owner: "src/tui/configPanel.ts",
-		reason: "delegates reset confirmation and write intent",
+		reason:
+			"delegates reset confirmation, bounded config write intent, and notice",
 	},
 	dismissConfigShelfLanding: {
 		owner: "src/tui/configPanel.ts",
@@ -290,11 +295,13 @@ const delegatedCallbacks = {
 	},
 	runConfigShelfFocusAction: {
 		owner: "src/tui/configPanel.ts",
-		reason: "delegates managed-shelf focus guard and empty-shelf recovery",
+		reason:
+			"delegates shelf guard, preset/filter selection, state effects, recovery, and notice",
 	},
 	jumpToConfigManagedShelf: {
 		owner: "src/tui/configPanel.ts",
-		reason: "delegates managed-shelf landing and focus intent",
+		reason:
+			"delegates shelf cursor effects, landing target, and exact jump notice",
 	},
 	reopenCleanupHandoffHistory: {
 		owner: "src/tui/statusActivityQueue.ts",

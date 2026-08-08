@@ -5,6 +5,7 @@ import {
 	getConfigPathForPlatform,
 	mergeConfig,
 } from "../src/config/schema";
+import { prepareNextConfigPolicyPresetTransition } from "../src/tui/configPanel";
 
 describe("config schema", () => {
 	test("uses safe read-only defaults for v0.1", () => {
@@ -36,6 +37,32 @@ describe("config schema", () => {
 			toolTargetPresetLimit: 8,
 			auditArchiveRetentionLimit: 10,
 			statusResultJumpClassFilter: "all",
+		});
+	});
+
+	test("preserves unrelated persisted config when cycling a policy preset", () => {
+		const config = {
+			...defaultConfig,
+			theme: "light" as const,
+			defaultPingHost: "internal.example",
+			refreshInterval: 9000,
+			logSearchPresets: ["kernel"],
+		};
+		expect(prepareNextConfigPolicyPresetTransition(config)).toEqual({
+			kind: "write",
+			config: {
+				...config,
+				controlExecutionMode: "dry-run",
+				enableExperimentalControls: true,
+			},
+			notices: [
+				{ level: "info", message: "CONFIG POLICY PRESET" },
+				{ level: "ok", message: "preset=User dry-run" },
+				{ level: "ok", message: "controlExecutionMode=dry-run" },
+				{ level: "ok", message: "allowAdminDryRun=false" },
+				{ level: "ok", message: "enableExperimentalControls=true" },
+				{ level: "ok", message: "editorSaveMode=disabled" },
+			],
 		});
 	});
 

@@ -339,7 +339,7 @@ import {
 	resolveCommandStatus,
 } from "./commandStatus";
 import {
-	applyConfigPolicyPreset,
+	type ConfigManagedShelfStateEffect,
 	type ConfigManagedShelfTarget,
 	type ConfigWorkspaceItem,
 	type ConfigWorkspaceResetPreview,
@@ -349,7 +349,7 @@ import {
 	createConfigSessionSyncIntent,
 	createConfigWorkspaceActionFocusTransition,
 	createConfigWorkspaceItems,
-	createConfigWorkspaceResetPreview,
+	createConfigWorkspaceResetWriteIntent,
 	formatConfigManagedShelfCleanupBreadcrumbRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
@@ -364,13 +364,14 @@ import {
 	getConfigWorkspaceItem,
 	getConfigWorkspaceSectionJumpIndex,
 	getNextConfigManagedShelfTarget,
-	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
 	prepareConfigManagedShelfFocusAction,
 	prepareConfigManagedShelfLandingDismissal,
 	prepareConfigWorkspaceAdjustment,
+	prepareConfigWorkspaceResetOpenTransition,
 	prepareConfigWorkspaceResetSubmission,
 	prepareConfigWorkspaceTextSubmission,
+	prepareNextConfigPolicyPresetTransition,
 	withConfigManagedShelfFocusRows,
 } from "./configPanel";
 import {
@@ -730,7 +731,6 @@ import {
 	moveFilteredToolHistorySelection,
 	moveToolHistorySelection,
 	moveToolSectionClipboardRow,
-	moveToolTargetPresetSelection,
 	nextToolHistoryDetailView,
 	nextToolHistoryEvidenceFilter,
 	nextToolHistoryGroup,
@@ -1678,21 +1678,11 @@ export function App(): React.ReactElement {
 		beginCommand();
 		try {
 			const config = await readConfig();
-			const presetId = getNextConfigPolicyPreset({
-				controlExecutionMode: config.controlExecutionMode,
-				allowAdminDryRun: config.allowAdminDryRun,
-				enableExperimentalControls: config.enableExperimentalControls,
-				editorSaveMode: config.editorSaveMode,
-			});
-			const preset = applyConfigPolicyPreset(presetId);
-			const nextConfig: PicosConfig = {
-				...config,
-				...preset.values,
-			};
-			await writeConfig(nextConfig);
-			syncConfigSessionState(nextConfig);
-			for (const row of preset.rows) {
-				log(row.startsWith("CONFIG") ? "info" : "ok", row);
+			const transition = prepareNextConfigPolicyPresetTransition(config);
+			await writeConfig(transition.config);
+			syncConfigSessionState(transition.config);
+			for (const notice of transition.notices) {
+				log(notice.level, notice.message);
 			}
 		} catch (caught) {
 			log(
@@ -1707,7 +1697,7 @@ export function App(): React.ReactElement {
 	}, [beginCommand, endCommand, log, syncConfigSessionState]);
 
 	const openConfigResetConfirmation = useCallback(() => {
-		const preview = createConfigWorkspaceResetPreview({
+		const transition = prepareConfigWorkspaceResetOpenTransition({
 			auditArchiveRetentionLimit,
 			toolTargetPresetLimit,
 			language,
@@ -1719,12 +1709,9 @@ export function App(): React.ReactElement {
 			editorSaveMode,
 			statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 		});
-		setConfigResetPreview(preview);
-		setCommandLine(openCommandLine("config-reset"));
-		log(
-			"warn",
-			`config reset preview opened ${preview.changedKeys.length} values`,
-		);
+		setConfigResetPreview(transition.preview);
+		setCommandLine(openCommandLine(transition.commandLinePrompt));
+		log(transition.notice.level, transition.notice.message);
 	}, [
 		auditArchiveRetentionLimit,
 		controlExecutionPolicy.allowAdminDryRun,
@@ -1742,7 +1729,7 @@ export function App(): React.ReactElement {
 	const submitConfigResetCommand = useCallback(async () => {
 		const preview =
 			configResetPreview ??
-			createConfigWorkspaceResetPreview({
+			prepareConfigWorkspaceResetOpenTransition({
 				auditArchiveRetentionLimit,
 				toolTargetPresetLimit,
 				language,
@@ -1753,7 +1740,7 @@ export function App(): React.ReactElement {
 				enableExperimentalControls,
 				editorSaveMode,
 				statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
-			});
+			}).preview;
 		const transition = prepareConfigWorkspaceResetSubmission(
 			preview,
 			commandLine.value,
@@ -1767,16 +1754,12 @@ export function App(): React.ReactElement {
 		beginCommand();
 		try {
 			const config = await readConfig();
-			const nextConfig: PicosConfig = {
-				...config,
-				...transition.values,
-				toolTargetPresets: config.toolTargetPresets.slice(
-					0,
-					transition.values.toolTargetPresetLimit,
-				),
-			};
-			await writeConfig(nextConfig);
-			syncConfigSessionState(nextConfig);
+			const writeIntent = createConfigWorkspaceResetWriteIntent(
+				config,
+				transition.values,
+			);
+			await writeConfig(writeIntent.config);
+			syncConfigSessionState(writeIntent.config);
 			setConfigResetPreview(undefined);
 			log(transition.notice.level, transition.notice.message);
 		} catch (caught) {
@@ -7018,6 +7001,79 @@ export function App(): React.ReactElement {
 		],
 	);
 
+	const applyConfigManagedShelfStateEffects = useCallback(
+		(effects: ConfigManagedShelfStateEffect[]): void => {
+			for (const effect of effects) {
+				switch (effect.kind) {
+					case "screen":
+						setScreen(effect.screen);
+						break;
+					case "focus-area":
+						setFocusArea(effect.focusArea);
+						break;
+					case "shelf-landing":
+						setConfigShelfLandingTarget(effect.target);
+						break;
+					case "command-line":
+						setCommandLine(openCommandLine(effect.prompt));
+						break;
+					case "interface-selection":
+						setSelectedInterfaceIndex(effect.index);
+						break;
+					case "route-detail-view":
+						setRouteDetailView(effect.view);
+						break;
+					case "route-copy-preview":
+						setRouteCopyPreview(effect.value);
+						break;
+					case "route-filter":
+						setRouteFilter(effect.value);
+						break;
+					case "connection-copy-preview":
+						setConnectionCopyPreview(effect.value);
+						break;
+					case "connection-filter":
+						setConnectionFilter(effect.value);
+						break;
+					case "connection-selection":
+						setSelectedConnectionIndex(effect.index);
+						break;
+					case "port-copy-preview":
+						setPortCopyPreview(effect.value);
+						break;
+					case "port-process-preview":
+						setPortProcessControlPreview(effect.value);
+						break;
+					case "port-filter":
+						setPortFilter(effect.value);
+						break;
+					case "port-selection":
+						setSelectedPortIndex(effect.index);
+						break;
+					case "tool-target-selection":
+						setSelectedToolTargetPresetIndex(effect.index);
+						break;
+					case "tool-detail-view":
+						setToolHistoryDetailView(effect.view);
+						break;
+					case "tool-copy-preview":
+						setToolCopyPreview(effect.value);
+						break;
+					case "log-level":
+						setLogLevelFilter(effect.value);
+						break;
+					case "log-query":
+						setLogSearchQuery(effect.value);
+						break;
+					case "remote-selection":
+						setSelectedRemoteIndex(effect.index);
+						break;
+				}
+			}
+		},
+		[],
+	);
+
 	const runAction = useCallback(
 		async (action: PicosAction) => {
 			if (!action.enabled) {
@@ -7146,23 +7202,17 @@ export function App(): React.ReactElement {
 				if (configShelfFocusTarget) {
 					const transition = createConfigManagedShelfJumpTransition(
 						configShelfFocusTarget,
+						{
+							network: summary?.interfaces.length ?? 0,
+							routes: routeFilterPresets.length,
+							connections: connectionFilterPresets.length,
+							ports: portFilterPresets.length,
+							tools: toolTargetPresets.length,
+							logs: logProfiles.length,
+							remotes: remoteProfiles.length,
+						},
 					);
-					setScreen(transition.screen);
-					setFocusArea(transition.focusArea);
-					setConfigShelfLandingTarget(transition.target);
-					if (transition.cursor === "routeFilters") {
-						setRouteDetailView("table");
-						setRouteCopyPreview(false);
-					} else if (transition.cursor === "connectionFilters") {
-						setSelectedConnectionIndex(transition.index);
-					} else if (transition.cursor === "portFilters") {
-						setSelectedPortIndex(transition.index);
-					} else if (transition.cursor === "toolTargetPresets") {
-						setSelectedToolTargetPresetIndex(transition.index);
-						setToolHistoryDetailView("summary");
-					} else if (transition.cursor === "remoteProfiles") {
-						setSelectedRemoteIndex(transition.index);
-					}
+					applyConfigManagedShelfStateEffects(transition.effects);
 					if (configRecoveryFocusTarget) {
 						const promptPlan = createConfigRecoveryDirectPromptPlan(
 							configRecoveryFocusTarget,
@@ -7183,12 +7233,7 @@ export function App(): React.ReactElement {
 							);
 						}
 					}
-					log(
-						"info",
-						configRecoveryFocusTarget
-							? `config recovery palette ${transition.target} -> ${getConfigManagedShelfHandoff(configShelfFocusTarget).label} focus=${transition.cursor}`
-							: `config shelf palette ${transition.target} -> ${getConfigManagedShelfHandoff(configShelfFocusTarget).label} focus=${transition.cursor}`,
-					);
+					log(transition.notice.level, transition.notice.message);
 				}
 
 				if (action.id === "remote.profiles") {
@@ -7492,6 +7537,7 @@ export function App(): React.ReactElement {
 			}
 		},
 		[
+			applyConfigManagedShelfStateEffects,
 			connectionFilterPresets.length,
 			configWorkspaceItems,
 			configShelfLandingTarget,
@@ -7543,7 +7589,9 @@ export function App(): React.ReactElement {
 			timelineFilter,
 			timelineSearchQuery,
 			toolHistory,
+			toolTargetPresets.length,
 			customToolTargetPresets.length,
+			summary?.interfaces.length,
 			updateCheckResult,
 		],
 	);
@@ -7812,151 +7860,45 @@ export function App(): React.ReactElement {
 	}, [configShelfLandingTarget, log, screen]);
 
 	const runConfigShelfFocusAction = useCallback(() => {
-		const itemCount =
-			configShelfLandingTarget === "routes"
-				? routeFilterPresets.length
-				: configShelfLandingTarget === "connections"
-					? connectionFilterPresets.length
-					: configShelfLandingTarget === "ports"
-						? portFilterPresets.length
-						: configShelfLandingTarget === "tools"
-							? toolTargetPresets.length
-							: configShelfLandingTarget === "logs"
-								? logProfiles.length
-								: configShelfLandingTarget === "remotes"
-									? remoteProfiles.length
-									: 1;
 		const transition = prepareConfigManagedShelfFocusAction({
 			target: configShelfLandingTarget,
 			screen,
-			itemCount,
+			network: { interfaceCount: summary?.interfaces.length ?? 0 },
+			routes: {
+				presets: routeFilterPresets,
+				query: routeFilter,
+				entries: routeTable?.routes ?? [],
+			},
+			connections: {
+				presets: connectionFilterPresets,
+				query: connectionFilter,
+				entries: connections,
+			},
+			ports: {
+				presets: portFilterPresets,
+				query: portFilter,
+				entries: ports,
+			},
+			tools: {
+				presets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+			},
+			logs: {
+				profiles: logProfiles,
+				level: logLevelFilter,
+				query: logSearchQuery,
+				entries: osLogs?.entries ?? [],
+			},
+			remotes: { profileCount: remoteProfiles.length },
 		});
 		if (transition.kind === "no-op") {
 			return false;
 		}
-		if (transition.kind === "prompt") {
-			setCommandLine(openCommandLine(transition.prompt));
-			log(transition.notice.level, transition.notice.message);
-			return true;
-		}
-		const { plan } = transition;
-		if (plan.action === "openInterfacesWorkspace") {
-			setScreen("interfaces");
-			setSelectedInterfaceIndex(0);
-			log("info", "config shelf action open interfaces");
-			return true;
-		}
-		if (plan.action === "cycleRouteFilterPresets") {
-			const preset = nextRouteFilterPreset(routeFilterPresets, routeFilter);
-			setRouteCopyPreview(false);
-			if (!preset) {
-				setCommandLine(openCommandLine("route-filter"));
-				log("warn", "config shelf action route filter prompt");
-				return true;
-			}
-			const filtered = filterRouteEntries(routeTable?.routes ?? [], preset);
-			setRouteFilter(preset);
-			log(
-				filtered.length ? "info" : "warn",
-				`config shelf action route preset ${preset} matches ${filtered.length}`,
-			);
-			return true;
-		}
-		if (plan.action === "cycleConnectionFilterPresets") {
-			const preset = nextEndpointFilterPreset(
-				connectionFilterPresets,
-				connectionFilter,
-			);
-			setConnectionCopyPreview(false);
-			if (!preset) {
-				setCommandLine(
-					openCommandLine(`${endpointFilterPromptPrefix}connections`),
-				);
-				log("warn", "config shelf action connections filter prompt");
-				return true;
-			}
-			const filtered = filterConnections(connections, preset);
-			setConnectionFilter(preset);
-			setSelectedConnectionIndex(0);
-			log(
-				filtered.length ? "info" : "warn",
-				`config shelf action connections preset ${preset} matches ${filtered.length}`,
-			);
-			return true;
-		}
-		if (plan.action === "cyclePortFilterPresets") {
-			const preset = nextEndpointFilterPreset(portFilterPresets, portFilter);
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			if (!preset) {
-				setCommandLine(openCommandLine(`${endpointFilterPromptPrefix}ports`));
-				log("warn", "config shelf action ports filter prompt");
-				return true;
-			}
-			const filtered = filterListeningPorts(ports, preset);
-			setPortFilter(preset);
-			setSelectedPortIndex(0);
-			log(
-				filtered.length ? "info" : "warn",
-				`config shelf action ports preset ${preset} matches ${filtered.length}`,
-			);
-			return true;
-		}
-		if (plan.action === "cycleToolTargetPresets") {
-			setSelectedToolTargetPresetIndex((index) => {
-				const next = moveToolTargetPresetSelection(
-					index,
-					toolTargetPresets.length,
-					"next",
-				);
-				const preset = getSelectedToolTargetPreset(toolTargetPresets, next);
-				if (preset) {
-					log(
-						"info",
-						`config shelf action tool target ${preset.label} ${preset.target}`,
-					);
-				} else {
-					log("warn", "config shelf action no tool target presets");
-				}
-				return next;
-			});
-			setToolHistoryDetailView("summary");
-			setToolCopyPreview(false);
-			return true;
-		}
-		if (plan.action === "cycleLogProfiles") {
-			const profile = nextLogProfile(logProfiles, {
-				level: logLevelFilter,
-				query: logSearchQuery,
-			});
-			if (!profile) {
-				setCommandLine(openCommandLine("log-search"));
-				log("warn", "config shelf action logs search prompt");
-				return true;
-			}
-			const filtered = filterOsLogEntries(
-				osLogs?.entries ?? [],
-				profile.query,
-				profile.level,
-			);
-			setLogLevelFilter(profile.level);
-			setLogSearchQuery(profile.query);
-			log(
-				filtered.length ? "info" : "warn",
-				`config shelf action logs profile ${formatLogProfileLabel(profile)} matches ${filtered.length}`,
-			);
-			return true;
-		}
-		setFocusArea("remotes");
-		setSelectedRemoteIndex(0);
-		log(
-			remoteProfiles.length ? "info" : "warn",
-			remoteProfiles.length
-				? "config shelf action remote profile focus"
-				: "config shelf action no remote profiles",
-		);
+		applyConfigManagedShelfStateEffects(transition.effects);
+		log(transition.notice.level, transition.notice.message);
 		return true;
 	}, [
+		applyConfigManagedShelfStateEffects,
 		configShelfLandingTarget,
 		connectionFilter,
 		connectionFilterPresets,
@@ -7974,36 +7916,36 @@ export function App(): React.ReactElement {
 		routeFilterPresets,
 		routeTable,
 		screen,
+		selectedToolTargetPresetIndex,
+		summary,
 		toolTargetPresets,
 	]);
 
 	const jumpToConfigManagedShelf = useCallback(
 		(target: ConfigManagedShelfTarget) => {
-			const transition = createConfigManagedShelfJumpTransition(target);
-			setScreen(transition.screen);
-			setFocusArea(transition.focusArea);
-			setConfigShelfLandingTarget(transition.target);
-			if (transition.cursor === "interfaceList") {
-				setSelectedInterfaceIndex(transition.index);
-			} else if (transition.cursor === "routeFilters") {
-				setRouteDetailView("table");
-				setRouteCopyPreview(false);
-			} else if (transition.cursor === "connectionFilters") {
-				setSelectedConnectionIndex(transition.index);
-			} else if (transition.cursor === "portFilters") {
-				setSelectedPortIndex(transition.index);
-			} else if (transition.cursor === "toolTargetPresets") {
-				setSelectedToolTargetPresetIndex(transition.index);
-				setToolHistoryDetailView("summary");
-			} else if (transition.cursor === "remoteProfiles") {
-				setSelectedRemoteIndex(transition.index);
-			}
-			log(
-				"info",
-				`config shelf jump ${transition.target} -> ${getConfigManagedShelfHandoff(target).label} focus=${transition.cursor}`,
-			);
+			const transition = createConfigManagedShelfJumpTransition(target, {
+				network: summary?.interfaces.length ?? 0,
+				routes: routeFilterPresets.length,
+				connections: connectionFilterPresets.length,
+				ports: portFilterPresets.length,
+				tools: toolTargetPresets.length,
+				logs: logProfiles.length,
+				remotes: remoteProfiles.length,
+			});
+			applyConfigManagedShelfStateEffects(transition.effects);
+			log(transition.notice.level, transition.notice.message);
 		},
-		[log],
+		[
+			applyConfigManagedShelfStateEffects,
+			connectionFilterPresets.length,
+			log,
+			logProfiles.length,
+			portFilterPresets.length,
+			remoteProfiles.length,
+			routeFilterPresets.length,
+			summary,
+			toolTargetPresets.length,
+		],
 	);
 
 	const reopenCleanupHandoffHistory = useCallback(() => {

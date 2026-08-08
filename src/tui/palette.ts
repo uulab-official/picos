@@ -212,31 +212,46 @@ export function prepareCommandPaletteInput(
 
 	const filtered = getFilteredPaletteActions(input.actions, input.state);
 	if (input.downArrow || input.input === "j") {
-		return {
-			kind: "navigation",
-			navigation: "next",
-			state: moveCommandPalette(input.state, filtered.length, "next"),
-		};
+		return createCommandPaletteNavigationDecision(
+			input.state,
+			"next",
+			moveCommandPalette(input.state, filtered.length, "next"),
+		);
 	}
 	if (input.upArrow || input.input === "k") {
-		return {
-			kind: "navigation",
-			navigation: "previous",
-			state: moveCommandPalette(input.state, filtered.length, "previous"),
-		};
+		return createCommandPaletteNavigationDecision(
+			input.state,
+			"previous",
+			moveCommandPalette(input.state, filtered.length, "previous"),
+		);
 	}
 	if (input.backspace || input.delete) {
-		return {
-			kind: "navigation",
-			navigation: "backspace",
-			state: backspaceCommandPaletteQuery(input.state),
-		};
+		return createCommandPaletteNavigationDecision(
+			input.state,
+			"backspace",
+			backspaceCommandPaletteQuery(input.state),
+		);
 	}
-	return {
-		kind: "navigation",
-		navigation: "query",
-		state: appendCommandPaletteQuery(input.state, input.input),
-	};
+	return createCommandPaletteNavigationDecision(
+		input.state,
+		"query",
+		appendCommandPaletteQuery(input.state, input.input),
+	);
+}
+
+function createCommandPaletteNavigationDecision(
+	current: CommandPaletteState,
+	navigation: "next" | "previous" | "backspace" | "query",
+	state: CommandPaletteState,
+): CommandPaletteInputDecision {
+	if (
+		current.active === state.active &&
+		current.selectedIndex === state.selectedIndex &&
+		current.query === state.query
+	) {
+		return { kind: "no-op", state: current };
+	}
+	return { kind: "navigation", navigation, state };
 }
 
 function getCommandPaletteCommand(action: PicosAction): CommandPaletteCommand {

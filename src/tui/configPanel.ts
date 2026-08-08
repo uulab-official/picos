@@ -1,8 +1,21 @@
 import { defaultConfig } from "../config/schema";
+import { filterConnections } from "../core/connections";
 import type { FileOpenOrigin } from "../core/fileOpen";
-import type { PicosConfig } from "../core/types";
+import { formatLogProfileLabel, nextLogProfile } from "../core/logProfiles";
+import { filterOsLogEntries, type OsLogEntry } from "../core/osLogs";
+import { filterListeningPorts } from "../core/ports";
+import { filterRouteEntries, type RouteEntry } from "../core/routes";
+import type {
+	ActiveConnection,
+	ListeningPort,
+	LogProfile,
+	PicosConfig,
+} from "../core/types";
+import { nextEndpointFilterPreset } from "./endpointPanel";
 import type { FocusArea, Screen } from "./navigation";
 import { clampIndex, getNextIndex } from "./navigation";
+import { nextRouteFilterPreset } from "./routePanel";
+import type { ToolTargetPreset } from "./toolHistory";
 
 export type ConfigWorkspaceItemKey =
 	| "auditArchiveRetentionLimit"
@@ -81,6 +94,22 @@ export type ConfigWorkspaceResetSubmissionTransition =
 	  }
 	| { kind: "notice"; notice: ConfigWorkspaceNotice };
 
+export type ConfigPolicyPresetTransition = {
+	kind: "write";
+	config: PicosConfig;
+	notices: ConfigWorkspaceNotice[];
+};
+
+export type ConfigWorkspaceResetOpenTransition = {
+	preview: ConfigWorkspaceResetPreview;
+	commandLinePrompt: "config-reset";
+	notice: ConfigWorkspaceNotice;
+};
+
+export type ConfigWorkspaceResetWriteIntent = {
+	config: PicosConfig;
+};
+
 export type ConfigWorkspaceFocusTransition =
 	| {
 			kind: "focus";
@@ -91,21 +120,70 @@ export type ConfigWorkspaceFocusTransition =
 	  }
 	| { kind: "notice"; notice: ConfigWorkspaceNotice };
 
-export type ConfigManagedShelfFocusTransition =
-	| { kind: "no-op" }
+export type ConfigManagedShelfStateEffect =
+	| { kind: "screen"; screen: Screen }
+	| { kind: "focus-area"; focusArea: FocusArea }
+	| { kind: "shelf-landing"; target: ConfigManagedShelfTarget }
 	| {
-			kind: "prompt";
+			kind: "command-line";
 			prompt:
 				| "route-filter"
 				| "endpoint-filter:connections"
 				| "endpoint-filter:ports"
 				| "log-search";
-			notice: ConfigWorkspaceNotice;
 	  }
-	| {
-			kind: "action";
-			plan: ConfigManagedShelfFocusActionPlan;
-	  };
+	| { kind: "interface-selection"; index: number }
+	| { kind: "route-detail-view"; view: "table" }
+	| { kind: "route-copy-preview"; value: false }
+	| { kind: "route-filter"; value: string }
+	| { kind: "connection-copy-preview"; value: false }
+	| { kind: "connection-filter"; value: string }
+	| { kind: "connection-selection"; index: number }
+	| { kind: "port-copy-preview"; value: false }
+	| { kind: "port-process-preview"; value: false }
+	| { kind: "port-filter"; value: string }
+	| { kind: "port-selection"; index: number }
+	| { kind: "tool-target-selection"; index: number }
+	| { kind: "tool-detail-view"; view: "summary" }
+	| { kind: "tool-copy-preview"; value: false }
+	| { kind: "log-level"; value: LogProfile["level"] }
+	| { kind: "log-query"; value: string }
+	| { kind: "remote-selection"; index: number };
+
+export type ConfigManagedShelfApplyTransition = {
+	kind: "apply";
+	effects: ConfigManagedShelfStateEffect[];
+	notice: ConfigWorkspaceNotice;
+};
+
+export type ConfigManagedShelfFocusTransition =
+	| { kind: "no-op" }
+	| ConfigManagedShelfApplyTransition;
+
+export type ConfigManagedShelfFocusActionInput = {
+	target: ConfigManagedShelfTarget | undefined;
+	screen: Screen;
+	network?: { interfaceCount: number };
+	routes?: { presets: string[]; query: string; entries: RouteEntry[] };
+	connections?: {
+		presets: string[];
+		query: string;
+		entries: ActiveConnection[];
+	};
+	ports?: { presets: string[]; query: string; entries: ListeningPort[] };
+	tools?: { presets: ToolTargetPreset[]; selectedIndex: number };
+	logs?: {
+		profiles: LogProfile[];
+		level: LogProfile["level"];
+		query: string;
+		entries: OsLogEntry[];
+	};
+	remotes?: { profileCount: number };
+};
+
+export type ConfigManagedShelfJumpCounts = Partial<
+	Record<ConfigManagedShelfTarget, number>
+>;
 
 export type ConfigManagedShelfLandingDismissTransition =
 	| { kind: "clear"; notice: ConfigWorkspaceNotice }
@@ -473,6 +551,27 @@ export function applyConfigPolicyPreset(
 	};
 }
 
+export function prepareNextConfigPolicyPresetTransition(
+	config: PicosConfig,
+): ConfigPolicyPresetTransition {
+	const preset = applyConfigPolicyPreset(
+		getNextConfigPolicyPreset({
+			controlExecutionMode: config.controlExecutionMode,
+			allowAdminDryRun: config.allowAdminDryRun,
+			enableExperimentalControls: config.enableExperimentalControls,
+			editorSaveMode: config.editorSaveMode,
+		}),
+	);
+	return {
+		kind: "write",
+		config: { ...config, ...preset.values },
+		notices: preset.rows.map((message, index) => ({
+			level: index === 0 ? "info" : "ok",
+			message,
+		})),
+	};
+}
+
 export function createConfigWorkspaceResetPreview(
 	config: ConfigWorkspaceResetValues,
 ): ConfigWorkspaceResetPreview {
@@ -489,6 +588,20 @@ export function createConfigWorkspaceResetPreview(
 			"confirm reset config locked",
 			...changedKeys.map((key) => `${key} ${config[key]} -> ${values[key]}`),
 		],
+	};
+}
+
+export function prepareConfigWorkspaceResetOpenTransition(
+	config: ConfigWorkspaceResetValues,
+): ConfigWorkspaceResetOpenTransition {
+	const preview = createConfigWorkspaceResetPreview(config);
+	return {
+		preview,
+		commandLinePrompt: "config-reset",
+		notice: {
+			level: "warn",
+			message: `config reset preview opened ${preview.changedKeys.length} values`,
+		},
 	};
 }
 
@@ -604,6 +717,22 @@ export function prepareConfigWorkspaceResetSubmission(
 		kind: "write",
 		values: result.preview.values,
 		notice: { level: "ok", message: result.message },
+	};
+}
+
+export function createConfigWorkspaceResetWriteIntent(
+	config: PicosConfig,
+	values: ConfigWorkspaceResetValues,
+): ConfigWorkspaceResetWriteIntent {
+	return {
+		config: {
+			...config,
+			...values,
+			toolTargetPresets: config.toolTargetPresets.slice(
+				0,
+				values.toolTargetPresetLimit,
+			),
+		},
 	};
 }
 
@@ -920,26 +1049,47 @@ export function createConfigManagedShelfFocusActionPlan(
 
 export function createConfigManagedShelfJumpTransition(
 	target: ConfigManagedShelfTarget,
-): Pick<
-	ConfigManagedShelfFocusPreset,
-	"target" | "focusArea" | "cursor" | "index" | "detailView"
-> & { screen: Screen } {
+	counts: ConfigManagedShelfJumpCounts = {},
+): ConfigManagedShelfApplyTransition {
 	const focus = getConfigManagedShelfFocusPreset(target);
+	const index = clampIndex(0, Math.max(0, Math.floor(counts[target] ?? 0)));
+	const effects: ConfigManagedShelfStateEffect[] = [
+		{ kind: "screen", screen: focus.workspace },
+		{ kind: "focus-area", focusArea: focus.focusArea },
+		{ kind: "shelf-landing", target: focus.target },
+	];
+	if (focus.cursor === "interfaceList") {
+		effects.push({ kind: "interface-selection", index });
+	} else if (focus.cursor === "routeFilters") {
+		effects.push(
+			{ kind: "route-detail-view", view: "table" },
+			{ kind: "route-copy-preview", value: false },
+		);
+	} else if (focus.cursor === "connectionFilters") {
+		effects.push({ kind: "connection-selection", index });
+	} else if (focus.cursor === "portFilters") {
+		effects.push({ kind: "port-selection", index });
+	} else if (focus.cursor === "toolTargetPresets") {
+		effects.push(
+			{ kind: "tool-target-selection", index },
+			{ kind: "tool-detail-view", view: "summary" },
+		);
+	} else if (focus.cursor === "remoteProfiles") {
+		effects.push({ kind: "remote-selection", index });
+	}
 	return {
-		target: focus.target,
-		screen: focus.workspace,
-		focusArea: focus.focusArea,
-		cursor: focus.cursor,
-		index: focus.index,
-		...(focus.detailView ? { detailView: focus.detailView } : {}),
+		kind: "apply",
+		effects,
+		notice: {
+			level: "info",
+			message: `config shelf jump ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
+		},
 	};
 }
 
-export function prepareConfigManagedShelfFocusAction(input: {
-	target: ConfigManagedShelfTarget | undefined;
-	screen: Screen;
-	itemCount: number;
-}): ConfigManagedShelfFocusTransition {
+export function prepareConfigManagedShelfFocusAction(
+	input: ConfigManagedShelfFocusActionInput,
+): ConfigManagedShelfFocusTransition {
 	if (!input.target) {
 		return { kind: "no-op" };
 	}
@@ -947,19 +1097,176 @@ export function prepareConfigManagedShelfFocusAction(input: {
 	if (handoff.workspace !== input.screen) {
 		return { kind: "no-op" };
 	}
-	if (input.itemCount <= 0) {
-		const prompt = getConfigManagedShelfEmptyFocusPrompt(input.target);
-		if (prompt) {
-			return {
-				kind: "prompt",
-				prompt: prompt.prompt,
-				notice: { level: "warn", message: prompt.message },
-			};
+	if (input.target === "network") {
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "screen", screen: "interfaces" },
+				{
+					kind: "interface-selection",
+					index: clampIndex(0, input.network?.interfaceCount ?? 0),
+				},
+			],
+			notice: { level: "info", message: "config shelf action open interfaces" },
+		};
+	}
+	if (input.target === "routes") {
+		const routes = input.routes ?? { presets: [], query: "", entries: [] };
+		const preset = nextRouteFilterPreset(routes.presets, routes.query);
+		if (!preset) {
+			return createConfigManagedShelfPromptTransition("routes");
 		}
+		const matchCount = filterRouteEntries(routes.entries, preset).length;
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "route-copy-preview", value: false },
+				{ kind: "route-filter", value: preset },
+			],
+			notice: {
+				level: matchCount ? "info" : "warn",
+				message: `config shelf action route preset ${preset} matches ${matchCount}`,
+			},
+		};
+	}
+	if (input.target === "connections") {
+		const connections = input.connections ?? {
+			presets: [],
+			query: "",
+			entries: [],
+		};
+		const preset = nextEndpointFilterPreset(
+			connections.presets,
+			connections.query,
+		);
+		if (!preset) {
+			return createConfigManagedShelfPromptTransition("connections");
+		}
+		const filtered = filterConnections(connections.entries, preset);
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "connection-copy-preview", value: false },
+				{ kind: "connection-filter", value: preset },
+				{
+					kind: "connection-selection",
+					index: clampIndex(0, filtered.length),
+				},
+			],
+			notice: {
+				level: filtered.length ? "info" : "warn",
+				message: `config shelf action connections preset ${preset} matches ${filtered.length}`,
+			},
+		};
+	}
+	if (input.target === "ports") {
+		const ports = input.ports ?? { presets: [], query: "", entries: [] };
+		const preset = nextEndpointFilterPreset(ports.presets, ports.query);
+		if (!preset) {
+			return createConfigManagedShelfPromptTransition("ports");
+		}
+		const filtered = filterListeningPorts(ports.entries, preset);
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "port-copy-preview", value: false },
+				{ kind: "port-process-preview", value: false },
+				{ kind: "port-filter", value: preset },
+				{ kind: "port-selection", index: clampIndex(0, filtered.length) },
+			],
+			notice: {
+				level: filtered.length ? "info" : "warn",
+				message: `config shelf action ports preset ${preset} matches ${filtered.length}`,
+			},
+		};
+	}
+	if (input.target === "tools") {
+		const tools = input.tools ?? { presets: [], selectedIndex: 0 };
+		const index = getNextIndex(
+			clampIndex(tools.selectedIndex, tools.presets.length),
+			tools.presets.length,
+			"next",
+		);
+		const preset = tools.presets[clampIndex(index, tools.presets.length)];
+		return {
+			kind: "apply",
+			effects: [
+				{
+					kind: "tool-target-selection",
+					index: clampIndex(index, tools.presets.length),
+				},
+				{ kind: "tool-detail-view", view: "summary" },
+				{ kind: "tool-copy-preview", value: false },
+			],
+			notice: preset
+				? {
+						level: "info",
+						message: `config shelf action tool target ${preset.label} ${preset.target}`,
+					}
+				: {
+						level: "warn",
+						message: "config shelf action no tool target presets",
+					},
+		};
+	}
+	if (input.target === "logs") {
+		const logs = input.logs ?? {
+			profiles: [],
+			level: "all" as const,
+			query: "",
+			entries: [],
+		};
+		const profile = nextLogProfile(logs.profiles, {
+			level: logs.level,
+			query: logs.query,
+		});
+		if (!profile) {
+			return createConfigManagedShelfPromptTransition("logs");
+		}
+		const matchCount = filterOsLogEntries(
+			logs.entries,
+			profile.query,
+			profile.level,
+		).length;
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "log-level", value: profile.level },
+				{ kind: "log-query", value: profile.query },
+			],
+			notice: {
+				level: matchCount ? "info" : "warn",
+				message: `config shelf action logs profile ${formatLogProfileLabel(profile)} matches ${matchCount}`,
+			},
+		};
+	}
+	const profileCount = Math.max(
+		0,
+		Math.floor(input.remotes?.profileCount ?? 0),
+	);
+	return {
+		kind: "apply",
+		effects: [
+			{ kind: "focus-area", focusArea: "remotes" },
+			{ kind: "remote-selection", index: clampIndex(0, profileCount) },
+		],
+		notice: profileCount
+			? { level: "info", message: "config shelf action remote profile focus" }
+			: { level: "warn", message: "config shelf action no remote profiles" },
+	};
+}
+
+function createConfigManagedShelfPromptTransition(
+	target: "routes" | "connections" | "ports" | "logs",
+): ConfigManagedShelfApplyTransition {
+	const prompt = getConfigManagedShelfEmptyFocusPrompt(target);
+	if (!prompt) {
+		throw new Error(`Missing managed shelf recovery prompt for ${target}`);
 	}
 	return {
-		kind: "action",
-		plan: createConfigManagedShelfFocusActionPlan(input.target),
+		kind: "apply",
+		effects: [{ kind: "command-line", prompt: prompt.prompt }],
+		notice: { level: "warn", message: prompt.message },
 	};
 }
 

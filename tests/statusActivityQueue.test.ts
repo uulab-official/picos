@@ -22,6 +22,7 @@ import {
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
 } from "../src/core/remotes";
+import type { CleanupHandoffHistory } from "../src/tui/cleanupIndex";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendStatusActivityCopyIntentHistory,
@@ -5187,6 +5188,47 @@ describe("Status activity queue", () => {
 			notice: {
 				level: "warn",
 				message: "no cleanup handoff history selected",
+			},
+		});
+	});
+
+	test("reopens the clamped selected cleanup handoff with its audit and notice", () => {
+		const history: CleanupHandoffHistory[] = [
+			{
+				id: "logs",
+				label: "Logs presets",
+				workspace: "Logs",
+				screen: "logs",
+				shortcut: "D",
+				confirmationPhrase: "clear logs",
+				count: 2,
+				detail: "search=1 profiles=1",
+				outcome: "dismissed",
+			},
+		];
+
+		expect(
+			prepareCleanupHandoffHistoryReopen({
+				history,
+				selectedIndex: 99,
+			}),
+		).toEqual({
+			kind: "reopen",
+			audit: {
+				id: "logs",
+				label: "Logs presets",
+				screen: "logs",
+				workspace: "Logs",
+				shortcut: "D",
+				confirmationPhrase: "clear logs",
+				count: 2,
+				detail: "search=1 profiles=1",
+			},
+			screen: "logs",
+			notice: {
+				level: "info",
+				message:
+					"cleanup history reopened Logs presets: press enter to open prompt or esc to clear",
 			},
 		});
 	});
