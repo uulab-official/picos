@@ -329,10 +329,9 @@ import {
 } from "./clipboardPreview";
 import {
 	applyCommandLineInput,
+	applyToolPromptCommandLineInput as applyToolPromptCommandLineInputTransition,
 	type CommandLineState,
 	closeCommandLine,
-	isCommandLineFieldTouched,
-	markCommandLineFieldTouched,
 	moveCommandLineField,
 	openCommandLine,
 } from "./commandLine";
@@ -703,11 +702,11 @@ import {
 	createToolHistoryExportPlan,
 	createToolRunPlan,
 	createToolRunPlanFromForm,
-	createToolRunPlanFromPreset,
 	createToolTargetCleanupPreview,
+	createToolTargetPromptIntent,
+	createToolTargetRunIntent,
 	filterToolHistory,
 	filterToolHistoryExportIndex,
-	formatToolFormInputValue,
 	formatToolHistoryArchiveRetentionRows,
 	formatToolHistoryExportArchiveRows,
 	formatToolPromptRows,
@@ -719,6 +718,7 @@ import {
 	getSelectedToolSectionClipboardPreview,
 	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
+	getSelectedToolTargetPreset,
 	getToolHistoryDetailViewShortcut,
 	getToolRunActionMetadata,
 	getToolTargetPresets,
@@ -734,21 +734,21 @@ import {
 	nextToolHistorySort,
 	nextToolSectionClipboardSelection,
 	normalizeToolHistoryEvidenceQuery,
-	parseToolTargetPresetCommand,
-	promoteToolTargetPreset,
+	promoteToolTargetPresetTransition,
 	pruneToolHistoryExportArchive,
 	readToolHistoryExportArchiveIndex,
 	readToolHistoryExportIndex,
-	reassignToolTargetPresetAction,
-	removeToolTargetPreset,
-	renameToolTargetPreset,
+	reassignToolTargetPresetActionTransition,
+	removeToolTargetPresetTransition,
+	renameToolTargetPresetTransition,
 	rerunToolHistoryItem,
-	retargetToolTargetPreset,
+	retargetToolTargetPresetTransition,
+	saveSelectedToolTargetPresetTransition,
 	saveToolHistoryPreset,
-	saveToolTargetPreset,
-	selectToolFormField,
+	selectToolTargetPresetTransition,
 	submitToolHistoryCleanupConfirmation,
-	submitToolTargetCleanupConfirmation,
+	submitToolTargetCleanupTransition,
+	submitToolTargetPresetCommandTransition,
 	type ToolCopyPreviewMode,
 	type ToolHistoryArchiveRetentionPlan,
 	type ToolHistoryDetailView,
@@ -761,7 +761,6 @@ import {
 	type ToolHistorySort,
 	type ToolSectionClipboardSelection,
 	type ToolTargetPreset,
-	updateToolFormFieldValue,
 	writeToolHistoryExport,
 } from "./toolHistory";
 
@@ -2102,48 +2101,12 @@ export function App(): React.ReactElement {
 		(
 			current: CommandLineState,
 			event: { input?: string; backspace?: boolean },
-		): CommandLineState => {
-			if (!current.prompt.startsWith(toolPromptPrefix)) {
-				return applyCommandLineInput(current, event);
-			}
-			const actionId = current.prompt.slice(toolPromptPrefix.length);
-			const metadata = getToolRunActionMetadata(actionId);
-			const form = createToolFormState(
-				actionId,
-				metadata?.defaultTarget ?? "",
+		): CommandLineState =>
+			applyToolPromptCommandLineInputTransition(
+				current,
+				event,
 				summaryRef.current,
-				current.value,
-				current.fieldIndex ?? 0,
-			);
-			const selectedForm = selectToolFormField(form, current.fieldIndex ?? 0);
-			const selectedField =
-				selectedForm?.fields[selectedForm.selectedFieldIndex];
-			if (!selectedForm || !selectedField) {
-				return applyCommandLineInput(current, event);
-			}
-			const clearField = event.input === "\u0015";
-			if (
-				!event.backspace &&
-				!clearField &&
-				(event.input?.length !== 1 || event.input < " ")
-			) {
-				return current;
-			}
-			const touched = isCommandLineFieldTouched(current);
-			const nextFieldValue = clearField
-				? ""
-				: event.backspace
-					? selectedField.value.slice(0, -1)
-					: touched
-						? `${selectedField.value}${event.input}`
-						: (event.input ?? "");
-			const nextForm = updateToolFormFieldValue(selectedForm, nextFieldValue);
-			return markCommandLineFieldTouched({
-				...current,
-				value: formatToolFormInputValue(nextForm, { preserveEmpty: true }),
-				fieldIndex: nextForm?.selectedFieldIndex ?? current.fieldIndex,
-			});
-		},
+			),
 		[],
 	);
 
@@ -2377,44 +2340,20 @@ export function App(): React.ReactElement {
 	}, [commandLine.value, log, toolHistoryFilterPresets]);
 
 	const submitToolTargetLabelCommand = useCallback(() => {
-		const preset =
-			toolTargetPresets[
-				Math.min(
-					Math.max(selectedToolTargetPresetIndex, 0),
-					toolTargetPresets.length - 1,
-				)
-			];
-		if (!preset) {
-			log("warn", "no tool target preset selected");
-			setCommandLine((current) => closeCommandLine(current));
-			return;
-		}
-		const saved = customToolTargetPresets.some(
-			(current) =>
-				`${current.actionId}:${current.target}` ===
-				`${preset.actionId}:${preset.target}`,
-		);
-		if (!saved) {
-			log("warn", `tool target ${preset.label} is not a saved preset`);
-			setCommandLine((current) => closeCommandLine(current));
-			return;
-		}
-		const next = renameToolTargetPreset(
-			customToolTargetPresets,
-			preset,
-			commandLine.value,
-		);
+		const transition = renameToolTargetPresetTransition({
+			presets: customToolTargetPresets,
+			targetPresets: toolTargetPresets,
+			selectedIndex: selectedToolTargetPresetIndex,
+			value: commandLine.value,
+		});
 		setCommandLine((current) => closeCommandLine(current));
-		const changed = next.some(
-			(current, index) =>
-				current.label !== customToolTargetPresets[index]?.label,
-		);
-		if (!changed) {
-			log("info", "tool target label unchanged");
+		setSelectedToolTargetPresetIndex(transition.selectedIndex);
+		log(transition.notice.level, transition.notice.message);
+		if (!transition.changed) {
 			return;
 		}
-		setCustomToolTargetPresets(next);
-		void setConfigToolTargetPresets(next).catch((caught) =>
+		setCustomToolTargetPresets(transition.presets);
+		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 			log(
 				"fail",
 				caught instanceof Error
@@ -2422,7 +2361,6 @@ export function App(): React.ReactElement {
 					: `tool target label save failed ${String(caught)}`,
 			),
 		);
-		log("info", `tool target renamed ${preset.target}`);
 		setToolCopyPreview(false);
 	}, [
 		commandLine.value,
@@ -2433,44 +2371,20 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitToolTargetValueCommand = useCallback(() => {
-		const preset =
-			toolTargetPresets[
-				Math.min(
-					Math.max(selectedToolTargetPresetIndex, 0),
-					toolTargetPresets.length - 1,
-				)
-			];
-		if (!preset) {
-			log("warn", "no tool target preset selected");
-			setCommandLine((current) => closeCommandLine(current));
-			return;
-		}
-		const saved = customToolTargetPresets.some(
-			(current) =>
-				`${current.actionId}:${current.target}` ===
-				`${preset.actionId}:${preset.target}`,
-		);
-		if (!saved) {
-			log("warn", `tool target ${preset.label} is not a saved preset`);
-			setCommandLine((current) => closeCommandLine(current));
-			return;
-		}
-		const next = retargetToolTargetPreset(
-			customToolTargetPresets,
-			preset,
-			commandLine.value,
-		);
+		const transition = retargetToolTargetPresetTransition({
+			presets: customToolTargetPresets,
+			targetPresets: toolTargetPresets,
+			selectedIndex: selectedToolTargetPresetIndex,
+			value: commandLine.value,
+		});
 		setCommandLine((current) => closeCommandLine(current));
-		const changed = next.some(
-			(current, index) =>
-				current.target !== customToolTargetPresets[index]?.target,
-		);
-		if (!changed) {
-			log("info", "tool target value unchanged");
+		setSelectedToolTargetPresetIndex(transition.selectedIndex);
+		log(transition.notice.level, transition.notice.message);
+		if (!transition.changed) {
 			return;
 		}
-		setCustomToolTargetPresets(next);
-		void setConfigToolTargetPresets(next).catch((caught) =>
+		setCustomToolTargetPresets(transition.presets);
+		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 			log(
 				"fail",
 				caught instanceof Error
@@ -2478,7 +2392,6 @@ export function App(): React.ReactElement {
 					: `tool target value save failed ${String(caught)}`,
 			),
 		);
-		log("info", `tool target updated ${preset.label}`);
 		setToolCopyPreview(false);
 	}, [
 		commandLine.value,
@@ -2489,44 +2402,20 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitToolTargetActionCommand = useCallback(() => {
-		const preset =
-			toolTargetPresets[
-				Math.min(
-					Math.max(selectedToolTargetPresetIndex, 0),
-					toolTargetPresets.length - 1,
-				)
-			];
-		if (!preset) {
-			log("warn", "no tool target preset selected");
-			setCommandLine((current) => closeCommandLine(current));
-			return;
-		}
-		const saved = customToolTargetPresets.some(
-			(current) =>
-				`${current.actionId}:${current.target}` ===
-				`${preset.actionId}:${preset.target}`,
-		);
-		if (!saved) {
-			log("warn", `tool target ${preset.label} is not a saved preset`);
-			setCommandLine((current) => closeCommandLine(current));
-			return;
-		}
-		const next = reassignToolTargetPresetAction(
-			customToolTargetPresets,
-			preset,
-			commandLine.value,
-		);
+		const transition = reassignToolTargetPresetActionTransition({
+			presets: customToolTargetPresets,
+			targetPresets: toolTargetPresets,
+			selectedIndex: selectedToolTargetPresetIndex,
+			value: commandLine.value,
+		});
 		setCommandLine((current) => closeCommandLine(current));
-		const changed = next.some(
-			(current, index) =>
-				current.actionId !== customToolTargetPresets[index]?.actionId,
-		);
-		if (!changed) {
-			log("info", "tool target action unchanged");
+		setSelectedToolTargetPresetIndex(transition.selectedIndex);
+		log(transition.notice.level, transition.notice.message);
+		if (!transition.changed) {
 			return;
 		}
-		setCustomToolTargetPresets(next);
-		void setConfigToolTargetPresets(next).catch((caught) =>
+		setCustomToolTargetPresets(transition.presets);
+		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 			log(
 				"fail",
 				caught instanceof Error
@@ -2534,7 +2423,6 @@ export function App(): React.ReactElement {
 					: `tool target action save failed ${String(caught)}`,
 			),
 		);
-		log("info", `tool target action updated ${preset.label}`);
 		setToolCopyPreview(false);
 	}, [
 		commandLine.value,
@@ -2545,28 +2433,20 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitToolTargetCleanupCommand = useCallback(() => {
-		const preset =
-			toolTargetPresets[
-				Math.min(
-					Math.max(selectedToolTargetPresetIndex, 0),
-					toolTargetPresets.length - 1,
-				)
-			];
-		const confirmation = submitToolTargetCleanupConfirmation(
-			customToolTargetPresets,
-			preset,
-			commandLine.value,
-		);
+		const transition = submitToolTargetCleanupTransition({
+			presets: customToolTargetPresets,
+			targetPresets: toolTargetPresets,
+			selectedIndex: selectedToolTargetPresetIndex,
+			value: commandLine.value,
+		});
 		setCommandLine((current) => closeCommandLine(current));
-		if (!confirmation.confirmed) {
-			log("warn", confirmation.message);
+		setSelectedToolTargetPresetIndex(transition.selectedIndex);
+		log(transition.notice.level, transition.notice.message);
+		if (!transition.changed) {
 			return;
 		}
-		setCustomToolTargetPresets(confirmation.presets);
-		setSelectedToolTargetPresetIndex((index) =>
-			Math.min(index, Math.max(0, confirmation.presets.length - 1)),
-		);
-		void setConfigToolTargetPresets(confirmation.presets).catch((caught) =>
+		setCustomToolTargetPresets(transition.presets);
+		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 			log(
 				"fail",
 				caught instanceof Error
@@ -2574,7 +2454,6 @@ export function App(): React.ReactElement {
 					: `tool target action cleanup failed ${String(caught)}`,
 			),
 		);
-		log("info", confirmation.message);
 		setToolCopyPreview(false);
 	}, [
 		commandLine.value,
@@ -2585,25 +2464,21 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitToolTargetPresetCommand = useCallback(() => {
-		const preset = parseToolTargetPresetCommand(commandLine.value);
+		const transition = submitToolTargetPresetCommandTransition({
+			presets: customToolTargetPresets,
+			targetPresets: toolTargetPresets,
+			selectedIndex: selectedToolTargetPresetIndex,
+			value: commandLine.value,
+			limit: toolTargetPresetLimit,
+		});
 		setCommandLine((current) => closeCommandLine(current));
-		if (!preset) {
-			log("warn", "tool target preset requires: <action> <target> [label]");
+		setSelectedToolTargetPresetIndex(transition.selectedIndex);
+		log(transition.notice.level, transition.notice.message);
+		if (!transition.changed) {
 			return;
 		}
-		const next = saveToolTargetPreset(
-			customToolTargetPresets,
-			preset,
-			toolTargetPresetLimit,
-		);
-		const selectedIndex = next.findIndex(
-			(current) =>
-				`${current.actionId}:${current.target}` ===
-				`${preset.actionId}:${preset.target}`,
-		);
-		setCustomToolTargetPresets(next);
-		setSelectedToolTargetPresetIndex(Math.max(0, selectedIndex));
-		void setConfigToolTargetPresets(next).catch((caught) =>
+		setCustomToolTargetPresets(transition.presets);
+		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 			log(
 				"fail",
 				caught instanceof Error
@@ -2611,9 +2486,15 @@ export function App(): React.ReactElement {
 					: `tool target preset save failed ${String(caught)}`,
 			),
 		);
-		log("ok", `tool target preset saved ${preset.label} ${preset.target}`);
 		setToolCopyPreview(false);
-	}, [commandLine.value, customToolTargetPresets, log, toolTargetPresetLimit]);
+	}, [
+		commandLine.value,
+		customToolTargetPresets,
+		log,
+		selectedToolTargetPresetIndex,
+		toolTargetPresetLimit,
+		toolTargetPresets,
+	]);
 
 	const submitEndpointFilterCommand = useCallback(() => {
 		const kind = commandLine.prompt.slice(endpointFilterPromptPrefix.length);
@@ -7819,7 +7700,7 @@ export function App(): React.ReactElement {
 					toolTargetPresets.length,
 					"next",
 				);
-				const preset = toolTargetPresets[next];
+				const preset = getSelectedToolTargetPreset(toolTargetPresets, next);
 				if (preset) {
 					log(
 						"info",
@@ -11816,82 +11697,58 @@ export function App(): React.ReactElement {
 			(input === "n" || input === "N")
 		) {
 			setSelectedToolTargetPresetIndex((index) => {
-				const next = moveToolTargetPresetSelection(
+				const transition = selectToolTargetPresetTransition(
+					toolTargetPresets,
 					index,
-					toolTargetPresets.length,
 					input === "N" ? "previous" : "next",
 				);
-				const preset = toolTargetPresets[next];
-				if (preset) {
-					log("info", `tool target ${preset.label} ${preset.target}`);
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
-				return next;
+				return transition.selectedIndex;
 			});
 			setToolCopyPreview(false);
 			return;
 		}
 
 		if (screen === "tools" && focusArea === "workspaces" && input === "T") {
-			const preset =
-				toolTargetPresets[
-					Math.min(
-						Math.max(selectedToolTargetPresetIndex, 0),
-						toolTargetPresets.length - 1,
-					)
-				];
-			if (!preset) {
-				log("warn", "no tool target preset to save");
+			const transition = saveSelectedToolTargetPresetTransition({
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+				limit: toolTargetPresetLimit,
+			});
+			setSelectedToolTargetPresetIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (!transition.changed) {
 				return;
 			}
-			setCustomToolTargetPresets((current) => {
-				const next = saveToolTargetPreset(
-					current,
-					preset,
-					toolTargetPresetLimit,
-				);
-				void setConfigToolTargetPresets(next).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `tool target save failed ${caught.message}`
-							: `tool target save failed ${String(caught)}`,
-					),
-				);
-				return next;
-			});
-			log("info", `tool target saved ${preset.label} ${preset.target}`);
+			setCustomToolTargetPresets(transition.presets);
+			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target save failed ${caught.message}`
+						: `tool target save failed ${String(caught)}`,
+				),
+			);
 			setToolCopyPreview(false);
 			return;
 		}
 
 		if (screen === "tools" && focusArea === "workspaces" && input === "U") {
-			const preset =
-				toolTargetPresets[
-					Math.min(
-						Math.max(selectedToolTargetPresetIndex, 0),
-						toolTargetPresets.length - 1,
-					)
-				];
-			if (!preset) {
-				log("warn", "no tool target preset selected");
+			const transition = promoteToolTargetPresetTransition({
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+			});
+			setSelectedToolTargetPresetIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (!transition.changed) {
 				return;
 			}
-			const next = promoteToolTargetPreset(customToolTargetPresets, preset);
-			const changed = next.some(
-				(current, index) =>
-					`${current.actionId}:${current.target}` !==
-					`${customToolTargetPresets[index]?.actionId}:${customToolTargetPresets[index]?.target}`,
-			);
-			if (!changed) {
-				log(
-					"warn",
-					`tool target ${preset.label} is not a movable saved preset`,
-				);
-				return;
-			}
-			setCustomToolTargetPresets(next);
-			setSelectedToolTargetPresetIndex(0);
-			void setConfigToolTargetPresets(next).catch((caught) =>
+			setCustomToolTargetPresets(transition.presets);
+			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 				log(
 					"fail",
 					caught instanceof Error
@@ -11899,33 +11756,23 @@ export function App(): React.ReactElement {
 						: `tool target pin failed ${String(caught)}`,
 				),
 			);
-			log("info", `tool target pinned ${preset.label} ${preset.target}`);
 			setToolCopyPreview(false);
 			return;
 		}
 
 		if (screen === "tools" && focusArea === "workspaces" && input === "X") {
-			const preset =
-				toolTargetPresets[
-					Math.min(
-						Math.max(selectedToolTargetPresetIndex, 0),
-						toolTargetPresets.length - 1,
-					)
-				];
-			if (!preset) {
-				log("warn", "no tool target preset selected");
+			const transition = removeToolTargetPresetTransition({
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+			});
+			setSelectedToolTargetPresetIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (!transition.changed) {
 				return;
 			}
-			const next = removeToolTargetPreset(customToolTargetPresets, preset);
-			if (next.length === customToolTargetPresets.length) {
-				log("warn", `tool target ${preset.label} is not a saved preset`);
-				return;
-			}
-			setCustomToolTargetPresets(next);
-			setSelectedToolTargetPresetIndex((index) =>
-				Math.min(index, Math.max(0, next.length - 1)),
-			);
-			void setConfigToolTargetPresets(next).catch((caught) =>
+			setCustomToolTargetPresets(transition.presets);
+			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 				log(
 					"fail",
 					caught instanceof Error
@@ -11933,139 +11780,57 @@ export function App(): React.ReactElement {
 						: `tool target delete failed ${String(caught)}`,
 				),
 			);
-			log("info", `tool target removed ${preset.label} ${preset.target}`);
 			setToolCopyPreview(false);
 			return;
 		}
 
-		if (screen === "tools" && focusArea === "workspaces" && input === "D") {
-			const preset =
-				toolTargetPresets[
-					Math.min(
-						Math.max(selectedToolTargetPresetIndex, 0),
-						toolTargetPresets.length - 1,
-					)
-				];
-			if (!preset) {
-				log("warn", "no tool target preset selected");
-				return;
+		if (
+			screen === "tools" &&
+			focusArea === "workspaces" &&
+			(input === "D" || input === "L" || input === "M" || input === "A")
+		) {
+			const prompt =
+				input === "D"
+					? "cleanup"
+					: input === "L"
+						? "label"
+						: input === "M"
+							? "value"
+							: "action";
+			const intent = createToolTargetPromptIntent({
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+				prompt,
+			});
+			setSelectedToolTargetPresetIndex(intent.selectedIndex);
+			if (intent.commandLine !== "preserve") {
+				setCommandLine(openCommandLine(intent.commandLine));
+				setToolCopyPreview(false);
 			}
-			const preview = createToolTargetCleanupPreview(
-				customToolTargetPresets,
-				preset,
-			);
-			if (!preview) {
-				log("warn", `tool target ${preset.label} is not a saved preset`);
-				return;
-			}
-			setCommandLine(openCommandLine("tool-target-cleanup"));
-			log("warn", `tool target cleanup confirm ${preview.confirmationPhrase}`);
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "L") {
-			const preset =
-				toolTargetPresets[
-					Math.min(
-						Math.max(selectedToolTargetPresetIndex, 0),
-						toolTargetPresets.length - 1,
-					)
-				];
-			if (!preset) {
-				log("warn", "no tool target preset selected");
-				return;
-			}
-			const saved = customToolTargetPresets.some(
-				(current) =>
-					`${current.actionId}:${current.target}` ===
-					`${preset.actionId}:${preset.target}`,
-			);
-			if (!saved) {
-				log("warn", `tool target ${preset.label} is not a saved preset`);
-				return;
-			}
-			setCommandLine(openCommandLine("tool-target-label"));
-			setToolCopyPreview(false);
-			log("info", `tool target label opened ${preset.label}`);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "M") {
-			const preset =
-				toolTargetPresets[
-					Math.min(
-						Math.max(selectedToolTargetPresetIndex, 0),
-						toolTargetPresets.length - 1,
-					)
-				];
-			if (!preset) {
-				log("warn", "no tool target preset selected");
-				return;
-			}
-			const saved = customToolTargetPresets.some(
-				(current) =>
-					`${current.actionId}:${current.target}` ===
-					`${preset.actionId}:${preset.target}`,
-			);
-			if (!saved) {
-				log("warn", `tool target ${preset.label} is not a saved preset`);
-				return;
-			}
-			setCommandLine(openCommandLine("tool-target-value"));
-			setToolCopyPreview(false);
-			log("info", `tool target value opened ${preset.label}`);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "A") {
-			const preset =
-				toolTargetPresets[
-					Math.min(
-						Math.max(selectedToolTargetPresetIndex, 0),
-						toolTargetPresets.length - 1,
-					)
-				];
-			if (!preset) {
-				log("warn", "no tool target preset selected");
-				return;
-			}
-			const saved = customToolTargetPresets.some(
-				(current) =>
-					`${current.actionId}:${current.target}` ===
-					`${preset.actionId}:${preset.target}`,
-			);
-			if (!saved) {
-				log("warn", `tool target ${preset.label} is not a saved preset`);
-				return;
-			}
-			setCommandLine(openCommandLine("tool-target-action"));
-			setToolCopyPreview(false);
-			log("info", `tool target action opened ${preset.label}`);
+			log(intent.notice.level, intent.notice.message);
 			return;
 		}
 
 		if (screen === "tools" && focusArea === "workspaces" && input === "R") {
-			const preset =
-				toolTargetPresets[
-					Math.min(
-						Math.max(selectedToolTargetPresetIndex, 0),
-						toolTargetPresets.length - 1,
-					)
-				];
-			if (!preset) {
-				log("warn", "no tool target presets");
+			const intent = createToolTargetRunIntent({
+				presets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+			});
+			setSelectedToolTargetPresetIndex(intent.selectedIndex);
+			if (!intent.plan) {
+				if (intent.notice) {
+					log(intent.notice.level, intent.notice.message);
+				}
 				return;
 			}
-			const plan = createToolRunPlanFromPreset(preset);
-			if (!plan) {
-				log("warn", `cannot run tool preset ${preset.label}`);
-				return;
-			}
+			const plan = intent.plan;
 			void (async () => {
 				try {
 					await runToolPlan(plan);
-					log("ok", `${preset.label} completed`);
+					if (intent.completionNotice) {
+						log("ok", intent.completionNotice);
+					}
 				} catch (caught) {
 					log(
 						"fail",
@@ -16556,8 +16321,10 @@ function ToolsWorkspace({
 				maxCopyLineLength: Math.max(32, Math.min(140, width - 8)),
 			})
 		: [];
-	const selectedTargetPreset =
-		targetPresets[clampIndex(selectedTargetPresetIndex, targetPresets.length)];
+	const selectedTargetPreset = getSelectedToolTargetPreset(
+		targetPresets,
+		selectedTargetPresetIndex,
+	);
 	const cleanupPreview =
 		commandLine.active && commandLine.prompt === "tool-target-cleanup"
 			? createToolTargetCleanupPreview(

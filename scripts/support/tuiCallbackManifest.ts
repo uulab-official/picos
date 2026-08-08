@@ -166,9 +166,47 @@ const wiringReasons = {
 	refresh: "direct I/O invocation",
 } as const;
 
+const delegatedCallbacks = {
+	applyToolPromptCommandLineInput: {
+		owner: "src/tui/commandLine.ts",
+		reason: "delegates typed tool prompt input transition",
+	},
+	submitToolTargetLabelCommand: {
+		owner: "src/tui/toolHistory.ts",
+		reason: "delegates selected-target label transition",
+	},
+	submitToolTargetValueCommand: {
+		owner: "src/tui/toolHistory.ts",
+		reason: "delegates selected-target value transition",
+	},
+	submitToolTargetActionCommand: {
+		owner: "src/tui/toolHistory.ts",
+		reason: "delegates selected-target action transition",
+	},
+	submitToolTargetCleanupCommand: {
+		owner: "src/tui/toolHistory.ts",
+		reason: "delegates selected-target cleanup transition",
+	},
+	submitToolTargetPresetCommand: {
+		owner: "src/tui/toolHistory.ts",
+		reason: "delegates selected-target save transition",
+	},
+} as const;
+
 export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 	(name) => {
 		const reason = wiringReasons[name as keyof typeof wiringReasons];
+		const delegated =
+			delegatedCallbacks[name as keyof typeof delegatedCallbacks];
+		if (delegated) {
+			return {
+				name,
+				owner: delegated.owner,
+				classification: "delegated",
+				slice: "tool-target-transitions",
+				reason: delegated.reason,
+			};
+		}
 		return reason
 			? {
 					name,

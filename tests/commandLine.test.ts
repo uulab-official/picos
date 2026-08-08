@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	applyCommandLineInput,
+	applyToolPromptCommandLineInput,
 	closeCommandLine,
 	isCommandLineFieldTouched,
 	markCommandLineFieldTouched,
@@ -80,5 +81,20 @@ describe("TUI command line", () => {
 			0, 1,
 		]);
 		expect(isCommandLineFieldTouched(openCommandLine("path"))).toBe(false);
+	});
+
+	test("applies typed input to the selected tool form field", () => {
+		let state = openCommandLine("tool:tools.dns");
+		state = applyToolPromptCommandLineInput(state, { input: "g" });
+		state = applyToolPromptCommandLineInput(state, { input: "o" });
+		state = applyToolPromptCommandLineInput(state, { backspace: true });
+
+		expect(state).toEqual({
+			active: true,
+			prompt: "tool:tools.dns",
+			value: "g",
+			fieldIndex: 0,
+			fieldTouchedIndexes: [0],
+		});
 	});
 });

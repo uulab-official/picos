@@ -17,6 +17,8 @@ import {
 	createToolRunPlanFromForm,
 	createToolRunPlanFromPreset,
 	createToolTargetCleanupPreview,
+	createToolTargetPromptIntent,
+	createToolTargetRunIntent,
 	filterToolHistory,
 	filterToolHistoryExportIndex,
 	formatToolFormInputValue,
@@ -35,6 +37,7 @@ import {
 	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
 	getSelectedToolTargetClipboardPreview,
+	getSelectedToolTargetPreset,
 	getToolHistoryDetailViewShortcut,
 	getToolRunActionMetadata,
 	getToolTargetPresets,
@@ -53,21 +56,31 @@ import {
 	normalizeToolTargetPresets,
 	parseToolTargetPresetCommand,
 	promoteToolTargetPreset,
+	promoteToolTargetPresetTransition,
 	pruneToolHistoryExportArchive,
 	readToolHistoryExportArchiveIndex,
 	readToolHistoryExportIndex,
 	reassignToolTargetPresetAction,
+	reassignToolTargetPresetActionTransition,
 	removeToolTargetPreset,
 	removeToolTargetPresetsByAction,
+	removeToolTargetPresetTransition,
 	renameToolTargetPreset,
+	renameToolTargetPresetTransition,
 	rerunToolHistoryItem,
 	retargetToolTargetPreset,
+	retargetToolTargetPresetTransition,
+	saveSelectedToolTargetPresetTransition,
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
 	selectToolFormField,
+	selectToolTargetPresetTransition,
 	sortToolHistory,
 	submitToolHistoryCleanupConfirmation,
 	submitToolTargetCleanupConfirmation,
+	submitToolTargetCleanupTransition,
+	submitToolTargetPresetCommandTransition,
+	type ToolTargetPreset,
 	updateToolFormFieldValue,
 	writeToolHistoryExport,
 } from "../src/tui/toolHistory";
@@ -90,6 +103,23 @@ const summary: NetworkSummary = {
 	dnsServers: ["1.1.1.1"],
 	publicIp: "203.0.113.10",
 };
+
+const savedToolTargetPresets = [
+	{
+		id: "api-dns",
+		label: "API DNS",
+		actionId: "tools.dns",
+		target: "api.example.com",
+		hint: "saved DNS target",
+	},
+	{
+		id: "db-ping",
+		label: "DB ping",
+		actionId: "ping.default",
+		target: "db.example.com",
+		hint: "saved reachability target",
+	},
+] satisfies ToolTargetPreset[];
 
 describe("TUI tool history", () => {
 	test("plans safe default tool runs from read-only action ids", () => {
@@ -1101,6 +1131,450 @@ describe("TUI tool history", () => {
 		expect(moveToolTargetPresetSelection(2, 4, "previous")).toBe(1);
 		expect(moveToolTargetPresetSelection(99, 4, "next")).toBe(0);
 		expect(moveToolTargetPresetSelection(0, 0, "previous")).toBe(0);
+	});
+
+	test("resolves target selection without indexing an empty shelf", () => {
+		expect(getSelectedToolTargetPreset([], -1)).toBeUndefined();
+		expect(getSelectedToolTargetPreset(savedToolTargetPresets, -4)).toEqual(
+			savedToolTargetPresets[0],
+		);
+		expect(getSelectedToolTargetPreset(savedToolTargetPresets, 99)).toEqual(
+			savedToolTargetPresets[1],
+		);
+	});
+
+	test("repairs target selection before cycling and reports the selected target", () => {
+		expect(
+			selectToolTargetPresetTransition(savedToolTargetPresets, -4, "previous"),
+		).toEqual({
+			selectedIndex: 1,
+			preset: savedToolTargetPresets[1],
+			notice: {
+				level: "info",
+				message: "tool target DB ping db.example.com",
+			},
+		});
+	});
+
+	test("renames the selected saved target and closes the command line", () => {
+		expect(
+			renameToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: -1,
+				value: "Public API DNS",
+			}),
+		).toEqual({
+			presets: [
+				{
+					id: "api-dns",
+					label: "Public API DNS",
+					actionId: "tools.dns",
+					target: "api.example.com",
+					hint: "saved DNS target",
+				},
+				savedToolTargetPresets[1],
+			],
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target renamed api.example.com",
+			},
+		});
+	});
+
+	test("keeps the shelf for an unchanged target label", () => {
+		expect(
+			renameToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				value: " API DNS ",
+			}),
+		).toEqual({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "info",
+				message: "tool target label unchanged",
+			},
+		});
+	});
+
+	test("reports a missing target selection while closing an edit prompt", () => {
+		expect(
+			renameToolTargetPresetTransition({
+				presets: [],
+				targetPresets: [],
+				selectedIndex: -1,
+				value: "Public API DNS",
+			}),
+		).toEqual({
+			presets: [],
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "no tool target preset selected",
+			},
+		});
+	});
+
+	test("updates a selected saved target value", () => {
+		const transition = retargetToolTargetPresetTransition({
+			presets: savedToolTargetPresets,
+			targetPresets: savedToolTargetPresets,
+			selectedIndex: 0,
+			value: "api.internal.example",
+		});
+
+		expect(transition).toMatchObject({
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target updated API DNS",
+			},
+		});
+		expect(transition.presets[0]).toMatchObject({
+			id: "api-dns",
+			target: "api.internal.example",
+		});
+	});
+
+	test("repairs selection when an action edit deduplicates the saved shelf", () => {
+		const duplicateTargets = [
+			savedToolTargetPresets[0],
+			{
+				id: "api-ping",
+				label: "API ping",
+				actionId: "ping.default",
+				target: "api.example.com",
+				hint: "saved reachability target",
+			},
+		] satisfies ToolTargetPreset[];
+		const transition = reassignToolTargetPresetActionTransition({
+			presets: duplicateTargets,
+			targetPresets: duplicateTargets,
+			selectedIndex: 1,
+			value: "dns",
+		});
+
+		expect(transition).toMatchObject({
+			presets: [
+				{
+					id: "api-dns",
+					actionId: "tools.dns",
+					target: "api.example.com",
+				},
+			],
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target action updated API ping",
+			},
+		});
+	});
+
+	test("updates a selected saved target action", () => {
+		const transition = reassignToolTargetPresetActionTransition({
+			presets: savedToolTargetPresets,
+			targetPresets: savedToolTargetPresets,
+			selectedIndex: 0,
+			value: "ping",
+		});
+
+		expect(transition).toMatchObject({
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target action updated API DNS",
+			},
+		});
+		expect(transition.presets[0]).toMatchObject({
+			id: "api-dns",
+			actionId: "ping.default",
+		});
+	});
+
+	test("pins a selected saved target and repairs its selection", () => {
+		expect(
+			promoteToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 1,
+			}),
+		).toEqual({
+			presets: [savedToolTargetPresets[1], savedToolTargetPresets[0]],
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target pinned DB ping db.example.com",
+			},
+		});
+	});
+
+	test("reports an immovable target without changing the shelf", () => {
+		expect(
+			promoteToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target API DNS is not a movable saved preset",
+			},
+		});
+	});
+
+	test("removes a selected saved target and repairs selection", () => {
+		expect(
+			removeToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 99,
+			}),
+		).toEqual({
+			presets: [savedToolTargetPresets[0]],
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target removed DB ping db.example.com",
+			},
+		});
+	});
+
+	test("reports an unsaved target removal without changing the shelf", () => {
+		const builtInTarget = {
+			id: "gateway-ping",
+			label: "Gateway ping",
+			actionId: "ping.default" as const,
+			target: "192.0.2.1",
+			hint: "OS-aware target",
+		};
+		expect(
+			removeToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: [builtInTarget],
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target Gateway ping is not a saved preset",
+			},
+		});
+	});
+
+	test("keeps a rejected cleanup shelf and reports its exact confirmation notice", () => {
+		expect(
+			submitToolTargetCleanupTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				value: "delete ping.default",
+			}),
+		).toEqual({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target action cleanup rejected tools.dns",
+			},
+		});
+	});
+
+	test("saves a parsed target command at the bounded shelf limit", () => {
+		expect(
+			submitToolTargetPresetCommandTransition({
+				presets: [savedToolTargetPresets[0]],
+				targetPresets: [savedToolTargetPresets[0]],
+				selectedIndex: 0,
+				value: "ping db.example.com DB ping",
+				limit: 1,
+			}),
+		).toEqual({
+			presets: [
+				{
+					id: "custom-ping-default-db-example-com",
+					label: "DB ping",
+					actionId: "ping.default",
+					target: "db.example.com",
+					hint: "saved ping target",
+				},
+			],
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "ok",
+				message: "tool target preset saved DB ping db.example.com",
+			},
+		});
+	});
+
+	test("reports invalid and missing target save intents", () => {
+		expect(
+			submitToolTargetPresetCommandTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				value: "unknown example.com",
+			}),
+		).toMatchObject({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target preset requires: <action> <target> [label]",
+			},
+		});
+		expect(
+			saveSelectedToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: [],
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset to save" },
+		});
+	});
+
+	test("saves the selected target from the Tools shortcut", () => {
+		expect(
+			saveSelectedToolTargetPresetTransition({
+				presets: [],
+				targetPresets: [savedToolTargetPresets[0]],
+				selectedIndex: -3,
+				limit: 1,
+			}),
+		).toEqual({
+			presets: [savedToolTargetPresets[0]],
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target saved API DNS api.example.com",
+			},
+		});
+	});
+
+	test("turns each saved-target keyboard prompt into a typed intent", () => {
+		expect(
+			createToolTargetPromptIntent({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				prompt: "label",
+			}),
+		).toMatchObject({
+			selectedIndex: 0,
+			commandLine: "tool-target-label",
+			notice: { level: "info", message: "tool target label opened API DNS" },
+		});
+		expect(
+			createToolTargetPromptIntent({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				prompt: "value",
+			}),
+		).toMatchObject({
+			commandLine: "tool-target-value",
+			notice: { level: "info", message: "tool target value opened API DNS" },
+		});
+		expect(
+			createToolTargetPromptIntent({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				prompt: "action",
+			}),
+		).toMatchObject({
+			commandLine: "tool-target-action",
+			notice: {
+				level: "info",
+				message: "tool target action opened API DNS",
+			},
+		});
+		expect(
+			createToolTargetPromptIntent({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				prompt: "cleanup",
+			}),
+		).toMatchObject({
+			commandLine: "tool-target-cleanup",
+			notice: {
+				level: "warn",
+				message: "tool target cleanup confirm delete tools.dns",
+			},
+		});
+	});
+
+	test("creates a run intent from the repaired selected target", () => {
+		expect(
+			createToolTargetRunIntent({
+				presets: savedToolTargetPresets,
+				selectedIndex: 99,
+			}),
+		).toEqual({
+			presets: savedToolTargetPresets,
+			selectedIndex: 1,
+			commandLine: "preserve",
+			plan: {
+				actionId: "ping.default",
+				toolId: "ping",
+				args: ["db.example.com"],
+				label: "ping.default db.example.com",
+			},
+			completionNotice: "DB ping completed",
+		});
+	});
+
+	test("reports a missing selected target run intent", () => {
+		expect(
+			createToolTargetRunIntent({ presets: [], selectedIndex: -1 }),
+		).toEqual({
+			presets: [],
+			selectedIndex: 0,
+			commandLine: "preserve",
+			notice: { level: "warn", message: "no tool target presets" },
+		});
 	});
 
 	test("formats selected tool history detail tabs", () => {

@@ -1,3 +1,11 @@
+import type { NetworkSummary } from "../core/types";
+import {
+	createToolFormState,
+	formatToolFormInputValue,
+	selectToolFormField,
+	updateToolFormFieldValue,
+} from "./toolHistory";
+
 export type CommandLineState = {
 	active: boolean;
 	prompt: string;
@@ -102,6 +110,51 @@ export function applyCommandLineInput(
 		...state,
 		value: `${state.value}${event.input}`,
 	};
+}
+
+export function applyToolPromptCommandLineInput(
+	state: CommandLineState,
+	event: CommandLineInput,
+	summary?: NetworkSummary,
+): CommandLineState {
+	if (!state.prompt.startsWith("tool:")) {
+		return applyCommandLineInput(state, event);
+	}
+	const actionId = state.prompt.slice("tool:".length);
+	const form = createToolFormState(
+		actionId,
+		"",
+		summary,
+		state.value,
+		state.fieldIndex ?? 0,
+	);
+	const selectedForm = selectToolFormField(form, state.fieldIndex ?? 0);
+	const selectedField = selectedForm?.fields[selectedForm.selectedFieldIndex];
+	if (!selectedForm || !selectedField) {
+		return applyCommandLineInput(state, event);
+	}
+	const clearField = event.input === "\u0015";
+	if (
+		!event.backspace &&
+		!clearField &&
+		(event.input?.length !== 1 || event.input < " ")
+	) {
+		return state;
+	}
+	const touched = isCommandLineFieldTouched(state);
+	const nextFieldValue = clearField
+		? ""
+		: event.backspace
+			? selectedField.value.slice(0, -1)
+			: touched
+				? `${selectedField.value}${event.input}`
+				: (event.input ?? "");
+	const nextForm = updateToolFormFieldValue(selectedForm, nextFieldValue);
+	return markCommandLineFieldTouched({
+		...state,
+		value: formatToolFormInputValue(nextForm, { preserveEmpty: true }),
+		fieldIndex: nextForm?.selectedFieldIndex ?? state.fieldIndex,
+	});
 }
 
 function normalizeFieldIndexes(indexes: number[]): number[] {

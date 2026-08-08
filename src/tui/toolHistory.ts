@@ -34,6 +34,7 @@ import {
 	type ClipboardPreview,
 	createClipboardPreview,
 } from "./clipboardPreview";
+import { clampIndex } from "./navigation";
 
 export type ToolRunActionId =
 	| "tools.dns"
@@ -57,6 +58,48 @@ export type ToolTargetPreset = {
 	actionId: ToolRunActionId;
 	target: string;
 	hint: string;
+};
+
+export type ToolTargetNotice = {
+	level: "ok" | "info" | "warn";
+	message: string;
+};
+
+export type ToolTargetCommandLineIntent =
+	| "close"
+	| "preserve"
+	| "tool-target-label"
+	| "tool-target-value"
+	| "tool-target-action"
+	| "tool-target-cleanup";
+
+export type ToolTargetPresetTransition = {
+	presets: ToolTargetPreset[];
+	selectedIndex: number;
+	commandLine: ToolTargetCommandLineIntent;
+	changed: boolean;
+	notice: ToolTargetNotice;
+};
+
+export type ToolTargetPresetTransitionInput = {
+	presets: ToolTargetPreset[];
+	targetPresets: ToolTargetPreset[];
+	selectedIndex: number;
+	value?: string;
+	limit?: number;
+};
+
+export type ToolTargetPrompt = "label" | "value" | "action" | "cleanup";
+
+export type ToolTargetPromptIntent = ToolTargetPresetTransition;
+
+export type ToolTargetRunIntent = {
+	presets: ToolTargetPreset[];
+	selectedIndex: number;
+	commandLine: "preserve";
+	plan?: ToolRunPlan;
+	completionNotice?: string;
+	notice?: ToolTargetNotice;
 };
 
 export type ToolRunActionMetadata = {
@@ -727,10 +770,10 @@ export function formatToolsWorkspaceRows(
 	const filter = filterQuery.trim();
 	const presetSummary = formatToolHistoryPresetSummary(presets);
 	const detailSummary = detailView === "raw" ? "" : ` detail=${detailView}`;
-	const activeTargetPreset =
-		targetPresets[
-			Math.min(Math.max(selectedTargetPresetIndex, 0), targetPresets.length - 1)
-		];
+	const activeTargetPreset = getSelectedToolTargetPreset(
+		targetPresets,
+		selectedTargetPresetIndex,
+	);
 	const sectionRowCount = latest
 		? getToolSectionClipboardRowCountForItem(latest, sectionClipboardSelection)
 		: 0;
@@ -1194,6 +1237,504 @@ export function promoteToolTargetPreset(
 	];
 }
 
+export function getSelectedToolTargetPreset(
+	presets: readonly ToolTargetPreset[],
+	selectedIndex: number,
+): ToolTargetPreset | undefined {
+	if (!presets.length) {
+		return undefined;
+	}
+	return presets[clampIndex(selectedIndex, presets.length)];
+}
+
+export function selectToolTargetPresetTransition(
+	presets: readonly ToolTargetPreset[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): {
+	selectedIndex: number;
+	preset?: ToolTargetPreset;
+	notice?: ToolTargetNotice;
+} {
+	const nextIndex = moveToolTargetPresetSelection(
+		selectedIndex,
+		presets.length,
+		direction,
+	);
+	const preset = getSelectedToolTargetPreset(presets, nextIndex);
+	if (!preset) {
+		return { selectedIndex: nextIndex };
+	}
+	return {
+		selectedIndex: nextIndex,
+		preset,
+		notice: {
+			level: "info",
+			message: `tool target ${preset.label} ${preset.target}`,
+		},
+	};
+}
+
+export function renameToolTargetPresetTransition(
+	input: ToolTargetPresetTransitionInput,
+): ToolTargetPresetTransition {
+	return createToolTargetEditTransition(input, "label");
+}
+
+export function retargetToolTargetPresetTransition(
+	input: ToolTargetPresetTransitionInput,
+): ToolTargetPresetTransition {
+	return createToolTargetEditTransition(input, "target");
+}
+
+export function reassignToolTargetPresetActionTransition(
+	input: ToolTargetPresetTransitionInput,
+): ToolTargetPresetTransition {
+	return createToolTargetEditTransition(input, "action");
+}
+
+export function promoteToolTargetPresetTransition(
+	input: Omit<ToolTargetPresetTransitionInput, "value" | "limit">,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset selected" },
+		});
+	}
+	const next = promoteToolTargetPreset(presets, preset);
+	const changed = !sameToolTargetPresetShelf(next, presets);
+	if (!changed) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target ${preset.label} is not a movable saved preset`,
+			},
+		});
+	}
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: 0,
+		commandLine: "preserve",
+		changed: true,
+		notice: {
+			level: "info",
+			message: `tool target pinned ${preset.label} ${preset.target}`,
+		},
+	});
+}
+
+export function removeToolTargetPresetTransition(
+	input: Omit<ToolTargetPresetTransitionInput, "value" | "limit">,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset selected" },
+		});
+	}
+	const next = removeToolTargetPreset(presets, preset);
+	const changed = !sameToolTargetPresetShelf(next, presets);
+	if (!changed) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target ${preset.label} is not a saved preset`,
+			},
+		});
+	}
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			Math.max(0, input.targetPresets.length - 1),
+		),
+		commandLine: "preserve",
+		changed: true,
+		notice: {
+			level: "info",
+			message: `tool target removed ${preset.label} ${preset.target}`,
+		},
+	});
+}
+
+export function submitToolTargetCleanupTransition(
+	input: Required<Pick<ToolTargetPresetTransitionInput, "value">> &
+		Omit<ToolTargetPresetTransitionInput, "value" | "limit">,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	const confirmation = submitToolTargetCleanupConfirmation(
+		presets,
+		preset,
+		input.value,
+	);
+	const changed = confirmation.confirmed;
+	return createToolTargetTransition({
+		presets: confirmation.presets,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			Math.max(0, input.targetPresets.length - confirmation.removed),
+		),
+		commandLine: "close",
+		changed,
+		notice: {
+			level: confirmation.confirmed ? "info" : "warn",
+			message: confirmation.message,
+		},
+	});
+}
+
+export function submitToolTargetPresetCommandTransition(
+	input: Required<Pick<ToolTargetPresetTransitionInput, "value">> &
+		ToolTargetPresetTransitionInput,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = parseToolTargetPresetCommand(input.value);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target preset requires: <action> <target> [label]",
+			},
+		});
+	}
+	const next = saveToolTargetPreset(presets, preset, input.limit);
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: clampIndex(
+			next.findIndex((current) => sameToolTargetPreset(current, preset)),
+			next.length,
+		),
+		commandLine: "close",
+		changed: !sameToolTargetPresetShelf(next, presets),
+		notice: {
+			level: "ok",
+			message: `tool target preset saved ${preset.label} ${preset.target}`,
+		},
+	});
+}
+
+export function saveSelectedToolTargetPresetTransition(
+	input: Omit<ToolTargetPresetTransitionInput, "value">,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset to save" },
+		});
+	}
+	const next = saveToolTargetPreset(presets, preset, input.limit);
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: clampIndex(
+			next.findIndex((current) => sameToolTargetPreset(current, preset)),
+			next.length,
+		),
+		commandLine: "preserve",
+		changed: !sameToolTargetPresetShelf(next, presets),
+		notice: {
+			level: "info",
+			message: `tool target saved ${preset.label} ${preset.target}`,
+		},
+	});
+}
+
+export function createToolTargetPromptIntent(
+	input: Omit<ToolTargetPresetTransitionInput, "value" | "limit"> & {
+		prompt: ToolTargetPrompt;
+	},
+): ToolTargetPromptIntent {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset selected" },
+		});
+	}
+	if (input.prompt === "cleanup") {
+		const preview = createToolTargetCleanupPreview(presets, preset);
+		if (!preview) {
+			return createToolTargetTransition({
+				presets,
+				selectedIndex,
+				commandLine: "preserve",
+				changed: false,
+				notice: {
+					level: "warn",
+					message: `tool target ${preset.label} is not a saved preset`,
+				},
+			});
+		}
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "tool-target-cleanup",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target cleanup confirm ${preview.confirmationPhrase}`,
+			},
+		});
+	}
+	if (!isSavedToolTargetPreset(presets, preset)) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target ${preset.label} is not a saved preset`,
+			},
+		});
+	}
+	const commandLine = `tool-target-${input.prompt}` as const;
+	return createToolTargetTransition({
+		presets,
+		selectedIndex,
+		commandLine,
+		changed: false,
+		notice: {
+			level: "info",
+			message: `tool target ${input.prompt} opened ${preset.label}`,
+		},
+	});
+}
+
+export function createToolTargetRunIntent(input: {
+	presets: ToolTargetPreset[];
+	selectedIndex: number;
+}): ToolTargetRunIntent {
+	const selectedIndex = clampIndex(input.selectedIndex, input.presets.length);
+	const preset = getSelectedToolTargetPreset(
+		input.presets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return {
+			presets: input.presets,
+			selectedIndex,
+			commandLine: "preserve",
+			notice: { level: "warn", message: "no tool target presets" },
+		};
+	}
+	const plan = createToolRunPlanFromPreset(preset);
+	if (!plan) {
+		return {
+			presets: input.presets,
+			selectedIndex,
+			commandLine: "preserve",
+			notice: {
+				level: "warn",
+				message: `cannot run tool preset ${preset.label}`,
+			},
+		};
+	}
+	return {
+		presets: input.presets,
+		selectedIndex,
+		commandLine: "preserve",
+		plan,
+		completionNotice: `${preset.label} completed`,
+	};
+}
+
+function createToolTargetEditTransition(
+	input: ToolTargetPresetTransitionInput,
+	kind: "label" | "target" | "action",
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "close",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset selected" },
+		});
+	}
+	if (!isSavedToolTargetPreset(presets, preset)) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target ${preset.label} is not a saved preset`,
+			},
+		});
+	}
+	const next =
+		kind === "label"
+			? renameToolTargetPreset(presets, preset, input.value ?? "")
+			: kind === "target"
+				? retargetToolTargetPreset(presets, preset, input.value ?? "")
+				: reassignToolTargetPresetAction(presets, preset, input.value ?? "");
+	const changed = !sameToolTargetPresetShelf(next, presets);
+	if (!changed) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "info",
+				message:
+					kind === "label"
+						? "tool target label unchanged"
+						: kind === "target"
+							? "tool target value unchanged"
+							: "tool target action unchanged",
+			},
+		});
+	}
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			getUpdatedToolTargetPresetCount(input, presets, next),
+		),
+		commandLine: "close",
+		changed: true,
+		notice: {
+			level: "info",
+			message:
+				kind === "label"
+					? `tool target renamed ${preset.target}`
+					: kind === "target"
+						? `tool target updated ${preset.label}`
+						: `tool target action updated ${preset.label}`,
+		},
+	});
+}
+
+function createToolTargetTransition(
+	transition: ToolTargetPresetTransition,
+): ToolTargetPresetTransition {
+	return transition;
+}
+
+function isSavedToolTargetPreset(
+	presets: readonly ToolTargetPreset[],
+	preset: ToolTargetPreset,
+): boolean {
+	return presets.some((current) => sameToolTargetPreset(current, preset));
+}
+
+function sameToolTargetPreset(
+	left: ToolTargetPreset,
+	right: ToolTargetPreset,
+): boolean {
+	return (
+		left.actionId === right.actionId &&
+		left.target.trim() === right.target.trim()
+	);
+}
+
+function sameToolTargetPresetShelf(
+	left: readonly ToolTargetPreset[],
+	right: readonly ToolTargetPreset[],
+): boolean {
+	return (
+		left.length === right.length &&
+		left.every(
+			(preset, index) =>
+				preset.id === right[index]?.id &&
+				preset.label === right[index]?.label &&
+				preset.actionId === right[index]?.actionId &&
+				preset.target === right[index]?.target &&
+				preset.hint === right[index]?.hint,
+		)
+	);
+}
+
+function getUpdatedToolTargetPresetCount(
+	input: ToolTargetPresetTransitionInput,
+	previous: readonly ToolTargetPreset[],
+	next: readonly ToolTargetPreset[],
+): number {
+	return Math.max(
+		0,
+		input.targetPresets.length - Math.max(0, previous.length - next.length),
+	);
+}
+
 export function nextToolHistoryPreset(
 	presets: string[],
 	currentQuery: string,
@@ -1347,7 +1888,7 @@ export function moveToolHistorySelection(
 	if (total <= 0) {
 		return 0;
 	}
-	const normalized = Math.min(Math.max(current, 0), total - 1);
+	const normalized = clampIndex(current, total);
 	const offset = direction === "next" ? 1 : -1;
 	return (normalized + offset + total) % total;
 }
@@ -2142,10 +2683,7 @@ function formatToolTargetPresetRows(
 	if (!presets.length) {
 		return [];
 	}
-	const normalizedIndex = Math.min(
-		Math.max(selectedIndex, 0),
-		presets.length - 1,
-	);
+	const normalizedIndex = clampIndex(selectedIndex, presets.length);
 	return [
 		"TARGET PRESETS n/N cycle · T save · U pin · L label · M edit · A action · X delete · D delete action · R run",
 		...presets.map(
