@@ -1,6 +1,6 @@
 # 미비 기능 진행 체크리스트
 
-기준일: 2026-08-08
+기준일: 2026-08-09
 
 상태 표기: `완료` / `진행 중` / `대기` / `차단`
 
@@ -59,6 +59,7 @@
 - [x] 상태: 완료 — Interfaces의 selection/source handoff/state proposal/exact confirmation 전이와 DNS의 target/server locked-preview/confirmation-eligibility 전이를 panel 모듈로 분리하고, 빈·raw out-of-range·unsupported interface target은 no-op으로 처리해 action key를 노출하지 않음; interface 이동은 target-bound preview/proposal/confirmation을 원자적으로 reset
 - [x] 상태: 완료 — Status evidence의 handoff·audit·cleanup·Tools·process·remote known_hosts·interface·Timeline·status-activity export/open/archive/retention/recovery 전이를 순수 owner로 분리하고, Tools 검색 match open/archive와 네 evidence family의 select/search/open 및 master-index handoff를 owner가 결정하도록 보강; active/archive interface refresh는 서로의 최신 목록을 포함한 결합 domain에서 selection을 원자적으로 repair하며 독립 request sequence의 stale 성공·실패는 현재 index/selection/error를 publish하지 않도록 검증
 - [x] 상태: 완료 — Remotes의 profile·host-key candidate·paste review·exact trust confirmation·retry·cancel·diagnostic notice·known_hosts evidence handoff 전이를 `remotesPanel.ts`로 분리하고, 교차 session의 동일 fingerprint `@revoked`를 전역 차단하며 공유 diagnostic sequence와 active connection token으로 stale 성공·실패의 현재 상태 publish를 차단
+- [x] 상태: 완료 — Processes의 endpoint PID 선택·파일 collector 결과·resource open/copy/selection과 Operations의 preset start/progress/cancel/complete/fail 전이를 순수 owner로 분리하고, `cancelling`을 busy로 유지하며 active run token이 모든 await 이후 current publish를 보호; stale failure는 Status Activity 이력만 남기고, 최신 operator-cancelled monitor만 partial sample을 게시하며 command activity begin/end는 `finally`에서 정확히 한 번씩 쌍을 유지
 - [x] 상태: 완료 — 사용되지 않는 `src/tui/screens/*` legacy placeholder 6개 제거; 실제 workspace 경로는 `App.tsx`에 있으며 `src/tui` 순수 모듈이 상태 전이를 담당
 - [x] 상태: 완료 — `src/core/roadmap.ts`, README, CHANGELOG, LOCAL_AUTOMATION의 구현 상태 동기화
 - [x] 상태: 완료 — `package.json`과 `src/core/version.ts`는 `0.2.0`으로 동기화되고 release check가 통과함. ROADMAP의 v0.4.340~346은 공개 버전을 자동 변경하지 않는 개발 slice이며, npm 미게시·원격 태그 없음 상태에서 실제 공개 버전 선택은 maintainer release 절차로 유지

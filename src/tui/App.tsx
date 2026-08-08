@@ -143,9 +143,9 @@ import {
 	sortListeningPorts,
 } from "../core/ports";
 import {
-	detectProcessIdReuse,
 	getProcessDetail,
 	getProcessFileSnapshot,
+	getProcessFileSnapshotWithSource,
 	type ProcessDetail,
 	type ProcessFileSnapshot,
 } from "../core/processes";
@@ -449,16 +449,19 @@ import {
 } from "./navigation";
 import { createNetworkTimelineEvents } from "./networkTimeline";
 import {
-	advanceOperationRun,
-	canStartOperationRun,
-	finishMonitorOperationRun,
-	finishOperationRun,
-	formatOperationRunAuditMessage,
+	classifyOperationRunContinuation,
 	formatOperationsWorkspaceRows,
 	type OperationRunProgress,
-	requestOperationRunCancellation,
-	selectOperationPreset,
-	startOperationRun,
+	type OperationRunTerminalTransition,
+	prepareMonitorOperationRunCompletion,
+	prepareOperationProcessIdentityNotice,
+	prepareOperationRunCancellation,
+	prepareOperationRunCompletion,
+	prepareOperationRunFailure,
+	prepareOperationRunPanelInput,
+	prepareOperationRunProgressPublication,
+	prepareOperationRunStart,
+	releaseOperationRunCancellation,
 } from "./operationRunPanel";
 import {
 	type CommandPaletteState,
@@ -468,11 +471,12 @@ import {
 	prepareCommandPaletteInput,
 } from "./palette";
 import {
+	classifyProcessInspectionFailure,
+	classifyProcessInspectionPublication,
 	formatProcessWorkspaceRows,
-	getProcessFileSelectionCount,
-	getSelectedProcessClipboardPreview,
-	getSelectedProcessFileRequest,
-	getSelectedProcessResourceRequest,
+	prepareProcessPanelInput,
+	prepareSelectedProcessInspection,
+	type SelectedProcessResourceAction,
 } from "./processPanel";
 import {
 	classifyRemoteConnectionPublication,
@@ -521,6 +525,7 @@ import {
 	createInterfaceConfirmationStatusActivityResult,
 	createInterfaceEvidenceManagementStatusActivityResult,
 	createInterfaceEvidenceOutcomeStatusActivityResult,
+	createOperationRunStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
@@ -5165,57 +5170,39 @@ export function App(): React.ReactElement {
 	}, [log]);
 
 	const cancelOperationRun = useCallback(() => {
-		const current = operationRunRef.current;
-		if (current?.status !== "running") {
-			log("info", "no operation run to cancel");
+		const transition = prepareOperationRunCancellation({
+			currentRun: operationRunRef.current,
+			activeToken: operationRunTokenRef.current,
+		});
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-		const cancelling = requestOperationRunCancellation(current);
-		if (cancelling === current) {
-			log(
-				"warn",
-				`${current.presetId} has no interruptible sampling window to stop`,
-			);
-			return;
-		}
-		operationRunCancelledTokenRef.current = operationRunTokenRef.current;
-		operationRunRef.current = cancelling;
-		setOperationRun(cancelling);
-		log("warn", `operation run cancellation requested ${current.presetId}`);
+		operationRunCancelledTokenRef.current = transition.cancelledToken;
+		operationRunRef.current = transition.progress;
+		setOperationRun(transition.progress);
+		log(transition.notice.level, transition.notice.message);
 	}, [log]);
 
 	const runSelectedOperationPreset = useCallback(async () => {
-		if (!canStartOperationRun(operationRunRef.current)) {
-			log("warn", "an operation run is already in flight");
+		const start = prepareOperationRunStart({
+			presets: operationPresets,
+			selectedIndex: selectedOperationPresetIndex,
+			currentRun: operationRunRef.current,
+			currentToken: operationRunTokenRef.current,
+		});
+		if (start.kind === "notice") {
+			log(start.notice.level, start.notice.message);
 			return;
 		}
-		const preset = selectOperationPreset(
-			operationPresets,
-			selectedOperationPresetIndex,
-		);
-		if (!preset) {
-			log("warn", "no operation preset selected");
-			return;
-		}
-		const token = operationRunTokenRef.current + 1;
+		const { preset, token } = start;
 		operationRunTokenRef.current = token;
-		const started = startOperationRun(preset);
-		operationRunRef.current = started;
-		setOperationRun(started);
+		operationRunRef.current = start.progress;
+		setOperationRun(start.progress);
 		beginCommand();
-		const startedAudit = formatOperationRunAuditMessage(started);
-		if (startedAudit) {
-			log("run", startedAudit);
-		}
-		const publish = (next: OperationRunProgress) => {
-			// A superseded run must not write onto the current run's progress.
-			if (operationRunTokenRef.current !== token) {
-				return;
-			}
-			operationRunRef.current = next;
-			setOperationRun(next);
-		};
+		let requestProgress = start.progress;
 		try {
+			log(start.audit.level, start.audit.message);
 			let returned = 0;
 			if (preset.kind === "monitor") {
 				const series = await collectSystemMonitorSeries(
@@ -5228,95 +5215,119 @@ export function App(): React.ReactElement {
 					// hook rather than widening the core API with a second callback.
 					() => {
 						returned += 1;
-						const current = operationRunRef.current;
-						if (current) {
-							publish(advanceOperationRun(current, returned));
+						const publication = prepareOperationRunProgressPublication({
+							activeToken: operationRunTokenRef.current,
+							requestToken: token,
+							progress: requestProgress,
+							currentProgress: operationRunRef.current,
+							returnedCount: returned,
+						});
+						requestProgress = publication.progress;
+						if (publication.publishCurrent) {
+							operationRunRef.current = publication.progress;
+							setOperationRun(publication.progress);
 						}
-						return operationRunCancelledTokenRef.current !== token;
+						return (
+							classifyOperationRunContinuation({
+								activeToken: operationRunTokenRef.current,
+								requestToken: token,
+								cancelledToken: operationRunCancelledTokenRef.current,
+							}) === "continue"
+						);
 					},
 				);
 				returned = series.samples.length;
-				setSystemMonitor(series.samples.at(-1));
-				const finished = finishMonitorOperationRun(
-					operationRunRef.current ?? started,
-					returned,
-					series.cancelled,
-				);
-				publish(finished);
-				const audit = formatOperationRunAuditMessage(finished);
-				if (audit) {
-					log(series.cancelled ? "warn" : "ok", audit);
-					recordStatusActivityResult({
-						source: "timeline",
-						action: "operations-run",
-						message: audit,
-						detail: `kind=monitor interval=${preset.intervalMs} duration=${finished.durationMs ?? 0}ms`,
-						detailRows: [finished.message],
-					});
+				const terminal = prepareMonitorOperationRunCompletion({
+					activeToken: operationRunTokenRef.current,
+					requestToken: token,
+					cancelledToken: operationRunCancelledTokenRef.current,
+					progress: requestProgress,
+					returnedCount: returned,
+					collectorCancelled: series.cancelled,
+				});
+				if (terminal.kind === "stale") {
+					log(terminal.notice.level, terminal.notice.message);
+					return;
 				}
+				requestProgress = terminal.progress;
+				setSystemMonitor(series.samples.at(-1));
+				operationRunRef.current = terminal.progress;
+				setOperationRun(terminal.progress);
+				log(terminal.audit.level, terminal.audit.message);
+				const result = createOperationRunStatusActivityResult(
+					terminal.progress,
+				);
+				if (result) recordStatusActivityResult(result);
 				return;
 			}
+
+			let terminal: OperationRunTerminalTransition;
 			if (preset.kind === "logs") {
 				const snapshot = await createOsLogSnapshot({ limit: preset.limit });
+				terminal = prepareOperationRunCompletion({
+					activeToken: operationRunTokenRef.current,
+					requestToken: token,
+					progress: requestProgress,
+					returnedCount: 1,
+					preset,
+				});
+				if (terminal.kind === "stale") {
+					log(terminal.notice.level, terminal.notice.message);
+					return;
+				}
 				setOsLogs(snapshot);
 				setLogLevelFilter(preset.level);
 				setLogSearchQuery(preset.filter);
-				returned = 1;
 			} else {
 				const detail = await getProcessDetail(String(preset.pid));
-				setSelectedProcessDetail(detail);
-				// Same check the CLI publishes as `data.identity`. Without it the
-				// workspace would silently describe whatever process now holds the PID.
-				if (
-					detectProcessIdReuse(detail, preset.savedAtMs, Date.now()) ===
-					"reused"
-				) {
-					log(
-						"warn",
-						`operations run identity=reused ${preset.id} pid=${preset.pid} started after the preset was saved`,
-					);
+				terminal = prepareOperationRunCompletion({
+					activeToken: operationRunTokenRef.current,
+					requestToken: token,
+					progress: requestProgress,
+					returnedCount: 1,
+					preset,
+				});
+				if (terminal.kind === "stale") {
+					log(terminal.notice.level, terminal.notice.message);
+					return;
 				}
-				returned = 1;
+				setSelectedProcessDetail(detail);
+				const identityNotice = prepareOperationProcessIdentityNotice(
+					preset,
+					detail,
+				);
+				if (identityNotice) {
+					log(identityNotice.level, identityNotice.message);
+				}
 			}
-			const finished = finishOperationRun(
-				advanceOperationRun(operationRunRef.current ?? started, returned),
-				"completed",
-				preset.kind === "logs"
-					? `applied logs preset level=${preset.level}`
-					: `inspected pid=${preset.pid}`,
-			);
-			publish(finished);
-			const audit = formatOperationRunAuditMessage(finished);
-			if (audit) {
-				log("ok", audit);
-				recordStatusActivityResult({
-					source: "timeline",
-					action: "operations-run",
-					message: audit,
-					detail: `kind=${preset.kind} duration=${finished.durationMs ?? 0}ms`,
-					detailRows: [finished.message],
-				});
-			}
+			requestProgress = terminal.progress;
+			operationRunRef.current = terminal.progress;
+			setOperationRun(terminal.progress);
+			log(terminal.audit.level, terminal.audit.message);
+			const result = createOperationRunStatusActivityResult(terminal.progress);
+			if (result) recordStatusActivityResult(result);
 		} catch (caught) {
-			const message = caught instanceof Error ? caught.message : String(caught);
-			const failed = finishOperationRun(
-				operationRunRef.current ?? started,
-				"failed",
-				message,
-			);
-			publish(failed);
-			const audit = formatOperationRunAuditMessage(failed);
-			if (audit) {
-				log("fail", audit);
-				recordStatusActivityResult({
-					source: "timeline",
-					action: "operations-run",
-					message: audit,
-					detail: `kind=${preset.kind} reason=${JSON.stringify(message)}`,
-					detailRows: [message],
-				});
+			const failure = prepareOperationRunFailure({
+				activeToken: operationRunTokenRef.current,
+				requestToken: token,
+				progress: requestProgress,
+				error: caught,
+			});
+			if (failure.kind === "failure") {
+				requestProgress = failure.progress;
+				if (failure.publishCurrent) {
+					operationRunRef.current = failure.progress;
+					setOperationRun(failure.progress);
+				}
+				log(failure.audit.level, failure.audit.message);
+				const result = createOperationRunStatusActivityResult(failure.progress);
+				if (result) recordStatusActivityResult(result);
 			}
 		} finally {
+			operationRunCancelledTokenRef.current = releaseOperationRunCancellation(
+				token,
+				operationRunCancelledTokenRef.current,
+			);
 			endCommand();
 		}
 	}, [
@@ -5516,42 +5527,60 @@ export function App(): React.ReactElement {
 	]);
 
 	const inspectSelectedEndpointProcess = useCallback(async () => {
-		const request =
-			screen === "connections"
-				? getSelectedConnectionProcessRequest(
-						sortedConnections,
-						selectedConnectionIndex,
-					)
-				: screen === "ports"
-					? getSelectedPortProcessRequest(sortedPorts, selectedPortIndex)
-					: undefined;
-		if (!request) {
-			log("warn", "no process PID available for selected endpoint");
+		const start = prepareSelectedProcessInspection({
+			screen,
+			connectionRequest: getSelectedConnectionProcessRequest(
+				sortedConnections,
+				selectedConnectionIndex,
+			),
+			portRequest: getSelectedPortProcessRequest(
+				sortedPorts,
+				selectedPortIndex,
+			),
+		});
+		if (start.kind === "notice") {
+			log(start.notice.level, start.notice.message);
 			return;
 		}
+		const { request } = start;
 
 		const token = beginRequest(processInspectionTokenRef.current);
 		processInspectionTokenRef.current = token;
 		beginCommand();
 		try {
-			const [detail, files] = await Promise.all([
+			const [detail, fileResult] = await Promise.all([
 				getProcessDetail(request.pid),
-				getProcessFileSnapshot(request.pid),
+				getProcessFileSnapshotWithSource(request.pid),
 			]);
-			// A newer request started while these collectors ran. Publishing now would
-			// pair this process's detail with the newer request's files.
-			if (isStaleRequest(processInspectionTokenRef.current, token)) {
-				log("info", `process inspection superseded ${request.command}`);
+			const publication = classifyProcessInspectionPublication({
+				currentToken: processInspectionTokenRef.current,
+				requestToken: token,
+				request,
+				detail,
+				fileResult,
+			});
+			if (publication.kind === "stale") {
+				log(publication.notice.level, publication.notice.message);
 				return;
 			}
-			setSelectedProcessDetail(detail);
-			setSelectedProcessFiles(files);
-			setSelectedProcessFileIndex(0);
-			setProcessClipboardPreview(false);
+			setSelectedProcessDetail(publication.detail);
+			setSelectedProcessFiles(publication.files);
+			setSelectedProcessFileEvidenceIssue(publication.fileEvidenceIssue);
+			setSelectedProcessFileIndex(publication.selectedFileIndex);
+			setProcessClipboardPreview(publication.clipboardPreview);
 			setScreen("processes");
-			log("ok", `process inspected ${request.command}`);
+			log(publication.notice.level, publication.notice.message);
 		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
+			const failure = classifyProcessInspectionFailure({
+				currentToken: processInspectionTokenRef.current,
+				requestToken: token,
+				request,
+				error: caught,
+			});
+			if (failure.publishCurrent) {
+				setSelectedProcessFileEvidenceIssue(failure.fileEvidenceIssue);
+			}
+			log(failure.notice.level, failure.notice.message);
 		} finally {
 			endCommand();
 		}
@@ -5566,66 +5595,53 @@ export function App(): React.ReactElement {
 		endCommand,
 	]);
 
-	const openSelectedProcessFile = useCallback(async () => {
-		const request = getSelectedProcessFileRequest(
-			selectedProcessFiles,
-			selectedProcessFileIndex,
-		);
-		if (!request) {
-			const resource = getSelectedProcessResourceRequest(
-				selectedProcessFiles,
-				selectedProcessFileIndex,
-			);
-			if (resource) {
-				log("info", `process resource ${resource.summary}`);
+	const openSelectedProcessFile = useCallback(
+		async (selection: SelectedProcessResourceAction) => {
+			if (selection.kind !== "file") {
+				log(selection.notice.level, selection.notice.message);
 				return;
 			}
-			log("warn", "selected process file is not openable");
-			return;
-		}
+			const { request } = selection;
 
-		try {
-			const entry = await fileProvider.stat(request.path);
-			const transition = prepareSelectedFileOpen({
-				entries: [entry],
-				selectedIndex: 0,
-				root: fileRoot,
-				backHistory: fileHistory,
-				forwardHistory: fileForwardHistory,
-				notice: {
-					level: "ok",
-					message: `process file opened ${request.command}`,
-				},
-			});
-			if (transition.action === "load") {
-				if (await loadFiles(transition.request)) {
-					setScreen("files");
-					setFocusArea("workspaces");
-				}
-				return;
-			}
-			if (transition.action === "preview") {
-				await previewFile(transition.entry, {
-					openEditor: transition.openEditor,
-					notice: transition.notice,
+			try {
+				const entry = await fileProvider.stat(request.path);
+				const transition = prepareSelectedFileOpen({
+					entries: [entry],
+					selectedIndex: 0,
+					root: fileRoot,
+					backHistory: fileHistory,
+					forwardHistory: fileForwardHistory,
+					notice: selection.notice,
 				});
-				return;
+				if (transition.action === "load") {
+					if (await loadFiles(transition.request)) {
+						setScreen("files");
+						setFocusArea("workspaces");
+					}
+					return;
+				}
+				if (transition.action === "preview") {
+					await previewFile(transition.entry, {
+						openEditor: transition.openEditor,
+						notice: transition.notice,
+					});
+					return;
+				}
+				log(transition.notice.level, transition.notice.message);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
-			log(transition.notice.level, transition.notice.message);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [
-		fileProvider,
-		fileForwardHistory,
-		fileHistory,
-		fileRoot,
-		loadFiles,
-		log,
-		previewFile,
-		selectedProcessFileIndex,
-		selectedProcessFiles,
-	]);
+		},
+		[
+			fileProvider,
+			fileForwardHistory,
+			fileHistory,
+			fileRoot,
+			loadFiles,
+			log,
+			previewFile,
+		],
+	);
 
 	useEffect(() => {
 		if (initialFileLoadStartedRef.current) {
@@ -8666,14 +8682,44 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		if (screen === "processes" && focusArea === "workspaces") {
+			const decision = prepareProcessPanelInput({
+				input: key.return ? "\r" : input,
+				files: selectedProcessFiles,
+				selectedIndex: selectedProcessFileIndex,
+			});
+			if (decision.kind === "selection") {
+				setSelectedProcessFileIndex(decision.selectedIndex);
+				setProcessClipboardPreview(decision.clipboardPreview);
+			} else if (decision.kind === "copy") {
+				setProcessClipboardPreview(decision.clipboardPreview);
+				openClipboardConfirmation(decision.preview);
+			} else if (decision.kind !== "no-op") {
+				void openSelectedProcessFile(decision);
+			}
+			if (decision.kind !== "no-op") return;
+		}
+
+		if (screen === "operations" && focusArea === "workspaces") {
+			const decision = prepareOperationRunPanelInput({
+				input: key.return ? "\r" : input,
+				presets: operationPresets,
+				selectedIndex: selectedOperationPresetIndex,
+			});
+			if (decision.kind === "selection") {
+				setSelectedOperationPresetIndex(decision.selectedIndex);
+			} else if (decision.kind === "run") {
+				void runSelectedOperationPreset();
+			} else if (decision.kind === "cancel") {
+				cancelOperationRun();
+			}
+			if (decision.kind !== "no-op") return;
+		}
+
 		if (input === "\r") {
 			if (screen === "actions" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "actions focus entered");
-			} else if (screen === "processes" && focusArea === "workspaces") {
-				void openSelectedProcessFile();
-			} else if (screen === "operations" && focusArea === "workspaces") {
-				void runSelectedOperationPreset();
 			} else if (screen === "remotes" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "remotes focus entered");
@@ -10580,24 +10626,6 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (screen === "processes" && focusArea === "workspaces" && input === "c") {
-			if (getProcessFileSelectionCount(selectedProcessFiles) <= 0) {
-				log("warn", "no process resource selected");
-				return;
-			}
-			const preview = getSelectedProcessClipboardPreview(
-				selectedProcessFiles,
-				selectedProcessFileIndex,
-			);
-			if (!preview) {
-				log("warn", "no process resource selected");
-				return;
-			}
-			setProcessClipboardPreview(true);
-			openClipboardConfirmation(preview);
-			return;
-		}
-
 		if (screen === "timeline" && focusArea === "workspaces") {
 			const decision = prepareTimelinePanelInput({
 				input,
@@ -10706,15 +10734,6 @@ export function App(): React.ReactElement {
 			if (decision.kind !== "no-op") {
 				return;
 			}
-		}
-
-		if (
-			screen === "operations" &&
-			focusArea === "workspaces" &&
-			input === "X"
-		) {
-			cancelOperationRun();
-			return;
 		}
 
 		if (screen === "logs" && focusArea === "workspaces") {
@@ -11511,10 +11530,6 @@ export function App(): React.ReactElement {
 					direction: "next",
 				});
 				setSelectedEditorLineIndex(transition.selectedLineIndex);
-			} else if (screen === "operations") {
-				setSelectedOperationPresetIndex((index) =>
-					getNextIndex(index, operationPresets.length, "next"),
-				);
 			} else if (screen === "interfaces") {
 				const transition = prepareInterfaceSelectionTransition({
 					direction: "down",
@@ -11527,15 +11542,6 @@ export function App(): React.ReactElement {
 					setInterfaceStateProposal(transition.proposal);
 					setInterfaceConfirmationResult(transition.confirmationResult);
 				}
-			} else if (screen === "processes") {
-				setSelectedProcessFileIndex((index) =>
-					getNextIndex(
-						index,
-						getProcessFileSelectionCount(selectedProcessFiles),
-						"next",
-					),
-				);
-				setProcessClipboardPreview(false);
 			} else if (screen === "tools") {
 				setSelectedToolHistoryIndex((index) =>
 					toolHistoryFilter || toolHistorySort !== "time"
@@ -11571,10 +11577,6 @@ export function App(): React.ReactElement {
 					direction: "previous",
 				});
 				setSelectedEditorLineIndex(transition.selectedLineIndex);
-			} else if (screen === "operations") {
-				setSelectedOperationPresetIndex((index) =>
-					getNextIndex(index, operationPresets.length, "previous"),
-				);
 			} else if (screen === "interfaces") {
 				const transition = prepareInterfaceSelectionTransition({
 					direction: "up",
@@ -11587,15 +11589,6 @@ export function App(): React.ReactElement {
 					setInterfaceStateProposal(transition.proposal);
 					setInterfaceConfirmationResult(transition.confirmationResult);
 				}
-			} else if (screen === "processes") {
-				setSelectedProcessFileIndex((index) =>
-					getNextIndex(
-						index,
-						getProcessFileSelectionCount(selectedProcessFiles),
-						"previous",
-					),
-				);
-				setProcessClipboardPreview(false);
 			} else if (screen === "tools") {
 				setSelectedToolHistoryIndex((index) =>
 					toolHistoryFilter || toolHistorySort !== "time"

@@ -2,11 +2,21 @@ import { describe, expect, test } from "bun:test";
 import {
 	advanceOperationRun,
 	canStartOperationRun,
+	classifyOperationRunContinuation,
 	finishMonitorOperationRun,
 	finishOperationRun,
 	formatOperationRunAuditMessage,
 	formatOperationRunProgressRows,
 	formatOperationsWorkspaceRows,
+	prepareMonitorOperationRunCompletion,
+	prepareOperationProcessIdentityNotice,
+	prepareOperationRunCancellation,
+	prepareOperationRunCompletion,
+	prepareOperationRunFailure,
+	prepareOperationRunPanelInput,
+	prepareOperationRunProgressPublication,
+	prepareOperationRunStart,
+	releaseOperationRunCancellation,
 	requestOperationRunCancellation,
 	selectOperationPreset,
 	startOperationRun,
@@ -89,10 +99,10 @@ describe("operations run control", () => {
 		expect(cancelling.message).toBe(
 			"cancellation requested; finishing current sample",
 		);
-		// Still cancellable-looking in the control row, because the current sample
-		// is still in flight until the collector returns.
+		// A second cancellation cannot act while the current sample is finishing,
+		// so the row must not keep advertising X as actionable.
 		expect(formatOperationRunProgressRows(cancelling).at(-1)).toBe(
-			"controls=X cancel run",
+			"controls=cancellation requested · finishing current sample",
 		);
 
 		const logsRun = startOperationRun(logsPreset, 1000);
@@ -314,5 +324,246 @@ describe("operations run decisions", () => {
 		expect(finishMonitorOperationRun(running, 99, false, 1750).message).toBe(
 			"collected 10 samples",
 		);
+	});
+
+	test("returns exact guards for a missing preset and a cancelling run", () => {
+		expect(
+			prepareOperationRunStart({
+				presets: [],
+				selectedIndex: 0,
+				currentRun: undefined,
+				currentToken: 4,
+				now: 1000,
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no operation preset selected" },
+		});
+
+		const cancelling = requestOperationRunCancellation(
+			startOperationRun(monitorPreset, 1000),
+		);
+		expect(
+			prepareOperationRunStart({
+				presets: [monitorPreset],
+				selectedIndex: 0,
+				currentRun: cancelling,
+				currentToken: 4,
+				now: 1100,
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "an operation run is already in flight",
+			},
+		});
+	});
+
+	test("assigns a new run token and centralizes the started audit", () => {
+		const transition = prepareOperationRunStart({
+			presets: [monitorPreset],
+			selectedIndex: 0,
+			currentRun: undefined,
+			currentToken: 4,
+			now: 1000,
+		});
+
+		expect(transition).toEqual({
+			kind: "start",
+			token: 5,
+			preset: monitorPreset,
+			progress: startOperationRun(monitorPreset, 1000),
+			audit: {
+				level: "run",
+				message: "operations run started pulse samples=0/10",
+			},
+		});
+	});
+
+	test("keeps a cancelling run busy and binds cancellation to its token", () => {
+		const running = startOperationRun(monitorPreset, 1000);
+
+		expect(
+			prepareOperationRunCancellation({
+				currentRun: running,
+				activeToken: 7,
+			}),
+		).toEqual({
+			kind: "cancel",
+			progress: requestOperationRunCancellation(running),
+			cancelledToken: 7,
+			notice: {
+				level: "warn",
+				message: "operation run cancellation requested pulse",
+			},
+		});
+	});
+
+	test("blocks progress publication from a superseded token", () => {
+		const running = startOperationRun(monitorPreset, 1000);
+
+		expect(
+			prepareOperationRunProgressPublication({
+				activeToken: 8,
+				requestToken: 7,
+				progress: running,
+				returnedCount: 3,
+			}),
+		).toEqual({
+			publishCurrent: false,
+			progress: advanceOperationRun(running, 3),
+		});
+		expect(
+			classifyOperationRunContinuation({
+				activeToken: 8,
+				requestToken: 7,
+				cancelledToken: 0,
+			}),
+		).toBe("superseded");
+	});
+
+	test("publishes partial cancellation only for the newest run", () => {
+		const running = advanceOperationRun(
+			startOperationRun(monitorPreset, 1000),
+			3,
+		);
+		const cancelled = prepareMonitorOperationRunCompletion({
+			activeToken: 7,
+			requestToken: 7,
+			cancelledToken: 7,
+			progress: running,
+			returnedCount: 3,
+			collectorCancelled: true,
+			now: 1750,
+		});
+
+		expect(cancelled).toMatchObject({
+			kind: "terminal",
+			publishCurrent: true,
+			progress: {
+				status: "cancelled",
+				returnedCount: 3,
+				message: "stopped after 3 of 10 samples",
+			},
+			audit: {
+				level: "warn",
+				message: "operations run cancelled pulse samples=3/10",
+			},
+		});
+
+		expect(
+			prepareMonitorOperationRunCompletion({
+				activeToken: 8,
+				requestToken: 7,
+				cancelledToken: 0,
+				progress: running,
+				returnedCount: 3,
+				collectorCancelled: true,
+				now: 1750,
+			}),
+		).toEqual({
+			kind: "stale",
+			publishCurrent: false,
+			notice: {
+				level: "info",
+				message: "operation run superseded pulse",
+			},
+		});
+	});
+
+	test("keeps stale failures as history without replacing current state", () => {
+		const failed = prepareOperationRunFailure({
+			activeToken: 8,
+			requestToken: 7,
+			progress: startOperationRun(monitorPreset, 1000),
+			error: new Error("collector exploded"),
+			now: 1750,
+		});
+
+		expect(failed).toMatchObject({
+			kind: "failure",
+			publishCurrent: false,
+			progress: {
+				presetId: "pulse",
+				status: "failed",
+				message: "collector exploded",
+			},
+			audit: {
+				level: "fail",
+				message: "operations run failed pulse samples=0/10",
+			},
+		});
+	});
+
+	test("owns completion and ephemeral process identity messages", () => {
+		const processPreset = {
+			id: "worker",
+			kind: "process",
+			pid: 42,
+			files: true,
+			savedAtMs: 1000,
+		} as const;
+		const running = startOperationRun(processPreset, 1100);
+
+		expect(
+			prepareOperationRunCompletion({
+				activeToken: 7,
+				requestToken: 7,
+				progress: running,
+				returnedCount: 1,
+				preset: processPreset,
+				now: 1500,
+			}),
+		).toMatchObject({
+			kind: "terminal",
+			progress: { message: "inspected pid=42" },
+		});
+		expect(
+			prepareOperationProcessIdentityNotice(
+				processPreset,
+				{
+					pid: 42,
+					command: "bun worker.ts",
+					started: "1970-01-01T00:00:05.000Z",
+				},
+				6000,
+			),
+		).toEqual({
+			level: "warn",
+			message:
+				"operations run identity=reused worker pid=42 started after the preset was saved",
+		});
+	});
+
+	test("releases only the cancellation token owned by the finishing run", () => {
+		expect(releaseOperationRunCancellation(7, 7)).toBe(0);
+		// A superseded run finishing after the current run was cancelled must not
+		// clear the current run's cancellation request.
+		expect(releaseOperationRunCancellation(7, 8)).toBe(8);
+	});
+
+	test("owns Operations run, cancel, and clamped movement input", () => {
+		expect(
+			prepareOperationRunPanelInput({
+				input: "\r",
+				presets: [monitorPreset],
+				selectedIndex: 0,
+			}),
+		).toEqual({ kind: "run" });
+		expect(
+			prepareOperationRunPanelInput({
+				input: "X",
+				presets: [monitorPreset],
+				selectedIndex: 0,
+			}),
+		).toEqual({ kind: "cancel" });
+		expect(
+			prepareOperationRunPanelInput({
+				input: "j",
+				presets: [monitorPreset, logsPreset],
+				selectedIndex: 99,
+			}),
+		).toEqual({ kind: "selection", selectedIndex: 0 });
 	});
 });

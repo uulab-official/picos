@@ -650,6 +650,26 @@ const delegatedCallbacks = {
 		reason:
 			"delegates interface confirmation eligibility, exact audit result, and notice",
 	},
+	cancelOperationRun: {
+		owner: "src/tui/operationRunPanel.ts",
+		reason:
+			"delegates active-token cancellation eligibility, cancelling progress, and exact notice",
+	},
+	runSelectedOperationPreset: {
+		owner: "src/tui/operationRunPanel.ts + src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates selected preset eligibility, run-token progress and terminal publication, cancellation ownership, stale failure history, and exact audit/status results while App retains collector I/O",
+	},
+	inspectSelectedEndpointProcess: {
+		owner: "src/tui/processPanel.ts + src/tui/endpointPanel.ts",
+		reason:
+			"delegates selected endpoint process guard, atomic sequenced inspection publication, unsupported collector state, and exact notice while App retains collector I/O",
+	},
+	openSelectedProcessFile: {
+		owner: "src/tui/processPanel.ts + src/tui/fileWorkspaceTransitions.ts",
+		reason:
+			"delegates selected process resource resolution, open eligibility, and exact notice while App retains provider I/O",
+	},
 } as const;
 
 const filesDelegatedCallbacks = new Set([
@@ -762,6 +782,13 @@ const remotePanelDelegatedCallbacks = new Set([
 	"openSelectedRemoteKnownHostsEvidenceHandoff",
 ]);
 
+const operationRunDelegatedCallbacks = new Set([
+	"cancelOperationRun",
+	"runSelectedOperationPreset",
+	"inspectSelectedEndpointProcess",
+	"openSelectedProcessFile",
+]);
+
 export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 	(name) => {
 		const reason = wiringReasons[name as keyof typeof wiringReasons];
@@ -784,11 +811,13 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 									? "network-panel-transitions"
 									: remotePanelDelegatedCallbacks.has(name)
 										? "remote-panel-transitions"
-										: name.startsWith("submitEditor") ||
-												name === "undoEditorEdit" ||
-												name === "deleteSelectedEditorLine"
-											? "editor-transitions"
-											: "tool-target-transitions",
+										: operationRunDelegatedCallbacks.has(name)
+											? "operation-run-transitions"
+											: name.startsWith("submitEditor") ||
+													name === "undoEditorEdit" ||
+													name === "deleteSelectedEditorLine"
+												? "editor-transitions"
+												: "tool-target-transitions",
 				reason: delegated.reason,
 			};
 		}
@@ -796,11 +825,11 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 			return {
 				name,
 				owner:
-					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts + src/tui/remotesPanel.ts",
+					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts + src/tui/remotesPanel.ts + src/tui/processPanel.ts + src/tui/operationRunPanel.ts",
 				classification: "inline-decision",
-				slice: "remote-panel-transitions",
+				slice: "operation-run-transitions",
 				reason:
-					"Interface, DNS, and Remotes panel decisions are delegated, but unrelated dispatcher decisions remain inline in App",
+					"Process and Operations panel decisions are delegated, but unrelated dispatcher decisions remain inline in App",
 			};
 		}
 		return reason

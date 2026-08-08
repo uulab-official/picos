@@ -35,6 +35,7 @@ import {
 	createInterfaceConfirmationStatusActivityResult,
 	createInterfaceEvidenceManagementStatusActivityResult,
 	createInterfaceEvidenceOutcomeStatusActivityResult,
+	createOperationRunStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
@@ -162,6 +163,50 @@ import {
 } from "../src/tui/statusActivityQueue";
 
 describe("Status activity queue", () => {
+	test("formats operation terminal history from the shared run transition", () => {
+		expect(
+			createOperationRunStatusActivityResult({
+				presetId: "pulse",
+				kind: "monitor",
+				status: "cancelled",
+				requestedCount: 10,
+				returnedCount: 3,
+				intervalMs: 500,
+				startedAt: 1000,
+				finishedAt: 1750,
+				durationMs: 750,
+				message: "stopped after 3 of 10 samples",
+			}),
+		).toEqual({
+			source: "timeline",
+			action: "operations-run",
+			message: "operations run cancelled pulse samples=3/10",
+			detail: "kind=monitor interval=500 duration=750ms",
+			detailRows: ["stopped after 3 of 10 samples"],
+		});
+
+		expect(
+			createOperationRunStatusActivityResult({
+				presetId: "worker",
+				kind: "process",
+				status: "failed",
+				requestedCount: 1,
+				returnedCount: 0,
+				intervalMs: 0,
+				startedAt: 1000,
+				finishedAt: 1200,
+				durationMs: 200,
+				message: "collector unsupported",
+			}),
+		).toEqual({
+			source: "timeline",
+			action: "operations-run",
+			message: "operations run failed worker samples=0/1",
+			detail: 'kind=process reason="collector unsupported"',
+			detailRows: ["collector unsupported"],
+		});
+	});
+
 	test("summarizes release dialog cleanup and evidence activity in source order", () => {
 		expect(
 			formatStatusActivityQueueRows({

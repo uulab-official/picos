@@ -2,8 +2,9 @@ import {
 	formatOperationPreset,
 	MAX_OPERATION_PRESETS,
 } from "../core/operationPresets";
+import { detectProcessIdReuse, type ProcessDetail } from "../core/processes";
 import type { OperationPreset } from "../core/types";
-import { clampIndex, getVisibleWindow } from "./navigation";
+import { clampIndex, getNextIndex, getVisibleWindow } from "./navigation";
 
 // Run state for the Operations workspace, shaped after the read-only SFTP session
 // diagnostic in `src/core/sftp.ts`: every transition returns a new value rather
@@ -32,6 +33,266 @@ export type OperationRunProgress = {
 	durationMs?: number;
 	message: string;
 };
+
+export type OperationRunNotice = {
+	level: "info" | "warn" | "run" | "ok" | "fail";
+	message: string;
+};
+
+export type OperationRunAudit = {
+	level: "run" | "warn" | "ok" | "fail";
+	message: string;
+};
+
+export type OperationRunStartTransition =
+	| { kind: "notice"; notice: OperationRunNotice }
+	| {
+			kind: "start";
+			token: number;
+			preset: OperationPreset;
+			progress: OperationRunProgress;
+			audit: OperationRunAudit;
+	  };
+
+export type OperationRunCancellationTransition =
+	| { kind: "notice"; notice: OperationRunNotice }
+	| {
+			kind: "cancel";
+			progress: OperationRunProgress;
+			cancelledToken: number;
+			notice: OperationRunNotice;
+	  };
+
+export type OperationRunTerminalTransition =
+	| {
+			kind: "stale";
+			publishCurrent: false;
+			notice: OperationRunNotice;
+	  }
+	| {
+			kind: "terminal" | "failure";
+			publishCurrent: boolean;
+			progress: OperationRunProgress;
+			audit: OperationRunAudit;
+	  };
+
+export type OperationRunPanelInputTransition =
+	| { kind: "run" }
+	| { kind: "cancel" }
+	| { kind: "selection"; selectedIndex: number }
+	| { kind: "no-op" };
+
+export function prepareOperationRunStart(input: {
+	presets: OperationPreset[];
+	selectedIndex: number;
+	currentRun: OperationRunProgress | undefined;
+	currentToken: number;
+	now?: number;
+}): OperationRunStartTransition {
+	if (!canStartOperationRun(input.currentRun)) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "an operation run is already in flight",
+			},
+		};
+	}
+	const preset = selectOperationPreset(input.presets, input.selectedIndex);
+	if (!preset) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no operation preset selected",
+			},
+		};
+	}
+	const progress = startOperationRun(preset, input.now);
+	return {
+		kind: "start",
+		token: input.currentToken + 1,
+		preset,
+		progress,
+		audit: {
+			level: "run",
+			message: formatOperationRunAuditMessage(progress) as string,
+		},
+	};
+}
+
+export function prepareOperationRunCancellation(input: {
+	currentRun: OperationRunProgress | undefined;
+	activeToken: number;
+}): OperationRunCancellationTransition {
+	if (input.currentRun?.status !== "running") {
+		return {
+			kind: "notice",
+			notice: { level: "info", message: "no operation run to cancel" },
+		};
+	}
+	const progress = requestOperationRunCancellation(input.currentRun);
+	if (progress === input.currentRun) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: `${input.currentRun.presetId} has no interruptible sampling window to stop`,
+			},
+		};
+	}
+	return {
+		kind: "cancel",
+		progress,
+		cancelledToken: input.activeToken,
+		notice: {
+			level: "warn",
+			message: `operation run cancellation requested ${input.currentRun.presetId}`,
+		},
+	};
+}
+
+export function prepareOperationRunProgressPublication(input: {
+	activeToken: number;
+	requestToken: number;
+	progress: OperationRunProgress;
+	currentProgress?: OperationRunProgress;
+	returnedCount: number;
+}): { publishCurrent: boolean; progress: OperationRunProgress } {
+	const publishCurrent = input.activeToken === input.requestToken;
+	const base =
+		publishCurrent && input.currentProgress
+			? input.currentProgress
+			: input.progress;
+	return {
+		publishCurrent,
+		progress: advanceOperationRun(base, input.returnedCount),
+	};
+}
+
+export function classifyOperationRunContinuation(input: {
+	activeToken: number;
+	requestToken: number;
+	cancelledToken: number;
+}): "continue" | "cancelled" | "superseded" {
+	if (input.activeToken !== input.requestToken) {
+		return "superseded";
+	}
+	return input.cancelledToken === input.requestToken ? "cancelled" : "continue";
+}
+
+export function prepareMonitorOperationRunCompletion(input: {
+	activeToken: number;
+	requestToken: number;
+	cancelledToken: number;
+	progress: OperationRunProgress;
+	returnedCount: number;
+	collectorCancelled: boolean;
+	now?: number;
+}): OperationRunTerminalTransition {
+	if (input.activeToken !== input.requestToken) {
+		return operationRunSuperseded(input.progress.presetId);
+	}
+	const cancelled =
+		input.collectorCancelled && input.cancelledToken === input.requestToken;
+	const progress = finishMonitorOperationRun(
+		input.progress,
+		input.returnedCount,
+		cancelled,
+		input.now,
+	);
+	return operationRunTerminal(progress, cancelled ? "warn" : "ok");
+}
+
+export function prepareOperationRunCompletion(input: {
+	activeToken: number;
+	requestToken: number;
+	progress: OperationRunProgress;
+	returnedCount: number;
+	preset: OperationPreset;
+	now?: number;
+}): OperationRunTerminalTransition {
+	if (input.activeToken !== input.requestToken) {
+		return operationRunSuperseded(input.progress.presetId);
+	}
+	const progress = finishOperationRun(
+		advanceOperationRun(input.progress, input.returnedCount),
+		"completed",
+		input.preset.kind === "logs"
+			? `applied logs preset level=${input.preset.level}`
+			: input.preset.kind === "process"
+				? `inspected pid=${input.preset.pid}`
+				: `collected ${input.returnedCount} samples`,
+		input.now,
+	);
+	return operationRunTerminal(progress, "ok");
+}
+
+export function prepareOperationProcessIdentityNotice(
+	preset: Extract<OperationPreset, { kind: "process" }>,
+	detail: ProcessDetail | undefined,
+	now = Date.now(),
+): OperationRunNotice | undefined {
+	return detectProcessIdReuse(detail, preset.savedAtMs, now) === "reused"
+		? {
+				level: "warn",
+				message: `operations run identity=reused ${preset.id} pid=${preset.pid} started after the preset was saved`,
+			}
+		: undefined;
+}
+
+export function prepareOperationRunFailure(input: {
+	activeToken: number;
+	requestToken: number;
+	progress: OperationRunProgress;
+	error: unknown;
+	now?: number;
+}): OperationRunTerminalTransition {
+	const message =
+		input.error instanceof Error ? input.error.message : String(input.error);
+	const progress = finishOperationRun(
+		input.progress,
+		"failed",
+		message,
+		input.now,
+	);
+	return {
+		kind: "failure",
+		publishCurrent: input.activeToken === input.requestToken,
+		progress,
+		audit: {
+			level: "fail",
+			message: formatOperationRunAuditMessage(progress) as string,
+		},
+	};
+}
+
+export function releaseOperationRunCancellation(
+	requestToken: number,
+	cancelledToken: number,
+): number {
+	return cancelledToken === requestToken ? 0 : cancelledToken;
+}
+
+export function prepareOperationRunPanelInput(input: {
+	input: string;
+	presets: OperationPreset[];
+	selectedIndex: number;
+}): OperationRunPanelInputTransition {
+	if (input.input === "\r") return { kind: "run" };
+	if (input.input === "X") return { kind: "cancel" };
+	if (input.input === "j" || input.input === "k") {
+		return {
+			kind: "selection",
+			selectedIndex: getNextIndex(
+				input.selectedIndex,
+				input.presets.length,
+				input.input === "j" ? "next" : "previous",
+			),
+		};
+	}
+	return { kind: "no-op" };
+}
 
 export function startOperationRun(
 	preset: OperationPreset,
@@ -188,7 +449,10 @@ function auditStatus(status: OperationRunStatus): string | undefined {
 }
 
 function formatOperationRunControls(progress: OperationRunProgress): string {
-	if (progress.status === "running" || progress.status === "cancelling") {
+	if (progress.status === "cancelling") {
+		return "cancellation requested · finishing current sample";
+	}
+	if (progress.status === "running") {
 		return canCancelOperationRun(progress)
 			? "X cancel run"
 			: "run is a single bounded call · no cancel";
@@ -196,6 +460,34 @@ function formatOperationRunControls(progress: OperationRunProgress): string {
 	return progress.status === "completed"
 		? "enter run again"
 		: "R retry via exact confirmation · enter run again";
+}
+
+function operationRunSuperseded(
+	presetId: string,
+): OperationRunTerminalTransition {
+	return {
+		kind: "stale",
+		publishCurrent: false,
+		notice: {
+			level: "info",
+			message: `operation run superseded ${presetId}`,
+		},
+	};
+}
+
+function operationRunTerminal(
+	progress: OperationRunProgress,
+	level: "warn" | "ok",
+): OperationRunTerminalTransition {
+	return {
+		kind: "terminal",
+		publishCurrent: true,
+		progress,
+		audit: {
+			level,
+			message: formatOperationRunAuditMessage(progress) as string,
+		},
+	};
 }
 
 // Preset descriptions reuse the CLI formatter rather than a second layout, so the

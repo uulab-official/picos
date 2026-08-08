@@ -29,6 +29,10 @@ import type { PortProcessControlPreview } from "./endpointPanel";
 import type { ConsoleEvent } from "./events";
 import { clampIndex } from "./navigation";
 import {
+	formatOperationRunAuditMessage,
+	type OperationRunProgress,
+} from "./operationRunPanel";
+import {
 	prepareTimelineSearchJumpTransition,
 	type TimelineFilter,
 	type TimelineFocusEvidenceTrailPlan,
@@ -767,6 +771,25 @@ export function createStatusActivityResultHistoryFilterPaletteResult(
 		action: "filter-result-history",
 		message: `palette status result filter ${filter} visible=${visible}/${total}`,
 		detail: `result history filter changed to ${filter}`,
+	};
+}
+
+export function createOperationRunStatusActivityResult(
+	progress: OperationRunProgress,
+): StatusActivityResult | undefined {
+	const message = formatOperationRunAuditMessage(progress);
+	if (!message) return undefined;
+	return {
+		source: "timeline",
+		action: "operations-run",
+		message,
+		detail:
+			progress.status === "failed"
+				? `kind=${progress.kind} reason=${JSON.stringify(progress.message)}`
+				: progress.kind === "monitor"
+					? `kind=monitor interval=${progress.intervalMs} duration=${progress.durationMs ?? 0}ms`
+					: `kind=${progress.kind} duration=${progress.durationMs ?? 0}ms`,
+		detailRows: [progress.message],
 	};
 }
 

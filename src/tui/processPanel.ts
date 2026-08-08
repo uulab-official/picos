@@ -1,6 +1,7 @@
 import type {
 	ProcessDetail,
 	ProcessFileSnapshot,
+	ProcessFileSnapshotResult,
 	ProcessOpenFile,
 } from "../core/processes";
 import type { ProcessSummary } from "../core/types";
@@ -9,6 +10,11 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
+import type {
+	EndpointProcessRequest,
+	PortProcessControlFileEvidenceIssue,
+} from "./endpointPanel";
+import { clampIndex, getNextIndex } from "./navigation";
 
 export type ProcessFileRequest = {
 	path: string;
@@ -22,6 +28,211 @@ export type ProcessResourceRequest = {
 	copyText: string;
 	summary: string;
 };
+
+export type ProcessPanelNotice = {
+	level: "info" | "warn" | "ok" | "fail";
+	message: string;
+};
+
+export type ProcessInspectionStartTransition =
+	| { kind: "inspect"; request: EndpointProcessRequest }
+	| { kind: "notice"; notice: ProcessPanelNotice };
+
+export type ProcessInspectionPublication =
+	| { kind: "stale"; notice: ProcessPanelNotice }
+	| {
+			kind: "publish";
+			detail: ProcessDetail;
+			files: ProcessFileSnapshot | undefined;
+			fileEvidenceIssue: PortProcessControlFileEvidenceIssue | undefined;
+			selectedFileIndex: 0;
+			clipboardPreview: false;
+			notice: ProcessPanelNotice;
+	  };
+
+export type SelectedProcessResourceAction =
+	| {
+			kind: "file";
+			request: ProcessFileRequest;
+			notice: ProcessPanelNotice;
+	  }
+	| {
+			kind: "resource";
+			resource: ProcessResourceRequest;
+			notice: ProcessPanelNotice;
+	  }
+	| { kind: "notice"; notice: ProcessPanelNotice };
+
+export type ProcessPanelInputTransition =
+	| SelectedProcessResourceAction
+	| { kind: "copy"; preview: ClipboardPreview; clipboardPreview: true }
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			clipboardPreview: false;
+	  }
+	| { kind: "no-op" };
+
+export function prepareSelectedProcessInspection(input: {
+	screen: string;
+	connectionRequest?: EndpointProcessRequest;
+	portRequest?: EndpointProcessRequest;
+}): ProcessInspectionStartTransition {
+	const request =
+		input.screen === "connections"
+			? input.connectionRequest
+			: input.screen === "ports"
+				? input.portRequest
+				: undefined;
+	return request
+		? { kind: "inspect", request }
+		: {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: "no process PID available for selected endpoint",
+				},
+			};
+}
+
+export function classifyProcessInspectionPublication(input: {
+	currentToken: number;
+	requestToken: number;
+	request: EndpointProcessRequest;
+	detail: ProcessDetail;
+	fileResult: ProcessFileSnapshotResult;
+}): ProcessInspectionPublication {
+	if (input.currentToken !== input.requestToken) {
+		return {
+			kind: "stale",
+			notice: {
+				level: "info",
+				message: `process inspection superseded ${input.request.command}`,
+			},
+		};
+	}
+
+	const { source, snapshot } = input.fileResult;
+	if (!source.supported) {
+		return processInspectionPublication(input, undefined, {
+			status: "unavailable",
+			pid: input.request.pid,
+			reason: "collector unsupported",
+		});
+	}
+	if (source.success === false) {
+		return processInspectionPublication(input, undefined, {
+			status: "error",
+			pid: input.request.pid,
+			reason: `collector failed exit=${source.exitCode ?? "unknown"}`,
+		});
+	}
+	if (!snapshot) {
+		return processInspectionPublication(input, undefined, {
+			status: "unavailable",
+			pid: input.request.pid,
+			reason: "no snapshot returned",
+		});
+	}
+	return processInspectionPublication(input, snapshot);
+}
+
+export function classifyProcessInspectionFailure(input: {
+	currentToken: number;
+	requestToken: number;
+	request: EndpointProcessRequest;
+	error: unknown;
+}): {
+	publishCurrent: boolean;
+	fileEvidenceIssue: PortProcessControlFileEvidenceIssue | undefined;
+	notice: ProcessPanelNotice;
+} {
+	const message =
+		input.error instanceof Error ? input.error.message : String(input.error);
+	const publishCurrent = input.currentToken === input.requestToken;
+	return {
+		publishCurrent,
+		fileEvidenceIssue: publishCurrent
+			? { status: "error", pid: input.request.pid, reason: message }
+			: undefined,
+		notice: { level: "fail", message },
+	};
+}
+
+export function prepareSelectedProcessResourceAction(
+	files: ProcessFileSnapshot | undefined,
+	selectedIndex: number,
+): SelectedProcessResourceAction {
+	const request = getSelectedProcessFileRequest(files, selectedIndex);
+	if (request) {
+		return {
+			kind: "file",
+			request,
+			notice: {
+				level: "ok",
+				message: `process file opened ${request.command}`,
+			},
+		};
+	}
+	const resource = getSelectedProcessResourceRequest(files, selectedIndex);
+	if (resource) {
+		return {
+			kind: "resource",
+			resource,
+			notice: {
+				level: "info",
+				message: `process resource ${resource.summary}`,
+			},
+		};
+	}
+	return {
+		kind: "notice",
+		notice: {
+			level: "warn",
+			message: "selected process file is not openable",
+		},
+	};
+}
+
+export function prepareProcessPanelInput(input: {
+	input: string;
+	files: ProcessFileSnapshot | undefined;
+	selectedIndex: number;
+}): ProcessPanelInputTransition {
+	if (input.input === "\r") {
+		return prepareSelectedProcessResourceAction(
+			input.files,
+			input.selectedIndex,
+		);
+	}
+	if (input.input === "c") {
+		const preview = getSelectedProcessClipboardPreview(
+			input.files,
+			input.selectedIndex,
+		);
+		return preview
+			? { kind: "copy", preview, clipboardPreview: true }
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no process resource selected",
+					},
+				};
+	}
+	if (input.input === "j" || input.input === "k") {
+		return {
+			kind: "selection",
+			selectedIndex: getNextIndex(
+				input.selectedIndex,
+				getProcessFileSelectionCount(input.files),
+				input.input === "j" ? "next" : "previous",
+			),
+			clipboardPreview: false,
+		};
+	}
+	return { kind: "no-op" };
+}
 
 export function formatProcessWorkspaceRows(
 	processes: ProcessSummary[],
@@ -202,7 +413,31 @@ function getSelectedIndex(
 	if (total <= 0) {
 		return undefined;
 	}
-	return Math.min(Math.max(selectedIndex, 0), total - 1);
+	return clampIndex(selectedIndex, total);
+}
+
+function processInspectionPublication(
+	input: { request: EndpointProcessRequest; detail: ProcessDetail },
+	files: ProcessFileSnapshot | undefined,
+	fileEvidenceIssue?: PortProcessControlFileEvidenceIssue,
+): ProcessInspectionPublication {
+	const suffix = fileEvidenceIssue
+		? fileEvidenceIssue.reason === "collector unsupported"
+			? "; file evidence unsupported"
+			: `; file evidence ${fileEvidenceIssue.reason}`
+		: "";
+	return {
+		kind: "publish",
+		detail: input.detail,
+		files,
+		fileEvidenceIssue,
+		selectedFileIndex: 0,
+		clipboardPreview: false,
+		notice: {
+			level: fileEvidenceIssue ? "warn" : "ok",
+			message: `process inspected ${input.request.command}${suffix}`,
+		},
+	};
 }
 
 function isFilesystemPath(path: string): boolean {
