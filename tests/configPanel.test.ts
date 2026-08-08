@@ -32,6 +32,7 @@ import {
 	moveConfigWorkspaceSelection,
 	prepareConfigManagedShelfFocusAction,
 	prepareConfigManagedShelfLandingDismissal,
+	prepareConfigRecoveryDirectPromptTransition,
 	prepareConfigWorkspaceAdjustment,
 	prepareConfigWorkspaceResetOpenTransition,
 	prepareConfigWorkspaceResetSubmission,
@@ -917,6 +918,82 @@ describe("config TUI panel", () => {
 				},
 			},
 		]);
+	});
+
+	test("keeps keyboard, palette, and recovery-palette jump effects and notices distinct", () => {
+		expect(
+			createConfigManagedShelfJumpTransition("network", {
+				origin: "keyboard",
+				counts: { network: 4 },
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "screen", screen: "network" },
+				{ kind: "focus-area", focusArea: "workspaces" },
+				{ kind: "shelf-landing", target: "network" },
+				{ kind: "interface-selection", index: 0 },
+			],
+			notice: {
+				level: "info",
+				message: "config shelf jump network -> Network focus=interfaceList",
+			},
+		});
+		expect(
+			createConfigManagedShelfJumpTransition("connections", {
+				origin: "palette",
+				counts: { connections: 3 },
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "screen", screen: "connections" },
+				{ kind: "focus-area", focusArea: "workspaces" },
+				{ kind: "shelf-landing", target: "connections" },
+				{ kind: "connection-selection", index: 0 },
+			],
+			notice: {
+				level: "info",
+				message:
+					"config shelf palette connections -> Connections focus=connectionFilters",
+			},
+		});
+		expect(
+			createConfigManagedShelfJumpTransition("tools", {
+				origin: "recovery-palette",
+				counts: { tools: 2 },
+			}),
+		).toEqual({
+			kind: "apply",
+			effects: [
+				{ kind: "screen", screen: "tools" },
+				{ kind: "focus-area", focusArea: "workspaces" },
+				{ kind: "shelf-landing", target: "tools" },
+				{ kind: "tool-target-selection", index: 0 },
+				{ kind: "tool-detail-view", view: "summary" },
+			],
+			notice: {
+				level: "info",
+				message:
+					"config recovery palette tools -> Tools focus=toolTargetPresets",
+			},
+		});
+	});
+
+	test("creates recovery prompt effects and notices only for a selected empty shelf", () => {
+		expect(
+			prepareConfigRecoveryDirectPromptTransition("routes", { routes: 0 }),
+		).toEqual({
+			kind: "apply",
+			effects: [{ kind: "command-line", prompt: "route-filter" }],
+			notice: {
+				level: "info",
+				message: "config recovery prompt routes route-filter",
+			},
+		});
+		expect(prepareConfigRecoveryDirectPromptTransition(undefined, {})).toEqual({
+			kind: "no-op",
+		});
 	});
 
 	test("creates complete focus effects for every managed-shelf family", () => {

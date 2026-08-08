@@ -135,7 +135,6 @@ const callbackNames = [
 	"selectNextRemoteKnownHostsEvidenceHandoff",
 	"openSelectedRemoteKnownHostsEvidenceHandoff",
 	"openSelectedStatusActivityResultTimelineJump",
-	"applyConfigManagedShelfStateEffects",
 	"runAction",
 	"openCleanupHandoffPrompt",
 	"dismissCleanupHandoff",
@@ -163,7 +162,6 @@ const wiringReasons = {
 	log: "React setter/event publication",
 	beginCommand: "React setter/event publication",
 	endCommand: "React setter/event publication",
-	applyConfigManagedShelfStateEffects: "React setter/event publication",
 	refreshFiles: "direct I/O invocation",
 	refresh: "direct I/O invocation",
 } as const;

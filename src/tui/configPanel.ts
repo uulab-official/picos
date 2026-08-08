@@ -130,7 +130,9 @@ export type ConfigManagedShelfStateEffect =
 				| "route-filter"
 				| "endpoint-filter:connections"
 				| "endpoint-filter:ports"
-				| "log-search";
+				| "log-search"
+				| "tool-target-preset"
+				| "remote-profile";
 	  }
 	| { kind: "interface-selection"; index: number }
 	| { kind: "route-detail-view"; view: "table" }
@@ -184,6 +186,16 @@ export type ConfigManagedShelfFocusActionInput = {
 export type ConfigManagedShelfJumpCounts = Partial<
 	Record<ConfigManagedShelfTarget, number>
 >;
+
+export type ConfigManagedShelfJumpOrigin =
+	| "keyboard"
+	| "palette"
+	| "recovery-palette";
+
+export type ConfigManagedShelfJumpInput = {
+	origin?: ConfigManagedShelfJumpOrigin;
+	counts?: ConfigManagedShelfJumpCounts;
+};
 
 export type ConfigManagedShelfLandingDismissTransition =
 	| { kind: "clear"; notice: ConfigWorkspaceNotice }
@@ -283,6 +295,14 @@ export type ConfigRecoveryDirectPromptPlan = ConfigManagedShelfHandoff & {
 	reason: string;
 	rows: string[];
 };
+
+export type ConfigRecoveryDirectPromptTransition =
+	| { kind: "no-op" }
+	| {
+			kind: "apply";
+			effects: ConfigManagedShelfStateEffect[];
+			notice: ConfigWorkspaceNotice;
+	  };
 
 type ConfigManagedShelfCoverageKey =
 	| "routeFilters"
@@ -1049,9 +1069,11 @@ export function createConfigManagedShelfFocusActionPlan(
 
 export function createConfigManagedShelfJumpTransition(
 	target: ConfigManagedShelfTarget,
-	counts: ConfigManagedShelfJumpCounts = {},
+	input: ConfigManagedShelfJumpInput = {},
 ): ConfigManagedShelfApplyTransition {
 	const focus = getConfigManagedShelfFocusPreset(target);
+	const origin = input.origin ?? "keyboard";
+	const counts = input.counts ?? {};
 	const index = clampIndex(0, Math.max(0, Math.floor(counts[target] ?? 0)));
 	const effects: ConfigManagedShelfStateEffect[] = [
 		{ kind: "screen", screen: focus.workspace },
@@ -1082,7 +1104,7 @@ export function createConfigManagedShelfJumpTransition(
 		effects,
 		notice: {
 			level: "info",
-			message: `config shelf jump ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
+			message: `${getConfigManagedShelfJumpNoticePrefix(origin)} ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
 		},
 	};
 }
@@ -1329,6 +1351,27 @@ export function createConfigRecoveryDirectPromptPlan(
 			`prompt=${prompt} reason=${reason}`,
 			"next=type filter and press enter",
 		],
+	};
+}
+
+export function prepareConfigRecoveryDirectPromptTransition(
+	target: ConfigManagedShelfTarget | undefined,
+	counts: ConfigRecoveryShelfCounts,
+): ConfigRecoveryDirectPromptTransition {
+	if (!target) {
+		return { kind: "no-op" };
+	}
+	const plan = createConfigRecoveryDirectPromptPlan(target, counts);
+	if (!plan) {
+		return { kind: "no-op" };
+	}
+	return {
+		kind: "apply",
+		effects: [{ kind: "command-line", prompt: plan.prompt }],
+		notice: {
+			level: "info",
+			message: `config recovery prompt ${plan.target} ${plan.prompt}`,
+		},
 	};
 }
 
@@ -1701,6 +1744,18 @@ function getConfigRecoveryDirectPrompt(
 		return "remote-profile";
 	}
 	return undefined;
+}
+
+function getConfigManagedShelfJumpNoticePrefix(
+	origin: ConfigManagedShelfJumpOrigin,
+): string {
+	if (origin === "palette") {
+		return "config shelf palette";
+	}
+	if (origin === "recovery-palette") {
+		return "config recovery palette";
+	}
+	return "config shelf jump";
 }
 
 function getConfigManagedShelfPromptScope(
