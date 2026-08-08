@@ -27,6 +27,7 @@ import {
 	nextTimelineFilter,
 	nextTimelineSearchPreset,
 	prepareTimelinePanelInput,
+	prepareTimelineSearchJumpTransition,
 	prepareTimelineSearchTransition,
 	repairTimelineSelection,
 	resolveSelectedTimelineEvent,
@@ -1068,5 +1069,37 @@ describe("timeline TUI panel formatting", () => {
 			},
 		});
 		expect(createTimelineSearchCleanupPreview([])).toBeUndefined();
+	});
+
+	test("owns evidence search jumps and selects the newest matching result", () => {
+		expect(
+			prepareTimelineSearchJumpTransition(events, {
+				filter: "audit",
+				query: "control",
+				message: "process control evidence recovered search process.log",
+			}),
+		).toEqual({
+			filter: "audit",
+			query: "control",
+			matches: 1,
+			selectedIndex: 0,
+			notice: {
+				level: "info",
+				message:
+					"process control evidence recovered search process.log matches 1",
+			},
+		});
+		expect(
+			prepareTimelineSearchJumpTransition(events, {
+				filter: "audit",
+				query: "missing",
+				message:
+					"interface confirmation evidence recovered search interface.log",
+			}),
+		).toMatchObject({
+			matches: 0,
+			selectedIndex: 0,
+			notice: { level: "warn" },
+		});
 	});
 });

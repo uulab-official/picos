@@ -12,6 +12,7 @@ import {
 	createConfigCleanupPreview,
 	submitConfigCleanupConfirmation,
 } from "../core/configCleanup";
+import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
 import {
 	normalizeToolTargetPresets,
 	type ToolTargetPresetPreference,
@@ -22,7 +23,7 @@ import {
 	type ToolId,
 	type ToolResult,
 } from "../core/tools";
-import type { NetworkSummary } from "../core/types";
+import type { NetworkSummary, SupportedPlatform } from "../core/types";
 import {
 	basenamePathLike,
 	dirnamePathLike,
@@ -35,6 +36,7 @@ import {
 	createClipboardPreview,
 } from "./clipboardPreview";
 import { clampIndex } from "./navigation";
+import { classifyRequestPublication } from "./requestSequence";
 
 export type ToolRunActionId =
 	| "tools.dns"
@@ -386,6 +388,58 @@ export type ToolHistoryArchivePruneResult = {
 	removedPaths: string[];
 	message: string;
 };
+
+export type ToolHistoryEvidenceNotice = {
+	level: "ok" | "info" | "warn" | "fail";
+	message: string;
+};
+
+export type ToolHistoryExportIndexRefreshTransition =
+	| { status: "stale"; notice?: ToolHistoryEvidenceNotice }
+	| { status: "failure"; notice: ToolHistoryEvidenceNotice }
+	| {
+			status: "success";
+			index: ToolHistoryExportIndex;
+			selectedIndex: number;
+			notice?: ToolHistoryEvidenceNotice;
+	  };
+
+export type PrepareToolHistoryExportTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| {
+			kind: "export";
+			selectedIndex: number;
+			plan: ToolHistoryExportPlan;
+			notice: ToolHistoryEvidenceNotice;
+	  };
+
+export type SelectedToolHistoryExportOpenTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| {
+			kind: "open";
+			selectedIndex: number;
+			item: ToolHistoryExportIndexItem;
+			plan: FileOpenPlan;
+			notice: ToolHistoryEvidenceNotice;
+	  };
+
+export type SelectedToolHistoryExportArchiveTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| {
+			kind: "confirmation";
+			selectedIndex: number;
+			item: ToolHistoryExportIndexItem;
+			plan: ToolHistoryExportArchivePlan;
+			notice: ToolHistoryEvidenceNotice;
+	  };
+
+export type ToolHistoryExportArchiveConfirmationTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| { kind: "execute"; plan: ToolHistoryExportArchivePlan };
+
+export type ToolHistoryArchiveRetentionConfirmationTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| { kind: "execute"; plan: ToolHistoryArchiveRetentionPlan };
 
 export type FilteredToolHistoryItem = {
 	index: number;
@@ -2204,7 +2258,7 @@ export function createToolHistoryCompareExportPlan(
 	if (!item) {
 		return undefined;
 	}
-	const boundedIndex = Math.min(Math.max(selectedIndex, 0), history.length - 1);
+	const boundedIndex = clampIndex(selectedIndex, history.length);
 	const previous = findPreviousMatchingToolHistoryItem(
 		history,
 		boundedIndex,
@@ -2282,6 +2336,209 @@ async function readToolHistoryExportIndexFromDirectory(
 		.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))
 		.slice(0, limit);
 	return { baseDir: toolsDir, items };
+}
+
+export function classifyToolHistoryExportIndexRefresh(input: {
+	target: "active" | "archive";
+	currentRequestToken: number;
+	requestToken: number;
+	selectedIndex: number;
+	filter?: ToolHistoryEvidenceFilter;
+	query?: string;
+	announce?: boolean;
+	outcome:
+		| { status: "success"; index: ToolHistoryExportIndex }
+		| { status: "failure"; error: unknown };
+}): ToolHistoryExportIndexRefreshTransition {
+	const prefix = input.target === "active" ? "tools evidence" : "tools archive";
+	if (input.outcome.status === "failure") {
+		const notice = {
+			level: "fail",
+			message: `${prefix} index failed ${formatToolHistoryEvidenceError(input.outcome.error)}`,
+		} as const;
+		return classifyRequestPublication(
+			input.currentRequestToken,
+			input.requestToken,
+		) === "stale"
+			? { status: "stale", notice }
+			: { status: "failure", notice };
+	}
+	if (
+		classifyRequestPublication(
+			input.currentRequestToken,
+			input.requestToken,
+		) === "stale"
+	) {
+		return { status: "stale" };
+	}
+	const filtered = filterToolHistoryExportIndex(
+		input.outcome.index,
+		input.filter,
+		input.query,
+	);
+	return {
+		status: "success",
+		index: input.outcome.index,
+		selectedIndex: clampIndex(input.selectedIndex, filtered.items.length),
+		...(input.announce
+			? {
+					notice: {
+						level: "info" as const,
+						message:
+							input.target === "active"
+								? `tools evidence indexed ${input.outcome.index.items.length}`
+								: `tools archive indexed ${input.outcome.index.items.length}`,
+					},
+				}
+			: {}),
+	};
+}
+
+export function prepareToolHistoryExport(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	scope: ToolHistoryExportScope,
+	options: { baseDir: string; generatedAt?: Date },
+): PrepareToolHistoryExportTransition {
+	const normalizedIndex = clampIndex(selectedIndex, history.length);
+	const plan =
+		scope === "compare"
+			? createToolHistoryCompareExportPlan(history, normalizedIndex, options)
+			: createToolHistoryExportPlan(history, normalizedIndex, {
+					...options,
+					scope,
+				});
+	if (!plan) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no tool history to export" },
+		};
+	}
+	return {
+		kind: "export",
+		selectedIndex: normalizedIndex,
+		plan,
+		notice: {
+			level: "ok",
+			message: `tools export ${scope} prepared ${plan.itemCount} run(s)`,
+		},
+	};
+}
+
+export function prepareSelectedToolHistoryExportOpen(input: {
+	index: ToolHistoryExportIndex;
+	selectedIndex: number;
+	filter?: ToolHistoryEvidenceFilter;
+	query?: string;
+	platform: SupportedPlatform;
+}): SelectedToolHistoryExportOpenTransition {
+	const filtered = filterToolHistoryExportIndex(
+		input.index,
+		input.filter,
+		input.query,
+	);
+	const selectedIndex = clampIndex(input.selectedIndex, filtered.items.length);
+	const item = filtered.items[selectedIndex];
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no tools evidence selected" },
+		};
+	}
+	return {
+		kind: "open",
+		selectedIndex,
+		item,
+		plan: buildFileOpenPlan({
+			baseDir: getToolHistoryExportRoot(input.index.baseDir),
+			label: `tools export ${item.scope} ${item.generatedAt}`,
+			path: item.path,
+			platform: input.platform,
+			source: "tools-export",
+		}),
+		notice: {
+			level: "info",
+			message: `tools evidence open confirmation opened for ${item.fileName}`,
+		},
+	};
+}
+
+export function prepareSelectedToolHistoryExportArchive(input: {
+	baseDir: string;
+	index: ToolHistoryExportIndex;
+	selectedIndex: number;
+	filter?: ToolHistoryEvidenceFilter;
+	query?: string;
+}): SelectedToolHistoryExportArchiveTransition {
+	const filtered = filterToolHistoryExportIndex(
+		input.index,
+		input.filter,
+		input.query,
+	);
+	const selectedIndex = clampIndex(input.selectedIndex, filtered.items.length);
+	const item = filtered.items[selectedIndex];
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no tools evidence selected" },
+		};
+	}
+	return {
+		kind: "confirmation",
+		selectedIndex,
+		item,
+		plan: createToolHistoryExportArchivePlan(input.baseDir, item.path),
+		notice: {
+			level: "info",
+			message: `tools export archive confirmation opened for ${item.fileName}`,
+		},
+	};
+}
+
+export function prepareToolHistoryExportArchiveConfirmation(
+	preview: ToolHistoryExportArchivePlan | undefined,
+	confirmation: string,
+): ToolHistoryExportArchiveConfirmationTransition {
+	if (!preview) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "tools export archive missing preview",
+			},
+		};
+	}
+	return {
+		kind: "execute",
+		plan: createToolHistoryExportArchivePlan(
+			getToolHistoryExportRoot(dirnamePathLike(preview.sourcePath)),
+			preview.sourcePath,
+			{ confirmation },
+		),
+	};
+}
+
+export function prepareToolHistoryArchiveRetentionConfirmation(
+	preview: ToolHistoryArchiveRetentionPlan | undefined,
+	index: ToolHistoryExportIndex,
+	confirmation: string,
+): ToolHistoryArchiveRetentionConfirmationTransition {
+	if (!preview) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "tools archive retention missing preview",
+			},
+		};
+	}
+	return {
+		kind: "execute",
+		plan: createToolHistoryArchiveRetentionPlan(index, {
+			maxItems: preview.maxItems,
+			confirmation,
+		}),
+	};
 }
 
 export function createToolHistoryExportArchivePlan(
@@ -2456,9 +2713,7 @@ export function getSelectedToolHistoryExport(
 	if (filtered.items.length === 0) {
 		return undefined;
 	}
-	return filtered.items[
-		Math.min(Math.max(selectedIndex, 0), filtered.items.length - 1)
-	];
+	return filtered.items[clampIndex(selectedIndex, filtered.items.length)];
 }
 
 export function filterToolHistoryExportIndex(
@@ -2667,6 +2922,16 @@ function toToolHistoryExportScope(
 	return value === "selected" || value === "all" || value === "compare"
 		? value
 		: undefined;
+}
+
+function getToolHistoryExportRoot(baseDir: string): string {
+	return basenamePathLike(baseDir) === "archive"
+		? dirnamePathLike(dirnamePathLike(baseDir))
+		: dirnamePathLike(baseDir);
+}
+
+function formatToolHistoryEvidenceError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }
 
 function toNonNegativeInt(value: string | undefined): number {

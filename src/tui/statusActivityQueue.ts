@@ -32,8 +32,10 @@ import type {
 	TimelineFocusEvidenceTrailPlan,
 } from "./timelinePanel";
 import {
+	createToolHistoryExportArchivePlan,
 	filterToolHistoryExportIndex,
 	type ToolHistoryEvidenceFilter,
+	type ToolHistoryExportArchivePlan,
 	type ToolHistoryExportIndex,
 	type ToolHistoryExportIndexItem,
 } from "./toolHistory";
@@ -148,6 +150,40 @@ export type StatusActivityToolsEvidenceSearchRecovery = {
 	items: ToolHistoryExportIndexItem[];
 };
 
+export type StatusActivityToolsEvidenceMatchOpenTransition =
+	| {
+			kind: "notice";
+			notice: { level: "warn"; message: string };
+			auditMessage: string;
+			result: StatusActivityResult;
+	  }
+	| {
+			kind: "open";
+			selectedIndex: number;
+			item: ToolHistoryExportIndexItem;
+			plan: FileOpenPlan;
+			notice: { level: "info"; message: string };
+			auditMessage: string;
+			result: StatusActivityResult;
+	  };
+
+export type StatusActivityToolsEvidenceMatchArchiveTransition =
+	| {
+			kind: "notice";
+			notice: { level: "warn"; message: string };
+			auditMessage: string;
+			result: StatusActivityResult;
+	  }
+	| {
+			kind: "confirmation";
+			selectedIndex: number;
+			item: ToolHistoryExportIndexItem;
+			plan: ToolHistoryExportArchivePlan;
+			notice: { level: "info"; message: string };
+			auditMessage: string;
+			result: StatusActivityResult;
+	  };
+
 export type InterfaceEvidenceOutcomeStatus = "archived" | "pruned" | "blocked";
 
 export type InterfaceEvidenceOutcomeInput = {
@@ -198,6 +234,51 @@ export type StatusActivityCopyIntentEvidenceFocusPlan = {
 };
 
 export type TimelineEvidenceTrailSourceFilter = "all" | "evidence" | "palette";
+
+export type RecoveredStatusEvidenceIndex = {
+	lastStatusActivityCopyIntentAuditExport?: ConsoleAuditExportPlan;
+	timelineEvidenceTrailAuditExports: ConsoleAuditExportPlan[];
+	latestTimelineEvidenceTrailAuditExport?: ConsoleAuditExportPlan;
+	processControlAuditExports: ConsoleAuditExportPlan[];
+	remoteKnownHostsSelectionAuditExports: ConsoleAuditExportPlan[];
+	interfaceConfirmationAuditExports: ConsoleAuditExportPlan[];
+	selectedTimelineIndex: number;
+	selectedProcessIndex: number;
+	selectedRemoteKnownHostsIndex: number;
+	selectedInterfaceIndex: number;
+};
+
+export type RecoveredEvidenceFamily =
+	| "timeline"
+	| "process"
+	| "remote-known-hosts"
+	| "interface";
+
+export type RecoveredEvidenceSelectionTransition =
+	| {
+			kind: "notice";
+			selectedIndex: number;
+			notice: { level: "warn"; message: string };
+	  }
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			item: ConsoleAuditExportPlan;
+			total: number;
+			notice: { level: "info"; message: string };
+	  };
+
+export type StatusActivityResultTimelineHandoffReplayTransition =
+	| {
+			kind: "notice";
+			notice: { level: "warn"; message: string };
+	  }
+	| {
+			kind: "replay";
+			jump: StatusActivityCopyIntentTimelineSearch;
+			intent?: StatusActivityCopyIntentRecord;
+			notice: { level: "info"; message: string };
+	  };
 
 type StatusActivityQueueSource = {
 	key: StatusActivitySource;
@@ -2021,6 +2102,104 @@ export function moveStatusActivityToolsEvidenceSearchMatchSelection(
 	return (current + delta + recovery.items.length) % recovery.items.length;
 }
 
+export function prepareStatusActivityToolsEvidenceMatchOpen(
+	recovery: StatusActivityToolsEvidenceSearchRecovery | undefined,
+	selectedIndex: number,
+	options: { baseDir: string; platform: SupportedPlatform },
+): StatusActivityToolsEvidenceMatchOpenTransition {
+	const resolvedIndex = clampIndex(selectedIndex, recovery?.items.length ?? 0);
+	const item = recovery?.items[resolvedIndex];
+	const result = createStatusActivityToolsEvidenceMatchResult(
+		"open",
+		recovery,
+		resolvedIndex,
+	);
+	const auditMessage = formatStatusActivityToolsEvidenceMatchAuditMessage(
+		"open",
+		recovery,
+		resolvedIndex,
+	);
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no recovered tools evidence match selected",
+			},
+			auditMessage,
+			result,
+		};
+	}
+	return {
+		kind: "open",
+		selectedIndex: resolvedIndex,
+		item,
+		plan: buildFileOpenPlan({
+			baseDir: options.baseDir,
+			source: "tools-export",
+			label: `${recovery?.target === "archive" ? "archived " : ""}tools export ${item.scope} ${item.generatedAt}`,
+			path: item.path,
+			platform: options.platform,
+		}),
+		notice: {
+			level: "info",
+			message: `recovered tools evidence open confirmation opened for ${item.fileName}`,
+		},
+		auditMessage,
+		result,
+	};
+}
+
+export function prepareStatusActivityToolsEvidenceMatchArchive(
+	recovery: StatusActivityToolsEvidenceSearchRecovery | undefined,
+	selectedIndex: number,
+	options: { baseDir: string },
+): StatusActivityToolsEvidenceMatchArchiveTransition {
+	const resolvedIndex = clampIndex(selectedIndex, recovery?.items.length ?? 0);
+	const item = recovery?.items[resolvedIndex];
+	const unavailableReason =
+		recovery?.target === "archive"
+			? "archived Tools evidence matches are already archived"
+			: undefined;
+	const result = createStatusActivityToolsEvidenceMatchResult(
+		"archive",
+		recovery,
+		resolvedIndex,
+		{ unavailableReason },
+	);
+	const auditMessage = formatStatusActivityToolsEvidenceMatchAuditMessage(
+		"archive",
+		recovery,
+		resolvedIndex,
+		{ unavailableReason },
+	);
+	if (!item || unavailableReason) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: unavailableReason
+					? "archived tools evidence matches are already archived"
+					: "no recovered tools evidence match selected",
+			},
+			auditMessage,
+			result,
+		};
+	}
+	return {
+		kind: "confirmation",
+		selectedIndex: resolvedIndex,
+		item,
+		plan: createToolHistoryExportArchivePlan(options.baseDir, item.path),
+		notice: {
+			level: "info",
+			message: `recovered tools evidence archive confirmation opened for ${item.fileName}`,
+		},
+		auditMessage,
+		result,
+	};
+}
+
 function parseToolsEvidenceSearchAuditQuery(
 	query: string,
 ): { target: "active" | "archive"; query: string } | undefined {
@@ -2263,6 +2442,65 @@ export function getSelectedTimelineEvidenceTrailAuditExport(
 		return fallback;
 	}
 	return exports[getNormalizedSelectionIndex(exports.length, selectedIndex)];
+}
+
+export function prepareRecoveredEvidenceSelectionTransition(input: {
+	family: RecoveredEvidenceFamily;
+	exports: ConsoleAuditExportPlan[];
+	selectedIndex: number;
+	direction: "next" | "previous";
+}): RecoveredEvidenceSelectionTransition {
+	const selectedIndex = clampIndex(input.selectedIndex, input.exports.length);
+	const labels: Record<
+		RecoveredEvidenceFamily,
+		{ selection: string; unavailable: string }
+	> = {
+		timeline: {
+			selection: "timeline evidence trail",
+			unavailable: "no alternate timeline evidence trail exports",
+		},
+		process: {
+			selection: "process control evidence",
+			unavailable: "no alternate process control evidence exports",
+		},
+		"remote-known-hosts": {
+			selection: "remote known_hosts evidence",
+			unavailable: "no alternate remote known_hosts selection evidence exports",
+		},
+		interface: {
+			selection: "interface confirmation evidence",
+			unavailable: "no alternate interface confirmation evidence exports",
+		},
+	};
+	const label = labels[input.family];
+	if (input.exports.length <= 1) {
+		return {
+			kind: "notice",
+			selectedIndex,
+			notice: { level: "warn", message: label.unavailable },
+		};
+	}
+	const offset = input.direction === "next" ? 1 : -1;
+	const nextIndex =
+		(selectedIndex + offset + input.exports.length) % input.exports.length;
+	const item = input.exports[nextIndex];
+	if (!item) {
+		return {
+			kind: "notice",
+			selectedIndex,
+			notice: { level: "warn", message: label.unavailable },
+		};
+	}
+	return {
+		kind: "selection",
+		selectedIndex: nextIndex,
+		item,
+		total: input.exports.length,
+		notice: {
+			level: "info",
+			message: `${label.selection} selected ${nextIndex + 1}/${input.exports.length} ${basename(item.path)}`,
+		},
+	};
 }
 
 export function moveTimelineEvidenceTrailSelection(
@@ -2965,6 +3203,42 @@ export function createStatusActivityResultTimelineSearchReplayWarning(
 			? " fix=P audit jump/new result"
 			: "";
 	return `no status activity result audit jump${recoveryHint}`;
+}
+
+export function prepareStatusActivityResultTimelineHandoffReplay(input: {
+	history: StatusActivityResult[];
+	selectedIndex: number;
+	latestAuditJumpIntent?: StatusActivityCopyIntentRecord;
+	selectedAuditJumpIntent?: StatusActivityCopyIntentRecord;
+}): StatusActivityResultTimelineHandoffReplayTransition {
+	const jump = createStatusActivityResultTimelineSearchReplay(
+		input.history,
+		input.selectedIndex,
+		input.latestAuditJumpIntent,
+		input.selectedAuditJumpIntent,
+	);
+	if (!jump) {
+		const warning = createStatusActivityResultTimelineSearchReplayWarning(
+			input.history,
+			input.selectedIndex,
+			input.latestAuditJumpIntent,
+			input.selectedAuditJumpIntent,
+		);
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message:
+					formatStatusActivityResultAuditJumpReplayWarningAuditMessage(warning),
+			},
+		};
+	}
+	return {
+		kind: "replay",
+		jump,
+		intent: createStatusActivityResultTimelineSearchIntent(jump),
+		notice: { level: "info", message: jump.message },
+	};
 }
 
 export function formatStatusActivityResultAuditJumpReplayWarningAuditMessage(
@@ -4467,6 +4741,56 @@ export function getLatestInterfaceConfirmationAuditExport(
 	return getInterfaceConfirmationAuditExports(index)[0];
 }
 
+export function createRecoveredStatusEvidenceIndex(
+	index: ConsoleAuditExportIndex,
+	options: {
+		timelineSourceFilter: TimelineEvidenceTrailSourceFilter;
+		selectedTimelineIndex: number;
+		selectedProcessIndex: number;
+		selectedRemoteKnownHostsIndex: number;
+		selectedInterfaceIndex: number;
+	},
+): RecoveredStatusEvidenceIndex {
+	const timelineEvidenceTrailAuditExports =
+		getTimelineEvidenceTrailAuditExports(index);
+	const filteredTimelineEvidenceTrailAuditExports =
+		filterTimelineEvidenceTrailAuditExports(
+			timelineEvidenceTrailAuditExports,
+			options.timelineSourceFilter,
+		);
+	const processControlAuditExports = getProcessControlAuditExports(index);
+	const remoteKnownHostsSelectionAuditExports =
+		getRemoteKnownHostsSelectionHistoryAuditExports(index);
+	const interfaceConfirmationAuditExports =
+		getInterfaceConfirmationAuditExports(index);
+	return {
+		lastStatusActivityCopyIntentAuditExport:
+			getLatestStatusActivityCopyIntentAuditExport(index),
+		timelineEvidenceTrailAuditExports,
+		latestTimelineEvidenceTrailAuditExport:
+			getLatestTimelineEvidenceTrailAuditExport(index),
+		processControlAuditExports,
+		remoteKnownHostsSelectionAuditExports,
+		interfaceConfirmationAuditExports,
+		selectedTimelineIndex: clampIndex(
+			options.selectedTimelineIndex,
+			filteredTimelineEvidenceTrailAuditExports.length,
+		),
+		selectedProcessIndex: clampIndex(
+			options.selectedProcessIndex,
+			processControlAuditExports.length,
+		),
+		selectedRemoteKnownHostsIndex: clampIndex(
+			options.selectedRemoteKnownHostsIndex,
+			remoteKnownHostsSelectionAuditExports.length,
+		),
+		selectedInterfaceIndex: clampIndex(
+			options.selectedInterfaceIndex,
+			interfaceConfirmationAuditExports.length,
+		),
+	};
+}
+
 export function getProcessControlAuditExports(
 	index: ConsoleAuditExportIndex,
 ): ConsoleAuditExportPlan[] {
@@ -4587,10 +4911,7 @@ function getNormalizedSelectionIndex(
 	length: number,
 	selectedIndex: number,
 ): number {
-	if (length <= 0) {
-		return 0;
-	}
-	return Math.min(Math.max(0, Math.floor(selectedIndex)), length - 1);
+	return clampIndex(Math.floor(selectedIndex), length);
 }
 
 export function formatStatusActivityCopyIntentEvidenceFocusAuditMessage(

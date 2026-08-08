@@ -1,7 +1,12 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { AuditLogEvent } from "../core/auditLog";
-import type { FileOpenOrigin } from "../core/fileOpen";
+import {
+	buildFileOpenPlan,
+	type FileOpenOrigin,
+	type FileOpenPlan,
+} from "../core/fileOpen";
+import type { SupportedPlatform } from "../core/types";
 import {
 	basenamePathLike,
 	dirnamePathLike,
@@ -10,7 +15,8 @@ import {
 	samePathLike,
 } from "../utils/pathStyle";
 import type { LogProfile } from "./logPanel";
-import type { Screen } from "./navigation";
+import { clampIndex, type Screen } from "./navigation";
+import { classifyRequestPublication } from "./requestSequence";
 import type { ToolRunActionId } from "./toolHistory";
 
 export type CleanupShelfId =
@@ -138,6 +144,45 @@ export type CleanupHandoffHistoryExportArchiveResult = {
 	archivedPath: string;
 	message: string;
 };
+
+export type CleanupExportNotice = {
+	level: "ok" | "info" | "warn" | "fail";
+	message: string;
+};
+
+export type CleanupExportIndexRefreshTransition =
+	| { status: "stale"; notice?: CleanupExportNotice }
+	| { status: "failure"; notice: CleanupExportNotice }
+	| {
+			status: "success";
+			index: CleanupHandoffHistoryExportIndex;
+			selectedIndex: number;
+			notice?: CleanupExportNotice;
+	  };
+
+export type SelectedCleanupExportOpenTransition =
+	| { kind: "notice"; notice: CleanupExportNotice }
+	| {
+			kind: "open";
+			selectedIndex: number;
+			item: CleanupHandoffHistoryExportIndexItem;
+			plan: FileOpenPlan;
+			notice: CleanupExportNotice;
+	  };
+
+export type SelectedCleanupExportArchiveTransition =
+	| { kind: "notice"; notice: CleanupExportNotice }
+	| {
+			kind: "confirmation";
+			selectedIndex: number;
+			item: CleanupHandoffHistoryExportIndexItem;
+			plan: CleanupHandoffHistoryExportArchivePlan;
+			notice: CleanupExportNotice;
+	  };
+
+export type CleanupExportArchiveConfirmationTransition =
+	| { kind: "notice"; notice: CleanupExportNotice }
+	| { kind: "execute"; plan: CleanupHandoffHistoryExportArchivePlan };
 
 export type CleanupShelfIndexInput = {
 	connectionFilterPresets?: string[];
@@ -706,6 +751,149 @@ export async function readCleanupHandoffHistoryExportArchiveIndex(
 	return { baseDir, items };
 }
 
+export function classifyCleanupExportIndexRefresh(input: {
+	target: "active" | "archive";
+	currentRequestToken: number;
+	requestToken: number;
+	selectedIndex: number;
+	announce?: boolean;
+	outcome:
+		| { status: "success"; index: CleanupHandoffHistoryExportIndex }
+		| { status: "failure"; error: unknown };
+}): CleanupExportIndexRefreshTransition {
+	const prefix =
+		input.target === "active" ? "cleanup export" : "cleanup archive";
+	if (input.outcome.status === "failure") {
+		const notice = {
+			level: "fail",
+			message: `${prefix} index failed ${formatCleanupExportError(input.outcome.error)}`,
+		} as const;
+		return classifyRequestPublication(
+			input.currentRequestToken,
+			input.requestToken,
+		) === "stale"
+			? { status: "stale", notice }
+			: { status: "failure", notice };
+	}
+	if (
+		classifyRequestPublication(
+			input.currentRequestToken,
+			input.requestToken,
+		) === "stale"
+	) {
+		return { status: "stale" };
+	}
+
+	return {
+		status: "success",
+		index: input.outcome.index,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			input.outcome.index.items.length,
+		),
+		...(input.announce
+			? {
+					notice: {
+						level: "info" as const,
+						message:
+							input.target === "active"
+								? `cleanup exports indexed ${input.outcome.index.items.length}`
+								: `cleanup archive indexed ${input.outcome.index.items.length}`,
+					},
+				}
+			: {}),
+	};
+}
+
+export function prepareSelectedCleanupExportOpen(input: {
+	index: CleanupHandoffHistoryExportIndex;
+	selectedIndex: number;
+	platform: SupportedPlatform;
+	origin?: FileOpenOrigin;
+}): SelectedCleanupExportOpenTransition {
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.index.items.length,
+	);
+	const item = input.index.items[selectedIndex];
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no cleanup export selected" },
+		};
+	}
+
+	return {
+		kind: "open",
+		selectedIndex,
+		item,
+		plan: buildFileOpenPlan({
+			baseDir: input.index.baseDir,
+			label: `cleanup export ${item.scope} ${item.generatedAt}`,
+			origin: item.origin ?? input.origin,
+			path: item.path,
+			platform: input.platform,
+			source: "cleanup-export",
+		}),
+		notice: {
+			level: "info",
+			message: `cleanup export open confirmation opened for ${item.fileName}`,
+		},
+	};
+}
+
+export function prepareSelectedCleanupExportArchive(
+	index: CleanupHandoffHistoryExportIndex,
+	selectedIndex: number,
+): SelectedCleanupExportArchiveTransition {
+	const normalizedIndex = clampIndex(selectedIndex, index.items.length);
+	const item = index.items[normalizedIndex];
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no cleanup export selected" },
+		};
+	}
+
+	return {
+		kind: "confirmation",
+		selectedIndex: normalizedIndex,
+		item,
+		plan: createCleanupHandoffHistoryExportArchivePlan(
+			index.baseDir,
+			item.path,
+		),
+		notice: {
+			level: "info",
+			message: `cleanup export archive confirmation opened for ${item.fileName}`,
+		},
+	};
+}
+
+export function prepareCleanupExportArchiveConfirmation(
+	preview: CleanupHandoffHistoryExportArchivePlan | undefined,
+	baseDir: string,
+	confirmation: string,
+): CleanupExportArchiveConfirmationTransition {
+	if (!preview) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "cleanup export archive missing preview",
+			},
+		};
+	}
+	return {
+		kind: "execute",
+		plan: createCleanupHandoffHistoryExportArchivePlan(
+			baseDir,
+			preview.sourcePath,
+			{ confirmation },
+		),
+	};
+}
+
 export function createCleanupHandoffHistoryExportArchivePlan(
 	baseDir: string,
 	path: string,
@@ -790,9 +978,7 @@ export function getSelectedCleanupHandoffHistoryExport(
 		return undefined;
 	}
 
-	return index.items[
-		Math.min(Math.max(selectedIndex, 0), index.items.length - 1)
-	];
+	return index.items[clampIndex(selectedIndex, index.items.length)];
 }
 
 export function formatCleanupHandoffHistoryExportIndexRows(
@@ -897,7 +1083,7 @@ export function getSelectedCleanupHandoffHistory(
 		return undefined;
 	}
 
-	const normalized = Math.min(Math.max(selectedIndex, 0), histories.length - 1);
+	const normalized = clampIndex(selectedIndex, histories.length);
 	return histories[normalized];
 }
 
@@ -910,7 +1096,7 @@ export function moveCleanupHandoffHistorySelection(
 		return 0;
 	}
 
-	const normalized = Math.min(Math.max(selectedIndex, 0), histories.length - 1);
+	const normalized = clampIndex(selectedIndex, histories.length);
 	const offset = direction === "next" ? 1 : -1;
 	return (normalized + offset + histories.length) % histories.length;
 }
@@ -1057,6 +1243,10 @@ function formatCleanupExportEventTime(generatedAt: string): string {
 	return match?.[1] ?? "00:00:00";
 }
 
+function formatCleanupExportError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function createPersistedCleanupEventId(
 	time: string,
 	label: string,
@@ -1078,10 +1268,7 @@ export function getSelectedCleanupShelf(
 		return undefined;
 	}
 
-	const normalized = Math.min(
-		Math.max(selectedIndex, 0),
-		activeShelves.length - 1,
-	);
+	const normalized = clampIndex(selectedIndex, activeShelves.length);
 	return activeShelves[normalized];
 }
 
@@ -1095,10 +1282,7 @@ export function moveCleanupShelfSelection(
 		return 0;
 	}
 
-	const normalized = Math.min(
-		Math.max(selectedIndex, 0),
-		activeShelves.length - 1,
-	);
+	const normalized = clampIndex(selectedIndex, activeShelves.length);
 	const offset = direction === "next" ? 1 : -1;
 	return (normalized + offset + activeShelves.length) % activeShelves.length;
 }

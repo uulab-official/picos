@@ -1,10 +1,18 @@
-import type {
-	ConsoleAuditExportIndex,
-	ConsoleAuditExportIndexItem,
-	ConsoleAuditExportPlan,
+import {
+	type ConsoleAuditArchiveRetentionPlan,
+	type ConsoleAuditExportArchivePlan,
+	type ConsoleAuditExportIndex,
+	type ConsoleAuditExportIndexItem,
+	type ConsoleAuditExportPlan,
+	createConsoleAuditArchiveRetentionPlan,
+	createConsoleAuditExportArchivePlan,
+	getSelectedConsoleAuditExport,
 } from "../core/auditLog";
-import { getSelectedConsoleAuditExport } from "../core/auditLog";
-import type { FileOpenOrigin } from "../core/fileOpen";
+import {
+	buildFileOpenPlan,
+	type FileOpenOrigin,
+	type FileOpenPlan,
+} from "../core/fileOpen";
 import {
 	nextInterfaceEvidenceSearchPreset,
 	normalizeInterfaceEvidenceQuery,
@@ -14,6 +22,7 @@ export { normalizeInterfaceEvidenceQuery } from "../core/interfaceEvidencePrefer
 
 import type { HandoffIndex, HandoffIndexItem } from "../core/handoffIndex";
 import { getSelectedHandoffIndexItem } from "../core/handoffIndex";
+import type { SupportedPlatform } from "../core/types";
 import type {
 	CleanupHandoffHistoryExportIndex,
 	CleanupHandoffHistoryExportIndexItem,
@@ -21,15 +30,28 @@ import type {
 import {
 	getSelectedCleanupHandoffHistoryExport,
 	getSelectedCleanupHandoffHistoryExportArchive,
+	prepareSelectedCleanupExportArchive,
 } from "./cleanupIndex";
+import { clampIndex } from "./navigation";
+import { classifyRequestPublication } from "./requestSequence";
+import {
+	createRecoveredStatusEvidenceIndex,
+	filterInterfaceConfirmationAuditExportIndex,
+	type RecoveredStatusEvidenceIndex,
+	type TimelineEvidenceTrailSourceFilter,
+} from "./statusActivityQueue";
 import type {
 	ToolHistoryEvidenceFilter,
 	ToolHistoryExportIndex,
 	ToolHistoryExportIndexItem,
 } from "./toolHistory";
 import {
+	createToolHistoryArchiveRetentionPlan,
 	filterToolHistoryExportIndex,
 	getSelectedToolHistoryExport,
+	prepareSelectedToolHistoryExportArchive,
+	type ToolHistoryArchiveRetentionPlan,
+	type ToolHistoryExportArchivePlan,
 } from "./toolHistory";
 
 export type StatusEvidenceIndexes = {
@@ -155,6 +177,78 @@ export type StatusEvidenceItemMovePlan = {
 	label: string;
 };
 
+export type StatusEvidenceNotice = {
+	level: "ok" | "info" | "warn" | "fail";
+	message: string;
+};
+
+export type StatusEvidenceIndexRefreshTransition<
+	Index,
+	Extra extends object = Record<never, never>,
+> =
+	| { status: "stale"; notice?: StatusEvidenceNotice }
+	| { status: "failure"; notice: StatusEvidenceNotice }
+	| ({
+			status: "success";
+			index: Index;
+			selectedIndex: number;
+			notice?: StatusEvidenceNotice;
+	  } & Extra);
+
+export type AuditExportIndexRefreshTransition =
+	StatusEvidenceIndexRefreshTransition<
+		ConsoleAuditExportIndex,
+		RecoveredStatusEvidenceIndex
+	>;
+
+export type AuditExportArchiveIndexRefreshTransition =
+	StatusEvidenceIndexRefreshTransition<
+		ConsoleAuditExportIndex,
+		{
+			interfaceConfirmationAuditArchiveExports: ConsoleAuditExportPlan[];
+			selectedInterfaceIndex: number;
+		}
+	>;
+
+export type StatusEvidenceOpenTransition =
+	| { kind: "notice"; notice: StatusEvidenceNotice }
+	| {
+			kind: "open";
+			selectedIndex: number;
+			plan: FileOpenPlan;
+			notice: StatusEvidenceNotice;
+	  };
+
+export type StatusEvidenceActionTransition =
+	| { kind: "notice"; notice: StatusEvidenceNotice }
+	| {
+			kind: "archive";
+			selectedIndex: number;
+			baseDir: string;
+			path: string;
+			notice: StatusEvidenceNotice;
+	  }
+	| {
+			kind: "confirmation";
+			selectedIndex: number;
+			plan:
+				| ConsoleAuditExportArchivePlan
+				| ConsoleAuditArchiveRetentionPlan
+				| ToolHistoryExportArchivePlan
+				| ToolHistoryArchiveRetentionPlan
+				| import("./cleanupIndex").CleanupHandoffHistoryExportArchivePlan;
+			notice: StatusEvidenceNotice;
+			scope?: "audit" | "interface" | "tools" | "cleanup";
+	  };
+
+export type AuditEvidenceArchiveConfirmationTransition =
+	| { kind: "notice"; notice: StatusEvidenceNotice }
+	| { kind: "execute"; plan: ConsoleAuditExportArchivePlan };
+
+export type AuditEvidenceRetentionConfirmationTransition =
+	| { kind: "notice"; notice: StatusEvidenceNotice }
+	| { kind: "execute"; plan: ConsoleAuditArchiveRetentionPlan };
+
 type EvidenceEntry = {
 	kind: StatusEvidenceKind;
 	label: string;
@@ -225,6 +319,382 @@ export function formatInterfaceEvidenceFilterRows(
 		"controls=q state f find G timeline [/] select",
 		`presets=${presets.length} next=${nextPreset ?? "-"} controls=P save N cycle`,
 	];
+}
+
+export function classifyHandoffIndexRefresh(input: {
+	currentRequestToken: number;
+	requestToken: number;
+	selectedIndex: number;
+	announce?: boolean;
+	outcome:
+		| { status: "success"; index: HandoffIndex }
+		| { status: "failure"; error: unknown };
+}): StatusEvidenceIndexRefreshTransition<HandoffIndex> {
+	return classifyStatusEvidenceIndexRefresh({
+		...input,
+		failurePrefix: "handoff index failed",
+		successMessage: (index) => `handoffs indexed ${index.items.length}`,
+	});
+}
+
+export function classifyAuditExportIndexRefresh(input: {
+	currentRequestToken: number;
+	requestToken: number;
+	selectedIndex: number;
+	announce?: boolean;
+	timelineSourceFilter?: TimelineEvidenceTrailSourceFilter;
+	recoveredSelections?: {
+		timeline: number;
+		process: number;
+		remoteKnownHosts: number;
+		interface: number;
+	};
+	outcome:
+		| { status: "success"; index: ConsoleAuditExportIndex }
+		| { status: "failure"; error: unknown };
+}): AuditExportIndexRefreshTransition {
+	if (input.outcome.status === "failure") {
+		return classifyStatusEvidenceFailure(
+			input.currentRequestToken,
+			input.requestToken,
+			"audit export index failed",
+			input.outcome.error,
+		);
+	}
+	if (
+		isStaleStatusEvidenceRefresh(input.currentRequestToken, input.requestToken)
+	) {
+		return { status: "stale" };
+	}
+	const recoveredSelections = input.recoveredSelections ?? {
+		timeline: 0,
+		process: 0,
+		remoteKnownHosts: 0,
+		interface: 0,
+	};
+	const recovered = createRecoveredStatusEvidenceIndex(input.outcome.index, {
+		timelineSourceFilter: input.timelineSourceFilter ?? "all",
+		selectedTimelineIndex: recoveredSelections.timeline,
+		selectedProcessIndex: recoveredSelections.process,
+		selectedRemoteKnownHostsIndex: recoveredSelections.remoteKnownHosts,
+		selectedInterfaceIndex: recoveredSelections.interface,
+	});
+	return {
+		status: "success",
+		index: input.outcome.index,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			input.outcome.index.items.length,
+		),
+		...recovered,
+		...(input.announce
+			? {
+					notice: {
+						level: "info" as const,
+						message: `audit exports indexed ${input.outcome.index.items.length}`,
+					},
+				}
+			: {}),
+	};
+}
+
+export function classifyAuditExportArchiveIndexRefresh(input: {
+	currentRequestToken: number;
+	requestToken: number;
+	selectedIndex: number;
+	selectedInterfaceIndex?: number;
+	interfaceStateFilter?: InterfaceEvidenceStateFilter;
+	interfaceQuery?: string;
+	announce?: boolean;
+	outcome:
+		| { status: "success"; index: ConsoleAuditExportIndex }
+		| { status: "failure"; error: unknown };
+}): AuditExportArchiveIndexRefreshTransition {
+	if (input.outcome.status === "failure") {
+		return classifyStatusEvidenceFailure(
+			input.currentRequestToken,
+			input.requestToken,
+			"audit archive index failed",
+			input.outcome.error,
+		);
+	}
+	if (
+		isStaleStatusEvidenceRefresh(input.currentRequestToken, input.requestToken)
+	) {
+		return { status: "stale" };
+	}
+	const interfaceConfirmationAuditArchiveExports =
+		createRecoveredStatusEvidenceIndex(input.outcome.index, {
+			timelineSourceFilter: "all",
+			selectedTimelineIndex: 0,
+			selectedProcessIndex: 0,
+			selectedRemoteKnownHostsIndex: 0,
+			selectedInterfaceIndex: input.selectedInterfaceIndex ?? 0,
+		}).interfaceConfirmationAuditExports;
+	const visibleInterfaceExports = filterInterfaceConfirmationEvidenceExports(
+		[],
+		interfaceConfirmationAuditArchiveExports,
+		input.interfaceStateFilter ?? "all",
+		input.interfaceQuery ?? "",
+	);
+	return {
+		status: "success",
+		index: input.outcome.index,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			input.outcome.index.items.length,
+		),
+		interfaceConfirmationAuditArchiveExports,
+		selectedInterfaceIndex: clampIndex(
+			input.selectedInterfaceIndex ?? 0,
+			visibleInterfaceExports.length,
+		),
+		...(input.announce
+			? {
+					notice: {
+						level: "info" as const,
+						message: `audit archive indexed ${input.outcome.index.items.length}`,
+					},
+				}
+			: {}),
+	};
+}
+
+export function prepareStatusEvidenceOpenTransition(input: {
+	indexes: StatusEvidenceIndexes;
+	selection: StatusEvidenceSelection;
+	kind: StatusEvidenceKind;
+	baseDir: string;
+	platform: SupportedPlatform;
+	fallbackOrigin?: FileOpenOrigin;
+}): StatusEvidenceOpenTransition {
+	const family = collectStatusEvidenceFamilyEntries(
+		input.indexes,
+		input.selection,
+		input.kind,
+	);
+	const selectedIndex = clampIndex(family.selectedIndex, family.entries.length);
+	const entry = family.entries[selectedIndex];
+	if (!entry || input.kind === "cleanup-archive") {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: getMissingStatusEvidenceOpenMessage(input.kind),
+			},
+		};
+	}
+	const label = getStatusEvidenceOpenLabel(input.kind, entry);
+	return {
+		kind: "open",
+		selectedIndex,
+		plan: buildFileOpenPlan({
+			baseDir: input.baseDir,
+			source:
+				input.kind === "handoff"
+					? (input.indexes.handoffIndex.items[selectedIndex]?.source ??
+						"route-handoff")
+					: input.kind === "cleanup"
+						? "cleanup-export"
+						: input.kind === "tools" || input.kind === "tools-archive"
+							? "tools-export"
+							: "timeline-export",
+			label,
+			origin: entry.origin ?? input.fallbackOrigin,
+			path: entry.path,
+			platform: input.platform,
+		}),
+		notice: {
+			level: "info",
+			message: getStatusEvidenceOpenNoticeMessage(
+				input.indexes,
+				input.selection,
+				input.kind,
+				selectedIndex,
+				entry,
+			),
+		},
+	};
+}
+
+export function prepareStatusEvidenceActionTransition(input: {
+	indexes: StatusEvidenceIndexes;
+	selection: StatusEvidenceSelection;
+	kind: StatusEvidenceKind;
+	intent: StatusEvidenceSecondaryIntent;
+	baseDir: string;
+	retentionLimit?: number;
+}): StatusEvidenceActionTransition {
+	const family = collectStatusEvidenceFamilyEntries(
+		input.indexes,
+		input.selection,
+		input.kind,
+	);
+	const selectedIndex = clampIndex(family.selectedIndex, family.entries.length);
+	const entry = family.entries[selectedIndex];
+	const action = createStatusEvidenceActionPlan(
+		input.indexes,
+		input.selection,
+		input.kind,
+		input.intent,
+	);
+	if (!entry || !action) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: getUnavailableStatusEvidenceActionMessage(
+					input.kind,
+					input.intent,
+				),
+			},
+		};
+	}
+
+	if (action.action === "archive-handoff") {
+		return {
+			kind: "archive",
+			selectedIndex,
+			baseDir: input.indexes.handoffIndex.baseDir,
+			path: entry.path,
+			notice: {
+				level: "info",
+				message: `handoff archive prepared for ${entry.label}`,
+			},
+		};
+	}
+	if (action.action === "archive-cleanup") {
+		const prepared = prepareSelectedCleanupExportArchive(
+			input.indexes.cleanupExportIndex,
+			input.selection.selectedCleanupExportIndex,
+		);
+		return prepared.kind === "notice"
+			? prepared
+			: {
+					kind: "confirmation",
+					selectedIndex: prepared.selectedIndex,
+					plan: prepared.plan,
+					notice: prepared.notice,
+					scope: "cleanup",
+				};
+	}
+	if (action.action === "archive-tools") {
+		const prepared = prepareSelectedToolHistoryExportArchive({
+			baseDir: input.baseDir,
+			index: getToolExportIndex(input.indexes),
+			selectedIndex: getSelectedToolExportIndex(input.selection),
+			filter: getToolExportFilter(input.selection),
+			query: getToolExportQuery(input.selection),
+		});
+		return prepared.kind === "notice"
+			? prepared
+			: {
+					kind: "confirmation",
+					selectedIndex: prepared.selectedIndex,
+					plan: prepared.plan,
+					notice: prepared.notice,
+					scope: "tools",
+				};
+	}
+	if (
+		action.action === "archive-audit" ||
+		action.action === "archive-interface-evidence"
+	) {
+		const plan = createConsoleAuditExportArchivePlan(input.baseDir, entry.path);
+		const scope =
+			action.action === "archive-interface-evidence" ? "interface" : "audit";
+		return {
+			kind: "confirmation",
+			selectedIndex,
+			plan,
+			scope,
+			notice: {
+				level: "info",
+				message: `${scope === "interface" ? "interface evidence" : "audit export"} archive confirmation opened for ${plan.fileName}`,
+			},
+		};
+	}
+
+	if (action.action === "preview-tools-retention") {
+		const plan = createToolHistoryArchiveRetentionPlan(
+			getToolExportArchiveIndex(input.indexes),
+			{ maxItems: input.retentionLimit },
+		);
+		return {
+			kind: "confirmation",
+			selectedIndex,
+			plan,
+			scope: "tools",
+			notice: {
+				level: plan.candidateItems.length > 0 ? "warn" : "info",
+				message: `tools archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
+			},
+		};
+	}
+	const interfaceRetention = action.action === "preview-interface-retention";
+	const retentionIndex = interfaceRetention
+		? filterInterfaceConfirmationAuditExportIndex(
+				input.indexes.auditExportArchiveIndex,
+			)
+		: input.indexes.auditExportArchiveIndex;
+	const plan = createConsoleAuditArchiveRetentionPlan(retentionIndex, {
+		maxItems: input.retentionLimit,
+	});
+	return {
+		kind: "confirmation",
+		selectedIndex,
+		plan,
+		scope: interfaceRetention ? "interface" : "audit",
+		notice: {
+			level: plan.candidateItems.length > 0 ? "warn" : "info",
+			message: `${interfaceRetention ? "interface evidence" : "audit"} archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
+		},
+	};
+}
+
+export function prepareAuditEvidenceArchiveConfirmation(
+	preview: ConsoleAuditExportArchivePlan | undefined,
+	baseDir: string,
+	confirmation: string,
+): AuditEvidenceArchiveConfirmationTransition {
+	if (!preview) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "audit export archive missing preview",
+			},
+		};
+	}
+	return {
+		kind: "execute",
+		plan: createConsoleAuditExportArchivePlan(baseDir, preview.sourcePath, {
+			confirmation,
+		}),
+	};
+}
+
+export function prepareAuditEvidenceRetentionConfirmation(
+	preview: ConsoleAuditArchiveRetentionPlan | undefined,
+	index: ConsoleAuditExportIndex,
+	confirmation: string,
+): AuditEvidenceRetentionConfirmationTransition {
+	if (!preview) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "audit archive retention missing preview",
+			},
+		};
+	}
+	return {
+		kind: "execute",
+		plan: createConsoleAuditArchiveRetentionPlan(index, {
+			maxItems: preview.maxItems,
+			confirmation,
+		}),
+	};
 }
 
 export function formatStatusEvidenceDetailRows(
@@ -1156,11 +1626,197 @@ function formatCommandStripAction(primary: string, shortcut: string): string {
 	return primary === shortcut ? primary : `${primary}/${shortcut}`;
 }
 
-function clampEvidenceSelectionIndex(index: number, length: number): number {
-	if (length <= 0) {
-		return 0;
+function classifyStatusEvidenceIndexRefresh<
+	Index extends { items: unknown[] },
+>(input: {
+	currentRequestToken: number;
+	requestToken: number;
+	selectedIndex: number;
+	announce?: boolean;
+	failurePrefix: string;
+	successMessage: (index: Index) => string;
+	outcome:
+		| { status: "success"; index: Index }
+		| { status: "failure"; error: unknown };
+}): StatusEvidenceIndexRefreshTransition<Index> {
+	if (input.outcome.status === "failure") {
+		return classifyStatusEvidenceFailure(
+			input.currentRequestToken,
+			input.requestToken,
+			input.failurePrefix,
+			input.outcome.error,
+		);
 	}
-	return Math.min(Math.max(index, 0), length - 1);
+	if (
+		isStaleStatusEvidenceRefresh(input.currentRequestToken, input.requestToken)
+	) {
+		return { status: "stale" };
+	}
+	return {
+		status: "success",
+		index: input.outcome.index,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			input.outcome.index.items.length,
+		),
+		...(input.announce
+			? {
+					notice: {
+						level: "info" as const,
+						message: input.successMessage(input.outcome.index),
+					},
+				}
+			: {}),
+	};
+}
+
+function classifyStatusEvidenceFailure(
+	currentRequestToken: number,
+	requestToken: number,
+	prefix: string,
+	error: unknown,
+): { status: "stale" | "failure"; notice: StatusEvidenceNotice } {
+	const notice = {
+		level: "fail",
+		message: `${prefix} ${formatStatusEvidenceError(error)}`,
+	} as const;
+	return isStaleStatusEvidenceRefresh(currentRequestToken, requestToken)
+		? { status: "stale", notice }
+		: { status: "failure", notice };
+}
+
+function isStaleStatusEvidenceRefresh(
+	currentRequestToken: number,
+	requestToken: number,
+): boolean {
+	return (
+		classifyRequestPublication(currentRequestToken, requestToken) === "stale"
+	);
+}
+
+function formatStatusEvidenceError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function getMissingStatusEvidenceOpenMessage(kind: StatusEvidenceKind): string {
+	switch (kind) {
+		case "handoff":
+			return "no handoff file selected";
+		case "audit":
+			return "no audit export selected";
+		case "audit-archive":
+			return "no archived audit export selected";
+		case "cleanup":
+			return "no cleanup export selected";
+		case "cleanup-archive":
+			return "cleanup archive evidence cannot be opened externally";
+		case "tools":
+			return "no tools evidence export selected";
+		case "tools-archive":
+			return "no archived tools evidence export selected";
+		case "process":
+			return "no process control evidence export to open";
+		case "remote-known-hosts":
+			return "no remote known_hosts selection evidence export to open";
+		case "interface":
+			return "no interface confirmation evidence export to open";
+	}
+}
+
+function getStatusEvidenceOpenLabel(
+	kind: StatusEvidenceKind,
+	entry: EvidenceEntry,
+): string {
+	switch (kind) {
+		case "handoff":
+			return entry.label.replace(/^handoff (route|endpoint) /, "");
+		case "audit":
+			return entry.label.replace(/^audit /, "audit export ");
+		case "audit-archive":
+			return entry.label.replace(/^audit-archive /, "archived audit export ");
+		case "cleanup":
+			return entry.label.replace(/^cleanup /, "cleanup export ");
+		case "tools":
+			return entry.label.replace(/^tools /, "tools export ");
+		case "tools-archive":
+			return entry.label.replace(/^tools-archive /, "archived tools export ");
+		case "process":
+			return entry.label.replace(
+				/^process /,
+				"process control evidence export ",
+			);
+		case "remote-known-hosts":
+			return entry.label.replace(
+				/^remote known_hosts /,
+				"remote known_hosts selection history export ",
+			);
+		case "interface":
+			return entry.label.replace(
+				/^interface /,
+				"interface confirmation evidence ",
+			);
+		case "cleanup-archive":
+			return entry.label;
+	}
+}
+
+function getStatusEvidenceOpenNoticeMessage(
+	indexes: StatusEvidenceIndexes,
+	selection: StatusEvidenceSelection,
+	kind: StatusEvidenceKind,
+	selectedIndex: number,
+	entry: EvidenceEntry,
+): string {
+	switch (kind) {
+		case "handoff":
+			return `file open confirmation opened for ${indexes.handoffIndex.items[selectedIndex]?.label ?? entry.label}`;
+		case "audit":
+			return `audit export open confirmation opened for ${indexes.auditExportIndex.items[selectedIndex]?.fileName ?? entry.path}`;
+		case "audit-archive":
+			return `archived audit export open confirmation opened for ${indexes.auditExportArchiveIndex.items[selectedIndex]?.fileName ?? entry.path}`;
+		case "cleanup":
+			return `cleanup export open confirmation opened for ${indexes.cleanupExportIndex.items[selectedIndex]?.fileName ?? entry.path}`;
+		case "tools": {
+			const item = getSelectedToolHistoryExport(
+				getToolExportIndex(indexes),
+				selectedIndex,
+				getToolExportFilter(selection),
+				getToolExportQuery(selection),
+			);
+			return `tools evidence open confirmation opened for ${item?.fileName ?? entry.path}`;
+		}
+		case "tools-archive": {
+			const item = getSelectedToolHistoryExport(
+				getToolExportArchiveIndex(indexes),
+				selectedIndex,
+				getToolExportArchiveFilter(selection),
+				getToolExportArchiveQuery(selection),
+			);
+			return `archived tools evidence open confirmation opened for ${item?.fileName ?? entry.path}`;
+		}
+		case "process":
+			return `process control evidence export open confirmation opened for ${entry.path}`;
+		case "remote-known-hosts":
+			return `remote known_hosts selection evidence export open confirmation opened for ${entry.path}`;
+		case "interface":
+			return `interface confirmation evidence export open confirmation opened for ${entry.path}`;
+		case "cleanup-archive":
+			return getMissingStatusEvidenceOpenMessage(kind);
+	}
+}
+
+function getUnavailableStatusEvidenceActionMessage(
+	kind: StatusEvidenceKind,
+	intent: StatusEvidenceSecondaryIntent,
+): string {
+	if (kind === "interface" && intent === "archive") {
+		return "no active interface confirmation evidence export to archive";
+	}
+	return `${kind} evidence ${intent} is unavailable`;
+}
+
+function clampEvidenceSelectionIndex(index: number, length: number): number {
+	return clampIndex(index, length);
 }
 
 function getToolExportIndex(

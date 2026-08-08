@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+	classifyAuditExportArchiveIndexRefresh,
+	classifyAuditExportIndexRefresh,
+	classifyHandoffIndexRefresh,
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
 	createStatusEvidenceItemMovePlan,
@@ -17,6 +20,8 @@ import {
 	moveStatusEvidenceFocus,
 	nextInterfaceEvidenceStateFilter,
 	normalizeInterfaceEvidenceQuery,
+	prepareStatusEvidenceActionTransition,
+	prepareStatusEvidenceOpenTransition,
 } from "../src/tui/statusEvidence";
 
 describe("Status evidence detail rows", () => {
@@ -1350,5 +1355,119 @@ describe("Status evidence detail rows", () => {
 			"controls=q state f find G timeline [/] select",
 			"presets=2 next=disable wifi controls=P save N cycle",
 		]);
+	});
+
+	test("classifies stale Status index success and failure without publishing current state", () => {
+		expect(
+			classifyHandoffIndexRefresh({
+				currentRequestToken: 2,
+				requestToken: 1,
+				selectedIndex: 4,
+				outcome: {
+					status: "success",
+					index: { baseDir: "/tmp/picos", items: [] },
+				},
+			}),
+		).toEqual({ status: "stale" });
+		expect(
+			classifyAuditExportIndexRefresh({
+				currentRequestToken: 3,
+				requestToken: 2,
+				selectedIndex: 8,
+				recoveredSelections: {
+					timeline: 8,
+					process: 8,
+					remoteKnownHosts: 8,
+					interface: 8,
+				},
+				outcome: { status: "failure", error: new Error("older audit") },
+			}),
+		).toEqual({
+			status: "stale",
+			notice: {
+				level: "fail",
+				message: "audit export index failed older audit",
+			},
+		});
+		expect(
+			classifyAuditExportArchiveIndexRefresh({
+				currentRequestToken: 5,
+				requestToken: 5,
+				selectedIndex: 9,
+				outcome: {
+					status: "success",
+					index: { baseDir: "/tmp/picos", items: [] },
+				},
+			}),
+		).toMatchObject({
+			status: "success",
+			selectedIndex: 0,
+			interfaceConfirmationAuditArchiveExports: [],
+		});
+	});
+
+	test("owns empty open and archive-retention mismatch notices", () => {
+		const emptyIndexes = {
+			handoffIndex: { baseDir: "/tmp/picos", items: [] },
+			auditExportIndex: { baseDir: "/tmp/picos", items: [] },
+			auditExportArchiveIndex: { baseDir: "/tmp/picos", items: [] },
+			cleanupExportIndex: { baseDir: "/tmp/picos", items: [] },
+			cleanupExportArchiveIndex: { baseDir: "/tmp/picos", items: [] },
+		};
+		expect(
+			prepareStatusEvidenceOpenTransition({
+				indexes: emptyIndexes,
+				selection,
+				kind: "audit",
+				baseDir: "/tmp/picos",
+				platform: "darwin",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no audit export selected" },
+		});
+		expect(
+			prepareStatusEvidenceActionTransition({
+				indexes: populatedIndexes,
+				selection,
+				kind: "audit",
+				intent: "retention",
+				baseDir: "/tmp/picos",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "audit evidence retention is unavailable",
+			},
+		});
+		const archivedInterfaceIndexes = {
+			...populatedIndexes,
+			interfaceConfirmationAuditExports: [],
+			interfaceConfirmationAuditArchiveExports: [
+				{
+					path: "/tmp/picos/audit/archive/interface.log",
+					content: "",
+					eventCount: 1,
+					scope: "selected" as const,
+					query: "interface confirmation interface.disable status=rejected",
+				},
+			],
+		};
+		expect(
+			prepareStatusEvidenceActionTransition({
+				indexes: archivedInterfaceIndexes,
+				selection: { ...selection, interfaceEvidenceStateFilter: "archived" },
+				kind: "interface",
+				intent: "archive",
+				baseDir: "/tmp/picos",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no active interface confirmation evidence export to archive",
+			},
+		});
 	});
 });

@@ -1,4 +1,4 @@
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { Box, Text, useApp, useInput, useWindowSize } from "ink";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -39,11 +39,9 @@ import {
 	type ConsoleAuditExportIndex,
 	type ConsoleAuditExportPlan,
 	createConsoleAuditArchiveRetentionPlan,
-	createConsoleAuditExportArchivePlan,
 	createConsoleAuditExportPlan,
 	formatConsoleAuditArchiveRetentionRows,
 	formatConsoleAuditExportArchiveRows,
-	getSelectedConsoleAuditExport,
 	pruneConsoleAuditArchive,
 	readConsoleAuditExportArchiveIndex,
 	readConsoleAuditExportIndex,
@@ -121,7 +119,6 @@ import {
 } from "../core/fileWritePreview";
 import {
 	archiveHandoffFile,
-	getSelectedHandoffIndexItem,
 	type HandoffIndex,
 	readHandoffIndex,
 } from "../core/handoffIndex";
@@ -285,10 +282,10 @@ import {
 	type CleanupHandoffHistoryExportIndex,
 	type CleanupJumpAudit,
 	type CleanupShelfIndex,
+	classifyCleanupExportIndexRefresh,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
-	createCleanupHandoffHistoryExportArchivePlan,
 	createCleanupHandoffHistoryExportPlan,
 	createCleanupJumpAudit,
 	createCleanupShelfIndex,
@@ -298,10 +295,11 @@ import {
 	formatCleanupJumpAuditRows,
 	formatCleanupOpsConsoleRows,
 	getSelectedCleanupHandoffHistory,
-	getSelectedCleanupHandoffHistoryExport,
 	getSelectedCleanupShelf,
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
+	prepareCleanupExportArchiveConfirmation,
+	prepareSelectedCleanupExportArchive,
 	readCleanupHandoffHistoryExportArchiveIndex,
 	readCleanupHandoffHistoryExportIndex,
 	readLatestCleanupHandoffHistoryExport,
@@ -521,7 +519,6 @@ import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
-	createInterfaceConfirmationAuditExportOpenPlan,
 	createInterfaceConfirmationAuditExportPlan,
 	createInterfaceConfirmationAuditExportTimelineSearch,
 	createInterfaceConfirmationEvidencePaletteStatusActivityResult,
@@ -529,7 +526,6 @@ import {
 	createInterfaceConfirmationStatusActivityResult,
 	createInterfaceEvidenceManagementStatusActivityResult,
 	createInterfaceEvidenceOutcomeStatusActivityResult,
-	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
@@ -539,7 +535,6 @@ import {
 	createRemoteHostReviewStatusActivityResult,
 	createRemoteKnownHostsEvidenceHandoffOpenCopyIntent,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
-	createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createRemoteKnownHostsSelectionHistoryAuditExportTimelineSearch,
 	createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan,
@@ -560,9 +555,7 @@ import {
 	createStatusActivityResultHistoryFilterPaletteResult,
 	createStatusActivityResultTimelineJumpPaletteResult,
 	createStatusActivityResultTimelineSearch,
-	createStatusActivityResultTimelineSearchIntent,
 	createStatusActivityResultTimelineSearchReplay,
-	createStatusActivityResultTimelineSearchReplayWarning,
 	createStatusActivityToolsEvidenceMatchResult,
 	createStatusActivityToolsEvidencePaletteResult,
 	createStatusActivityToolsEvidenceSearchRecovery,
@@ -591,7 +584,6 @@ import {
 	formatStatusActivityDetailRows,
 	formatStatusActivityProcessControlPaletteAuditMessage,
 	formatStatusActivityQueueRows,
-	formatStatusActivityResultAuditJumpReplayWarningAuditMessage,
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
@@ -600,12 +592,7 @@ import {
 	formatStatusActivityToolsEvidenceMatchAuditMessage,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
-	getInterfaceConfirmationAuditExports,
-	getLatestStatusActivityCopyIntentAuditExport,
 	getLatestStatusActivityResultAuditJumpIntent,
-	getLatestTimelineEvidenceTrailAuditExport,
-	getProcessControlAuditExports,
-	getRemoteKnownHostsSelectionHistoryAuditExports,
 	getRemoteKnownHostsSelectionHistoryClipboardPreview,
 	getSelectedProcessControlAuditExport,
 	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
@@ -620,9 +607,6 @@ import {
 	getStatusActivityResultHistoryFilteredSelection,
 	getStatusActivityResultTimelineJumpIndexes,
 	getStatusActivityResultTimelineJumpSelection,
-	getTimelineEvidenceTrailAuditExports,
-	moveInterfaceConfirmationAuditExportSelection,
-	moveProcessControlAuditExportSelection,
 	moveStatusActivityCopyIntentSelection,
 	moveStatusActivityCopyPreviewSelection,
 	moveStatusActivityResultAuditJumpSelection,
@@ -630,11 +614,12 @@ import {
 	moveStatusActivityResultTimelineJumpSelection,
 	moveStatusActivitySource,
 	moveStatusActivityToolsEvidenceSearchMatchSelection,
-	moveTimelineEvidenceTrailSelection,
 	nextStatusActivityResultHistoryFilter,
 	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
 	prepareCleanupHandoffHistoryReopen,
+	prepareRecoveredEvidenceSelectionTransition,
+	prepareStatusActivityResultTimelineHandoffReplay,
 	type StatusActivityCopyIntentEvidenceFocusPlan,
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
@@ -653,6 +638,9 @@ import {
 	type StatusDialogPreviewGroup,
 } from "./statusDialogPreview";
 import {
+	classifyAuditExportArchiveIndexRefresh,
+	classifyAuditExportIndexRefresh,
+	classifyHandoffIndexRefresh,
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
 	createStatusEvidenceItemMovePlan,
@@ -668,6 +656,10 @@ import {
 	type InterfaceEvidenceStateFilter,
 	moveStatusEvidenceFocus,
 	nextInterfaceEvidenceStateFilter,
+	prepareAuditEvidenceArchiveConfirmation,
+	prepareAuditEvidenceRetentionConfirmation,
+	prepareStatusEvidenceActionTransition,
+	prepareStatusEvidenceOpenTransition,
 	type StatusEvidenceKind,
 } from "./statusEvidence";
 import {
@@ -676,21 +668,20 @@ import {
 	formatSelectedTimelinePreviewRow,
 	formatTimelineWorkspaceRows,
 	prepareTimelinePanelInput,
+	prepareTimelineSearchJumpTransition,
 	prepareTimelineSearchTransition,
 	repairTimelineSelection,
-	selectNewestTimelineResult,
 	submitTimelineSearchCleanupConfirmation,
 	type TimelineFilter,
 } from "./timelinePanel";
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
+	classifyToolHistoryExportIndexRefresh,
 	createToolFormState,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
-	createToolHistoryCompareExportPlan,
 	createToolHistoryExportArchivePlan,
-	createToolHistoryExportPlan,
 	createToolRunPlan,
 	createToolRunPlanFromForm,
 	createToolTargetCleanupPreview,
@@ -724,6 +715,10 @@ import {
 	nextToolHistorySort,
 	nextToolSectionClipboardSelection,
 	normalizeToolHistoryEvidenceQuery,
+	prepareSelectedToolHistoryExportArchive,
+	prepareToolHistoryArchiveRetentionConfirmation,
+	prepareToolHistoryExport,
+	prepareToolHistoryExportArchiveConfirmation,
 	promoteToolTargetPresetTransition,
 	pruneToolHistoryExportArchive,
 	readToolHistoryExportArchiveIndex,
@@ -1133,6 +1128,74 @@ export function App(): React.ReactElement {
 	const [selectedOperationPresetIndex, setSelectedOperationPresetIndex] =
 		useState(0);
 	const [operationRun, setOperationRun] = useState<OperationRunProgress>();
+	// Evidence families publish independent index/state groups, so each family owns
+	// a separate request lane. The active audit lane is shared by every recovered
+	// audit-derived family because those selections must publish atomically.
+	const handoffIndexRequestTokenRef = useRef(0);
+	const auditExportIndexRequestTokenRef = useRef(0);
+	const auditExportArchiveIndexRequestTokenRef = useRef(0);
+	const cleanupExportIndexRequestTokenRef = useRef(0);
+	const cleanupExportArchiveIndexRequestTokenRef = useRef(0);
+	const toolExportIndexRequestTokenRef = useRef(0);
+	const toolExportArchiveIndexRequestTokenRef = useRef(0);
+	const selectedHandoffIndexRef = useRef(selectedHandoffIndex);
+	selectedHandoffIndexRef.current = selectedHandoffIndex;
+	const selectedAuditExportIndexRef = useRef(selectedAuditExportIndex);
+	selectedAuditExportIndexRef.current = selectedAuditExportIndex;
+	const selectedAuditExportArchiveIndexRef = useRef(
+		selectedAuditExportArchiveIndex,
+	);
+	selectedAuditExportArchiveIndexRef.current = selectedAuditExportArchiveIndex;
+	const selectedCleanupExportIndexRef = useRef(selectedCleanupExportIndex);
+	selectedCleanupExportIndexRef.current = selectedCleanupExportIndex;
+	const selectedCleanupExportArchiveIndexRef = useRef(
+		selectedCleanupExportArchiveIndex,
+	);
+	selectedCleanupExportArchiveIndexRef.current =
+		selectedCleanupExportArchiveIndex;
+	const selectedToolExportIndexRef = useRef(selectedToolExportIndex);
+	selectedToolExportIndexRef.current = selectedToolExportIndex;
+	const selectedToolExportArchiveIndexRef = useRef(
+		selectedToolExportArchiveIndex,
+	);
+	selectedToolExportArchiveIndexRef.current = selectedToolExportArchiveIndex;
+	const selectedTimelineEvidenceTrailAuditExportIndexRef = useRef(
+		selectedTimelineEvidenceTrailAuditExportIndex,
+	);
+	selectedTimelineEvidenceTrailAuditExportIndexRef.current =
+		selectedTimelineEvidenceTrailAuditExportIndex;
+	const selectedProcessControlAuditExportIndexRef = useRef(
+		selectedProcessControlAuditExportIndex,
+	);
+	selectedProcessControlAuditExportIndexRef.current =
+		selectedProcessControlAuditExportIndex;
+	const selectedRemoteKnownHostsSelectionAuditExportIndexRef = useRef(
+		selectedRemoteKnownHostsSelectionAuditExportIndex,
+	);
+	selectedRemoteKnownHostsSelectionAuditExportIndexRef.current =
+		selectedRemoteKnownHostsSelectionAuditExportIndex;
+	const selectedInterfaceConfirmationAuditExportIndexRef = useRef(
+		selectedInterfaceConfirmationAuditExportIndex,
+	);
+	selectedInterfaceConfirmationAuditExportIndexRef.current =
+		selectedInterfaceConfirmationAuditExportIndex;
+	const timelineEvidenceTrailSourceFilterRef = useRef(
+		timelineEvidenceTrailSourceFilter,
+	);
+	timelineEvidenceTrailSourceFilterRef.current =
+		timelineEvidenceTrailSourceFilter;
+	const toolExportFilterRef = useRef(toolExportFilter);
+	toolExportFilterRef.current = toolExportFilter;
+	const toolExportQueryRef = useRef(toolExportQuery);
+	toolExportQueryRef.current = toolExportQuery;
+	const toolExportArchiveFilterRef = useRef(toolExportArchiveFilter);
+	toolExportArchiveFilterRef.current = toolExportArchiveFilter;
+	const toolExportArchiveQueryRef = useRef(toolExportArchiveQuery);
+	toolExportArchiveQueryRef.current = toolExportArchiveQuery;
+	const interfaceEvidenceStateFilterRef = useRef(interfaceEvidenceStateFilter);
+	interfaceEvidenceStateFilterRef.current = interfaceEvidenceStateFilter;
+	const interfaceEvidenceQueryRef = useRef(interfaceEvidenceQuery);
+	interfaceEvidenceQueryRef.current = interfaceEvidenceQuery;
 	// Mirrored into a ref so the sampling loop can read the latest run without
 	// re-subscribing, the same way the SFTP connect flow tracks its diagnostic.
 	// Shared by both callbacks that write process detail and file snapshot state, so
@@ -1192,6 +1255,72 @@ export function App(): React.ReactElement {
 		selectedInterfaceConfirmationEvidence?.plan;
 	const selectedInterfaceConfirmationEvidenceArchived =
 		selectedInterfaceConfirmationEvidence?.state === "archived";
+	const statusEvidenceIndexes = useMemo(
+		() => ({
+			handoffIndex,
+			auditExportIndex,
+			auditExportArchiveIndex,
+			cleanupExportIndex,
+			cleanupExportArchiveIndex,
+			toolExportIndex,
+			toolExportArchiveIndex,
+			processControlAuditExports,
+			remoteKnownHostsSelectionAuditExports,
+			interfaceConfirmationAuditExports,
+			interfaceConfirmationAuditArchiveExports,
+		}),
+		[
+			auditExportArchiveIndex,
+			auditExportIndex,
+			cleanupExportArchiveIndex,
+			cleanupExportIndex,
+			handoffIndex,
+			interfaceConfirmationAuditArchiveExports,
+			interfaceConfirmationAuditExports,
+			processControlAuditExports,
+			remoteKnownHostsSelectionAuditExports,
+			toolExportArchiveIndex,
+			toolExportIndex,
+		],
+	);
+	const statusEvidenceSelection = useMemo(
+		() => ({
+			selectedHandoffIndex,
+			selectedAuditExportIndex,
+			selectedAuditExportArchiveIndex,
+			selectedCleanupExportIndex,
+			selectedCleanupExportArchiveIndex,
+			selectedToolExportIndex,
+			selectedToolExportArchiveIndex,
+			selectedProcessControlAuditExportIndex,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
+			selectedInterfaceConfirmationAuditExportIndex,
+			toolExportFilter,
+			toolExportArchiveFilter,
+			toolExportQuery,
+			toolExportArchiveQuery,
+			interfaceEvidenceStateFilter,
+			interfaceEvidenceQuery,
+		}),
+		[
+			interfaceEvidenceQuery,
+			interfaceEvidenceStateFilter,
+			selectedAuditExportArchiveIndex,
+			selectedAuditExportIndex,
+			selectedCleanupExportArchiveIndex,
+			selectedCleanupExportIndex,
+			selectedHandoffIndex,
+			selectedInterfaceConfirmationAuditExportIndex,
+			selectedProcessControlAuditExportIndex,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
+			selectedToolExportArchiveIndex,
+			selectedToolExportIndex,
+			toolExportArchiveFilter,
+			toolExportArchiveQuery,
+			toolExportFilter,
+			toolExportQuery,
+		],
+	);
 	useEffect(() => {
 		setSelectedInterfaceConfirmationAuditExportIndex((current) =>
 			clampIndex(current, interfaceConfirmationEvidenceExports.length),
@@ -2389,7 +2518,9 @@ export function App(): React.ReactElement {
 				setEditorSaveResult(undefined);
 			}
 			if (transition.notice) {
-				log(transition.notice.level, transition.notice.message);
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 			return transition.buffer;
 		});
@@ -2433,7 +2564,9 @@ export function App(): React.ReactElement {
 				setEditorSaveResult(undefined);
 			}
 			if (transition.notice) {
-				log(transition.notice.level, transition.notice.message);
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 			return transition.buffer;
 		});
@@ -2450,7 +2583,9 @@ export function App(): React.ReactElement {
 				setEditorSaveResult(undefined);
 			}
 			if (transition.notice) {
-				log(transition.notice.level, transition.notice.message);
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 			return transition.buffer;
 		});
@@ -2467,7 +2602,9 @@ export function App(): React.ReactElement {
 				setEditorSaveResult(undefined);
 			}
 			if (transition.notice) {
-				log(transition.notice.level, transition.notice.message);
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 			return transition.buffer;
 		});
@@ -3304,230 +3441,309 @@ export function App(): React.ReactElement {
 	const refreshHandoffIndex = useCallback(
 		async (announce = true) => {
 			const baseDir = dirname(getConfigPath());
+			const requestToken = beginRequest(handoffIndexRequestTokenRef.current);
+			handoffIndexRequestTokenRef.current = requestToken;
 			try {
 				const index = await readHandoffIndex(baseDir);
-				setHandoffIndex(index);
-				setSelectedHandoffIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
-				if (announce) {
-					log("info", `handoffs indexed ${index.items.length}`);
+				const transition = classifyHandoffIndexRefresh({
+					currentRequestToken: handoffIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedHandoffIndexRef.current,
+					announce,
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setHandoffIndex(transition.index);
+					setSelectedHandoffIndex(transition.selectedIndex);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 			} catch (caught) {
-				log("fail", caught instanceof Error ? caught.message : String(caught));
+				const transition = classifyHandoffIndexRefresh({
+					currentRequestToken: handoffIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedHandoffIndexRef.current,
+					announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 		},
 		[log],
 	);
 
 	const refreshAuditExportIndex = useCallback(
-		async (announce = true) => {
+		async (
+			announce = true,
+			selectionIntent: "preserve" | "newest" = "preserve",
+		) => {
 			const baseDir = dirname(getConfigPath());
+			const requestToken = beginRequest(
+				auditExportIndexRequestTokenRef.current,
+			);
+			auditExportIndexRequestTokenRef.current = requestToken;
 			try {
 				const index = await readConsoleAuditExportIndex(baseDir);
-				setAuditExportIndex(index);
-				setLastStatusActivityCopyIntentAuditExport(
-					getLatestStatusActivityCopyIntentAuditExport(index),
-				);
-				const timelineTrailExports =
-					getTimelineEvidenceTrailAuditExports(index);
-				setTimelineEvidenceTrailAuditExports(timelineTrailExports);
-				setLastTimelineEvidenceTrailAuditExport(
-					getLatestTimelineEvidenceTrailAuditExport(index),
-				);
-				const processExports = getProcessControlAuditExports(index);
-				setProcessControlAuditExports(processExports);
-				setSelectedProcessControlAuditExportIndex((current) =>
-					Math.min(current, Math.max(0, processExports.length - 1)),
-				);
-				const remoteKnownHostsExports =
-					getRemoteKnownHostsSelectionHistoryAuditExports(index);
-				setRemoteKnownHostsSelectionAuditExports(remoteKnownHostsExports);
-				setSelectedRemoteKnownHostsSelectionAuditExportIndex((current) =>
-					Math.min(current, Math.max(0, remoteKnownHostsExports.length - 1)),
-				);
-				const interfaceExports = getInterfaceConfirmationAuditExports(index);
-				setInterfaceConfirmationAuditExports(interfaceExports);
-				const filteredTimelineTrailExports =
-					filterTimelineEvidenceTrailAuditExports(
-						timelineTrailExports,
-						timelineEvidenceTrailSourceFilter,
+				const transition = classifyAuditExportIndexRefresh({
+					currentRequestToken: auditExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex:
+						selectionIntent === "newest"
+							? 0
+							: selectedAuditExportIndexRef.current,
+					announce,
+					timelineSourceFilter: timelineEvidenceTrailSourceFilterRef.current,
+					recoveredSelections: {
+						timeline: selectedTimelineEvidenceTrailAuditExportIndexRef.current,
+						process: selectedProcessControlAuditExportIndexRef.current,
+						remoteKnownHosts:
+							selectedRemoteKnownHostsSelectionAuditExportIndexRef.current,
+						interface: selectedInterfaceConfirmationAuditExportIndexRef.current,
+					},
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setAuditExportIndex(transition.index);
+					setSelectedAuditExportIndex(transition.selectedIndex);
+					setLastStatusActivityCopyIntentAuditExport(
+						transition.lastStatusActivityCopyIntentAuditExport,
 					);
-				setSelectedTimelineEvidenceTrailAuditExportIndex((current) =>
-					Math.min(
-						current,
-						Math.max(0, filteredTimelineTrailExports.length - 1),
-					),
-				);
-				setSelectedAuditExportIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
-				if (announce) {
-					log("info", `audit exports indexed ${index.items.length}`);
+					setTimelineEvidenceTrailAuditExports(
+						transition.timelineEvidenceTrailAuditExports,
+					);
+					setLastTimelineEvidenceTrailAuditExport(
+						transition.latestTimelineEvidenceTrailAuditExport,
+					);
+					setSelectedTimelineEvidenceTrailAuditExportIndex(
+						transition.selectedTimelineIndex,
+					);
+					setProcessControlAuditExports(transition.processControlAuditExports);
+					setSelectedProcessControlAuditExportIndex(
+						transition.selectedProcessIndex,
+					);
+					setRemoteKnownHostsSelectionAuditExports(
+						transition.remoteKnownHostsSelectionAuditExports,
+					);
+					setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+						transition.selectedRemoteKnownHostsIndex,
+					);
+					setInterfaceConfirmationAuditExports(
+						transition.interfaceConfirmationAuditExports,
+					);
+					setSelectedInterfaceConfirmationAuditExportIndex(
+						transition.selectedInterfaceIndex,
+					);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `audit export index failed ${caught.message}`
-						: `audit export index failed ${String(caught)}`,
-				);
+				const transition = classifyAuditExportIndexRefresh({
+					currentRequestToken: auditExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex:
+						selectionIntent === "newest"
+							? 0
+							: selectedAuditExportIndexRef.current,
+					announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 		},
-		[log, timelineEvidenceTrailSourceFilter],
+		[log],
 	);
 
 	const refreshAuditExportArchiveIndex = useCallback(
 		async (announce = true) => {
 			const baseDir = dirname(getConfigPath());
+			const requestToken = beginRequest(
+				auditExportArchiveIndexRequestTokenRef.current,
+			);
+			auditExportArchiveIndexRequestTokenRef.current = requestToken;
 			try {
 				const index = await readConsoleAuditExportArchiveIndex(baseDir);
-				setAuditExportArchiveIndex(index);
-				setInterfaceConfirmationAuditArchiveExports(
-					getInterfaceConfirmationAuditExports(index),
-				);
-				setSelectedAuditExportArchiveIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
-				if (announce) {
-					log("info", `audit archive indexed ${index.items.length}`);
+				const transition = classifyAuditExportArchiveIndexRefresh({
+					currentRequestToken: auditExportArchiveIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedAuditExportArchiveIndexRef.current,
+					selectedInterfaceIndex:
+						selectedInterfaceConfirmationAuditExportIndexRef.current,
+					interfaceStateFilter: interfaceEvidenceStateFilterRef.current,
+					interfaceQuery: interfaceEvidenceQueryRef.current,
+					announce,
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setAuditExportArchiveIndex(transition.index);
+					setSelectedAuditExportArchiveIndex(transition.selectedIndex);
+					setInterfaceConfirmationAuditArchiveExports(
+						transition.interfaceConfirmationAuditArchiveExports,
+					);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `audit archive index failed ${caught.message}`
-						: `audit archive index failed ${String(caught)}`,
-				);
+				const transition = classifyAuditExportArchiveIndexRefresh({
+					currentRequestToken: auditExportArchiveIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedAuditExportArchiveIndexRef.current,
+					announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 		},
 		[log],
 	);
 
 	const openSelectedHandoffFile = useCallback(() => {
-		const item = getSelectedHandoffIndexItem(
-			handoffIndex,
-			selectedHandoffIndex,
-		);
-		if (!item) {
-			log("warn", "no handoff file selected");
+		const transition = prepareStatusEvidenceOpenTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "handoff",
+			baseDir: handoffIndex.baseDir,
+			platform: currentPlatform(),
+			fallbackOrigin: createActiveFileOpenOrigin(configShelfLandingTarget),
+		});
+		log(transition.notice.level, transition.notice.message);
+		if (transition.kind === "notice") {
 			return;
 		}
-		const plan = buildFileOpenPlan({
-			baseDir: handoffIndex.baseDir,
-			source: item.source,
-			label: item.label,
-			origin:
-				item.origin ?? createActiveFileOpenOrigin(configShelfLandingTarget),
-			path: item.path,
-			platform: currentPlatform(),
-		});
-		setFileOpenPlan(plan);
+		setSelectedHandoffIndex(transition.selectedIndex);
+		setFileOpenPlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
 		setAuditArchiveRetentionPlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
-		log("info", `file open confirmation opened for ${item.label}`);
-	}, [configShelfLandingTarget, handoffIndex, log, selectedHandoffIndex]);
+	}, [
+		configShelfLandingTarget,
+		handoffIndex.baseDir,
+		log,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
+	]);
 
 	const openSelectedAuditExportFile = useCallback(() => {
-		const item = getSelectedConsoleAuditExport(
-			auditExportIndex,
-			selectedAuditExportIndex,
-		);
-		if (!item) {
-			log("warn", "no audit export selected");
+		const transition = prepareStatusEvidenceOpenTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "audit",
+			baseDir: auditExportIndex.baseDir,
+			platform: currentPlatform(),
+			fallbackOrigin: createActiveFileOpenOrigin(configShelfLandingTarget),
+		});
+		log(transition.notice.level, transition.notice.message);
+		if (transition.kind === "notice") {
 			return;
 		}
-		const plan = buildFileOpenPlan({
-			baseDir: auditExportIndex.baseDir,
-			source: "timeline-export",
-			label: `audit export ${item.scope} ${item.generatedAt}`,
-			origin:
-				item.origin ?? createActiveFileOpenOrigin(configShelfLandingTarget),
-			path: item.path,
-			platform: currentPlatform(),
-		});
-		setFileOpenPlan(plan);
+		setSelectedAuditExportIndex(transition.selectedIndex);
+		setFileOpenPlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
 		setAuditArchiveRetentionPlan(undefined);
 		setCleanupExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
-		log("info", `audit export open confirmation opened for ${item.fileName}`);
 	}, [
-		auditExportIndex,
+		auditExportIndex.baseDir,
 		configShelfLandingTarget,
 		log,
-		selectedAuditExportIndex,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
 	]);
 
 	const openSelectedAuditExportArchiveFile = useCallback(() => {
-		const item = getSelectedConsoleAuditExport(
-			auditExportArchiveIndex,
-			selectedAuditExportArchiveIndex,
-		);
-		if (!item) {
-			log("warn", "no archived audit export selected");
+		const transition = prepareStatusEvidenceOpenTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "audit-archive",
+			baseDir: auditExportArchiveIndex.baseDir,
+			platform: currentPlatform(),
+			fallbackOrigin: createActiveFileOpenOrigin(configShelfLandingTarget),
+		});
+		log(transition.notice.level, transition.notice.message);
+		if (transition.kind === "notice") {
 			return;
 		}
-		const plan = buildFileOpenPlan({
-			baseDir: auditExportArchiveIndex.baseDir,
-			source: "timeline-export",
-			label: `archived audit export ${item.scope} ${item.generatedAt}`,
-			origin:
-				item.origin ?? createActiveFileOpenOrigin(configShelfLandingTarget),
-			path: item.path,
-			platform: currentPlatform(),
-		});
-		setFileOpenPlan(plan);
+		setSelectedAuditExportArchiveIndex(transition.selectedIndex);
+		setFileOpenPlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
 		setAuditArchiveRetentionPlan(undefined);
 		setCleanupExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
-		log(
-			"info",
-			`archived audit export open confirmation opened for ${item.fileName}`,
-		);
 	}, [
-		auditExportArchiveIndex,
+		auditExportArchiveIndex.baseDir,
 		configShelfLandingTarget,
 		log,
-		selectedAuditExportArchiveIndex,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
 	]);
 
 	const openAuditArchiveRetentionPreview = useCallback(() => {
-		const plan = createConsoleAuditArchiveRetentionPlan(
-			auditExportArchiveIndex,
-			{ maxItems: auditArchiveRetentionLimit },
-		);
+		const transition = prepareStatusEvidenceActionTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "audit-archive",
+			intent: "retention",
+			baseDir: auditExportArchiveIndex.baseDir,
+			retentionLimit: auditArchiveRetentionLimit,
+		});
+		log(transition.notice.level, transition.notice.message);
+		if (
+			transition.kind !== "confirmation" ||
+			transition.plan.confirmationPhrase !== "prune audit archive"
+		) {
+			return;
+		}
 		setAuditArchiveRetentionScope("all");
-		setAuditArchiveRetentionPlan(plan);
+		setAuditArchiveRetentionPlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setFileOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
 		setCleanupExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("audit-archive-retention"));
 		setScreen("status");
-		log(
-			plan.candidateItems.length > 0 ? "warn" : "info",
-			`audit archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
-		);
-	}, [auditArchiveRetentionLimit, auditExportArchiveIndex, log]);
+	}, [
+		auditArchiveRetentionLimit,
+		auditExportArchiveIndex.baseDir,
+		log,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
+	]);
 
 	const openInterfaceAuditArchiveRetentionPreview = useCallback(() => {
-		const interfaceArchiveIndex = filterInterfaceConfirmationAuditExportIndex(
-			auditExportArchiveIndex,
-		);
-		const plan = createConsoleAuditArchiveRetentionPlan(interfaceArchiveIndex, {
-			maxItems: auditArchiveRetentionLimit,
+		const transition = prepareStatusEvidenceActionTransition({
+			indexes: statusEvidenceIndexes,
+			selection: {
+				...statusEvidenceSelection,
+				interfaceEvidenceStateFilter: "archived",
+			},
+			kind: "interface",
+			intent: "retention",
+			baseDir: auditExportArchiveIndex.baseDir,
+			retentionLimit: auditArchiveRetentionLimit,
 		});
+		log(transition.notice.level, transition.notice.message);
+		if (
+			transition.kind !== "confirmation" ||
+			transition.plan.confirmationPhrase !== "prune audit archive"
+		) {
+			return;
+		}
 		setAuditArchiveRetentionScope("interface");
-		setAuditArchiveRetentionPlan(plan);
+		setAuditArchiveRetentionPlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setFileOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
@@ -3535,123 +3751,117 @@ export function App(): React.ReactElement {
 		setCommandLine(openCommandLine("audit-archive-retention"));
 		setScreen("status");
 		setSelectedStatusEvidenceKind("interface");
-		log(
-			plan.candidateItems.length > 0 ? "warn" : "info",
-			`interface evidence archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
-		);
-	}, [auditArchiveRetentionLimit, auditExportArchiveIndex, log]);
+	}, [
+		auditArchiveRetentionLimit,
+		auditExportArchiveIndex.baseDir,
+		log,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
+	]);
 
 	const openSelectedAuditExportArchive = useCallback(() => {
-		const item = getSelectedConsoleAuditExport(
-			auditExportIndex,
-			selectedAuditExportIndex,
-		);
-		if (!item) {
-			log("warn", "no audit export selected");
-			return;
-		}
-		const plan = createConsoleAuditExportArchivePlan(
-			auditExportIndex.baseDir,
-			item.path,
-		);
-		setAuditExportArchivePlan(plan);
-		setExternalOpenPlan(undefined);
-		setFileOpenPlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("audit-export-archive"));
-		setScreen("status");
-		log(
-			"info",
-			`audit export archive confirmation opened for ${item.fileName}`,
-		);
-	}, [auditExportIndex, log, selectedAuditExportIndex]);
-
-	const openSelectedInterfaceEvidenceArchive = useCallback(() => {
+		const transition = prepareStatusEvidenceActionTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "audit",
+			intent: "archive",
+			baseDir: auditExportIndex.baseDir,
+		});
+		log(transition.notice.level, transition.notice.message);
 		if (
-			!selectedInterfaceConfirmationAuditExport ||
-			selectedInterfaceConfirmationEvidenceArchived
+			transition.kind !== "confirmation" ||
+			transition.plan.confirmationPhrase !== "archive audit export"
 		) {
-			log(
-				"warn",
-				"no active interface confirmation evidence export to archive",
-			);
 			return;
 		}
-		const plan = createConsoleAuditExportArchivePlan(
-			auditExportIndex.baseDir,
-			selectedInterfaceConfirmationAuditExport.path,
-		);
-		setAuditExportArchivePlan(plan);
+		setSelectedAuditExportIndex(transition.selectedIndex);
+		setAuditExportArchivePlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setFileOpenPlan(undefined);
 		setAuditArchiveRetentionPlan(undefined);
 		setCleanupExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("audit-export-archive"));
 		setScreen("status");
-		setSelectedStatusEvidenceKind("interface");
-		log(
-			"info",
-			`interface evidence archive confirmation opened for ${plan.fileName}`,
-		);
 	}, [
 		auditExportIndex.baseDir,
 		log,
-		selectedInterfaceConfirmationAuditExport,
-		selectedInterfaceConfirmationEvidenceArchived,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
+	]);
+
+	const openSelectedInterfaceEvidenceArchive = useCallback(() => {
+		const transition = prepareStatusEvidenceActionTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "interface",
+			intent: "archive",
+			baseDir: auditExportIndex.baseDir,
+		});
+		log(transition.notice.level, transition.notice.message);
+		if (
+			transition.kind !== "confirmation" ||
+			transition.plan.confirmationPhrase !== "archive audit export"
+		) {
+			return;
+		}
+		setSelectedInterfaceConfirmationAuditExportIndex(transition.selectedIndex);
+		setAuditExportArchivePlan(transition.plan);
+		setExternalOpenPlan(undefined);
+		setFileOpenPlan(undefined);
+		setAuditArchiveRetentionPlan(undefined);
+		setCleanupExportArchivePlan(undefined);
+		setCommandLine(openCommandLine("audit-export-archive"));
+		setScreen("status");
+		setSelectedStatusEvidenceKind("interface");
+	}, [
+		auditExportIndex.baseDir,
+		log,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
 	]);
 
 	const openSelectedCleanupExportFile = useCallback(() => {
-		const item = getSelectedCleanupHandoffHistoryExport(
-			cleanupExportIndex,
-			selectedCleanupExportIndex,
-		);
-		if (!item) {
-			log("warn", "no cleanup export selected");
+		const transition = prepareStatusEvidenceOpenTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "cleanup",
+			baseDir: cleanupExportIndex.baseDir,
+			platform: currentPlatform(),
+			fallbackOrigin: createActiveFileOpenOrigin(configShelfLandingTarget),
+		});
+		log(transition.notice.level, transition.notice.message);
+		if (transition.kind === "notice") {
 			return;
 		}
-		const plan = buildFileOpenPlan({
-			baseDir: cleanupExportIndex.baseDir,
-			source: "cleanup-export",
-			label: `cleanup export ${item.scope} ${item.generatedAt}`,
-			origin:
-				item.origin ?? createActiveFileOpenOrigin(configShelfLandingTarget),
-			path: item.path,
-			platform: currentPlatform(),
-		});
-		setFileOpenPlan(plan);
+		setSelectedCleanupExportIndex(transition.selectedIndex);
+		setFileOpenPlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
 		setCleanupExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
-		log("info", `cleanup export open confirmation opened for ${item.fileName}`);
 	}, [
-		cleanupExportIndex,
+		cleanupExportIndex.baseDir,
 		configShelfLandingTarget,
 		log,
-		selectedCleanupExportIndex,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
 	]);
 
 	const openSelectedToolExportFile = useCallback(() => {
-		const item = getSelectedToolHistoryExport(
-			toolExportIndex,
-			selectedToolExportIndex,
-			toolExportFilter,
-			toolExportQuery,
-		);
-		if (!item) {
-			log("warn", "no tools evidence export selected");
-			return;
-		}
-		const plan = buildFileOpenPlan({
+		const transition = prepareStatusEvidenceOpenTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "tools",
 			baseDir: dirname(getConfigPath()),
-			source: "tools-export",
-			label: `tools export ${item.scope} ${item.generatedAt}`,
-			path: item.path,
 			platform: currentPlatform(),
 		});
-		setFileOpenPlan(plan);
+		log(transition.notice.level, transition.notice.message);
+		if (transition.kind === "notice") {
+			return;
+		}
+		setSelectedToolExportIndex(transition.selectedIndex);
+		setFileOpenPlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
 		setCleanupExportArchivePlan(undefined);
@@ -3659,34 +3869,22 @@ export function App(): React.ReactElement {
 		setToolArchiveRetentionPlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
-		log("info", `tools evidence open confirmation opened for ${item.fileName}`);
-	}, [
-		log,
-		selectedToolExportIndex,
-		toolExportFilter,
-		toolExportIndex,
-		toolExportQuery,
-	]);
+	}, [log, statusEvidenceIndexes, statusEvidenceSelection]);
 
 	const openSelectedToolExportArchiveFile = useCallback(() => {
-		const item = getSelectedToolHistoryExport(
-			toolExportArchiveIndex,
-			selectedToolExportArchiveIndex,
-			toolExportArchiveFilter,
-			toolExportArchiveQuery,
-		);
-		if (!item) {
-			log("warn", "no archived tools evidence export selected");
-			return;
-		}
-		const plan = buildFileOpenPlan({
+		const transition = prepareStatusEvidenceOpenTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "tools-archive",
 			baseDir: dirname(getConfigPath()),
-			source: "tools-export",
-			label: `archived tools export ${item.scope} ${item.generatedAt}`,
-			path: item.path,
 			platform: currentPlatform(),
 		});
-		setFileOpenPlan(plan);
+		log(transition.notice.level, transition.notice.message);
+		if (transition.kind === "notice") {
+			return;
+		}
+		setSelectedToolExportArchiveIndex(transition.selectedIndex);
+		setFileOpenPlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
 		setCleanupExportArchivePlan(undefined);
@@ -3694,17 +3892,7 @@ export function App(): React.ReactElement {
 		setToolArchiveRetentionPlan(undefined);
 		setCommandLine(openCommandLine("file-open"));
 		setScreen("status");
-		log(
-			"info",
-			`archived tools evidence open confirmation opened for ${item.fileName}`,
-		);
-	}, [
-		log,
-		selectedToolExportArchiveIndex,
-		toolExportArchiveFilter,
-		toolExportArchiveIndex,
-		toolExportArchiveQuery,
-	]);
+	}, [log, statusEvidenceIndexes, statusEvidenceSelection]);
 
 	const openSelectedStatusActivityToolsEvidenceSearchMatchFile =
 		useCallback(() => {
@@ -3840,14 +4028,15 @@ export function App(): React.ReactElement {
 
 	const openSelectedToolExportArchive = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const item = getSelectedToolHistoryExport(
-				toolExportIndex,
-				selectedToolExportIndex,
-				toolExportFilter,
-				toolExportQuery,
-			);
-			if (!item) {
-				log("warn", "no tools evidence export selected");
+			const transition = prepareSelectedToolHistoryExportArchive({
+				baseDir: dirname(getConfigPath()),
+				index: toolExportIndex,
+				selectedIndex: selectedToolExportIndex,
+				filter: toolExportFilter,
+				query: toolExportQuery,
+			});
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				if (options.origin === "palette") {
 					log(
 						"info",
@@ -3859,11 +4048,8 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const plan = createToolHistoryExportArchivePlan(
-				dirname(getConfigPath()),
-				item.path,
-			);
-			setToolExportArchivePlan(plan);
+			setSelectedToolExportIndex(transition.selectedIndex);
+			setToolExportArchivePlan(transition.plan);
 			setExternalOpenPlan(undefined);
 			setFileOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
@@ -3872,15 +4058,11 @@ export function App(): React.ReactElement {
 			setToolArchiveRetentionPlan(undefined);
 			setCommandLine(openCommandLine("tool-export-archive"));
 			setScreen("status");
-			log(
-				"info",
-				`tools evidence archive confirmation opened for ${item.fileName}`,
-			);
 			if (options.origin === "palette") {
 				const resultOptions = {
-					fileName: item.fileName,
-					path: item.path,
-					selectedIndex: selectedToolExportIndex,
+					fileName: transition.item.fileName,
+					path: transition.item.path,
+					selectedIndex: transition.selectedIndex,
 					total: toolExportIndex.items.length,
 				};
 				log(
@@ -3910,12 +4092,22 @@ export function App(): React.ReactElement {
 
 	const openToolArchiveRetentionPreview = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const plan = createToolHistoryArchiveRetentionPlan(
-				toolExportArchiveIndex,
-				{
-					maxItems: auditArchiveRetentionLimit,
-				},
-			);
+			const transition = prepareStatusEvidenceActionTransition({
+				indexes: statusEvidenceIndexes,
+				selection: statusEvidenceSelection,
+				kind: "tools-archive",
+				intent: "retention",
+				baseDir: dirname(getConfigPath()),
+				retentionLimit: auditArchiveRetentionLimit,
+			});
+			log(transition.notice.level, transition.notice.message);
+			if (
+				transition.kind !== "confirmation" ||
+				transition.plan.confirmationPhrase !== "prune tools archive"
+			) {
+				return;
+			}
+			const plan = transition.plan;
 			setToolArchiveRetentionPlan(plan);
 			setExternalOpenPlan(undefined);
 			setFileOpenPlan(undefined);
@@ -3925,10 +4117,6 @@ export function App(): React.ReactElement {
 			setToolExportArchivePlan(undefined);
 			setCommandLine(openCommandLine("tools-archive-retention"));
 			setScreen("status");
-			log(
-				plan.candidateItems.length > 0 ? "warn" : "info",
-				`tools archive retention candidates=${plan.candidateItems.length} max=${plan.maxItems}`,
-			);
 			if (options.origin === "palette") {
 				const resultOptions = {
 					candidateCount: plan.candidateItems.length,
@@ -3953,7 +4141,8 @@ export function App(): React.ReactElement {
 			auditArchiveRetentionLimit,
 			log,
 			recordStatusActivityResult,
-			toolExportArchiveIndex,
+			statusEvidenceIndexes,
+			statusEvidenceSelection,
 		],
 	);
 
@@ -4255,46 +4444,52 @@ export function App(): React.ReactElement {
 	);
 
 	const openSelectedCleanupExportArchive = useCallback(() => {
-		const item = getSelectedCleanupHandoffHistoryExport(
+		const transition = prepareSelectedCleanupExportArchive(
 			cleanupExportIndex,
 			selectedCleanupExportIndex,
 		);
-		if (!item) {
-			log("warn", "no cleanup export selected");
+		log(transition.notice.level, transition.notice.message);
+		if (transition.kind === "notice") {
 			return;
 		}
-		const plan = createCleanupHandoffHistoryExportArchivePlan(
-			cleanupExportIndex.baseDir,
-			item.path,
-		);
-		setCleanupExportArchivePlan(plan);
+		setSelectedCleanupExportIndex(transition.selectedIndex);
+		setCleanupExportArchivePlan(transition.plan);
 		setExternalOpenPlan(undefined);
 		setFileOpenPlan(undefined);
 		setAuditExportArchivePlan(undefined);
 		setCommandLine(openCommandLine("cleanup-export-archive"));
 		setScreen("status");
-		log(
-			"info",
-			`cleanup export archive confirmation opened for ${item.fileName}`,
-		);
 	}, [cleanupExportIndex, log, selectedCleanupExportIndex]);
 
 	const archiveSelectedHandoffFile = useCallback(async () => {
-		const item = getSelectedHandoffIndexItem(
-			handoffIndex,
-			selectedHandoffIndex,
-		);
-		if (!item) {
-			log("warn", "no handoff file selected");
+		const transition = prepareStatusEvidenceActionTransition({
+			indexes: statusEvidenceIndexes,
+			selection: statusEvidenceSelection,
+			kind: "handoff",
+			intent: "archive",
+			baseDir: handoffIndex.baseDir,
+		});
+		log(transition.notice.level, transition.notice.message);
+		if (transition.kind !== "archive") {
 			return;
 		}
-		const result = await archiveHandoffFile(handoffIndex.baseDir, item.path);
+		setSelectedHandoffIndex(transition.selectedIndex);
+		const result = await archiveHandoffFile(
+			transition.baseDir,
+			transition.path,
+		);
 		log(
 			result.status === "archived" ? "ok" : "warn",
 			`handoff archive ${result.message}`,
 		);
 		await refreshHandoffIndex(false);
-	}, [handoffIndex, log, refreshHandoffIndex, selectedHandoffIndex]);
+	}, [
+		handoffIndex.baseDir,
+		log,
+		refreshHandoffIndex,
+		statusEvidenceIndexes,
+		statusEvidenceSelection,
+	]);
 
 	const exportToolHistory = useCallback(
 		async (scope: ToolHistoryExportScope) => {
@@ -4304,33 +4499,39 @@ export function App(): React.ReactElement {
 				toolHistoryFilter,
 				toolHistorySort,
 			);
-			const plan =
-				scope === "compare"
-					? createToolHistoryCompareExportPlan(
-							toolHistory,
-							visibleToolHistoryIndex,
-							{
-								baseDir: dirname(getConfigPath()),
-							},
-						)
-					: createToolHistoryExportPlan(toolHistory, visibleToolHistoryIndex, {
-							baseDir: dirname(getConfigPath()),
-							scope,
-						});
-			if (!plan) {
-				log("warn", "no tool history to export");
+			const transition = prepareToolHistoryExport(
+				toolHistory,
+				visibleToolHistoryIndex,
+				scope,
+				{ baseDir: dirname(getConfigPath()) },
+			);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				return;
 			}
 
 			try {
-				const written = await writeToolHistoryExport(plan);
+				const written = await writeToolHistoryExport(transition.plan);
+				const requestToken = beginRequest(
+					toolExportIndexRequestTokenRef.current,
+				);
+				toolExportIndexRequestTokenRef.current = requestToken;
 				const index = await readToolHistoryExportIndex(
 					dirname(getConfigPath()),
 				);
-				setToolExportIndex(index);
-				setSelectedToolExportIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
+				const publication = classifyToolHistoryExportIndexRefresh({
+					target: "active",
+					currentRequestToken: toolExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: 0,
+					filter: toolExportFilterRef.current,
+					query: toolExportQueryRef.current,
+					outcome: { status: "success", index },
+				});
+				if (publication.status === "success") {
+					setToolExportIndex(publication.index);
+					setSelectedToolExportIndex(publication.selectedIndex);
+				}
 				setSelectedStatusEvidenceKind("tools");
 				setScreen("tools");
 				log(
@@ -5779,8 +5980,17 @@ export function App(): React.ReactElement {
 	const selectNextTimelineEvidenceTrailExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
-			if (filteredTimelineEvidenceTrailAuditExports.length <= 1) {
-				log("warn", "no alternate timeline evidence trail exports");
+			const transition = prepareRecoveredEvidenceSelectionTransition({
+				family: "timeline",
+				exports: filteredTimelineEvidenceTrailAuditExports,
+				selectedIndex: selectedTimelineEvidenceTrailAuditExportIndex,
+				direction: "next",
+			});
+			setSelectedTimelineEvidenceTrailAuditExportIndex(
+				transition.selectedIndex,
+			);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				if (options.origin === "palette") {
 					log("info", formatTimelineEvidenceTrailPaletteAuditMessage("select"));
 					recordStatusActivityResult(
@@ -5789,43 +5999,35 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			setSelectedTimelineEvidenceTrailAuditExportIndex((current) => {
-				const next = moveTimelineEvidenceTrailSelection(
-					filteredTimelineEvidenceTrailAuditExports,
-					current,
-					"next",
-				);
-				const trail = filteredTimelineEvidenceTrailAuditExports[next];
+			if (options.origin === "palette") {
 				log(
 					"info",
-					`timeline evidence trail selected ${next + 1}/${filteredTimelineEvidenceTrailAuditExports.length} ${trail ? basename(trail.path) : "none"}`,
+					formatTimelineEvidenceTrailPaletteAuditMessage(
+						"select",
+						transition.item,
+						{
+							selectedIndex: transition.selectedIndex,
+							total: transition.total,
+						},
+					),
 				);
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatTimelineEvidenceTrailPaletteAuditMessage("select", trail, {
-							selectedIndex: next,
-							total: filteredTimelineEvidenceTrailAuditExports.length,
-						}),
-					);
-					recordStatusActivityResult(
-						createTimelineEvidenceTrailPaletteStatusActivityResult(
-							"select",
-							trail,
-							{
-								selectedIndex: next,
-								total: filteredTimelineEvidenceTrailAuditExports.length,
-							},
-						),
-					);
-				}
-				return next;
-			});
+				recordStatusActivityResult(
+					createTimelineEvidenceTrailPaletteStatusActivityResult(
+						"select",
+						transition.item,
+						{
+							selectedIndex: transition.selectedIndex,
+							total: transition.total,
+						},
+					),
+				);
+			}
 		},
 		[
 			filteredTimelineEvidenceTrailAuditExports,
 			log,
 			recordStatusActivityResult,
+			selectedTimelineEvidenceTrailAuditExportIndex,
 		],
 	);
 
@@ -5890,15 +6092,12 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
+			const transition = prepareTimelineSearchJumpTransition(events, jump);
+			setTimelineFilter(transition.filter);
+			setTimelineSearchQuery(transition.query);
+			setSelectedTimelineIndex(transition.selectedIndex);
 			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			if (options.origin === "palette") {
 				log(
 					"info",
@@ -6003,8 +6202,15 @@ export function App(): React.ReactElement {
 	const selectNextProcessControlEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
-			if (processControlAuditExports.length <= 1) {
-				log("warn", "no alternate process control evidence exports");
+			const transition = prepareRecoveredEvidenceSelectionTransition({
+				family: "process",
+				exports: processControlAuditExports,
+				selectedIndex: selectedProcessControlAuditExportIndex,
+				direction: "next",
+			});
+			setSelectedProcessControlAuditExportIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				if (options.origin === "palette") {
 					log(
 						"info",
@@ -6016,44 +6222,36 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			setSelectedProcessControlAuditExportIndex((current) => {
-				const next = moveProcessControlAuditExportSelection(
-					processControlAuditExports,
-					current,
-					"next",
-				);
-				const evidence = processControlAuditExports[next];
+			if (options.origin === "palette") {
 				log(
 					"info",
-					`process control evidence selected ${next + 1}/${processControlAuditExports.length} ${evidence ? basename(evidence.path) : "none"}`,
+					formatProcessControlEvidencePaletteAuditMessage(
+						"select",
+						transition.item,
+						{
+							selectedIndex: transition.selectedIndex,
+							total: transition.total,
+						},
+					),
 				);
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatProcessControlEvidencePaletteAuditMessage(
-							"select",
-							evidence,
-							{
-								selectedIndex: next,
-								total: processControlAuditExports.length,
-							},
-						),
-					);
-					recordStatusActivityResult(
-						createProcessControlEvidencePaletteStatusActivityResult(
-							"select",
-							evidence,
-							{
-								selectedIndex: next,
-								total: processControlAuditExports.length,
-							},
-						),
-					);
-				}
-				return next;
-			});
+				recordStatusActivityResult(
+					createProcessControlEvidencePaletteStatusActivityResult(
+						"select",
+						transition.item,
+						{
+							selectedIndex: transition.selectedIndex,
+							total: transition.total,
+						},
+					),
+				);
+			}
 		},
-		[log, processControlAuditExports, recordStatusActivityResult],
+		[
+			log,
+			processControlAuditExports,
+			recordStatusActivityResult,
+			selectedProcessControlAuditExportIndex,
+		],
 	);
 
 	const jumpSelectedProcessControlEvidenceSearch = useCallback(
@@ -6081,15 +6279,12 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
+			const transition = prepareTimelineSearchJumpTransition(events, jump);
+			setTimelineFilter(transition.filter);
+			setTimelineSearchQuery(transition.query);
+			setSelectedTimelineIndex(transition.selectedIndex);
 			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			if (options.origin === "palette") {
 				log(
 					"info",
@@ -6136,8 +6331,15 @@ export function App(): React.ReactElement {
 
 	const openSelectedProcessControlEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (!selectedProcessControlAuditExport) {
-				log("warn", "no process control evidence export to open");
+			const transition = prepareStatusEvidenceOpenTransition({
+				indexes: statusEvidenceIndexes,
+				selection: statusEvidenceSelection,
+				kind: "process",
+				baseDir: dirname(getConfigPath()),
+				platform: currentPlatform(),
+			});
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				setScreen("status");
 				if (options.origin === "palette") {
 					log("info", formatProcessControlEvidencePaletteAuditMessage("open"));
@@ -6147,46 +6349,37 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const plan = createProcessControlAuditExportOpenPlan(
-				selectedProcessControlAuditExport,
-				{
-					baseDir: dirname(getConfigPath()),
-					platform: currentPlatform(),
-				},
-			);
+			const selected = processControlAuditExports[transition.selectedIndex];
+			setSelectedProcessControlAuditExportIndex(transition.selectedIndex);
 			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
 				auditExportIndex,
-				selectedProcessControlAuditExport,
+				selected,
 			);
 			if (evidenceIndex !== undefined) {
 				setSelectedAuditExportIndex(evidenceIndex);
 				setSelectedStatusEvidenceKind("audit");
 			}
-			setFileOpenPlan(plan);
+			setFileOpenPlan(transition.plan);
 			setExternalOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
 			setAuditArchiveRetentionPlan(undefined);
 			setCleanupExportArchivePlan(undefined);
 			setCommandLine(openCommandLine("file-open"));
 			setScreen("status");
-			log(
-				"info",
-				`process control evidence export open confirmation opened for ${selectedProcessControlAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
-			);
 			if (options.origin === "palette") {
 				const resultOptions = getSelectedProcessControlEvidenceResultOptions();
 				log(
 					"info",
 					formatProcessControlEvidencePaletteAuditMessage(
 						"open",
-						selectedProcessControlAuditExport,
+						selected,
 						resultOptions,
 					),
 				);
 				recordStatusActivityResult(
 					createProcessControlEvidencePaletteStatusActivityResult(
 						"open",
-						selectedProcessControlAuditExport,
+						selected,
 						resultOptions,
 					),
 				);
@@ -6197,7 +6390,9 @@ export function App(): React.ReactElement {
 			getSelectedProcessControlEvidenceResultOptions,
 			log,
 			recordStatusActivityResult,
-			selectedProcessControlAuditExport,
+			processControlAuditExports,
+			statusEvidenceIndexes,
+			statusEvidenceSelection,
 		],
 	);
 
@@ -6216,11 +6411,17 @@ export function App(): React.ReactElement {
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
 			setSelectedStatusEvidenceKind("remote-known-hosts");
-			if (remoteKnownHostsSelectionAuditExports.length <= 1) {
-				log(
-					"warn",
-					"no alternate remote known_hosts selection evidence exports",
-				);
+			const transition = prepareRecoveredEvidenceSelectionTransition({
+				family: "remote-known-hosts",
+				exports: remoteKnownHostsSelectionAuditExports,
+				selectedIndex: selectedRemoteKnownHostsSelectionAuditExportIndex,
+				direction: "next",
+			});
+			setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+				transition.selectedIndex,
+			);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				if (options.origin === "palette") {
 					log(
 						"info",
@@ -6236,40 +6437,34 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			setSelectedRemoteKnownHostsSelectionAuditExportIndex((current) => {
-				const next =
-					(current + 1 + remoteKnownHostsSelectionAuditExports.length) %
-					remoteKnownHostsSelectionAuditExports.length;
-				const evidence = remoteKnownHostsSelectionAuditExports[next];
+			if (options.origin === "palette") {
+				const resultOptions = {
+					selectedIndex: transition.selectedIndex,
+					total: transition.total,
+				};
 				log(
 					"info",
-					`remote known_hosts evidence selected ${next + 1}/${remoteKnownHostsSelectionAuditExports.length} ${evidence ? basename(evidence.path) : "none"}`,
+					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
+						"select",
+						transition.item,
+						resultOptions,
+					),
 				);
-				if (options.origin === "palette") {
-					const resultOptions = {
-						selectedIndex: next,
-						total: remoteKnownHostsSelectionAuditExports.length,
-					};
-					log(
-						"info",
-						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-							"select",
-							evidence,
-							resultOptions,
-						),
-					);
-					recordStatusActivityResult(
-						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-							"select",
-							evidence,
-							resultOptions,
-						),
-					);
-				}
-				return next;
-			});
+				recordStatusActivityResult(
+					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
+						"select",
+						transition.item,
+						resultOptions,
+					),
+				);
+			}
 		},
-		[log, recordStatusActivityResult, remoteKnownHostsSelectionAuditExports],
+		[
+			log,
+			recordStatusActivityResult,
+			remoteKnownHostsSelectionAuditExports,
+			selectedRemoteKnownHostsSelectionAuditExportIndex,
+		],
 	);
 
 	const jumpSelectedRemoteKnownHostsSelectionEvidenceSearch = useCallback(
@@ -6313,15 +6508,12 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
+			const transition = prepareTimelineSearchJumpTransition(events, jump);
+			setTimelineFilter(transition.filter);
+			setTimelineSearchQuery(transition.query);
+			setSelectedTimelineIndex(transition.selectedIndex);
 			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			if (options.origin === "palette") {
 				log(
 					"info",
@@ -6368,8 +6560,15 @@ export function App(): React.ReactElement {
 
 	const openSelectedRemoteKnownHostsSelectionEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (!selectedRemoteKnownHostsSelectionAuditExport) {
-				log("warn", "no remote known_hosts selection evidence export to open");
+			const transition = prepareStatusEvidenceOpenTransition({
+				indexes: statusEvidenceIndexes,
+				selection: statusEvidenceSelection,
+				kind: "remote-known-hosts",
+				baseDir: dirname(getConfigPath()),
+				platform: currentPlatform(),
+			});
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				setScreen("status");
 				if (options.origin === "palette") {
 					log(
@@ -6386,32 +6585,26 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const plan = createRemoteKnownHostsSelectionHistoryAuditExportOpenPlan(
-				selectedRemoteKnownHostsSelectionAuditExport,
-				{
-					baseDir: dirname(getConfigPath()),
-					platform: currentPlatform(),
-				},
+			const selected =
+				remoteKnownHostsSelectionAuditExports[transition.selectedIndex];
+			setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+				transition.selectedIndex,
 			);
 			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
 				auditExportIndex,
-				selectedRemoteKnownHostsSelectionAuditExport,
+				selected,
 			);
 			if (evidenceIndex !== undefined) {
 				setSelectedAuditExportIndex(evidenceIndex);
 				setSelectedStatusEvidenceKind("audit");
 			}
-			setFileOpenPlan(plan);
+			setFileOpenPlan(transition.plan);
 			setExternalOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
 			setAuditArchiveRetentionPlan(undefined);
 			setCleanupExportArchivePlan(undefined);
 			setCommandLine(openCommandLine("file-open"));
 			setScreen("status");
-			log(
-				"info",
-				`remote known_hosts selection evidence export open confirmation opened for ${selectedRemoteKnownHostsSelectionAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
-			);
 			if (options.origin === "palette") {
 				const resultOptions =
 					getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
@@ -6419,14 +6612,14 @@ export function App(): React.ReactElement {
 					"info",
 					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
 						"open",
-						selectedRemoteKnownHostsSelectionAuditExport,
+						selected,
 						resultOptions,
 					),
 				);
 				recordStatusActivityResult(
 					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
 						"open",
-						selectedRemoteKnownHostsSelectionAuditExport,
+						selected,
 						resultOptions,
 					),
 				);
@@ -6437,7 +6630,9 @@ export function App(): React.ReactElement {
 			getSelectedRemoteKnownHostsSelectionEvidenceResultOptions,
 			log,
 			recordStatusActivityResult,
-			selectedRemoteKnownHostsSelectionAuditExport,
+			remoteKnownHostsSelectionAuditExports,
+			statusEvidenceIndexes,
+			statusEvidenceSelection,
 		],
 	);
 
@@ -6600,8 +6795,20 @@ export function App(): React.ReactElement {
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
 			setSelectedStatusEvidenceKind("interface");
-			if (interfaceConfirmationEvidenceExports.length <= 1) {
-				log("warn", "no alternate interface confirmation evidence exports");
+			const exports = interfaceConfirmationEvidenceExports.map(
+				({ plan }) => plan,
+			);
+			const transition = prepareRecoveredEvidenceSelectionTransition({
+				family: "interface",
+				exports,
+				selectedIndex: selectedInterfaceConfirmationAuditExportIndex,
+				direction: "next",
+			});
+			setSelectedInterfaceConfirmationAuditExportIndex(
+				transition.selectedIndex,
+			);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				if (options.origin === "palette") {
 					log(
 						"info",
@@ -6615,42 +6822,34 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			setSelectedInterfaceConfirmationAuditExportIndex((current) => {
-				const next = moveInterfaceConfirmationAuditExportSelection(
-					interfaceConfirmationEvidenceExports.map(({ plan }) => plan),
-					current,
-					"next",
-				);
-				const evidence = interfaceConfirmationEvidenceExports[next]?.plan;
+			if (options.origin === "palette") {
+				const resultOptions = {
+					selectedIndex: transition.selectedIndex,
+					total: transition.total,
+				};
 				log(
 					"info",
-					`interface confirmation evidence selected ${next + 1}/${interfaceConfirmationEvidenceExports.length} ${evidence ? basename(evidence.path) : "none"}`,
+					formatInterfaceConfirmationEvidencePaletteAuditMessage(
+						"select",
+						transition.item,
+						resultOptions,
+					),
 				);
-				if (options.origin === "palette") {
-					const resultOptions = {
-						selectedIndex: next,
-						total: interfaceConfirmationEvidenceExports.length,
-					};
-					log(
-						"info",
-						formatInterfaceConfirmationEvidencePaletteAuditMessage(
-							"select",
-							evidence,
-							resultOptions,
-						),
-					);
-					recordStatusActivityResult(
-						createInterfaceConfirmationEvidencePaletteStatusActivityResult(
-							"select",
-							evidence,
-							resultOptions,
-						),
-					);
-				}
-				return next;
-			});
+				recordStatusActivityResult(
+					createInterfaceConfirmationEvidencePaletteStatusActivityResult(
+						"select",
+						transition.item,
+						resultOptions,
+					),
+				);
+			}
 		},
-		[interfaceConfirmationEvidenceExports, log, recordStatusActivityResult],
+		[
+			interfaceConfirmationEvidenceExports,
+			log,
+			recordStatusActivityResult,
+			selectedInterfaceConfirmationAuditExportIndex,
+		],
 	);
 
 	const jumpSelectedInterfaceConfirmationEvidenceSearch = useCallback(
@@ -6684,15 +6883,12 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
+			const transition = prepareTimelineSearchJumpTransition(events, jump);
+			setTimelineFilter(transition.filter);
+			setTimelineSearchQuery(transition.query);
+			setSelectedTimelineIndex(transition.selectedIndex);
 			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			if (options.origin === "palette") {
 				log(
 					"info",
@@ -6739,8 +6935,15 @@ export function App(): React.ReactElement {
 
 	const openSelectedInterfaceConfirmationEvidenceExport = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (!selectedInterfaceConfirmationAuditExport) {
-				log("warn", "no interface confirmation evidence export to open");
+			const transition = prepareStatusEvidenceOpenTransition({
+				indexes: statusEvidenceIndexes,
+				selection: statusEvidenceSelection,
+				kind: "interface",
+				baseDir: dirname(getConfigPath()),
+				platform: currentPlatform(),
+			});
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "notice") {
 				setScreen("status");
 				if (options.origin === "palette") {
 					log(
@@ -6755,20 +6958,18 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const plan = createInterfaceConfirmationAuditExportOpenPlan(
-				selectedInterfaceConfirmationAuditExport,
-				{
-					baseDir: dirname(getConfigPath()),
-					platform: currentPlatform(),
-				},
+			const selected =
+				interfaceConfirmationEvidenceExports[transition.selectedIndex]?.plan;
+			setSelectedInterfaceConfirmationAuditExportIndex(
+				transition.selectedIndex,
 			);
 			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
 				auditExportIndex,
-				selectedInterfaceConfirmationAuditExport,
+				selected,
 			);
 			const archivedEvidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
 				auditExportArchiveIndex,
-				selectedInterfaceConfirmationAuditExport,
+				selected,
 			);
 			if (evidenceIndex !== undefined) {
 				setSelectedAuditExportIndex(evidenceIndex);
@@ -6776,17 +6977,13 @@ export function App(): React.ReactElement {
 				setSelectedAuditExportArchiveIndex(archivedEvidenceIndex);
 			}
 			setSelectedStatusEvidenceKind("interface");
-			setFileOpenPlan(plan);
+			setFileOpenPlan(transition.plan);
 			setExternalOpenPlan(undefined);
 			setAuditExportArchivePlan(undefined);
 			setAuditArchiveRetentionPlan(undefined);
 			setCleanupExportArchivePlan(undefined);
 			setCommandLine(openCommandLine("file-open"));
 			setScreen("status");
-			log(
-				"info",
-				`interface confirmation evidence export open confirmation opened for ${selectedInterfaceConfirmationAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : archivedEvidenceIndex !== undefined ? ` archivedEvidence=${archivedEvidenceIndex + 1}` : ""}`,
-			);
 			if (options.origin === "palette") {
 				const resultOptions =
 					getSelectedInterfaceConfirmationEvidenceResultOptions();
@@ -6794,14 +6991,14 @@ export function App(): React.ReactElement {
 					"info",
 					formatInterfaceConfirmationEvidencePaletteAuditMessage(
 						"open",
-						selectedInterfaceConfirmationAuditExport,
+						selected,
 						resultOptions,
 					),
 				);
 				recordStatusActivityResult(
 					createInterfaceConfirmationEvidencePaletteStatusActivityResult(
 						"open",
-						selectedInterfaceConfirmationAuditExport,
+						selected,
 						resultOptions,
 					),
 				);
@@ -6813,7 +7010,9 @@ export function App(): React.ReactElement {
 			getSelectedInterfaceConfirmationEvidenceResultOptions,
 			log,
 			recordStatusActivityResult,
-			selectedInterfaceConfirmationAuditExport,
+			interfaceConfirmationEvidenceExports,
+			statusEvidenceIndexes,
+			statusEvidenceSelection,
 		],
 	);
 
@@ -6957,15 +7156,17 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const filtered = filterTimelineEvents(
+			const timelineTransition = prepareTimelineSearchJumpTransition(
 				events,
-				selected.jump.query,
-				selected.jump.filter,
+				selected.jump,
+				{
+					messageSuffix: options.origin === "palette" ? " origin=palette" : "",
+				},
 			);
 			const intent = createRemoteKnownHostsEvidenceHandoffOpenCopyIntent(
 				selected,
 				{
-					matches: filtered.length,
+					matches: timelineTransition.matches,
 				},
 			);
 			setStatusActivityCopyIntentHistory((current) =>
@@ -6975,21 +7176,18 @@ export function App(): React.ReactElement {
 			if (intent) {
 				log("info", intent.auditMessage);
 			}
-			setTimelineFilter(selected.jump.filter);
-			setTimelineSearchQuery(selected.jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
+			setTimelineFilter(timelineTransition.filter);
+			setTimelineSearchQuery(timelineTransition.query);
+			setSelectedTimelineIndex(timelineTransition.selectedIndex);
 			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${selected.jump.message} matches ${filtered.length}${options.origin === "palette" ? " origin=palette" : ""}`,
-			);
+			log(timelineTransition.notice.level, timelineTransition.notice.message);
 			if (options.origin === "palette") {
 				log(
 					"info",
 					formatStatusActivityResultTimelineJumpPaletteAuditMessage("open", {
 						historyIndex: selected.historyIndex,
 						jump: selected.jump,
-						matches: filtered.length,
+						matches: timelineTransition.matches,
 						selectedIndex: selected.selected,
 						total: selected.total,
 					}),
@@ -6998,7 +7196,7 @@ export function App(): React.ReactElement {
 					createStatusActivityResultTimelineJumpPaletteResult("open", {
 						historyIndex: selected.historyIndex,
 						jump: selected.jump,
-						matches: filtered.length,
+						matches: timelineTransition.matches,
 						selectedIndex: selected.selected,
 						total: selected.total,
 					}),
@@ -7021,23 +7219,14 @@ export function App(): React.ReactElement {
 					statusActivityCopyIntentHistory,
 					selectedStatusActivityResultAuditJumpIndex,
 				);
-			const jump = createStatusActivityResultTimelineSearchReplay(
-				statusActivityResults,
-				selectedStatusActivityResultIndex,
-				latestStatusActivityResultAuditJumpIntent,
+			const replay = prepareStatusActivityResultTimelineHandoffReplay({
+				history: statusActivityResults,
+				selectedIndex: selectedStatusActivityResultIndex,
+				latestAuditJumpIntent: latestStatusActivityResultAuditJumpIntent,
 				selectedAuditJumpIntent,
-			);
-			if (!jump) {
-				const warning = createStatusActivityResultTimelineSearchReplayWarning(
-					statusActivityResults,
-					selectedStatusActivityResultIndex,
-					latestStatusActivityResultAuditJumpIntent,
-					selectedAuditJumpIntent,
-				);
-				log(
-					"warn",
-					formatStatusActivityResultAuditJumpReplayWarningAuditMessage(warning),
-				);
+			});
+			if (replay.kind === "notice") {
+				log(replay.notice.level, replay.notice.message);
 				if (options.origin === "palette") {
 					log(
 						"info",
@@ -7049,23 +7238,28 @@ export function App(): React.ReactElement {
 				}
 				return;
 			}
-			const intent = createStatusActivityResultTimelineSearchIntent(jump);
+			const { intent, jump } = replay;
 			setStatusActivityCopyIntentHistory((current) =>
-				appendStatusActivityCopyIntentHistory(current, intent),
+				intent
+					? appendStatusActivityCopyIntentHistory(current, intent)
+					: current,
 			);
 			setSelectedStatusActivityCopyIntentIndex(0);
 			if (intent) {
 				log("info", intent.auditMessage);
 			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
-			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}${options.origin === "palette" ? " origin=palette" : ""}`,
+			const timelineTransition = prepareTimelineSearchJumpTransition(
+				events,
+				jump,
+				{
+					messageSuffix: options.origin === "palette" ? " origin=palette" : "",
+				},
 			);
+			setTimelineFilter(timelineTransition.filter);
+			setTimelineSearchQuery(timelineTransition.query);
+			setSelectedTimelineIndex(timelineTransition.selectedIndex);
+			setScreen("timeline");
+			log(timelineTransition.notice.level, timelineTransition.notice.message);
 			if (options.origin === "palette") {
 				const selection = getStatusActivityResultTimelineJumpSelection(
 					statusActivityResults,
@@ -7077,7 +7271,7 @@ export function App(): React.ReactElement {
 					formatStatusActivityResultTimelineJumpPaletteAuditMessage("open", {
 						historyIndex: selectedStatusActivityResultIndex,
 						jump,
-						matches: filtered.length,
+						matches: timelineTransition.matches,
 						selectedIndex: selection?.selectedIndex,
 						total: selection?.total,
 					}),
@@ -7086,7 +7280,7 @@ export function App(): React.ReactElement {
 					createStatusActivityResultTimelineJumpPaletteResult("open", {
 						historyIndex: selectedStatusActivityResultIndex,
 						jump,
-						matches: filtered.length,
+						matches: timelineTransition.matches,
 						selectedIndex: selection?.selectedIndex,
 						total: selection?.total,
 					}),
@@ -7635,148 +7829,6 @@ export function App(): React.ReactElement {
 	);
 
 	useEffect(() => {
-		readHandoffIndex(dirname(getConfigPath()))
-			.then((index) => {
-				setHandoffIndex(index);
-				setSelectedHandoffIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
-			})
-			.catch((caught) =>
-				log("fail", caught instanceof Error ? caught.message : String(caught)),
-			);
-		readConfig().then(async (config) => {
-			syncConfigSessionState(config);
-			setRemoteProfiles(config.remoteProfiles);
-			setLogProfiles(config.logProfiles);
-			setLogSearchPresets(config.logSearchPresets);
-			setRouteFilterPresets(config.routeFilterPresets);
-			setConnectionSort(parseConnectionSort(config.connectionSort));
-			setPortSort(parsePortSort(config.portSort));
-			setConnectionFilterPresets(config.connectionFilterPresets);
-			setPortFilterPresets(config.portFilterPresets);
-			setToolHistoryFilterPresets(config.toolHistoryFilterPresets);
-			setToolHistorySort(config.toolHistorySort as ToolHistorySort);
-			setToolHistoryGroup(config.toolHistoryGroup as ToolHistoryGroup);
-			setToolHistoryDetailView(
-				config.toolHistoryDetailView as ToolHistoryDetailView,
-			);
-			setSelectedRemoteIndex((index) =>
-				Math.min(index, Math.max(0, config.remoteProfiles.length - 1)),
-			);
-			const nextT = createTranslator(config.language);
-			const bootEvents = [
-				createEvent("info", nextT("events.booted")),
-				createEvent("info", nextT("events.lockedPolicy")),
-			];
-			const persisted = await readLatestConsoleAuditExport(
-				dirname(getConfigPath()),
-			).catch(() => undefined);
-			const persistedCleanup = await readLatestCleanupHandoffHistoryExport(
-				dirname(getConfigPath()),
-			).catch(() => undefined);
-			const cleanupExports = await readCleanupHandoffHistoryExportIndex(
-				dirname(getConfigPath()),
-			).catch(() => ({
-				baseDir: dirname(getConfigPath()),
-				items: [],
-			}));
-			const toolExports = await readToolHistoryExportIndex(
-				dirname(getConfigPath()),
-			).catch(() => ({
-				baseDir: join(dirname(getConfigPath()), "tools"),
-				items: [],
-			}));
-			const toolArchiveExports = await readToolHistoryExportArchiveIndex(
-				dirname(getConfigPath()),
-			).catch(() => ({
-				baseDir: join(dirname(getConfigPath()), "tools", "archive"),
-				items: [],
-			}));
-			const auditExports = await readConsoleAuditExportIndex(
-				dirname(getConfigPath()),
-			).catch(() => ({
-				baseDir: dirname(getConfigPath()),
-				items: [],
-			}));
-			const auditArchiveExports = await readConsoleAuditExportArchiveIndex(
-				dirname(getConfigPath()),
-			).catch(() => ({
-				baseDir: dirname(getConfigPath()),
-				items: [],
-			}));
-			const cleanupArchiveExports =
-				await readCleanupHandoffHistoryExportArchiveIndex(
-					dirname(getConfigPath()),
-				).catch(() => ({
-					baseDir: dirname(getConfigPath()),
-					items: [],
-				}));
-			setCleanupExportIndex(cleanupExports);
-			setSelectedCleanupExportIndex((current) =>
-				Math.min(current, Math.max(0, cleanupExports.items.length - 1)),
-			);
-			setToolExportIndex(toolExports);
-			setSelectedToolExportIndex((current) =>
-				Math.min(current, Math.max(0, toolExports.items.length - 1)),
-			);
-			setToolExportArchiveIndex(toolArchiveExports);
-			setSelectedToolExportArchiveIndex((current) =>
-				Math.min(current, Math.max(0, toolArchiveExports.items.length - 1)),
-			);
-			setAuditExportIndex(auditExports);
-			setLastStatusActivityCopyIntentAuditExport(
-				getLatestStatusActivityCopyIntentAuditExport(auditExports),
-			);
-			const timelineTrailExports =
-				getTimelineEvidenceTrailAuditExports(auditExports);
-			setTimelineEvidenceTrailAuditExports(timelineTrailExports);
-			setLastTimelineEvidenceTrailAuditExport(
-				getLatestTimelineEvidenceTrailAuditExport(auditExports),
-			);
-			const processExports = getProcessControlAuditExports(auditExports);
-			setProcessControlAuditExports(processExports);
-			setSelectedProcessControlAuditExportIndex((current) =>
-				Math.min(current, Math.max(0, processExports.length - 1)),
-			);
-			const remoteKnownHostsExports =
-				getRemoteKnownHostsSelectionHistoryAuditExports(auditExports);
-			setRemoteKnownHostsSelectionAuditExports(remoteKnownHostsExports);
-			setSelectedRemoteKnownHostsSelectionAuditExportIndex((current) =>
-				Math.min(current, Math.max(0, remoteKnownHostsExports.length - 1)),
-			);
-			const interfaceExports =
-				getInterfaceConfirmationAuditExports(auditExports);
-			setInterfaceConfirmationAuditExports(interfaceExports);
-			setSelectedTimelineEvidenceTrailAuditExportIndex((current) =>
-				Math.min(current, Math.max(0, timelineTrailExports.length - 1)),
-			);
-			setSelectedAuditExportIndex((current) =>
-				Math.min(current, Math.max(0, auditExports.items.length - 1)),
-			);
-			setAuditExportArchiveIndex(auditArchiveExports);
-			setInterfaceConfirmationAuditArchiveExports(
-				getInterfaceConfirmationAuditExports(auditArchiveExports),
-			);
-			setSelectedAuditExportArchiveIndex((current) =>
-				Math.min(current, Math.max(0, auditArchiveExports.items.length - 1)),
-			);
-			setCleanupExportArchiveIndex(cleanupArchiveExports);
-			setSelectedCleanupExportArchiveIndex((current) =>
-				Math.min(current, Math.max(0, cleanupArchiveExports.items.length - 1)),
-			);
-			setEvents(
-				[
-					...(persisted?.events ?? []),
-					...(persistedCleanup?.events ?? []),
-					...bootEvents,
-				].slice(-64),
-			);
-		});
-		refresh();
-	}, [log, refresh, syncConfigSessionState]);
-
-	useEffect(() => {
 		const timer = setInterval(refresh, refreshInterval);
 		return () => clearInterval(timer);
 	}, [refresh, refreshInterval]);
@@ -8014,22 +8066,39 @@ export function App(): React.ReactElement {
 	const refreshCleanupExportIndex = useCallback(
 		async (announce = true) => {
 			const baseDir = dirname(getConfigPath());
+			const requestToken = beginRequest(
+				cleanupExportIndexRequestTokenRef.current,
+			);
+			cleanupExportIndexRequestTokenRef.current = requestToken;
 			try {
 				const index = await readCleanupHandoffHistoryExportIndex(baseDir);
-				setCleanupExportIndex(index);
-				setSelectedCleanupExportIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
-				if (announce) {
-					log("info", `cleanup exports indexed ${index.items.length}`);
+				const transition = classifyCleanupExportIndexRefresh({
+					target: "active",
+					currentRequestToken: cleanupExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedCleanupExportIndexRef.current,
+					announce,
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setCleanupExportIndex(transition.index);
+					setSelectedCleanupExportIndex(transition.selectedIndex);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `cleanup export index failed ${caught.message}`
-						: `cleanup export index failed ${String(caught)}`,
-				);
+				const transition = classifyCleanupExportIndexRefresh({
+					target: "active",
+					currentRequestToken: cleanupExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedCleanupExportIndexRef.current,
+					announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 		},
 		[log],
@@ -8038,47 +8107,92 @@ export function App(): React.ReactElement {
 	const refreshCleanupExportArchiveIndex = useCallback(
 		async (announce = true) => {
 			const baseDir = dirname(getConfigPath());
+			const requestToken = beginRequest(
+				cleanupExportArchiveIndexRequestTokenRef.current,
+			);
+			cleanupExportArchiveIndexRequestTokenRef.current = requestToken;
 			try {
 				const index =
 					await readCleanupHandoffHistoryExportArchiveIndex(baseDir);
-				setCleanupExportArchiveIndex(index);
-				setSelectedCleanupExportArchiveIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
-				if (announce) {
-					log("info", `cleanup archive indexed ${index.items.length}`);
+				const transition = classifyCleanupExportIndexRefresh({
+					target: "archive",
+					currentRequestToken: cleanupExportArchiveIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedCleanupExportArchiveIndexRef.current,
+					announce,
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setCleanupExportArchiveIndex(transition.index);
+					setSelectedCleanupExportArchiveIndex(transition.selectedIndex);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `cleanup archive index failed ${caught.message}`
-						: `cleanup archive index failed ${String(caught)}`,
-				);
+				const transition = classifyCleanupExportIndexRefresh({
+					target: "archive",
+					currentRequestToken: cleanupExportArchiveIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedCleanupExportArchiveIndexRef.current,
+					announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 		},
 		[log],
 	);
 
 	const refreshToolExportIndex = useCallback(
-		async (announce = true) => {
+		async (
+			announce = true,
+			selectionIntent: "preserve" | "newest" = "preserve",
+		) => {
 			const baseDir = dirname(getConfigPath());
+			const requestToken = beginRequest(toolExportIndexRequestTokenRef.current);
+			toolExportIndexRequestTokenRef.current = requestToken;
 			try {
 				const index = await readToolHistoryExportIndex(baseDir);
-				setToolExportIndex(index);
-				setSelectedToolExportIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
-				if (announce) {
-					log("info", `tools evidence indexed ${index.items.length}`);
+				const transition = classifyToolHistoryExportIndexRefresh({
+					target: "active",
+					currentRequestToken: toolExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex:
+						selectionIntent === "newest"
+							? 0
+							: selectedToolExportIndexRef.current,
+					filter: toolExportFilterRef.current,
+					query: toolExportQueryRef.current,
+					announce,
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setToolExportIndex(transition.index);
+					setSelectedToolExportIndex(transition.selectedIndex);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `tools evidence index failed ${caught.message}`
-						: `tools evidence index failed ${String(caught)}`,
-				);
+				const transition = classifyToolHistoryExportIndexRefresh({
+					target: "active",
+					currentRequestToken: toolExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex:
+						selectionIntent === "newest"
+							? 0
+							: selectedToolExportIndexRef.current,
+					filter: toolExportFilterRef.current,
+					query: toolExportQueryRef.current,
+					announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 		},
 		[log],
@@ -8087,38 +8201,119 @@ export function App(): React.ReactElement {
 	const refreshToolExportArchiveIndex = useCallback(
 		async (announce = true) => {
 			const baseDir = dirname(getConfigPath());
+			const requestToken = beginRequest(
+				toolExportArchiveIndexRequestTokenRef.current,
+			);
+			toolExportArchiveIndexRequestTokenRef.current = requestToken;
 			try {
 				const index = await readToolHistoryExportArchiveIndex(baseDir);
-				setToolExportArchiveIndex(index);
-				setSelectedToolExportArchiveIndex((current) =>
-					Math.min(current, Math.max(0, index.items.length - 1)),
-				);
-				if (announce) {
-					log("info", `tools archive indexed ${index.items.length}`);
+				const transition = classifyToolHistoryExportIndexRefresh({
+					target: "archive",
+					currentRequestToken: toolExportArchiveIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedToolExportArchiveIndexRef.current,
+					filter: toolExportArchiveFilterRef.current,
+					query: toolExportArchiveQueryRef.current,
+					announce,
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setToolExportArchiveIndex(transition.index);
+					setSelectedToolExportArchiveIndex(transition.selectedIndex);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `tools archive index failed ${caught.message}`
-						: `tools archive index failed ${String(caught)}`,
-				);
+				const transition = classifyToolHistoryExportIndexRefresh({
+					target: "archive",
+					currentRequestToken: toolExportArchiveIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: selectedToolExportArchiveIndexRef.current,
+					filter: toolExportArchiveFilterRef.current,
+					query: toolExportArchiveQueryRef.current,
+					announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
 			}
 		},
 		[log],
 	);
 
+	useEffect(() => {
+		void refreshHandoffIndex(false);
+		void refreshAuditExportIndex(false);
+		void refreshAuditExportArchiveIndex(false);
+		void refreshCleanupExportIndex(false);
+		void refreshCleanupExportArchiveIndex(false);
+		void refreshToolExportIndex(false);
+		void refreshToolExportArchiveIndex(false);
+		readConfig().then(async (config) => {
+			syncConfigSessionState(config);
+			setRemoteProfiles(config.remoteProfiles);
+			setLogProfiles(config.logProfiles);
+			setLogSearchPresets(config.logSearchPresets);
+			setRouteFilterPresets(config.routeFilterPresets);
+			setConnectionSort(parseConnectionSort(config.connectionSort));
+			setPortSort(parsePortSort(config.portSort));
+			setConnectionFilterPresets(config.connectionFilterPresets);
+			setPortFilterPresets(config.portFilterPresets);
+			setToolHistoryFilterPresets(config.toolHistoryFilterPresets);
+			setToolHistorySort(config.toolHistorySort as ToolHistorySort);
+			setToolHistoryGroup(config.toolHistoryGroup as ToolHistoryGroup);
+			setToolHistoryDetailView(
+				config.toolHistoryDetailView as ToolHistoryDetailView,
+			);
+			setSelectedRemoteIndex((index) =>
+				clampIndex(index, config.remoteProfiles.length),
+			);
+			const nextT = createTranslator(config.language);
+			const bootEvents = [
+				createEvent("info", nextT("events.booted")),
+				createEvent("info", nextT("events.lockedPolicy")),
+			];
+			const persisted = await readLatestConsoleAuditExport(
+				dirname(getConfigPath()),
+			).catch(() => undefined);
+			const persistedCleanup = await readLatestCleanupHandoffHistoryExport(
+				dirname(getConfigPath()),
+			).catch(() => undefined);
+			setEvents(
+				[
+					...(persisted?.events ?? []),
+					...(persistedCleanup?.events ?? []),
+					...bootEvents,
+				].slice(-64),
+			);
+		});
+		refresh();
+	}, [
+		refresh,
+		refreshAuditExportArchiveIndex,
+		refreshAuditExportIndex,
+		refreshCleanupExportArchiveIndex,
+		refreshCleanupExportIndex,
+		refreshHandoffIndex,
+		refreshToolExportArchiveIndex,
+		refreshToolExportIndex,
+		syncConfigSessionState,
+	]);
+
 	const submitCleanupExportArchiveCommand = useCallback(async () => {
-		if (!cleanupExportArchivePlan) {
+		const transition = prepareCleanupExportArchiveConfirmation(
+			cleanupExportArchivePlan,
+			cleanupExportIndex.baseDir,
+			commandLine.value,
+		);
+		if (transition.kind === "notice") {
 			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "cleanup export archive missing preview");
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-		const plan = createCleanupHandoffHistoryExportArchivePlan(
-			cleanupExportIndex.baseDir,
-			cleanupExportArchivePlan.sourcePath,
-			{ confirmation: commandLine.value },
-		);
+		const plan = transition.plan;
 		setCleanupExportArchivePlan(plan);
 		setCommandLine((current) => closeCommandLine(current));
 		const result = await archiveCleanupHandoffHistoryExport(plan);
@@ -8140,16 +8335,16 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitToolExportArchiveCommand = useCallback(async () => {
-		if (!toolExportArchivePlan) {
+		const transition = prepareToolHistoryExportArchiveConfirmation(
+			toolExportArchivePlan,
+			commandLine.value,
+		);
+		if (transition.kind === "notice") {
 			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "tools evidence archive missing preview");
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-		const plan = createToolHistoryExportArchivePlan(
-			dirname(getConfigPath()),
-			toolExportArchivePlan.sourcePath,
-			{ confirmation: commandLine.value },
-		);
+		const plan = transition.plan;
 		setToolExportArchivePlan(plan);
 		setCommandLine((current) => closeCommandLine(current));
 		const result = await archiveToolHistoryExport(plan);
@@ -8178,19 +8373,20 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitAuditExportArchiveCommand = useCallback(async () => {
-		if (!auditExportArchivePlan) {
+		const transition = prepareAuditEvidenceArchiveConfirmation(
+			auditExportArchivePlan,
+			auditExportIndex.baseDir,
+			commandLine.value,
+		);
+		if (transition.kind === "notice") {
 			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "audit export archive missing preview");
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 		const isInterfaceEvidence = interfaceConfirmationAuditExports.some(
-			(item) => item.path === auditExportArchivePlan.sourcePath,
+			(item) => item.path === transition.plan.sourcePath,
 		);
-		const plan = createConsoleAuditExportArchivePlan(
-			auditExportIndex.baseDir,
-			auditExportArchivePlan.sourcePath,
-			{ confirmation: commandLine.value },
-		);
+		const plan = transition.plan;
 		setAuditExportArchivePlan(plan);
 		setCommandLine((current) => closeCommandLine(current));
 		const result = await archiveConsoleAuditExport(plan);
@@ -8242,19 +8438,21 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitAuditArchiveRetentionCommand = useCallback(async () => {
-		if (!auditArchiveRetentionPlan) {
-			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "audit archive retention missing preview");
-			return;
-		}
 		const retentionIndex =
 			auditArchiveRetentionScope === "interface"
 				? filterInterfaceConfirmationAuditExportIndex(auditExportArchiveIndex)
 				: auditExportArchiveIndex;
-		const plan = createConsoleAuditArchiveRetentionPlan(retentionIndex, {
-			maxItems: auditArchiveRetentionPlan.maxItems,
-			confirmation: commandLine.value,
-		});
+		const transition = prepareAuditEvidenceRetentionConfirmation(
+			auditArchiveRetentionPlan,
+			retentionIndex,
+			commandLine.value,
+		);
+		if (transition.kind === "notice") {
+			setCommandLine((current) => closeCommandLine(current));
+			log(transition.notice.level, transition.notice.message);
+			return;
+		}
+		const plan = transition.plan;
 		setAuditArchiveRetentionPlan(plan);
 		setCommandLine((current) => closeCommandLine(current));
 		const result = await pruneConsoleAuditArchive(plan);
@@ -8302,15 +8500,17 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitToolArchiveRetentionCommand = useCallback(async () => {
-		if (!toolArchiveRetentionPlan) {
+		const transition = prepareToolHistoryArchiveRetentionConfirmation(
+			toolArchiveRetentionPlan,
+			toolExportArchiveIndex,
+			commandLine.value,
+		);
+		if (transition.kind === "notice") {
 			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "tools archive retention missing preview");
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-		const plan = createToolHistoryArchiveRetentionPlan(toolExportArchiveIndex, {
-			maxItems: toolArchiveRetentionPlan.maxItems,
-			confirmation: commandLine.value,
-		});
+		const plan = transition.plan;
 		setToolArchiveRetentionPlan(plan);
 		setCommandLine((current) => closeCommandLine(current));
 		const result = await pruneToolHistoryExportArchive(plan);
@@ -9767,15 +9967,12 @@ export function App(): React.ReactElement {
 				log("warn", "no status activity copy intent for timeline");
 				return;
 			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
+			const transition = prepareTimelineSearchJumpTransition(events, jump);
+			setTimelineFilter(transition.filter);
+			setTimelineSearchQuery(transition.query);
+			setSelectedTimelineIndex(transition.selectedIndex);
 			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
@@ -9856,15 +10053,12 @@ export function App(): React.ReactElement {
 				log("warn", "no status activity evidence focus for timeline");
 				return;
 			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
+			const transition = prepareTimelineSearchJumpTransition(events, jump);
+			setTimelineFilter(transition.filter);
+			setTimelineSearchQuery(transition.query);
+			setSelectedTimelineIndex(transition.selectedIndex);
 			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
@@ -9887,15 +10081,12 @@ export function App(): React.ReactElement {
 				log("warn", "no status activity stale replay warning for timeline");
 				return;
 			}
-			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
-			setTimelineFilter(jump.filter);
-			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
+			const transition = prepareTimelineSearchJumpTransition(events, jump);
+			setTimelineFilter(transition.filter);
+			setTimelineSearchQuery(transition.query);
+			setSelectedTimelineIndex(transition.selectedIndex);
 			setScreen("timeline");
-			log(
-				filtered.length ? "info" : "warn",
-				`${jump.message} matches ${filtered.length}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
@@ -10722,7 +10913,9 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setSelectedCleanupExportIndex((index) => {
-				const next = (index + 1) % cleanupExportIndex.items.length;
+				const next =
+					(clampIndex(index, cleanupExportIndex.items.length) + 1) %
+					cleanupExportIndex.items.length;
 				const item = cleanupExportIndex.items[next];
 				log("info", `cleanup export selected ${item?.fileName ?? next + 1}`);
 				return next;
@@ -10736,7 +10929,9 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setSelectedAuditExportIndex((index) => {
-				const next = (index + 1) % auditExportIndex.items.length;
+				const next =
+					(clampIndex(index, auditExportIndex.items.length) + 1) %
+					auditExportIndex.items.length;
 				const item = auditExportIndex.items[next];
 				log("info", `audit export selected ${item?.fileName ?? next + 1}`);
 				return next;
@@ -10750,7 +10945,9 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setSelectedAuditExportArchiveIndex((index) => {
-				const next = (index + 1) % auditExportArchiveIndex.items.length;
+				const next =
+					(clampIndex(index, auditExportArchiveIndex.items.length) + 1) %
+					auditExportArchiveIndex.items.length;
 				const item = auditExportArchiveIndex.items[next];
 				log("info", `audit archive selected ${item?.fileName ?? next + 1}`);
 				return next;
@@ -10764,7 +10961,9 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setSelectedCleanupExportArchiveIndex((index) => {
-				const next = (index + 1) % cleanupExportArchiveIndex.items.length;
+				const next =
+					(clampIndex(index, cleanupExportArchiveIndex.items.length) + 1) %
+					cleanupExportArchiveIndex.items.length;
 				const item = cleanupExportArchiveIndex.items[next];
 				log("info", `cleanup archive selected ${item?.fileName ?? next + 1}`);
 				return next;
@@ -10783,7 +10982,9 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setSelectedToolExportArchiveIndex((index) => {
-				const next = (index + 1) % toolExportArchiveIndex.items.length;
+				const next =
+					(clampIndex(index, toolExportArchiveIndex.items.length) + 1) %
+					toolExportArchiveIndex.items.length;
 				const item = toolExportArchiveIndex.items[next];
 				log("info", `tools archive selected ${item?.fileName ?? next + 1}`);
 				return next;
@@ -10836,7 +11037,9 @@ export function App(): React.ReactElement {
 				return;
 			}
 			setSelectedHandoffIndex((index) => {
-				const next = (index + 1) % handoffIndex.items.length;
+				const next =
+					(clampIndex(index, handoffIndex.items.length) + 1) %
+					handoffIndex.items.length;
 				const item = handoffIndex.items[next];
 				log("info", `handoff selected ${item?.label ?? next + 1}`);
 				return next;
@@ -11118,9 +11321,7 @@ export function App(): React.ReactElement {
 							"ok",
 							`timeline evidence trail exported ${written.path} events=${written.eventCount}`,
 						);
-						void refreshAuditExportIndex(false).then(() => {
-							setSelectedAuditExportIndex(plan.selectedIndex + 1);
-						});
+						void refreshAuditExportIndex(false, "newest");
 					})
 					.catch((caught) =>
 						log(

@@ -340,6 +340,191 @@ const delegatedCallbacks = {
 		owner: "src/tui/statusActivityQueue.ts",
 		reason: "delegates cleanup-history selection, reopen intent, and notice",
 	},
+	refreshHandoffIndex: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates sequenced handoff refresh publication and selection repair",
+	},
+	refreshAuditExportIndex: {
+		owner: "src/tui/statusEvidence.ts + src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates sequenced audit refresh publication and atomic recovered-family selection repair",
+	},
+	refreshAuditExportArchiveIndex: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates sequenced audit archive refresh publication and selection repair",
+	},
+	openSelectedHandoffFile: {
+		owner: "src/tui/statusEvidence.ts",
+		reason: "delegates selected handoff open eligibility, plan, and notice",
+	},
+	openSelectedAuditExportFile: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates selected audit export open eligibility, plan, and notice",
+	},
+	openSelectedAuditExportArchiveFile: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates selected archived audit export open eligibility, plan, and notice",
+	},
+	openAuditArchiveRetentionPreview: {
+		owner: "src/tui/statusEvidence.ts",
+		reason: "delegates audit archive retention eligibility, plan, and notice",
+	},
+	openInterfaceAuditArchiveRetentionPreview: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates interface evidence retention eligibility, plan, and notice",
+	},
+	openSelectedAuditExportArchive: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates selected audit export archive eligibility and confirmation",
+	},
+	openSelectedInterfaceEvidenceArchive: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates selected interface evidence archive eligibility and confirmation",
+	},
+	openSelectedCleanupExportFile: {
+		owner: "src/tui/statusEvidence.ts + src/tui/cleanupIndex.ts",
+		reason:
+			"delegates selected cleanup export open eligibility, plan, and notice",
+	},
+	openSelectedToolExportFile: {
+		owner: "src/tui/statusEvidence.ts + src/tui/toolHistory.ts",
+		reason:
+			"delegates selected Tools export open eligibility, plan, and notice",
+	},
+	openSelectedToolExportArchiveFile: {
+		owner: "src/tui/statusEvidence.ts + src/tui/toolHistory.ts",
+		reason:
+			"delegates selected archived Tools export open eligibility, plan, and notice",
+	},
+	openSelectedToolExportArchive: {
+		owner: "src/tui/toolHistory.ts",
+		reason:
+			"delegates selected Tools export archive eligibility and confirmation",
+	},
+	openToolArchiveRetentionPreview: {
+		owner: "src/tui/statusEvidence.ts + src/tui/toolHistory.ts",
+		reason: "delegates Tools archive retention eligibility, plan, and notice",
+	},
+	openSelectedCleanupExportArchive: {
+		owner: "src/tui/cleanupIndex.ts",
+		reason:
+			"delegates selected cleanup export archive eligibility and confirmation",
+	},
+	archiveSelectedHandoffFile: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates selected handoff archive eligibility, target, and notice",
+	},
+	exportToolHistory: {
+		owner: "src/tui/toolHistory.ts",
+		reason:
+			"delegates selected Tools history export eligibility, plan, and notice",
+	},
+	selectNextTimelineEvidenceTrailExport: {
+		owner: "src/tui/statusActivityQueue.ts",
+		reason: "delegates recovered Timeline evidence selection and exact notice",
+	},
+	jumpSelectedTimelineEvidenceTrailSearch: {
+		owner: "src/tui/timelinePanel.ts",
+		reason: "delegates Timeline evidence search jump and newest-result notice",
+	},
+	openSelectedTimelineEvidenceTrailExport: {
+		owner: "src/tui/statusEvidence.ts",
+		reason: "delegates recovered Timeline export open eligibility and plan",
+	},
+	selectNextProcessControlEvidenceExport: {
+		owner: "src/tui/statusActivityQueue.ts",
+		reason: "delegates recovered process evidence selection and exact notice",
+	},
+	jumpSelectedProcessControlEvidenceSearch: {
+		owner: "src/tui/timelinePanel.ts",
+		reason: "delegates process evidence search jump and newest-result notice",
+	},
+	openSelectedProcessControlEvidenceExport: {
+		owner: "src/tui/statusEvidence.ts",
+		reason: "delegates recovered process export open eligibility and plan",
+	},
+	selectNextRemoteKnownHostsSelectionEvidenceExport: {
+		owner: "src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates recovered remote known_hosts evidence selection and exact notice",
+	},
+	jumpSelectedRemoteKnownHostsSelectionEvidenceSearch: {
+		owner: "src/tui/timelinePanel.ts",
+		reason:
+			"delegates remote known_hosts evidence search jump and newest-result notice",
+	},
+	openSelectedRemoteKnownHostsSelectionEvidenceExport: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates recovered remote known_hosts export open eligibility and plan",
+	},
+	selectNextInterfaceConfirmationEvidenceExport: {
+		owner: "src/tui/statusActivityQueue.ts",
+		reason: "delegates recovered interface evidence selection and exact notice",
+	},
+	jumpSelectedInterfaceConfirmationEvidenceSearch: {
+		owner: "src/tui/timelinePanel.ts",
+		reason: "delegates interface evidence search jump and newest-result notice",
+	},
+	openSelectedInterfaceConfirmationEvidenceExport: {
+		owner: "src/tui/statusEvidence.ts",
+		reason: "delegates recovered interface export open eligibility and plan",
+	},
+	openSelectedStatusActivityResultTimelineJump: {
+		owner: "src/tui/statusActivityQueue.ts + src/tui/timelinePanel.ts",
+		reason:
+			"delegates status-activity handoff replay and newest Timeline result selection",
+	},
+	refreshCleanupExportIndex: {
+		owner: "src/tui/cleanupIndex.ts",
+		reason:
+			"delegates sequenced cleanup export refresh publication and selection repair",
+	},
+	refreshCleanupExportArchiveIndex: {
+		owner: "src/tui/cleanupIndex.ts",
+		reason:
+			"delegates sequenced cleanup archive refresh publication and selection repair",
+	},
+	refreshToolExportIndex: {
+		owner: "src/tui/toolHistory.ts",
+		reason:
+			"delegates sequenced Tools export refresh publication and filtered selection repair",
+	},
+	refreshToolExportArchiveIndex: {
+		owner: "src/tui/toolHistory.ts",
+		reason:
+			"delegates sequenced Tools archive refresh publication and filtered selection repair",
+	},
+	submitCleanupExportArchiveCommand: {
+		owner: "src/tui/cleanupIndex.ts",
+		reason: "delegates exact cleanup archive confirmation and execution plan",
+	},
+	submitToolExportArchiveCommand: {
+		owner: "src/tui/toolHistory.ts",
+		reason:
+			"delegates exact Tools export archive confirmation and execution plan",
+	},
+	submitAuditExportArchiveCommand: {
+		owner: "src/tui/statusEvidence.ts",
+		reason:
+			"delegates exact audit export archive confirmation and execution plan",
+	},
+	submitAuditArchiveRetentionCommand: {
+		owner: "src/tui/statusEvidence.ts",
+		reason: "delegates exact audit retention confirmation and execution plan",
+	},
+	submitToolArchiveRetentionCommand: {
+		owner: "src/tui/toolHistory.ts",
+		reason: "delegates exact Tools retention confirmation and execution plan",
+	},
 } as const;
 
 const filesDelegatedCallbacks = new Set([
@@ -371,6 +556,49 @@ const configDelegatedCallbacks = new Set([
 
 const statusDelegatedCallbacks = new Set(["reopenCleanupHandoffHistory"]);
 
+const evidenceLifecycleDelegatedCallbacks = new Set([
+	"refreshHandoffIndex",
+	"refreshAuditExportIndex",
+	"refreshAuditExportArchiveIndex",
+	"openSelectedHandoffFile",
+	"openSelectedAuditExportFile",
+	"openSelectedAuditExportArchiveFile",
+	"openAuditArchiveRetentionPreview",
+	"openInterfaceAuditArchiveRetentionPreview",
+	"openSelectedAuditExportArchive",
+	"openSelectedInterfaceEvidenceArchive",
+	"openSelectedCleanupExportFile",
+	"openSelectedToolExportFile",
+	"openSelectedToolExportArchiveFile",
+	"openSelectedToolExportArchive",
+	"openToolArchiveRetentionPreview",
+	"openSelectedCleanupExportArchive",
+	"archiveSelectedHandoffFile",
+	"exportToolHistory",
+	"selectNextTimelineEvidenceTrailExport",
+	"jumpSelectedTimelineEvidenceTrailSearch",
+	"openSelectedTimelineEvidenceTrailExport",
+	"selectNextProcessControlEvidenceExport",
+	"jumpSelectedProcessControlEvidenceSearch",
+	"openSelectedProcessControlEvidenceExport",
+	"selectNextRemoteKnownHostsSelectionEvidenceExport",
+	"jumpSelectedRemoteKnownHostsSelectionEvidenceSearch",
+	"openSelectedRemoteKnownHostsSelectionEvidenceExport",
+	"selectNextInterfaceConfirmationEvidenceExport",
+	"jumpSelectedInterfaceConfirmationEvidenceSearch",
+	"openSelectedInterfaceConfirmationEvidenceExport",
+	"openSelectedStatusActivityResultTimelineJump",
+	"refreshCleanupExportIndex",
+	"refreshCleanupExportArchiveIndex",
+	"refreshToolExportIndex",
+	"refreshToolExportArchiveIndex",
+	"submitCleanupExportArchiveCommand",
+	"submitToolExportArchiveCommand",
+	"submitAuditExportArchiveCommand",
+	"submitAuditArchiveRetentionCommand",
+	"submitToolArchiveRetentionCommand",
+]);
+
 const networkPanelDelegatedCallbacks = new Set([
 	"submitRouteFilterCommand",
 	"submitRouteFilterCleanupCommand",
@@ -398,13 +626,15 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 						? "config-transitions"
 						: statusDelegatedCallbacks.has(name)
 							? "status-transitions"
-							: networkPanelDelegatedCallbacks.has(name)
-								? "network-panel-transitions"
-								: name.startsWith("submitEditor") ||
-										name === "undoEditorEdit" ||
-										name === "deleteSelectedEditorLine"
-									? "editor-transitions"
-									: "tool-target-transitions",
+							: evidenceLifecycleDelegatedCallbacks.has(name)
+								? "evidence-lifecycle-transitions"
+								: networkPanelDelegatedCallbacks.has(name)
+									? "network-panel-transitions"
+									: name.startsWith("submitEditor") ||
+											name === "undoEditorEdit" ||
+											name === "deleteSelectedEditorLine"
+										? "editor-transitions"
+										: "tool-target-transitions",
 				reason: delegated.reason,
 			};
 		}

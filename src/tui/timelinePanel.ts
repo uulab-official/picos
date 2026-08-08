@@ -56,6 +56,14 @@ export type TimelineSearchTransition = {
 	notice: TimelinePanelNotice;
 };
 
+export type TimelineSearchJumpTransition = {
+	filter: TimelineFilter;
+	query: string;
+	matches: number;
+	selectedIndex: number;
+	notice: TimelinePanelNotice;
+};
+
 export type TimelinePanelInputDecision =
 	| { kind: "no-op" }
 	| { kind: "notice"; notice: TimelinePanelNotice }
@@ -112,6 +120,24 @@ export function repairTimelineSelection(index: number, total: number): number {
 
 export function selectNewestTimelineResult(total: number): number {
 	return clampIndex(total - 1, total);
+}
+
+export function prepareTimelineSearchJumpTransition(
+	events: ConsoleEvent[],
+	jump: { filter: TimelineFilter; query: string; message: string },
+	options: { messageSuffix?: string } = {},
+): TimelineSearchJumpTransition {
+	const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+	return {
+		filter: jump.filter,
+		query: jump.query,
+		matches: filtered.length,
+		selectedIndex: selectNewestTimelineResult(filtered.length),
+		notice: {
+			level: filtered.length ? "info" : "warn",
+			message: `${jump.message} matches ${filtered.length}${options.messageSuffix ?? ""}`,
+		},
+	};
 }
 
 export function resolveSelectedTimelineEvent(

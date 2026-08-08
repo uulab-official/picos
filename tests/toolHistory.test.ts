@@ -7,6 +7,7 @@ import type { NetworkSummary } from "../src/core/types";
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
+	classifyToolHistoryExportIndexRefresh,
 	createToolFormState,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
@@ -55,6 +56,11 @@ import {
 	nextToolSectionClipboardSelection,
 	normalizeToolTargetPresets,
 	parseToolTargetPresetCommand,
+	prepareSelectedToolHistoryExportArchive,
+	prepareSelectedToolHistoryExportOpen,
+	prepareToolHistoryArchiveRetentionConfirmation,
+	prepareToolHistoryExport,
+	prepareToolHistoryExportArchiveConfirmation,
 	promoteToolTargetPreset,
 	promoteToolTargetPresetTransition,
 	pruneToolHistoryExportArchive,
@@ -3491,5 +3497,157 @@ describe("TUI tool history", () => {
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
+	});
+
+	test("repairs filtered Tools evidence selection after refresh", () => {
+		const item = {
+			fileName: "picos-tools-all-2026-07-01T040100000Z.md",
+			path: "/tmp/picos/tools/picos-tools-all-2026-07-01T040100000Z.md",
+			generatedAt: "2026-07-01T04:01:00.000Z",
+			scope: "all" as const,
+			runCount: 3,
+		};
+		const index = { baseDir: "/tmp/picos/tools", items: [item] };
+
+		expect(
+			classifyToolHistoryExportIndexRefresh({
+				target: "active",
+				currentRequestToken: 4,
+				requestToken: 4,
+				selectedIndex: 8,
+				filter: "all",
+				query: "040100",
+				announce: true,
+				outcome: { status: "success", index },
+			}),
+		).toEqual({
+			status: "success",
+			index,
+			selectedIndex: 0,
+			notice: { level: "info", message: "tools evidence indexed 1" },
+		});
+		expect(
+			classifyToolHistoryExportIndexRefresh({
+				target: "archive",
+				currentRequestToken: 4,
+				requestToken: 3,
+				selectedIndex: 8,
+				outcome: { status: "failure", error: "old failure" },
+			}),
+		).toEqual({
+			status: "stale",
+			notice: {
+				level: "fail",
+				message: "tools archive index failed old failure",
+			},
+		});
+	});
+
+	test("owns selected Tools export, open, archive, and retention confirmations", () => {
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result,
+			},
+			"12:00:00",
+		);
+		const exported = prepareToolHistoryExport(history, 99, "selected", {
+			baseDir: "/tmp/picos",
+			generatedAt: new Date("2026-07-01T04:00:00.000Z"),
+		});
+		expect(exported).toMatchObject({
+			kind: "export",
+			notice: {
+				level: "ok",
+				message: "tools export selected prepared 1 run(s)",
+			},
+			plan: { scope: "selected", itemCount: 1 },
+		});
+		expect(
+			prepareToolHistoryExport([], 4, "all", { baseDir: "/tmp/picos" }),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no tool history to export" },
+		});
+
+		const item = {
+			fileName: "picos-tools-all-2026-07-01T040100000Z.md",
+			path: "/tmp/picos/tools/picos-tools-all-2026-07-01T040100000Z.md",
+			generatedAt: "2026-07-01T04:01:00.000Z",
+			scope: "all" as const,
+			runCount: 3,
+		};
+		const index = { baseDir: "/tmp/picos/tools", items: [item] };
+		expect(
+			prepareSelectedToolHistoryExportOpen({
+				index,
+				selectedIndex: 99,
+				platform: "darwin",
+			}),
+		).toMatchObject({
+			kind: "open",
+			selectedIndex: 0,
+			notice: {
+				level: "info",
+				message:
+					"tools evidence open confirmation opened for picos-tools-all-2026-07-01T040100000Z.md",
+			},
+		});
+		const archive = prepareSelectedToolHistoryExportArchive({
+			baseDir: "/tmp/picos",
+			index,
+			selectedIndex: 99,
+		});
+		expect(archive).toMatchObject({
+			kind: "confirmation",
+			selectedIndex: 0,
+			plan: { confirmationPhrase: "archive tools export" },
+		});
+		if (archive.kind !== "confirmation") {
+			throw new Error("expected tools archive confirmation");
+		}
+		expect(
+			prepareToolHistoryExportArchiveConfirmation(
+				archive.plan,
+				"archive tool export",
+			),
+		).toMatchObject({
+			kind: "execute",
+			plan: { confirmed: false, enabled: false },
+		});
+		const retention = createToolHistoryArchiveRetentionPlan(
+			{
+				baseDir: "/tmp/picos/tools/archive",
+				items: [
+					item,
+					{
+						...item,
+						fileName: "picos-tools-all-older.md",
+						path: "/tmp/picos/tools/archive/picos-tools-all-older.md",
+						generatedAt: "2026-06-30T04:01:00.000Z",
+					},
+				],
+			},
+			{ maxItems: 1 },
+		);
+		expect(
+			prepareToolHistoryArchiveRetentionConfirmation(
+				retention,
+				{
+					baseDir: retention.baseDir,
+					items: [...retention.retainedItems, ...retention.candidateItems],
+				},
+				"prune tool archive",
+			),
+		).toMatchObject({
+			kind: "execute",
+			plan: { confirmed: false, enabled: false },
+		});
 	});
 });
