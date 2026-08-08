@@ -1666,9 +1666,12 @@ function createToolTargetEditTransition(
 	}
 	return createToolTargetTransition({
 		presets: next,
-		selectedIndex: clampIndex(
-			input.selectedIndex,
-			getUpdatedToolTargetPresetCount(input, presets, next),
+		selectedIndex: getUpdatedToolTargetPresetSelectionIndex(
+			input,
+			presets,
+			next,
+			preset,
+			kind,
 		),
 		commandLine: "close",
 		changed: true,
@@ -1724,15 +1727,52 @@ function sameToolTargetPresetShelf(
 	);
 }
 
-function getUpdatedToolTargetPresetCount(
+function getUpdatedToolTargetPresetSelectionIndex(
 	input: ToolTargetPresetTransitionInput,
 	previous: readonly ToolTargetPreset[],
 	next: readonly ToolTargetPreset[],
+	preset: ToolTargetPreset,
+	kind: "label" | "target" | "action",
 ): number {
-	return Math.max(
-		0,
-		input.targetPresets.length - Math.max(0, previous.length - next.length),
+	const survivor =
+		next.find((current) => current.id === preset.id) ??
+		next.find((current) =>
+			sameToolTargetPreset(
+				current,
+				getEditedToolTargetPreset(preset, input.value ?? "", kind),
+			),
+		);
+	const previousSurvivor = previous.find(
+		(current) => current.id === survivor?.id,
 	);
+	const survivorIndex = previousSurvivor
+		? input.targetPresets.findIndex(
+				(current) =>
+					current.id === previousSurvivor.id &&
+					sameToolTargetPreset(current, previousSurvivor),
+			)
+		: -1;
+	return clampIndex(
+		survivorIndex < 0 ? input.selectedIndex : survivorIndex,
+		input.targetPresets.length,
+	);
+}
+
+function getEditedToolTargetPreset(
+	preset: ToolTargetPreset,
+	value: string,
+	kind: "label" | "target" | "action",
+): ToolTargetPreset {
+	if (kind === "target") {
+		return { ...preset, target: value.trim() };
+	}
+	if (kind === "action") {
+		return {
+			...preset,
+			actionId: normalizeToolRunActionId(value) ?? preset.actionId,
+		};
+	}
+	return { ...preset, label: value.trim() };
 }
 
 export function nextToolHistoryPreset(

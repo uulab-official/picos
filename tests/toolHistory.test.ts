@@ -1248,7 +1248,7 @@ describe("TUI tool history", () => {
 		});
 	});
 
-	test("repairs selection when an action edit deduplicates the saved shelf", () => {
+	test("keeps the surviving custom target selected when an action edit deduplicates the displayed shelf", () => {
 		const duplicateTargets = [
 			savedToolTargetPresets[0],
 			{
@@ -1259,12 +1259,22 @@ describe("TUI tool history", () => {
 				hint: "saved reachability target",
 			},
 		] satisfies ToolTargetPreset[];
+		const displayedTargetPresets = getToolTargetPresets(
+			summary,
+			"example.com",
+			duplicateTargets,
+		);
 		const transition = reassignToolTargetPresetActionTransition({
 			presets: duplicateTargets,
-			targetPresets: duplicateTargets,
+			targetPresets: displayedTargetPresets,
 			selectedIndex: 1,
 			value: "dns",
 		});
+		const updatedDisplayedTargetPresets = getToolTargetPresets(
+			summary,
+			"example.com",
+			transition.presets,
+		);
 
 		expect(transition).toMatchObject({
 			presets: [
@@ -1282,6 +1292,94 @@ describe("TUI tool history", () => {
 				message: "tool target action updated API ping",
 			},
 		});
+		expect(
+			updatedDisplayedTargetPresets[transition.selectedIndex],
+		).toMatchObject({
+			id: "api-dns",
+			actionId: "tools.dns",
+			target: "api.example.com",
+		});
+		expect(updatedDisplayedTargetPresets[1]).toMatchObject({
+			id: "default-ping",
+		});
+	});
+
+	test("keeps the surviving custom target selected when a value edit deduplicates the displayed shelf", () => {
+		const duplicateTargets = [
+			savedToolTargetPresets[0],
+			{
+				id: "internal-dns",
+				label: "Internal DNS",
+				actionId: "tools.dns",
+				target: "api.internal.example",
+				hint: "saved internal DNS target",
+			},
+		] satisfies ToolTargetPreset[];
+		const transition = retargetToolTargetPresetTransition({
+			presets: duplicateTargets,
+			targetPresets: getToolTargetPresets(
+				summary,
+				"example.com",
+				duplicateTargets,
+			),
+			selectedIndex: 1,
+			value: "api.example.com",
+		});
+		const updatedDisplayedTargetPresets = getToolTargetPresets(
+			summary,
+			"example.com",
+			transition.presets,
+		);
+
+		expect(transition.selectedIndex).toBe(0);
+		expect(
+			updatedDisplayedTargetPresets[transition.selectedIndex],
+		).toMatchObject({
+			id: "api-dns",
+			actionId: "tools.dns",
+			target: "api.example.com",
+		});
+	});
+
+	test("emits close command-line intents for every target prompt submission", () => {
+		const targetPresets = getToolTargetPresets(
+			summary,
+			"example.com",
+			savedToolTargetPresets,
+		);
+
+		expect([
+			renameToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "Public API DNS",
+			}).commandLine,
+			retargetToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "api.internal.example",
+			}).commandLine,
+			reassignToolTargetPresetActionTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "ping",
+			}).commandLine,
+			submitToolTargetCleanupTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "remove tools.dns",
+			}).commandLine,
+			submitToolTargetPresetCommandTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "ping db.example.com DB ping",
+			}).commandLine,
+		]).toEqual(["close", "close", "close", "close", "close"]);
 	});
 
 	test("updates a selected saved target action", () => {

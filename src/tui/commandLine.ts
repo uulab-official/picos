@@ -3,6 +3,7 @@ import {
 	createToolFormState,
 	formatToolFormInputValue,
 	selectToolFormField,
+	type ToolTargetCommandLineIntent,
 	updateToolFormFieldValue,
 } from "./toolHistory";
 
@@ -52,6 +53,13 @@ export function closeCommandLine(state: CommandLineState): CommandLineState {
 		active: false,
 		value: "",
 	};
+}
+
+export function applyToolTargetCommandLineIntent(
+	state: CommandLineState,
+	intent: ToolTargetCommandLineIntent,
+): CommandLineState {
+	return intent === "close" ? closeCommandLine(state) : state;
 }
 
 export function moveCommandLineField(

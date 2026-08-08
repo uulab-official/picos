@@ -330,6 +330,7 @@ import {
 import {
 	applyCommandLineInput,
 	applyToolPromptCommandLineInput as applyToolPromptCommandLineInputTransition,
+	applyToolTargetCommandLineIntent,
 	type CommandLineState,
 	closeCommandLine,
 	moveCommandLineField,
@@ -2346,7 +2347,9 @@ export function App(): React.ReactElement {
 			selectedIndex: selectedToolTargetPresetIndex,
 			value: commandLine.value,
 		});
-		setCommandLine((current) => closeCommandLine(current));
+		setCommandLine((current) =>
+			applyToolTargetCommandLineIntent(current, transition.commandLine),
+		);
 		setSelectedToolTargetPresetIndex(transition.selectedIndex);
 		log(transition.notice.level, transition.notice.message);
 		if (!transition.changed) {
@@ -2377,7 +2380,9 @@ export function App(): React.ReactElement {
 			selectedIndex: selectedToolTargetPresetIndex,
 			value: commandLine.value,
 		});
-		setCommandLine((current) => closeCommandLine(current));
+		setCommandLine((current) =>
+			applyToolTargetCommandLineIntent(current, transition.commandLine),
+		);
 		setSelectedToolTargetPresetIndex(transition.selectedIndex);
 		log(transition.notice.level, transition.notice.message);
 		if (!transition.changed) {
@@ -2408,7 +2413,9 @@ export function App(): React.ReactElement {
 			selectedIndex: selectedToolTargetPresetIndex,
 			value: commandLine.value,
 		});
-		setCommandLine((current) => closeCommandLine(current));
+		setCommandLine((current) =>
+			applyToolTargetCommandLineIntent(current, transition.commandLine),
+		);
 		setSelectedToolTargetPresetIndex(transition.selectedIndex);
 		log(transition.notice.level, transition.notice.message);
 		if (!transition.changed) {
@@ -2439,7 +2446,9 @@ export function App(): React.ReactElement {
 			selectedIndex: selectedToolTargetPresetIndex,
 			value: commandLine.value,
 		});
-		setCommandLine((current) => closeCommandLine(current));
+		setCommandLine((current) =>
+			applyToolTargetCommandLineIntent(current, transition.commandLine),
+		);
 		setSelectedToolTargetPresetIndex(transition.selectedIndex);
 		log(transition.notice.level, transition.notice.message);
 		if (!transition.changed) {
@@ -2471,7 +2480,9 @@ export function App(): React.ReactElement {
 			value: commandLine.value,
 			limit: toolTargetPresetLimit,
 		});
-		setCommandLine((current) => closeCommandLine(current));
+		setCommandLine((current) =>
+			applyToolTargetCommandLineIntent(current, transition.commandLine),
+		);
 		setSelectedToolTargetPresetIndex(transition.selectedIndex);
 		log(transition.notice.level, transition.notice.message);
 		if (!transition.changed) {

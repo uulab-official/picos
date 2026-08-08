@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	applyCommandLineInput,
 	applyToolPromptCommandLineInput,
+	applyToolTargetCommandLineIntent,
 	closeCommandLine,
 	isCommandLineFieldTouched,
 	markCommandLineFieldTouched,
@@ -39,6 +40,19 @@ describe("TUI command line", () => {
 			prompt: "path",
 			value: "",
 		});
+	});
+
+	test("applies the command-line intent emitted by a target transition", () => {
+		const state = openCommandLine("tool-target-action", {
+			value: "dns",
+		});
+
+		expect(applyToolTargetCommandLineIntent(state, "close")).toEqual({
+			active: false,
+			prompt: "tool-target-action",
+			value: "",
+		});
+		expect(applyToolTargetCommandLineIntent(state, "preserve")).toEqual(state);
 	});
 
 	test("tracks optional field focus for form prompts", () => {
