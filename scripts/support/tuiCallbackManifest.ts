@@ -167,6 +167,11 @@ const wiringReasons = {
 } as const;
 
 const delegatedCallbacks = {
+	disconnectRemoteFiles: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates remote-session guard, shared-sequence disconnect publication, and exact notice while App retains restore and close I/O",
+	},
 	previewFile: {
 		owner: "src/tui/fileWorkspaceTransitions.ts",
 		reason: "delegates file preview outcome classification",
@@ -475,6 +480,64 @@ const delegatedCallbacks = {
 		reason:
 			"delegates recovered process selection, master index, open eligibility, plan, activity result, and exact notice",
 	},
+	selectRemoteProfile: {
+		owner: "src/tui/remotesPanel.ts",
+		reason: "delegates clamped remote profile selection and staging guard",
+	},
+	submitRemoteProfileCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates remote profile parsing, command cleanup, repaired selection, and exact notices while App retains config I/O",
+	},
+	submitRemoteConnectCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates profile/key eligibility, global revoked-key blocking, exact-byte confirmation, busy state, and sequence/run-token publication classification",
+	},
+	cancelPendingRemoteConnect: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates active run-token cancellation eligibility, cancelling diagnostic, and exact notice",
+	},
+	submitRemoteHostKeyEvidenceInputCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates host-key evidence confirmation, session state, activity result, and exact notices",
+	},
+	submitRemoteKnownHostsCandidateCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates known_hosts candidate parsing, session state, and exact notice",
+	},
+	submitRemoteKnownHostsPasteReviewCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates paste normalization, review/candidate session state, and exact notice",
+	},
+	moveRemoteKnownHostsPasteReviewSelectionCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates paste candidate movement, paired session state, activity result, and exact notice",
+	},
+	selectRemoteKnownHostsPasteReviewCandidateCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates numbered paste candidate selection, paired session state, activity result, and exact notice",
+	},
+	submitRemoteKnownHostsPasteSelectionCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates typed paste candidate selection, command cleanup, paired session state, activity result, and exact notice",
+	},
+	submitRemoteHostTrustReviewCommand: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates exact-byte host trust confirmation, audit/activity result, and exact notice",
+	},
+	getSelectedRemoteKnownHostsSelectionEvidenceResultOptions: {
+		owner: "src/tui/remotesPanel.ts",
+		reason: "delegates clamped remote evidence result options",
+	},
 	selectNextRemoteKnownHostsSelectionEvidenceExport: {
 		owner: "src/tui/statusActivityQueue.ts",
 		reason:
@@ -489,6 +552,27 @@ const delegatedCallbacks = {
 		owner: "src/tui/statusActivityQueue.ts",
 		reason:
 			"delegates recovered remote known_hosts selection, master index, open eligibility, plan, activity result, and exact notice",
+	},
+	openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates remote known_hosts clipboard handoff eligibility, intent, palette evidence, and exact notice",
+	},
+	exportSelectedRemoteKnownHostsSelectionEvidenceHandoff: {
+		owner: "src/tui/remotesPanel.ts",
+		reason:
+			"delegates remote known_hosts export handoff eligibility, plan, and palette evidence while App retains audit write I/O",
+	},
+	selectNextRemoteKnownHostsEvidenceHandoff: {
+		owner: "src/tui/remotesPanel.ts + src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates filtered remote evidence handoff selection, reset state, focus intent, and exact notice",
+	},
+	openSelectedRemoteKnownHostsEvidenceHandoff: {
+		owner:
+			"src/tui/remotesPanel.ts + src/tui/statusActivityQueue.ts + src/tui/timelinePanel.ts",
+		reason:
+			"delegates remote evidence handoff selection, Timeline jump, copy intent, palette evidence, and exact notices",
 	},
 	selectNextInterfaceConfirmationEvidenceExport: {
 		owner: "src/tui/statusActivityQueue.ts",
@@ -658,6 +742,26 @@ const networkPanelDelegatedCallbacks = new Set([
 	"submitInterfaceConfirmationCommand",
 ]);
 
+const remotePanelDelegatedCallbacks = new Set([
+	"disconnectRemoteFiles",
+	"selectRemoteProfile",
+	"submitRemoteProfileCommand",
+	"submitRemoteConnectCommand",
+	"cancelPendingRemoteConnect",
+	"submitRemoteHostKeyEvidenceInputCommand",
+	"submitRemoteKnownHostsCandidateCommand",
+	"submitRemoteKnownHostsPasteReviewCommand",
+	"moveRemoteKnownHostsPasteReviewSelectionCommand",
+	"selectRemoteKnownHostsPasteReviewCandidateCommand",
+	"submitRemoteKnownHostsPasteSelectionCommand",
+	"submitRemoteHostTrustReviewCommand",
+	"getSelectedRemoteKnownHostsSelectionEvidenceResultOptions",
+	"openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff",
+	"exportSelectedRemoteKnownHostsSelectionEvidenceHandoff",
+	"selectNextRemoteKnownHostsEvidenceHandoff",
+	"openSelectedRemoteKnownHostsEvidenceHandoff",
+]);
+
 export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 	(name) => {
 		const reason = wiringReasons[name as keyof typeof wiringReasons];
@@ -678,11 +782,13 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 								? "evidence-lifecycle-transitions"
 								: networkPanelDelegatedCallbacks.has(name)
 									? "network-panel-transitions"
-									: name.startsWith("submitEditor") ||
-											name === "undoEditorEdit" ||
-											name === "deleteSelectedEditorLine"
-										? "editor-transitions"
-										: "tool-target-transitions",
+									: remotePanelDelegatedCallbacks.has(name)
+										? "remote-panel-transitions"
+										: name.startsWith("submitEditor") ||
+												name === "undoEditorEdit" ||
+												name === "deleteSelectedEditorLine"
+											? "editor-transitions"
+											: "tool-target-transitions",
 				reason: delegated.reason,
 			};
 		}
@@ -690,11 +796,11 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 			return {
 				name,
 				owner:
-					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts",
+					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts + src/tui/remotesPanel.ts",
 				classification: "inline-decision",
-				slice: "network-panel-transitions",
+				slice: "remote-panel-transitions",
 				reason:
-					"Interface and DNS panel decisions are delegated, but unrelated dispatcher decisions remain inline in App",
+					"Interface, DNS, and Remotes panel decisions are delegated, but unrelated dispatcher decisions remain inline in App",
 			};
 		}
 		return reason

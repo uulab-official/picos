@@ -150,7 +150,6 @@ import {
 	type ProcessFileSnapshot,
 } from "../core/processes";
 import {
-	createRemoteConnectPreview,
 	createRemoteFileContext,
 	createRemoteFileRequestPreview,
 	createRemoteHostKeyCompareDetail,
@@ -158,11 +157,9 @@ import {
 	createRemoteHostKeyEvidenceInput,
 	createRemoteHostKeyEvidenceInputFromSession,
 	createRemoteHostKeyTrustDecisionPreview,
-	createRemoteKnownHostsCandidatePreview,
 	createRemoteKnownHostsCandidatePreviewFromPasteReview,
 	createRemoteKnownHostsCandidatePreviewFromSession,
 	createRemoteKnownHostsParserPreview,
-	createRemoteKnownHostsPasteReview,
 	createRemoteKnownHostsPasteReviewFromSession,
 	createRemoteKnownHostsReadPreview,
 	createRemoteKnownHostsReadResult,
@@ -170,17 +167,14 @@ import {
 	createRemoteReadOnlyAdapterContract,
 	createRemoteTransportProbe,
 	formatRemoteAdapterBoundaryRows,
-	formatRemoteConnectConfirmationAuditMessage,
 	formatRemoteConnectPreviewRows,
 	formatRemoteFileRequestPreviewRows,
 	formatRemoteHandoffBoundaryRows,
 	formatRemoteHostKeyCompareDetailRows,
-	formatRemoteHostKeyEvidenceInputAuditMessage,
 	formatRemoteHostKeyEvidenceInputPromptRows,
 	formatRemoteHostKeyEvidenceInputRows,
 	formatRemoteHostKeyEvidenceRows,
 	formatRemoteHostKeyTrustDecisionPreviewRows,
-	formatRemoteHostKeyTrustReviewAuditMessage,
 	formatRemoteHostReviewAuditMessage,
 	formatRemoteHostReviewRows,
 	formatRemoteKnownHostsCandidatePreviewRows,
@@ -191,22 +185,10 @@ import {
 	formatRemoteKnownHostsSourcePreviewRows,
 	formatRemoteReadOnlyAdapterContractRows,
 	formatRemoteTransportProbeRows,
-	getSelectedRemoteKnownHostsCandidate,
-	moveRemoteKnownHostsPasteReviewSelection,
-	parseRemoteKnownHostsCandidateSelectionInput,
-	parseRemoteProfileCommand,
 	type RemoteFileContext,
 	type RemoteHostKeyEvidenceInputSession,
 	type RemoteKnownHostsCandidateSession,
 	type RemoteKnownHostsPasteReviewSession,
-	recordRemoteHostKeyEvidenceInputSession,
-	recordRemoteKnownHostsCandidateSession,
-	recordRemoteKnownHostsPasteReviewSession,
-	selectRemoteKnownHostsPasteReviewCandidate,
-	selectRemoteKnownHostsPasteReviewCandidateFromInput,
-	submitRemoteConnectConfirmation,
-	submitRemoteHostKeyEvidenceInput,
-	submitRemoteHostKeyTrustReview,
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
 import {
@@ -218,13 +200,10 @@ import {
 } from "../core/routes";
 import {
 	connectReadOnlySftpFileProvider,
-	finishReadOnlySftpConnectionDiagnostic,
-	formatReadOnlySftpConnectionAuditMessage,
 	formatReadOnlySftpConnectionDiagnosticRows,
 	isReadOnlySftpConnectionCancelledError,
 	ReadOnlySftpConnectionCancelledError,
 	type ReadOnlySftpConnectionDiagnostic,
-	requestReadOnlySftpConnectionCancellation,
 	startReadOnlySftpConnectionDiagnostic,
 } from "../core/sftp";
 import { formatUptime } from "../core/system";
@@ -422,7 +401,6 @@ import {
 	getSelectedFilePathClipboardIntent,
 } from "./fileSelection";
 import {
-	classifyCommittedFileProviderConnectionPublication,
 	classifyFileLoadOutcome,
 	classifyFilePreviewOutcome,
 	type FileLoadRequest,
@@ -497,6 +475,28 @@ import {
 	getSelectedProcessResourceRequest,
 } from "./processPanel";
 import {
+	classifyRemoteConnectionPublication,
+	classifyRemoteDisconnectPublication,
+	moveRemoteProfileSelection,
+	prepareRemoteConnectionCancellation,
+	prepareRemoteConnectPrompt,
+	prepareRemoteConnectSubmission,
+	prepareRemoteDisconnect,
+	prepareRemoteHostKeyEvidenceSubmission,
+	prepareRemoteHostTrustSubmission,
+	prepareRemoteKnownHostsCandidateSubmission,
+	prepareRemoteKnownHostsEvidenceHandoff,
+	prepareRemoteKnownHostsEvidenceHandoffOpen,
+	prepareRemoteKnownHostsEvidenceHandoffSelection,
+	prepareRemoteKnownHostsPasteSelection,
+	prepareRemoteKnownHostsPasteSubmission,
+	prepareRemoteProfileCommand,
+	prepareRemoteProfileStage,
+	prepareRemoteRetry,
+	resolveRemoteEvidenceResultOptions,
+	resolveRemoteProfileSelection,
+} from "./remotesPanel";
+import {
 	beginRequest,
 	beginRequestWithPublication,
 	classifyRequestPublication,
@@ -521,16 +521,8 @@ import {
 	createInterfaceConfirmationStatusActivityResult,
 	createInterfaceEvidenceManagementStatusActivityResult,
 	createInterfaceEvidenceOutcomeStatusActivityResult,
-	createRemoteConnectStatusActivityResult,
-	createRemoteHostKeyEvidenceInputStatusActivityResult,
-	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
-	createRemoteKnownHostsEvidenceHandoffOpenCopyIntent,
-	createRemoteKnownHostsPasteSelectionStatusActivityResult,
 	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
-	createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan,
-	createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview,
-	createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult,
 	createStatusActivityCopyIntentAuditExportOpenPlan,
 	createStatusActivityCopyIntentAuditExportPlan,
 	createStatusActivityCopyIntentEvidenceFocusPlan,
@@ -558,7 +550,6 @@ import {
 	formatInterfaceEvidenceManagementAuditMessage,
 	formatInterfaceEvidenceOutcomeAuditMessage,
 	formatRemoteActivityShelfRows,
-	formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage,
 	formatRemoteKnownHostsSelectionHistoryRows,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
@@ -876,6 +867,14 @@ export function App(): React.ReactElement {
 	const remoteConnectionDiagnosticRef = useRef<
 		ReadOnlySftpConnectionDiagnostic | undefined
 	>(undefined);
+	// Every writer of the visible remote diagnostic shares this sequence. The
+	// connection run token is separate: it identifies the one long-running
+	// transport attempt that is allowed to publish onto that diagnostic group.
+	const remoteConnectionDiagnosticSequenceRef = useRef(0);
+	const remoteConnectionRunTokenRef = useRef(0);
+	const activeRemoteConnectionRunTokenRef = useRef<number | undefined>(
+		undefined,
+	);
 	const pendingRemoteConnectRef = useRef<AbortController | undefined>(
 		undefined,
 	);
@@ -2241,10 +2240,15 @@ export function App(): React.ReactElement {
 	}, [loadFiles]);
 
 	const disconnectRemoteFiles = useCallback(async () => {
-		if (!remoteFileProvider) {
-			log("info", "no read-only SFTP session connected");
+		const intent = prepareRemoteDisconnect(Boolean(remoteFileProvider));
+		if (intent.kind === "notice") {
+			log(intent.notice.level, intent.notice.message);
 			return;
 		}
+		const diagnosticSequence = beginRequest(
+			remoteConnectionDiagnosticSequenceRef.current,
+		);
+		remoteConnectionDiagnosticSequenceRef.current = diagnosticSequence;
 		const restored = await loadFiles(
 			{
 				path: systemFileRoot,
@@ -2260,7 +2264,7 @@ export function App(): React.ReactElement {
 		);
 		if (restored) {
 			try {
-				await remoteFileProvider.close?.();
+				await remoteFileProvider?.close?.();
 			} catch (caught) {
 				log(
 					"warn",
@@ -2269,18 +2273,20 @@ export function App(): React.ReactElement {
 						: `SFTP session close failed ${String(caught)}`,
 				);
 			}
-			const diagnostic = remoteConnectionDiagnosticRef.current;
-			if (diagnostic?.status === "connected") {
-				const disconnected = finishReadOnlySftpConnectionDiagnostic(
-					diagnostic,
-					"disconnected",
-					"read-only SFTP session closed by operator",
-				);
-				remoteConnectionDiagnosticRef.current = disconnected;
-				setRemoteConnectionDiagnostic(disconnected);
+			const publication = classifyRemoteDisconnectPublication({
+				currentDiagnosticSequence:
+					remoteConnectionDiagnosticSequenceRef.current,
+				requestDiagnosticSequence: diagnosticSequence,
+				diagnostic: remoteConnectionDiagnosticRef.current,
+			});
+			if (publication.status === "current") {
+				if (publication.publishCurrent) {
+					remoteConnectionDiagnosticRef.current = publication.diagnostic;
+					setRemoteConnectionDiagnostic(publication.diagnostic);
+				}
+				setFocusArea("files");
+				log(publication.notice.level, publication.notice.message);
 			}
-			setFocusArea("files");
-			log("info", "read-only SFTP session closed; local filesystem restored");
 		}
 	}, [loadFiles, localFileProvider, log, remoteFileProvider, systemFileRoot]);
 
@@ -4746,11 +4752,16 @@ export function App(): React.ReactElement {
 	);
 
 	const selectRemoteProfile = useCallback(async () => {
-		const profile = remoteProfiles[selectedRemoteIndex];
-		if (!profile) {
-			log("warn", "no remote profile selected");
+		const transition = prepareRemoteProfileStage(
+			remoteProfiles,
+			selectedRemoteIndex,
+		);
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
+		const profile = transition.profile;
+		setSelectedRemoteIndex(transition.selectedIndex);
 		pendingRemoteConnectRef.current?.abort();
 		const context = await createRemoteFileContext(profile);
 		if (remoteFileProvider) {
@@ -4804,15 +4815,15 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitRemoteProfileCommand = useCallback(async () => {
-		const profile = parseRemoteProfileCommand(commandLine.value);
-		setCommandLine((current) => closeCommandLine(current));
-		if (!profile) {
-			log(
-				"warn",
-				"remote profile requires: <id> <user@host[:port]> [root] [key=path]",
-			);
+		const transition = prepareRemoteProfileCommand(commandLine.value);
+		if (transition.closeCommandLine) {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
+		const profile = transition.profile;
 
 		try {
 			const config = await readConfig();
@@ -4857,10 +4868,10 @@ export function App(): React.ReactElement {
 				setRemoteFileContext(undefined);
 			}
 			syncConfigSessionState(nextConfig);
-			setSelectedRemoteIndex(0);
+			setSelectedRemoteIndex(transition.selectedIndex);
 			setScreen("remotes");
 			setFocusArea("workspaces");
-			log("ok", `remote profile saved ${profile.id} ${profile.host}`);
+			log(transition.successNotice.level, transition.successNotice.message);
 		} catch (caught) {
 			log(
 				"fail",
@@ -4880,39 +4891,38 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitRemoteConnectCommand = useCallback(async () => {
-		const profile = remoteProfiles[selectedRemoteIndex];
-		setCommandLine((current) => closeCommandLine(current));
-		if (!profile) {
-			log("warn", "remote connect requires a selected profile");
+		const transition = prepareRemoteConnectSubmission({
+			profiles: remoteProfiles,
+			selectedIndex: selectedRemoteIndex,
+			candidateSession: remoteKnownHostsCandidateSession,
+			pasteReviewSession: remoteKnownHostsPasteReviewSession,
+			receivedConfirmation: commandLine.value,
+			diagnostic: remoteConnectionDiagnosticRef.current,
+		});
+		if (transition.closeCommandLine) {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+		setSelectedRemoteIndex(transition.selectedIndex);
+		if (transition.kind === "blocked") {
+			if (transition.auditMessage) {
+				log("warn", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
+			}
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
-		const candidate = getSelectedRemoteKnownHostsCandidate(
-			profile,
-			remoteKnownHostsCandidateSession,
-			remoteKnownHostsPasteReviewSession,
+		const { candidate, profile } = transition;
+		const preview = transition.confirmation.preview;
+		const runToken = beginRequest(remoteConnectionRunTokenRef.current);
+		remoteConnectionRunTokenRef.current = runToken;
+		activeRemoteConnectionRunTokenRef.current = runToken;
+		const diagnosticSequence = beginRequest(
+			remoteConnectionDiagnosticSequenceRef.current,
 		);
-		const preview = createRemoteConnectPreview(profile, {
-			hostKeyFingerprint: candidate?.fingerprint,
-		});
-		const confirmation = submitRemoteConnectConfirmation(
-			preview,
-			commandLine.value,
-		);
-		if (confirmation.status !== "confirmed-ready" || !candidate) {
-			log("warn", formatRemoteConnectConfirmationAuditMessage(confirmation));
-			recordStatusActivityResult(
-				createRemoteConnectStatusActivityResult(confirmation),
-			);
-			log(
-				"warn",
-				candidate
-					? confirmation.message
-					: `remote connect blocked ${profile.id}: select a known_hosts candidate with K or P before connecting`,
-			);
-			return;
-		}
-		pendingRemoteConnectRef.current?.abort();
+		remoteConnectionDiagnosticSequenceRef.current = diagnosticSequence;
 		const connectController = new AbortController();
 		pendingRemoteConnectRef.current = connectController;
 		const attemptDiagnostic = startReadOnlySftpConnectionDiagnostic(
@@ -4934,7 +4944,12 @@ export function App(): React.ReactElement {
 			const entries = await pendingProvider.list(root);
 			if (
 				connectController.signal.aborted ||
-				pendingRemoteConnectRef.current !== connectController
+				pendingRemoteConnectRef.current !== connectController ||
+				activeRemoteConnectionRunTokenRef.current !== runToken ||
+				classifyRequestPublication(
+					remoteConnectionDiagnosticSequenceRef.current,
+					diagnosticSequence,
+				) === "stale"
 			) {
 				throw new ReadOnlySftpConnectionCancelledError();
 			}
@@ -4965,43 +4980,35 @@ export function App(): React.ReactElement {
 				pendingRemoteFileProviderRef.current = undefined;
 			}
 			pendingProvider = undefined;
-			const connectionPublication =
-				classifyCommittedFileProviderConnectionPublication({
-					requestAttempt: attemptDiagnostic,
-					currentAttempt: remoteConnectionDiagnosticRef.current,
-					requestIsPending:
-						pendingRemoteConnectRef.current === connectController,
-					requestCancelled: connectController.signal.aborted,
-				});
-			if (connectionPublication === "current") {
+			const outcome = {
+				status: "connected" as const,
+				id: profile.id,
+				target: root,
+				host: profile.host,
+				port: profile.port,
+				fingerprint: candidate.fingerprint,
+				message: `read-only SFTP connected entries=${entries.length}`,
+			};
+			const publication = classifyRemoteConnectionPublication({
+				currentDiagnosticSequence:
+					remoteConnectionDiagnosticSequenceRef.current,
+				requestDiagnosticSequence: diagnosticSequence,
+				currentRunToken:
+					activeRemoteConnectionRunTokenRef.current ?? Number.NaN,
+				requestRunToken: runToken,
+				attempt: attemptDiagnostic,
+				currentDiagnostic: remoteConnectionDiagnosticRef.current,
+				outcome,
+			});
+			if (publication.publishCurrent && publication.diagnostic) {
 				pendingRemoteConnectRef.current = undefined;
+				activeRemoteConnectionRunTokenRef.current = undefined;
 				setScreen("files");
 				setFocusArea("files");
-				const outcome = {
-					status: "connected" as const,
-					id: profile.id,
-					target: root,
-					host: profile.host,
-					port: profile.port,
-					fingerprint: candidate.fingerprint,
-					message: `read-only SFTP connected entries=${entries.length}`,
-				};
-				const auditMessage = formatReadOnlySftpConnectionAuditMessage(outcome);
-				const connectedDiagnostic = finishReadOnlySftpConnectionDiagnostic(
-					attemptDiagnostic,
-					"connected",
-					outcome.message,
-				);
-				remoteConnectionDiagnosticRef.current = connectedDiagnostic;
-				setRemoteConnectionDiagnostic(connectedDiagnostic);
-				log("ok", auditMessage);
-				recordStatusActivityResult({
-					source: "timeline",
-					action: "remote-connect",
-					message: `remote connect connected ${profile.id} ${profile.host}:${profile.port}`,
-					detail: `target="${root}" fingerprint=${candidate.fingerprint} network=opened capabilities=list,stat,read writes=locked`,
-					detailRows: [outcome.message, `audit=${auditMessage}`],
-				});
+				remoteConnectionDiagnosticRef.current = publication.diagnostic;
+				setRemoteConnectionDiagnostic(publication.diagnostic);
+				log(publication.notice.level, publication.notice.message);
+				recordStatusActivityResult(publication.activityResult);
 			}
 			if (remoteFileProvider) {
 				try {
@@ -5041,32 +5048,31 @@ export function App(): React.ReactElement {
 				fingerprint: candidate.fingerprint,
 				message,
 			};
-			const auditMessage = formatReadOnlySftpConnectionAuditMessage(outcome);
-			const currentDiagnostic = remoteConnectionDiagnosticRef.current;
-			if (
-				currentDiagnostic?.id === attemptDiagnostic.id &&
-				currentDiagnostic.attempt === attemptDiagnostic.attempt &&
-				currentDiagnostic.startedAt === attemptDiagnostic.startedAt
-			) {
-				const finishedDiagnostic = finishReadOnlySftpConnectionDiagnostic(
-					attemptDiagnostic,
-					cancelled ? "cancelled" : "failed",
-					message,
-				);
-				remoteConnectionDiagnosticRef.current = finishedDiagnostic;
-				setRemoteConnectionDiagnostic(finishedDiagnostic);
-			}
-			log(cancelled ? "warn" : "fail", auditMessage);
-			recordStatusActivityResult({
-				source: "timeline",
-				action: "remote-connect",
-				message: `remote connect ${outcome.status} ${profile.id} ${profile.host}:${profile.port}`,
-				detail: `target="${preview.target}" fingerprint=${candidate.fingerprint} network=closed writes=locked reason=${JSON.stringify(message)}`,
-				detailRows: [message, `audit=${auditMessage}`],
+			const publication = classifyRemoteConnectionPublication({
+				currentDiagnosticSequence:
+					remoteConnectionDiagnosticSequenceRef.current,
+				requestDiagnosticSequence: diagnosticSequence,
+				currentRunToken:
+					activeRemoteConnectionRunTokenRef.current ?? Number.NaN,
+				requestRunToken: runToken,
+				attempt: attemptDiagnostic,
+				currentDiagnostic: remoteConnectionDiagnosticRef.current,
+				outcome,
 			});
+			if (publication.publishCurrent && publication.diagnostic) {
+				remoteConnectionDiagnosticRef.current = publication.diagnostic;
+				setRemoteConnectionDiagnostic(publication.diagnostic);
+			}
+			// Failure/cancellation is history even when superseded; only the visible
+			// diagnostic publication is sequence/token guarded.
+			log(publication.notice.level, publication.notice.message);
+			recordStatusActivityResult(publication.activityResult);
 		} finally {
 			if (pendingRemoteConnectRef.current === connectController) {
 				pendingRemoteConnectRef.current = undefined;
+			}
+			if (activeRemoteConnectionRunTokenRef.current === runToken) {
+				activeRemoteConnectionRunTokenRef.current = undefined;
 			}
 			// Unconditional, unlike the pointer cleanup above: the count has to
 			// balance even when a newer connect superseded this one, or the shared
@@ -5089,22 +5095,21 @@ export function App(): React.ReactElement {
 
 	const cancelPendingRemoteConnect = useCallback(() => {
 		const controller = pendingRemoteConnectRef.current;
-		if (!controller || controller.signal.aborted) {
-			log("info", "no pending SFTP connection to cancel");
+		const transition = prepareRemoteConnectionCancellation({
+			diagnostic: remoteConnectionDiagnosticRef.current,
+			activeRunToken: activeRemoteConnectionRunTokenRef.current,
+			currentRunToken: remoteConnectionRunTokenRef.current,
+			hasPendingConnection: Boolean(controller && !controller.signal.aborted),
+		});
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-		controller.abort();
+		controller?.abort();
 		void pendingRemoteFileProviderRef.current?.close?.().catch(() => undefined);
-		const diagnostic = remoteConnectionDiagnosticRef.current;
-		if (diagnostic) {
-			const cancelling = requestReadOnlySftpConnectionCancellation(diagnostic);
-			remoteConnectionDiagnosticRef.current = cancelling;
-			setRemoteConnectionDiagnostic(cancelling);
-			log(
-				"warn",
-				`remote connect cancellation requested ${diagnostic.id} attempt=${diagnostic.attempt}`,
-			);
-		}
+		remoteConnectionDiagnosticRef.current = transition.diagnostic;
+		setRemoteConnectionDiagnostic(transition.diagnostic);
+		log(transition.notice.level, transition.notice.message);
 	}, [log]);
 
 	const cancelOperationRun = useCallback(() => {
@@ -5272,134 +5277,105 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitRemoteHostKeyEvidenceInputCommand = useCallback(() => {
-		const profile = remoteProfiles[selectedRemoteIndex];
-		setCommandLine((current) => closeCommandLine(current));
-		if (!profile) {
-			log("warn", "remote host key evidence input requires a selected profile");
+		const transition = prepareRemoteHostKeyEvidenceSubmission({
+			profiles: remoteProfiles,
+			selectedIndex: selectedRemoteIndex,
+			value: commandLine.value,
+			session: remoteHostKeyEvidenceSession,
+		});
+		if (transition.closeCommandLine) {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		const input = createRemoteHostKeyEvidenceInput(profile);
-		const confirmation = submitRemoteHostKeyEvidenceInput(
-			input,
-			commandLine.value,
-		);
-		log("warn", formatRemoteHostKeyEvidenceInputAuditMessage(confirmation));
-		setRemoteHostKeyEvidenceSession((current) =>
-			recordRemoteHostKeyEvidenceInputSession(current, confirmation),
-		);
-		recordStatusActivityResult(
-			createRemoteHostKeyEvidenceInputStatusActivityResult(confirmation),
-		);
-		log("warn", confirmation.message);
+		log("warn", transition.auditMessage);
+		setRemoteHostKeyEvidenceSession(transition.session);
+		recordStatusActivityResult(transition.activityResult);
+		log(transition.notice.level, transition.notice.message);
 	}, [
 		commandLine.value,
 		log,
 		recordStatusActivityResult,
+		remoteHostKeyEvidenceSession,
 		remoteProfiles,
 		selectedRemoteIndex,
 	]);
 
 	const submitRemoteKnownHostsCandidateCommand = useCallback(() => {
-		const profile = remoteProfiles[selectedRemoteIndex];
-		setCommandLine((current) => closeCommandLine(current));
-		if (!profile) {
-			log(
-				"warn",
-				"remote known_hosts candidate input requires a selected profile",
-			);
+		const transition = prepareRemoteKnownHostsCandidateSubmission({
+			profiles: remoteProfiles,
+			selectedIndex: selectedRemoteIndex,
+			value: commandLine.value,
+			session: remoteKnownHostsCandidateSession,
+		});
+		if (transition.closeCommandLine) {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		const preview = createRemoteKnownHostsCandidatePreview(
-			profile,
-			commandLine.value,
-			"provided-known-hosts",
-		);
-		setRemoteKnownHostsCandidateSession((current) =>
-			recordRemoteKnownHostsCandidateSession(current, preview),
-		);
-		log(
-			preview.candidates.length ? "info" : "warn",
-			`remote known_hosts candidate ${preview.status} ${preview.id} candidates=${preview.candidates.length} selected=${preview.selected}`,
-		);
-	}, [commandLine.value, log, remoteProfiles, selectedRemoteIndex]);
+		setRemoteKnownHostsCandidateSession(transition.session);
+		log(transition.notice.level, transition.notice.message);
+	}, [
+		commandLine.value,
+		log,
+		remoteKnownHostsCandidateSession,
+		remoteProfiles,
+		selectedRemoteIndex,
+	]);
 
 	const submitRemoteKnownHostsPasteReviewCommand = useCallback(() => {
-		const profile = remoteProfiles[selectedRemoteIndex];
-		setCommandLine((current) => closeCommandLine(current));
-		if (!profile) {
-			log(
-				"warn",
-				"remote known_hosts paste review requires a selected profile",
-			);
+		const transition = prepareRemoteKnownHostsPasteSubmission({
+			profiles: remoteProfiles,
+			selectedIndex: selectedRemoteIndex,
+			value: commandLine.value,
+			candidateSession: remoteKnownHostsCandidateSession,
+			pasteReviewSession: remoteKnownHostsPasteReviewSession,
+		});
+		if (transition.closeCommandLine) {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		const review = createRemoteKnownHostsPasteReview(
-			profile,
-			commandLine.value.replaceAll("\\n", "\n"),
-		);
-		const preview =
-			createRemoteKnownHostsCandidatePreviewFromPasteReview(review);
-		setRemoteKnownHostsPasteReviewSession((current) =>
-			recordRemoteKnownHostsPasteReviewSession(current, review),
-		);
-		setRemoteKnownHostsCandidateSession((current) =>
-			recordRemoteKnownHostsCandidateSession(current, preview),
-		);
-		log(
-			review.candidates.length ? "info" : "warn",
-			`remote known_hosts paste review ${review.status} ${review.id} lines=${review.lineCount} candidates=${review.candidates.length} selected=${review.selected}`,
-		);
-	}, [commandLine.value, log, remoteProfiles, selectedRemoteIndex]);
+		setRemoteKnownHostsPasteReviewSession(transition.pasteReviewSession);
+		setRemoteKnownHostsCandidateSession(transition.candidateSession);
+		log(transition.notice.level, transition.notice.message);
+	}, [
+		commandLine.value,
+		log,
+		remoteKnownHostsCandidateSession,
+		remoteKnownHostsPasteReviewSession,
+		remoteProfiles,
+		selectedRemoteIndex,
+	]);
 
 	const moveRemoteKnownHostsPasteReviewSelectionCommand = useCallback(
 		(direction: "next" | "previous") => {
-			const profile = remoteProfiles[selectedRemoteIndex];
-			if (!profile) {
-				log("warn", "remote known_hosts paste selection requires a profile");
+			const transition = prepareRemoteKnownHostsPasteSelection({
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				candidateSession: remoteKnownHostsCandidateSession,
+				pasteReviewSession: remoteKnownHostsPasteReviewSession,
+				selection: { kind: "move", direction },
+			});
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-
-			const review = createRemoteKnownHostsPasteReviewFromSession(
-				profile,
-				remoteKnownHostsPasteReviewSession,
-			);
-			if (review.candidates.length === 0) {
-				log(
-					"warn",
-					`remote known_hosts paste review has no candidates ${profile.id}`,
-				);
-				return;
-			}
-
-			const nextReview = moveRemoteKnownHostsPasteReviewSelection(
-				review,
-				direction,
-			);
-			const preview =
-				createRemoteKnownHostsCandidatePreviewFromPasteReview(nextReview);
-			setRemoteKnownHostsPasteReviewSession((current) =>
-				recordRemoteKnownHostsPasteReviewSession(current, nextReview),
-			);
-			setRemoteKnownHostsCandidateSession((current) =>
-				recordRemoteKnownHostsCandidateSession(current, preview),
-			);
-			recordStatusActivityResult(
-				createRemoteKnownHostsPasteSelectionStatusActivityResult(
-					nextReview,
-					direction,
-				),
-			);
-			log(
-				"info",
-				`remote known_hosts paste candidate ${direction} ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length}`,
-			);
+			setRemoteKnownHostsPasteReviewSession(transition.pasteReviewSession);
+			setRemoteKnownHostsCandidateSession(transition.candidateSession);
+			recordStatusActivityResult(transition.activityResult);
+			log(transition.notice.level, transition.notice.message);
 		},
 		[
 			log,
 			recordStatusActivityResult,
+			remoteKnownHostsCandidateSession,
 			remoteKnownHostsPasteReviewSession,
 			remoteProfiles,
 			selectedRemoteIndex,
@@ -5408,50 +5384,26 @@ export function App(): React.ReactElement {
 
 	const selectRemoteKnownHostsPasteReviewCandidateCommand = useCallback(
 		(candidateIndex: number, method: "number" | "command" = "number") => {
-			const profile = remoteProfiles[selectedRemoteIndex];
-			if (!profile) {
-				log("warn", "remote known_hosts paste selection requires a profile");
+			const transition = prepareRemoteKnownHostsPasteSelection({
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				candidateSession: remoteKnownHostsCandidateSession,
+				pasteReviewSession: remoteKnownHostsPasteReviewSession,
+				selection: { kind: "candidate", candidateIndex, method },
+			});
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-
-			const review = createRemoteKnownHostsPasteReviewFromSession(
-				profile,
-				remoteKnownHostsPasteReviewSession,
-			);
-			const nextReview = selectRemoteKnownHostsPasteReviewCandidate(
-				review,
-				candidateIndex,
-			);
-			if (nextReview === review) {
-				log(
-					"warn",
-					`remote known_hosts paste candidate ${candidateIndex} unavailable ${profile.id}`,
-				);
-				return;
-			}
-
-			const preview =
-				createRemoteKnownHostsCandidatePreviewFromPasteReview(nextReview);
-			setRemoteKnownHostsPasteReviewSession((current) =>
-				recordRemoteKnownHostsPasteReviewSession(current, nextReview),
-			);
-			setRemoteKnownHostsCandidateSession((current) =>
-				recordRemoteKnownHostsCandidateSession(current, preview),
-			);
-			recordStatusActivityResult(
-				createRemoteKnownHostsPasteSelectionStatusActivityResult(
-					nextReview,
-					method,
-				),
-			);
-			log(
-				"info",
-				`remote known_hosts paste candidate selected ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length} method=${method}`,
-			);
+			setRemoteKnownHostsPasteReviewSession(transition.pasteReviewSession);
+			setRemoteKnownHostsCandidateSession(transition.candidateSession);
+			recordStatusActivityResult(transition.activityResult);
+			log(transition.notice.level, transition.notice.message);
 		},
 		[
 			log,
 			recordStatusActivityResult,
+			remoteKnownHostsCandidateSession,
 			remoteKnownHostsPasteReviewSession,
 			remoteProfiles,
 			selectedRemoteIndex,
@@ -5459,85 +5411,50 @@ export function App(): React.ReactElement {
 	);
 
 	const submitRemoteKnownHostsPasteSelectionCommand = useCallback(() => {
-		const profile = remoteProfiles[selectedRemoteIndex];
-		const inputValue = commandLine.value;
-		setCommandLine((current) => closeCommandLine(current));
-		if (!profile) {
-			log("warn", "remote known_hosts paste selection requires a profile");
+		const transition = prepareRemoteKnownHostsPasteSelection({
+			profiles: remoteProfiles,
+			selectedIndex: selectedRemoteIndex,
+			candidateSession: remoteKnownHostsCandidateSession,
+			pasteReviewSession: remoteKnownHostsPasteReviewSession,
+			selection: { kind: "input", value: commandLine.value },
+		});
+		if (transition.closeCommandLine) {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		const candidateIndex =
-			parseRemoteKnownHostsCandidateSelectionInput(inputValue);
-		if (candidateIndex === undefined) {
-			log(
-				"warn",
-				`remote known_hosts paste candidate command invalid ${profile.id} input=${inputValue || "empty"}`,
-			);
-			return;
-		}
-
-		const review = createRemoteKnownHostsPasteReviewFromSession(
-			profile,
-			remoteKnownHostsPasteReviewSession,
-		);
-		const nextReview = selectRemoteKnownHostsPasteReviewCandidateFromInput(
-			review,
-			inputValue,
-		);
-		if (nextReview === review) {
-			log(
-				"warn",
-				`remote known_hosts paste candidate ${candidateIndex} unavailable ${profile.id}`,
-			);
-			return;
-		}
-
-		const preview =
-			createRemoteKnownHostsCandidatePreviewFromPasteReview(nextReview);
-		setRemoteKnownHostsPasteReviewSession((current) =>
-			recordRemoteKnownHostsPasteReviewSession(current, nextReview),
-		);
-		setRemoteKnownHostsCandidateSession((current) =>
-			recordRemoteKnownHostsCandidateSession(current, preview),
-		);
-		recordStatusActivityResult(
-			createRemoteKnownHostsPasteSelectionStatusActivityResult(
-				nextReview,
-				"command",
-			),
-		);
-		log(
-			"info",
-			`remote known_hosts paste candidate command selected ${nextReview.id} selected=${nextReview.selected}/${nextReview.candidates.length}`,
-		);
+		setRemoteKnownHostsPasteReviewSession(transition.pasteReviewSession);
+		setRemoteKnownHostsCandidateSession(transition.candidateSession);
+		recordStatusActivityResult(transition.activityResult);
+		log(transition.notice.level, transition.notice.message);
 	}, [
 		commandLine.value,
 		log,
 		recordStatusActivityResult,
+		remoteKnownHostsCandidateSession,
 		remoteKnownHostsPasteReviewSession,
 		remoteProfiles,
 		selectedRemoteIndex,
 	]);
 
 	const submitRemoteHostTrustReviewCommand = useCallback(() => {
-		const profile = remoteProfiles[selectedRemoteIndex];
-		setCommandLine((current) => closeCommandLine(current));
-		if (!profile) {
-			log("warn", "remote host trust review requires a selected profile");
+		const transition = prepareRemoteHostTrustSubmission({
+			profiles: remoteProfiles,
+			selectedIndex: selectedRemoteIndex,
+			receivedConfirmation: commandLine.value,
+		});
+		if (transition.closeCommandLine) {
+			setCommandLine((current) => closeCommandLine(current));
+		}
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		const preview = createRemoteHostKeyTrustDecisionPreview(profile);
-		const confirmation = submitRemoteHostKeyTrustReview(
-			preview,
-			commandLine.value,
-		);
-		log("warn", formatRemoteHostKeyTrustReviewAuditMessage(confirmation));
-		recordStatusActivityResult(
-			createRemoteHostKeyTrustReviewStatusActivityResult(confirmation),
-		);
-		log("warn", confirmation.message);
+		log("warn", transition.auditMessage);
+		recordStatusActivityResult(transition.activityResult);
+		log(transition.notice.level, transition.notice.message);
 	}, [
 		commandLine.value,
 		log,
@@ -6179,10 +6096,11 @@ export function App(): React.ReactElement {
 	);
 
 	const getSelectedRemoteKnownHostsSelectionEvidenceResultOptions = useCallback(
-		() => ({
-			selectedIndex: selectedRemoteKnownHostsSelectionAuditExportIndex,
-			total: remoteKnownHostsSelectionAuditExports.length || 1,
-		}),
+		() =>
+			resolveRemoteEvidenceResultOptions(
+				selectedRemoteKnownHostsSelectionAuditExportIndex,
+				remoteKnownHostsSelectionAuditExports.length,
+			),
 		[
 			remoteKnownHostsSelectionAuditExports.length,
 			selectedRemoteKnownHostsSelectionAuditExportIndex,
@@ -6320,59 +6238,35 @@ export function App(): React.ReactElement {
 			(options: { origin?: "keyboard" | "palette" } = {}) => {
 				const resultOptions =
 					getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
-				const preview =
-					createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview(
-						selectedRemoteKnownHostsSelectionAuditExport,
-						resultOptions,
-					);
-				if (!preview) {
-					log("warn", "no remote known_hosts evidence handoff to copy");
-					if (options.origin === "palette") {
-						log(
-							"info",
-							formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-								"copy",
-							),
-						);
-						recordStatusActivityResult(
-							createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-								"copy",
-							),
-						);
-					}
+				const transition = prepareRemoteKnownHostsEvidenceHandoff({
+					action: "copy",
+					plan: selectedRemoteKnownHostsSelectionAuditExport,
+					...resultOptions,
+					baseDir: dirname(getConfigPath()),
+					origin: options.origin,
+				});
+				if (transition.paletteAuditMessage) {
+					log("info", transition.paletteAuditMessage);
+				}
+				if (transition.paletteActivityResult) {
+					recordStatusActivityResult(transition.paletteActivityResult);
+				}
+				if (transition.kind === "notice") {
+					log(transition.notice.level, transition.notice.message);
 					return;
 				}
-				const intent = createStatusActivityCopyIntentRecord(preview);
+				if (transition.kind !== "copy") {
+					return;
+				}
 				setStatusActivityCopyIntentHistory((current) =>
-					appendStatusActivityCopyIntentHistory(current, intent),
+					appendStatusActivityCopyIntentHistory(current, transition.intent),
 				);
 				setSelectedStatusActivityCopyIntentIndex(0);
 				setScreen("status");
 				setFocusArea("workspaces");
-				setSelectedStatusEvidenceKind("remote-known-hosts");
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-							"copy",
-							selectedRemoteKnownHostsSelectionAuditExport,
-							resultOptions,
-						),
-					);
-					recordStatusActivityResult(
-						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-							"copy",
-							selectedRemoteKnownHostsSelectionAuditExport,
-							resultOptions,
-						),
-					);
-				}
-				log(
-					"info",
-					intent?.auditMessage ??
-						formatStatusActivityCopyIntentAuditMessage(preview),
-				);
-				openClipboardConfirmation(preview);
+				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
+				log(transition.notice.level, transition.notice.message);
+				openClipboardConfirmation(transition.preview);
 			},
 			[
 				getSelectedRemoteKnownHostsSelectionEvidenceResultOptions,
@@ -6387,52 +6281,30 @@ export function App(): React.ReactElement {
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			const resultOptions =
 				getSelectedRemoteKnownHostsSelectionEvidenceResultOptions();
-			const evidencePlan =
-				createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan(
-					selectedRemoteKnownHostsSelectionAuditExport,
-					{
-						baseDir: dirname(getConfigPath()),
-						...resultOptions,
-					},
-				);
-			if (!evidencePlan) {
-				log("warn", "no remote known_hosts evidence handoff to export");
-				if (options.origin === "palette") {
-					log(
-						"info",
-						formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-							"export",
-						),
-					);
-					recordStatusActivityResult(
-						createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-							"export",
-						),
-					);
-				}
+			const transition = prepareRemoteKnownHostsEvidenceHandoff({
+				action: "export",
+				plan: selectedRemoteKnownHostsSelectionAuditExport,
+				...resultOptions,
+				baseDir: dirname(getConfigPath()),
+				origin: options.origin,
+			});
+			if (transition.paletteAuditMessage) {
+				log("info", transition.paletteAuditMessage);
+			}
+			if (transition.paletteActivityResult) {
+				recordStatusActivityResult(transition.paletteActivityResult);
+			}
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			if (transition.kind !== "export") {
 				return;
 			}
 			setScreen("status");
 			setFocusArea("workspaces");
-			setSelectedStatusEvidenceKind("remote-known-hosts");
-			if (options.origin === "palette") {
-				log(
-					"info",
-					formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage(
-						"export",
-						selectedRemoteKnownHostsSelectionAuditExport,
-						resultOptions,
-					),
-				);
-				recordStatusActivityResult(
-					createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult(
-						"export",
-						selectedRemoteKnownHostsSelectionAuditExport,
-						resultOptions,
-					),
-				);
-			}
-			void writeStatusActivityCopyIntentAuditExport(evidencePlan)
+			setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
+			void writeStatusActivityCopyIntentAuditExport(transition.exportPlan)
 				.then((written) => {
 					setLastStatusActivityCopyIntentAuditExport(written);
 					log(
@@ -6699,100 +6571,59 @@ export function App(): React.ReactElement {
 
 	const selectNextRemoteKnownHostsEvidenceHandoff = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (options.origin === "palette") {
-				setScreen("status");
-				setFocusArea("workspaces");
-			}
-			const indexes = filterStatusActivityResultHistoryIndexes(
-				statusActivityResults,
-				"evidence-handoffs",
-			);
-			if (indexes.length === 0) {
-				log("warn", "no remote known_hosts evidence handoff results");
+			const transition = prepareRemoteKnownHostsEvidenceHandoffSelection({
+				history: statusActivityResults,
+				selectedIndex: selectedStatusActivityResultIndex,
+				origin: options.origin,
+			});
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return false;
 			}
-			setSelectedStatusActivityResultIndex((current) => {
-				const next = moveStatusActivityResultHistoryFilteredSelection(
-					statusActivityResults,
-					current,
-					"next",
-					"evidence-handoffs",
-				);
-				const selected = Math.max(0, indexes.indexOf(next));
-				const result = statusActivityResults[next];
-				log(
-					"info",
-					`remote known_hosts evidence handoff ${selected + 1}/${indexes.length} row=${next + 1}${options.origin === "palette" ? " origin=palette" : ""} ${result?.message ?? "none"}`,
-				);
-				setSelectedStatusActivityCopyPreviewRowIndex(0);
-				setStatusActivityCopyPreviewExpanded(false);
-				return next;
-			});
+			if (transition.screen) {
+				setScreen(transition.screen);
+			}
+			if (transition.focusArea) {
+				setFocusArea(transition.focusArea);
+			}
+			setSelectedStatusActivityResultIndex(transition.selectedIndex);
+			setSelectedStatusActivityCopyPreviewRowIndex(0);
+			setStatusActivityCopyPreviewExpanded(false);
+			log(transition.notice.level, transition.notice.message);
 			return true;
 		},
-		[log, statusActivityResults],
+		[log, selectedStatusActivityResultIndex, statusActivityResults],
 	);
 
 	const openSelectedRemoteKnownHostsEvidenceHandoff = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const selected = getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff(
-				statusActivityResults,
-				selectedStatusActivityResultIndex,
-			);
-			if (!selected) {
-				log("warn", "no remote known_hosts evidence handoff result selected");
-				if (options.origin === "palette") {
-					recordStatusActivityResult(
-						createStatusActivityResultTimelineJumpPaletteResult("open"),
-					);
-				}
+			const transition = prepareRemoteKnownHostsEvidenceHandoffOpen({
+				history: statusActivityResults,
+				selectedIndex: selectedStatusActivityResultIndex,
+				events,
+				origin: options.origin,
+			});
+			if (transition.paletteActivityResult) {
+				recordStatusActivityResult(transition.paletteActivityResult);
+			}
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-			const timelineTransition = prepareTimelineSearchJumpTransition(
-				events,
-				selected.jump,
-				{
-					messageSuffix: options.origin === "palette" ? " origin=palette" : "",
-				},
-			);
-			const intent = createRemoteKnownHostsEvidenceHandoffOpenCopyIntent(
-				selected,
-				{
-					matches: timelineTransition.matches,
-				},
-			);
-			setStatusActivityCopyIntentHistory((current) =>
-				appendStatusActivityCopyIntentHistory(current, intent),
-			);
-			setSelectedStatusActivityCopyIntentIndex(0);
-			if (intent) {
-				log("info", intent.auditMessage);
+			if (transition.intent) {
+				setStatusActivityCopyIntentHistory((current) =>
+					appendStatusActivityCopyIntentHistory(current, transition.intent),
+				);
+				setSelectedStatusActivityCopyIntentIndex(0);
+				log("info", transition.intent.auditMessage);
 			}
-			setTimelineFilter(timelineTransition.filter);
-			setTimelineSearchQuery(timelineTransition.query);
-			setSelectedTimelineIndex(timelineTransition.selectedIndex);
+			setTimelineFilter(transition.timeline.filter);
+			setTimelineSearchQuery(transition.timeline.query);
+			setSelectedTimelineIndex(transition.timeline.selectedIndex);
 			setScreen("timeline");
-			log(timelineTransition.notice.level, timelineTransition.notice.message);
-			if (options.origin === "palette") {
-				log(
-					"info",
-					formatStatusActivityResultTimelineJumpPaletteAuditMessage("open", {
-						historyIndex: selected.historyIndex,
-						jump: selected.jump,
-						matches: timelineTransition.matches,
-						selectedIndex: selected.selected,
-						total: selected.total,
-					}),
-				);
-				recordStatusActivityResult(
-					createStatusActivityResultTimelineJumpPaletteResult("open", {
-						historyIndex: selected.historyIndex,
-						jump: selected.jump,
-						matches: timelineTransition.matches,
-						selectedIndex: selected.selected,
-						total: selected.total,
-					}),
-				);
+			log(transition.timeline.notice.level, transition.timeline.notice.message);
+			if (transition.paletteAuditMessage) {
+				log("info", transition.paletteAuditMessage);
 			}
 		},
 		[
@@ -11403,7 +11234,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (focusArea === "remotes" && input === "y") {
-			const profile = remoteProfiles[selectedRemoteIndex];
+			const profile = resolveRemoteProfileSelection(
+				remoteProfiles,
+				selectedRemoteIndex,
+			).profile;
 			const preview = getRemoteKnownHostsSelectionHistoryClipboardPreview(
 				statusActivityResults,
 				{
@@ -11420,7 +11254,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (focusArea === "remotes" && input === "E") {
-			const profile = remoteProfiles[selectedRemoteIndex];
+			const profile = resolveRemoteProfileSelection(
+				remoteProfiles,
+				selectedRemoteIndex,
+			).profile;
 			const plan = createRemoteKnownHostsSelectionHistoryAuditExportPlan(
 				statusActivityResults,
 				{
@@ -11458,46 +11295,47 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (
-			focusArea === "remotes" &&
-			input === "R" &&
-			(remoteConnectionDiagnostic?.status === "failed" ||
-				remoteConnectionDiagnostic?.status === "cancelled")
-		) {
-			const profile = remoteProfiles[selectedRemoteIndex];
-			if (!profile || profile.id !== remoteConnectionDiagnostic.id) {
-				log("warn", "select the failed remote profile before retrying");
-				return;
+		if (focusArea === "remotes" && input === "R") {
+			const transition = prepareRemoteRetry({
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				diagnostic: remoteConnectionDiagnostic,
+			});
+			if (transition.kind === "prompt") {
+				setSelectedRemoteIndex(transition.selectedIndex);
+				setCommandLine({
+					...openCommandLine(transition.prompt),
+					value: transition.value,
+				});
 			}
-			setCommandLine(openCommandLine("remote-connect"));
-			log(
-				"info",
-				`remote retry requires exact confirmation connect remote ${profile.id}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
 		if (focusArea === "remotes" && input === "c") {
-			const profile = remoteProfiles[selectedRemoteIndex];
-			if (!profile) {
-				log("warn", "no remote profile selected");
-				return;
-			}
-			const candidate = getSelectedRemoteKnownHostsCandidate(
-				profile,
-				remoteKnownHostsCandidateSession,
-				remoteKnownHostsPasteReviewSession,
-			);
-			const preview = createRemoteConnectPreview(profile, {
-				hostKeyFingerprint: candidate?.fingerprint,
+			const transition = prepareRemoteConnectPrompt({
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				candidateSession: remoteKnownHostsCandidateSession,
+				pasteReviewSession: remoteKnownHostsPasteReviewSession,
+				diagnostic: remoteConnectionDiagnostic,
 			});
-			setCommandLine(openCommandLine("remote-connect"));
-			log("info", `remote connect preview opened ${preview.confirm}`);
+			if (transition.kind === "prompt") {
+				setSelectedRemoteIndex(transition.selectedIndex);
+				setCommandLine({
+					...openCommandLine(transition.prompt),
+					value: transition.value,
+				});
+			}
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
 		if (focusArea === "remotes" && input === "e") {
-			const profile = remoteProfiles[selectedRemoteIndex];
+			const profile = resolveRemoteProfileSelection(
+				remoteProfiles,
+				selectedRemoteIndex,
+			).profile;
 			if (!profile) {
 				log("warn", "no remote profile selected");
 				return;
@@ -11512,7 +11350,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (focusArea === "remotes" && input === "K") {
-			const profile = remoteProfiles[selectedRemoteIndex];
+			const profile = resolveRemoteProfileSelection(
+				remoteProfiles,
+				selectedRemoteIndex,
+			).profile;
 			if (!profile) {
 				log("warn", "no remote profile selected");
 				return;
@@ -11523,7 +11364,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (focusArea === "remotes" && input === "P") {
-			const profile = remoteProfiles[selectedRemoteIndex];
+			const profile = resolveRemoteProfileSelection(
+				remoteProfiles,
+				selectedRemoteIndex,
+			).profile;
 			if (!profile) {
 				log("warn", "no remote profile selected");
 				return;
@@ -11534,7 +11378,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (focusArea === "remotes" && input === "S") {
-			const profile = remoteProfiles[selectedRemoteIndex];
+			const profile = resolveRemoteProfileSelection(
+				remoteProfiles,
+				selectedRemoteIndex,
+			).profile;
 			if (!profile) {
 				log("warn", "no remote profile selected");
 				return;
@@ -11563,7 +11410,10 @@ export function App(): React.ReactElement {
 		}
 
 		if (focusArea === "remotes" && input === "t") {
-			const profile = remoteProfiles[selectedRemoteIndex];
+			const profile = resolveRemoteProfileSelection(
+				remoteProfiles,
+				selectedRemoteIndex,
+			).profile;
 			if (!profile) {
 				log("warn", "no remote profile selected");
 				return;
@@ -11600,7 +11450,7 @@ export function App(): React.ReactElement {
 				);
 			} else if (focusArea === "remotes") {
 				setSelectedRemoteIndex((index) =>
-					getNextIndex(index, remoteProfiles.length, "next"),
+					moveRemoteProfileSelection(remoteProfiles, index, "next"),
 				);
 			} else if (screen === "editor" && editorPreview) {
 				const transition = transitionEditorMoveCursor({
@@ -11660,7 +11510,7 @@ export function App(): React.ReactElement {
 				);
 			} else if (focusArea === "remotes") {
 				setSelectedRemoteIndex((index) =>
-					getNextIndex(index, remoteProfiles.length, "previous"),
+					moveRemoteProfileSelection(remoteProfiles, index, "previous"),
 				);
 			} else if (screen === "editor" && editorPreview) {
 				const transition = transitionEditorMoveCursor({
@@ -14126,8 +13976,10 @@ function RemotesWorkspace({
 	const visibleProfiles = profiles.slice(window.start, window.end);
 	const hiddenAbove = window.start;
 	const hiddenBelow = profiles.length - window.end;
-	const selectedProfile =
-		profiles[Math.min(selectedIndex, profiles.length - 1)];
+	const selectedProfile = resolveRemoteProfileSelection(
+		profiles,
+		selectedIndex,
+	).profile;
 	const knownHostsPasteReview = createRemoteKnownHostsPasteReviewFromSession(
 		selectedProfile,
 		knownHostsPasteReviewSession,
@@ -14143,16 +13995,14 @@ function RemotesWorkspace({
 				);
 	const knownHostsCandidatePreviewRows =
 		formatRemoteKnownHostsCandidatePreviewRows(knownHostsCandidatePreview);
-	const selectedKnownHostCandidate = getSelectedRemoteKnownHostsCandidate(
-		selectedProfile,
-		knownHostsCandidateSession,
-		knownHostsPasteReviewSession,
-	);
-	const connectPreview = selectedProfile
-		? createRemoteConnectPreview(selectedProfile, {
-				hostKeyFingerprint: selectedKnownHostCandidate?.fingerprint,
-			})
-		: undefined;
+	const connectPrompt = prepareRemoteConnectPrompt({
+		profiles,
+		selectedIndex,
+		candidateSession: knownHostsCandidateSession,
+		pasteReviewSession: knownHostsPasteReviewSession,
+	});
+	const connectPreview =
+		connectPrompt.kind === "prompt" ? connectPrompt.preview : undefined;
 	const connectPreviewRows = formatRemoteConnectPreviewRows(connectPreview);
 	const activityRows = formatRemoteActivityShelfRows(activityResults, {
 		selectedProfileId: selectedProfile?.id,
