@@ -276,18 +276,26 @@ export function releaseOperationRunCancellation(
 
 export function prepareOperationRunPanelInput(input: {
 	input: string;
+	direction?: "next" | "previous";
 	presets: OperationPreset[];
 	selectedIndex: number;
 }): OperationRunPanelInputTransition {
 	if (input.input === "\r") return { kind: "run" };
 	if (input.input === "X") return { kind: "cancel" };
-	if (input.input === "j" || input.input === "k") {
+	const direction =
+		input.direction ??
+		(input.input === "j"
+			? "next"
+			: input.input === "k"
+				? "previous"
+				: undefined);
+	if (direction) {
 		return {
 			kind: "selection",
 			selectedIndex: getNextIndex(
 				input.selectedIndex,
 				input.presets.length,
-				input.input === "j" ? "next" : "previous",
+				direction,
 			),
 		};
 	}

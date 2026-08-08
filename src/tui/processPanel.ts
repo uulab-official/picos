@@ -196,6 +196,7 @@ export function prepareSelectedProcessResourceAction(
 
 export function prepareProcessPanelInput(input: {
 	input: string;
+	direction?: "next" | "previous";
 	files: ProcessFileSnapshot | undefined;
 	selectedIndex: number;
 }): ProcessPanelInputTransition {
@@ -220,13 +221,20 @@ export function prepareProcessPanelInput(input: {
 					},
 				};
 	}
-	if (input.input === "j" || input.input === "k") {
+	const direction =
+		input.direction ??
+		(input.input === "j"
+			? "next"
+			: input.input === "k"
+				? "previous"
+				: undefined);
+	if (direction) {
 		return {
 			kind: "selection",
 			selectedIndex: getNextIndex(
 				input.selectedIndex,
 				getProcessFileSelectionCount(input.files),
-				input.input === "j" ? "next" : "previous",
+				direction,
 			),
 			clipboardPreview: false,
 		};
@@ -241,12 +249,19 @@ export function formatProcessWorkspaceRows(
 	visibleRows = 12,
 	selectedFileIndex = 0,
 	copyPreview = false,
+	fileEvidenceIssue?: PortProcessControlFileEvidenceIssue,
 ): string[] {
 	const rows = [
 		`SUMMARY processes=${processes.length} selected=${selected?.pid ?? "-"}`,
 		"SNAPSHOT",
 		...formatSnapshotRows(processes),
-		...formatDetailRows(selected, files, selectedFileIndex, copyPreview),
+		...formatDetailRows(
+			selected,
+			files,
+			selectedFileIndex,
+			copyPreview,
+			fileEvidenceIssue,
+		),
 	];
 	return fitRows(rows, visibleRows, "processes");
 }
@@ -325,6 +340,7 @@ function formatDetailRows(
 	files: ProcessFileSnapshot | undefined,
 	selectedFileIndex: number,
 	copyPreview: boolean,
+	fileEvidenceIssue: PortProcessControlFileEvidenceIssue | undefined,
 ): string[] {
 	if (!selected) {
 		return [];
@@ -337,7 +353,13 @@ function formatDetailRows(
 		`usage cpu=${selected.cpu ?? "-"}% mem=${selected.memory ?? "-"}% elapsed=${selected.elapsed ?? "-"}`,
 		`command ${selected.command || "-"}`,
 		"FILES",
-		...formatProcessFileRows(files, selectedFileIndex),
+		...formatProcessFileRows(
+			files,
+			selectedFileIndex,
+			fileEvidenceIssue?.pid === String(selected.pid)
+				? fileEvidenceIssue
+				: undefined,
+		),
 		...(selectedClipboardPreview
 			? formatClipboardPreviewRows(selectedClipboardPreview)
 			: []),
@@ -347,7 +369,13 @@ function formatDetailRows(
 function formatProcessFileRows(
 	files: ProcessFileSnapshot | undefined,
 	selectedFileIndex: number,
+	fileEvidenceIssue: PortProcessControlFileEvidenceIssue | undefined,
 ): string[] {
+	if (fileEvidenceIssue) {
+		return [
+			`fileEvidence status=${fileEvidenceIssue.status} pid=${fileEvidenceIssue.pid} reason=${formatProcessFileEvidenceReason(fileEvidenceIssue.reason)}`,
+		];
+	}
 	const entries = getSelectableProcessFiles(files);
 	if (entries.length === 0) {
 		return ["- none detected"];
@@ -358,6 +386,10 @@ function formatProcessFileRows(
 		const marker = index === selectedIndex ? ">" : " ";
 		return `${marker} ${entry.descriptor.padEnd(4)} ${entry.label.padEnd(11)} ${entry.path}`;
 	});
+}
+
+function formatProcessFileEvidenceReason(reason: string): string {
+	return reason.trim().replace(/\s+/g, " ") || "unknown";
 }
 
 type SelectableProcessFile = {

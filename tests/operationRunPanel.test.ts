@@ -566,4 +566,22 @@ describe("operations run decisions", () => {
 			}),
 		).toEqual({ kind: "selection", selectedIndex: 0 });
 	});
+
+	test("consumes arrow directions and j/k as operation preset movement", () => {
+		for (const input of [
+			{ input: "j", direction: undefined, selectedIndexAfter: 1 },
+			{ input: "", direction: "next" as const, selectedIndexAfter: 1 },
+			{ input: "k", direction: undefined, selectedIndexAfter: 1 },
+			{ input: "", direction: "previous" as const, selectedIndexAfter: 1 },
+		]) {
+			expect(
+				prepareOperationRunPanelInput({
+					input: input.input,
+					direction: input.direction,
+					presets: [monitorPreset, logsPreset],
+					selectedIndex: 0,
+				}),
+			).toEqual({ kind: "selection", selectedIndex: input.selectedIndexAfter });
+		}
+	});
 });

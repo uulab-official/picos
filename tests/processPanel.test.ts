@@ -149,6 +149,61 @@ describe("process TUI panel formatting", () => {
 			"↓ 2 more processes",
 		]);
 	});
+
+	test("distinguishes unavailable and failed file evidence from a supported empty snapshot", () => {
+		const selected = { pid: 12345, command: "bun worker.ts" };
+		const unavailableRows = formatProcessWorkspaceRows(
+			[],
+			selected,
+			undefined,
+			10,
+			0,
+			false,
+			{
+				status: "unavailable",
+				pid: "12345",
+				reason: "collector unsupported",
+			},
+		);
+		expect(unavailableRows).toContain(
+			"fileEvidence status=unavailable pid=12345 reason=collector unsupported",
+		);
+		expect(unavailableRows).not.toContain("- none detected");
+
+		const failedRows = formatProcessWorkspaceRows(
+			[],
+			selected,
+			undefined,
+			10,
+			0,
+			false,
+			{
+				status: "error",
+				pid: "12345",
+				reason: "collector failed exit=1",
+			},
+		);
+		expect(failedRows).toContain(
+			"fileEvidence status=error pid=12345 reason=collector failed exit=1",
+		);
+		expect(failedRows).not.toContain("- none detected");
+
+		const supportedEmptyRows = formatProcessWorkspaceRows(
+			[],
+			selected,
+			{
+				pid: 12345,
+				fileEntries: [],
+				openFiles: [],
+				rawOutput: "",
+			},
+			10,
+		);
+		expect(supportedEmptyRows).toContain("- none detected");
+		expect(
+			supportedEmptyRows.some((row) => row.startsWith("fileEvidence")),
+		).toBe(false);
+	});
 });
 
 describe("process inspection transitions", () => {
@@ -329,5 +384,37 @@ describe("process workspace input transitions", () => {
 			kind: "notice",
 			notice: { level: "warn", message: "no process resource selected" },
 		});
+	});
+
+	test("consumes arrow directions and j/k as process resource movement", () => {
+		for (const input of [
+			{ input: "j", selectedIndex: 0, selectedIndexAfter: 1 },
+			{
+				input: "",
+				direction: "next" as const,
+				selectedIndex: 0,
+				selectedIndexAfter: 1,
+			},
+			{ input: "k", selectedIndex: 0, selectedIndexAfter: 1 },
+			{
+				input: "",
+				direction: "previous" as const,
+				selectedIndex: 0,
+				selectedIndexAfter: 1,
+			},
+		]) {
+			expect(
+				prepareProcessPanelInput({
+					input: input.input,
+					direction: input.direction,
+					files,
+					selectedIndex: input.selectedIndex,
+				}),
+			).toEqual({
+				kind: "selection",
+				selectedIndex: input.selectedIndexAfter,
+				clipboardPreview: false,
+			});
+		}
 	});
 });

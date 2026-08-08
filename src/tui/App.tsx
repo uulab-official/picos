@@ -8685,6 +8685,11 @@ export function App(): React.ReactElement {
 		if (screen === "processes" && focusArea === "workspaces") {
 			const decision = prepareProcessPanelInput({
 				input: key.return ? "\r" : input,
+				direction: key.downArrow
+					? "next"
+					: key.upArrow
+						? "previous"
+						: undefined,
 				files: selectedProcessFiles,
 				selectedIndex: selectedProcessFileIndex,
 			});
@@ -8703,6 +8708,11 @@ export function App(): React.ReactElement {
 		if (screen === "operations" && focusArea === "workspaces") {
 			const decision = prepareOperationRunPanelInput({
 				input: key.return ? "\r" : input,
+				direction: key.downArrow
+					? "next"
+					: key.upArrow
+						? "previous"
+						: undefined,
 				presets: operationPresets,
 				selectedIndex: selectedOperationPresetIndex,
 			});
@@ -11705,6 +11715,7 @@ export function App(): React.ReactElement {
 					portProcessControlPreview={portProcessControlPreview}
 					selectedProcessDetail={selectedProcessDetail}
 					selectedProcessFiles={selectedProcessFiles}
+					selectedProcessFileEvidenceIssue={selectedProcessFileEvidenceIssue}
 					selectedProcessFileIndex={selectedProcessFileIndex}
 					processClipboardPreview={processClipboardPreview}
 					routeTable={routeTable}
@@ -12007,6 +12018,7 @@ function MainWorkspace({
 	portProcessControlPreview,
 	selectedProcessDetail,
 	selectedProcessFiles,
+	selectedProcessFileEvidenceIssue,
 	selectedProcessFileIndex,
 	processClipboardPreview,
 	routeTable,
@@ -12180,6 +12192,7 @@ function MainWorkspace({
 	portProcessControlPreview: boolean;
 	selectedProcessDetail?: ProcessDetail;
 	selectedProcessFiles?: ProcessFileSnapshot;
+	selectedProcessFileEvidenceIssue?: PortProcessControlFileEvidenceIssue;
 	selectedProcessFileIndex: number;
 	processClipboardPreview: boolean;
 	routeTable?: RouteTableResult;
@@ -12432,6 +12445,7 @@ function MainWorkspace({
 						portProcessControlPreview,
 						selectedProcessDetail,
 						selectedProcessFiles,
+						selectedProcessFileEvidenceIssue,
 						selectedProcessFileIndex,
 						processClipboardPreview,
 						routeTable,
@@ -12610,6 +12624,9 @@ function renderWorkspace(
 	portProcessControlPreview: boolean,
 	selectedProcessDetail: ProcessDetail | undefined,
 	selectedProcessFiles: ProcessFileSnapshot | undefined,
+	selectedProcessFileEvidenceIssue:
+		| PortProcessControlFileEvidenceIssue
+		| undefined,
 	selectedProcessFileIndex: number,
 	processClipboardPreview: boolean,
 	routeTable: RouteTableResult | undefined,
@@ -12977,6 +12994,7 @@ function renderWorkspace(
 				inventory={inventory}
 				selectedProcess={selectedProcessDetail}
 				selectedFiles={selectedProcessFiles}
+				fileEvidenceIssue={selectedProcessFileEvidenceIssue}
 				selectedFileIndex={selectedProcessFileIndex}
 				copyPreview={processClipboardPreview}
 				commandLine={commandLine}
@@ -14833,6 +14851,7 @@ function ProcessesWorkspace({
 	inventory,
 	selectedProcess,
 	selectedFiles,
+	fileEvidenceIssue,
 	selectedFileIndex,
 	copyPreview,
 	commandLine,
@@ -14841,6 +14860,7 @@ function ProcessesWorkspace({
 	inventory?: SystemInventory;
 	selectedProcess?: ProcessDetail;
 	selectedFiles?: ProcessFileSnapshot;
+	fileEvidenceIssue?: PortProcessControlFileEvidenceIssue;
 	selectedFileIndex: number;
 	copyPreview: boolean;
 	commandLine: CommandLineState;
@@ -14858,6 +14878,7 @@ function ProcessesWorkspace({
 			Math.max(1, visibleRows - promptRows.length),
 			selectedFileIndex,
 			copyPreview,
+			fileEvidenceIssue,
 		),
 		...promptRows,
 	];
