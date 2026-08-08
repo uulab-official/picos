@@ -432,6 +432,7 @@ import {
 	getSelectedFilePathClipboardIntent,
 } from "./fileSelection";
 import {
+	classifyCommittedFileProviderConnectionPublication,
 	classifyFileLoadOutcome,
 	classifyFilePreviewOutcome,
 	type FileLoadRequest,
@@ -4804,8 +4805,48 @@ export function App(): React.ReactElement {
 			if (!switched) {
 				throw new Error("SFTP provider switch was superseded or failed");
 			}
-			pendingRemoteFileProviderRef.current = undefined;
+			if (pendingRemoteFileProviderRef.current === pendingProvider) {
+				pendingRemoteFileProviderRef.current = undefined;
+			}
 			pendingProvider = undefined;
+			const connectionPublication =
+				classifyCommittedFileProviderConnectionPublication({
+					requestAttempt: attemptDiagnostic,
+					currentAttempt: remoteConnectionDiagnosticRef.current,
+					requestIsPending:
+						pendingRemoteConnectRef.current === connectController,
+					requestCancelled: connectController.signal.aborted,
+				});
+			if (connectionPublication === "current") {
+				pendingRemoteConnectRef.current = undefined;
+				setScreen("files");
+				setFocusArea("files");
+				const outcome = {
+					status: "connected" as const,
+					id: profile.id,
+					target: root,
+					host: profile.host,
+					port: profile.port,
+					fingerprint: candidate.fingerprint,
+					message: `read-only SFTP connected entries=${entries.length}`,
+				};
+				const auditMessage = formatReadOnlySftpConnectionAuditMessage(outcome);
+				const connectedDiagnostic = finishReadOnlySftpConnectionDiagnostic(
+					attemptDiagnostic,
+					"connected",
+					outcome.message,
+				);
+				remoteConnectionDiagnosticRef.current = connectedDiagnostic;
+				setRemoteConnectionDiagnostic(connectedDiagnostic);
+				log("ok", auditMessage);
+				recordStatusActivityResult({
+					source: "timeline",
+					action: "remote-connect",
+					message: `remote connect connected ${profile.id} ${profile.host}:${profile.port}`,
+					detail: `target="${root}" fingerprint=${candidate.fingerprint} network=opened capabilities=list,stat,read writes=locked`,
+					detailRows: [outcome.message, `audit=${auditMessage}`],
+				});
+			}
 			if (remoteFileProvider) {
 				try {
 					await remoteFileProvider.close?.();
@@ -4818,33 +4859,6 @@ export function App(): React.ReactElement {
 					);
 				}
 			}
-			setScreen("files");
-			setFocusArea("files");
-			const outcome = {
-				status: "connected" as const,
-				id: profile.id,
-				target: root,
-				host: profile.host,
-				port: profile.port,
-				fingerprint: candidate.fingerprint,
-				message: `read-only SFTP connected entries=${entries.length}`,
-			};
-			const auditMessage = formatReadOnlySftpConnectionAuditMessage(outcome);
-			const connectedDiagnostic = finishReadOnlySftpConnectionDiagnostic(
-				attemptDiagnostic,
-				"connected",
-				outcome.message,
-			);
-			remoteConnectionDiagnosticRef.current = connectedDiagnostic;
-			setRemoteConnectionDiagnostic(connectedDiagnostic);
-			log("ok", auditMessage);
-			recordStatusActivityResult({
-				source: "timeline",
-				action: "remote-connect",
-				message: `remote connect connected ${profile.id} ${profile.host}:${profile.port}`,
-				detail: `target="${root}" fingerprint=${candidate.fingerprint} network=opened capabilities=list,stat,read writes=locked`,
-				detailRows: [outcome.message, `audit=${auditMessage}`],
-			});
 		} catch (caught) {
 			try {
 				await pendingProvider?.close?.();

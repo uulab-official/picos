@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { FileEntry, FileLocation } from "../src/core/files";
 import {
+	classifyCommittedFileProviderConnectionPublication,
 	classifyFileLoadOutcome,
 	classifyFilePreviewOutcome,
 	prepareActiveFileFilterInput,
@@ -44,6 +45,50 @@ const remoteContext = {
 };
 
 describe("Files workspace transitions", () => {
+	test("terminalizes a current committed provider before cleanup and rejects stale attempts", async () => {
+		const attempt = { id: "staging", attempt: 1, startedAt: 1_000 };
+		const publications: string[] = [];
+		let finishCleanup: (() => void) | undefined;
+		const cleanup = new Promise<void>((resolve) => {
+			finishCleanup = resolve;
+		});
+
+		const runCommittedProviderCleanup = async () => {
+			const publication = classifyCommittedFileProviderConnectionPublication({
+				requestAttempt: attempt,
+				currentAttempt: attempt,
+				requestIsPending: true,
+				requestCancelled: false,
+			});
+			if (publication === "current") {
+				publications.push("connected:staging:1");
+			}
+			await cleanup;
+		};
+
+		const running = runCommittedProviderCleanup();
+		expect(publications).toEqual(["connected:staging:1"]);
+		expect(
+			classifyCommittedFileProviderConnectionPublication({
+				requestAttempt: attempt,
+				currentAttempt: attempt,
+				requestIsPending: true,
+				requestCancelled: true,
+			}),
+		).toBe("stale");
+		expect(
+			classifyCommittedFileProviderConnectionPublication({
+				requestAttempt: attempt,
+				currentAttempt: { id: "prod", attempt: 1, startedAt: 1_001 },
+				requestIsPending: false,
+				requestCancelled: false,
+			}),
+		).toBe("stale");
+		finishCleanup?.();
+		await running;
+		expect(publications).toEqual(["connected:staging:1"]);
+	});
+
 	test("owns active filter input, selection repair, and notices", () => {
 		expect(
 			prepareActiveFileFilterInput({

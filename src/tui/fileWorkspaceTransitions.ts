@@ -101,6 +101,28 @@ export type FileProviderSession = {
 	remoteContext?: RemoteFileContext;
 };
 
+export type FileProviderConnectionAttemptIdentity = {
+	id: string;
+	attempt: number;
+	startedAt: number;
+};
+
+export function classifyCommittedFileProviderConnectionPublication(input: {
+	requestAttempt: FileProviderConnectionAttemptIdentity;
+	currentAttempt?: FileProviderConnectionAttemptIdentity;
+	requestIsPending: boolean;
+	requestCancelled: boolean;
+}): "current" | "stale" {
+	const currentAttempt = input.currentAttempt;
+	return !input.requestCancelled &&
+		input.requestIsPending &&
+		currentAttempt?.id === input.requestAttempt.id &&
+		currentAttempt.attempt === input.requestAttempt.attempt &&
+		currentAttempt.startedAt === input.requestAttempt.startedAt
+		? "current"
+		: "stale";
+}
+
 export type FileLoadTransition =
 	| { status: "stale"; notice?: FileWorkspaceNotice }
 	| {
