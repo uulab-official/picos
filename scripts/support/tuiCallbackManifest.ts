@@ -173,7 +173,8 @@ const delegatedCallbacks = {
 	},
 	loadFiles: {
 		owner: "src/tui/fileWorkspaceTransitions.ts",
-		reason: "delegates sequenced listing publication classification",
+		reason:
+			"delegates provider generation eligibility and sequenced listing publication classification",
 	},
 	openSelectedFileEntry: {
 		owner: "src/tui/fileWorkspaceTransitions.ts",
@@ -303,7 +304,7 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 				classification: "inline-decision",
 				slice: "files-transitions",
 				reason:
-					"Files input delegates guards, selection, eligibility, and notices; unrelated workspace branches remain inline",
+					"Files input and operation command lines delegate guards, cleanup, submit intent, selection, eligibility, and notices; unrelated workspace branches remain inline",
 			};
 		}
 		return reason

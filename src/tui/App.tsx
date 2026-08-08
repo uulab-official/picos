@@ -418,7 +418,6 @@ import {
 } from "./fileFilter";
 import {
 	applyFileOperationCommandLineTransition,
-	clearFileOperationDialog,
 	type FileOperationDialogState,
 	type FileOperationKind,
 	prepareActiveFileOperationDialogInput,
@@ -440,6 +439,7 @@ import {
 	prepareFileHistoryNavigation,
 	prepareFileLocationNavigation,
 	prepareFilePathCommand,
+	prepareFileWorkspaceCommandLineInput,
 	prepareFileWorkspaceInput,
 	prepareNextFileLocationIndex,
 	prepareParentFileNavigation,
@@ -510,7 +510,12 @@ import {
 	getSelectedProcessFileRequest,
 	getSelectedProcessResourceRequest,
 } from "./processPanel";
-import { beginRequest, isStaleRequest } from "./requestSequence";
+import {
+	beginRequest,
+	beginRequestWithPublication,
+	classifyRequestPublication,
+	isStaleRequest,
+} from "./requestSequence";
 import {
 	createRouteFilterCleanupPreview,
 	createRouteRawHandoffPlan,
@@ -819,6 +824,9 @@ export function App(): React.ReactElement {
 		undefined,
 	);
 	const fileProvider = remoteFileProvider ?? localFileProvider;
+	const activeFileProviderRef = useRef(fileProvider);
+	const fileProviderGenerationRef = useRef(0);
+	const activeFileProviderGenerationRef = useRef(0);
 	useEffect(() => {
 		remoteFileProviderRef.current = remoteFileProvider;
 	}, [remoteFileProvider]);
@@ -1058,8 +1066,18 @@ export function App(): React.ReactElement {
 	// listing, so each group owns a separate sequence.
 	const fileLoadTokenRef = useRef(0);
 	const filePreviewTokenRef = useRef(0);
+	// Load, preview, and refresh retain independent result sequences, but all three
+	// write the single current error row and therefore share this publication lane.
+	const currentErrorTokenRef = useRef(0);
 	const initialFileLoadStartedRef = useRef(false);
 	const fileOperationTokenRef = useRef(0);
+	useEffect(() => {
+		if (!remoteFileProvider) {
+			// Local provider recreation changes write capability, not listing identity.
+			// Keep the current generation so a one-shot startup listing remains valid.
+			activeFileProviderRef.current = localFileProvider;
+		}
+	}, [localFileProvider, remoteFileProvider]);
 	const operationRunRef = useRef<OperationRunProgress | undefined>(undefined);
 	// Runs are identified by a token rather than tracked with a shared boolean. A
 	// boolean let a second run clear the first run's cancellation and then let the
@@ -1129,6 +1147,8 @@ export function App(): React.ReactElement {
 	const [language, setLanguage] = useState<Language>("en");
 	const [commandStatus, setCommandStatus] = useState<CommandStatus>("idle");
 	const [fileRoot, setFileRoot] = useState(systemFileRoot);
+	const fileRootRef = useRef(fileRoot);
+	fileRootRef.current = fileRoot;
 	const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
 	const [fileHistory, setFileHistory] = useState<string[]>([]);
 	const [fileForwardHistory, setFileForwardHistory] = useState<string[]>([]);
@@ -1826,13 +1846,23 @@ export function App(): React.ReactElement {
 				notice?: { level: "ok" | "info" | "warn" | "fail"; message: string };
 			} = {},
 		) => {
-			const token = beginRequest(filePreviewTokenRef.current);
+			const tokens = beginRequestWithPublication(
+				filePreviewTokenRef.current,
+				currentErrorTokenRef.current,
+			);
+			const token = tokens.requestToken;
+			const errorToken = tokens.publicationToken;
 			filePreviewTokenRef.current = token;
+			currentErrorTokenRef.current = errorToken;
 			try {
-				const read = await fileProvider.read(entry.path, { maxBytes: 6000 });
+				const read = await activeFileProviderRef.current.read(entry.path, {
+					maxBytes: 6000,
+				});
 				const transition = classifyFilePreviewOutcome({
 					currentRequestToken: filePreviewTokenRef.current,
 					requestToken: token,
+					currentErrorRequestToken: currentErrorTokenRef.current,
+					errorRequestToken: errorToken,
 					entry,
 					openEditor: options.openEditor ?? false,
 					notice: options.notice,
@@ -1861,6 +1891,8 @@ export function App(): React.ReactElement {
 				const transition = classifyFilePreviewOutcome({
 					currentRequestToken: filePreviewTokenRef.current,
 					requestToken: token,
+					currentErrorRequestToken: currentErrorTokenRef.current,
+					errorRequestToken: errorToken,
 					entry,
 					openEditor: options.openEditor ?? false,
 					notice: options.notice,
@@ -1869,28 +1901,47 @@ export function App(): React.ReactElement {
 				if (transition.notice) {
 					log(transition.notice.level, transition.notice.message);
 				}
-				if (transition.status === "failure") {
+				if (transition.status === "failure" && transition.publishError) {
 					setError(transition.error);
 				}
 				return false;
 			}
 		},
-		[fileProvider, log],
+		[log],
 	);
 
 	const loadFiles = useCallback(
 		async (
 			request: string | FileLoadRequest,
 			source: {
-				provider?: FileProvider;
 				batch?: { resolvedRoot: string; entries: FileEntry[] };
+				switchSession?: {
+					provider: FileProvider;
+					remoteProvider?: FileProvider;
+					remoteContext?: RemoteFileContext;
+				};
 			} = {},
 		) => {
 			const nextRequest =
 				typeof request === "string" ? { path: request } : request;
-			const provider = source.provider ?? fileProvider;
-			const token = beginRequest(fileLoadTokenRef.current);
+			const switchSession = source.switchSession;
+			if (
+				!switchSession &&
+				activeFileProviderGenerationRef.current !==
+					fileProviderGenerationRef.current
+			) {
+				return false;
+			}
+			const provider = switchSession?.provider ?? activeFileProviderRef.current;
+			const tokens = beginRequestWithPublication(
+				fileLoadTokenRef.current,
+				currentErrorTokenRef.current,
+			);
+			const token = tokens.requestToken;
+			let errorToken = tokens.publicationToken;
 			fileLoadTokenRef.current = token;
+			currentErrorTokenRef.current = errorToken;
+			let requestProviderGeneration = activeFileProviderGenerationRef.current;
 			try {
 				const [resolvedRoot, entries] = source.batch
 					? [source.batch.resolvedRoot, source.batch.entries]
@@ -1901,20 +1952,62 @@ export function App(): React.ReactElement {
 								.catch(() => nextRequest.path),
 							provider.list(nextRequest.path),
 						]);
-				const transition = classifyFileLoadOutcome({
-					currentRequestToken: fileLoadTokenRef.current,
-					requestToken: token,
-					request: nextRequest,
-					outcome: { status: "success", resolvedRoot, entries },
-					selectedIndex: selectedFileIndexRef.current,
-					selectedLocationIndex: selectedLocationIndexRef.current,
-					locations: fileLocations,
-				});
+				if (switchSession) {
+					if (isStaleRequest(fileLoadTokenRef.current, token)) {
+						return false;
+					}
+					requestProviderGeneration = beginRequest(
+						fileProviderGenerationRef.current,
+					);
+					fileProviderGenerationRef.current = requestProviderGeneration;
+					filePreviewTokenRef.current = beginRequest(
+						filePreviewTokenRef.current,
+					);
+					errorToken = beginRequest(currentErrorTokenRef.current);
+					currentErrorTokenRef.current = errorToken;
+				}
+				const classifySuccess = () =>
+					classifyFileLoadOutcome({
+						currentRequestToken: fileLoadTokenRef.current,
+						requestToken: token,
+						currentErrorRequestToken: currentErrorTokenRef.current,
+						errorRequestToken: errorToken,
+						currentProviderGeneration: fileProviderGenerationRef.current,
+						requestProviderGeneration,
+						...(switchSession
+							? {
+									providerSession: {
+										generation: requestProviderGeneration,
+										kind: provider.kind,
+										remoteContext: switchSession.remoteContext,
+									},
+								}
+							: {}),
+						request: nextRequest,
+						outcome: { status: "success" as const, resolvedRoot, entries },
+						selectedIndex: selectedFileIndexRef.current,
+						selectedLocationIndex: selectedLocationIndexRef.current,
+						locations: fileLocations,
+					});
+				const transition = classifySuccess();
 				if (transition.status !== "success") {
 					return false;
 				}
 				// Every value in this listing batch has been awaited and classified before
 				// any setter runs, so rows, root, history, and selection land together.
+				if (
+					transition.commitProviderSession &&
+					transition.providerSession &&
+					switchSession
+				) {
+					activeFileProviderRef.current = switchSession.provider;
+					activeFileProviderGenerationRef.current =
+						transition.providerSession.generation;
+					remoteFileProviderRef.current = switchSession.remoteProvider;
+					setRemoteFileProvider(switchSession.remoteProvider);
+					setRemoteFileContext(switchSession.remoteContext);
+				}
+				fileRootRef.current = transition.root;
 				setFileRoot(transition.root);
 				setFileEntries(transition.entries);
 				selectedFileIndexRef.current = transition.selectedIndex;
@@ -1938,6 +2031,19 @@ export function App(): React.ReactElement {
 				const transition = classifyFileLoadOutcome({
 					currentRequestToken: fileLoadTokenRef.current,
 					requestToken: token,
+					currentErrorRequestToken: currentErrorTokenRef.current,
+					errorRequestToken: errorToken,
+					currentProviderGeneration: fileProviderGenerationRef.current,
+					requestProviderGeneration,
+					...(switchSession
+						? {
+								providerSession: {
+									generation: requestProviderGeneration,
+									kind: provider.kind,
+									remoteContext: switchSession.remoteContext,
+								},
+							}
+						: {}),
 					request: nextRequest,
 					outcome: { status: "failure", error: caught },
 					selectedIndex: selectedFileIndexRef.current,
@@ -1947,46 +2053,23 @@ export function App(): React.ReactElement {
 				if (transition.notice) {
 					log(transition.notice.level, transition.notice.message);
 				}
-				if (transition.status === "failure") {
+				if (transition.status === "failure" && transition.publishError) {
 					setError(transition.error);
 				}
 				return false;
 			}
 		},
-		[fileLocations, fileProvider, log],
+		[fileLocations, log],
 	);
 
 	const refreshFiles = useCallback(async () => {
-		await loadFiles({ path: fileRoot, keepSelection: true });
-	}, [fileRoot, loadFiles]);
+		await loadFiles({ path: fileRootRef.current, keepSelection: true });
+	}, [loadFiles]);
 
 	const disconnectRemoteFiles = useCallback(async () => {
 		if (!remoteFileProvider) {
 			log("info", "no read-only SFTP session connected");
 			return;
-		}
-		try {
-			await remoteFileProvider.close?.();
-		} catch (caught) {
-			log(
-				"warn",
-				caught instanceof Error
-					? `SFTP session close failed ${caught.message}`
-					: `SFTP session close failed ${String(caught)}`,
-			);
-		}
-		remoteFileProviderRef.current = undefined;
-		setRemoteFileProvider(undefined);
-		setRemoteFileContext(undefined);
-		const diagnostic = remoteConnectionDiagnosticRef.current;
-		if (diagnostic?.status === "connected") {
-			const disconnected = finishReadOnlySftpConnectionDiagnostic(
-				diagnostic,
-				"disconnected",
-				"read-only SFTP session closed by operator",
-			);
-			remoteConnectionDiagnosticRef.current = disconnected;
-			setRemoteConnectionDiagnostic(disconnected);
 		}
 		const restored = await loadFiles(
 			{
@@ -1995,9 +2078,33 @@ export function App(): React.ReactElement {
 				forwardHistory: [],
 				failurePrefix: "local filesystem restore failed",
 			},
-			{ provider: localFileProvider },
+			{
+				switchSession: {
+					provider: localFileProvider,
+				},
+			},
 		);
 		if (restored) {
+			try {
+				await remoteFileProvider.close?.();
+			} catch (caught) {
+				log(
+					"warn",
+					caught instanceof Error
+						? `SFTP session close failed ${caught.message}`
+						: `SFTP session close failed ${String(caught)}`,
+				);
+			}
+			const diagnostic = remoteConnectionDiagnosticRef.current;
+			if (diagnostic?.status === "connected") {
+				const disconnected = finishReadOnlySftpConnectionDiagnostic(
+					diagnostic,
+					"disconnected",
+					"read-only SFTP session closed by operator",
+				);
+				remoteConnectionDiagnosticRef.current = disconnected;
+				setRemoteConnectionDiagnostic(disconnected);
+			}
 			setFocusArea("files");
 			log("info", "read-only SFTP session closed; local filesystem restored");
 		}
@@ -4488,7 +4595,26 @@ export function App(): React.ReactElement {
 			return;
 		}
 		pendingRemoteConnectRef.current?.abort();
+		const context = await createRemoteFileContext(profile);
 		if (remoteFileProvider) {
+			if (
+				!(await loadFiles(
+					{
+						path: systemFileRoot,
+						backHistory: [],
+						forwardHistory: [],
+						failurePrefix: "local filesystem restore failed",
+					},
+					{
+						switchSession: {
+							provider: localFileProvider,
+							remoteContext: context,
+						},
+					},
+				))
+			) {
+				return;
+			}
 			try {
 				await remoteFileProvider.close?.();
 			} catch (caught) {
@@ -4499,24 +4625,9 @@ export function App(): React.ReactElement {
 						: `previous SFTP session close failed ${String(caught)}`,
 				);
 			}
-			remoteFileProviderRef.current = undefined;
-			setRemoteFileProvider(undefined);
-			if (
-				!(await loadFiles(
-					{
-						path: systemFileRoot,
-						backHistory: [],
-						forwardHistory: [],
-						failurePrefix: "local filesystem restore failed",
-					},
-					{ provider: localFileProvider },
-				))
-			) {
-				return;
-			}
+		} else {
+			setRemoteFileContext(context);
 		}
-		const context = await createRemoteFileContext(profile);
-		setRemoteFileContext(context);
 		setScreen("files");
 		setFocusArea("workspaces");
 		log("info", formatRemoteHostReviewAuditMessage("stage", profile));
@@ -4558,6 +4669,23 @@ export function App(): React.ReactElement {
 			await writeConfig(nextConfig);
 			pendingRemoteConnectRef.current?.abort();
 			if (remoteFileProvider) {
+				if (
+					!(await loadFiles(
+						{
+							path: systemFileRoot,
+							backHistory: [],
+							forwardHistory: [],
+							failurePrefix: "local filesystem restore failed",
+						},
+						{
+							switchSession: {
+								provider: localFileProvider,
+							},
+						},
+					))
+				) {
+					return;
+				}
 				try {
 					await remoteFileProvider.close?.();
 				} catch (caught) {
@@ -4568,25 +4696,11 @@ export function App(): React.ReactElement {
 							: `previous SFTP session close failed ${String(caught)}`,
 					);
 				}
-				remoteFileProviderRef.current = undefined;
-				setRemoteFileProvider(undefined);
-				if (
-					!(await loadFiles(
-						{
-							path: systemFileRoot,
-							backHistory: [],
-							forwardHistory: [],
-							failurePrefix: "local filesystem restore failed",
-						},
-						{ provider: localFileProvider },
-					))
-				) {
-					return;
-				}
+			} else {
+				setRemoteFileContext(undefined);
 			}
 			syncConfigSessionState(nextConfig);
 			setSelectedRemoteIndex(0);
-			setRemoteFileContext(undefined);
 			setScreen("remotes");
 			setFocusArea("workspaces");
 			log("ok", `remote profile saved ${profile.id} ${profile.host}`);
@@ -4641,32 +4755,6 @@ export function App(): React.ReactElement {
 			);
 			return;
 		}
-		if (remoteFileProvider) {
-			try {
-				await remoteFileProvider.close?.();
-			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `existing SFTP session close failed; replacement blocked ${caught.message}`
-						: `existing SFTP session close failed; replacement blocked ${String(caught)}`,
-				);
-				return;
-			}
-			remoteFileProviderRef.current = undefined;
-			setRemoteFileProvider(undefined);
-			setRemoteFileContext(undefined);
-			await loadFiles(
-				{
-					path: systemFileRoot,
-					backHistory: [],
-					forwardHistory: [],
-					failurePrefix: "local filesystem restore failed",
-				},
-				{ provider: localFileProvider },
-			);
-		}
-
 		pendingRemoteConnectRef.current?.abort();
 		const connectController = new AbortController();
 		pendingRemoteConnectRef.current = connectController;
@@ -4693,17 +4781,7 @@ export function App(): React.ReactElement {
 			) {
 				throw new ReadOnlySftpConnectionCancelledError();
 			}
-			if (
-				connectController.signal.aborted ||
-				pendingRemoteConnectRef.current !== connectController
-			) {
-				throw new ReadOnlySftpConnectionCancelledError();
-			}
-			remoteFileProviderRef.current = pendingProvider;
-			setRemoteFileProvider(pendingProvider);
-			pendingRemoteFileProviderRef.current = undefined;
-			pendingProvider = undefined;
-			setRemoteFileContext({
+			const connectedContext: RemoteFileContext = {
 				id: profile.id,
 				kind: "sftp",
 				label: profile.id,
@@ -4711,11 +4789,35 @@ export function App(): React.ReactElement {
 				status: "connected read-only",
 				writes: "locked",
 				hostKeyFingerprint: candidate.fingerprint,
-			});
-			await loadFiles(
+			};
+			const switched = await loadFiles(
 				{ path: root, backHistory: [], forwardHistory: [] },
-				{ batch: { resolvedRoot: root, entries } },
+				{
+					batch: { resolvedRoot: root, entries },
+					switchSession: {
+						provider: pendingProvider,
+						remoteProvider: pendingProvider,
+						remoteContext: connectedContext,
+					},
+				},
 			);
+			if (!switched) {
+				throw new Error("SFTP provider switch was superseded or failed");
+			}
+			pendingRemoteFileProviderRef.current = undefined;
+			pendingProvider = undefined;
+			if (remoteFileProvider) {
+				try {
+					await remoteFileProvider.close?.();
+				} catch (caught) {
+					log(
+						"warn",
+						caught instanceof Error
+							? `previous SFTP session close failed ${caught.message}`
+							: `previous SFTP session close failed ${String(caught)}`,
+					);
+				}
+			}
 			setScreen("files");
 			setFocusArea("files");
 			const outcome = {
@@ -4805,7 +4907,6 @@ export function App(): React.ReactElement {
 		beginCommand,
 		commandLine.value,
 		endCommand,
-		localFileProvider,
 		loadFiles,
 		log,
 		recordStatusActivityResult,
@@ -4814,7 +4915,6 @@ export function App(): React.ReactElement {
 		remoteKnownHostsPasteReviewSession,
 		remoteProfiles,
 		selectedRemoteIndex,
-		systemFileRoot,
 	]);
 
 	const cancelPendingRemoteConnect = useCallback(() => {
@@ -5393,8 +5493,8 @@ export function App(): React.ReactElement {
 			return;
 		}
 		initialFileLoadStartedRef.current = true;
-		void loadFiles(systemFileRoot, { provider: localFileProvider });
-	}, [loadFiles, localFileProvider, systemFileRoot]);
+		void loadFiles(systemFileRoot);
+	}, [loadFiles, systemFileRoot]);
 
 	useEffect(() => {
 		const entry = fileEntries.find(
@@ -5410,10 +5510,15 @@ export function App(): React.ReactElement {
 	}, [editorPreview, fileEntries, previewFile]);
 
 	const refresh = useCallback(async () => {
-		const token = beginRequest(refreshTokenRef.current);
+		const tokens = beginRequestWithPublication(
+			refreshTokenRef.current,
+			currentErrorTokenRef.current,
+		);
+		const token = tokens.requestToken;
+		const errorToken = tokens.publicationToken;
 		refreshTokenRef.current = token;
+		currentErrorTokenRef.current = errorToken;
 		try {
-			setError(undefined);
 			const [
 				nextSummary,
 				nextConnections,
@@ -5444,6 +5549,12 @@ export function App(): React.ReactElement {
 			// and those become audit events.
 			if (isStaleRequest(refreshTokenRef.current, token)) {
 				return;
+			}
+			if (
+				classifyRequestPublication(currentErrorTokenRef.current, errorToken) ===
+				"current"
+			) {
+				setError(undefined);
 			}
 			const networkEvents = createNetworkTimelineEvents(
 				summaryRef.current,
@@ -5481,7 +5592,11 @@ export function App(): React.ReactElement {
 			// current state, so only the newest refresh may set it: showing a
 			// superseded refresh's failure beside a newer success would misdescribe
 			// the machine.
-			if (!isStaleRequest(refreshTokenRef.current, token)) {
+			if (
+				!isStaleRequest(refreshTokenRef.current, token) &&
+				classifyRequestPublication(currentErrorTokenRef.current, errorToken) ===
+					"current"
+			) {
 				setError(message);
 			}
 			log("fail", message);
@@ -8360,6 +8475,31 @@ export function App(): React.ReactElement {
 
 	useInput((input, key) => {
 		if (commandLine.active) {
+			const fileCommandTransition = prepareFileWorkspaceCommandLineInput({
+				commandLine,
+				dialog: fileOperationDialog,
+				input,
+				escape: key.escape,
+				return: key.return,
+				backspace: key.backspace || key.delete,
+			});
+			if (fileCommandTransition.action === "apply") {
+				setCommandLine(fileCommandTransition.commandLine);
+				setFileOperationDialog(fileCommandTransition.dialog);
+				if (fileCommandTransition.notice) {
+					log(
+						fileCommandTransition.notice.level,
+						fileCommandTransition.notice.message,
+					);
+				}
+				if (fileCommandTransition.submit === "destination") {
+					submitFileOperationDestinationCommand();
+				}
+				if (fileCommandTransition.submit === "confirmation") {
+					void submitFileOperationConfirmCommand();
+				}
+				return;
+			}
 			if (key.escape) {
 				setCommandLine((current) => closeCommandLine(current));
 				if (commandLine.prompt === "clipboard") {
@@ -8375,14 +8515,6 @@ export function App(): React.ReactElement {
 				}
 				if (commandLine.prompt === "file-open") {
 					setFileOpenPlan(undefined);
-				}
-				if (
-					commandLine.prompt === "file-operation-destination" ||
-					commandLine.prompt === "file-operation-confirm"
-				) {
-					setFileOperationDialog((current) =>
-						clearFileOperationDialog(current),
-					);
 				}
 				if (commandLine.prompt === portProcessControlPrompt) {
 					setPortProcessControlPreview(false);
@@ -8438,104 +8570,98 @@ export function App(): React.ReactElement {
 																	: commandLine.prompt === "file-open"
 																		? "file open confirmation cancelled"
 																		: commandLine.prompt ===
-																				"file-operation-destination"
-																			? "file operation destination cancelled"
+																				"cleanup-export-archive"
+																			? "cleanup export archive cancelled"
 																			: commandLine.prompt ===
-																					"file-operation-confirm"
-																				? "file operation confirmation cancelled"
+																					"tool-export-archive"
+																				? "tools evidence archive cancelled"
 																				: commandLine.prompt ===
-																						"cleanup-export-archive"
-																					? "cleanup export archive cancelled"
+																						"audit-export-archive"
+																					? "audit export archive cancelled"
 																					: commandLine.prompt ===
-																							"tool-export-archive"
-																						? "tools evidence archive cancelled"
+																							"audit-archive-retention"
+																						? "audit archive retention cancelled"
 																						: commandLine.prompt ===
-																								"audit-export-archive"
-																							? "audit export archive cancelled"
+																								"tools-archive-retention"
+																							? "tools archive retention cancelled"
 																							: commandLine.prompt ===
-																									"audit-archive-retention"
-																								? "audit archive retention cancelled"
+																									"config-reset"
+																								? "config reset cancelled"
 																								: commandLine.prompt ===
-																										"tools-archive-retention"
-																									? "tools archive retention cancelled"
+																										"editor-append"
+																									? "editor append cancelled"
 																									: commandLine.prompt ===
-																											"config-reset"
-																										? "config reset cancelled"
+																											"editor-insert-before"
+																										? "editor insert before cancelled"
 																										: commandLine.prompt ===
-																												"editor-append"
-																											? "editor append cancelled"
+																												"editor-insert-after"
+																											? "editor insert after cancelled"
 																											: commandLine.prompt ===
-																													"editor-insert-before"
-																												? "editor insert before cancelled"
+																													"editor-replace"
+																												? "editor replace cancelled"
 																												: commandLine.prompt ===
-																														"editor-insert-after"
-																													? "editor insert after cancelled"
-																													: commandLine.prompt ===
-																															"editor-replace"
-																														? "editor replace cancelled"
+																														"editor-save"
+																													? "editor save confirmation cancelled"
+																													: commandLine.prompt.startsWith(
+																																"config-",
+																															)
+																														? "config edit cancelled"
 																														: commandLine.prompt ===
-																																"editor-save"
-																															? "editor save confirmation cancelled"
-																															: commandLine.prompt.startsWith(
-																																		"config-",
-																																	)
-																																? "config edit cancelled"
+																																"log-search"
+																															? "logs search cancelled"
+																															: commandLine.prompt ===
+																																	"logs-cleanup"
+																																? "logs cleanup cancelled"
 																																: commandLine.prompt ===
-																																		"log-search"
-																																	? "logs search cancelled"
+																																		"tools-evidence-search"
+																																	? "tools evidence search cancelled"
 																																	: commandLine.prompt ===
-																																			"logs-cleanup"
-																																		? "logs cleanup cancelled"
+																																			"dns-servers"
+																																		? "dns server proposal cancelled"
 																																		: commandLine.prompt ===
-																																				"tools-evidence-search"
-																																			? "tools evidence search cancelled"
+																																				"tool-target-label"
+																																			? "tool target label cancelled"
 																																			: commandLine.prompt ===
-																																					"dns-servers"
-																																				? "dns server proposal cancelled"
+																																					"tool-target-value"
+																																				? "tool target value cancelled"
 																																				: commandLine.prompt ===
-																																						"tool-target-label"
-																																					? "tool target label cancelled"
+																																						"tool-target-action"
+																																					? "tool target action cancelled"
 																																					: commandLine.prompt ===
-																																							"tool-target-value"
-																																						? "tool target value cancelled"
+																																							"tool-target-cleanup"
+																																						? "tool target cleanup cancelled"
 																																						: commandLine.prompt ===
-																																								"tool-target-action"
-																																							? "tool target action cancelled"
+																																								"tool-target-preset"
+																																							? "tool target preset cancelled"
 																																							: commandLine.prompt ===
-																																									"tool-target-cleanup"
-																																								? "tool target cleanup cancelled"
+																																									"remote-profile"
+																																								? "remote profile cancelled"
 																																								: commandLine.prompt ===
-																																										"tool-target-preset"
-																																									? "tool target preset cancelled"
+																																										"remote-connect"
+																																									? "remote connect confirmation cancelled"
 																																									: commandLine.prompt ===
-																																											"remote-profile"
-																																										? "remote profile cancelled"
+																																											"remote-host-trust"
+																																										? "remote host trust review cancelled"
 																																										: commandLine.prompt ===
-																																												"remote-connect"
-																																											? "remote connect confirmation cancelled"
+																																												"remote-host-key-evidence"
+																																											? "remote host key evidence input cancelled"
 																																											: commandLine.prompt ===
-																																													"remote-host-trust"
-																																												? "remote host trust review cancelled"
+																																													"remote-known-hosts-candidate"
+																																												? "remote known_hosts candidate input cancelled"
 																																												: commandLine.prompt ===
-																																														"remote-host-key-evidence"
-																																													? "remote host key evidence input cancelled"
+																																														"remote-known-hosts-paste"
+																																													? "remote known_hosts paste review cancelled"
 																																													: commandLine.prompt ===
-																																															"remote-known-hosts-candidate"
-																																														? "remote known_hosts candidate input cancelled"
+																																															"remote-known-hosts-select"
+																																														? "remote known_hosts paste selection cancelled"
 																																														: commandLine.prompt ===
-																																																"remote-known-hosts-paste"
-																																															? "remote known_hosts paste review cancelled"
-																																															: commandLine.prompt ===
-																																																	"remote-known-hosts-select"
-																																																? "remote known_hosts paste selection cancelled"
-																																																: commandLine.prompt ===
-																																																		portProcessControlPrompt
-																																																	? "port process control cancelled"
-																																																	: commandLine.prompt.startsWith(
-																																																				toolPromptPrefix,
-																																																			)
-																																																		? "tool target command cancelled"
-																																																		: "path command cancelled",
+																																																portProcessControlPrompt
+																																															? "port process control cancelled"
+																																															: commandLine.prompt.startsWith(
+																																																		toolPromptPrefix,
+																																																	)
+																																																? "tool target command cancelled"
+																																																: "path command cancelled",
 				);
 				return;
 			}
@@ -8599,10 +8725,6 @@ export function App(): React.ReactElement {
 					void submitExternalOpenCommand();
 				} else if (commandLine.prompt === "file-open") {
 					void submitFileOpenCommand();
-				} else if (commandLine.prompt === "file-operation-destination") {
-					submitFileOperationDestinationCommand();
-				} else if (commandLine.prompt === "file-operation-confirm") {
-					void submitFileOperationConfirmCommand();
 				} else if (commandLine.prompt === "cleanup-export-archive") {
 					void submitCleanupExportArchiveCommand();
 				} else if (commandLine.prompt === "tool-export-archive") {

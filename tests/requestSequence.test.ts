@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	beginRequest,
+	beginRequestWithPublication,
 	classifyRequestPublication,
 	isStaleRequest,
 } from "../src/tui/requestSequence";
@@ -55,5 +56,40 @@ describe("request sequence", () => {
 		expect(classifyRequestPublication(previewToken, previewToken)).toBe(
 			"current",
 		);
+	});
+
+	test("sequences load preview and refresh through one current-error publication lane", () => {
+		const load = beginRequestWithPublication(0, 0);
+		const preview = beginRequestWithPublication(0, load.publicationToken);
+		const refresh = beginRequestWithPublication(0, preview.publicationToken);
+		let currentErrorRequest = refresh.publicationToken;
+
+		// Whether each awaited writer succeeds or catches, only the newest writer
+		// may clear or replace the single current error value.
+		expect(
+			classifyRequestPublication(currentErrorRequest, load.publicationToken),
+		).toBe("stale");
+		expect(
+			classifyRequestPublication(currentErrorRequest, preview.publicationToken),
+		).toBe("stale");
+		expect(
+			classifyRequestPublication(currentErrorRequest, refresh.publicationToken),
+		).toBe("current");
+
+		const nextLoad = beginRequestWithPublication(
+			load.requestToken,
+			currentErrorRequest,
+		);
+		currentErrorRequest = nextLoad.publicationToken;
+		expect(
+			classifyRequestPublication(currentErrorRequest, refresh.publicationToken),
+		).toBe("stale");
+		expect(
+			classifyRequestPublication(
+				currentErrorRequest,
+				nextLoad.publicationToken,
+			),
+		).toBe("current");
+		expect(nextLoad.requestToken).toBe(2);
 	});
 });

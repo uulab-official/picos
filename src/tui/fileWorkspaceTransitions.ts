@@ -6,6 +6,8 @@ import {
 	getFileParentPath,
 	resolveFilePath,
 } from "../core/files";
+import type { RemoteFileContext } from "../core/remotes";
+import type { CommandLineState } from "./commandLine";
 import { createEditorBuffer, type EditorBuffer } from "./editorBuffer";
 import {
 	appendFileFilterQuery,
@@ -15,6 +17,11 @@ import {
 	type FileFilterState,
 } from "./fileFilter";
 import { prepareFileHistoryMove, prepareFileNavigation } from "./fileHistory";
+import {
+	type FileOperationCommandLineInputTransition,
+	type FileOperationDialogState,
+	prepareFileOperationCommandLineInput,
+} from "./fileOperationDialog";
 import { getSelectedFileEntry, moveFileSelection } from "./fileSelection";
 import {
 	clampIndex,
@@ -29,6 +36,17 @@ export type FileWorkspaceNotice = {
 	level: "ok" | "info" | "warn" | "fail";
 	message: string;
 };
+
+export function prepareFileWorkspaceCommandLineInput(input: {
+	commandLine: CommandLineState;
+	dialog: FileOperationDialogState;
+	input: string;
+	escape?: boolean;
+	return?: boolean;
+	backspace?: boolean;
+}): FileOperationCommandLineInputTransition {
+	return prepareFileOperationCommandLineInput(input);
+}
 
 export function prepareActiveFileFilterInput(input: {
 	filter: FileFilterState;
@@ -77,9 +95,21 @@ export type FileLoadIoOutcome =
 	| { status: "success"; resolvedRoot: string; entries: FileEntry[] }
 	| { status: "failure"; error: unknown };
 
+export type FileProviderSession = {
+	generation: number;
+	kind: FileProviderKind;
+	remoteContext?: RemoteFileContext;
+};
+
 export type FileLoadTransition =
 	| { status: "stale"; notice?: FileWorkspaceNotice }
-	| { status: "failure"; error: string; notice: FileWorkspaceNotice }
+	| {
+			status: "failure";
+			error: string;
+			notice: FileWorkspaceNotice;
+			publishError: boolean;
+			commitProviderSession?: false;
+	  }
 	| {
 			status: "success";
 			root: string;
@@ -88,13 +118,20 @@ export type FileLoadTransition =
 			selectedLocationIndex: number;
 			backHistory?: string[];
 			forwardHistory?: string[];
-			clearError: true;
+			clearError: boolean;
+			providerSession?: FileProviderSession;
+			commitProviderSession?: true;
 			notice?: FileWorkspaceNotice;
 	  };
 
 export function classifyFileLoadOutcome(input: {
 	currentRequestToken: number;
 	requestToken: number;
+	currentErrorRequestToken?: number;
+	errorRequestToken?: number;
+	currentProviderGeneration?: number;
+	requestProviderGeneration?: number;
+	providerSession?: FileProviderSession;
 	request: FileLoadRequest;
 	outcome: FileLoadIoOutcome;
 	selectedIndex: number;
@@ -102,17 +139,37 @@ export function classifyFileLoadOutcome(input: {
 	locations: FileLocation[];
 }): FileLoadTransition {
 	const outcome = input.outcome;
-	const stale =
+	const staleRequest =
 		classifyRequestPublication(
 			input.currentRequestToken,
 			input.requestToken,
 		) === "stale";
+	const staleProvider =
+		(input.currentProviderGeneration !== undefined &&
+			input.requestProviderGeneration !== undefined &&
+			input.currentProviderGeneration !== input.requestProviderGeneration) ||
+		(input.providerSession !== undefined &&
+			input.requestProviderGeneration !== undefined &&
+			input.providerSession.generation !== input.requestProviderGeneration);
+	const stale = staleRequest || staleProvider;
+	const errorPublication = classifyRequestPublication(
+		input.currentErrorRequestToken ?? input.currentRequestToken,
+		input.errorRequestToken ?? input.requestToken,
+	);
 	if (outcome.status === "failure") {
 		const message = `${input.request.failurePrefix ?? "file load failed"} ${formatFileTransitionError(outcome.error)}`;
 		const notice = { level: "fail", message } as const;
 		return stale
 			? { status: "stale", notice }
-			: { status: "failure", error: message, notice };
+			: {
+					status: "failure",
+					error: message,
+					notice,
+					publishError: errorPublication === "current",
+					...(input.providerSession
+						? { commitProviderSession: false as const }
+						: {}),
+				};
 	}
 	if (stale) {
 		return { status: "stale" };
@@ -138,7 +195,13 @@ export function classifyFileLoadOutcome(input: {
 		...(input.request.forwardHistory
 			? { forwardHistory: input.request.forwardHistory }
 			: {}),
-		clearError: true,
+		clearError: errorPublication === "current",
+		...(input.providerSession
+			? {
+					providerSession: input.providerSession,
+					commitProviderSession: true as const,
+				}
+			: {}),
 		...(input.request.notice ? { notice: input.request.notice } : {}),
 	};
 }
@@ -149,13 +212,18 @@ export type FilePreviewIoOutcome =
 
 export type FilePreviewTransition =
 	| { status: "stale"; notice?: FileWorkspaceNotice }
-	| { status: "failure"; error: string; notice: FileWorkspaceNotice }
+	| {
+			status: "failure";
+			error: string;
+			notice: FileWorkspaceNotice;
+			publishError: boolean;
+	  }
 	| {
 			status: "success";
 			buffer: EditorBuffer;
 			selectedLineIndex: 0;
 			clearSaveResult: true;
-			clearError: true;
+			clearError: boolean;
 			openEditor: boolean;
 			notice?: FileWorkspaceNotice;
 	  };
@@ -163,6 +231,8 @@ export type FilePreviewTransition =
 export function classifyFilePreviewOutcome(input: {
 	currentRequestToken: number;
 	requestToken: number;
+	currentErrorRequestToken?: number;
+	errorRequestToken?: number;
 	entry: FileEntry;
 	openEditor: boolean;
 	notice?: FileWorkspaceNotice;
@@ -173,12 +243,21 @@ export function classifyFilePreviewOutcome(input: {
 			input.currentRequestToken,
 			input.requestToken,
 		) === "stale";
+	const errorPublication = classifyRequestPublication(
+		input.currentErrorRequestToken ?? input.currentRequestToken,
+		input.errorRequestToken ?? input.requestToken,
+	);
 	if (input.outcome.status === "failure") {
 		const message = `file preview failed ${formatFileTransitionError(input.outcome.error)}`;
 		const notice = { level: "fail", message } as const;
 		return stale
 			? { status: "stale", notice }
-			: { status: "failure", error: message, notice };
+			: {
+					status: "failure",
+					error: message,
+					notice,
+					publishError: errorPublication === "current",
+				};
 	}
 	if (stale) {
 		return { status: "stale" };
@@ -193,7 +272,7 @@ export function classifyFilePreviewOutcome(input: {
 		}),
 		selectedLineIndex: 0,
 		clearSaveResult: true,
-		clearError: true,
+		clearError: errorPublication === "current",
 		openEditor: input.openEditor,
 		...(input.notice ? { notice: input.notice } : {}),
 	};

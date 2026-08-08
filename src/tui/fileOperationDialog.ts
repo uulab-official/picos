@@ -6,6 +6,7 @@ import {
 } from "../core/fileOperations";
 import type { FileEntry, FileProviderKind } from "../core/files";
 import {
+	applyCommandLineInput,
 	type CommandLineState,
 	closeCommandLine,
 	openCommandLine,
@@ -57,6 +58,63 @@ export type FileOperationDialogTransition = {
 	notice?: FileOperationDialogNotice;
 	plan?: FileOperationExecutionPlan;
 };
+
+export type FileOperationCommandLineInputTransition =
+	| { action: "unhandled" }
+	| {
+			action: "apply";
+			commandLine: CommandLineState;
+			dialog: FileOperationDialogState;
+			notice?: FileOperationDialogNotice;
+			submit?: "destination" | "confirmation";
+	  };
+
+export function prepareFileOperationCommandLineInput(input: {
+	commandLine: CommandLineState;
+	dialog: FileOperationDialogState;
+	input: string;
+	escape?: boolean;
+	return?: boolean;
+	backspace?: boolean;
+}): FileOperationCommandLineInputTransition {
+	const prompt = input.commandLine.prompt;
+	const submit =
+		prompt === "file-operation-destination"
+			? "destination"
+			: prompt === "file-operation-confirm"
+				? "confirmation"
+				: undefined;
+	if (!input.commandLine.active || !submit) {
+		return { action: "unhandled" };
+	}
+	if (input.escape) {
+		return {
+			action: "apply",
+			commandLine: closeCommandLine(input.commandLine),
+			dialog: clearFileOperationDialog(input.dialog),
+			notice: {
+				level: "info",
+				message: `file operation ${submit} cancelled`,
+			},
+		};
+	}
+	if (input.return) {
+		return {
+			action: "apply",
+			commandLine: input.commandLine,
+			dialog: input.dialog,
+			submit,
+		};
+	}
+	return {
+		action: "apply",
+		commandLine: applyCommandLineInput(input.commandLine, {
+			input: input.input,
+			backspace: input.backspace,
+		}),
+		dialog: input.dialog,
+	};
+}
 
 export function prepareActiveFileOperationDialogInput(
 	dialog: FileOperationDialogState,

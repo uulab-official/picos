@@ -7,6 +7,7 @@ import {
 	prepareFileHistoryNavigation,
 	prepareFileLocationNavigation,
 	prepareFilePathCommand,
+	prepareFileWorkspaceCommandLineInput,
 	prepareFileWorkspaceInput,
 	prepareParentFileNavigation,
 	prepareSelectedFileOpen,
@@ -31,6 +32,16 @@ const locations: FileLocation[] = [
 	{ label: "Root", path: "/", kind: "root" },
 	{ label: "Workspace", path: "/workspace", kind: "workspace" },
 ];
+
+const remoteContext = {
+	id: "staging",
+	kind: "sftp" as const,
+	label: "staging",
+	root: "/srv/app",
+	status: "connected read-only" as const,
+	writes: "locked" as const,
+	hostKeyFingerprint: "SHA256:reviewed",
+};
 
 describe("Files workspace transitions", () => {
 	test("owns active filter input, selection repair, and notices", () => {
@@ -66,6 +77,43 @@ describe("Files workspace transitions", () => {
 			filter: { active: true, query: "rea" },
 			selectedIndex: 0,
 		});
+	});
+
+	test("delegates active Files operation command lines without a component fallback", () => {
+		const dialog = {
+			active: true as const,
+			preview: {
+				kind: "delete" as const,
+				title: "Delete file",
+				path: file.path,
+				targetHint: "selected path will be removed",
+				risk: "destructive" as const,
+				privilege: "user" as const,
+				confirmationPhrase: "delete file",
+				executable: false,
+				reason: "confirmation-required",
+			},
+		};
+		expect(
+			prepareFileWorkspaceCommandLineInput({
+				commandLine: {
+					active: true,
+					prompt: "file-operation-confirm",
+					value: "delete file",
+				},
+				dialog,
+				input: "\r",
+				return: true,
+			}),
+		).toMatchObject({ action: "apply", submit: "confirmation", dialog });
+		expect(
+			prepareFileWorkspaceCommandLineInput({
+				commandLine: { active: true, prompt: "path", value: "/tmp" },
+				dialog,
+				input: "",
+				escape: true,
+			}),
+		).toEqual({ action: "unhandled" });
 	});
 
 	test("refuses to open an empty selection with an owned notice", () => {
@@ -203,6 +251,7 @@ describe("Files workspace transitions", () => {
 		).toEqual({
 			status: "failure",
 			error: "local filesystem restore failed permission denied",
+			publishError: true,
 			notice: {
 				level: "fail",
 				message: "local filesystem restore failed permission denied",
@@ -254,6 +303,177 @@ describe("Files workspace transitions", () => {
 			status: "stale",
 			notice: { level: "fail", message: "file preview failed late read" },
 		});
+	});
+
+	test("keeps shared current-error publication ordered across load and preview", () => {
+		expect(
+			classifyFileLoadOutcome({
+				currentRequestToken: 4,
+				requestToken: 4,
+				currentErrorRequestToken: 8,
+				errorRequestToken: 7,
+				request: { path: "/workspace" },
+				outcome: {
+					status: "success",
+					resolvedRoot: "/workspace",
+					entries: [file],
+				},
+				selectedIndex: 0,
+				selectedLocationIndex: 0,
+				locations,
+			}),
+		).toMatchObject({ status: "success", clearError: false });
+
+		expect(
+			classifyFilePreviewOutcome({
+				currentRequestToken: 3,
+				requestToken: 3,
+				currentErrorRequestToken: 9,
+				errorRequestToken: 8,
+				entry: file,
+				openEditor: false,
+				outcome: { status: "failure", error: "late preview" },
+			}),
+		).toEqual({
+			status: "failure",
+			error: "file preview failed late preview",
+			notice: { level: "fail", message: "file preview failed late preview" },
+			publishError: false,
+		});
+
+		expect(
+			classifyFileLoadOutcome({
+				currentRequestToken: 5,
+				requestToken: 5,
+				currentErrorRequestToken: 10,
+				errorRequestToken: 10,
+				request: { path: "/workspace" },
+				outcome: { status: "failure", error: "current load" },
+				selectedIndex: 0,
+				selectedLocationIndex: 0,
+				locations,
+			}),
+		).toEqual({
+			status: "failure",
+			error: "file load failed current load",
+			notice: { level: "fail", message: "file load failed current load" },
+			publishError: true,
+		});
+	});
+
+	test("keeps the connected provider batch intact when disconnect listing fails", () => {
+		expect(
+			classifyFileLoadOutcome({
+				currentRequestToken: 6,
+				requestToken: 6,
+				currentProviderGeneration: 2,
+				requestProviderGeneration: 2,
+				providerSession: { generation: 2, kind: "local" },
+				request: {
+					path: "/workspace",
+					backHistory: [],
+					forwardHistory: [],
+					failurePrefix: "local filesystem restore failed",
+				},
+				outcome: { status: "failure", error: "permission denied" },
+				selectedIndex: 0,
+				selectedLocationIndex: 0,
+				locations,
+			}),
+		).toEqual({
+			status: "failure",
+			error: "local filesystem restore failed permission denied",
+			publishError: true,
+			commitProviderSession: false,
+			notice: {
+				level: "fail",
+				message: "local filesystem restore failed permission denied",
+			},
+		});
+	});
+
+	test("publishes local-to-SFTP and SFTP-to-local switches as listing batches", () => {
+		expect(
+			classifyFileLoadOutcome({
+				currentRequestToken: 7,
+				requestToken: 7,
+				currentProviderGeneration: 3,
+				requestProviderGeneration: 3,
+				providerSession: {
+					generation: 3,
+					kind: "sftp",
+					remoteContext,
+				},
+				request: { path: "/srv/app", backHistory: [], forwardHistory: [] },
+				outcome: {
+					status: "success",
+					resolvedRoot: "/srv/app",
+					entries: [file],
+				},
+				selectedIndex: 0,
+				selectedLocationIndex: 0,
+				locations,
+			}),
+		).toMatchObject({
+			status: "success",
+			commitProviderSession: true,
+			root: "/srv/app",
+			entries: [file],
+			backHistory: [],
+			forwardHistory: [],
+			providerSession: {
+				generation: 3,
+				kind: "sftp",
+				remoteContext,
+			},
+		});
+
+		expect(
+			classifyFileLoadOutcome({
+				currentRequestToken: 8,
+				requestToken: 8,
+				currentProviderGeneration: 4,
+				requestProviderGeneration: 4,
+				providerSession: { generation: 4, kind: "local" },
+				request: { path: "/workspace", backHistory: [], forwardHistory: [] },
+				outcome: {
+					status: "success",
+					resolvedRoot: "/workspace",
+					entries: [directory],
+				},
+				selectedIndex: 0,
+				selectedLocationIndex: 0,
+				locations,
+			}),
+		).toMatchObject({
+			status: "success",
+			commitProviderSession: true,
+			root: "/workspace",
+			entries: [directory],
+			backHistory: [],
+			forwardHistory: [],
+			providerSession: { generation: 4, kind: "local" },
+		});
+	});
+
+	test("rejects a delayed old-provider refresh after a provider switch", () => {
+		expect(
+			classifyFileLoadOutcome({
+				currentRequestToken: 9,
+				requestToken: 9,
+				currentProviderGeneration: 5,
+				requestProviderGeneration: 4,
+				request: { path: "/workspace", keepSelection: true },
+				outcome: {
+					status: "success",
+					resolvedRoot: "/workspace",
+					entries: [file],
+				},
+				selectedIndex: 0,
+				selectedLocationIndex: 0,
+				locations,
+			}),
+		).toEqual({ status: "stale" });
 	});
 
 	test("owns Files focus guards, movement, and product bindings", () => {

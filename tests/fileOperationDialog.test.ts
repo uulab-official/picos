@@ -6,6 +6,7 @@ import {
 	createFileOperationPreview,
 	openFileOperationDialog,
 	prepareActiveFileOperationDialogInput,
+	prepareFileOperationCommandLineInput,
 	prepareFileOperationConfirmation,
 	prepareFileOperationDestination,
 	prepareFileOperationOpen,
@@ -198,6 +199,118 @@ describe("TUI file operation dialog", () => {
 				message: "copy locked: destination-required",
 			},
 		});
+	});
+
+	test("owns active destination and confirmation command-line escape cleanup", () => {
+		const destination = openFileOperationDialog("copy", fileEntry);
+		expect(
+			prepareFileOperationCommandLineInput({
+				commandLine: {
+					active: true,
+					prompt: "file-operation-destination",
+					value: "/tmp/copy.md",
+				},
+				dialog: destination,
+				input: "",
+				escape: true,
+			}),
+		).toEqual({
+			action: "apply",
+			commandLine: {
+				active: false,
+				prompt: "file-operation-destination",
+				value: "",
+			},
+			dialog: { active: false },
+			notice: {
+				level: "info",
+				message: "file operation destination cancelled",
+			},
+		});
+
+		const confirmation = prepareFileOperationDestination(
+			destination,
+			"/tmp/copy.md",
+		).dialog;
+		expect(
+			prepareFileOperationCommandLineInput({
+				commandLine: {
+					active: true,
+					prompt: "file-operation-confirm",
+					value: "copy file",
+				},
+				dialog: confirmation,
+				input: "",
+				escape: true,
+			}),
+		).toEqual({
+			action: "apply",
+			commandLine: {
+				active: false,
+				prompt: "file-operation-confirm",
+				value: "",
+			},
+			dialog: { active: false },
+			notice: {
+				level: "info",
+				message: "file operation confirmation cancelled",
+			},
+		});
+	});
+
+	test("owns file-operation submit intents and editable fallback", () => {
+		const dialog = openFileOperationDialog("copy", fileEntry);
+		const destination = {
+			active: true,
+			prompt: "file-operation-destination",
+			value: "/tmp/copy.md",
+		};
+		expect(
+			prepareFileOperationCommandLineInput({
+				commandLine: destination,
+				dialog,
+				input: "\r",
+				return: true,
+			}),
+		).toEqual({
+			action: "apply",
+			commandLine: destination,
+			dialog,
+			submit: "destination",
+		});
+
+		expect(
+			prepareFileOperationCommandLineInput({
+				commandLine: { ...destination, value: "/tmp/cop" },
+				dialog,
+				input: "y",
+			}),
+		).toEqual({
+			action: "apply",
+			commandLine: { ...destination, value: "/tmp/copy" },
+			dialog,
+		});
+
+		expect(
+			prepareFileOperationCommandLineInput({
+				commandLine: {
+					active: true,
+					prompt: "file-operation-confirm",
+					value: "copy file",
+				},
+				dialog,
+				input: "\r",
+				return: true,
+			}),
+		).toMatchObject({ action: "apply", submit: "confirmation" });
+
+		expect(
+			prepareFileOperationCommandLineInput({
+				commandLine: { active: true, prompt: "path", value: "/tmp" },
+				dialog,
+				input: "x",
+			}),
+		).toEqual({ action: "unhandled" });
 	});
 
 	test("plans destination guards and confirmation handoff", () => {

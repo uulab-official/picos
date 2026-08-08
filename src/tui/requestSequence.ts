@@ -15,6 +15,16 @@ export function beginRequest(current: number): number {
 	return current + 1;
 }
 
+export function beginRequestWithPublication(
+	currentRequest: number,
+	currentPublication: number,
+): { requestToken: number; publicationToken: number } {
+	return {
+		requestToken: beginRequest(currentRequest),
+		publicationToken: beginRequest(currentPublication),
+	};
+}
+
 // A request is stale as soon as a newer one has started. Compared rather than
 // tested against a boolean, so an older request cannot mistake a newer one's
 // arrival for its own completion.
