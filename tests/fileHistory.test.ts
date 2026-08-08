@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
 	popFileForwardHistory,
 	popFileHistory,
+	prepareFileHistoryMove,
+	prepareFileNavigation,
 	pushFileForwardHistory,
 	pushFileHistory,
 } from "../src/tui/fileHistory";
@@ -60,6 +62,66 @@ describe("TUI file history", () => {
 		expect(popFileForwardHistory([])).toEqual({
 			history: [],
 			nextRoot: undefined,
+		});
+	});
+
+	test("truncates forward history only when navigation branches", () => {
+		expect(
+			prepareFileNavigation({
+				root: "/workspace",
+				targetPath: "/tmp",
+				backHistory: ["/"],
+				forwardHistory: ["/workspace/next"],
+			}),
+		).toEqual({
+			targetPath: "/tmp",
+			backHistory: ["/", "/workspace"],
+			forwardHistory: [],
+			changed: true,
+		});
+
+		expect(
+			prepareFileNavigation({
+				root: "/workspace",
+				targetPath: "/workspace",
+				backHistory: ["/"],
+				forwardHistory: ["/workspace/next"],
+			}),
+		).toEqual({
+			targetPath: "/workspace",
+			backHistory: ["/"],
+			forwardHistory: ["/workspace/next"],
+			changed: false,
+		});
+	});
+
+	test("prepares back and forward moves without mutating empty history", () => {
+		expect(
+			prepareFileHistoryMove({
+				direction: "back",
+				root: "/workspace",
+				backHistory: [],
+				forwardHistory: ["/tmp"],
+			}),
+		).toEqual({
+			targetPath: undefined,
+			backHistory: [],
+			forwardHistory: ["/tmp"],
+			notice: { level: "info", message: "no previous file location" },
+		});
+
+		expect(
+			prepareFileHistoryMove({
+				direction: "forward",
+				root: "/workspace",
+				backHistory: ["/"],
+				forwardHistory: ["/tmp"],
+			}),
+		).toEqual({
+			targetPath: "/tmp",
+			backHistory: ["/", "/workspace"],
+			forwardHistory: [],
+			notice: { level: "info", message: "forward to /tmp" },
 		});
 	});
 });

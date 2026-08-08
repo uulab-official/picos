@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { beginRequest, isStaleRequest } from "../src/tui/requestSequence";
+import {
+	beginRequest,
+	classifyRequestPublication,
+	isStaleRequest,
+} from "../src/tui/requestSequence";
 
 describe("request sequence", () => {
 	test("lets only the newest request write", () => {
@@ -36,5 +40,20 @@ describe("request sequence", () => {
 
 		expect(isStaleRequest(inspection, inspection)).toBeFalse();
 		expect(isStaleRequest(refresh, refresh)).toBeFalse();
+	});
+
+	test("classifies both stale success and stale failure as non-publishable", () => {
+		const loadToken = beginRequest(0);
+		const newerLoadToken = beginRequest(loadToken);
+
+		expect(classifyRequestPublication(newerLoadToken, loadToken)).toBe("stale");
+		expect(classifyRequestPublication(newerLoadToken, newerLoadToken)).toBe(
+			"current",
+		);
+
+		const previewToken = beginRequest(0);
+		expect(classifyRequestPublication(previewToken, previewToken)).toBe(
+			"current",
+		);
 	});
 });

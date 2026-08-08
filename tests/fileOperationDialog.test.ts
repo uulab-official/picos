@@ -5,9 +5,11 @@ import {
 	clearFileOperationDialog,
 	createFileOperationPreview,
 	openFileOperationDialog,
+	prepareActiveFileOperationDialogInput,
 	prepareFileOperationConfirmation,
 	prepareFileOperationDestination,
 	prepareFileOperationOpen,
+	prepareSelectedFileOperationOpen,
 	setFileOperationDestination,
 } from "../src/tui/fileOperationDialog";
 
@@ -121,6 +123,79 @@ describe("TUI file operation dialog", () => {
 			notice: {
 				level: "warn",
 				message: "Select a real file or directory before opening an operation.",
+			},
+		});
+	});
+
+	test("guards selected operation launch by provider and clamped selection", () => {
+		expect(
+			prepareSelectedFileOperationOpen({
+				kind: "copy",
+				entries: [parentEntry, fileEntry],
+				selectedIndex: 99,
+				providerKind: "local",
+			}),
+		).toMatchObject({
+			dialog: { active: true, preview: { path: fileEntry.path } },
+			commandLine: {
+				action: "open",
+				prompt: "file-operation-destination",
+			},
+		});
+
+		expect(
+			prepareSelectedFileOperationOpen({
+				kind: "move",
+				entries: [fileEntry],
+				selectedIndex: 0,
+				providerKind: "sftp",
+			}),
+		).toEqual({
+			dialog: { active: false },
+			commandLine: { action: "keep" },
+			notice: {
+				level: "warn",
+				message: "remote SFTP move is disabled in read-only sessions",
+			},
+		});
+
+		expect(
+			prepareSelectedFileOperationOpen({
+				kind: "delete",
+				entries: [],
+				selectedIndex: 0,
+				providerKind: "local",
+			}),
+		).toMatchObject({
+			dialog: { active: false },
+			notice: {
+				level: "warn",
+				message: "Select a real file or directory before opening an operation.",
+			},
+		});
+	});
+
+	test("owns active dialog close and locked-submit notices", () => {
+		const dialog = openFileOperationDialog("copy", fileEntry);
+		expect(
+			prepareActiveFileOperationDialogInput(dialog, {
+				input: "",
+				escape: true,
+			}),
+		).toEqual({
+			dialog: { active: false },
+			notice: { level: "info", message: "file operation dialog closed" },
+		});
+		expect(
+			prepareActiveFileOperationDialogInput(dialog, {
+				input: "\r",
+				return: true,
+			}),
+		).toEqual({
+			dialog,
+			notice: {
+				level: "warn",
+				message: "copy locked: destination-required",
 			},
 		});
 	});

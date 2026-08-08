@@ -6,6 +6,11 @@ import {
 } from "./clipboardPreview";
 import { clampIndex } from "./navigation";
 
+export type SelectedFilePathClipboardIntent = {
+	preview: ClipboardPreview | undefined;
+	notice?: { level: "warn"; message: string };
+};
+
 export function formatSelectedFilePathRows(
 	entries: FileEntry[],
 	selectedIndex: number,
@@ -45,6 +50,40 @@ export function getSelectedFilePathClipboardPreview(
 			`readonly=${entry.readonly ? "yes" : "no"}`,
 		],
 	});
+}
+
+export function getSelectedFilePathClipboardIntent(
+	entries: FileEntry[],
+	selectedIndex: number,
+): SelectedFilePathClipboardIntent {
+	const preview = getSelectedFilePathClipboardPreview(entries, selectedIndex);
+	return preview
+		? { preview }
+		: {
+				preview: undefined,
+				notice: { level: "warn", message: "no file path selected" },
+			};
+}
+
+export function moveFileSelection(
+	selectedIndex: number,
+	total: number,
+	direction: "next" | "previous",
+): number {
+	if (total <= 0) {
+		return 0;
+	}
+
+	const current = clampIndex(selectedIndex, total);
+	const next =
+		direction === "next"
+			? current === total - 1
+				? 0
+				: current + 1
+			: current === 0
+				? total - 1
+				: current - 1;
+	return clampIndex(next, total);
 }
 
 export function formatFileBreadcrumbRows(
@@ -94,7 +133,7 @@ export function formatFileProviderBoundaryRows(options: {
 	];
 }
 
-function getSelectedFileEntry(
+export function getSelectedFileEntry(
 	entries: FileEntry[],
 	selectedIndex: number,
 ): FileEntry | undefined {

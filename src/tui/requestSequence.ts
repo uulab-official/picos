@@ -21,3 +21,10 @@ export function beginRequest(current: number): number {
 export function isStaleRequest(current: number, token: number): boolean {
 	return current !== token;
 }
+
+export function classifyRequestPublication(
+	current: number,
+	token: number,
+): "current" | "stale" {
+	return isStaleRequest(current, token) ? "stale" : "current";
+}

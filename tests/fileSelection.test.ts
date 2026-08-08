@@ -4,7 +4,10 @@ import {
 	formatFileBreadcrumbRows,
 	formatFileProviderBoundaryRows,
 	formatSelectedFilePathRows,
+	getSelectedFileEntry,
+	getSelectedFilePathClipboardIntent,
 	getSelectedFilePathClipboardPreview,
+	moveFileSelection,
 } from "../src/tui/fileSelection";
 
 const entries: FileEntry[] = [
@@ -60,6 +63,29 @@ describe("TUI file selection", () => {
 		expect(formatSelectedFilePathRows(entries, 99)[0]).toBe(
 			"SELECTED PATH README.md",
 		);
+	});
+
+	test("resolves and moves selections without indexing an empty listing", () => {
+		expect(getSelectedFileEntry([], 9)).toBeUndefined();
+		expect(moveFileSelection(9, 0, "next")).toBe(0);
+		expect(getSelectedFileEntry(entries, -9)).toBe(entries[0]);
+		expect(getSelectedFileEntry(entries, 9)).toBe(entries[1]);
+		expect(moveFileSelection(9, entries.length, "next")).toBe(0);
+		expect(moveFileSelection(-9, entries.length, "previous")).toBe(1);
+	});
+
+	test("classifies clipboard intent and missing-selection notice", () => {
+		expect(getSelectedFilePathClipboardIntent([], 3)).toEqual({
+			preview: undefined,
+			notice: { level: "warn", message: "no file path selected" },
+		});
+		expect(getSelectedFilePathClipboardIntent(entries, 99)).toMatchObject({
+			preview: {
+				source: "file-path",
+				label: "file path README.md",
+				copyText: "/Users/bonjin/Documents/workspace/uulab/picos/README.md",
+			},
+		});
 	});
 
 	test("formats compact root and selected breadcrumbs", () => {

@@ -111,10 +111,8 @@ import {
 	type FileLocation,
 	type FileProvider,
 	type FileProviderKind,
-	getFileParentPath,
 	getSystemFileLocations,
 	getSystemFileRoot,
-	resolveFilePath,
 	withParentDirectoryEntry,
 } from "../core/files";
 import {
@@ -376,7 +374,6 @@ import {
 	withConfigManagedShelfFocusRows,
 } from "./configPanel";
 import {
-	createEditorBuffer,
 	type EditorBuffer,
 	formatEditorBufferLines,
 	getEditorBufferState,
@@ -415,35 +412,39 @@ import {
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
 import {
-	appendFileFilterQuery,
-	backspaceFileFilterQuery,
-	clearFileFilter,
-	closeFileFilter,
 	type FileFilterState,
 	filterFileEntries,
 	openFileFilter,
 } from "./fileFilter";
 import {
-	popFileForwardHistory,
-	popFileHistory,
-	pushFileForwardHistory,
-	pushFileHistory,
-} from "./fileHistory";
-import {
 	applyFileOperationCommandLineTransition,
 	clearFileOperationDialog,
 	type FileOperationDialogState,
 	type FileOperationKind,
+	prepareActiveFileOperationDialogInput,
 	prepareFileOperationConfirmation,
 	prepareFileOperationDestination,
-	prepareFileOperationOpen,
+	prepareSelectedFileOperationOpen,
 } from "./fileOperationDialog";
 import {
 	formatFileBreadcrumbRows,
 	formatFileProviderBoundaryRows,
 	formatSelectedFilePathRows,
-	getSelectedFilePathClipboardPreview,
+	getSelectedFilePathClipboardIntent,
 } from "./fileSelection";
+import {
+	classifyFileLoadOutcome,
+	classifyFilePreviewOutcome,
+	type FileLoadRequest,
+	prepareActiveFileFilterInput,
+	prepareFileHistoryNavigation,
+	prepareFileLocationNavigation,
+	prepareFilePathCommand,
+	prepareFileWorkspaceInput,
+	prepareNextFileLocationIndex,
+	prepareParentFileNavigation,
+	prepareSelectedFileOpen,
+} from "./fileWorkspaceTransitions";
 import {
 	createInterfaceSourceHandoffPlan,
 	formatInterfaceWorkspaceRows,
@@ -469,7 +470,6 @@ import {
 	clampIndex,
 	enterFocus,
 	type FocusArea,
-	getLocationShortcutIndex,
 	getNextIndex,
 	getScreenByShortcut,
 	getScreenIndex,
@@ -1053,6 +1053,12 @@ export function App(): React.ReactElement {
 	// Separate from the inspection sequence on purpose: a slow inspection must not
 	// discard a fresh refresh, or the reverse.
 	const refreshTokenRef = useRef(0);
+	// Listings and previews publish different state groups. A slow directory load
+	// must not discard a newer preview, and a slow preview must not discard a newer
+	// listing, so each group owns a separate sequence.
+	const fileLoadTokenRef = useRef(0);
+	const filePreviewTokenRef = useRef(0);
+	const initialFileLoadStartedRef = useRef(false);
 	const fileOperationTokenRef = useRef(0);
 	const operationRunRef = useRef<OperationRunProgress | undefined>(undefined);
 	// Runs are identified by a token rather than tracked with a shared boolean. A
@@ -1136,6 +1142,10 @@ export function App(): React.ReactElement {
 		});
 	const [selectedFileIndex, setSelectedFileIndex] = useState(0);
 	const [selectedLocationIndex, setSelectedLocationIndex] = useState(0);
+	const selectedFileIndexRef = useRef(selectedFileIndex);
+	const selectedLocationIndexRef = useRef(selectedLocationIndex);
+	selectedFileIndexRef.current = selectedFileIndex;
+	selectedLocationIndexRef.current = selectedLocationIndex;
 	const [commandLine, setCommandLine] = useState<CommandLineState>({
 		active: false,
 		prompt: "path",
@@ -1809,47 +1819,145 @@ export function App(): React.ReactElement {
 	]);
 
 	const previewFile = useCallback(
-		async (entry: FileEntry) => {
-			const read = await fileProvider.read(entry.path, { maxBytes: 6000 });
-			setEditorPreview(
-				createEditorBuffer({
-					path: read.path,
-					content: read.content,
-					truncated: read.truncated,
-				}),
-			);
-			setEditorSaveResult(undefined);
-			setSelectedEditorLineIndex(0);
+		async (
+			entry: FileEntry,
+			options: {
+				openEditor?: boolean;
+				notice?: { level: "ok" | "info" | "warn" | "fail"; message: string };
+			} = {},
+		) => {
+			const token = beginRequest(filePreviewTokenRef.current);
+			filePreviewTokenRef.current = token;
+			try {
+				const read = await fileProvider.read(entry.path, { maxBytes: 6000 });
+				const transition = classifyFilePreviewOutcome({
+					currentRequestToken: filePreviewTokenRef.current,
+					requestToken: token,
+					entry,
+					openEditor: options.openEditor ?? false,
+					notice: options.notice,
+					outcome: { status: "success", read },
+				});
+				if (transition.status !== "success") {
+					return false;
+				}
+				setEditorPreview(transition.buffer);
+				if (transition.clearSaveResult) {
+					setEditorSaveResult(undefined);
+				}
+				setSelectedEditorLineIndex(transition.selectedLineIndex);
+				if (transition.clearError) {
+					setError(undefined);
+				}
+				if (transition.openEditor) {
+					setScreen("editor");
+					setFocusArea("workspaces");
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
+				return true;
+			} catch (caught) {
+				const transition = classifyFilePreviewOutcome({
+					currentRequestToken: filePreviewTokenRef.current,
+					requestToken: token,
+					entry,
+					openEditor: options.openEditor ?? false,
+					notice: options.notice,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
+				if (transition.status === "failure") {
+					setError(transition.error);
+				}
+				return false;
+			}
 		},
-		[fileProvider],
+		[fileProvider, log],
 	);
 
 	const loadFiles = useCallback(
-		async (path: string, options: { keepSelection?: boolean } = {}) => {
-			const [resolvedRoot, entries] = await Promise.all([
-				fileProvider
-					.stat(path)
-					.then((entry) => entry.path)
-					.catch(() => path),
-				fileProvider.list(path),
-			]);
-			setFileRoot(resolvedRoot);
-			setFileEntries(entries);
-			const matchedLocationIndex = fileLocations.findIndex(
-				(location) => location.path === resolvedRoot,
-			);
-			if (matchedLocationIndex >= 0) {
-				setSelectedLocationIndex(matchedLocationIndex);
+		async (
+			request: string | FileLoadRequest,
+			source: {
+				provider?: FileProvider;
+				batch?: { resolvedRoot: string; entries: FileEntry[] };
+			} = {},
+		) => {
+			const nextRequest =
+				typeof request === "string" ? { path: request } : request;
+			const provider = source.provider ?? fileProvider;
+			const token = beginRequest(fileLoadTokenRef.current);
+			fileLoadTokenRef.current = token;
+			try {
+				const [resolvedRoot, entries] = source.batch
+					? [source.batch.resolvedRoot, source.batch.entries]
+					: await Promise.all([
+							provider
+								.stat(nextRequest.path)
+								.then((entry) => entry.path)
+								.catch(() => nextRequest.path),
+							provider.list(nextRequest.path),
+						]);
+				const transition = classifyFileLoadOutcome({
+					currentRequestToken: fileLoadTokenRef.current,
+					requestToken: token,
+					request: nextRequest,
+					outcome: { status: "success", resolvedRoot, entries },
+					selectedIndex: selectedFileIndexRef.current,
+					selectedLocationIndex: selectedLocationIndexRef.current,
+					locations: fileLocations,
+				});
+				if (transition.status !== "success") {
+					return false;
+				}
+				// Every value in this listing batch has been awaited and classified before
+				// any setter runs, so rows, root, history, and selection land together.
+				setFileRoot(transition.root);
+				setFileEntries(transition.entries);
+				selectedFileIndexRef.current = transition.selectedIndex;
+				setSelectedFileIndex(transition.selectedIndex);
+				selectedLocationIndexRef.current = transition.selectedLocationIndex;
+				setSelectedLocationIndex(transition.selectedLocationIndex);
+				if (transition.backHistory) {
+					setFileHistory(transition.backHistory);
+				}
+				if (transition.forwardHistory) {
+					setFileForwardHistory(transition.forwardHistory);
+				}
+				if (transition.clearError) {
+					setError(undefined);
+				}
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
+				return true;
+			} catch (caught) {
+				const transition = classifyFileLoadOutcome({
+					currentRequestToken: fileLoadTokenRef.current,
+					requestToken: token,
+					request: nextRequest,
+					outcome: { status: "failure", error: caught },
+					selectedIndex: selectedFileIndexRef.current,
+					selectedLocationIndex: selectedLocationIndexRef.current,
+					locations: fileLocations,
+				});
+				if (transition.notice) {
+					log(transition.notice.level, transition.notice.message);
+				}
+				if (transition.status === "failure") {
+					setError(transition.error);
+				}
+				return false;
 			}
-			setSelectedFileIndex((index) =>
-				options.keepSelection ? clampIndex(index, entries.length) : 0,
-			);
 		},
-		[fileLocations, fileProvider],
+		[fileLocations, fileProvider, log],
 	);
 
 	const refreshFiles = useCallback(async () => {
-		await loadFiles(fileRoot, { keepSelection: true });
+		await loadFiles({ path: fileRoot, keepSelection: true });
 	}, [fileRoot, loadFiles]);
 
 	const disconnectRemoteFiles = useCallback(async () => {
@@ -1880,55 +1988,45 @@ export function App(): React.ReactElement {
 			remoteConnectionDiagnosticRef.current = disconnected;
 			setRemoteConnectionDiagnostic(disconnected);
 		}
-		try {
-			const entries = await localFileProvider.list(systemFileRoot);
-			setFileRoot(systemFileRoot);
-			setFileEntries(entries);
-			setSelectedFileIndex(0);
-			setFileHistory([]);
-			setFileForwardHistory([]);
+		const restored = await loadFiles(
+			{
+				path: systemFileRoot,
+				backHistory: [],
+				forwardHistory: [],
+				failurePrefix: "local filesystem restore failed",
+			},
+			{ provider: localFileProvider },
+		);
+		if (restored) {
 			setFocusArea("files");
 			log("info", "read-only SFTP session closed; local filesystem restored");
-		} catch (caught) {
-			log(
-				"fail",
-				caught instanceof Error
-					? `local filesystem restore failed ${caught.message}`
-					: `local filesystem restore failed ${String(caught)}`,
-			);
 		}
-	}, [localFileProvider, log, remoteFileProvider, systemFileRoot]);
+	}, [loadFiles, localFileProvider, log, remoteFileProvider, systemFileRoot]);
 
 	const openSelectedFileEntry = useCallback(async () => {
-		const entry = displayedFileEntries[selectedFileIndex];
-		if (!entry) {
+		const transition = prepareSelectedFileOpen({
+			entries: displayedFileEntries,
+			selectedIndex: selectedFileIndex,
+			root: fileRoot,
+			backHistory: fileHistory,
+			forwardHistory: fileForwardHistory,
+		});
+		if (transition.action === "none") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		if (entry.type === "directory" || entry.type === "symlink") {
-			try {
-				if (entry.path !== fileRoot) {
-					setFileHistory((history) => pushFileHistory(history, fileRoot));
-					setFileForwardHistory([]);
-				}
-				await loadFiles(entry.path);
-				log("info", `entered ${entry.path}`);
-			} catch (caught) {
-				log("fail", caught instanceof Error ? caught.message : String(caught));
-			}
+		if (transition.action === "load") {
+			await loadFiles(transition.request);
 			return;
 		}
-
-		try {
-			await previewFile(entry);
-			setScreen("editor");
-			setFocusArea("workspaces");
-			log("ok", `opened ${entry.name}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
+		await previewFile(transition.entry, {
+			openEditor: transition.openEditor,
+			notice: transition.notice,
+		});
 	}, [
 		displayedFileEntries,
+		fileForwardHistory,
+		fileHistory,
 		fileRoot,
 		loadFiles,
 		log,
@@ -1937,78 +2035,67 @@ export function App(): React.ReactElement {
 	]);
 
 	const goToParentDirectory = useCallback(async () => {
-		const parent = getFileParentPath(fileRoot);
-		if (parent === fileRoot) {
-			log("info", "already at filesystem root");
+		const transition = prepareParentFileNavigation({
+			root: fileRoot,
+			backHistory: fileHistory,
+			forwardHistory: fileForwardHistory,
+		});
+		if (transition.action === "none") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-		try {
-			setFileHistory((history) => pushFileHistory(history, fileRoot));
-			setFileForwardHistory([]);
-			await loadFiles(parent);
-			log("info", `entered ${parent}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [fileRoot, loadFiles, log]);
+		await loadFiles(transition.request);
+	}, [fileForwardHistory, fileHistory, fileRoot, loadFiles, log]);
 
 	const jumpToLocation = useCallback(
 		async (locationIndex: number) => {
-			const location = fileLocations[locationIndex];
-			if (!location) {
+			const transition = prepareFileLocationNavigation({
+				locationIndex,
+				locations: fileLocations,
+				root: fileRoot,
+				backHistory: fileHistory,
+				forwardHistory: fileForwardHistory,
+			});
+			if (transition.action === "none") {
 				return;
 			}
-
-			try {
-				if (location.path !== fileRoot) {
-					setFileHistory((history) => pushFileHistory(history, fileRoot));
-					setFileForwardHistory([]);
-				}
-				await loadFiles(location.path);
-				setSelectedLocationIndex(locationIndex);
-				log("info", `jumped to ${location.label}`);
-			} catch (caught) {
-				log("fail", caught instanceof Error ? caught.message : String(caught));
-			}
+			await loadFiles(transition.request);
 		},
-		[fileLocations, fileRoot, loadFiles, log],
+		[fileForwardHistory, fileHistory, fileLocations, fileRoot, loadFiles],
 	);
 
 	const jumpToNextLocation = useCallback(async () => {
-		if (!fileLocations.length) {
-			return;
-		}
-
-		const nextIndex = getNextIndex(
+		const nextIndex = prepareNextFileLocationIndex(
 			selectedLocationIndex,
 			fileLocations.length,
-			"next",
 		);
+		if (nextIndex === undefined) {
+			return;
+		}
 		await jumpToLocation(nextIndex);
 	}, [fileLocations.length, jumpToLocation, selectedLocationIndex]);
 
 	const submitPathCommand = useCallback(async () => {
-		const path = commandLine.value.trim();
-		if (!path) {
-			setCommandLine((current) => closeCommandLine(current));
-			log("info", "path command cancelled");
+		const transition = prepareFilePathCommand({
+			value: commandLine.value,
+			root: fileRoot,
+			backHistory: fileHistory,
+			forwardHistory: fileForwardHistory,
+		});
+		setCommandLine((current) => closeCommandLine(current));
+		if (transition.action === "cancel") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		try {
-			const targetPath = resolveFilePath(fileRoot, path);
-			if (targetPath !== fileRoot) {
-				setFileHistory((history) => pushFileHistory(history, fileRoot));
-				setFileForwardHistory([]);
-			}
-			await loadFiles(targetPath);
-			log("info", `entered ${targetPath}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		} finally {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-	}, [commandLine.value, fileRoot, loadFiles, log]);
+		await loadFiles(transition.request);
+	}, [
+		commandLine.value,
+		fileForwardHistory,
+		fileHistory,
+		fileRoot,
+		loadFiles,
+		log,
+	]);
 
 	const submitRouteDestinationCommand = useCallback(async () => {
 		const destination = commandLine.value.trim();
@@ -2828,47 +2915,41 @@ export function App(): React.ReactElement {
 	}, [clipboardConfirmation, log]);
 
 	const goBackFileHistory = useCallback(async () => {
-		const next = popFileHistory(fileHistory);
-		setFileHistory(next.history);
-		if (!next.previousRoot) {
-			log("info", "no previous file location");
+		const transition = prepareFileHistoryNavigation({
+			direction: "back",
+			root: fileRoot,
+			backHistory: fileHistory,
+			forwardHistory: fileForwardHistory,
+		});
+		if (transition.action === "none") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		try {
-			setFileForwardHistory((history) =>
-				pushFileForwardHistory(history, fileRoot),
-			);
-			await loadFiles(next.previousRoot);
-			log("info", `back to ${next.previousRoot}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [fileHistory, fileRoot, loadFiles, log]);
+		await loadFiles(transition.request);
+	}, [fileForwardHistory, fileHistory, fileRoot, loadFiles, log]);
 
 	const goForwardFileHistory = useCallback(async () => {
-		const next = popFileForwardHistory(fileForwardHistory);
-		setFileForwardHistory(next.history);
-		if (!next.nextRoot) {
-			log("info", "no forward file location");
+		const transition = prepareFileHistoryNavigation({
+			direction: "forward",
+			root: fileRoot,
+			backHistory: fileHistory,
+			forwardHistory: fileForwardHistory,
+		});
+		if (transition.action === "none") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
-
-		try {
-			setFileHistory((history) => pushFileHistory(history, fileRoot));
-			await loadFiles(next.nextRoot);
-			log("info", `forward to ${next.nextRoot}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [fileForwardHistory, fileRoot, loadFiles, log]);
+		await loadFiles(transition.request);
+	}, [fileForwardHistory, fileHistory, fileRoot, loadFiles, log]);
 
 	const openSelectedFileOperation = useCallback(
 		(kind: FileOperationKind) => {
-			const transition = prepareFileOperationOpen(
+			const transition = prepareSelectedFileOperationOpen({
 				kind,
-				displayedFileEntries[selectedFileIndex],
-			);
+				entries: displayedFileEntries,
+				selectedIndex: selectedFileIndex,
+				providerKind: fileProvider.kind,
+			});
 			setFileOperationDialog(transition.dialog);
 			setCommandLine((current) =>
 				applyFileOperationCommandLineTransition(
@@ -2880,7 +2961,7 @@ export function App(): React.ReactElement {
 				log(transition.notice.level, transition.notice.message);
 			}
 		},
-		[displayedFileEntries, log, selectedFileIndex],
+		[displayedFileEntries, fileProvider.kind, log, selectedFileIndex],
 	);
 
 	const submitFileOperationDestinationCommand = useCallback(() => {
@@ -4420,12 +4501,19 @@ export function App(): React.ReactElement {
 			}
 			remoteFileProviderRef.current = undefined;
 			setRemoteFileProvider(undefined);
-			const entries = await localFileProvider.list(systemFileRoot);
-			setFileRoot(systemFileRoot);
-			setFileEntries(entries);
-			setSelectedFileIndex(0);
-			setFileHistory([]);
-			setFileForwardHistory([]);
+			if (
+				!(await loadFiles(
+					{
+						path: systemFileRoot,
+						backHistory: [],
+						forwardHistory: [],
+						failurePrefix: "local filesystem restore failed",
+					},
+					{ provider: localFileProvider },
+				))
+			) {
+				return;
+			}
 		}
 		const context = await createRemoteFileContext(profile);
 		setRemoteFileContext(context);
@@ -4438,6 +4526,7 @@ export function App(): React.ReactElement {
 		log("info", `remote context selected ${context.label}`);
 	}, [
 		localFileProvider,
+		loadFiles,
 		log,
 		recordStatusActivityResult,
 		remoteFileProvider,
@@ -4481,12 +4570,19 @@ export function App(): React.ReactElement {
 				}
 				remoteFileProviderRef.current = undefined;
 				setRemoteFileProvider(undefined);
-				const entries = await localFileProvider.list(systemFileRoot);
-				setFileRoot(systemFileRoot);
-				setFileEntries(entries);
-				setSelectedFileIndex(0);
-				setFileHistory([]);
-				setFileForwardHistory([]);
+				if (
+					!(await loadFiles(
+						{
+							path: systemFileRoot,
+							backHistory: [],
+							forwardHistory: [],
+							failurePrefix: "local filesystem restore failed",
+						},
+						{ provider: localFileProvider },
+					))
+				) {
+					return;
+				}
 			}
 			syncConfigSessionState(nextConfig);
 			setSelectedRemoteIndex(0);
@@ -4505,6 +4601,7 @@ export function App(): React.ReactElement {
 	}, [
 		commandLine.value,
 		localFileProvider,
+		loadFiles,
 		log,
 		remoteFileProvider,
 		syncConfigSessionState,
@@ -4559,23 +4656,15 @@ export function App(): React.ReactElement {
 			remoteFileProviderRef.current = undefined;
 			setRemoteFileProvider(undefined);
 			setRemoteFileContext(undefined);
-			try {
-				const localEntries = await localFileProvider.list(systemFileRoot);
-				setFileRoot(systemFileRoot);
-				setFileEntries(localEntries);
-				setSelectedFileIndex(0);
-				setFileHistory([]);
-				setFileForwardHistory([]);
-			} catch (caught) {
-				setFileRoot(systemFileRoot);
-				setFileEntries([]);
-				log(
-					"warn",
-					caught instanceof Error
-						? `local filesystem restore failed ${caught.message}`
-						: `local filesystem restore failed ${String(caught)}`,
-				);
-			}
+			await loadFiles(
+				{
+					path: systemFileRoot,
+					backHistory: [],
+					forwardHistory: [],
+					failurePrefix: "local filesystem restore failed",
+				},
+				{ provider: localFileProvider },
+			);
 		}
 
 		pendingRemoteConnectRef.current?.abort();
@@ -4623,11 +4712,10 @@ export function App(): React.ReactElement {
 				writes: "locked",
 				hostKeyFingerprint: candidate.fingerprint,
 			});
-			setFileRoot(root);
-			setFileEntries(entries);
-			setSelectedFileIndex(0);
-			setFileHistory([]);
-			setFileForwardHistory([]);
+			await loadFiles(
+				{ path: root, backHistory: [], forwardHistory: [] },
+				{ batch: { resolvedRoot: root, entries } },
+			);
 			setScreen("files");
 			setFocusArea("files");
 			const outcome = {
@@ -4718,6 +4806,7 @@ export function App(): React.ReactElement {
 		commandLine.value,
 		endCommand,
 		localFileProvider,
+		loadFiles,
 		log,
 		recordStatusActivityResult,
 		remoteFileProvider,
@@ -5258,27 +5347,39 @@ export function App(): React.ReactElement {
 
 		try {
 			const entry = await fileProvider.stat(request.path);
-			if (entry.type === "directory" || entry.type === "symlink") {
-				if (entry.path !== fileRoot) {
-					setFileHistory((history) => pushFileHistory(history, fileRoot));
-					setFileForwardHistory([]);
+			const transition = prepareSelectedFileOpen({
+				entries: [entry],
+				selectedIndex: 0,
+				root: fileRoot,
+				backHistory: fileHistory,
+				forwardHistory: fileForwardHistory,
+				notice: {
+					level: "ok",
+					message: `process file opened ${request.command}`,
+				},
+			});
+			if (transition.action === "load") {
+				if (await loadFiles(transition.request)) {
+					setScreen("files");
+					setFocusArea("workspaces");
 				}
-				await loadFiles(entry.path);
-				setScreen("files");
-				setFocusArea("workspaces");
-				log("ok", `process file opened ${request.command}`);
 				return;
 			}
-
-			await previewFile(entry);
-			setScreen("editor");
-			setFocusArea("workspaces");
-			log("ok", `process file opened ${request.command}`);
+			if (transition.action === "preview") {
+				await previewFile(transition.entry, {
+					openEditor: transition.openEditor,
+					notice: transition.notice,
+				});
+				return;
+			}
+			log(transition.notice.level, transition.notice.message);
 		} catch (caught) {
 			log("fail", caught instanceof Error ? caught.message : String(caught));
 		}
 	}, [
 		fileProvider,
+		fileForwardHistory,
+		fileHistory,
 		fileRoot,
 		loadFiles,
 		log,
@@ -5288,8 +5389,12 @@ export function App(): React.ReactElement {
 	]);
 
 	useEffect(() => {
-		void loadFiles(systemFileRoot);
-	}, [loadFiles, systemFileRoot]);
+		if (initialFileLoadStartedRef.current) {
+			return;
+		}
+		initialFileLoadStartedRef.current = true;
+		void loadFiles(systemFileRoot, { provider: localFileProvider });
+	}, [loadFiles, localFileProvider, systemFileRoot]);
 
 	useEffect(() => {
 		const entry = fileEntries.find(
@@ -8640,45 +8745,30 @@ export function App(): React.ReactElement {
 		}
 
 		if (fileOperationDialog.active) {
-			if (key.escape || input === "q") {
-				setFileOperationDialog((current) => clearFileOperationDialog(current));
-				log("info", "file operation dialog closed");
-				return;
+			const transition = prepareActiveFileOperationDialogInput(
+				fileOperationDialog,
+				{ input, escape: key.escape, return: key.return },
+			);
+			setFileOperationDialog(transition.dialog);
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
 			}
-
-			if (key.return) {
-				log(
-					"warn",
-					`${fileOperationDialog.preview.kind} locked: ${fileOperationDialog.preview.reason}`,
-				);
-				return;
-			}
-
 			return;
 		}
 
 		if (fileFilter.active) {
-			if (key.escape) {
-				setFileFilter((current) => clearFileFilter(current));
-				setSelectedFileIndex(0);
-				log("info", "file filter cleared");
-				return;
+			const transition = prepareActiveFileFilterInput({
+				filter: fileFilter,
+				input,
+				escape: key.escape,
+				return: key.return,
+				backspace: key.backspace || key.delete,
+			});
+			setFileFilter(transition.filter);
+			setSelectedFileIndex(transition.selectedIndex);
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
 			}
-
-			if (key.return) {
-				setFileFilter((current) => closeFileFilter(current));
-				log("info", "file filter applied");
-				return;
-			}
-
-			if (key.backspace || key.delete) {
-				setFileFilter((current) => backspaceFileFilterQuery(current));
-				setSelectedFileIndex(0);
-				return;
-			}
-
-			setFileFilter((current) => appendFileFilterQuery(current, input));
-			setSelectedFileIndex(0);
 			return;
 		}
 
@@ -8794,6 +8884,79 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		const fileInputTransition = prepareFileWorkspaceInput({
+			screen,
+			focusArea,
+			input,
+			return: key.return,
+			escape: key.escape,
+			upArrow: key.upArrow,
+			downArrow: key.downArrow,
+			leftArrow: key.leftArrow,
+			entries: displayedFileEntries,
+			selectedIndex: selectedFileIndex,
+			providerKind: fileProvider.kind,
+			locationCount: fileLocations.length,
+		});
+		if (fileInputTransition.action !== "unhandled") {
+			if (fileInputTransition.action === "enter-focus") {
+				setFocusArea(fileInputTransition.focusArea);
+				log(
+					fileInputTransition.notice.level,
+					fileInputTransition.notice.message,
+				);
+			} else if (fileInputTransition.action === "leave-focus") {
+				setFocusArea(fileInputTransition.focusArea);
+			} else if (fileInputTransition.action === "open-selected") {
+				void openSelectedFileEntry();
+			} else if (fileInputTransition.action === "parent") {
+				void goToParentDirectory();
+			} else if (fileInputTransition.action === "history") {
+				void (fileInputTransition.direction === "back"
+					? goBackFileHistory()
+					: goForwardFileHistory());
+			} else if (fileInputTransition.action === "clipboard") {
+				const intent = getSelectedFilePathClipboardIntent(
+					displayedFileEntries,
+					selectedFileIndex,
+				);
+				if (intent.preview) {
+					openClipboardConfirmation(intent.preview);
+				} else if (intent.notice) {
+					log(intent.notice.level, intent.notice.message);
+				}
+			} else if (fileInputTransition.action === "filter") {
+				setFileFilter((current) => openFileFilter(current.query));
+				setSelectedFileIndex(fileInputTransition.selectedIndex);
+				log(
+					fileInputTransition.notice.level,
+					fileInputTransition.notice.message,
+				);
+			} else if (fileInputTransition.action === "operation") {
+				openSelectedFileOperation(fileInputTransition.kind);
+			} else if (fileInputTransition.action === "disconnect") {
+				void disconnectRemoteFiles();
+			} else if (fileInputTransition.action === "next-location") {
+				void jumpToNextLocation();
+			} else if (fileInputTransition.action === "location") {
+				void jumpToLocation(fileInputTransition.locationIndex);
+			} else if (fileInputTransition.action === "path") {
+				setCommandLine(openCommandLine("path"));
+				log(
+					fileInputTransition.notice.level,
+					fileInputTransition.notice.message,
+				);
+			} else if (fileInputTransition.action === "select") {
+				setSelectedFileIndex(fileInputTransition.selectedIndex);
+			} else if (fileInputTransition.action === "notice") {
+				log(
+					fileInputTransition.notice.level,
+					fileInputTransition.notice.message,
+				);
+			}
+			return;
+		}
+
 		if (input === "\r") {
 			if (screen === "actions" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
@@ -8807,110 +8970,14 @@ export function App(): React.ReactElement {
 				void openSelectedProcessFile();
 			} else if (screen === "operations" && focusArea === "workspaces") {
 				void runSelectedOperationPreset();
-			} else if (screen === "files" && focusArea === "workspaces") {
-				setFocusArea(enterFocus(screen, focusArea));
-				log("info", "files focus entered");
 			} else if (screen === "remotes" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "remotes focus entered");
 			} else if (focusArea === "actions") {
 				runAction(actions[selectedActionIndex]);
-			} else if (focusArea === "files") {
-				void openSelectedFileEntry();
 			} else if (focusArea === "remotes") {
 				void selectRemoteProfile();
 			}
-		}
-
-		if (focusArea === "files" && input === "u") {
-			void goToParentDirectory();
-		}
-
-		if (focusArea === "files" && input === "b") {
-			void goBackFileHistory();
-		}
-
-		if (focusArea === "files" && input === "B") {
-			void goForwardFileHistory();
-		}
-
-		if (focusArea === "files" && input === "y") {
-			const preview = getSelectedFilePathClipboardPreview(
-				displayedFileEntries,
-				selectedFileIndex,
-			);
-			if (!preview) {
-				log("warn", "no file path selected");
-				return;
-			}
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (focusArea === "files" && input === "f") {
-			setFileFilter((current) => openFileFilter(current.query));
-			setSelectedFileIndex(0);
-			log("info", "file filter opened");
-			return;
-		}
-
-		if (focusArea === "files" && input === "c") {
-			if (remoteFileProvider) {
-				log("warn", "remote SFTP copy is disabled in read-only sessions");
-				return;
-			}
-			openSelectedFileOperation("copy");
-			return;
-		}
-
-		if (focusArea === "files" && input === "m") {
-			if (remoteFileProvider) {
-				log("warn", "remote SFTP move is disabled in read-only sessions");
-				return;
-			}
-			openSelectedFileOperation("move");
-			return;
-		}
-
-		if (focusArea === "files" && input === "x") {
-			if (remoteFileProvider) {
-				log("warn", "remote SFTP delete is disabled in read-only sessions");
-				return;
-			}
-			openSelectedFileOperation("delete");
-			return;
-		}
-
-		if (focusArea === "files" && input === "L" && remoteFileProvider) {
-			void disconnectRemoteFiles();
-			return;
-		}
-
-		if (focusArea === "files" && input === "g") {
-			if (remoteFileProvider) {
-				log(
-					"warn",
-					"close the SFTP session with L before using local locations",
-				);
-				return;
-			}
-			void jumpToNextLocation();
-		}
-
-		if (focusArea === "files" && !remoteFileProvider) {
-			const locationIndex = getLocationShortcutIndex(
-				input,
-				fileLocations.length,
-			);
-			if (locationIndex !== undefined) {
-				void jumpToLocation(locationIndex);
-				return;
-			}
-		}
-
-		if (focusArea === "files" && input === ":") {
-			setCommandLine(openCommandLine("path"));
-			log("info", "path command opened");
 		}
 
 		if (screen === "editor" && focusArea === "workspaces" && input === "a") {
@@ -12169,11 +12236,7 @@ export function App(): React.ReactElement {
 			}
 		}
 		if (key.leftArrow || input === "h") {
-			if (
-				focusArea === "actions" ||
-				focusArea === "files" ||
-				focusArea === "remotes"
-			) {
+			if (focusArea === "actions" || focusArea === "remotes") {
 				setFocusArea("workspaces");
 			} else {
 				setScreen((current) => moveScreen(current, "previous"));
@@ -12184,10 +12247,6 @@ export function App(): React.ReactElement {
 			if (focusArea === "actions") {
 				setSelectedActionIndex((index) =>
 					getNextIndex(index, actions.length, "next"),
-				);
-			} else if (focusArea === "files") {
-				setSelectedFileIndex((index) =>
-					getNextIndex(index, displayedFileEntries.length, "next"),
 				);
 			} else if (focusArea === "remotes") {
 				setSelectedRemoteIndex((index) =>
@@ -12253,10 +12312,6 @@ export function App(): React.ReactElement {
 			if (focusArea === "actions") {
 				setSelectedActionIndex((index) =>
 					getNextIndex(index, actions.length, "previous"),
-				);
-			} else if (focusArea === "files") {
-				setSelectedFileIndex((index) =>
-					getNextIndex(index, displayedFileEntries.length, "previous"),
 				);
 			} else if (focusArea === "remotes") {
 				setSelectedRemoteIndex((index) =>

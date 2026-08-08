@@ -167,6 +167,54 @@ const wiringReasons = {
 } as const;
 
 const delegatedCallbacks = {
+	previewFile: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates file preview outcome classification",
+	},
+	loadFiles: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates sequenced listing publication classification",
+	},
+	openSelectedFileEntry: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates selected file open eligibility",
+	},
+	goToParentDirectory: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates parent navigation transition",
+	},
+	jumpToLocation: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates location navigation transition",
+	},
+	jumpToNextLocation: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates next-location selection",
+	},
+	submitPathCommand: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates typed path navigation transition",
+	},
+	goBackFileHistory: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates backward history transition",
+	},
+	goForwardFileHistory: {
+		owner: "src/tui/fileWorkspaceTransitions.ts",
+		reason: "delegates forward history transition",
+	},
+	openSelectedFileOperation: {
+		owner: "src/tui/fileOperationDialog.ts",
+		reason: "delegates selected operation launch guard",
+	},
+	submitFileOperationDestinationCommand: {
+		owner: "src/tui/fileOperationDialog.ts",
+		reason: "delegates operation destination transition",
+	},
+	submitFileOperationConfirmCommand: {
+		owner: "src/tui/fileOperationDialog.ts",
+		reason: "delegates operation confirmation planning",
+	},
 	submitEditorAppendLineCommand: {
 		owner: "src/tui/editorBuffer.ts",
 		reason: "delegates editor append transition",
@@ -213,6 +261,21 @@ const delegatedCallbacks = {
 	},
 } as const;
 
+const filesDelegatedCallbacks = new Set([
+	"previewFile",
+	"loadFiles",
+	"openSelectedFileEntry",
+	"goToParentDirectory",
+	"jumpToLocation",
+	"jumpToNextLocation",
+	"submitPathCommand",
+	"goBackFileHistory",
+	"goForwardFileHistory",
+	"openSelectedFileOperation",
+	"submitFileOperationDestinationCommand",
+	"submitFileOperationConfirmCommand",
+]);
+
 export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 	(name) => {
 		const reason = wiringReasons[name as keyof typeof wiringReasons];
@@ -223,13 +286,24 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 				name,
 				owner: delegated.owner,
 				classification: "delegated",
-				slice:
-					name.startsWith("submitEditor") ||
-					name === "undoEditorEdit" ||
-					name === "deleteSelectedEditorLine"
+				slice: filesDelegatedCallbacks.has(name)
+					? "files-transitions"
+					: name.startsWith("submitEditor") ||
+							name === "undoEditorEdit" ||
+							name === "deleteSelectedEditorLine"
 						? "editor-transitions"
 						: "tool-target-transitions",
 				reason: delegated.reason,
+			};
+		}
+		if (name === "useInput") {
+			return {
+				name,
+				owner: "src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts",
+				classification: "inline-decision",
+				slice: "files-transitions",
+				reason:
+					"Files input delegates guards, selection, eligibility, and notices; unrelated workspace branches remain inline",
 			};
 		}
 		return reason

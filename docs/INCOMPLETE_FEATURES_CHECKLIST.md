@@ -49,11 +49,11 @@
 
 ## 6. 구조 및 품질
 
-- [ ] 상태: 진행 중 — 파일 selection guard는 `clampIndex()`로, 파일 copy/move/delete의 open·destination·confirmation guard와 prompt/문구 전이는 `fileOperationDialog.ts`로 분리 완료; `App.tsx` 입력 dispatch의 나머지 상태 전이·selection guard 분리 남음
+- [x] 상태: 완료 — Files path/history 이동, `clampIndex()` 기반 selection, open/preview·clipboard·operation guard, filter/input notice를 순수 TUI 전이로 분리하고 listing/preview에 독립 request sequence를 적용해 stale 성공·실패의 현재 상태 publish를 차단
 - [x] 상태: 완료 — Tools target shelf는 `clampIndex()` 기반 selected-preset resolver로 빈 shelf와 범위 밖 selection을 `0`/no-item으로 복구하고, 저장·편집·pin·삭제·cleanup·run intent 및 정확한 notice를 `toolHistory.ts` 순수 전이로 분리 완료
 - [x] 상태: 완료 — TypeScript AST callback audit가 `App.tsx`의 `useCallback` 154개와 `useInput` dispatcher 1개를 inventory/manifest로 검증하며, strict audit는 남은 inline decision을 실패로 보고함
 - [x] 상태: 완료 — Editor append/insert/replace/delete/undo와 cursor 이동을 `editorBuffer.ts` 순수 전이로 분리하고, cursor repair·no-op·notice를 단위 테스트로 검증 완료
-- [ ] 상태: 진행 중 — 파일 작업 dialog의 순수 전이·누락 preview·빈 destination·command-line 적용 단위 테스트 7개 보강 완료; 나머지 분리 대상 테스트 남음
+- [x] 상태: 완료 — 파일 작업 dialog launch·provider guard·active input·destination·confirmation·command-line 전이를 `fileOperationDialog.ts`에서 소유하고 빈 selection/parent/SFTP read-only 회귀 테스트를 보강
 - [x] 상태: 완료 — 사용되지 않는 `src/tui/screens/*` legacy placeholder 6개 제거; 실제 workspace 경로는 `App.tsx`에 있으며 `src/tui` 순수 모듈이 상태 전이를 담당
 - [x] 상태: 완료 — `src/core/roadmap.ts`, README, CHANGELOG, LOCAL_AUTOMATION의 구현 상태 동기화
 - [x] 상태: 완료 — `package.json`과 `src/core/version.ts`는 `0.2.0`으로 동기화되고 release check가 통과함. ROADMAP의 v0.4.340~346은 공개 버전을 자동 변경하지 않는 개발 slice이며, npm 미게시·원격 태그 없음 상태에서 실제 공개 버전 선택은 maintainer release 절차로 유지

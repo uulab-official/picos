@@ -10,6 +10,7 @@ import {
 	closeCommandLine,
 	openCommandLine,
 } from "./commandLine";
+import { getSelectedFileEntry } from "./fileSelection";
 
 export type FileOperationKind = "copy" | "move" | "delete";
 
@@ -56,6 +57,31 @@ export type FileOperationDialogTransition = {
 	notice?: FileOperationDialogNotice;
 	plan?: FileOperationExecutionPlan;
 };
+
+export function prepareActiveFileOperationDialogInput(
+	dialog: FileOperationDialogState,
+	input: { input: string; escape?: boolean; return?: boolean },
+): { dialog: FileOperationDialogState; notice?: FileOperationDialogNotice } {
+	if (!dialog.active) {
+		return { dialog };
+	}
+	if (input.escape || input.input === "q") {
+		return {
+			dialog: clearFileOperationDialog(dialog),
+			notice: { level: "info", message: "file operation dialog closed" },
+		};
+	}
+	if (input.return) {
+		return {
+			dialog,
+			notice: {
+				level: "warn",
+				message: `${dialog.preview.kind} locked: ${dialog.preview.reason}`,
+			},
+		};
+	}
+	return { dialog };
+}
 
 export function applyFileOperationCommandLineTransition(
 	state: CommandLineState,
@@ -194,6 +220,29 @@ export function prepareFileOperationOpen(
 			message: `${dialog.preview.title} ${opensConfirmation ? "confirmation" : "destination"} opened`,
 		},
 	};
+}
+
+export function prepareSelectedFileOperationOpen(input: {
+	kind: FileOperationKind;
+	entries: FileEntry[];
+	selectedIndex: number;
+	providerKind: FileProviderKind;
+}): FileOperationDialogTransition {
+	if (input.providerKind === "sftp") {
+		return {
+			dialog: { active: false },
+			commandLine: { action: "keep" },
+			notice: {
+				level: "warn",
+				message: `remote SFTP ${input.kind} is disabled in read-only sessions`,
+			},
+		};
+	}
+
+	return prepareFileOperationOpen(
+		input.kind,
+		getSelectedFileEntry(input.entries, input.selectedIndex),
+	);
 }
 
 export function prepareFileOperationDestination(
