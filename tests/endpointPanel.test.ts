@@ -24,6 +24,8 @@ import {
 	nextEndpointFilterPreset,
 	prepareEndpointFilterTransition,
 	prepareEndpointPanelInput,
+	preparePortProcessControlPalettePreview,
+	preparePortProcessControlSubmission,
 	repairEndpointSelection,
 	resolveEndpointSelectedRow,
 	saveEndpointFilterPreset,
@@ -1119,6 +1121,114 @@ describe("endpoint TUI panel formatting", () => {
 		);
 	});
 
+	test("owns port process control submission guards and exact audit notices", () => {
+		expect(
+			preparePortProcessControlSubmission({
+				ports: [],
+				selectedIndex: 0,
+				input: "kill pid 123",
+				commandPreview: undefined,
+				policy: { mode: "disabled", allowAdminDryRun: false },
+			}),
+		).toEqual({
+			kind: "blocked",
+			closeCommandLine: true,
+			processControlPreview: false,
+			notices: [
+				{ level: "warn", message: "port process control missing target" },
+			],
+		});
+
+		const port = {
+			protocol: "tcp",
+			localAddress: "*",
+			localPort: "3000",
+			pid: "123",
+			command: "node",
+			user: "alice",
+		};
+		const transition = preparePortProcessControlSubmission({
+			ports: [port],
+			selectedIndex: 0,
+			input: "kill pid 123",
+			commandPreview: {
+				adapter: "linux",
+				command: "kill",
+				args: ["-TERM", "<pid>"],
+				note: "terminate a selected user-owned process",
+			},
+			policy: { mode: "disabled", allowAdminDryRun: false },
+		});
+		expect(transition).toMatchObject({
+			kind: "confirmation",
+			closeCommandLine: true,
+			processControlPreview: false,
+			confirmation: {
+				confirmed: true,
+				executionEnabled: false,
+			},
+			executionPlan: {
+				status: "blocked",
+				willExecute: false,
+				reason: "mutation-controls-disabled",
+			},
+			notices: [
+				{
+					level: "warn",
+					message:
+						"port process control process.terminate status=confirmed-disabled risk=destructive privilege=user executionEnabled=false port=*:3000 pid=123 process=node user=alice",
+				},
+				{
+					level: "warn",
+					message:
+						'control execution process.terminate status=blocked policy=disabled confirmed=true dryRun=true willExecute=false blockers=mutation-controls-disabled adapter=linux command="kill -TERM 123"',
+				},
+			],
+		});
+	});
+
+	test("owns palette control availability and actionable prompt routing", () => {
+		expect(
+			preparePortProcessControlPalettePreview({ ports: [], selectedIndex: 0 }),
+		).toEqual({
+			kind: "blocked",
+			screen: "ports",
+			focusArea: "workspaces",
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "warn",
+				message: "palette process control preview unavailable",
+			},
+		});
+		const port = {
+			protocol: "tcp",
+			localAddress: "127.0.0.1",
+			localPort: "5173",
+			pid: "777",
+			command: "vite",
+			user: "alice",
+		};
+		expect(
+			preparePortProcessControlPalettePreview({
+				ports: [port],
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			kind: "preview",
+			screen: "ports",
+			focusArea: "workspaces",
+			copyPreview: false,
+			processControlPreview: true,
+			preview: { port, confirmationPhrase: "kill pid 777" },
+			commandLinePrompt: "port-process-control",
+			notice: {
+				level: "warn",
+				message: "ports process control confirm kill pid 777 via palette",
+			},
+		});
+	});
+
 	test("formats selected port process control execution policy blockers", () => {
 		const preview = createSelectedPortProcessControlPreview(
 			[
@@ -1507,16 +1617,97 @@ describe("endpoint TUI panel formatting", () => {
 });
 
 describe("endpoint workspace hint rows", () => {
-	test("advertises every key the ports workspace binds", () => {
-		expect(formatEndpointWorkspaceHintRow("ports")).toBe(
-			"listening ports · f filter · P save · ] preset · D cleanup · e export · o open · enter process · I inspector · K control · tab/1-3 detail · home/end · j/k select",
+	test("advertises actionable port controls and names the Processes handoff", () => {
+		expect(
+			formatEndpointWorkspaceHintRow("ports", {
+				rows: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "123",
+						command: "node",
+						user: "alice",
+					},
+				],
+				selectedIndex: 0,
+			}),
+		).toBe(
+			"listening ports · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · I inspector · K control · tab/1-3 detail · home/end · j/k select",
 		);
 	});
 
-	test("advertises enter on connections, which binds the same process inspection", () => {
-		expect(formatEndpointWorkspaceHintRow("connections")).toBe(
-			"active endpoints · f filter · P save · ] preset · D cleanup · e export · o open · enter process · tab/1-3 detail · home/end · j/k select",
+	test("advertises the named Processes handoff only for a selected connection PID", () => {
+		const selected = {
+			protocol: "tcp4",
+			localAddress: "127.0.0.1",
+			localPort: "3000",
+			remoteAddress: "127.0.0.1",
+			remotePort: "52000",
+			pid: "4242",
+		};
+		expect(
+			formatEndpointWorkspaceHintRow("connections", {
+				rows: [selected],
+				selectedIndex: 0,
+			}),
+		).toBe(
+			"active endpoints · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · tab/1-3 detail · home/end · j/k select",
 		);
+		expect(
+			formatEndpointWorkspaceHintRow("connections", {
+				rows: [{ ...selected, pid: undefined }],
+				selectedIndex: 0,
+			}),
+		).not.toContain("enter");
+	});
+
+	test("omits port inspector and control keys when no numeric PID can act", () => {
+		const hint = formatEndpointWorkspaceHintRow("ports", {
+			rows: [
+				{
+					protocol: "tcp",
+					localAddress: "*",
+					localPort: "3000",
+					pid: "-",
+					command: "node",
+					user: "alice",
+				},
+			],
+			selectedIndex: 0,
+		});
+		expect(hint).not.toContain("enter");
+		expect(hint).not.toContain("I inspector");
+		expect(hint).not.toContain("K control");
+	});
+
+	test("derives control availability from the filtered and sorted endpoint domain", () => {
+		const hint = formatEndpointWorkspaceHintRow("ports", {
+			rows: [
+				{
+					protocol: "tcp",
+					localAddress: "*",
+					localPort: "3000",
+					pid: "-",
+					command: "node",
+					user: "alice",
+				},
+				{
+					protocol: "tcp",
+					localAddress: "127.0.0.1",
+					localPort: "5432",
+					pid: "222",
+					command: "postgres",
+					user: "alice",
+				},
+			],
+			filter: "postgres",
+			sort: { key: "process", direction: "asc" },
+			selectedIndex: 0,
+		});
+		expect(hint).toContain("enter Processes / picos process");
+		expect(hint).toContain("I inspector");
+		expect(hint).toContain("K control");
 	});
 
 	test("scopes inspector and control to ports and shares the rest", () => {

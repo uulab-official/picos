@@ -20,17 +20,12 @@ import {
 	type ActionControlSimulation,
 	type ActionPreviewConfirmation,
 	type ActionPreviewPlan,
-	createActionControlSimulation,
 	createActionPreviewPlan,
-	formatActionConfirmationAuditMessage,
-	formatActionPreviewAuditMessage,
 	formatActionPreviewRows,
-	formatActionSimulationAuditMessage,
 	formatActionSimulationRows,
 	getActionCatalog,
 	getActionSummary,
 	type PicosAction,
-	submitActionPreviewConfirmation,
 } from "../core/actions";
 import {
 	archiveConsoleAuditExport,
@@ -60,11 +55,8 @@ import {
 import {
 	type ControlExecutionPlan,
 	type ControlExecutionPolicy,
-	createControlExecutionPlan,
 	defaultControlExecutionPolicy,
-	formatControlExecutionAuditMessage,
 	formatControlExecutionPolicyRows,
-	formatControlExecutionResultAuditMessage,
 	formatControlExecutionRows,
 	getControlExecutionPolicyFromConfig,
 	runControlExecutionPlan,
@@ -245,6 +237,15 @@ import { VERSION } from "../core/version";
 import { createTranslator } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
 import {
+	classifyControlExecutionFailure,
+	classifyControlExecutionResult,
+	prepareActionDispatch,
+	prepareControlConfirmationPrompt,
+	prepareControlExecutionStart,
+	prepareControlExecutionTransition,
+	submitControlConfirmationTransition,
+} from "./actionControlTransitions";
+import {
 	appendCleanupHandoffHistory,
 	archiveCleanupHandoffHistoryExport,
 	type CleanupHandoffHistory,
@@ -357,13 +358,11 @@ import {
 import {
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
-	createPortProcessControlExecutionPlan,
 	createSelectedPortProcessControlPreview,
 	type EndpointDetailView,
 	type EndpointHandoffKind,
 	formatConnectionsWorkspaceRows,
 	formatEndpointWorkspaceHintRow,
-	formatPortProcessControlConfirmationAuditMessage,
 	formatPortProcessControlExecutionRows,
 	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
@@ -374,9 +373,10 @@ import {
 	type PortProcessControlFileEvidenceIssue,
 	prepareEndpointFilterTransition,
 	prepareEndpointPanelInput,
+	preparePortProcessControlPalettePreview,
+	preparePortProcessControlSubmission,
 	repairEndpointSelection,
 	submitEndpointFilterCleanupConfirmation,
-	submitPortProcessControlConfirmation,
 	writeEndpointHandoffPlan,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
@@ -854,6 +854,7 @@ export function App(): React.ReactElement {
 	const { columns, rows } = useWindowSize();
 	const layout = computeShellLayout(columns, rows);
 	const actions = useMemo(() => getActionCatalog(), []);
+	const actionControlSequenceRef = useRef(0);
 	const systemFileRoot = useMemo(() => getSystemFileRoot(), []);
 	const fileLocations = useMemo(() => getSystemFileLocations(), []);
 	const [editorSaveMode, setEditorSaveMode] =
@@ -3015,31 +3016,21 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitPortProcessControlCommand = useCallback(() => {
-		const preview = createSelectedPortProcessControlPreview(
-			sortedPorts,
-			selectedPortIndex,
-		);
+		const transition = preparePortProcessControlSubmission({
+			ports: sortedPorts,
+			selectedIndex: selectedPortIndex,
+			input: commandLine.value,
+			commandPreview: getControlPreviewCommand(
+				"process.terminate",
+				currentPlatform(),
+			),
+			policy: controlExecutionPolicy,
+		});
 		setCommandLine((current) => closeCommandLine(current));
-		setPortProcessControlPreview(false);
-		if (!preview) {
-			log("warn", "port process control missing target");
-			return;
+		setPortProcessControlPreview(transition.processControlPreview);
+		for (const notice of transition.notices) {
+			log(notice.level, notice.message);
 		}
-		const confirmation = submitPortProcessControlConfirmation(
-			preview,
-			commandLine.value,
-		);
-		log(
-			confirmation.confirmed ? "warn" : "fail",
-			formatPortProcessControlConfirmationAuditMessage(confirmation),
-		);
-		const executionPlan = createPortProcessControlExecutionPlan(
-			preview,
-			confirmation,
-			getControlPreviewCommand(preview.actionId, currentPlatform()),
-			controlExecutionPolicy,
-		);
-		log("warn", formatControlExecutionAuditMessage(executionPlan));
 	}, [
 		commandLine.value,
 		controlExecutionPolicy,
@@ -3049,27 +3040,24 @@ export function App(): React.ReactElement {
 	]);
 
 	const openPalettePortProcessControlPreview = useCallback(() => {
-		const preview = createSelectedPortProcessControlPreview(
-			sortedPorts,
-			selectedPortIndex,
-		);
-		setScreen("ports");
-		setFocusArea("workspaces");
-		setPortCopyPreview(false);
-		setPortProcessControlPreview(Boolean(preview));
+		const transition = preparePortProcessControlPalettePreview({
+			ports: sortedPorts,
+			selectedIndex: selectedPortIndex,
+		});
+		const preview =
+			transition.kind === "preview" ? transition.preview : undefined;
+		setScreen(transition.screen);
+		setFocusArea(transition.focusArea);
+		setPortCopyPreview(transition.copyPreview);
+		setPortProcessControlPreview(transition.processControlPreview);
 		log("info", formatStatusActivityProcessControlPaletteAuditMessage(preview));
 		recordStatusActivityResult(
 			createStatusActivityProcessControlPaletteResult(preview),
 		);
-		if (!preview) {
-			log("warn", "palette process control preview unavailable");
-			return;
+		if (transition.kind === "preview") {
+			setCommandLine(openCommandLine(transition.commandLinePrompt));
 		}
-		setCommandLine(openCommandLine(portProcessControlPrompt));
-		log(
-			"warn",
-			`ports process control confirm ${preview.confirmationPhrase} via palette`,
-		);
+		log(transition.notice.level, transition.notice.message);
 	}, [log, recordStatusActivityResult, selectedPortIndex, sortedPorts]);
 
 	const submitTimelineSearchCommand = useCallback(() => {
@@ -3151,62 +3139,71 @@ export function App(): React.ReactElement {
 	}, [commandLine.value, log, logProfiles, logSearchPresets]);
 
 	const submitControlConfirmationCommand = useCallback(() => {
-		if (!actionPreviewPlan) {
-			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "control confirmation missing preview");
-			return;
-		}
-
-		const confirmation = submitActionPreviewConfirmation(
-			actionPreviewPlan,
-			commandLine.value,
-		);
-		const simulation = createActionControlSimulation(
-			actionPreviewPlan,
-			confirmation,
-		);
-		setActionConfirmation(confirmation);
-		setActionSimulation(simulation);
-		setActionExecutionPlan(undefined);
+		const requestToken = beginRequest(actionControlSequenceRef.current);
+		actionControlSequenceRef.current = requestToken;
+		const transition = submitControlConfirmationTransition({
+			previewPlan: actionPreviewPlan,
+			input: commandLine.value,
+		});
 		setCommandLine((current) => closeCommandLine(current));
-		log(
-			confirmation.confirmed ? "warn" : "fail",
-			formatActionConfirmationAuditMessage(confirmation),
-		);
-		log("warn", formatActionSimulationAuditMessage(simulation));
+		if (transition.kind === "confirmation") {
+			setActionConfirmation(transition.confirmation);
+			setActionSimulation(transition.simulation);
+			setActionExecutionPlan(transition.executionPlan);
+		}
+		for (const notice of transition.notices) {
+			log(notice.level, notice.message);
+		}
 	}, [actionPreviewPlan, commandLine.value, log]);
 
 	const runControlExecutionAttempt = useCallback(async () => {
-		if (!actionPreviewPlan) {
-			log("warn", "control execution needs a locked action preview first");
+		const requestToken = beginRequest(actionControlSequenceRef.current);
+		actionControlSequenceRef.current = requestToken;
+		const start = prepareControlExecutionStart(actionPreviewPlan);
+		if (start.kind === "blocked") {
+			log(start.notice.level, start.notice.message);
 			return;
 		}
+		try {
+			const config = await readConfig();
+			const policy = getControlExecutionPolicyFromConfig(config);
+			const transition = prepareControlExecutionTransition({
+				previewPlan: actionPreviewPlan,
+				confirmation: actionConfirmation,
+				policy,
+				requestToken,
+				currentToken: actionControlSequenceRef.current,
+			});
+			if (transition.kind === "stale") {
+				return;
+			}
+			setControlExecutionPolicy(policy);
+			if (transition.executionPlan) {
+				setActionExecutionPlan(transition.executionPlan);
+			}
+			if (transition.kind === "blocked") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
 
-		const config = await readConfig();
-		const policy = getControlExecutionPolicyFromConfig(config);
-		setControlExecutionPolicy(policy);
-		const executionPlan = createControlExecutionPlan(
-			actionPreviewPlan,
-			actionConfirmation,
-			policy,
-		);
-		setActionExecutionPlan(executionPlan);
-
-		if (executionPlan.status !== "dry-run-ready") {
-			log("warn", formatControlExecutionAuditMessage(executionPlan));
-			return;
-		}
-
-		const result = await runControlExecutionPlan(executionPlan);
-		log(
-			result.success ? "ok" : "fail",
-			formatControlExecutionResultAuditMessage(result.audit),
-		);
-		if (result.stdout) {
-			log("info", `control dry-run stdout ${result.stdout}`);
-		}
-		if (result.stderr) {
-			log("warn", `control dry-run stderr ${result.stderr}`);
+			const result = await runControlExecutionPlan(transition.executionPlan);
+			const publication = classifyControlExecutionResult({
+				result,
+				requestToken,
+				currentToken: actionControlSequenceRef.current,
+			});
+			log(publication.historyNotice.level, publication.historyNotice.message);
+			for (const notice of publication.currentNotices) {
+				log(notice.level, notice.message);
+			}
+		} catch (caught) {
+			const publication = classifyControlExecutionFailure({
+				actionId: start.actionId,
+				error: caught,
+				requestToken,
+				currentToken: actionControlSequenceRef.current,
+			});
+			log(publication.historyNotice.level, publication.historyNotice.message);
 		}
 	}, [actionConfirmation, actionPreviewPlan, log]);
 
@@ -6760,64 +6757,31 @@ export function App(): React.ReactElement {
 	);
 
 	const runAction = useCallback(
-		async (action: PicosAction) => {
-			if (!action.enabled) {
-				const platform = currentPlatform();
-				if (action.id === "picos.update.apply") {
-					const applyPreview = updateCheckResult
-						? createUpdateApplyPreview(updateCheckResult)
-						: undefined;
-					if (!applyPreview) {
-						setScreen("status");
-						log(
-							"warn",
-							updateCheckResult
-								? "picos.update.apply has no available update to preview"
-								: "run picos.update before opening update apply preview",
-						);
-						return;
-					}
-					const preview = createUpdateApplyActionPreviewPlan(
-						applyPreview,
-						platform,
-					);
-					setActionPreviewPlan(preview);
-					setActionConfirmation(undefined);
-					setActionSimulation(createActionControlSimulation(preview));
-					setActionExecutionPlan(undefined);
-					setScreen("actions");
-					setFocusArea("actions");
-					log("warn", formatActionPreviewAuditMessage(preview));
-					return;
-				}
-
-				const preview = createActionPreviewPlan(
-					action.id,
-					platform,
-					getControlPreviewCommand(action.id, platform),
-				);
-				setActionPreviewPlan(preview);
-				setActionConfirmation(undefined);
-				setActionSimulation(
-					preview ? createActionControlSimulation(preview) : undefined,
-				);
-				setActionExecutionPlan(undefined);
-				setScreen("actions");
-				log(
-					"warn",
-					preview
-						? formatActionPreviewAuditMessage(preview)
-						: `${action.id} preview unavailable`,
-				);
+		async (requestedAction: PicosAction) => {
+			const requestToken = beginRequest(actionControlSequenceRef.current);
+			actionControlSequenceRef.current = requestToken;
+			const transition = prepareActionDispatch({
+				actionId: requestedAction.id,
+				actions,
+				platform: currentPlatform(),
+				updateCheckResult,
+			});
+			setActionPreviewPlan(transition.control.previewPlan);
+			setActionConfirmation(transition.control.confirmation);
+			setActionSimulation(transition.control.simulation);
+			setActionExecutionPlan(transition.control.executionPlan);
+			if (transition.screen) {
+				setScreen(transition.screen);
+			}
+			if (transition.focusArea) {
+				setFocusArea(transition.focusArea);
+			}
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind !== "run") {
 				return;
 			}
-
-			setActionPreviewPlan(undefined);
-			setActionConfirmation(undefined);
-			setActionSimulation(undefined);
-			setActionExecutionPlan(undefined);
+			const action = transition.action;
 			beginCommand();
-			log("run", `${action.id} started`);
 
 			try {
 				if (action.id === "network.inspect") {
@@ -7228,6 +7192,7 @@ export function App(): React.ReactElement {
 			}
 		},
 		[
+			actions,
 			configManagedShelfStateEffectSetters,
 			connectionFilterPresets.length,
 			configWorkspaceItems,
@@ -8576,19 +8541,11 @@ export function App(): React.ReactElement {
 			focusArea === "actions" &&
 			(input === "c" || input === "C")
 		) {
-			if (!actionPreviewPlan) {
-				log("warn", "control confirmation needs a locked action preview first");
-				return;
+			const transition = prepareControlConfirmationPrompt(actionPreviewPlan);
+			if (transition.kind === "prompt") {
+				setCommandLine(openCommandLine(transition.prompt));
 			}
-			if (!actionPreviewPlan.confirmationPhrase) {
-				log("warn", `${actionPreviewPlan.actionId} has no confirmation phrase`);
-				return;
-			}
-			setCommandLine(openCommandLine("control-confirm"));
-			log(
-				"info",
-				`control confirmation opened for ${actionPreviewPlan.actionId}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
@@ -15149,7 +15106,14 @@ function ConnectionsWorkspace({
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.connections")}</Text>
-			<Text color="gray">{formatEndpointWorkspaceHintRow("connections")}</Text>
+			<Text color="gray">
+				{formatEndpointWorkspaceHintRow("connections", {
+					rows: result?.connections ?? [],
+					filter,
+					sort,
+					selectedIndex,
+				})}
+			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
 					<Text key={key} color={getEndpointRowColor(row, "ACTIVE")}>
@@ -15262,7 +15226,14 @@ function PortsWorkspace({
 	return (
 		<Box flexDirection="column">
 			<Text bold>{t("screen.ports")}</Text>
-			<Text color="gray">{formatEndpointWorkspaceHintRow("ports")}</Text>
+			<Text color="gray">
+				{formatEndpointWorkspaceHintRow("ports", {
+					rows: result?.ports ?? [],
+					filter,
+					sort,
+					selectedIndex,
+				})}
+			</Text>
 			<Box marginTop={1} flexDirection="column">
 				{keyedRows.map(({ key, row }) => (
 					<Text key={key} color={getEndpointRowColor(row, "LISTENING")}>

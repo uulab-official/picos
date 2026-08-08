@@ -282,6 +282,31 @@ const delegatedCallbacks = {
 		owner: "src/tui/endpointPanel.ts",
 		reason: "delegates scoped endpoint cleanup confirmation and exact notice",
 	},
+	submitPortProcessControlCommand: {
+		owner: "src/tui/endpointPanel.ts",
+		reason:
+			"delegates selected PID guard, exact process-control confirmation, locked execution plan, and audit notices",
+	},
+	openPalettePortProcessControlPreview: {
+		owner: "src/tui/endpointPanel.ts",
+		reason:
+			"delegates selected PID availability, preview state, named prompt routing, and exact palette notice",
+	},
+	submitControlConfirmationCommand: {
+		owner: "src/tui/actionControlTransitions.ts",
+		reason:
+			"delegates preview eligibility, exact confirmation, simulation state, execution reset, and audit notices",
+	},
+	runControlExecutionAttempt: {
+		owner: "src/tui/actionControlTransitions.ts",
+		reason:
+			"delegates preview guard, shared request-token publication, execution intent, stale result classification, and audit outcome while App retains config and runner I/O",
+	},
+	runAction: {
+		owner: "src/tui/actionControlTransitions.ts + existing feature owners",
+		reason:
+			"delegates catalog lookup, metadata and safety guards, read-versus-mutation routing, preview state, and exact notices while App retains existing feature-owner handoffs and I/O",
+	},
 	submitTimelineSearchCommand: {
 		owner: "src/tui/timelinePanel.ts",
 		reason:
@@ -789,6 +814,14 @@ const operationRunDelegatedCallbacks = new Set([
 	"openSelectedProcessFile",
 ]);
 
+const actionControlDelegatedCallbacks = new Set([
+	"submitPortProcessControlCommand",
+	"openPalettePortProcessControlPreview",
+	"submitControlConfirmationCommand",
+	"runControlExecutionAttempt",
+	"runAction",
+]);
+
 export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 	(name) => {
 		const reason = wiringReasons[name as keyof typeof wiringReasons];
@@ -813,11 +846,13 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 										? "remote-panel-transitions"
 										: operationRunDelegatedCallbacks.has(name)
 											? "operation-run-transitions"
-											: name.startsWith("submitEditor") ||
-													name === "undoEditorEdit" ||
-													name === "deleteSelectedEditorLine"
-												? "editor-transitions"
-												: "tool-target-transitions",
+											: actionControlDelegatedCallbacks.has(name)
+												? "action-control-transitions"
+												: name.startsWith("submitEditor") ||
+														name === "undoEditorEdit" ||
+														name === "deleteSelectedEditorLine"
+													? "editor-transitions"
+													: "tool-target-transitions",
 				reason: delegated.reason,
 			};
 		}
@@ -825,11 +860,11 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 			return {
 				name,
 				owner:
-					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts + src/tui/remotesPanel.ts + src/tui/processPanel.ts + src/tui/operationRunPanel.ts",
+					"src/tui/App.tsx + src/tui/actionControlTransitions.ts + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts + src/tui/remotesPanel.ts + src/tui/processPanel.ts + src/tui/operationRunPanel.ts",
 				classification: "inline-decision",
-				slice: "operation-run-transitions",
+				slice: "action-control-transitions",
 				reason:
-					"Process and Operations panel decisions are delegated, but unrelated dispatcher decisions remain inline in App",
+					"Action confirmation and endpoint control availability now delegate to tested owners, but unrelated dispatcher decisions remain inline in App",
 			};
 		}
 		return reason

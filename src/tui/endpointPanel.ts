@@ -22,6 +22,7 @@ import {
 	type ControlExecutionPolicy,
 	createControlExecutionPlan,
 	defaultControlExecutionPolicy,
+	formatControlExecutionAuditMessage,
 	formatControlExecutionRows,
 } from "../core/controlExecution";
 import type { FileOpenOrigin } from "../core/fileOpen";
@@ -201,6 +202,47 @@ export type PortProcessControlFileEvidenceIssue = {
 	pid: string;
 	reason: string;
 };
+
+export type PortProcessControlNotice = {
+	level: "warn" | "fail";
+	message: string;
+};
+
+export type PortProcessControlSubmissionTransition =
+	| {
+			kind: "blocked";
+			closeCommandLine: true;
+			processControlPreview: false;
+			notices: PortProcessControlNotice[];
+	  }
+	| {
+			kind: "confirmation";
+			closeCommandLine: true;
+			processControlPreview: false;
+			confirmation: PortProcessControlConfirmation;
+			executionPlan: ControlExecutionPlan;
+			notices: PortProcessControlNotice[];
+	  };
+
+export type PortProcessControlPaletteTransition =
+	| {
+			kind: "blocked";
+			screen: "ports";
+			focusArea: "workspaces";
+			copyPreview: false;
+			processControlPreview: false;
+			notice: PortProcessControlNotice;
+	  }
+	| {
+			kind: "preview";
+			screen: "ports";
+			focusArea: "workspaces";
+			copyPreview: false;
+			processControlPreview: true;
+			preview: PortProcessControlPreview;
+			commandLinePrompt: "port-process-control";
+			notice: PortProcessControlNotice;
+	  };
 
 export function nextEndpointDetailView(
 	view: EndpointDetailView,
@@ -593,12 +635,50 @@ export function getEndpointWorkspaceHintKeys(
 
 export function formatEndpointWorkspaceHintRow(
 	kind: EndpointHandoffKind,
+	options: {
+		rows?: readonly (ActiveConnection | ListeningPort)[];
+		filter?: string;
+		sort?: ConnectionSort | PortSort;
+		selectedIndex?: number;
+	} = {},
 ): string {
 	const lead = kind === "connections" ? "active endpoints" : "listening ports";
+	const visibleRows =
+		kind === "connections"
+			? sortConnections(
+					filterConnections(
+						[...(options.rows ?? [])] as ActiveConnection[],
+						options.filter,
+					),
+					options.sort as ConnectionSort | undefined,
+				)
+			: sortListeningPorts(
+					filterListeningPorts(
+						[...(options.rows ?? [])] as ListeningPort[],
+						options.filter,
+					),
+					options.sort as PortSort | undefined,
+				);
+	const selected = resolveEndpointSelectedRow(
+		visibleRows as readonly (ActiveConnection | ListeningPort)[],
+		options.selectedIndex ?? 0,
+	);
+	const hasProcessTarget = Boolean(createProcessRequest(selected?.pid));
 	const hints = ENDPOINT_WORKSPACE_HINT_ENTRIES.filter(
 		(entry) =>
-			entry.hint !== false && (!entry.kinds || entry.kinds.includes(kind)),
-	).map((entry) => (entry.label ? `${entry.key} ${entry.label}` : entry.key));
+			entry.hint !== false &&
+			(!entry.kinds || entry.kinds.includes(kind)) &&
+			(!["inspect-process", "inspect-policy", "control"].includes(
+				entry.intent,
+			) ||
+				hasProcessTarget),
+	).map((entry) => {
+		const label =
+			entry.intent === "inspect-process"
+				? "Processes / picos process"
+				: entry.label;
+		return label ? `${entry.key} ${label}` : entry.key;
+	});
 	return [lead, ...hints].join(" · ");
 }
 
@@ -734,6 +814,92 @@ export function createSelectedPortProcessControlPreview(
 		return undefined;
 	}
 	return createPortProcessControlPreview(port, kind);
+}
+
+export function preparePortProcessControlSubmission(input: {
+	ports: ListeningPort[];
+	selectedIndex: number;
+	input: string;
+	commandPreview: ActionPreviewCommand | undefined;
+	policy: ControlExecutionPolicy;
+}): PortProcessControlSubmissionTransition {
+	const preview = createSelectedPortProcessControlPreview(
+		input.ports,
+		input.selectedIndex,
+	);
+	if (!preview) {
+		return {
+			kind: "blocked",
+			closeCommandLine: true,
+			processControlPreview: false,
+			notices: [
+				{ level: "warn", message: "port process control missing target" },
+			],
+		};
+	}
+	const confirmation = submitPortProcessControlConfirmation(
+		preview,
+		input.input,
+	);
+	const executionPlan = createPortProcessControlExecutionPlan(
+		preview,
+		confirmation,
+		input.commandPreview,
+		input.policy,
+	);
+	return {
+		kind: "confirmation",
+		closeCommandLine: true,
+		processControlPreview: false,
+		confirmation,
+		executionPlan,
+		notices: [
+			{
+				level: confirmation.confirmed ? "warn" : "fail",
+				message: formatPortProcessControlConfirmationAuditMessage(confirmation),
+			},
+			{
+				level: "warn",
+				message: formatControlExecutionAuditMessage(executionPlan),
+			},
+		],
+	};
+}
+
+export function preparePortProcessControlPalettePreview(input: {
+	ports: ListeningPort[];
+	selectedIndex: number;
+}): PortProcessControlPaletteTransition {
+	const preview = createSelectedPortProcessControlPreview(
+		input.ports,
+		input.selectedIndex,
+	);
+	if (!preview) {
+		return {
+			kind: "blocked",
+			screen: "ports",
+			focusArea: "workspaces",
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "warn",
+				message: "palette process control preview unavailable",
+			},
+		};
+	}
+	return {
+		kind: "preview",
+		screen: "ports",
+		focusArea: "workspaces",
+		copyPreview: false,
+		processControlPreview: true,
+		preview,
+		commandLinePrompt: "port-process-control",
+		notice: {
+			level: "warn",
+			message: `ports process control confirm ${preview.confirmationPhrase} via palette`,
+		},
+	};
 }
 
 function createPortProcessControlPreview(
