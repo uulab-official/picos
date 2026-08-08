@@ -2,7 +2,7 @@ import { defaultConfig } from "../config/schema";
 import type { FileOpenOrigin } from "../core/fileOpen";
 import type { PicosConfig } from "../core/types";
 import type { FocusArea, Screen } from "./navigation";
-import { getNextIndex } from "./navigation";
+import { clampIndex, getNextIndex } from "./navigation";
 
 export type ConfigWorkspaceItemKey =
 	| "auditArchiveRetentionLimit"
@@ -58,6 +58,77 @@ export type ConfigWorkspaceResetConfirmation = {
 	message: string;
 	preview: ConfigWorkspaceResetPreview;
 };
+
+export type ConfigWorkspaceNotice = {
+	level: "info" | "ok" | "warn";
+	message: string;
+};
+
+export type ConfigWorkspaceAdjustmentTransition =
+	| {
+			kind: "write";
+			key: ConfigWorkspaceItemKey;
+			value: ConfigWorkspaceValue;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| { kind: "notice"; notice: ConfigWorkspaceNotice };
+
+export type ConfigWorkspaceResetSubmissionTransition =
+	| {
+			kind: "write";
+			values: ConfigWorkspaceResetValues;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| { kind: "notice"; notice: ConfigWorkspaceNotice };
+
+export type ConfigWorkspaceFocusTransition =
+	| {
+			kind: "focus";
+			screen: "config";
+			focusArea: "workspaces";
+			selectedIndex: number;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| { kind: "notice"; notice: ConfigWorkspaceNotice };
+
+export type ConfigManagedShelfFocusTransition =
+	| { kind: "no-op" }
+	| {
+			kind: "prompt";
+			prompt:
+				| "route-filter"
+				| "endpoint-filter:connections"
+				| "endpoint-filter:ports"
+				| "log-search";
+			notice: ConfigWorkspaceNotice;
+	  }
+	| {
+			kind: "action";
+			plan: ConfigManagedShelfFocusActionPlan;
+	  };
+
+export type ConfigManagedShelfLandingDismissTransition =
+	| { kind: "clear"; notice: ConfigWorkspaceNotice }
+	| { kind: "no-op" };
+
+export type ConfigSessionSyncIntent = Pick<
+	PicosConfig,
+	| "auditArchiveRetentionLimit"
+	| "toolTargetPresetLimit"
+	| "language"
+	| "refreshInterval"
+	| "defaultPingHost"
+	| "enableExperimentalControls"
+	| "editorSaveMode"
+	| "showPublicIp"
+	| "controlExecutionMode"
+	| "allowAdminDryRun"
+	| "statusResultJumpClassFilter"
+	| "interfaceEvidenceSearchPresets"
+	| "operationPresets"
+	| "toolTargetPresets"
+	| "remoteProfiles"
+>;
 
 type ConfigWorkspaceResetKey =
 	| "auditArchiveRetentionLimit"
@@ -435,6 +506,107 @@ export function submitConfigWorkspaceResetConfirmation(
 	};
 }
 
+export function createConfigSessionSyncIntent(
+	config: PicosConfig,
+): ConfigSessionSyncIntent {
+	return {
+		auditArchiveRetentionLimit: config.auditArchiveRetentionLimit,
+		toolTargetPresetLimit: config.toolTargetPresetLimit,
+		language: config.language,
+		refreshInterval: config.refreshInterval,
+		defaultPingHost: config.defaultPingHost,
+		enableExperimentalControls: config.enableExperimentalControls,
+		editorSaveMode: config.editorSaveMode,
+		showPublicIp: config.showPublicIp,
+		controlExecutionMode: config.controlExecutionMode,
+		allowAdminDryRun: config.allowAdminDryRun,
+		statusResultJumpClassFilter: config.statusResultJumpClassFilter,
+		interfaceEvidenceSearchPresets: config.interfaceEvidenceSearchPresets,
+		operationPresets: config.operationPresets,
+		toolTargetPresets: config.toolTargetPresets,
+		remoteProfiles: config.remoteProfiles,
+	};
+}
+
+export function prepareConfigWorkspaceAdjustment(input: {
+	items: ConfigWorkspaceItem[];
+	selectedIndex: number;
+	direction: "increase" | "decrease";
+}): ConfigWorkspaceAdjustmentTransition {
+	const item = getConfigWorkspaceItem(input.items, input.selectedIndex);
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no config item selected" },
+		};
+	}
+
+	const value = adjustConfigWorkspaceItem(item, input.direction);
+	if (value === item.value) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: `${item.key} already at ${item.value}`,
+			},
+		};
+	}
+
+	return {
+		kind: "write",
+		key: item.key,
+		value,
+		notice: { level: "ok", message: `config ${item.key}=${value}` },
+	};
+}
+
+export function prepareConfigWorkspaceTextSubmission(input: {
+	items: ConfigWorkspaceItem[];
+	selectedIndex: number;
+	value: string;
+}): ConfigWorkspaceAdjustmentTransition {
+	const item = getConfigWorkspaceItem(input.items, input.selectedIndex);
+	if (item?.key !== "defaultPingHost") {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no editable config item selected" },
+		};
+	}
+
+	const value = input.value.trim();
+	if (!value) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "defaultPingHost cannot be empty" },
+		};
+	}
+
+	return {
+		kind: "write",
+		key: item.key,
+		value,
+		notice: { level: "ok", message: `config ${item.key}=${value}` },
+	};
+}
+
+export function prepareConfigWorkspaceResetSubmission(
+	preview: ConfigWorkspaceResetPreview,
+	confirmation: string,
+): ConfigWorkspaceResetSubmissionTransition {
+	const result = submitConfigWorkspaceResetConfirmation(preview, confirmation);
+	if (!result.confirmed) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: result.message },
+		};
+	}
+	return {
+		kind: "write",
+		values: result.preview.values,
+		notice: { level: "ok", message: result.message },
+	};
+}
+
 export function moveConfigWorkspaceSelection(
 	current: number,
 	total: number,
@@ -447,7 +619,7 @@ export function getConfigWorkspaceItem(
 	items: ConfigWorkspaceItem[],
 	selectedIndex: number,
 ): ConfigWorkspaceItem | undefined {
-	return items[Math.min(Math.max(selectedIndex, 0), items.length - 1)];
+	return items[clampIndex(selectedIndex, items.length)];
 }
 
 export function getConfigWorkspaceItemIndex(
@@ -462,6 +634,34 @@ export function getConfigWorkspaceActionFocusKey(
 	actionId: string,
 ): ConfigWorkspaceItemKey | undefined {
 	return configWorkspaceActionFocusKeys[actionId];
+}
+
+export function createConfigWorkspaceActionFocusTransition(
+	actionId: string,
+	items: ConfigWorkspaceItem[],
+): ConfigWorkspaceFocusTransition | undefined {
+	const key = getConfigWorkspaceActionFocusKey(actionId);
+	if (!key) {
+		return undefined;
+	}
+	const index = getConfigWorkspaceItemIndex(items, key);
+	if (index === undefined) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: `config row ${key} unavailable` },
+		};
+	}
+	const item = getConfigWorkspaceItem(items, index);
+	return {
+		kind: "focus",
+		screen: "config",
+		focusArea: "workspaces",
+		selectedIndex: clampIndex(index, items.length),
+		notice: {
+			level: "info",
+			message: `config focus ${key} current=${String(item?.value ?? "-")}`,
+		},
+	};
 }
 
 export function getConfigWorkspaceSectionJumpIndex(
@@ -718,6 +918,71 @@ export function createConfigManagedShelfFocusActionPlan(
 	};
 }
 
+export function createConfigManagedShelfJumpTransition(
+	target: ConfigManagedShelfTarget,
+): Pick<
+	ConfigManagedShelfFocusPreset,
+	"target" | "focusArea" | "cursor" | "index" | "detailView"
+> & { screen: Screen } {
+	const focus = getConfigManagedShelfFocusPreset(target);
+	return {
+		target: focus.target,
+		screen: focus.workspace,
+		focusArea: focus.focusArea,
+		cursor: focus.cursor,
+		index: focus.index,
+		...(focus.detailView ? { detailView: focus.detailView } : {}),
+	};
+}
+
+export function prepareConfigManagedShelfFocusAction(input: {
+	target: ConfigManagedShelfTarget | undefined;
+	screen: Screen;
+	itemCount: number;
+}): ConfigManagedShelfFocusTransition {
+	if (!input.target) {
+		return { kind: "no-op" };
+	}
+	const handoff = getConfigManagedShelfHandoff(input.target);
+	if (handoff.workspace !== input.screen) {
+		return { kind: "no-op" };
+	}
+	if (input.itemCount <= 0) {
+		const prompt = getConfigManagedShelfEmptyFocusPrompt(input.target);
+		if (prompt) {
+			return {
+				kind: "prompt",
+				prompt: prompt.prompt,
+				notice: { level: "warn", message: prompt.message },
+			};
+		}
+	}
+	return {
+		kind: "action",
+		plan: createConfigManagedShelfFocusActionPlan(input.target),
+	};
+}
+
+export function prepareConfigManagedShelfLandingDismissal(input: {
+	target: ConfigManagedShelfTarget | undefined;
+	screen: Screen;
+}): ConfigManagedShelfLandingDismissTransition {
+	if (!input.target) {
+		return { kind: "no-op" };
+	}
+	const handoff = getConfigManagedShelfHandoff(input.target);
+	if (handoff.workspace !== input.screen) {
+		return { kind: "no-op" };
+	}
+	return {
+		kind: "clear",
+		notice: {
+			level: "info",
+			message: `config shelf landing cleared ${handoff.label}`,
+		},
+	};
+}
+
 export function formatConfigRecoveryPaletteRows(
 	target: ConfigManagedShelfTarget,
 ): string[] {
@@ -926,6 +1191,45 @@ function getConfigManagedShelfFocusCursor(
 		return "logProfiles";
 	}
 	return "remoteProfiles";
+}
+
+function getConfigManagedShelfEmptyFocusPrompt(
+	target: ConfigManagedShelfTarget,
+):
+	| {
+			prompt:
+				| "route-filter"
+				| "endpoint-filter:connections"
+				| "endpoint-filter:ports"
+				| "log-search";
+			message: string;
+	  }
+	| undefined {
+	if (target === "routes") {
+		return {
+			prompt: "route-filter",
+			message: "config shelf action route filter prompt",
+		};
+	}
+	if (target === "connections") {
+		return {
+			prompt: "endpoint-filter:connections",
+			message: "config shelf action connections filter prompt",
+		};
+	}
+	if (target === "ports") {
+		return {
+			prompt: "endpoint-filter:ports",
+			message: "config shelf action ports filter prompt",
+		};
+	}
+	if (target === "logs") {
+		return {
+			prompt: "log-search",
+			message: "config shelf action logs search prompt",
+		};
+	}
+	return undefined;
 }
 
 function formatConfigManagedShelfFocusHint(

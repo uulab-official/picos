@@ -22,7 +22,7 @@ import {
 	getConfigRecoveryActionFocusTarget,
 } from "./configPanel";
 import type { PortProcessControlPreview } from "./endpointPanel";
-import { getNextIndex } from "./navigation";
+import { clampIndex, getNextIndex } from "./navigation";
 import type {
 	StatusActivityCopyIntentTimelineSearch,
 	StatusActivityRemoteKnownHostsEvidenceHandoffSelection,
@@ -41,6 +41,41 @@ export type CommandPaletteState = {
 	selectedIndex: number;
 	query: string;
 };
+
+export type CommandPaletteInput = {
+	actions: PicosAction[];
+	state: CommandPaletteState;
+	input: string;
+	escape?: boolean;
+	return?: boolean;
+	backspace?: boolean;
+	delete?: boolean;
+	upArrow?: boolean;
+	downArrow?: boolean;
+};
+
+export type CommandPaletteCommand =
+	| { kind: "run-action"; action: PicosAction }
+	| { kind: "port-process-preview" }
+	| { kind: "interface-proposal"; action: "enable" | "disable" };
+
+export type CommandPaletteInputDecision =
+	| {
+			kind: "navigation";
+			navigation: "next" | "previous" | "backspace" | "query";
+			state: CommandPaletteState;
+	  }
+	| {
+			kind: "dismiss";
+			state: CommandPaletteState;
+			notice: { level: "info"; message: "command palette closed" };
+	  }
+	| {
+			kind: "command";
+			state: CommandPaletteState;
+			command: CommandPaletteCommand;
+	  }
+	| { kind: "no-op"; state: CommandPaletteState };
 
 export function openCommandPalette(): CommandPaletteState {
 	return {
@@ -142,7 +177,79 @@ export function getPaletteAction(
 		return undefined;
 	}
 
-	return getFilteredPaletteActions(actions, state)[state.selectedIndex];
+	const filtered = getFilteredPaletteActions(actions, state);
+	return filtered[clampIndex(state.selectedIndex, filtered.length)];
+}
+
+export function prepareCommandPaletteInput(
+	input: CommandPaletteInput,
+): CommandPaletteInputDecision {
+	if (!input.state.active) {
+		return { kind: "no-op", state: input.state };
+	}
+	if (input.escape || input.input === "q") {
+		return {
+			kind: "dismiss",
+			state: closeCommandPalette(input.state),
+			notice: { level: "info", message: "command palette closed" },
+		};
+	}
+	if (input.return) {
+		const action = getPaletteAction(input.actions, input.state);
+		if (!action) {
+			return {
+				kind: "dismiss",
+				state: closeCommandPalette(input.state),
+				notice: { level: "info", message: "command palette closed" },
+			};
+		}
+		return {
+			kind: "command",
+			state: closeCommandPalette(input.state),
+			command: getCommandPaletteCommand(action),
+		};
+	}
+
+	const filtered = getFilteredPaletteActions(input.actions, input.state);
+	if (input.downArrow || input.input === "j") {
+		return {
+			kind: "navigation",
+			navigation: "next",
+			state: moveCommandPalette(input.state, filtered.length, "next"),
+		};
+	}
+	if (input.upArrow || input.input === "k") {
+		return {
+			kind: "navigation",
+			navigation: "previous",
+			state: moveCommandPalette(input.state, filtered.length, "previous"),
+		};
+	}
+	if (input.backspace || input.delete) {
+		return {
+			kind: "navigation",
+			navigation: "backspace",
+			state: backspaceCommandPaletteQuery(input.state),
+		};
+	}
+	return {
+		kind: "navigation",
+		navigation: "query",
+		state: appendCommandPaletteQuery(input.state, input.input),
+	};
+}
+
+function getCommandPaletteCommand(action: PicosAction): CommandPaletteCommand {
+	if (action.id === "process.terminate") {
+		return { kind: "port-process-preview" };
+	}
+	if (action.id === "interface.proposal.disable") {
+		return { kind: "interface-proposal", action: "disable" };
+	}
+	if (action.id === "interface.proposal.enable") {
+		return { kind: "interface-proposal", action: "enable" };
+	}
+	return { kind: "run-action", action };
 }
 
 export type CommandPalettePreviewContext = {

@@ -5,6 +5,7 @@ import {
 	applyConfigPolicyPreset,
 	createConfigManagedShelfFileOpenOrigin,
 	createConfigManagedShelfFocusActionPlan,
+	createConfigManagedShelfJumpTransition,
 	createConfigRecoveryDirectPromptPlan,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
@@ -26,6 +27,9 @@ import {
 	getNextConfigManagedShelfTarget,
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
+	prepareConfigManagedShelfFocusAction,
+	prepareConfigWorkspaceAdjustment,
+	prepareConfigWorkspaceResetSubmission,
 	submitConfigWorkspaceResetConfirmation,
 	withConfigManagedShelfFocusRows,
 } from "../src/tui/configPanel";
@@ -651,6 +655,128 @@ describe("config TUI panel", () => {
 			confirmed: true,
 			message: "config reset confirmed core controls (10 values)",
 			preview,
+		});
+	});
+
+	test("returns a notice instead of a config write when no workspace item is selected", () => {
+		const transition = prepareConfigWorkspaceAdjustment({
+			items: [],
+			selectedIndex: 0,
+			direction: "increase",
+		});
+
+		expect(transition).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no config item selected" },
+		});
+	});
+
+	test("returns a rejected reset transition for a mismatched confirmation", () => {
+		const preview = createConfigWorkspaceResetPreview({
+			auditArchiveRetentionLimit: 7,
+			toolTargetPresetLimit: 4,
+			language: "ko",
+			refreshInterval: 10000,
+			defaultPingHost: "example.com",
+			controlExecutionMode: "dry-run",
+			allowAdminDryRun: true,
+			enableExperimentalControls: true,
+			editorSaveMode: "local-write",
+			statusResultJumpClassFilter: "tools",
+		});
+		const transition = prepareConfigWorkspaceResetSubmission(preview, "reset");
+
+		expect(transition).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "config reset rejected core controls",
+			},
+		});
+	});
+
+	test("creates every managed-shelf landing and focus intent", () => {
+		expect(
+			[
+				"network",
+				"routes",
+				"connections",
+				"ports",
+				"tools",
+				"logs",
+				"remotes",
+			].map((target) =>
+				createConfigManagedShelfJumpTransition(target as never),
+			),
+		).toEqual([
+			{
+				target: "network",
+				screen: "network",
+				focusArea: "workspaces",
+				cursor: "interfaceList",
+				index: 0,
+			},
+			{
+				target: "routes",
+				screen: "routes",
+				focusArea: "workspaces",
+				cursor: "routeFilters",
+				index: 0,
+				detailView: "table",
+			},
+			{
+				target: "connections",
+				screen: "connections",
+				focusArea: "workspaces",
+				cursor: "connectionFilters",
+				index: 0,
+			},
+			{
+				target: "ports",
+				screen: "ports",
+				focusArea: "workspaces",
+				cursor: "portFilters",
+				index: 0,
+			},
+			{
+				target: "tools",
+				screen: "tools",
+				focusArea: "workspaces",
+				cursor: "toolTargetPresets",
+				index: 0,
+				detailView: "summary",
+			},
+			{
+				target: "logs",
+				screen: "logs",
+				focusArea: "workspaces",
+				cursor: "logProfiles",
+				index: 0,
+			},
+			{
+				target: "remotes",
+				screen: "remotes",
+				focusArea: "remotes",
+				cursor: "remoteProfiles",
+				index: 0,
+			},
+		]);
+	});
+
+	test("opens the empty managed route shelf at its recovery prompt", () => {
+		const transition = prepareConfigManagedShelfFocusAction({
+			target: "routes",
+			screen: "routes",
+			itemCount: 0,
+		});
+
+		expect(transition).toEqual({
+			kind: "prompt",
+			prompt: "route-filter",
+			notice: {
+				level: "warn",
+				message: "config shelf action route filter prompt",
+			},
 		});
 	});
 });

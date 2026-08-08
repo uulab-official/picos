@@ -54,6 +54,7 @@
 - [x] 상태: 완료 — TypeScript AST callback audit가 `App.tsx`의 `useCallback` 154개와 `useInput` dispatcher 1개를 inventory/manifest로 검증하며, strict audit는 남은 inline decision을 실패로 보고함
 - [x] 상태: 완료 — Editor append/insert/replace/delete/undo와 cursor 이동을 `editorBuffer.ts` 순수 전이로 분리하고, cursor repair·no-op·notice를 단위 테스트로 검증 완료
 - [x] 상태: 완료 — 파일 작업 dialog launch·provider guard·active input·destination·confirmation·command-line 전이를 `fileOperationDialog.ts`에서 소유하고 빈 selection/parent/SFTP read-only 회귀 테스트를 보강
+- [x] 상태: 완료 — Config session/edit/reset, managed shelf landing·focus·jump, cleanup-history reopen 및 Palette input을 순수 전이로 분리하고 Config I/O의 공유 status count begin/end를 `finally`에서 정확히 쌍으로 유지
 - [x] 상태: 완료 — 사용되지 않는 `src/tui/screens/*` legacy placeholder 6개 제거; 실제 workspace 경로는 `App.tsx`에 있으며 `src/tui` 순수 모듈이 상태 전이를 담당
 - [x] 상태: 완료 — `src/core/roadmap.ts`, README, CHANGELOG, LOCAL_AUTOMATION의 구현 상태 동기화
 - [x] 상태: 완료 — `package.json`과 `src/core/version.ts`는 `0.2.0`으로 동기화되고 release check가 통과함. ROADMAP의 v0.4.340~346은 공개 버전을 자동 변경하지 않는 개발 slice이며, npm 미게시·원격 태그 없음 상태에서 실제 공개 버전 선택은 maintainer release 절차로 유지

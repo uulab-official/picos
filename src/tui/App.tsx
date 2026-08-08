@@ -279,7 +279,7 @@ import {
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
 import { VERSION } from "../core/version";
-import { createTranslator, isSupportedLanguage } from "../i18n/catalog";
+import { createTranslator } from "../i18n/catalog";
 import { currentPlatform } from "../utils/platform";
 import {
 	appendCleanupHandoffHistory,
@@ -294,9 +294,7 @@ import {
 	createCleanupHandoffHistory,
 	createCleanupHandoffHistoryExportArchivePlan,
 	createCleanupHandoffHistoryExportPlan,
-	createCleanupHandoffReopenPlan,
 	createCleanupJumpAudit,
-	createCleanupJumpAuditFromHistory,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
@@ -341,14 +339,15 @@ import {
 	resolveCommandStatus,
 } from "./commandStatus";
 import {
-	adjustConfigWorkspaceItem,
 	applyConfigPolicyPreset,
 	type ConfigManagedShelfTarget,
 	type ConfigWorkspaceItem,
 	type ConfigWorkspaceResetPreview,
 	createConfigManagedShelfFileOpenOrigin,
-	createConfigManagedShelfFocusActionPlan,
+	createConfigManagedShelfJumpTransition,
 	createConfigRecoveryDirectPromptPlan,
+	createConfigSessionSyncIntent,
+	createConfigWorkspaceActionFocusTransition,
 	createConfigWorkspaceItems,
 	createConfigWorkspaceResetPreview,
 	formatConfigManagedShelfCleanupBreadcrumbRows,
@@ -359,18 +358,19 @@ import {
 	formatConfigWorkspaceDetailRows,
 	formatConfigWorkspaceRows,
 	getConfigManagedShelfActionFocusTarget,
-	getConfigManagedShelfFocusPreset,
 	getConfigManagedShelfHandoff,
 	getConfigRecoveryActionFocusTarget,
-	getConfigWorkspaceActionFocusKey,
 	getConfigWorkspaceEditPrompt,
 	getConfigWorkspaceItem,
-	getConfigWorkspaceItemIndex,
 	getConfigWorkspaceSectionJumpIndex,
 	getNextConfigManagedShelfTarget,
 	getNextConfigPolicyPreset,
 	moveConfigWorkspaceSelection,
-	submitConfigWorkspaceResetConfirmation,
+	prepareConfigManagedShelfFocusAction,
+	prepareConfigManagedShelfLandingDismissal,
+	prepareConfigWorkspaceAdjustment,
+	prepareConfigWorkspaceResetSubmission,
+	prepareConfigWorkspaceTextSubmission,
 	withConfigManagedShelfFocusRows,
 } from "./configPanel";
 import {
@@ -494,15 +494,11 @@ import {
 	startOperationRun,
 } from "./operationRunPanel";
 import {
-	appendCommandPaletteQuery,
-	backspaceCommandPaletteQuery,
 	type CommandPaletteState,
-	closeCommandPalette,
 	formatCommandPaletteActionPreviewRows,
 	getFilteredPaletteActions,
-	getPaletteAction,
-	moveCommandPalette,
 	openCommandPalette,
+	prepareCommandPaletteInput,
 } from "./palette";
 import {
 	formatProcessWorkspaceRows,
@@ -648,6 +644,7 @@ import {
 	nextStatusActivityResultHistoryFilter,
 	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
+	prepareCleanupHandoffHistoryReopen,
 	type StatusActivityCopyIntentEvidenceFocusPlan,
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
@@ -1574,129 +1571,89 @@ export function App(): React.ReactElement {
 	);
 
 	const syncConfigSessionState = useCallback((config: PicosConfig) => {
-		setAuditArchiveRetentionLimit(config.auditArchiveRetentionLimit);
-		setToolTargetPresetLimit(config.toolTargetPresetLimit);
-		setLanguage(config.language);
-		setRefreshInterval(config.refreshInterval);
-		setDefaultPingHost(config.defaultPingHost);
-		setEnableExperimentalControls(config.enableExperimentalControls);
-		setEditorSaveMode(config.editorSaveMode);
-		setShowPublicIp(config.showPublicIp);
-		setControlExecutionPolicy(getControlExecutionPolicyFromConfig(config));
+		const intent = createConfigSessionSyncIntent(config);
+		setAuditArchiveRetentionLimit(intent.auditArchiveRetentionLimit);
+		setToolTargetPresetLimit(intent.toolTargetPresetLimit);
+		setLanguage(intent.language);
+		setRefreshInterval(intent.refreshInterval);
+		setDefaultPingHost(intent.defaultPingHost);
+		setEnableExperimentalControls(intent.enableExperimentalControls);
+		setEditorSaveMode(intent.editorSaveMode);
+		setShowPublicIp(intent.showPublicIp);
+		setControlExecutionPolicy(getControlExecutionPolicyFromConfig(intent));
 		setStatusActivityResultTimelineJumpFilter(
-			config.statusResultJumpClassFilter,
+			intent.statusResultJumpClassFilter,
 		);
-		setInterfaceEvidenceSearchPresets(config.interfaceEvidenceSearchPresets);
-		setOperationPresets(config.operationPresets);
-		setCustomToolTargetPresets(config.toolTargetPresets as ToolTargetPreset[]);
-		setRemoteProfiles(config.remoteProfiles);
+		setInterfaceEvidenceSearchPresets(intent.interfaceEvidenceSearchPresets);
+		setOperationPresets(intent.operationPresets);
+		setCustomToolTargetPresets(intent.toolTargetPresets as ToolTargetPreset[]);
+		setRemoteProfiles(intent.remoteProfiles);
 	}, []);
 
 	const saveConfigWorkspaceAdjustment = useCallback(
-		(direction: "increase" | "decrease") => {
-			const item = getConfigWorkspaceItem(
-				configWorkspaceItems,
-				selectedConfigIndex,
-			);
-			if (!item) {
-				log("warn", "no config item selected");
+		async (direction: "increase" | "decrease") => {
+			const transition = prepareConfigWorkspaceAdjustment({
+				items: configWorkspaceItems,
+				selectedIndex: selectedConfigIndex,
+				direction,
+			});
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-			const nextValue = adjustConfigWorkspaceItem(item, direction);
-			if (nextValue === item.value) {
-				log("warn", `${item.key} already at ${item.value}`);
-				return;
-			}
-			if (item.key === "auditArchiveRetentionLimit") {
-				setAuditArchiveRetentionLimit(Number(nextValue));
-			}
-			if (item.key === "toolTargetPresetLimit") {
-				setToolTargetPresetLimit(Number(nextValue));
-				setCustomToolTargetPresets((current) =>
-					current.slice(0, Number(nextValue)),
+
+			beginCommand();
+			try {
+				const config = await setConfigValue(
+					transition.key,
+					String(transition.value),
 				);
-			}
-			const nextText = String(nextValue);
-			if (item.key === "language" && isSupportedLanguage(nextText)) {
-				setLanguage(nextText);
-			}
-			if (item.key === "refreshInterval") {
-				setRefreshInterval(Number(nextValue));
-			}
-			if (item.key === "statusResultJumpClassFilter") {
-				const nextText = String(nextValue);
-				if (
-					nextText === "all" ||
-					nextText === "process" ||
-					nextText === "timeline" ||
-					nextText === "tools" ||
-					nextText === "source"
-				) {
-					setStatusActivityResultTimelineJumpFilter(nextText);
-				}
-			}
-			if (item.key === "controlExecutionMode") {
-				setControlExecutionPolicy((current) => ({
-					...current,
-					mode: String(nextValue) === "dry-run" ? "dry-run" : "disabled",
-				}));
-			}
-			if (item.key === "allowAdminDryRun") {
-				setControlExecutionPolicy((current) => ({
-					...current,
-					allowAdminDryRun: Boolean(nextValue),
-				}));
-			}
-			if (item.key === "editorSaveMode") {
-				setEditorSaveMode(
-					String(nextValue) === "local-write" ? "local-write" : "disabled",
+				const persisted =
+					transition.key === "toolTargetPresetLimit"
+						? await setConfigToolTargetPresets(config.toolTargetPresets)
+						: config;
+				syncConfigSessionState(persisted);
+				log(transition.notice.level, transition.notice.message);
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `config save failed ${caught.message}`
+						: `config save failed ${String(caught)}`,
 				);
+			} finally {
+				endCommand();
 			}
-			void (async () => {
-				try {
-					const config = await setConfigValue(item.key, String(nextValue));
-					if (item.key === "toolTargetPresetLimit") {
-						const trimmed = await setConfigToolTargetPresets(
-							config.toolTargetPresets,
-						);
-						syncConfigSessionState(trimmed);
-					} else {
-						syncConfigSessionState(config);
-					}
-					log("ok", `config ${item.key}=${nextValue}`);
-				} catch (caught) {
-					log(
-						"fail",
-						caught instanceof Error
-							? `config save failed ${caught.message}`
-							: `config save failed ${String(caught)}`,
-					);
-				}
-			})();
 		},
-		[configWorkspaceItems, log, selectedConfigIndex, syncConfigSessionState],
+		[
+			beginCommand,
+			configWorkspaceItems,
+			endCommand,
+			log,
+			selectedConfigIndex,
+			syncConfigSessionState,
+		],
 	);
 
 	const submitConfigTextCommand = useCallback(async () => {
-		const item = getConfigWorkspaceItem(
-			configWorkspaceItems,
-			selectedConfigIndex,
-		);
-		if (item?.key !== "defaultPingHost") {
-			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "no editable config item selected");
-			return;
-		}
-		const nextValue = commandLine.value.trim();
+		const transition = prepareConfigWorkspaceTextSubmission({
+			items: configWorkspaceItems,
+			selectedIndex: selectedConfigIndex,
+			value: commandLine.value,
+		});
 		setCommandLine((current) => closeCommandLine(current));
-		if (!nextValue) {
-			log("warn", "defaultPingHost cannot be empty");
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
+		beginCommand();
 		try {
-			const config = await setConfigValue(item.key, nextValue);
+			const config = await setConfigValue(
+				transition.key,
+				String(transition.value),
+			);
 			syncConfigSessionState(config);
-			log("ok", `config ${item.key}=${config.defaultPingHost}`);
+			log(transition.notice.level, transition.notice.message);
 		} catch (caught) {
 			log(
 				"fail",
@@ -1704,16 +1661,21 @@ export function App(): React.ReactElement {
 					? `config save failed ${caught.message}`
 					: `config save failed ${String(caught)}`,
 			);
+		} finally {
+			endCommand();
 		}
 	}, [
+		beginCommand,
 		commandLine.value,
 		configWorkspaceItems,
+		endCommand,
 		log,
 		selectedConfigIndex,
 		syncConfigSessionState,
 	]);
 
 	const applyNextConfigPolicyPreset = useCallback(async () => {
+		beginCommand();
 		try {
 			const config = await readConfig();
 			const presetId = getNextConfigPolicyPreset({
@@ -1739,8 +1701,10 @@ export function App(): React.ReactElement {
 					? `config policy failed ${caught.message}`
 					: `config policy failed ${String(caught)}`,
 			);
+		} finally {
+			endCommand();
 		}
-	}, [log, syncConfigSessionState]);
+	}, [beginCommand, endCommand, log, syncConfigSessionState]);
 
 	const openConfigResetConfirmation = useCallback(() => {
 		const preview = createConfigWorkspaceResetPreview({
@@ -1790,30 +1754,31 @@ export function App(): React.ReactElement {
 				editorSaveMode,
 				statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
 			});
-		const confirmation = submitConfigWorkspaceResetConfirmation(
+		const transition = prepareConfigWorkspaceResetSubmission(
 			preview,
 			commandLine.value,
 		);
 		setCommandLine((current) => closeCommandLine(current));
-		if (!confirmation.confirmed) {
+		if (transition.kind === "notice") {
 			setConfigResetPreview(undefined);
-			log("warn", confirmation.message);
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
+		beginCommand();
 		try {
 			const config = await readConfig();
 			const nextConfig: PicosConfig = {
 				...config,
-				...preview.values,
+				...transition.values,
 				toolTargetPresets: config.toolTargetPresets.slice(
 					0,
-					preview.values.toolTargetPresetLimit,
+					transition.values.toolTargetPresetLimit,
 				),
 			};
 			await writeConfig(nextConfig);
 			syncConfigSessionState(nextConfig);
 			setConfigResetPreview(undefined);
-			log("ok", confirmation.message);
+			log(transition.notice.level, transition.notice.message);
 		} catch (caught) {
 			log(
 				"fail",
@@ -1821,14 +1786,18 @@ export function App(): React.ReactElement {
 					? `config reset failed ${caught.message}`
 					: `config reset failed ${String(caught)}`,
 			);
+		} finally {
+			endCommand();
 		}
 	}, [
 		auditArchiveRetentionLimit,
+		beginCommand,
 		commandLine.value,
 		configResetPreview,
 		controlExecutionPolicy.allowAdminDryRun,
 		controlExecutionPolicy.mode,
 		defaultPingHost,
+		endCommand,
 		enableExperimentalControls,
 		editorSaveMode,
 		language,
@@ -7151,24 +7120,21 @@ export function App(): React.ReactElement {
 					);
 				}
 
-				const configFocusKey = getConfigWorkspaceActionFocusKey(action.id);
-				if (configFocusKey) {
-					const index = getConfigWorkspaceItemIndex(
+				const configFocusTransition =
+					createConfigWorkspaceActionFocusTransition(
+						action.id,
 						configWorkspaceItems,
-						configFocusKey,
 					);
-					setScreen("config");
-					setFocusArea("workspaces");
-					if (index === undefined) {
-						log("warn", `config row ${configFocusKey} unavailable`);
-					} else {
-						const item = getConfigWorkspaceItem(configWorkspaceItems, index);
-						setSelectedConfigIndex(index);
-						log(
-							"info",
-							`config focus ${configFocusKey} current=${String(item?.value ?? "-")}`,
-						);
+				if (configFocusTransition) {
+					if (configFocusTransition.kind === "focus") {
+						setScreen(configFocusTransition.screen);
+						setFocusArea(configFocusTransition.focusArea);
+						setSelectedConfigIndex(configFocusTransition.selectedIndex);
 					}
+					log(
+						configFocusTransition.notice.level,
+						configFocusTransition.notice.message,
+					);
 				}
 
 				const configRecoveryFocusTarget = getConfigRecoveryActionFocusTarget(
@@ -7178,24 +7144,24 @@ export function App(): React.ReactElement {
 					configRecoveryFocusTarget ??
 					getConfigManagedShelfActionFocusTarget(action.id);
 				if (configShelfFocusTarget) {
-					const focus = getConfigManagedShelfFocusPreset(
+					const transition = createConfigManagedShelfJumpTransition(
 						configShelfFocusTarget,
 					);
-					setScreen(focus.workspace);
-					setFocusArea(focus.focusArea);
-					setConfigShelfLandingTarget(focus.target);
-					if (focus.cursor === "routeFilters") {
+					setScreen(transition.screen);
+					setFocusArea(transition.focusArea);
+					setConfigShelfLandingTarget(transition.target);
+					if (transition.cursor === "routeFilters") {
 						setRouteDetailView("table");
 						setRouteCopyPreview(false);
-					} else if (focus.cursor === "connectionFilters") {
-						setSelectedConnectionIndex(focus.index);
-					} else if (focus.cursor === "portFilters") {
-						setSelectedPortIndex(focus.index);
-					} else if (focus.cursor === "toolTargetPresets") {
-						setSelectedToolTargetPresetIndex(focus.index);
+					} else if (transition.cursor === "connectionFilters") {
+						setSelectedConnectionIndex(transition.index);
+					} else if (transition.cursor === "portFilters") {
+						setSelectedPortIndex(transition.index);
+					} else if (transition.cursor === "toolTargetPresets") {
+						setSelectedToolTargetPresetIndex(transition.index);
 						setToolHistoryDetailView("summary");
-					} else if (focus.cursor === "remoteProfiles") {
-						setSelectedRemoteIndex(focus.index);
+					} else if (transition.cursor === "remoteProfiles") {
+						setSelectedRemoteIndex(transition.index);
 					}
 					if (configRecoveryFocusTarget) {
 						const promptPlan = createConfigRecoveryDirectPromptPlan(
@@ -7220,8 +7186,8 @@ export function App(): React.ReactElement {
 					log(
 						"info",
 						configRecoveryFocusTarget
-							? `config recovery palette ${focus.target} -> ${focus.label} focus=${focus.cursor}`
-							: `config shelf palette ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
+							? `config recovery palette ${transition.target} -> ${getConfigManagedShelfHandoff(configShelfFocusTarget).label} focus=${transition.cursor}`
+							: `config shelf palette ${transition.target} -> ${getConfigManagedShelfHandoff(configShelfFocusTarget).label} focus=${transition.cursor}`,
 					);
 				}
 
@@ -7833,29 +7799,47 @@ export function App(): React.ReactElement {
 	}, [cleanupJumpAudit, log, screen]);
 
 	const dismissConfigShelfLanding = useCallback(() => {
-		if (!configShelfLandingTarget) {
-			return false;
-		}
-		const handoff = getConfigManagedShelfHandoff(configShelfLandingTarget);
-		if (handoff.workspace !== screen) {
+		const transition = prepareConfigManagedShelfLandingDismissal({
+			target: configShelfLandingTarget,
+			screen,
+		});
+		if (transition.kind === "no-op") {
 			return false;
 		}
 		setConfigShelfLandingTarget(undefined);
-		log("info", `config shelf landing cleared ${handoff.label}`);
+		log(transition.notice.level, transition.notice.message);
 		return true;
 	}, [configShelfLandingTarget, log, screen]);
 
 	const runConfigShelfFocusAction = useCallback(() => {
-		if (!configShelfLandingTarget) {
+		const itemCount =
+			configShelfLandingTarget === "routes"
+				? routeFilterPresets.length
+				: configShelfLandingTarget === "connections"
+					? connectionFilterPresets.length
+					: configShelfLandingTarget === "ports"
+						? portFilterPresets.length
+						: configShelfLandingTarget === "tools"
+							? toolTargetPresets.length
+							: configShelfLandingTarget === "logs"
+								? logProfiles.length
+								: configShelfLandingTarget === "remotes"
+									? remoteProfiles.length
+									: 1;
+		const transition = prepareConfigManagedShelfFocusAction({
+			target: configShelfLandingTarget,
+			screen,
+			itemCount,
+		});
+		if (transition.kind === "no-op") {
 			return false;
 		}
-		const handoff = getConfigManagedShelfHandoff(configShelfLandingTarget);
-		if (handoff.workspace !== screen) {
-			return false;
+		if (transition.kind === "prompt") {
+			setCommandLine(openCommandLine(transition.prompt));
+			log(transition.notice.level, transition.notice.message);
+			return true;
 		}
-		const plan = createConfigManagedShelfFocusActionPlan(
-			configShelfLandingTarget,
-		);
+		const { plan } = transition;
 		if (plan.action === "openInterfacesWorkspace") {
 			setScreen("interfaces");
 			setSelectedInterfaceIndex(0);
@@ -7995,50 +7979,46 @@ export function App(): React.ReactElement {
 
 	const jumpToConfigManagedShelf = useCallback(
 		(target: ConfigManagedShelfTarget) => {
-			const focus = getConfigManagedShelfFocusPreset(target);
-			setScreen(focus.workspace);
-			setFocusArea(focus.focusArea);
-			setConfigShelfLandingTarget(focus.target);
-			if (focus.cursor === "interfaceList") {
-				setSelectedInterfaceIndex(focus.index);
-			} else if (focus.cursor === "routeFilters") {
+			const transition = createConfigManagedShelfJumpTransition(target);
+			setScreen(transition.screen);
+			setFocusArea(transition.focusArea);
+			setConfigShelfLandingTarget(transition.target);
+			if (transition.cursor === "interfaceList") {
+				setSelectedInterfaceIndex(transition.index);
+			} else if (transition.cursor === "routeFilters") {
 				setRouteDetailView("table");
 				setRouteCopyPreview(false);
-			} else if (focus.cursor === "connectionFilters") {
-				setSelectedConnectionIndex(focus.index);
-			} else if (focus.cursor === "portFilters") {
-				setSelectedPortIndex(focus.index);
-			} else if (focus.cursor === "toolTargetPresets") {
-				setSelectedToolTargetPresetIndex(focus.index);
+			} else if (transition.cursor === "connectionFilters") {
+				setSelectedConnectionIndex(transition.index);
+			} else if (transition.cursor === "portFilters") {
+				setSelectedPortIndex(transition.index);
+			} else if (transition.cursor === "toolTargetPresets") {
+				setSelectedToolTargetPresetIndex(transition.index);
 				setToolHistoryDetailView("summary");
-			} else if (focus.cursor === "remoteProfiles") {
-				setSelectedRemoteIndex(focus.index);
+			} else if (transition.cursor === "remoteProfiles") {
+				setSelectedRemoteIndex(transition.index);
 			}
 			log(
 				"info",
-				`config shelf jump ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
+				`config shelf jump ${transition.target} -> ${getConfigManagedShelfHandoff(target).label} focus=${transition.cursor}`,
 			);
 		},
 		[log],
 	);
 
 	const reopenCleanupHandoffHistory = useCallback(() => {
-		const history = getSelectedCleanupHandoffHistory(
-			cleanupHandoffHistory,
-			selectedCleanupHandoffHistoryIndex,
-		);
-		const plan = createCleanupHandoffReopenPlan(history);
-		if (!history || !plan) {
-			log("warn", "no cleanup handoff history selected");
+		const transition = prepareCleanupHandoffHistoryReopen({
+			history: cleanupHandoffHistory,
+			selectedIndex: selectedCleanupHandoffHistoryIndex,
+		});
+		if (transition.kind === "notice") {
+			log(transition.notice.level, transition.notice.message);
 			return false;
 		}
 
-		setCleanupJumpAudit(createCleanupJumpAuditFromHistory(history));
-		setScreen(plan.screen);
-		log(
-			"info",
-			`cleanup history reopened ${plan.label}: press enter to open prompt or esc to clear`,
-		);
+		setCleanupJumpAudit(transition.audit);
+		setScreen(transition.screen);
+		log(transition.notice.level, transition.notice.message);
 		return true;
 	}, [cleanupHandoffHistory, log, selectedCleanupHandoffHistoryIndex]);
 
@@ -8825,58 +8805,39 @@ export function App(): React.ReactElement {
 		}
 
 		if (palette.active) {
-			const filteredActions = getFilteredPaletteActions(actions, palette);
-			if (key.escape || input === "q") {
-				setPalette((current) => closeCommandPalette(current));
-				log("info", "command palette closed");
+			const decision = prepareCommandPaletteInput({
+				actions,
+				state: palette,
+				input,
+				escape: key.escape,
+				return: key.return,
+				backspace: key.backspace,
+				delete: key.delete,
+				upArrow: key.upArrow,
+				downArrow: key.downArrow,
+			});
+			if (decision.kind === "no-op") {
 				return;
 			}
-
-			if (key.return) {
-				const action = getPaletteAction(actions, palette);
-				setPalette((current) => closeCommandPalette(current));
-				if (action) {
-					if (action.id === "process.terminate") {
-						openPalettePortProcessControlPreview();
-						return;
-					}
-					if (
-						action.id === "interface.proposal.disable" ||
-						action.id === "interface.proposal.enable"
-					) {
-						setScreen("interfaces");
-						setFocusArea("workspaces");
-						setInterfaceSourceCopyPreview(false);
-						openInterfaceStateProposal(
-							action.id === "interface.proposal.enable" ? "enable" : "disable",
-						);
-						return;
-					}
-					runAction(action);
+			setPalette(decision.state);
+			if (decision.kind === "dismiss") {
+				log(decision.notice.level, decision.notice.message);
+				return;
+			}
+			if (decision.kind === "command") {
+				if (decision.command.kind === "port-process-preview") {
+					openPalettePortProcessControlPreview();
+					return;
 				}
-				return;
+				if (decision.command.kind === "interface-proposal") {
+					setScreen("interfaces");
+					setFocusArea("workspaces");
+					setInterfaceSourceCopyPreview(false);
+					openInterfaceStateProposal(decision.command.action);
+					return;
+				}
+				runAction(decision.command.action);
 			}
-
-			if (key.downArrow || input === "j") {
-				setPalette((current) =>
-					moveCommandPalette(current, filteredActions.length, "next"),
-				);
-				return;
-			}
-
-			if (key.upArrow || input === "k") {
-				setPalette((current) =>
-					moveCommandPalette(current, filteredActions.length, "previous"),
-				);
-				return;
-			}
-
-			if (key.backspace || key.delete) {
-				setPalette((current) => backspaceCommandPaletteQuery(current));
-				return;
-			}
-
-			setPalette((current) => appendCommandPaletteQuery(current, input));
 			return;
 		}
 
@@ -11217,7 +11178,7 @@ export function App(): React.ReactElement {
 			focusArea === "workspaces" &&
 			(input === "+" || input === "=")
 		) {
-			saveConfigWorkspaceAdjustment("increase");
+			void saveConfigWorkspaceAdjustment("increase");
 			return;
 		}
 
@@ -11226,7 +11187,7 @@ export function App(): React.ReactElement {
 			focusArea === "workspaces" &&
 			(input === "-" || input === "_")
 		) {
-			saveConfigWorkspaceAdjustment("decrease");
+			void saveConfigWorkspaceAdjustment("decrease");
 			return;
 		}
 

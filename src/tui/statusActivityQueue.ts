@@ -15,11 +15,18 @@ import type {
 } from "../core/remotes";
 import type { SftpRemoteProfile, SupportedPlatform } from "../core/types";
 import {
+	type CleanupHandoffHistory,
+	type CleanupJumpAudit,
+	createCleanupHandoffReopenPlan,
+	createCleanupJumpAuditFromHistory,
+} from "./cleanupIndex";
+import {
 	type ClipboardPreview,
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
 import type { PortProcessControlPreview } from "./endpointPanel";
+import { clampIndex } from "./navigation";
 import type {
 	TimelineFilter,
 	TimelineFocusEvidenceTrailPlan,
@@ -38,6 +45,21 @@ export type StatusActivityQueueInput = {
 	configRows?: string[];
 	evidenceRows?: string[];
 };
+
+export type CleanupHandoffHistoryReopenTransition =
+	| {
+			kind: "reopen";
+			audit: CleanupJumpAudit;
+			screen: CleanupHandoffHistory["screen"];
+			notice: { level: "info"; message: string };
+	  }
+	| {
+			kind: "notice";
+			notice: {
+				level: "warn";
+				message: "no cleanup handoff history selected";
+			};
+	  };
 
 export type StatusActivitySource =
 	| "release"
@@ -257,6 +279,33 @@ export function formatStatusActivityDetailRows(
 		}),
 		STATUS_ACTIVITY_DETAIL_CONTROLS,
 	];
+}
+
+export function prepareCleanupHandoffHistoryReopen(input: {
+	history: CleanupHandoffHistory[];
+	selectedIndex: number;
+}): CleanupHandoffHistoryReopenTransition {
+	const selected =
+		input.history[clampIndex(input.selectedIndex, input.history.length)];
+	const plan = createCleanupHandoffReopenPlan(selected);
+	if (!selected || !plan) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no cleanup handoff history selected",
+			},
+		};
+	}
+	return {
+		kind: "reopen",
+		audit: createCleanupJumpAuditFromHistory(selected),
+		screen: plan.screen,
+		notice: {
+			level: "info",
+			message: `cleanup history reopened ${plan.label}: press enter to open prompt or esc to clear`,
+		},
+	};
 }
 
 export function moveStatusActivitySource(

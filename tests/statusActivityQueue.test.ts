@@ -145,6 +145,7 @@ import {
 	nextStatusActivityResultHistoryFilter,
 	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
+	prepareCleanupHandoffHistoryReopen,
 	writeInterfaceConfirmationAuditExport,
 	writeRemoteKnownHostsSelectionHistoryAuditExport,
 	writeStatusActivityCopyIntentAuditExport,
@@ -5173,5 +5174,20 @@ describe("Status activity queue", () => {
 				},
 			]),
 		).toBeUndefined();
+	});
+
+	test("returns a notice when cleanup history has no selected handoff to reopen", () => {
+		const transition = prepareCleanupHandoffHistoryReopen({
+			history: [],
+			selectedIndex: 0,
+		});
+
+		expect(transition).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no cleanup handoff history selected",
+			},
+		});
 	});
 });

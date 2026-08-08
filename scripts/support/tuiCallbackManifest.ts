@@ -260,6 +260,46 @@ const delegatedCallbacks = {
 		owner: "src/tui/toolHistory.ts",
 		reason: "delegates selected-target save transition",
 	},
+	syncConfigSessionState: {
+		owner: "src/tui/configPanel.ts",
+		reason: "applies pure config-session synchronization intent",
+	},
+	saveConfigWorkspaceAdjustment: {
+		owner: "src/tui/configPanel.ts",
+		reason: "delegates selected config adjustment and operator notice",
+	},
+	submitConfigTextCommand: {
+		owner: "src/tui/configPanel.ts",
+		reason: "delegates editable config selection and validation intent",
+	},
+	applyNextConfigPolicyPreset: {
+		owner: "src/tui/configPanel.ts",
+		reason: "delegates policy preset selection and preview",
+	},
+	openConfigResetConfirmation: {
+		owner: "src/tui/configPanel.ts",
+		reason: "delegates reset preview and exact-confirmation contract",
+	},
+	submitConfigResetCommand: {
+		owner: "src/tui/configPanel.ts",
+		reason: "delegates reset confirmation and write intent",
+	},
+	dismissConfigShelfLanding: {
+		owner: "src/tui/configPanel.ts",
+		reason: "delegates managed-shelf landing dismissal guard and notice",
+	},
+	runConfigShelfFocusAction: {
+		owner: "src/tui/configPanel.ts",
+		reason: "delegates managed-shelf focus guard and empty-shelf recovery",
+	},
+	jumpToConfigManagedShelf: {
+		owner: "src/tui/configPanel.ts",
+		reason: "delegates managed-shelf landing and focus intent",
+	},
+	reopenCleanupHandoffHistory: {
+		owner: "src/tui/statusActivityQueue.ts",
+		reason: "delegates cleanup-history selection, reopen intent, and notice",
+	},
 } as const;
 
 const filesDelegatedCallbacks = new Set([
@@ -277,6 +317,20 @@ const filesDelegatedCallbacks = new Set([
 	"submitFileOperationConfirmCommand",
 ]);
 
+const configDelegatedCallbacks = new Set([
+	"syncConfigSessionState",
+	"saveConfigWorkspaceAdjustment",
+	"submitConfigTextCommand",
+	"applyNextConfigPolicyPreset",
+	"openConfigResetConfirmation",
+	"submitConfigResetCommand",
+	"dismissConfigShelfLanding",
+	"runConfigShelfFocusAction",
+	"jumpToConfigManagedShelf",
+]);
+
+const statusDelegatedCallbacks = new Set(["reopenCleanupHandoffHistory"]);
+
 export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 	(name) => {
 		const reason = wiringReasons[name as keyof typeof wiringReasons];
@@ -289,22 +343,27 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 				classification: "delegated",
 				slice: filesDelegatedCallbacks.has(name)
 					? "files-transitions"
-					: name.startsWith("submitEditor") ||
-							name === "undoEditorEdit" ||
-							name === "deleteSelectedEditorLine"
-						? "editor-transitions"
-						: "tool-target-transitions",
+					: configDelegatedCallbacks.has(name)
+						? "config-transitions"
+						: statusDelegatedCallbacks.has(name)
+							? "status-transitions"
+							: name.startsWith("submitEditor") ||
+									name === "undoEditorEdit" ||
+									name === "deleteSelectedEditorLine"
+								? "editor-transitions"
+								: "tool-target-transitions",
 				reason: delegated.reason,
 			};
 		}
 		if (name === "useInput") {
 			return {
 				name,
-				owner: "src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts",
+				owner:
+					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts",
 				classification: "inline-decision",
-				slice: "files-transitions",
+				slice: "config-palette-transitions",
 				reason:
-					"Files input and operation command lines delegate guards, cleanup, submit intent, selection, eligibility, and notices; unrelated workspace branches remain inline",
+					"Files, Config, Palette, and cleanup-history input delegate guards, selection, transitions, and notices; unrelated workspace branches remain inline",
 			};
 		}
 		return reason
