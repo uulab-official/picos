@@ -124,6 +124,99 @@ describe("timeline TUI panel formatting", () => {
 				message: "timeline preset missing matches 0",
 			},
 		});
+		expect(
+			prepareTimelineSearchTransition({
+				events: [],
+				filter: "all",
+				presets: [],
+				query: " ",
+			}),
+		).toEqual({
+			query: "",
+			presets: [],
+			selectedIndex: 0,
+			notice: { level: "warn", message: "timeline search cleared" },
+		});
+	});
+
+	test("resolves selected timeline commands after clamping", () => {
+		const base = {
+			filter: "all" as const,
+			query: "",
+			presets: [] as string[],
+			selectedIndex: 99,
+		};
+		for (const input of ["c", "e"] as const) {
+			expect(prepareTimelinePanelInput({ ...base, input, events: [] })).toEqual(
+				{
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message:
+							input === "c"
+								? "no timeline row to copy"
+								: "no timeline row to export",
+					},
+				},
+			);
+			expect(
+				prepareTimelinePanelInput({ ...base, input, events }),
+			).toMatchObject({
+				kind: "selected-command",
+				command: input === "c" ? "copy" : "export",
+				selectedIndex: events.length - 1,
+				event: events.at(-1),
+			});
+		}
+	});
+
+	test("resolves timeline evidence intents or returns the exact blocked notice", () => {
+		const focusEvent: ConsoleEvent = {
+			id: "12:00:08-info-status-evidence-focus",
+			level: "info",
+			time: "12:00:08",
+			message:
+				'status activity evidence focus kind=audit shortcut=w selected=1/1 label="focus.log" path="/tmp/focus.log"',
+		};
+		const auditExportIndex = {
+			baseDir: "/tmp",
+			items: [
+				{
+					fileName: "focus.log",
+					path: "/tmp/focus.log",
+					generatedAt: "2026-08-09T00:00:00.000Z",
+					scope: "selected" as const,
+					entryCount: 1,
+				},
+			],
+		};
+		const base = {
+			input: "E",
+			filter: "all" as const,
+			query: "",
+			presets: [] as string[],
+			selectedIndex: 99,
+			auditExportIndex,
+		};
+		expect(prepareTimelinePanelInput({ ...base, events: [] })).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no timeline focus evidence trail",
+			},
+		});
+		expect(
+			prepareTimelinePanelInput({ ...base, events: [focusEvent] }),
+		).toMatchObject({
+			kind: "evidence",
+			selectedIndex: 0,
+			event: focusEvent,
+			plan: {
+				kind: "audit",
+				selectedIndex: 0,
+				path: "/tmp/focus.log",
+			},
+		});
 	});
 
 	test("keeps invalid timeline section shortcuts and empty cleanup as no-op decisions", () => {
@@ -951,18 +1044,28 @@ describe("timeline TUI panel formatting", () => {
 		expect(
 			submitTimelineSearchCleanupConfirmation(presets, "clear timelines"),
 		).toEqual({
+			action: "notice",
 			confirmed: false,
 			message: "timeline search cleanup rejected",
 			presets,
 			removed: 0,
+			notice: {
+				level: "warn",
+				message: "timeline search cleanup rejected",
+			},
 		});
 		expect(
 			submitTimelineSearchCleanupConfirmation(presets, " clear timeline "),
 		).toEqual({
+			action: "apply",
 			confirmed: true,
 			message: "timeline search cleanup removed 2 presets",
 			presets: [],
 			removed: 2,
+			notice: {
+				level: "info",
+				message: "timeline search cleanup removed 2 presets",
+			},
 		});
 		expect(createTimelineSearchCleanupPreview([])).toBeUndefined();
 	});

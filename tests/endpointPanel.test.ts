@@ -92,6 +92,112 @@ describe("endpoint TUI panel formatting", () => {
 			processControlPreview: false,
 			notice: { level: "info", message: "connections filter cleared" },
 		});
+		expect(
+			prepareEndpointFilterTransition({
+				kind: "ports",
+				rows: [],
+				presets: [],
+				query: " ",
+			}),
+		).toEqual({
+			filter: "",
+			presets: [],
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: { level: "warn", message: "ports filter cleared" },
+		});
+	});
+
+	test("normalizes endpoint arrow movement without losing j and k", () => {
+		const connectionRows = [
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52000",
+			},
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "4000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "53000",
+			},
+		];
+		const portRows = [
+			{
+				protocol: "tcp",
+				localAddress: "*",
+				localPort: "3000",
+				pid: "123",
+				command: "node",
+				user: "alice",
+			},
+			{
+				protocol: "tcp",
+				localAddress: "*",
+				localPort: "4000",
+				pid: "456",
+				command: "bun",
+				user: "alice",
+			},
+		];
+		const expectedNext = {
+			kind: "selection" as const,
+			selectedIndex: 1,
+			copyPreview: false as const,
+			processControlPreview: false as const,
+		};
+		const expectedPrevious = {
+			kind: "selection" as const,
+			selectedIndex: 0,
+			copyPreview: false as const,
+			processControlPreview: false as const,
+		};
+		for (const state of [
+			{ kind: "connections" as const, rows: connectionRows },
+			{ kind: "ports" as const, rows: portRows },
+		]) {
+			const base = {
+				...state,
+				view: "detail" as const,
+				filter: "",
+				presets: [] as string[],
+				visibleRows: state.rows,
+			};
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "",
+					downArrow: true,
+					selectedIndex: 0,
+				}),
+			).toEqual(expectedNext);
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "j",
+					selectedIndex: 0,
+				}),
+			).toEqual(expectedNext);
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "",
+					upArrow: true,
+					selectedIndex: 1,
+				}),
+			).toEqual(expectedPrevious);
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "k",
+					selectedIndex: 1,
+				}),
+			).toEqual(expectedPrevious);
+		}
 	});
 
 	test("derives scoped endpoint intents from shared bindings", () => {
@@ -114,23 +220,26 @@ describe("endpoint TUI panel formatting", () => {
 				message: "no port process policy to inspect",
 			},
 		});
+		const selectedPort = {
+			protocol: "tcp",
+			localAddress: "*",
+			localPort: "3000",
+			pid: "123",
+			command: "node",
+			user: "alice",
+		};
 		expect(
 			prepareEndpointPanelInput({
 				...base,
 				kind: "ports",
 				input: "I",
-				rows: [
-					{
-						protocol: "tcp",
-						localAddress: "*",
-						localPort: "3000",
-						pid: "123",
-						command: "node",
-						user: "alice",
-					},
-				],
+				rows: [selectedPort],
 			}),
-		).toEqual({ kind: "command", scope: "ports", command: "inspect-policy" });
+		).toEqual({
+			kind: "inspect-policy",
+			scope: "ports",
+			port: selectedPort,
+		});
 		expect(
 			prepareEndpointPanelInput({ ...base, kind: "ports", input: "4" }),
 		).toEqual({ kind: "no-op" });
@@ -139,6 +248,63 @@ describe("endpoint TUI panel formatting", () => {
 		).toEqual({
 			kind: "notice",
 			notice: { level: "warn", message: "no ports filter presets to clean" },
+		});
+	});
+
+	test("blocks port policy and control intents without a usable numeric pid", () => {
+		const port = (pid: string) => ({
+			protocol: "tcp",
+			localAddress: "*",
+			localPort: "3000",
+			pid,
+			command: "node",
+			user: "alice",
+		});
+		const base = {
+			kind: "ports" as const,
+			view: "process" as const,
+			filter: "",
+			presets: [] as string[],
+			selectedIndex: 0,
+		};
+		expect(
+			prepareEndpointPanelInput({ ...base, input: "K", rows: [] }),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no port process selected" },
+		});
+		for (const pid of ["-", "abc", "12x"]) {
+			expect(
+				prepareEndpointPanelInput({ ...base, input: "I", rows: [port(pid)] }),
+			).toEqual({
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: "no port process policy to inspect",
+				},
+			});
+			expect(
+				prepareEndpointPanelInput({ ...base, input: "K", rows: [port(pid)] }),
+			).toEqual({
+				kind: "notice",
+				notice: { level: "warn", message: "no port process selected" },
+			});
+		}
+		const selected = port("123");
+		expect(
+			prepareEndpointPanelInput({ ...base, input: "I", rows: [selected] }),
+		).toEqual({ kind: "inspect-policy", scope: "ports", port: selected });
+		expect(
+			prepareEndpointPanelInput({ ...base, input: "K", rows: [selected] }),
+		).toMatchObject({
+			kind: "control",
+			scope: "ports",
+			preview: { port: selected, confirmationPhrase: "kill pid 123" },
+			copyPreview: false,
+			notice: {
+				level: "warn",
+				message: "ports process control confirm kill pid 123",
+			},
 		});
 	});
 	test("formats connections with raw source output", () => {
@@ -287,26 +453,44 @@ describe("endpoint TUI panel formatting", () => {
 				"connections",
 				presets,
 				"clear connection",
+				2,
 			),
 		).toEqual({
+			action: "notice",
 			confirmed: false,
 			kind: "connections",
 			message: "connections filter cleanup rejected",
 			presets,
 			removed: 0,
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "warn",
+				message: "connections filter cleanup rejected",
+			},
 		});
 		expect(
 			submitEndpointFilterCleanupConfirmation(
 				"connections",
 				presets,
 				" clear connections ",
+				2,
 			),
 		).toEqual({
+			action: "apply",
 			confirmed: true,
 			kind: "connections",
 			message: "connections filter cleanup removed 2 presets",
 			presets: [],
 			removed: 2,
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "info",
+				message: "connections filter cleanup removed 2 presets",
+			},
 		});
 		expect(
 			createEndpointFilterCleanupPreview("ports", ["8080"])?.confirmationPhrase,

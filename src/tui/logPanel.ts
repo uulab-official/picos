@@ -33,8 +33,10 @@ export type LogCleanupPreview = {
 };
 
 export type LogCleanupConfirmation = {
+	action: "apply" | "notice";
 	confirmed: boolean;
 	message: string;
+	notice: LogPanelNotice;
 	presets: string[];
 	profiles: LogProfile[];
 	removed: number;
@@ -98,7 +100,7 @@ export function prepareLogSearchTransition(input: {
 		query,
 		presets: query ? saveLogSearchPreset(input.presets, query) : input.presets,
 		notice: {
-			level: matches ? "info" : query ? "warn" : "info",
+			level: matches ? "info" : "warn",
 			message: query
 				? `logs search ${query} matches ${matches}`
 				: "logs search cleared",
@@ -306,9 +308,12 @@ export function submitLogCleanupConfirmation(
 ): LogCleanupConfirmation {
 	const preview = createLogCleanupPreview(presets, profiles);
 	if (!preview) {
+		const message = "logs cleanup unavailable";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "logs cleanup unavailable",
+			message,
+			notice: { level: "warn", message },
 			presets,
 			profiles,
 			removed: 0,
@@ -319,17 +324,23 @@ export function submitLogCleanupConfirmation(
 		confirmation,
 	);
 	if (!cleanupConfirmation.confirmed) {
+		const message = "logs cleanup rejected";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "logs cleanup rejected",
+			message,
+			notice: { level: "warn", message },
 			presets,
 			profiles,
 			removed: 0,
 		};
 	}
+	const message = `logs cleanup removed ${preview.count} presets`;
 	return {
+		action: "apply",
 		confirmed: true,
-		message: `logs cleanup removed ${preview.count} presets`,
+		message,
+		notice: { level: "info", message },
 		presets: [],
 		profiles: [],
 		removed: preview.count,

@@ -94,6 +94,69 @@ describe("route TUI panel formatting", () => {
 				message: "route filter utun matches 1",
 			},
 		});
+		expect(
+			prepareRouteFilterTransition({
+				routes: [],
+				presets: [],
+				query: " ",
+			}),
+		).toEqual({
+			filter: "",
+			presets: [],
+			copyPreview: false,
+			notice: { level: "warn", message: "route filter cleared" },
+		});
+	});
+
+	test("resolves route copy targets and exact no-target notices", () => {
+		const base = {
+			input: "c",
+			view: "table" as const,
+			filter: "utun",
+			presets: [] as string[],
+			routes: fixture.routes,
+		};
+		expect(prepareRoutePanelInput(base)).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no route table loaded" },
+		});
+		expect(
+			prepareRoutePanelInput({
+				...base,
+				result: fixture,
+				sort: { key: "interface", direction: "asc" },
+			}),
+		).toMatchObject({
+			kind: "copy",
+			preview: {
+				source: "route-table",
+				label: "route table",
+			},
+		});
+		expect(
+			prepareRoutePanelInput({
+				...base,
+				result: fixture,
+				view: "path",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no route clipboard target" },
+		});
+		expect(
+			prepareRoutePanelInput({
+				...base,
+				result: fixture,
+				view: "path",
+				path: pathFixture,
+			}),
+		).toMatchObject({
+			kind: "copy",
+			preview: {
+				source: "route-path",
+				label: "route path 8.8.8.8",
+			},
+		});
 	});
 
 	test("ignores invalid route section shortcuts and owns preset cleanup notices", () => {
@@ -256,18 +319,30 @@ describe("route TUI panel formatting", () => {
 		expect(
 			submitRouteFilterCleanupConfirmation(presets, "clear route"),
 		).toEqual({
+			action: "notice",
 			confirmed: false,
 			message: "route filter cleanup rejected",
 			presets,
 			removed: 0,
+			copyPreview: false,
+			notice: {
+				level: "warn",
+				message: "route filter cleanup rejected",
+			},
 		});
 		expect(
 			submitRouteFilterCleanupConfirmation(presets, " clear routes "),
 		).toEqual({
+			action: "apply",
 			confirmed: true,
 			message: "route filter cleanup removed 2 presets",
 			presets: [],
 			removed: 2,
+			copyPreview: false,
+			notice: {
+				level: "info",
+				message: "route filter cleanup removed 2 presets",
+			},
 		});
 		expect(createRouteFilterCleanupPreview([])).toBeUndefined();
 	});

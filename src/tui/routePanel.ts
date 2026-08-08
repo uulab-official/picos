@@ -46,8 +46,11 @@ export type RouteFilterCleanupPreview = {
 };
 
 export type RouteFilterCleanupConfirmation = {
+	action: "apply" | "notice";
 	confirmed: boolean;
+	copyPreview: false;
 	message: string;
+	notice: RoutePanelNotice;
 	presets: string[];
 	removed: number;
 };
@@ -92,6 +95,10 @@ export type RoutePanelInputDecision =
 			notice: RoutePanelNotice;
 	  }
 	| {
+			kind: "copy";
+			preview: ClipboardPreview;
+	  }
+	| {
 			kind: "command";
 			command:
 				| "destination"
@@ -116,7 +123,7 @@ export function prepareRouteFilterTransition(input: {
 		presets: input.presets,
 		copyPreview: false,
 		notice: {
-			level: matches ? "info" : filter ? "warn" : "info",
+			level: matches ? "info" : "warn",
 			message: filter
 				? `route filter ${filter} matches ${matches}`
 				: "route filter cleared",
@@ -130,6 +137,8 @@ export function prepareRoutePanelInput(input: {
 	filter: string;
 	presets: string[];
 	routes: RouteTableResult["routes"];
+	result?: RouteTableResult;
+	path?: RoutePathResult;
 	sort?: RouteSort;
 	home?: boolean;
 	end?: boolean;
@@ -240,7 +249,27 @@ export function prepareRoutePanelInput(input: {
 			},
 		};
 	}
-	const commands = { c: "copy", e: "export", o: "open" } as const;
+	if (input.input === "c") {
+		if (!input.result) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no route table loaded" },
+			};
+		}
+		const preview = getRouteClipboardPreview(input.result, {
+			filter: input.filter,
+			path: input.path,
+			sort: input.sort,
+			view: input.view,
+		});
+		return preview
+			? { kind: "copy", preview }
+			: {
+					kind: "notice",
+					notice: { level: "warn", message: "no route clipboard target" },
+				};
+	}
+	const commands = { e: "export", o: "open" } as const;
 	const command = commands[input.input as keyof typeof commands];
 	if (command) {
 		return { kind: "command", command };
@@ -341,9 +370,13 @@ export function submitRouteFilterCleanupConfirmation(
 ): RouteFilterCleanupConfirmation {
 	const preview = createRouteFilterCleanupPreview(presets);
 	if (!preview) {
+		const message = "route filter cleanup unavailable";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "route filter cleanup unavailable",
+			copyPreview: false,
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
@@ -353,16 +386,24 @@ export function submitRouteFilterCleanupConfirmation(
 		confirmation,
 	);
 	if (!cleanupConfirmation.confirmed) {
+		const message = "route filter cleanup rejected";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "route filter cleanup rejected",
+			copyPreview: false,
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
 	}
+	const message = `route filter cleanup removed ${preview.count} presets`;
 	return {
+		action: "apply",
 		confirmed: true,
-		message: `route filter cleanup removed ${preview.count} presets`,
+		copyPreview: false,
+		message,
+		notice: { level: "info", message },
 		presets: [],
 		removed: preview.count,
 	};

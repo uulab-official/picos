@@ -26,8 +26,10 @@ export type TimelineSearchCleanupPreview = {
 };
 
 export type TimelineSearchCleanupConfirmation = {
+	action: "apply" | "notice";
 	confirmed: boolean;
 	message: string;
+	notice: TimelinePanelNotice;
 	presets: string[];
 	removed: number;
 };
@@ -59,8 +61,27 @@ export type TimelinePanelInputDecision =
 	| { kind: "notice"; notice: TimelinePanelNotice }
 	| {
 			kind: "command";
-			command: "search" | "cleanup" | "copy" | "export" | "evidence";
+			command: "search" | "cleanup";
 			notice?: TimelinePanelNotice;
+	  }
+	| {
+			kind: "selected-command";
+			command: "copy";
+			event: ConsoleEvent;
+			preview: ClipboardPreview;
+			selectedIndex: number;
+	  }
+	| {
+			kind: "selected-command";
+			command: "export";
+			event: ConsoleEvent;
+			selectedIndex: number;
+	  }
+	| {
+			kind: "evidence";
+			event: ConsoleEvent;
+			plan: TimelineFocusEvidenceTrailPlan;
+			selectedIndex: number;
 	  }
 	| {
 			kind: "filter";
@@ -118,7 +139,7 @@ export function prepareTimelineSearchTransition(input: {
 			: input.presets,
 		selectedIndex: selectNewestTimelineResult(filtered.length),
 		notice: {
-			level: filtered.length ? "info" : query ? "warn" : "info",
+			level: filtered.length ? "info" : "warn",
 			message: query
 				? `timeline search ${query} matches ${filtered.length}`
 				: "timeline search cleared",
@@ -133,6 +154,7 @@ export function prepareTimelinePanelInput(input: {
 	query: string;
 	presets: string[];
 	selectedIndex: number;
+	auditExportIndex?: ConsoleAuditExportIndex;
 }): TimelinePanelInputDecision {
 	if (input.input === "t") {
 		const filter = nextTimelineFilter(input.filter);
@@ -243,13 +265,73 @@ export function prepareTimelinePanelInput(input: {
 			},
 		};
 	}
-	const commands = {
-		c: "copy",
-		e: "export",
-		E: "evidence",
-	} as const;
-	const command = commands[input.input as keyof typeof commands];
-	return command ? { kind: "command", command } : { kind: "no-op" };
+	if (["c", "e", "E"].includes(input.input)) {
+		const visible = filterTimelineEvents(
+			input.events,
+			input.query,
+			input.filter,
+		);
+		const selectedIndex = repairTimelineSelection(
+			input.selectedIndex,
+			visible.length,
+		);
+		const event = resolveSelectedTimelineEvent(visible, selectedIndex);
+		if (!event) {
+			const message =
+				input.input === "c"
+					? "no timeline row to copy"
+					: input.input === "e"
+						? "no timeline row to export"
+						: "no timeline focus evidence trail";
+			return { kind: "notice", notice: { level: "warn", message } };
+		}
+		if (input.input === "c") {
+			const preview = getSelectedTimelineClipboardPreview(input.events, {
+				filter: input.filter,
+				query: input.query,
+				selectedIndex,
+			});
+			return preview
+				? {
+						kind: "selected-command",
+						command: "copy",
+						event,
+						preview,
+						selectedIndex,
+					}
+				: {
+						kind: "notice",
+						notice: {
+							level: "warn",
+							message: "no timeline row to copy",
+						},
+					};
+		}
+		if (input.input === "e") {
+			return {
+				kind: "selected-command",
+				command: "export",
+				event,
+				selectedIndex,
+			};
+		}
+		const plan = input.auditExportIndex
+			? createTimelineFocusEvidenceTrailPlan(visible, {
+					auditExportIndex: input.auditExportIndex,
+					selectedIndex,
+				})
+			: undefined;
+		return plan
+			? { kind: "evidence", event, plan, selectedIndex }
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no timeline focus evidence trail",
+					},
+				};
+	}
+	return { kind: "no-op" };
 }
 
 const timelineFilters: TimelineFilter[] = [
@@ -576,9 +658,12 @@ export function submitTimelineSearchCleanupConfirmation(
 ): TimelineSearchCleanupConfirmation {
 	const preview = createTimelineSearchCleanupPreview(presets);
 	if (!preview) {
+		const message = "timeline search cleanup unavailable";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "timeline search cleanup unavailable",
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
@@ -588,16 +673,22 @@ export function submitTimelineSearchCleanupConfirmation(
 		confirmation,
 	);
 	if (!cleanupConfirmation.confirmed) {
+		const message = "timeline search cleanup rejected";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "timeline search cleanup rejected",
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
 	}
+	const message = `timeline search cleanup removed ${preview.count} presets`;
 	return {
+		action: "apply",
 		confirmed: true,
-		message: `timeline search cleanup removed ${preview.count} presets`,
+		message,
+		notice: { level: "info", message },
 		presets: [],
 		removed: preview.count,
 	};

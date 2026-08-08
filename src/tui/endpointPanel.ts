@@ -73,11 +73,16 @@ export type EndpointFilterCleanupPreview = {
 };
 
 export type EndpointFilterCleanupConfirmation = {
+	action: "apply" | "notice";
 	confirmed: boolean;
+	copyPreview: false;
 	kind: EndpointHandoffKind;
 	message: string;
+	notice: EndpointPanelNotice;
 	presets: string[];
+	processControlPreview: false;
 	removed: number;
+	selectedIndex: number;
 };
 
 export type EndpointPanelNotice = {
@@ -102,6 +107,18 @@ export type EndpointPanelInputDecision =
 				| "sort"
 				| "copy";
 			notice?: EndpointPanelNotice;
+	  }
+	| {
+			kind: "inspect-policy";
+			scope: "ports";
+			port: ListeningPort;
+	  }
+	| {
+			kind: "control";
+			scope: "ports";
+			preview: PortProcessControlPreview;
+			copyPreview: false;
+			notice: EndpointPanelNotice;
 	  }
 	| {
 			kind: "detail";
@@ -253,6 +270,10 @@ export function repairEndpointSelection(index: number, total: number): number {
 	return clampIndex(index, total);
 }
 
+export function selectFirstEndpointResult(total: number): number {
+	return repairEndpointSelection(0, total);
+}
+
 export function moveEndpointSelection(
 	index: number,
 	total: number,
@@ -301,11 +322,11 @@ export function prepareEndpointFilterTransition(
 		presets: filter
 			? saveEndpointFilterPreset(input.presets, filter)
 			: input.presets,
-		selectedIndex: 0,
+		selectedIndex: selectFirstEndpointResult(matches),
 		copyPreview: false,
 		processControlPreview: false,
 		notice: {
-			level: matches ? "info" : filter ? "warn" : "info",
+			level: matches ? "info" : "warn",
 			message: filter
 				? `${input.kind} filter ${filter} matches ${matches}`
 				: `${input.kind} filter cleared`,
@@ -325,16 +346,23 @@ export function prepareEndpointPanelInput(input: {
 	home?: boolean;
 	end?: boolean;
 	tab?: boolean;
+	upArrow?: boolean;
+	downArrow?: boolean;
 }): EndpointPanelInputDecision {
 	const visibleRows = input.visibleRows ?? input.rows;
+	const normalizedInput = input.downArrow
+		? "j"
+		: input.upArrow
+			? "k"
+			: input.input;
 	const entry = ENDPOINT_WORKSPACE_HINT_ENTRIES.find(
 		(candidate) =>
 			(!candidate.kinds || candidate.kinds.includes(input.kind)) &&
-			(candidate.key === input.input ||
-				(candidate.key === "enter" && input.input === "\r") ||
-				(candidate.key === "j/k" && ["j", "k"].includes(input.input)) ||
+			(candidate.key === normalizedInput ||
+				(candidate.key === "enter" && normalizedInput === "\r") ||
+				(candidate.key === "j/k" && ["j", "k"].includes(normalizedInput)) ||
 				(candidate.key === "tab/1-3" &&
-					(input.tab || ["1", "2", "3"].includes(input.input))) ||
+					(input.tab || ["1", "2", "3"].includes(normalizedInput))) ||
 				(candidate.key === "home/end" && (input.home || input.end))),
 	);
 	if (!entry) {
@@ -342,7 +370,7 @@ export function prepareEndpointPanelInput(input: {
 	}
 	if (entry.intent === "detail") {
 		const view =
-			getEndpointDetailViewShortcut(input.input, {
+			getEndpointDetailViewShortcut(normalizedInput, {
 				home: input.home,
 				end: input.end,
 			}) ?? nextEndpointDetailView(input.view);
@@ -360,7 +388,7 @@ export function prepareEndpointPanelInput(input: {
 			selectedIndex: moveEndpointSelection(
 				input.selectedIndex,
 				visibleRows.length,
-				input.input === "j" ? "next" : "previous",
+				normalizedInput === "j" ? "next" : "previous",
 			),
 			copyPreview: false,
 			processControlPreview: false,
@@ -370,7 +398,7 @@ export function prepareEndpointPanelInput(input: {
 		return {
 			kind: "filter",
 			filter: "",
-			selectedIndex: 0,
+			selectedIndex: selectFirstEndpointResult(input.rows.length),
 			copyPreview: false,
 			processControlPreview: false,
 			notice: {
@@ -441,7 +469,7 @@ export function prepareEndpointPanelInput(input: {
 		return {
 			kind: "filter",
 			filter,
-			selectedIndex: 0,
+			selectedIndex: selectFirstEndpointResult(matches),
 			copyPreview: false,
 			processControlPreview: false,
 			notice: {
@@ -465,9 +493,13 @@ export function prepareEndpointPanelInput(input: {
 		}
 		return { kind: "command", scope: input.kind, command: "copy" };
 	}
+	const selectedRow = resolveEndpointSelectedRow(
+		visibleRows,
+		input.selectedIndex,
+	);
 	if (
 		["inspect-process", "inspect-policy", "control"].includes(entry.intent) &&
-		!resolveEndpointSelectedRow(visibleRows, input.selectedIndex)
+		!selectedRow
 	) {
 		const message =
 			entry.intent === "inspect-process"
@@ -476,6 +508,35 @@ export function prepareEndpointPanelInput(input: {
 					? "no port process policy to inspect"
 					: "no port process selected";
 		return { kind: "notice", notice: { level: "warn", message } };
+	}
+	if (entry.intent === "inspect-policy" || entry.intent === "control") {
+		const port = selectedRow as ListeningPort;
+		if (!createProcessRequest(port.pid)) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message:
+						entry.intent === "inspect-policy"
+							? "no port process policy to inspect"
+							: "no port process selected",
+				},
+			};
+		}
+		if (entry.intent === "inspect-policy") {
+			return { kind: "inspect-policy", scope: "ports", port };
+		}
+		const preview = createPortProcessControlPreview(port);
+		return {
+			kind: "control",
+			scope: "ports",
+			preview,
+			copyPreview: false,
+			notice: {
+				level: "warn",
+				message: `ports process control confirm ${preview.confirmationPhrase}`,
+			},
+		};
 	}
 	return {
 		kind: "command",
@@ -571,15 +632,23 @@ export function submitEndpointFilterCleanupConfirmation(
 	kind: EndpointHandoffKind,
 	presets: string[],
 	confirmation: string,
+	rowCount = 0,
 ): EndpointFilterCleanupConfirmation {
+	const selectedIndex = selectFirstEndpointResult(rowCount);
 	const preview = createEndpointFilterCleanupPreview(kind, presets);
 	if (!preview) {
+		const message = `${kind} filter cleanup unavailable`;
 		return {
+			action: "notice",
 			confirmed: false,
+			copyPreview: false,
 			kind,
-			message: `${kind} filter cleanup unavailable`,
+			message,
+			notice: { level: "warn", message },
 			presets,
+			processControlPreview: false,
 			removed: 0,
+			selectedIndex,
 		};
 	}
 	const cleanupConfirmation = submitConfigCleanupConfirmation(
@@ -587,20 +656,32 @@ export function submitEndpointFilterCleanupConfirmation(
 		confirmation,
 	);
 	if (!cleanupConfirmation.confirmed) {
+		const message = `${kind} filter cleanup rejected`;
 		return {
+			action: "notice",
 			confirmed: false,
+			copyPreview: false,
 			kind,
-			message: `${kind} filter cleanup rejected`,
+			message,
+			notice: { level: "warn", message },
 			presets,
+			processControlPreview: false,
 			removed: 0,
+			selectedIndex,
 		};
 	}
+	const message = `${kind} filter cleanup removed ${preview.count} presets`;
 	return {
+		action: "apply",
 		confirmed: true,
+		copyPreview: false,
 		kind,
-		message: `${kind} filter cleanup removed ${preview.count} presets`,
+		message,
+		notice: { level: "info", message },
 		presets: [],
+		processControlPreview: false,
 		removed: preview.count,
+		selectedIndex,
 	};
 }
 
@@ -630,6 +711,13 @@ export function createSelectedPortProcessControlPreview(
 	if (!port || !createProcessRequest(port.pid)) {
 		return undefined;
 	}
+	return createPortProcessControlPreview(port, kind);
+}
+
+function createPortProcessControlPreview(
+	port: ListeningPort,
+	kind: PortProcessControlKind = "terminate",
+): PortProcessControlPreview {
 	const confirmationPhrase = `kill pid ${port.pid}`;
 	const target = `port=${port.localAddress}:${port.localPort} pid=${port.pid} process=${port.command} user=${port.user}`;
 	return {

@@ -511,7 +511,6 @@ import {
 	createRouteRawHandoffPlan,
 	formatRoutePathRows,
 	formatRouteWorkspaceRows,
-	getRouteClipboardPreview,
 	prepareRouteFilterTransition,
 	prepareRoutePanelInput,
 	type RouteDetailView,
@@ -672,13 +671,10 @@ import {
 	type StatusEvidenceKind,
 } from "./statusEvidence";
 import {
-	createTimelineFocusEvidenceTrailPlan,
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatSelectedTimelinePreviewRow,
 	formatTimelineWorkspaceRows,
-	getSelectedTimelineAuditExportPlan,
-	getSelectedTimelineClipboardPreview,
 	prepareTimelinePanelInput,
 	prepareTimelineSearchTransition,
 	repairTimelineSelection,
@@ -2802,12 +2798,12 @@ export function App(): React.ReactElement {
 			commandLine.value,
 		);
 		setCommandLine((current) => closeCommandLine(current));
-		if (!confirmation.confirmed) {
-			log("warn", confirmation.message);
+		setRouteCopyPreview(confirmation.copyPreview);
+		log(confirmation.notice.level, confirmation.notice.message);
+		if (confirmation.action === "notice") {
 			return;
 		}
 		setRouteFilterPresets(confirmation.presets);
-		setRouteCopyPreview(false);
 		void setConfigRouteFilterPresets(confirmation.presets).catch((caught) =>
 			log(
 				"fail",
@@ -2816,7 +2812,6 @@ export function App(): React.ReactElement {
 					: `route filter cleanup failed ${String(caught)}`,
 			),
 		);
-		log("info", confirmation.message);
 	}, [commandLine.value, log, routeFilterPresets]);
 
 	const submitEndpointFilterCleanupCommand = useCallback(() => {
@@ -2829,21 +2824,25 @@ export function App(): React.ReactElement {
 			kind,
 			presets,
 			commandLine.value,
+			kind === "connections" ? sortedConnections.length : sortedPorts.length,
 		);
 		setCommandLine((current) => closeCommandLine(current));
-		if (!confirmation.confirmed) {
-			log("warn", confirmation.message);
+		if (kind === "connections") {
+			setConnectionCopyPreview(confirmation.copyPreview);
+			setSelectedConnectionIndex(confirmation.selectedIndex);
+		} else {
+			setPortCopyPreview(confirmation.copyPreview);
+			setPortProcessControlPreview(confirmation.processControlPreview);
+			setSelectedPortIndex(confirmation.selectedIndex);
+		}
+		log(confirmation.notice.level, confirmation.notice.message);
+		if (confirmation.action === "notice") {
 			return;
 		}
 		if (kind === "connections") {
 			setConnectionFilterPresets(confirmation.presets);
-			setConnectionCopyPreview(false);
-			setSelectedConnectionIndex(0);
 		} else {
 			setPortFilterPresets(confirmation.presets);
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			setSelectedPortIndex(0);
 		}
 		void setConfigEndpointFilterPresets(kind, confirmation.presets).catch(
 			(caught) =>
@@ -2854,13 +2853,14 @@ export function App(): React.ReactElement {
 						: `${kind} filter cleanup failed ${String(caught)}`,
 				),
 		);
-		log("info", confirmation.message);
 	}, [
 		commandLine.prompt,
 		commandLine.value,
 		connectionFilterPresets,
 		log,
 		portFilterPresets,
+		sortedConnections.length,
+		sortedPorts.length,
 	]);
 
 	const submitPortProcessControlCommand = useCallback(() => {
@@ -2941,12 +2941,11 @@ export function App(): React.ReactElement {
 			commandLine.value,
 		);
 		setCommandLine((current) => closeCommandLine(current));
-		if (!confirmation.confirmed) {
-			log("warn", confirmation.message);
+		log(confirmation.notice.level, confirmation.notice.message);
+		if (confirmation.action === "notice") {
 			return;
 		}
 		setTimelineSearchPresets(confirmation.presets);
-		log("info", confirmation.message);
 	}, [commandLine.value, log, timelineSearchPresets]);
 
 	const submitLogSearchCommand = useCallback(() => {
@@ -2979,8 +2978,8 @@ export function App(): React.ReactElement {
 			commandLine.value,
 		);
 		setCommandLine((current) => closeCommandLine(current));
-		if (!confirmation.confirmed) {
-			log("warn", confirmation.message);
+		log(confirmation.notice.level, confirmation.notice.message);
+		if (confirmation.action === "notice") {
 			return;
 		}
 		setLogSearchPresets(confirmation.presets);
@@ -2998,7 +2997,6 @@ export function App(): React.ReactElement {
 				);
 			}
 		})();
-		log("info", confirmation.message);
 	}, [commandLine.value, log, logProfiles, logSearchPresets]);
 
 	const submitControlConfirmationCommand = useCallback(() => {
@@ -9129,6 +9127,8 @@ export function App(): React.ReactElement {
 				filter: routeFilter,
 				presets: routeFilterPresets,
 				routes: routeTable?.routes ?? [],
+				result: routeTable,
+				path: routePath,
 				sort: routeSort,
 				end: key.end,
 				home: key.home,
@@ -9154,6 +9154,9 @@ export function App(): React.ReactElement {
 			} else if (decision.kind === "sort") {
 				setRouteSort(decision.sort);
 				setRouteCopyPreview(decision.copyPreview);
+			} else if (decision.kind === "copy") {
+				setRouteCopyPreview(true);
+				openClipboardConfirmation(decision.preview);
 			} else if (decision.kind === "command") {
 				if (["destination", "filter", "cleanup"].includes(decision.command)) {
 					setCommandLine(
@@ -9165,26 +9168,6 @@ export function App(): React.ReactElement {
 									: "route-filter-cleanup",
 						),
 					);
-				} else if (decision.command === "copy") {
-					const preview = routeTable
-						? getRouteClipboardPreview(routeTable, {
-								filter: routeFilter,
-								path: routePath,
-								sort: routeSort,
-								view: routeDetailView,
-							})
-						: undefined;
-					if (!preview) {
-						log(
-							"warn",
-							routeTable
-								? "no route clipboard target"
-								: "no route table loaded",
-						);
-					} else {
-						setRouteCopyPreview(true);
-						openClipboardConfirmation(preview);
-					}
 				} else if (decision.command === "export") {
 					void exportRouteHandoff();
 				} else if (decision.command === "open") {
@@ -9321,6 +9304,8 @@ export function App(): React.ReactElement {
 				home: key.home,
 				end: key.end,
 				tab: key.tab,
+				upArrow: key.upArrow,
+				downArrow: key.downArrow,
 			});
 			if (decision.kind === "detail") {
 				if (kind === "connections") {
@@ -9369,6 +9354,68 @@ export function App(): React.ReactElement {
 					setPortCopyPreview(decision.copyPreview);
 					setPortProcessControlPreview(decision.processControlPreview);
 				}
+			} else if (decision.kind === "control") {
+				setPortProcessControlPreview(true);
+				setPortCopyPreview(decision.copyPreview);
+				setCommandLine(openCommandLine(portProcessControlPrompt));
+			} else if (decision.kind === "inspect-policy") {
+				const next = !portProcessControlInspector;
+				setPortProcessControlInspector(next);
+				if (next) {
+					void (async () => {
+						const token = beginRequest(processInspectionTokenRef.current);
+						processInspectionTokenRef.current = token;
+						beginCommand();
+						setSelectedProcessFileEvidenceIssue(undefined);
+						try {
+							const files = await getProcessFileSnapshot(decision.port.pid);
+							if (isStaleRequest(processInspectionTokenRef.current, token)) {
+								return;
+							}
+							setSelectedProcessFiles(files);
+							setSelectedProcessFileEvidenceIssue(
+								files
+									? undefined
+									: {
+											status: "unavailable",
+											pid: decision.port.pid,
+											reason: "no snapshot returned",
+										},
+							);
+							log(
+								files ? "info" : "warn",
+								files
+									? `ports file evidence loaded pid ${decision.port.pid}`
+									: `ports file evidence unavailable pid=${decision.port.pid} reason=no snapshot returned`,
+							);
+						} catch (caught) {
+							log(
+								"fail",
+								caught instanceof Error
+									? `ports file evidence failed ${caught.message}`
+									: `ports file evidence failed ${String(caught)}`,
+							);
+							if (isStaleRequest(processInspectionTokenRef.current, token)) {
+								return;
+							}
+							setSelectedProcessFiles(undefined);
+							setSelectedProcessFileEvidenceIssue({
+								status: "error",
+								pid: decision.port.pid,
+								reason:
+									caught instanceof Error ? caught.message : String(caught),
+							});
+						} finally {
+							endCommand();
+						}
+					})();
+				}
+				log(
+					"info",
+					next
+						? `ports process policy inspector ${decision.port.pid}`
+						: "ports process policy inspector hidden",
+				);
 			} else if (decision.kind === "command") {
 				if (decision.command === "filter") {
 					setCommandLine(
@@ -9403,20 +9450,6 @@ export function App(): React.ReactElement {
 						}
 						openClipboardConfirmation(preview);
 					}
-				} else if (decision.command === "control") {
-					const preview = createSelectedPortProcessControlPreview(
-						sortedPorts,
-						selectedPortIndex,
-					);
-					if (preview) {
-						setPortProcessControlPreview(true);
-						setPortCopyPreview(false);
-						setCommandLine(openCommandLine(portProcessControlPrompt));
-						log(
-							"warn",
-							`ports process control confirm ${preview.confirmationPhrase}`,
-						);
-					}
 				}
 			}
 			if ("notice" in decision) {
@@ -9427,10 +9460,7 @@ export function App(): React.ReactElement {
 			}
 			if (
 				decision.kind !== "no-op" &&
-				!(
-					decision.kind === "command" &&
-					["sort", "inspect-policy"].includes(decision.command)
-				)
+				!(decision.kind === "command" && decision.command === "sort")
 			) {
 				return;
 			}
@@ -9474,74 +9504,6 @@ export function App(): React.ReactElement {
 			});
 			setPortCopyPreview(false);
 			setPortProcessControlPreview(false);
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "I") {
-			const preview = createSelectedPortProcessControlPreview(
-				sortedPorts,
-				selectedPortIndex,
-			);
-			if (!preview) {
-				log("warn", "no port process policy to inspect");
-				return;
-			}
-			const next = !portProcessControlInspector;
-			setPortProcessControlInspector(next);
-			if (next) {
-				void (async () => {
-					const token = beginRequest(processInspectionTokenRef.current);
-					processInspectionTokenRef.current = token;
-					beginCommand();
-					setSelectedProcessFileEvidenceIssue(undefined);
-					try {
-						const files = await getProcessFileSnapshot(preview.port.pid);
-						if (isStaleRequest(processInspectionTokenRef.current, token)) {
-							return;
-						}
-						setSelectedProcessFiles(files);
-						setSelectedProcessFileEvidenceIssue(
-							files
-								? undefined
-								: {
-										status: "unavailable",
-										pid: preview.port.pid,
-										reason: "no snapshot returned",
-									},
-						);
-						log(
-							files ? "info" : "warn",
-							files
-								? `ports file evidence loaded pid ${preview.port.pid}`
-								: `ports file evidence unavailable pid=${preview.port.pid} reason=no snapshot returned`,
-						);
-					} catch (caught) {
-						log(
-							"fail",
-							caught instanceof Error
-								? `ports file evidence failed ${caught.message}`
-								: `ports file evidence failed ${String(caught)}`,
-						);
-						if (isStaleRequest(processInspectionTokenRef.current, token)) {
-							return;
-						}
-						setSelectedProcessFiles(undefined);
-						setSelectedProcessFileEvidenceIssue({
-							status: "error",
-							pid: preview.port.pid,
-							reason: caught instanceof Error ? caught.message : String(caught),
-						});
-					} finally {
-						endCommand();
-					}
-				})();
-			}
-			log(
-				"info",
-				next
-					? `ports process policy inspector ${preview.port.pid}`
-					: "ports process policy inspector hidden",
-			);
 			return;
 		}
 
@@ -9816,7 +9778,7 @@ export function App(): React.ReactElement {
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
 			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(0);
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -11083,6 +11045,7 @@ export function App(): React.ReactElement {
 				query: timelineSearchQuery,
 				presets: timelineSearchPresets,
 				selectedIndex: selectedTimelineIndex,
+				auditExportIndex,
 			});
 			if (decision.kind === "filter") {
 				setTimelineFilter(decision.filter);
@@ -11100,124 +11063,90 @@ export function App(): React.ReactElement {
 				} else if (decision.command === "cleanup") {
 					setCommandLine(openCommandLine("timeline-search-cleanup"));
 				}
+			} else if (decision.kind === "selected-command") {
+				setSelectedTimelineIndex(decision.selectedIndex);
+				if (decision.command === "copy") {
+					openClipboardConfirmation(decision.preview);
+					recordStatusActivityResult(
+						createTimelineSelectedStatusActivityResult("copy", {
+							filter: timelineFilter,
+							label: decision.preview.label,
+							query: timelineSearchQuery,
+							selectedIndex: decision.selectedIndex,
+							total: visibleTimelineEvents.length,
+						}),
+					);
+				} else {
+					const plan = createConsoleAuditExportPlan([decision.event], {
+						baseDir: dirname(getConfigPath()),
+						origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+						query: timelineSearchQuery.trim() || undefined,
+						scope: "selected",
+					});
+					void writeConsoleAuditExport(plan)
+						.then((written) => {
+							log(
+								"ok",
+								`audit selected exported ${written.path} events=${written.eventCount}`,
+							);
+							recordStatusActivityResult(
+								createTimelineSelectedStatusActivityResult("export", {
+									filter: timelineFilter,
+									label: `timeline audit selected ${written.eventCount}`,
+									path: written.path,
+									query: timelineSearchQuery,
+									selectedIndex: decision.selectedIndex,
+									total: visibleTimelineEvents.length,
+								}),
+							);
+						})
+						.catch((caught) =>
+							log(
+								"fail",
+								caught instanceof Error
+									? `audit selected export failed ${caught.message}`
+									: `audit selected export failed ${String(caught)}`,
+							),
+						);
+				}
+			} else if (decision.kind === "evidence") {
+				const plan = decision.plan;
+				setSelectedTimelineIndex(decision.selectedIndex);
+				setSelectedAuditExportIndex(plan.selectedIndex);
+				setSelectedStatusEvidenceKind(plan.kind);
+				recordStatusActivityResult(
+					createTimelineEvidenceTrailStatusActivityResult(plan),
+				);
+				const exportPlan = createTimelineEvidenceTrailAuditExportPlan(plan, {
+					baseDir: dirname(getConfigPath()),
+				});
+				void writeTimelineEvidenceTrailAuditExport(exportPlan)
+					.then((written) => {
+						log(
+							"ok",
+							`timeline evidence trail exported ${written.path} events=${written.eventCount}`,
+						);
+						void refreshAuditExportIndex(false).then(() => {
+							setSelectedAuditExportIndex(plan.selectedIndex + 1);
+						});
+					})
+					.catch((caught) =>
+						log(
+							"fail",
+							caught instanceof Error
+								? `timeline evidence trail export failed ${caught.message}`
+								: `timeline evidence trail export failed ${String(caught)}`,
+						),
+					);
+				setScreen("status");
+				log("info", `${plan.message}; ${plan.rows.at(-1) ?? ""}`);
 			}
 			if ("notice" in decision && decision.notice) {
 				log(decision.notice.level, decision.notice.message);
 			}
-			if (
-				decision.kind !== "no-op" &&
-				!(
-					decision.kind === "command" &&
-					["copy", "export", "evidence"].includes(decision.command)
-				)
-			) {
+			if (decision.kind !== "no-op") {
 				return;
 			}
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces" && input === "c") {
-			const preview = getSelectedTimelineClipboardPreview(events, {
-				filter: timelineFilter,
-				query: timelineSearchQuery,
-				selectedIndex: selectedTimelineIndex,
-			});
-			if (!preview) {
-				log("warn", "no timeline row to copy");
-				return;
-			}
-			openClipboardConfirmation(preview);
-			recordStatusActivityResult(
-				createTimelineSelectedStatusActivityResult("copy", {
-					filter: timelineFilter,
-					label: preview.label,
-					query: timelineSearchQuery,
-					selectedIndex: selectedTimelineIndex,
-					total: visibleTimelineEvents.length,
-				}),
-			);
-			return;
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces" && input === "e") {
-			const plan = getSelectedTimelineAuditExportPlan(events, {
-				baseDir: dirname(getConfigPath()),
-				filter: timelineFilter,
-				origin: createActiveFileOpenOrigin(configShelfLandingTarget),
-				query: timelineSearchQuery,
-				selectedIndex: selectedTimelineIndex,
-			});
-			if (!plan) {
-				log("warn", "no timeline row to export");
-				return;
-			}
-			void writeConsoleAuditExport(plan)
-				.then((written) => {
-					log(
-						"ok",
-						`audit selected exported ${written.path} events=${written.eventCount}`,
-					);
-					recordStatusActivityResult(
-						createTimelineSelectedStatusActivityResult("export", {
-							filter: timelineFilter,
-							label: `timeline audit selected ${written.eventCount}`,
-							path: written.path,
-							query: timelineSearchQuery,
-							selectedIndex: selectedTimelineIndex,
-							total: visibleTimelineEvents.length,
-						}),
-					);
-				})
-				.catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `audit selected export failed ${caught.message}`
-							: `audit selected export failed ${String(caught)}`,
-					),
-				);
-			return;
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces" && input === "E") {
-			const plan = createTimelineFocusEvidenceTrailPlan(events, {
-				auditExportIndex,
-				filter: timelineFilter,
-				query: timelineSearchQuery,
-				selectedIndex: selectedTimelineIndex,
-			});
-			if (!plan) {
-				log("warn", "no timeline focus evidence trail");
-				return;
-			}
-			setSelectedAuditExportIndex(plan.selectedIndex);
-			setSelectedStatusEvidenceKind(plan.kind);
-			recordStatusActivityResult(
-				createTimelineEvidenceTrailStatusActivityResult(plan),
-			);
-			const exportPlan = createTimelineEvidenceTrailAuditExportPlan(plan, {
-				baseDir: dirname(getConfigPath()),
-			});
-			void writeTimelineEvidenceTrailAuditExport(exportPlan)
-				.then((written) => {
-					log(
-						"ok",
-						`timeline evidence trail exported ${written.path} events=${written.eventCount}`,
-					);
-					void refreshAuditExportIndex(false).then(() => {
-						setSelectedAuditExportIndex(plan.selectedIndex + 1);
-					});
-				})
-				.catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `timeline evidence trail export failed ${caught.message}`
-							: `timeline evidence trail export failed ${String(caught)}`,
-					),
-				);
-			setScreen("status");
-			log("info", `${plan.message}; ${plan.rows.at(-1) ?? ""}`);
-			return;
 		}
 
 		if (

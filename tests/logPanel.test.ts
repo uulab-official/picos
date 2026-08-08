@@ -56,6 +56,18 @@ describe("log TUI panel formatting", () => {
 				message: "logs search missing matches 0",
 			},
 		});
+		expect(
+			prepareLogSearchTransition({
+				entries: [],
+				level: "all",
+				presets: [],
+				query: " ",
+			}),
+		).toEqual({
+			query: "",
+			presets: [],
+			notice: { level: "warn", message: "logs search cleared" },
+		});
 	});
 
 	test("owns log preset, cleanup no-op, and invalid shortcut decisions", () => {
@@ -235,20 +247,27 @@ describe("log TUI panel formatting", () => {
 		expect(
 			submitLogCleanupConfirmation(presets, profiles, "clear log"),
 		).toEqual({
+			action: "notice",
 			confirmed: false,
 			message: "logs cleanup rejected",
 			presets,
 			profiles,
 			removed: 0,
+			notice: { level: "warn", message: "logs cleanup rejected" },
 		});
 		expect(
 			submitLogCleanupConfirmation(presets, profiles, " clear logs "),
 		).toEqual({
+			action: "apply",
 			confirmed: true,
 			message: "logs cleanup removed 3 presets",
 			presets: [],
 			profiles: [],
 			removed: 3,
+			notice: {
+				level: "info",
+				message: "logs cleanup removed 3 presets",
+			},
 		});
 		expect(createLogCleanupPreview([], [])).toBeUndefined();
 	});
