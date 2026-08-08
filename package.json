@@ -21,6 +21,7 @@
 		"dev": "bun src/bin/picos.ts",
 		"build": "bun build src/bin/picos.ts --outdir dist/bin --target node --external ink --external react --external ssh2",
 		"test": "bun test",
+		"audit:tui-callbacks": "bun scripts/tuiCallbackAudit.ts",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",
 		"format": "biome format . --write",

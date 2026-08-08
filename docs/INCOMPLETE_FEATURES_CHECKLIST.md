@@ -50,6 +50,7 @@
 ## 6. 구조 및 품질
 
 - [ ] 상태: 진행 중 — 파일 selection guard는 `clampIndex()`로, 파일 copy/move/delete의 open·destination·confirmation guard와 prompt/문구 전이는 `fileOperationDialog.ts`로 분리 완료; `App.tsx` 입력 dispatch의 나머지 상태 전이·selection guard 분리 남음
+- [x] 상태: 완료 — TypeScript AST callback audit가 `App.tsx`의 `useCallback` 154개와 `useInput` dispatcher 1개를 inventory/manifest로 검증하며, strict audit는 남은 inline decision을 실패로 보고함
 - [ ] 상태: 진행 중 — 파일 작업 dialog의 순수 전이·누락 preview·빈 destination·command-line 적용 단위 테스트 7개 보강 완료; 나머지 분리 대상 테스트 남음
 - [x] 상태: 완료 — 사용되지 않는 `src/tui/screens/*` legacy placeholder 6개 제거; 실제 workspace 경로는 `App.tsx`에 있으며 `src/tui` 순수 모듈이 상태 전이를 담당
 - [x] 상태: 완료 — `src/core/roadmap.ts`, README, CHANGELOG, LOCAL_AUTOMATION의 구현 상태 동기화
