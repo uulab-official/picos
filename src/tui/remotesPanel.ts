@@ -1133,6 +1133,7 @@ export type RemoteDisconnectPublication =
 	| {
 			status: "current";
 			publishCurrent: false;
+			retainRemoteSession?: true;
 			notice: RemotesPanelNotice;
 	  };
 
@@ -1166,14 +1167,26 @@ export function classifyRemoteDisconnectPublication(input: {
 			},
 		};
 	}
+	if (
+		input.diagnostic?.status === "connected" &&
+		input.localRestored === false
+	) {
+		return {
+			status: "current",
+			publishCurrent: false,
+			retainRemoteSession: true,
+			notice: {
+				level: "fail",
+				message:
+					"local filesystem restore failed; read-only SFTP session remains connected",
+			},
+		};
+	}
 	const notice = {
 		level: "info",
 		message: "read-only SFTP session closed; local filesystem restored",
 	} as const;
-	if (
-		input.diagnostic?.status !== "connected" ||
-		input.localRestored === false
-	) {
+	if (input.diagnostic?.status !== "connected") {
 		return { status: "current", publishCurrent: false, notice };
 	}
 	return {

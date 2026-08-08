@@ -505,6 +505,7 @@ describe("Remotes panel transitions", () => {
 				currentDiagnosticSequence: 4,
 				requestDiagnosticSequence: 4,
 				diagnostic: connected,
+				localRestored: true,
 			}),
 		).toMatchObject({
 			status: "current",
@@ -537,6 +538,40 @@ describe("Remotes panel transitions", () => {
 			kind: "prompt",
 			value: "",
 			expectedConfirmation: "connect remote prod",
+		});
+	});
+
+	test("disconnect retains an established remote session when local restore fails", () => {
+		const connected = createDiagnostic("connected");
+		const publication = classifyRemoteDisconnectPublication({
+			currentDiagnosticSequence: 4,
+			requestDiagnosticSequence: 4,
+			diagnostic: connected,
+			localRestored: false,
+		});
+
+		expect(publication).toEqual({
+			status: "current",
+			publishCurrent: false,
+			retainRemoteSession: true,
+			notice: {
+				level: "fail",
+				message:
+					"local filesystem restore failed; read-only SFTP session remains connected",
+			},
+		});
+		expect("diagnostic" in publication).toBeFalse();
+		expect("auditMessage" in publication).toBeFalse();
+		expect(JSON.stringify(publication)).not.toContain("session closed");
+		expect(
+			prepareRemoteRetry({
+				profiles: [profile],
+				selectedIndex: 0,
+				diagnostic: connected,
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "info", message: "no remote connection to retry" },
 		});
 	});
 

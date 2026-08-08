@@ -132,3 +132,31 @@
 
 - Local commit: `fix(tui): harden remote lifecycle transitions`
 - Push: intentionally not performed; review remains pending.
+
+## Fix round 2/5
+
+### RED / GREEN evidence
+
+- RED: `bun test tests/remotesPanel.test.ts` produced 22 passes and the intended restore-failure regression failed. The connected/`localRestored=false` branch returned the false-success notice `read-only SFTP session closed; local filesystem restored` and did not explicitly retain remote-session ownership.
+- GREEN: the focused owner suite passed with 23 tests / 63 expectations after the isolated classifier fix.
+- Related GREEN: `bun test tests/remotesPanel.test.ts tests/remotes.test.ts tests/connect.test.ts tests/sftp.test.ts tests/statusEvidence.test.ts tests/statusActivityQueue.test.ts tests/fileWorkspaceTransitions.test.ts` passed with 245 tests / 820 expectations.
+
+### Important — connected restore-failure notice and ownership
+
+- Root cause: `classifyRemoteDisconnectPublication()` built the connected-session success notice before checking `localRestored === false`. App already avoided provider close when restore failed, and the Files switch transition already left the active remote provider/context uncommitted and unchanged.
+- The connected restore-failure branch now returns `publishCurrent=false`, `retainRemoteSession=true`, and the explicit failure notice `local filesystem restore failed; read-only SFTP session remains connected` at `level=fail`, following the existing Files restore-failure wording.
+- The branch returns no terminal diagnostic and no audit payload, so App preserves the current `connected` diagnostic and logs no disconnected/success result. The established provider and remote context remain owned by the active session.
+- Retry remains unavailable from the retained `connected` diagnostic. The regression asserts the exact no-retry notice.
+- The connected/`localRestored=true` regression remains unchanged: it publishes `disconnected` with the existing successful local-restoration notice.
+
+### Fix-round verification
+
+- `bun run audit:tui-callbacks` — pass (`callbacks=154`, `useInput=1`, `total=155`, `inlineDecisions=45`)
+- `bun run typecheck` — pass
+- `git diff --check` — pass
+- `bun run verify` — pass (999 tests / 3,188 expectations across 91 files, all five integration harnesses, typecheck, build, and smoke)
+
+### Fix-round commit
+
+- Local commit: `fix(tui): report remote restore failures`
+- Push: intentionally not performed; review remains pending.
