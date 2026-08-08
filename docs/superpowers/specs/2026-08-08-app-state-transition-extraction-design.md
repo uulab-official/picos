@@ -8,7 +8,7 @@ Move the remaining guards, list-selection resolution, state transitions, and ope
 
 ## Context
 
-`App.tsx` is 18,638 lines and contains 151 `useCallback()` declarations plus the global `useInput()` dispatcher. No test imports the component, so a decision left in one of those callbacks is unverified by construction. The repository already establishes the target shape through modules such as `operationRunPanel.ts`, `fileOperationDialog.ts`, `editorBuffer.ts`, `toolHistory.ts`, `interfacePanel.ts`, and `navigation.ts`.
+`App.tsx` is 18,638 lines and contains 154 semantic `useCallback()` declarations plus the global `useInput()` dispatcher. Three callbacks use line-wrapped initializers and are missed by the simpler one-line search that originally reported 151. No test imports the component, so a decision left in one of those callbacks is unverified by construction. The repository already establishes the target shape through modules such as `operationRunPanel.ts`, `fileOperationDialog.ts`, `editorBuffer.ts`, `toolHistory.ts`, `interfacePanel.ts`, and `navigation.ts`.
 
 The remaining inline selection arithmetic includes a real empty-list defect class. Several tool-target preset paths clamp with `Math.min(Math.max(index, 0), items.length - 1)`, which produces `-1` when the list is empty. Other callbacks repeat last-item selection, evidence-index refresh clamping, editor cursor repair, interface target selection, and command cancellation wording.
 
@@ -34,8 +34,10 @@ Component tests would exercise rendering and key dispatch, but they would leave 
 
 - Tool-target preset selection and mutation transitions stay in `src/tui/toolHistory.ts`.
 - Editor buffer mutation, cursor repair, and resulting notice text stay in `src/tui/editorBuffer.ts`.
+- File loading, navigation, preview, and file-operation guards stay in `src/tui/fileSelection.ts`, `src/tui/fileHistory.ts`, `src/tui/fileOperationDialog.ts`, and a focused file-workspace transition module where those owners do not fit.
+- Config, route, endpoint, Timeline, Logs, process, operation-run, remote, status-activity, and status-evidence decisions stay in their existing feature modules, with a focused module added only when no current owner fits.
 - Evidence-index refresh selection transitions use the owning evidence module where one exists; shared list-index repair uses `clampIndex()` from `src/tui/navigation.ts`.
-- Interface and DNS target selection resolution stay in `src/tui/interfacePanel.ts`.
+- Interface target selection resolution stays in `src/tui/interfacePanel.ts`; DNS proposal decisions stay in a focused `src/tui/dnsPanel.ts` module.
 - Command-line cancellation classification, cleanup intents, and cancellation wording stay in a focused `src/tui/commandCancellation.ts` module because they span workspaces.
 - `App.tsx` retains React setters, refs, timers, async collector calls, provider calls, and sequence/token checks.
 
@@ -55,13 +57,15 @@ No transition function performs filesystem, process, network, config, clipboard,
 
 ## Implementation Slices
 
-1. Tool-target preset selection and mutation transitions, starting with the empty-list `-1` defect.
-2. Editor append/insert/replace/delete/undo cursor and notice transitions.
-3. Evidence and recovered-export refresh selection repair across handoff, audit, cleanup, Tools, process, remote-known-hosts, and Timeline evidence.
-4. Interface and DNS target selection resolution.
-5. Timeline and tool-history newest-result selection transitions.
-6. Command-line cancellation classification, dialog cleanup intent, and message resolution.
-7. A final callback audit that classifies every `useCallback()` and the `useInput()` dispatcher as wiring/I/O or moves its remaining decision into a tested module.
+1. A source audit and manifest that inventories all 154 callbacks plus `useInput`, detects missing/stale classifications, and exposes the remaining decision count.
+2. Tool-target preset selection and mutation transitions, starting with the empty-list `-1` defect.
+3. Editor append/insert/replace/delete/undo cursor and notice transitions.
+4. File, Config, route, endpoint, Timeline, Logs, and palette input transitions.
+5. Evidence and recovered-export refresh, archive/open, and newest-result selection transitions across handoff, audit, cleanup, Tools, process, remote-known-hosts, Timeline, and status activity.
+6. Interface and DNS target selection and proposal transitions.
+7. Remote profile, trust, known-hosts, connection-lifecycle, process, operation-run, action, and control transitions.
+8. Command-line cancellation classification, dialog cleanup intent, and message resolution.
+9. A final callback and `useInput` dispatch sweep that leaves only classified wiring/I/O and stale sequence/token publication checks.
 
 Each slice updates `docs/INCOMPLETE_FEATURES_CHECKLIST.md`, runs focused tests, creates a scoped commit, and pushes the current branch. User-visible fixes also update `CHANGELOG.md`.
 
@@ -80,7 +84,7 @@ bun run release:check
 
 The goal is complete only when all of the following are true:
 
-- A callback audit covers all 151 current `useCallback()` declarations and the `useInput()` dispatcher.
+- A TypeScript-AST callback audit covers all 154 current `useCallback()` declarations and the `useInput()` dispatcher, including the three line-wrapped declarations.
 - No guard, list-selection resolution, domain state transition, or operator-facing message decision remains inline in those component callbacks; remaining branches are React wiring, I/O dispatch, or stale-request/token publication checks.
 - No list-selection clamp in `App.tsx` uses inline `Math.min()` / `Math.max()` arithmetic. Layout sizing arithmetic is explicitly outside this rule.
 - Every extracted decision has a focused test in `tests/`.
