@@ -260,6 +260,41 @@ const delegatedCallbacks = {
 		owner: "src/tui/toolHistory.ts",
 		reason: "delegates selected-target save transition",
 	},
+	submitRouteFilterCommand: {
+		owner: "src/tui/routePanel.ts",
+		reason: "delegates route filter normalization, matching, state, and notice",
+	},
+	submitRouteFilterCleanupCommand: {
+		owner: "src/tui/routePanel.ts",
+		reason: "delegates route cleanup confirmation and exact notice",
+	},
+	submitEndpointFilterCommand: {
+		owner: "src/tui/endpointPanel.ts",
+		reason:
+			"delegates scoped endpoint filter normalization, matching, selection repair, and notice",
+	},
+	submitEndpointFilterCleanupCommand: {
+		owner: "src/tui/endpointPanel.ts",
+		reason: "delegates scoped endpoint cleanup confirmation and exact notice",
+	},
+	submitTimelineSearchCommand: {
+		owner: "src/tui/timelinePanel.ts",
+		reason:
+			"delegates timeline search normalization, newest selection, presets, and notice",
+	},
+	submitTimelineSearchCleanupCommand: {
+		owner: "src/tui/timelinePanel.ts",
+		reason: "delegates timeline cleanup confirmation and exact notice",
+	},
+	submitLogSearchCommand: {
+		owner: "src/tui/logPanel.ts",
+		reason:
+			"delegates logs search normalization, matching, presets, and notice",
+	},
+	submitLogsCleanupCommand: {
+		owner: "src/tui/logPanel.ts",
+		reason: "delegates logs cleanup confirmation and exact notice",
+	},
 	syncConfigSessionState: {
 		owner: "src/tui/configPanel.ts",
 		reason: "applies pure config-session synchronization intent",
@@ -336,6 +371,17 @@ const configDelegatedCallbacks = new Set([
 
 const statusDelegatedCallbacks = new Set(["reopenCleanupHandoffHistory"]);
 
+const networkPanelDelegatedCallbacks = new Set([
+	"submitRouteFilterCommand",
+	"submitRouteFilterCleanupCommand",
+	"submitEndpointFilterCommand",
+	"submitEndpointFilterCleanupCommand",
+	"submitTimelineSearchCommand",
+	"submitTimelineSearchCleanupCommand",
+	"submitLogSearchCommand",
+	"submitLogsCleanupCommand",
+]);
+
 export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 	(name) => {
 		const reason = wiringReasons[name as keyof typeof wiringReasons];
@@ -352,11 +398,13 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 						? "config-transitions"
 						: statusDelegatedCallbacks.has(name)
 							? "status-transitions"
-							: name.startsWith("submitEditor") ||
-									name === "undoEditorEdit" ||
-									name === "deleteSelectedEditorLine"
-								? "editor-transitions"
-								: "tool-target-transitions",
+							: networkPanelDelegatedCallbacks.has(name)
+								? "network-panel-transitions"
+								: name.startsWith("submitEditor") ||
+										name === "undoEditorEdit" ||
+										name === "deleteSelectedEditorLine"
+									? "editor-transitions"
+									: "tool-target-transitions",
 				reason: delegated.reason,
 			};
 		}
@@ -364,11 +412,11 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 			return {
 				name,
 				owner:
-					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts",
+					"src/tui/App.tsx + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts",
 				classification: "inline-decision",
-				slice: "config-palette-transitions",
+				slice: "network-panel-transitions",
 				reason:
-					"Files, Config, Palette, and cleanup-history input delegate guards, selection, transitions, and notices; unrelated workspace branches remain inline",
+					"Routes, Connections, Ports, Timeline, and Logs delegate filter, section, selection, preset, cleanup, and notice decisions; App applies state and performs I/O",
 			};
 		}
 		return reason

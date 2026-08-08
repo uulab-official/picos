@@ -19,8 +19,13 @@ import {
 	getSelectedConnectionProcessRequest,
 	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
+	moveEndpointSelection,
 	nextEndpointDetailView,
 	nextEndpointFilterPreset,
+	prepareEndpointFilterTransition,
+	prepareEndpointPanelInput,
+	repairEndpointSelection,
+	resolveEndpointSelectedRow,
 	saveEndpointFilterPreset,
 	submitEndpointFilterCleanupConfirmation,
 	submitPortProcessControlConfirmation,
@@ -35,6 +40,107 @@ const configPortOrigin: FileOpenOrigin = {
 };
 
 describe("endpoint TUI panel formatting", () => {
+	test("clamps empty and last-row endpoint selection in the panel", () => {
+		const rows = [
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52000",
+				state: "ESTABLISHED",
+			},
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "4000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "53000",
+				state: "CLOSE_WAIT",
+			},
+		];
+		expect(repairEndpointSelection(9, 0)).toBe(0);
+		expect(repairEndpointSelection(9, rows.length)).toBe(1);
+		expect(resolveEndpointSelectedRow([], 9)).toBeUndefined();
+		expect(resolveEndpointSelectedRow(rows, 9)).toEqual(rows[1]);
+		expect(moveEndpointSelection(1, rows.length, "next")).toBe(0);
+	});
+
+	test("owns endpoint filter application and exact notices", () => {
+		const rows = [
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52000",
+				state: "ESTABLISHED",
+			},
+		];
+		expect(
+			prepareEndpointFilterTransition({
+				kind: "connections",
+				rows,
+				presets: ["tcp4"],
+				query: " ",
+			}),
+		).toEqual({
+			filter: "",
+			presets: ["tcp4"],
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: { level: "info", message: "connections filter cleared" },
+		});
+	});
+
+	test("derives scoped endpoint intents from shared bindings", () => {
+		const base = {
+			view: "raw" as const,
+			filter: "",
+			presets: [] as string[],
+			rows: [] as const,
+			selectedIndex: 0,
+		};
+		expect(
+			prepareEndpointPanelInput({ ...base, kind: "connections", input: "I" }),
+		).toEqual({ kind: "no-op" });
+		expect(
+			prepareEndpointPanelInput({ ...base, kind: "ports", input: "I" }),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no port process policy to inspect",
+			},
+		});
+		expect(
+			prepareEndpointPanelInput({
+				...base,
+				kind: "ports",
+				input: "I",
+				rows: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "123",
+						command: "node",
+						user: "alice",
+					},
+				],
+			}),
+		).toEqual({ kind: "command", scope: "ports", command: "inspect-policy" });
+		expect(
+			prepareEndpointPanelInput({ ...base, kind: "ports", input: "4" }),
+		).toEqual({ kind: "no-op" });
+		expect(
+			prepareEndpointPanelInput({ ...base, kind: "ports", input: "D" }),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no ports filter presets to clean" },
+		});
+	});
 	test("formats connections with raw source output", () => {
 		expect(
 			formatConnectionsWorkspaceRows(

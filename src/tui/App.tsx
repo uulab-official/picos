@@ -142,8 +142,6 @@ import {
 import { getNetworkSummary } from "../core/network";
 import {
 	createOsLogSnapshot,
-	filterOsLogEntries,
-	nextOsLogLevelFilter,
 	type OsLogLevelFilter,
 	type OsLogSnapshot,
 } from "../core/osLogs";
@@ -224,8 +222,6 @@ import {
 } from "../core/remotes";
 import { getRoadmapItems } from "../core/roadmap";
 import {
-	filterRouteEntries,
-	nextRouteSort,
 	type RoutePathResult,
 	type RouteSort,
 	type RouteTableResult,
@@ -398,15 +394,14 @@ import {
 	formatPortProcessControlExecutionRows,
 	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
-	getEndpointDetailViewShortcut,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
 	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
-	nextEndpointDetailView,
-	nextEndpointFilterPreset,
 	type PortProcessControlFileEvidenceIssue,
-	saveEndpointFilterPreset,
+	prepareEndpointFilterTransition,
+	prepareEndpointPanelInput,
+	repairEndpointSelection,
 	submitEndpointFilterCleanupConfirmation,
 	submitPortProcessControlConfirmation,
 	writeEndpointHandoffPlan,
@@ -458,14 +453,11 @@ import {
 } from "./interfacePanel";
 import {
 	createLogCleanupPreview,
-	formatLogProfileLabel,
 	formatLogWorkspaceRows,
 	type LogFollowHistoryItem,
 	type LogProfile,
-	nextLogProfile,
-	nextLogSearchPreset,
-	saveLogProfile,
-	saveLogSearchPreset,
+	prepareLogPanelInput,
+	prepareLogSearchTransition,
 	submitLogCleanupConfirmation,
 } from "./logPanel";
 import {
@@ -520,11 +512,9 @@ import {
 	formatRoutePathRows,
 	formatRouteWorkspaceRows,
 	getRouteClipboardPreview,
-	getRouteDetailViewShortcut,
-	nextRouteDetailView,
-	nextRouteFilterPreset,
+	prepareRouteFilterTransition,
+	prepareRoutePanelInput,
 	type RouteDetailView,
-	saveRouteFilterPreset,
 	submitRouteFilterCleanupConfirmation,
 	writeRouteRawHandoffPlan,
 } from "./routePanel";
@@ -689,10 +679,10 @@ import {
 	formatTimelineWorkspaceRows,
 	getSelectedTimelineAuditExportPlan,
 	getSelectedTimelineClipboardPreview,
-	moveTimelineSelection,
-	nextTimelineFilter,
-	nextTimelineSearchPreset,
-	saveTimelineSearchPreset,
+	prepareTimelinePanelInput,
+	prepareTimelineSearchTransition,
+	repairTimelineSelection,
+	selectNewestTimelineResult,
 	submitTimelineSearchCleanupConfirmation,
 	type TimelineFilter,
 } from "./timelinePanel";
@@ -1657,9 +1647,19 @@ export function App(): React.ReactElement {
 	);
 	useEffect(() => {
 		setSelectedTimelineIndex((index) =>
-			clampIndex(index, visibleTimelineEvents.length),
+			repairTimelineSelection(index, visibleTimelineEvents.length),
 		);
 	}, [visibleTimelineEvents.length]);
+	useEffect(() => {
+		setSelectedConnectionIndex((index) =>
+			repairEndpointSelection(index, sortedConnections.length),
+		);
+	}, [sortedConnections.length]);
+	useEffect(() => {
+		setSelectedPortIndex((index) =>
+			repairEndpointSelection(index, sortedPorts.length),
+		);
+	}, [sortedPorts.length]);
 
 	const log = useCallback((level: ConsoleEvent["level"], message: string) => {
 		setEvents((current) => appendEvent(current, createEvent(level, message)));
@@ -2301,18 +2301,16 @@ export function App(): React.ReactElement {
 	}, [commandLine.value, log]);
 
 	const submitRouteFilterCommand = useCallback(() => {
-		const query = commandLine.value.trim();
-		const filtered = filterRouteEntries(routeTable?.routes ?? [], query);
-		setRouteFilter(query);
-		setRouteCopyPreview(false);
+		const transition = prepareRouteFilterTransition({
+			routes: routeTable?.routes ?? [],
+			presets: routeFilterPresets,
+			query: commandLine.value,
+		});
+		setRouteFilter(transition.filter);
+		setRouteCopyPreview(transition.copyPreview);
 		setCommandLine((current) => closeCommandLine(current));
-		log(
-			filtered.length ? "info" : "warn",
-			query
-				? `route filter ${query} matches ${filtered.length}`
-				: "route filter cleared",
-		);
-	}, [commandLine.value, log, routeTable]);
+		log(transition.notice.level, transition.notice.message);
+	}, [commandLine.value, log, routeFilterPresets, routeTable]);
 
 	const runToolPlan = useCallback(
 		async (plan: NonNullable<ReturnType<typeof createToolRunPlan>>) => {
@@ -2758,44 +2756,45 @@ export function App(): React.ReactElement {
 	]);
 
 	const submitEndpointFilterCommand = useCallback(() => {
-		const kind = commandLine.prompt.slice(endpointFilterPromptPrefix.length);
-		const query = commandLine.value.trim();
+		const kind = commandLine.prompt.slice(
+			endpointFilterPromptPrefix.length,
+		) as EndpointHandoffKind;
 		if (kind === "connections") {
-			const filtered = filterConnections(connections, query);
-			setConnectionFilter(query);
-			if (query) {
-				setConnectionFilterPresets((current) =>
-					saveEndpointFilterPreset(current, query),
-				);
-			}
-			setConnectionCopyPreview(false);
-			setSelectedConnectionIndex(0);
-			log(
-				filtered.length ? "info" : "warn",
-				query
-					? `connections filter ${query} matches ${filtered.length}`
-					: "connections filter cleared",
-			);
+			const transition = prepareEndpointFilterTransition({
+				kind,
+				rows: connections,
+				presets: connectionFilterPresets,
+				query: commandLine.value,
+			});
+			setConnectionFilter(transition.filter);
+			setConnectionFilterPresets(transition.presets);
+			setConnectionCopyPreview(transition.copyPreview);
+			setSelectedConnectionIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
 		} else if (kind === "ports") {
-			const filtered = filterListeningPorts(ports, query);
-			setPortFilter(query);
-			if (query) {
-				setPortFilterPresets((current) =>
-					saveEndpointFilterPreset(current, query),
-				);
-			}
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			setSelectedPortIndex(0);
-			log(
-				filtered.length ? "info" : "warn",
-				query
-					? `ports filter ${query} matches ${filtered.length}`
-					: "ports filter cleared",
-			);
+			const transition = prepareEndpointFilterTransition({
+				kind,
+				rows: ports,
+				presets: portFilterPresets,
+				query: commandLine.value,
+			});
+			setPortFilter(transition.filter);
+			setPortFilterPresets(transition.presets);
+			setPortCopyPreview(transition.copyPreview);
+			setPortProcessControlPreview(transition.processControlPreview);
+			setSelectedPortIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
 		}
 		setCommandLine((current) => closeCommandLine(current));
-	}, [commandLine.prompt, commandLine.value, connections, log, ports]);
+	}, [
+		commandLine.prompt,
+		commandLine.value,
+		connectionFilterPresets,
+		connections,
+		log,
+		portFilterPresets,
+		ports,
+	]);
 
 	const submitRouteFilterCleanupCommand = useCallback(() => {
 		const confirmation = submitRouteFilterCleanupConfirmation(
@@ -2923,22 +2922,18 @@ export function App(): React.ReactElement {
 	}, [log, recordStatusActivityResult, selectedPortIndex, sortedPorts]);
 
 	const submitTimelineSearchCommand = useCallback(() => {
-		const query = commandLine.value.trim();
-		const filtered = filterTimelineEvents(events, query, timelineFilter);
-		setTimelineSearchQuery(query);
-		if (query) {
-			setTimelineSearchPresets((current) =>
-				saveTimelineSearchPreset(current, query),
-			);
-		}
+		const transition = prepareTimelineSearchTransition({
+			events,
+			filter: timelineFilter,
+			presets: timelineSearchPresets,
+			query: commandLine.value,
+		});
+		setTimelineSearchQuery(transition.query);
+		setTimelineSearchPresets(transition.presets);
+		setSelectedTimelineIndex(transition.selectedIndex);
 		setCommandLine((current) => closeCommandLine(current));
-		log(
-			filtered.length ? "info" : "warn",
-			query
-				? `timeline search ${query} matches ${filtered.length}`
-				: "timeline search cleared",
-		);
-	}, [commandLine.value, events, log, timelineFilter]);
+		log(transition.notice.level, transition.notice.message);
+	}, [commandLine.value, events, log, timelineFilter, timelineSearchPresets]);
 
 	const submitTimelineSearchCleanupCommand = useCallback(() => {
 		const confirmation = submitTimelineSearchCleanupConfirmation(
@@ -2955,35 +2950,27 @@ export function App(): React.ReactElement {
 	}, [commandLine.value, log, timelineSearchPresets]);
 
 	const submitLogSearchCommand = useCallback(() => {
-		const query = commandLine.value.trim();
-		const filtered = filterOsLogEntries(
-			osLogs?.entries ?? [],
-			query,
-			logLevelFilter,
-		);
-		setLogSearchQuery(query);
-		if (query) {
-			setLogSearchPresets((current) => {
-				const next = saveLogSearchPreset(current, query);
-				void setConfigLogSearchPresets(next).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `logs preset save failed ${caught.message}`
-							: `logs preset save failed ${String(caught)}`,
-					),
-				);
-				return next;
-			});
+		const transition = prepareLogSearchTransition({
+			entries: osLogs?.entries ?? [],
+			level: logLevelFilter,
+			presets: logSearchPresets,
+			query: commandLine.value,
+		});
+		setLogSearchQuery(transition.query);
+		setLogSearchPresets(transition.presets);
+		if (transition.query) {
+			void setConfigLogSearchPresets(transition.presets).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `logs preset save failed ${caught.message}`
+						: `logs preset save failed ${String(caught)}`,
+				),
+			);
 		}
 		setCommandLine((current) => closeCommandLine(current));
-		log(
-			filtered.length ? "info" : "warn",
-			query
-				? `logs search ${query} matches ${filtered.length}`
-				: "logs search cleared",
-		);
-	}, [commandLine.value, log, logLevelFilter, osLogs]);
+		log(transition.notice.level, transition.notice.message);
+	}, [commandLine.value, log, logLevelFilter, logSearchPresets, osLogs]);
 
 	const submitLogsCleanupCommand = useCallback(() => {
 		const confirmation = submitLogCleanupConfirmation(
@@ -5911,7 +5898,7 @@ export function App(): React.ReactElement {
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
 			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -6102,7 +6089,7 @@ export function App(): React.ReactElement {
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
 			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -6334,7 +6321,7 @@ export function App(): React.ReactElement {
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
 			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -6705,7 +6692,7 @@ export function App(): React.ReactElement {
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
 			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -6995,7 +6982,7 @@ export function App(): React.ReactElement {
 			}
 			setTimelineFilter(selected.jump.filter);
 			setTimelineSearchQuery(selected.jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -7078,7 +7065,7 @@ export function App(): React.ReactElement {
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
 			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -9065,11 +9052,6 @@ export function App(): React.ReactElement {
 			if (screen === "actions" && focusArea === "workspaces") {
 				setFocusArea(enterFocus(screen, focusArea));
 				log("info", "actions focus entered");
-			} else if (
-				(screen === "connections" || screen === "ports") &&
-				focusArea === "workspaces"
-			) {
-				void inspectSelectedEndpointProcess();
 			} else if (screen === "processes" && focusArea === "workspaces") {
 				void openSelectedProcessFile();
 			} else if (screen === "operations" && focusArea === "workspaces") {
@@ -9141,45 +9123,27 @@ export function App(): React.ReactElement {
 		}
 
 		if (screen === "routes" && focusArea === "workspaces") {
-			const nextRouteView = getRouteDetailViewShortcut(input, {
+			const decision = prepareRoutePanelInput({
+				input,
+				view: routeDetailView,
+				filter: routeFilter,
+				presets: routeFilterPresets,
+				routes: routeTable?.routes ?? [],
+				sort: routeSort,
 				end: key.end,
 				home: key.home,
+				tab: key.tab,
 			});
-			if (nextRouteView) {
-				setRouteDetailView(nextRouteView);
-				setRouteCopyPreview(false);
-				log("info", `route detail ${nextRouteView}`);
-				return;
-			}
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === ":") {
-			setCommandLine(openCommandLine("route"));
-			log("info", "route destination prompt opened");
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === "f") {
-			setCommandLine(openCommandLine("route-filter"));
-			setRouteCopyPreview(false);
-			log("info", "route filter opened");
-			return;
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === "F") {
-			setRouteFilter("");
-			setRouteCopyPreview(false);
-			log("info", "route filter cleared");
-			return;
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === "P") {
-			if (!routeFilter.trim()) {
-				log("warn", "no route filter to save");
-				return;
-			}
-			setRouteFilterPresets((current) => {
-				const next = saveRouteFilterPreset(current, routeFilter);
-				void setConfigRouteFilterPresets(next).catch((caught) =>
+			if (decision.kind === "detail") {
+				setRouteDetailView(decision.view);
+				setRouteCopyPreview(decision.copyPreview);
+			} else if (decision.kind === "filter") {
+				setRouteFilter(decision.filter);
+				setRouteCopyPreview(decision.copyPreview);
+			} else if (decision.kind === "save-preset") {
+				setRouteFilterPresets(decision.presets);
+				setRouteCopyPreview(decision.copyPreview);
+				void setConfigRouteFilterPresets(decision.presets).catch((caught) =>
 					log(
 						"fail",
 						caught instanceof Error
@@ -9187,49 +9151,55 @@ export function App(): React.ReactElement {
 							: `route preset save failed ${String(caught)}`,
 					),
 				);
-				return next;
-			});
-			setRouteCopyPreview(false);
-			log("info", `route preset saved ${routeFilter}`);
-			return;
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === "D") {
-			const preview = createRouteFilterCleanupPreview(routeFilterPresets);
-			if (!preview) {
-				log("warn", "no route filter presets to clean");
+			} else if (decision.kind === "sort") {
+				setRouteSort(decision.sort);
+				setRouteCopyPreview(decision.copyPreview);
+			} else if (decision.kind === "command") {
+				if (["destination", "filter", "cleanup"].includes(decision.command)) {
+					setCommandLine(
+						openCommandLine(
+							decision.command === "destination"
+								? "route"
+								: decision.command === "filter"
+									? "route-filter"
+									: "route-filter-cleanup",
+						),
+					);
+				} else if (decision.command === "copy") {
+					const preview = routeTable
+						? getRouteClipboardPreview(routeTable, {
+								filter: routeFilter,
+								path: routePath,
+								sort: routeSort,
+								view: routeDetailView,
+							})
+						: undefined;
+					if (!preview) {
+						log(
+							"warn",
+							routeTable
+								? "no route clipboard target"
+								: "no route table loaded",
+						);
+					} else {
+						setRouteCopyPreview(true);
+						openClipboardConfirmation(preview);
+					}
+				} else if (decision.command === "export") {
+					void exportRouteHandoff();
+				} else if (decision.command === "open") {
+					void openRouteHandoff();
+				}
+				if (decision.copyPreview === false) {
+					setRouteCopyPreview(false);
+				}
+			}
+			if (decision.kind !== "no-op") {
+				if ("notice" in decision && decision.notice) {
+					log(decision.notice.level, decision.notice.message);
+				}
 				return;
 			}
-			setCommandLine(openCommandLine("route-filter-cleanup"));
-			setRouteCopyPreview(false);
-			log("warn", `route filter cleanup confirm ${preview.confirmationPhrase}`);
-			return;
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === "]") {
-			const preset = nextRouteFilterPreset(routeFilterPresets, routeFilter);
-			if (!preset) {
-				log("warn", "no route filter presets");
-				return;
-			}
-			const filtered = filterRouteEntries(routeTable?.routes ?? [], preset);
-			setRouteFilter(preset);
-			setRouteCopyPreview(false);
-			log(
-				filtered.length ? "info" : "warn",
-				`route preset ${preset} matches ${filtered.length}`,
-			);
-			return;
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && key.tab) {
-			setRouteDetailView((current) => {
-				const next = nextRouteDetailView(current);
-				log("info", `route detail ${next}`);
-				return next;
-			});
-			setRouteCopyPreview(false);
-			return;
 		}
 
 		if (screen === "interfaces" && focusArea === "workspaces" && key.tab) {
@@ -9332,225 +9302,138 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (screen === "connections" && focusArea === "workspaces") {
-			const next = getEndpointDetailViewShortcut(input, {
+		if (
+			(screen === "connections" || screen === "ports") &&
+			focusArea === "workspaces"
+		) {
+			const kind: EndpointHandoffKind = screen;
+			const decision = prepareEndpointPanelInput({
+				kind,
+				input: key.return ? "\r" : input,
+				view: kind === "connections" ? connectionDetailView : portDetailView,
+				filter: kind === "connections" ? connectionFilter : portFilter,
+				presets:
+					kind === "connections" ? connectionFilterPresets : portFilterPresets,
+				rows: kind === "connections" ? connections : ports,
+				visibleRows: kind === "connections" ? sortedConnections : sortedPorts,
+				selectedIndex:
+					kind === "connections" ? selectedConnectionIndex : selectedPortIndex,
 				home: key.home,
 				end: key.end,
+				tab: key.tab,
 			});
-			if (next) {
-				setConnectionDetailView(next);
-				setConnectionCopyPreview(false);
-				log("info", `connections detail ${next}`);
-				return;
-			}
-		}
-
-		if (screen === "ports" && focusArea === "workspaces") {
-			const next = getEndpointDetailViewShortcut(input, {
-				home: key.home,
-				end: key.end,
-			});
-			if (next) {
-				setPortDetailView(next);
-				setPortCopyPreview(false);
-				setPortProcessControlPreview(false);
-				log("info", `ports detail ${next}`);
-				return;
-			}
-		}
-
-		if (screen === "connections" && focusArea === "workspaces" && key.tab) {
-			setConnectionDetailView((current) => {
-				const next = nextEndpointDetailView(current);
-				log("info", `connections detail ${next}`);
-				return next;
-			});
-			setConnectionCopyPreview(false);
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && key.tab) {
-			setPortDetailView((current) => {
-				const next = nextEndpointDetailView(current);
-				log("info", `ports detail ${next}`);
-				return next;
-			});
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			return;
-		}
-
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "f"
-		) {
-			setCommandLine(
-				openCommandLine(`${endpointFilterPromptPrefix}connections`),
-			);
-			log("info", "connections filter opened");
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "f") {
-			setCommandLine(openCommandLine(`${endpointFilterPromptPrefix}ports`));
-			log("info", "ports filter opened");
-			return;
-		}
-
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "F"
-		) {
-			setConnectionFilter("");
-			setConnectionCopyPreview(false);
-			setSelectedConnectionIndex(0);
-			log("info", "connections filter cleared");
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "F") {
-			setPortFilter("");
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			setSelectedPortIndex(0);
-			log("info", "ports filter cleared");
-			return;
-		}
-
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "P"
-		) {
-			if (!connectionFilter.trim()) {
-				log("warn", "no connections filter to save");
-				return;
-			}
-			setConnectionFilterPresets((current) => {
-				const next = saveEndpointFilterPreset(current, connectionFilter);
-				void setConfigEndpointFilterPresets("connections", next).catch(
+			if (decision.kind === "detail") {
+				if (kind === "connections") {
+					setConnectionDetailView(decision.view);
+					setConnectionCopyPreview(decision.copyPreview);
+				} else {
+					setPortDetailView(decision.view);
+					setPortCopyPreview(decision.copyPreview);
+					setPortProcessControlPreview(decision.processControlPreview);
+				}
+			} else if (decision.kind === "filter") {
+				if (kind === "connections") {
+					setConnectionFilter(decision.filter);
+					setSelectedConnectionIndex(decision.selectedIndex);
+					setConnectionCopyPreview(decision.copyPreview);
+				} else {
+					setPortFilter(decision.filter);
+					setSelectedPortIndex(decision.selectedIndex);
+					setPortCopyPreview(decision.copyPreview);
+					setPortProcessControlPreview(decision.processControlPreview);
+				}
+			} else if (decision.kind === "save-preset") {
+				if (kind === "connections") {
+					setConnectionFilterPresets(decision.presets);
+					setConnectionCopyPreview(decision.copyPreview);
+				} else {
+					setPortFilterPresets(decision.presets);
+					setPortCopyPreview(decision.copyPreview);
+					setPortProcessControlPreview(decision.processControlPreview);
+				}
+				void setConfigEndpointFilterPresets(kind, decision.presets).catch(
 					(caught) =>
 						log(
 							"fail",
 							caught instanceof Error
-								? `connections preset save failed ${caught.message}`
-								: `connections preset save failed ${String(caught)}`,
+								? `${kind} preset save failed ${caught.message}`
+								: `${kind} preset save failed ${String(caught)}`,
 						),
 				);
-				return next;
-			});
-			setConnectionCopyPreview(false);
-			log("info", `connections preset saved ${connectionFilter}`);
-			return;
-		}
-
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "D"
-		) {
-			const preview = createEndpointFilterCleanupPreview(
-				"connections",
-				connectionFilterPresets,
-			);
-			if (!preview) {
-				log("warn", "no connections filter presets to clean");
+			} else if (decision.kind === "selection") {
+				if (kind === "connections") {
+					setSelectedConnectionIndex(decision.selectedIndex);
+					setConnectionCopyPreview(decision.copyPreview);
+				} else {
+					setSelectedPortIndex(decision.selectedIndex);
+					setPortCopyPreview(decision.copyPreview);
+					setPortProcessControlPreview(decision.processControlPreview);
+				}
+			} else if (decision.kind === "command") {
+				if (decision.command === "filter") {
+					setCommandLine(
+						openCommandLine(`${endpointFilterPromptPrefix}${decision.scope}`),
+					);
+				} else if (decision.command === "cleanup") {
+					setCommandLine(
+						openCommandLine(
+							`${endpointFilterCleanupPromptPrefix}${decision.scope}`,
+						),
+					);
+				} else if (decision.command === "export") {
+					void exportEndpointHandoff(decision.scope);
+				} else if (decision.command === "open") {
+					void openEndpointHandoff(decision.scope);
+				} else if (decision.command === "inspect-process") {
+					void inspectSelectedEndpointProcess();
+				} else if (decision.command === "copy") {
+					const preview =
+						kind === "connections"
+							? getSelectedConnectionClipboardPreview(
+									sortedConnections,
+									selectedConnectionIndex,
+								)
+							: getSelectedPortClipboardPreview(sortedPorts, selectedPortIndex);
+					if (preview) {
+						if (kind === "connections") {
+							setConnectionCopyPreview(true);
+						} else {
+							setPortCopyPreview(true);
+							setPortProcessControlPreview(false);
+						}
+						openClipboardConfirmation(preview);
+					}
+				} else if (decision.command === "control") {
+					const preview = createSelectedPortProcessControlPreview(
+						sortedPorts,
+						selectedPortIndex,
+					);
+					if (preview) {
+						setPortProcessControlPreview(true);
+						setPortCopyPreview(false);
+						setCommandLine(openCommandLine(portProcessControlPrompt));
+						log(
+							"warn",
+							`ports process control confirm ${preview.confirmationPhrase}`,
+						);
+					}
+				}
+			}
+			if ("notice" in decision) {
+				const notice = decision.notice;
+				if (notice) {
+					log(notice.level, notice.message);
+				}
+			}
+			if (
+				decision.kind !== "no-op" &&
+				!(
+					decision.kind === "command" &&
+					["sort", "inspect-policy"].includes(decision.command)
+				)
+			) {
 				return;
 			}
-			setCommandLine(
-				openCommandLine(`${endpointFilterCleanupPromptPrefix}connections`),
-			);
-			setConnectionCopyPreview(false);
-			log(
-				"warn",
-				`connections filter cleanup confirm ${preview.confirmationPhrase}`,
-			);
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "P") {
-			if (!portFilter.trim()) {
-				log("warn", "no ports filter to save");
-				return;
-			}
-			setPortFilterPresets((current) => {
-				const next = saveEndpointFilterPreset(current, portFilter);
-				void setConfigEndpointFilterPresets("ports", next).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `ports preset save failed ${caught.message}`
-							: `ports preset save failed ${String(caught)}`,
-					),
-				);
-				return next;
-			});
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			log("info", `ports preset saved ${portFilter}`);
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "D") {
-			const preview = createEndpointFilterCleanupPreview(
-				"ports",
-				portFilterPresets,
-			);
-			if (!preview) {
-				log("warn", "no ports filter presets to clean");
-				return;
-			}
-			setCommandLine(
-				openCommandLine(`${endpointFilterCleanupPromptPrefix}ports`),
-			);
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			log("warn", `ports filter cleanup confirm ${preview.confirmationPhrase}`);
-			return;
-		}
-
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "]"
-		) {
-			const preset = nextEndpointFilterPreset(
-				connectionFilterPresets,
-				connectionFilter,
-			);
-			if (!preset) {
-				log("warn", "no connections filter presets");
-				return;
-			}
-			const filtered = filterConnections(connections, preset);
-			setConnectionFilter(preset);
-			setConnectionCopyPreview(false);
-			setSelectedConnectionIndex(0);
-			log(
-				filtered.length ? "info" : "warn",
-				`connections preset ${preset} matches ${filtered.length}`,
-			);
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "]") {
-			const preset = nextEndpointFilterPreset(portFilterPresets, portFilter);
-			if (!preset) {
-				log("warn", "no ports filter presets");
-				return;
-			}
-			const filtered = filterListeningPorts(ports, preset);
-			setPortFilter(preset);
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			setSelectedPortIndex(0);
-			log(
-				filtered.length ? "info" : "warn",
-				`ports preset ${preset} matches ${filtered.length}`,
-			);
-			return;
 		}
 
 		if (
@@ -9591,58 +9474,6 @@ export function App(): React.ReactElement {
 			});
 			setPortCopyPreview(false);
 			setPortProcessControlPreview(false);
-			return;
-		}
-
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "c"
-		) {
-			const preview = getSelectedConnectionClipboardPreview(
-				sortedConnections,
-				selectedConnectionIndex,
-			);
-			if (!preview) {
-				log("warn", "no connection selected");
-				return;
-			}
-			setConnectionCopyPreview(true);
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "c") {
-			const preview = getSelectedPortClipboardPreview(
-				sortedPorts,
-				selectedPortIndex,
-			);
-			if (!preview) {
-				log("warn", "no port selected");
-				return;
-			}
-			setPortCopyPreview(true);
-			setPortProcessControlPreview(false);
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "K") {
-			const preview = createSelectedPortProcessControlPreview(
-				sortedPorts,
-				selectedPortIndex,
-			);
-			if (!preview) {
-				log("warn", "no port process selected");
-				return;
-			}
-			setPortProcessControlPreview(true);
-			setPortCopyPreview(false);
-			setCommandLine(openCommandLine(portProcessControlPrompt));
-			log(
-				"warn",
-				`ports process control confirm ${preview.confirmationPhrase}`,
-			);
 			return;
 		}
 
@@ -9711,34 +9542,6 @@ export function App(): React.ReactElement {
 					? `ports process policy inspector ${preview.port.pid}`
 					: "ports process policy inspector hidden",
 			);
-			return;
-		}
-
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "e"
-		) {
-			void exportEndpointHandoff("connections");
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "e") {
-			void exportEndpointHandoff("ports");
-			return;
-		}
-
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "o"
-		) {
-			void openEndpointHandoff("connections");
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "o") {
-			void openEndpointHandoff("ports");
 			return;
 		}
 
@@ -10102,7 +9905,7 @@ export function App(): React.ReactElement {
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
 			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -10133,7 +9936,7 @@ export function App(): React.ReactElement {
 			const filtered = filterTimelineEvents(events, jump.query, jump.filter);
 			setTimelineFilter(jump.filter);
 			setTimelineSearchQuery(jump.query);
-			setSelectedTimelineIndex(Math.max(0, filtered.length - 1));
+			setSelectedTimelineIndex(selectNewestTimelineResult(filtered.length));
 			setScreen("timeline");
 			log(
 				filtered.length ? "info" : "warn",
@@ -11272,87 +11075,44 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (screen === "routes" && focusArea === "workspaces" && input === "s") {
-			setRouteSort((current) => {
-				const next = nextRouteSort(current);
-				log("info", `route sort ${next.key} ${next.direction}`);
-				return next;
+		if (screen === "timeline" && focusArea === "workspaces") {
+			const decision = prepareTimelinePanelInput({
+				input,
+				events,
+				filter: timelineFilter,
+				query: timelineSearchQuery,
+				presets: timelineSearchPresets,
+				selectedIndex: selectedTimelineIndex,
 			});
-			setRouteCopyPreview(false);
-			return;
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === "c") {
-			if (!routeTable) {
-				log("warn", "no route table loaded");
+			if (decision.kind === "filter") {
+				setTimelineFilter(decision.filter);
+				setSelectedTimelineIndex(decision.selectedIndex);
+			} else if (decision.kind === "search") {
+				setTimelineSearchQuery(decision.query);
+				setSelectedTimelineIndex(decision.selectedIndex);
+			} else if (decision.kind === "selection") {
+				setSelectedTimelineIndex(decision.selectedIndex);
+			} else if (decision.kind === "save-preset") {
+				setTimelineSearchPresets(decision.presets);
+			} else if (decision.kind === "command") {
+				if (decision.command === "search") {
+					setCommandLine(openCommandLine("timeline-search"));
+				} else if (decision.command === "cleanup") {
+					setCommandLine(openCommandLine("timeline-search-cleanup"));
+				}
+			}
+			if ("notice" in decision && decision.notice) {
+				log(decision.notice.level, decision.notice.message);
+			}
+			if (
+				decision.kind !== "no-op" &&
+				!(
+					decision.kind === "command" &&
+					["copy", "export", "evidence"].includes(decision.command)
+				)
+			) {
 				return;
 			}
-			const preview = getRouteClipboardPreview(routeTable, {
-				filter: routeFilter,
-				path: routePath,
-				sort: routeSort,
-				view: routeDetailView,
-			});
-			if (!preview) {
-				log("warn", "no route clipboard target");
-				return;
-			}
-			setRouteCopyPreview(true);
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === "e") {
-			void exportRouteHandoff();
-			return;
-		}
-
-		if (screen === "routes" && focusArea === "workspaces" && input === "o") {
-			void openRouteHandoff();
-			return;
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces" && input === "t") {
-			setTimelineFilter((current) => {
-				const next = nextTimelineFilter(current);
-				log("info", `timeline filter ${next}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces" && input === "f") {
-			setCommandLine(openCommandLine("timeline-search"));
-			log("info", "timeline search opened");
-			return;
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces" && input === "F") {
-			setTimelineSearchQuery("");
-			log("info", "timeline search cleared");
-			return;
-		}
-
-		if (
-			screen === "timeline" &&
-			focusArea === "workspaces" &&
-			(input === "j" || input === "k")
-		) {
-			if (visibleTimelineEvents.length === 0) {
-				log("warn", "no timeline row to select");
-				return;
-			}
-			const next = moveTimelineSelection(
-				selectedTimelineIndex,
-				input === "j" ? 1 : -1,
-				visibleTimelineEvents.length,
-			);
-			setSelectedTimelineIndex(next);
-			log(
-				"info",
-				`timeline selected ${next + 1}/${visibleTimelineEvents.length}`,
-			);
-			return;
 		}
 
 		if (screen === "timeline" && focusArea === "workspaces" && input === "c") {
@@ -11460,50 +11220,6 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (screen === "timeline" && focusArea === "workspaces" && input === "P") {
-			if (!timelineSearchQuery.trim()) {
-				log("warn", "no timeline search to save");
-				return;
-			}
-			setTimelineSearchPresets((current) =>
-				saveTimelineSearchPreset(current, timelineSearchQuery),
-			);
-			log("info", `timeline preset saved ${timelineSearchQuery}`);
-			return;
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces" && input === "D") {
-			const preview = createTimelineSearchCleanupPreview(timelineSearchPresets);
-			if (!preview) {
-				log("warn", "no timeline search presets to clean");
-				return;
-			}
-			setCommandLine(openCommandLine("timeline-search-cleanup"));
-			log(
-				"warn",
-				`timeline search cleanup confirm ${preview.confirmationPhrase}`,
-			);
-			return;
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces" && input === "]") {
-			const preset = nextTimelineSearchPreset(
-				timelineSearchPresets,
-				timelineSearchQuery,
-			);
-			if (!preset) {
-				log("warn", "no timeline search presets");
-				return;
-			}
-			const filtered = filterTimelineEvents(events, preset, timelineFilter);
-			setTimelineSearchQuery(preset);
-			log(
-				filtered.length ? "info" : "warn",
-				`timeline preset ${preset} matches ${filtered.length}`,
-			);
-			return;
-		}
-
 		if (
 			screen === "operations" &&
 			focusArea === "workspaces" &&
@@ -11513,43 +11229,23 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (screen === "logs" && focusArea === "workspaces" && input === "e") {
-			setLogLevelFilter((current) => {
-				const next = nextOsLogLevelFilter(current);
-				const filtered = filterOsLogEntries(
-					osLogs?.entries ?? [],
-					logSearchQuery,
-					next,
-				);
-				log(
-					filtered.length ? "info" : "warn",
-					`logs level ${next} matches ${filtered.length}`,
-				);
-				return next;
+		if (screen === "logs" && focusArea === "workspaces") {
+			const decision = prepareLogPanelInput({
+				input,
+				entries: osLogs?.entries ?? [],
+				level: logLevelFilter,
+				query: logSearchQuery,
+				presets: logSearchPresets,
+				profiles: logProfiles,
+				follow: logFollowEnabled,
 			});
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "f") {
-			setCommandLine(openCommandLine("log-search"));
-			log("info", "logs search opened");
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "F") {
-			setLogSearchQuery("");
-			log("info", "logs search cleared");
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "P") {
-			if (!logSearchQuery.trim()) {
-				log("warn", "no logs search to save");
-				return;
-			}
-			setLogSearchPresets((current) => {
-				const next = saveLogSearchPreset(current, logSearchQuery);
-				void setConfigLogSearchPresets(next).catch((caught) =>
+			if (decision.kind === "level") {
+				setLogLevelFilter(decision.level);
+			} else if (decision.kind === "search") {
+				setLogSearchQuery(decision.query);
+			} else if (decision.kind === "save-preset") {
+				setLogSearchPresets(decision.presets);
+				void setConfigLogSearchPresets(decision.presets).catch((caught) =>
 					log(
 						"fail",
 						caught instanceof Error
@@ -11557,36 +11253,9 @@ export function App(): React.ReactElement {
 							: `logs preset save failed ${String(caught)}`,
 					),
 				);
-				return next;
-			});
-			log("info", `logs preset saved ${logSearchQuery}`);
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "]") {
-			const preset = nextLogSearchPreset(logSearchPresets, logSearchQuery);
-			if (!preset) {
-				log("warn", "no logs search presets");
-				return;
-			}
-			const filtered = filterOsLogEntries(
-				osLogs?.entries ?? [],
-				preset,
-				logLevelFilter,
-			);
-			setLogSearchQuery(preset);
-			log(
-				filtered.length ? "info" : "warn",
-				`logs preset ${preset} matches ${filtered.length}`,
-			);
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "S") {
-			const profile = { level: logLevelFilter, query: logSearchQuery };
-			setLogProfiles((current) => {
-				const next = saveLogProfile(current, profile);
-				void setConfigLogProfiles(next).catch((caught) =>
+			} else if (decision.kind === "save-profile") {
+				setLogProfiles(decision.profiles);
+				void setConfigLogProfiles(decision.profiles).catch((caught) =>
 					log(
 						"fail",
 						caught instanceof Error
@@ -11594,59 +11263,31 @@ export function App(): React.ReactElement {
 							: `logs profile save failed ${String(caught)}`,
 					),
 				);
-				return next;
-			});
-			log("info", `logs profile saved ${formatLogProfileLabel(profile)}`);
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "}") {
-			const profile = nextLogProfile(logProfiles, {
-				level: logLevelFilter,
-				query: logSearchQuery,
-			});
-			if (!profile) {
-				log("warn", "no logs profiles");
+			} else if (decision.kind === "profile") {
+				setLogLevelFilter(decision.profile.level);
+				setLogSearchQuery(decision.profile.query);
+			} else if (decision.kind === "follow") {
+				setLogFollowEnabled(decision.follow);
+			} else if (decision.kind === "command") {
+				if (decision.command === "search") {
+					setCommandLine(openCommandLine("log-search"));
+				} else if (decision.command === "cleanup") {
+					setCommandLine(openCommandLine("logs-cleanup"));
+				} else if (decision.command === "clear-follow") {
+					setLogFollowRefreshCount(0);
+					setLogFollowLastStatus("idle");
+					setLogFollowHistory([]);
+				}
+			}
+			if ("notice" in decision && decision.notice) {
+				log(decision.notice.level, decision.notice.message);
+			}
+			if (
+				decision.kind !== "no-op" &&
+				!(decision.kind === "command" && decision.command === "refresh")
+			) {
 				return;
 			}
-			const filtered = filterOsLogEntries(
-				osLogs?.entries ?? [],
-				profile.query,
-				profile.level,
-			);
-			setLogLevelFilter(profile.level);
-			setLogSearchQuery(profile.query);
-			log(
-				filtered.length ? "info" : "warn",
-				`logs profile ${formatLogProfileLabel(profile)} matches ${filtered.length}`,
-			);
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "D") {
-			const preview = createLogCleanupPreview(logSearchPresets, logProfiles);
-			if (!preview) {
-				log("warn", "no logs presets to clean");
-				return;
-			}
-			setCommandLine(openCommandLine("logs-cleanup"));
-			log("warn", `logs cleanup confirm ${preview.confirmationPhrase}`);
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "L") {
-			const next = !logFollowEnabled;
-			setLogFollowEnabled(next);
-			log(next ? "info" : "warn", `logs follow ${next ? "on" : "off"}`);
-			return;
-		}
-
-		if (screen === "logs" && focusArea === "workspaces" && input === "C") {
-			setLogFollowRefreshCount(0);
-			setLogFollowLastStatus("idle");
-			setLogFollowHistory([]);
-			log("info", "logs follow state cleared");
-			return;
 		}
 
 		if (screen === "logs" && focusArea === "workspaces" && input === "r") {
@@ -12363,17 +12004,6 @@ export function App(): React.ReactElement {
 					direction: "next",
 				});
 				setSelectedEditorLineIndex(transition.selectedLineIndex);
-			} else if (screen === "connections") {
-				setSelectedConnectionIndex((index) =>
-					getNextIndex(index, sortedConnections.length, "next"),
-				);
-				setConnectionCopyPreview(false);
-			} else if (screen === "ports") {
-				setSelectedPortIndex((index) =>
-					getNextIndex(index, sortedPorts.length, "next"),
-				);
-				setPortCopyPreview(false);
-				setPortProcessControlPreview(false);
 			} else if (screen === "operations") {
 				setSelectedOperationPresetIndex((index) =>
 					getNextIndex(index, operationPresets.length, "next"),
@@ -12428,17 +12058,6 @@ export function App(): React.ReactElement {
 					direction: "previous",
 				});
 				setSelectedEditorLineIndex(transition.selectedLineIndex);
-			} else if (screen === "connections") {
-				setSelectedConnectionIndex((index) =>
-					getNextIndex(index, sortedConnections.length, "previous"),
-				);
-				setConnectionCopyPreview(false);
-			} else if (screen === "ports") {
-				setSelectedPortIndex((index) =>
-					getNextIndex(index, sortedPorts.length, "previous"),
-				);
-				setPortCopyPreview(false);
-				setPortProcessControlPreview(false);
 			} else if (screen === "operations") {
 				setSelectedOperationPresetIndex((index) =>
 					getNextIndex(index, operationPresets.length, "previous"),

@@ -44,6 +44,7 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
+import { clampIndex } from "./navigation";
 
 export type EndpointProcessRequest = {
 	pid: string;
@@ -77,6 +78,67 @@ export type EndpointFilterCleanupConfirmation = {
 	message: string;
 	presets: string[];
 	removed: number;
+};
+
+export type EndpointPanelNotice = {
+	level: "info" | "warn";
+	message: string;
+};
+
+export type EndpointPanelInputDecision =
+	| { kind: "no-op" }
+	| { kind: "notice"; notice: EndpointPanelNotice }
+	| {
+			kind: "command";
+			scope: EndpointHandoffKind;
+			command:
+				| "filter"
+				| "cleanup"
+				| "export"
+				| "open"
+				| "inspect-process"
+				| "inspect-policy"
+				| "control"
+				| "sort"
+				| "copy";
+			notice?: EndpointPanelNotice;
+	  }
+	| {
+			kind: "detail";
+			view: EndpointDetailView;
+			copyPreview: false;
+			processControlPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "filter";
+			filter: string;
+			selectedIndex: number;
+			copyPreview: false;
+			processControlPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "save-preset";
+			presets: string[];
+			copyPreview: false;
+			processControlPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			copyPreview: false;
+			processControlPreview: false;
+	  };
+
+export type EndpointFilterTransition = {
+	filter: string;
+	presets: string[];
+	selectedIndex: number;
+	copyPreview: false;
+	processControlPreview: false;
+	notice: EndpointPanelNotice;
 };
 
 export type PortProcessControlKind = "terminate";
@@ -148,26 +210,294 @@ const ENDPOINT_WORKSPACE_HINT_ENTRIES: readonly {
 	key: string;
 	label?: string;
 	kinds?: readonly EndpointHandoffKind[];
+	hint?: boolean;
+	intent:
+		| "filter"
+		| "clear-filter"
+		| "save-preset"
+		| "preset"
+		| "cleanup"
+		| "export"
+		| "open"
+		| "inspect-process"
+		| "inspect-policy"
+		| "control"
+		| "detail"
+		| "select"
+		| "sort"
+		| "copy";
 }[] = [
-	{ key: "f", label: "filter" },
-	{ key: "P", label: "save" },
-	{ key: "]", label: "preset" },
-	{ key: "D", label: "cleanup" },
-	{ key: "e", label: "export" },
-	{ key: "o", label: "open" },
-	{ key: "enter", label: "process" },
-	{ key: "I", label: "inspector", kinds: ["ports"] },
-	{ key: "K", label: "control", kinds: ["ports"] },
-	{ key: "tab/1-3", label: "detail" },
-	{ key: "home/end" },
-	{ key: "j/k", label: "select" },
+	{ key: "f", label: "filter", intent: "filter" },
+	{ key: "F", hint: false, intent: "clear-filter" },
+	{ key: "P", label: "save", intent: "save-preset" },
+	{ key: "]", label: "preset", intent: "preset" },
+	{ key: "D", label: "cleanup", intent: "cleanup" },
+	{ key: "e", label: "export", intent: "export" },
+	{ key: "o", label: "open", intent: "open" },
+	{ key: "enter", label: "process", intent: "inspect-process" },
+	{
+		key: "I",
+		label: "inspector",
+		kinds: ["ports"],
+		intent: "inspect-policy",
+	},
+	{ key: "K", label: "control", kinds: ["ports"], intent: "control" },
+	{ key: "tab/1-3", label: "detail", intent: "detail" },
+	{ key: "home/end", intent: "detail" },
+	{ key: "j/k", label: "select", intent: "select" },
+	{ key: "s", hint: false, intent: "sort" },
+	{ key: "c", hint: false, intent: "copy" },
 ];
+
+export function repairEndpointSelection(index: number, total: number): number {
+	return clampIndex(index, total);
+}
+
+export function moveEndpointSelection(
+	index: number,
+	total: number,
+	direction: "next" | "previous",
+): number {
+	if (total <= 0) {
+		return clampIndex(index, total);
+	}
+	const current = clampIndex(index, total);
+	const offset = direction === "next" ? 1 : -1;
+	return clampIndex((current + offset + total) % total, total);
+}
+
+export function resolveEndpointSelectedRow<T>(
+	rows: readonly T[],
+	selectedIndex: number,
+): T | undefined {
+	if (!rows.length) {
+		return undefined;
+	}
+	return rows[clampIndex(selectedIndex, rows.length)];
+}
+
+export function prepareEndpointFilterTransition(
+	input:
+		| {
+				kind: "connections";
+				rows: readonly ActiveConnection[];
+				presets: string[];
+				query: string;
+		  }
+		| {
+				kind: "ports";
+				rows: readonly ListeningPort[];
+				presets: string[];
+				query: string;
+		  },
+): EndpointFilterTransition {
+	const filter = input.query.trim();
+	const matches =
+		input.kind === "connections"
+			? filterConnections([...input.rows], filter).length
+			: filterListeningPorts([...input.rows], filter).length;
+	return {
+		filter,
+		presets: filter
+			? saveEndpointFilterPreset(input.presets, filter)
+			: input.presets,
+		selectedIndex: 0,
+		copyPreview: false,
+		processControlPreview: false,
+		notice: {
+			level: matches ? "info" : filter ? "warn" : "info",
+			message: filter
+				? `${input.kind} filter ${filter} matches ${matches}`
+				: `${input.kind} filter cleared`,
+		},
+	};
+}
+
+export function prepareEndpointPanelInput(input: {
+	kind: EndpointHandoffKind;
+	input: string;
+	view: EndpointDetailView;
+	filter: string;
+	presets: string[];
+	rows: readonly (ActiveConnection | ListeningPort)[];
+	visibleRows?: readonly (ActiveConnection | ListeningPort)[];
+	selectedIndex: number;
+	home?: boolean;
+	end?: boolean;
+	tab?: boolean;
+}): EndpointPanelInputDecision {
+	const visibleRows = input.visibleRows ?? input.rows;
+	const entry = ENDPOINT_WORKSPACE_HINT_ENTRIES.find(
+		(candidate) =>
+			(!candidate.kinds || candidate.kinds.includes(input.kind)) &&
+			(candidate.key === input.input ||
+				(candidate.key === "enter" && input.input === "\r") ||
+				(candidate.key === "j/k" && ["j", "k"].includes(input.input)) ||
+				(candidate.key === "tab/1-3" &&
+					(input.tab || ["1", "2", "3"].includes(input.input))) ||
+				(candidate.key === "home/end" && (input.home || input.end))),
+	);
+	if (!entry) {
+		return { kind: "no-op" };
+	}
+	if (entry.intent === "detail") {
+		const view =
+			getEndpointDetailViewShortcut(input.input, {
+				home: input.home,
+				end: input.end,
+			}) ?? nextEndpointDetailView(input.view);
+		return {
+			kind: "detail",
+			view,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: { level: "info", message: `${input.kind} detail ${view}` },
+		};
+	}
+	if (entry.intent === "select") {
+		return {
+			kind: "selection",
+			selectedIndex: moveEndpointSelection(
+				input.selectedIndex,
+				visibleRows.length,
+				input.input === "j" ? "next" : "previous",
+			),
+			copyPreview: false,
+			processControlPreview: false,
+		};
+	}
+	if (entry.intent === "clear-filter") {
+		return {
+			kind: "filter",
+			filter: "",
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "info",
+				message: `${input.kind} filter cleared`,
+			},
+		};
+	}
+	if (entry.intent === "save-preset") {
+		const filter = input.filter.trim();
+		return filter
+			? {
+					kind: "save-preset",
+					presets: saveEndpointFilterPreset(input.presets, filter),
+					copyPreview: false,
+					processControlPreview: false,
+					notice: {
+						level: "info",
+						message: `${input.kind} preset saved ${filter}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: `no ${input.kind} filter to save`,
+					},
+				};
+	}
+	if (entry.intent === "cleanup") {
+		const preview = createEndpointFilterCleanupPreview(
+			input.kind,
+			input.presets,
+		);
+		return preview
+			? {
+					kind: "command",
+					scope: input.kind,
+					command: "cleanup",
+					notice: {
+						level: "warn",
+						message: `${input.kind} filter cleanup confirm ${preview.confirmationPhrase}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: `no ${input.kind} filter presets to clean`,
+					},
+				};
+	}
+	if (entry.intent === "preset") {
+		const filter = nextEndpointFilterPreset(input.presets, input.filter);
+		if (!filter) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: `no ${input.kind} filter presets`,
+				},
+			};
+		}
+		const matches =
+			input.kind === "connections"
+				? filterConnections(input.rows as ActiveConnection[], filter).length
+				: filterListeningPorts(input.rows as ListeningPort[], filter).length;
+		return {
+			kind: "filter",
+			filter,
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: matches ? "info" : "warn",
+				message: `${input.kind} preset ${filter} matches ${matches}`,
+			},
+		};
+	}
+	if (entry.intent === "copy") {
+		if (!resolveEndpointSelectedRow(visibleRows, input.selectedIndex)) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message:
+						input.kind === "connections"
+							? "no connection selected"
+							: "no port selected",
+				},
+			};
+		}
+		return { kind: "command", scope: input.kind, command: "copy" };
+	}
+	if (
+		["inspect-process", "inspect-policy", "control"].includes(entry.intent) &&
+		!resolveEndpointSelectedRow(visibleRows, input.selectedIndex)
+	) {
+		const message =
+			entry.intent === "inspect-process"
+				? "no endpoint process selected"
+				: entry.intent === "inspect-policy"
+					? "no port process policy to inspect"
+					: "no port process selected";
+		return { kind: "notice", notice: { level: "warn", message } };
+	}
+	return {
+		kind: "command",
+		scope: input.kind,
+		command: entry.intent,
+		...(entry.intent === "filter"
+			? {
+					notice: {
+						level: "info" as const,
+						message: `${input.kind} filter opened`,
+					},
+				}
+			: {}),
+	};
+}
 
 export function getEndpointWorkspaceHintKeys(
 	kind: EndpointHandoffKind,
 ): string[] {
 	return ENDPOINT_WORKSPACE_HINT_ENTRIES.filter(
-		(entry) => !entry.kinds || entry.kinds.includes(kind),
+		(entry) =>
+			entry.hint !== false && (!entry.kinds || entry.kinds.includes(kind)),
 	).map((entry) => entry.key);
 }
 
@@ -176,7 +506,8 @@ export function formatEndpointWorkspaceHintRow(
 ): string {
 	const lead = kind === "connections" ? "active endpoints" : "listening ports";
 	const hints = ENDPOINT_WORKSPACE_HINT_ENTRIES.filter(
-		(entry) => !entry.kinds || entry.kinds.includes(kind),
+		(entry) =>
+			entry.hint !== false && (!entry.kinds || entry.kinds.includes(kind)),
 	).map((entry) => (entry.label ? `${entry.key} ${entry.label}` : entry.key));
 	return [lead, ...hints].join(" · ");
 }
@@ -741,7 +1072,7 @@ function getSelectedIndex(
 	if (selectedIndex === undefined || total <= 0) {
 		return undefined;
 	}
-	return Math.min(Math.max(selectedIndex, 0), total - 1);
+	return clampIndex(selectedIndex, total);
 }
 
 function createProcessRequest(

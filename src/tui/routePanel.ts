@@ -18,6 +18,7 @@ import type {
 import {
 	filterRouteEntries,
 	formatRouteTable,
+	nextRouteSort,
 	sortRouteEntries,
 } from "../core/routes";
 import { joinPathLike } from "../utils/pathStyle";
@@ -50,6 +51,202 @@ export type RouteFilterCleanupConfirmation = {
 	presets: string[];
 	removed: number;
 };
+
+export type RoutePanelNotice = {
+	level: "info" | "warn";
+	message: string;
+};
+
+export type RouteFilterTransition = {
+	filter: string;
+	presets: string[];
+	copyPreview: false;
+	notice: RoutePanelNotice;
+};
+
+export type RoutePanelInputDecision =
+	| { kind: "no-op" }
+	| { kind: "notice"; notice: RoutePanelNotice }
+	| {
+			kind: "detail";
+			view: RouteDetailView;
+			copyPreview: false;
+			notice: RoutePanelNotice;
+	  }
+	| {
+			kind: "filter";
+			filter: string;
+			copyPreview: false;
+			notice: RoutePanelNotice;
+	  }
+	| {
+			kind: "save-preset";
+			presets: string[];
+			copyPreview: false;
+			notice: RoutePanelNotice;
+	  }
+	| {
+			kind: "sort";
+			sort: RouteSort;
+			copyPreview: false;
+			notice: RoutePanelNotice;
+	  }
+	| {
+			kind: "command";
+			command:
+				| "destination"
+				| "filter"
+				| "cleanup"
+				| "copy"
+				| "export"
+				| "open";
+			copyPreview?: false;
+			notice?: RoutePanelNotice;
+	  };
+
+export function prepareRouteFilterTransition(input: {
+	routes: RouteTableResult["routes"];
+	presets: string[];
+	query: string;
+}): RouteFilterTransition {
+	const filter = input.query.trim();
+	const matches = filterRouteEntries(input.routes, filter).length;
+	return {
+		filter,
+		presets: input.presets,
+		copyPreview: false,
+		notice: {
+			level: matches ? "info" : filter ? "warn" : "info",
+			message: filter
+				? `route filter ${filter} matches ${matches}`
+				: "route filter cleared",
+		},
+	};
+}
+
+export function prepareRoutePanelInput(input: {
+	input: string;
+	view: RouteDetailView;
+	filter: string;
+	presets: string[];
+	routes: RouteTableResult["routes"];
+	sort?: RouteSort;
+	home?: boolean;
+	end?: boolean;
+	tab?: boolean;
+}): RoutePanelInputDecision {
+	const shortcut = getRouteDetailViewShortcut(input.input, {
+		home: input.home,
+		end: input.end,
+	});
+	const detail =
+		shortcut ?? (input.tab ? nextRouteDetailView(input.view) : undefined);
+	if (detail) {
+		return {
+			kind: "detail",
+			view: detail,
+			copyPreview: false,
+			notice: { level: "info", message: `route detail ${detail}` },
+		};
+	}
+	if (input.input === ":") {
+		return {
+			kind: "command",
+			command: "destination",
+			notice: { level: "info", message: "route destination prompt opened" },
+		};
+	}
+	if (input.input === "f") {
+		return {
+			kind: "command",
+			command: "filter",
+			copyPreview: false,
+			notice: { level: "info", message: "route filter opened" },
+		};
+	}
+	if (input.input === "F") {
+		return {
+			kind: "filter",
+			filter: "",
+			copyPreview: false,
+			notice: { level: "info", message: "route filter cleared" },
+		};
+	}
+	if (input.input === "P") {
+		const filter = input.filter.trim();
+		if (!filter) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no route filter to save" },
+			};
+		}
+		return {
+			kind: "save-preset",
+			presets: saveRouteFilterPreset(input.presets, filter),
+			copyPreview: false,
+			notice: { level: "info", message: `route preset saved ${filter}` },
+		};
+	}
+	if (input.input === "D") {
+		const preview = createRouteFilterCleanupPreview(input.presets);
+		return preview
+			? {
+					kind: "command",
+					command: "cleanup",
+					copyPreview: false,
+					notice: {
+						level: "warn",
+						message: `route filter cleanup confirm ${preview.confirmationPhrase}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no route filter presets to clean",
+					},
+				};
+	}
+	if (input.input === "]") {
+		const filter = nextRouteFilterPreset(input.presets, input.filter);
+		if (!filter) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no route filter presets" },
+			};
+		}
+		const matches = filterRouteEntries(input.routes, filter).length;
+		return {
+			kind: "filter",
+			filter,
+			copyPreview: false,
+			notice: {
+				level: matches ? "info" : "warn",
+				message: `route preset ${filter} matches ${matches}`,
+			},
+		};
+	}
+	if (input.input === "s") {
+		const sort = nextRouteSort(
+			input.sort ?? { key: "default", direction: "asc" },
+		);
+		return {
+			kind: "sort",
+			sort,
+			copyPreview: false,
+			notice: {
+				level: "info",
+				message: `route sort ${sort.key} ${sort.direction}`,
+			},
+		};
+	}
+	const commands = { c: "copy", e: "export", o: "open" } as const;
+	const command = commands[input.input as keyof typeof commands];
+	if (command) {
+		return { kind: "command", command };
+	}
+	return { kind: "no-op" };
+}
 
 export function getRouteDetailViewShortcut(
 	input: string,

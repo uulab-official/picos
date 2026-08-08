@@ -26,7 +26,12 @@ import {
 	moveTimelineSelection,
 	nextTimelineFilter,
 	nextTimelineSearchPreset,
+	prepareTimelinePanelInput,
+	prepareTimelineSearchTransition,
+	repairTimelineSelection,
+	resolveSelectedTimelineEvent,
 	saveTimelineSearchPreset,
+	selectNewestTimelineResult,
 	submitTimelineSearchCleanupConfirmation,
 	type TimelineFilter,
 } from "../src/tui/timelinePanel";
@@ -78,6 +83,68 @@ const events: ConsoleEvent[] = [
 ];
 
 describe("timeline TUI panel formatting", () => {
+	test("clamps empty and last-row timeline selection and selects newest results", () => {
+		expect(repairTimelineSelection(8, 0)).toBe(0);
+		expect(repairTimelineSelection(8, events.length)).toBe(events.length - 1);
+		expect(resolveSelectedTimelineEvent([], 8)).toBeUndefined();
+		expect(resolveSelectedTimelineEvent(events, 99)).toEqual(events.at(-1));
+		expect(selectNewestTimelineResult(events.length)).toBe(events.length - 1);
+		expect(selectNewestTimelineResult(0)).toBe(0);
+	});
+
+	test("owns timeline filter application and exact preset notices", () => {
+		expect(
+			prepareTimelineSearchTransition({
+				events,
+				filter: "network",
+				presets: ["clipboard"],
+				query: " ",
+			}),
+		).toEqual({
+			query: "",
+			presets: ["clipboard"],
+			selectedIndex: 0,
+			notice: { level: "info", message: "timeline search cleared" },
+		});
+		expect(
+			prepareTimelinePanelInput({
+				input: "]",
+				events,
+				filter: "network",
+				query: "",
+				presets: ["missing"],
+				selectedIndex: 0,
+			}),
+		).toEqual({
+			kind: "search",
+			query: "missing",
+			selectedIndex: 0,
+			notice: {
+				level: "warn",
+				message: "timeline preset missing matches 0",
+			},
+		});
+	});
+
+	test("keeps invalid timeline section shortcuts and empty cleanup as no-op decisions", () => {
+		const state = {
+			events,
+			filter: "all" as const,
+			query: "",
+			presets: [] as string[],
+			selectedIndex: 0,
+		};
+		expect(prepareTimelinePanelInput({ ...state, input: "1" })).toEqual({
+			kind: "no-op",
+		});
+		expect(prepareTimelinePanelInput({ ...state, input: "D" })).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no timeline search presets to clean",
+			},
+		});
+	});
 	test("cycles timeline filters for keyboard use", () => {
 		const sequence: TimelineFilter[] = [];
 		let current: TimelineFilter = "all";

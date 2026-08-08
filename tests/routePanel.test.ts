@@ -14,6 +14,8 @@ import {
 	getRouteDetailViewShortcut,
 	nextRouteDetailView,
 	nextRouteFilterPreset,
+	prepareRouteFilterTransition,
+	prepareRoutePanelInput,
 	saveRouteFilterPreset,
 	submitRouteFilterCleanupConfirmation,
 	writeRouteRawHandoffPlan,
@@ -64,6 +66,94 @@ const pathFixture: RoutePathResult = {
 };
 
 describe("route TUI panel formatting", () => {
+	test("owns route filter application and exact empty or filtered notices", () => {
+		expect(
+			prepareRouteFilterTransition({
+				routes: fixture.routes,
+				presets: ["default"],
+				query: "  ",
+			}),
+		).toEqual({
+			filter: "",
+			presets: ["default"],
+			copyPreview: false,
+			notice: { level: "info", message: "route filter cleared" },
+		});
+		expect(
+			prepareRouteFilterTransition({
+				routes: fixture.routes,
+				presets: ["default"],
+				query: " utun ",
+			}),
+		).toEqual({
+			filter: "utun",
+			presets: ["default"],
+			copyPreview: false,
+			notice: {
+				level: "info",
+				message: "route filter utun matches 1",
+			},
+		});
+	});
+
+	test("ignores invalid route section shortcuts and owns preset cleanup notices", () => {
+		expect(
+			prepareRoutePanelInput({
+				input: "5",
+				view: "raw",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+			}),
+		).toEqual({ kind: "no-op" });
+		expect(
+			prepareRoutePanelInput({
+				input: "D",
+				view: "raw",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no route filter presets to clean" },
+		});
+		expect(
+			prepareRoutePanelInput({
+				input: "]",
+				view: "raw",
+				filter: "",
+				presets: ["missing"],
+				routes: fixture.routes,
+			}),
+		).toEqual({
+			kind: "filter",
+			filter: "missing",
+			copyPreview: false,
+			notice: {
+				level: "warn",
+				message: "route preset missing matches 0",
+			},
+		});
+		expect(
+			prepareRoutePanelInput({
+				input: "s",
+				view: "table",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+				sort: { key: "default", direction: "asc" },
+			}),
+		).toEqual({
+			kind: "sort",
+			sort: { key: "destination", direction: "asc" },
+			copyPreview: false,
+			notice: {
+				level: "info",
+				message: "route sort destination asc",
+			},
+		});
+	});
 	test("formats route summary, diagnostics, rows, and raw output", () => {
 		expect(formatRouteWorkspaceRows(fixture, 10)).toEqual([
 			"SUMMARY routes=2 command=netstat -rn",

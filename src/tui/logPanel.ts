@@ -10,7 +10,13 @@ import {
 	saveLogProfile,
 	saveLogSearchPreset,
 } from "../core/logProfiles";
-import { formatOsLogRows, type OsLogSnapshot } from "../core/osLogs";
+import {
+	filterOsLogEntries,
+	formatOsLogRows,
+	nextOsLogLevelFilter,
+	type OsLogEntry,
+	type OsLogSnapshot,
+} from "../core/osLogs";
 import type { LogProfile } from "../core/types";
 
 export type LogFollowHistoryItem = {
@@ -33,6 +39,224 @@ export type LogCleanupConfirmation = {
 	profiles: LogProfile[];
 	removed: number;
 };
+
+export type LogPanelNotice = {
+	level: "info" | "warn";
+	message: string;
+};
+
+export type LogSearchTransition = {
+	query: string;
+	presets: string[];
+	notice: LogPanelNotice;
+};
+
+export type LogPanelInputDecision =
+	| { kind: "no-op" }
+	| { kind: "notice"; notice: LogPanelNotice }
+	| {
+			kind: "command";
+			command: "search" | "cleanup" | "refresh" | "clear-follow";
+			notice?: LogPanelNotice;
+	  }
+	| {
+			kind: "search";
+			query: string;
+			notice: LogPanelNotice;
+	  }
+	| {
+			kind: "level";
+			level: LogProfile["level"];
+			notice: LogPanelNotice;
+	  }
+	| {
+			kind: "save-preset";
+			presets: string[];
+			notice: LogPanelNotice;
+	  }
+	| {
+			kind: "save-profile";
+			profiles: LogProfile[];
+			notice: LogPanelNotice;
+	  }
+	| {
+			kind: "profile";
+			profile: LogProfile;
+			notice: LogPanelNotice;
+	  }
+	| { kind: "follow"; follow: boolean; notice: LogPanelNotice };
+
+export function prepareLogSearchTransition(input: {
+	entries: OsLogEntry[];
+	level: LogProfile["level"];
+	presets: string[];
+	query: string;
+}): LogSearchTransition {
+	const query = input.query.trim();
+	const matches = filterOsLogEntries(input.entries, query, input.level).length;
+	return {
+		query,
+		presets: query ? saveLogSearchPreset(input.presets, query) : input.presets,
+		notice: {
+			level: matches ? "info" : query ? "warn" : "info",
+			message: query
+				? `logs search ${query} matches ${matches}`
+				: "logs search cleared",
+		},
+	};
+}
+
+export function prepareLogPanelInput(input: {
+	input: string;
+	entries: OsLogEntry[];
+	level: LogProfile["level"];
+	query: string;
+	presets: string[];
+	profiles: LogProfile[];
+	follow: boolean;
+}): LogPanelInputDecision {
+	if (input.input === "e") {
+		const level = nextOsLogLevelFilter(input.level);
+		const matches = filterOsLogEntries(
+			input.entries,
+			input.query,
+			level,
+		).length;
+		return {
+			kind: "level",
+			level,
+			notice: {
+				level: matches ? "info" : "warn",
+				message: `logs level ${level} matches ${matches}`,
+			},
+		};
+	}
+	if (input.input === "f") {
+		return {
+			kind: "command",
+			command: "search",
+			notice: { level: "info", message: "logs search opened" },
+		};
+	}
+	if (input.input === "F") {
+		return {
+			kind: "search",
+			query: "",
+			notice: { level: "info", message: "logs search cleared" },
+		};
+	}
+	if (input.input === "P") {
+		const query = input.query.trim();
+		return query
+			? {
+					kind: "save-preset",
+					presets: saveLogSearchPreset(input.presets, query),
+					notice: {
+						level: "info",
+						message: `logs preset saved ${query}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: { level: "warn", message: "no logs search to save" },
+				};
+	}
+	if (input.input === "]") {
+		const query = nextLogSearchPreset(input.presets, input.query);
+		if (!query) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no logs search presets" },
+			};
+		}
+		const matches = filterOsLogEntries(
+			input.entries,
+			query,
+			input.level,
+		).length;
+		return {
+			kind: "search",
+			query,
+			notice: {
+				level: matches ? "info" : "warn",
+				message: `logs preset ${query} matches ${matches}`,
+			},
+		};
+	}
+	if (input.input === "S") {
+		const profile = { level: input.level, query: input.query };
+		return {
+			kind: "save-profile",
+			profiles: saveLogProfile(input.profiles, profile),
+			notice: {
+				level: "info",
+				message: `logs profile saved ${formatLogProfileLabel(profile)}`,
+			},
+		};
+	}
+	if (input.input === "}") {
+		const profile = nextLogProfile(input.profiles, {
+			level: input.level,
+			query: input.query,
+		});
+		if (!profile) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no logs profiles" },
+			};
+		}
+		const matches = filterOsLogEntries(
+			input.entries,
+			profile.query,
+			profile.level,
+		).length;
+		return {
+			kind: "profile",
+			profile,
+			notice: {
+				level: matches ? "info" : "warn",
+				message: `logs profile ${formatLogProfileLabel(profile)} matches ${matches}`,
+			},
+		};
+	}
+	if (input.input === "D") {
+		const preview = createLogCleanupPreview(input.presets, input.profiles);
+		return preview
+			? {
+					kind: "command",
+					command: "cleanup",
+					notice: {
+						level: "warn",
+						message: `logs cleanup confirm ${preview.confirmationPhrase}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: { level: "warn", message: "no logs presets to clean" },
+				};
+	}
+	if (input.input === "L") {
+		const follow = !input.follow;
+		return {
+			kind: "follow",
+			follow,
+			notice: {
+				level: follow ? "info" : "warn",
+				message: `logs follow ${follow ? "on" : "off"}`,
+			},
+		};
+	}
+	if (input.input === "C") {
+		return {
+			kind: "command",
+			command: "clear-follow",
+			notice: { level: "info", message: "logs follow state cleared" },
+		};
+	}
+	return input.input === "r"
+		? { kind: "command", command: "refresh" }
+		: { kind: "no-op" };
+}
 
 export type { LogProfile };
 export {
