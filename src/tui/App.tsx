@@ -105,6 +105,10 @@ import {
 	runFileOpenPlan,
 } from "../core/fileOpen";
 import {
+	createFileOperationExecutionPlan,
+	runFileOperationExecutionPlan,
+} from "../core/fileOperations";
+import {
 	createLocalFileProvider,
 	type FileEntry,
 	type FileLocation,
@@ -116,10 +120,6 @@ import {
 	resolveFilePath,
 	withParentDirectoryEntry,
 } from "../core/files";
-import {
-	createFileOperationExecutionPlan,
-	runFileOperationExecutionPlan,
-} from "../core/fileOperations";
 import {
 	createEditorWritePreview,
 	formatEditorWritePreviewRows,
@@ -434,10 +434,10 @@ import {
 } from "./fileHistory";
 import {
 	clearFileOperationDialog,
-	setFileOperationDestination,
 	type FileOperationDialogState,
 	type FileOperationKind,
 	openFileOperationDialog,
+	setFileOperationDestination,
 } from "./fileOperationDialog";
 import {
 	formatFileBreadcrumbRows,
@@ -8472,105 +8472,107 @@ export function App(): React.ReactElement {
 																? "control confirmation cancelled"
 																: commandLine.prompt === "external-open"
 																	? "external open confirmation cancelled"
-							: commandLine.prompt === "file-open"
-								? "file open confirmation cancelled"
-								: commandLine.prompt === "file-operation-destination"
-									? "file operation destination cancelled"
-									: commandLine.prompt === "file-operation-confirm"
-										? "file operation confirmation cancelled"
-								: commandLine.prompt ===
-																				"cleanup-export-archive"
-																			? "cleanup export archive cancelled"
+																	: commandLine.prompt === "file-open"
+																		? "file open confirmation cancelled"
+																		: commandLine.prompt ===
+																				"file-operation-destination"
+																			? "file operation destination cancelled"
 																			: commandLine.prompt ===
-																					"tool-export-archive"
-																				? "tools evidence archive cancelled"
+																					"file-operation-confirm"
+																				? "file operation confirmation cancelled"
 																				: commandLine.prompt ===
-																						"audit-export-archive"
-																					? "audit export archive cancelled"
+																						"cleanup-export-archive"
+																					? "cleanup export archive cancelled"
 																					: commandLine.prompt ===
-																							"audit-archive-retention"
-																						? "audit archive retention cancelled"
+																							"tool-export-archive"
+																						? "tools evidence archive cancelled"
 																						: commandLine.prompt ===
-																								"tools-archive-retention"
-																							? "tools archive retention cancelled"
+																								"audit-export-archive"
+																							? "audit export archive cancelled"
 																							: commandLine.prompt ===
-																									"config-reset"
-																								? "config reset cancelled"
+																									"audit-archive-retention"
+																								? "audit archive retention cancelled"
 																								: commandLine.prompt ===
-																										"editor-append"
-																									? "editor append cancelled"
+																										"tools-archive-retention"
+																									? "tools archive retention cancelled"
 																									: commandLine.prompt ===
-																											"editor-insert-before"
-																										? "editor insert before cancelled"
+																											"config-reset"
+																										? "config reset cancelled"
 																										: commandLine.prompt ===
-																												"editor-insert-after"
-																											? "editor insert after cancelled"
+																												"editor-append"
+																											? "editor append cancelled"
 																											: commandLine.prompt ===
-																													"editor-replace"
-																												? "editor replace cancelled"
+																													"editor-insert-before"
+																												? "editor insert before cancelled"
 																												: commandLine.prompt ===
-																														"editor-save"
-																													? "editor save confirmation cancelled"
-																													: commandLine.prompt.startsWith(
-																																"config-",
-																															)
-																														? "config edit cancelled"
+																														"editor-insert-after"
+																													? "editor insert after cancelled"
+																													: commandLine.prompt ===
+																															"editor-replace"
+																														? "editor replace cancelled"
 																														: commandLine.prompt ===
-																																"log-search"
-																															? "logs search cancelled"
-																															: commandLine.prompt ===
-																																	"logs-cleanup"
-																																? "logs cleanup cancelled"
+																																"editor-save"
+																															? "editor save confirmation cancelled"
+																															: commandLine.prompt.startsWith(
+																																		"config-",
+																																	)
+																																? "config edit cancelled"
 																																: commandLine.prompt ===
-																																		"tools-evidence-search"
-																																	? "tools evidence search cancelled"
+																																		"log-search"
+																																	? "logs search cancelled"
 																																	: commandLine.prompt ===
-																																			"dns-servers"
-																																		? "dns server proposal cancelled"
+																																			"logs-cleanup"
+																																		? "logs cleanup cancelled"
 																																		: commandLine.prompt ===
-																																				"tool-target-label"
-																																			? "tool target label cancelled"
+																																				"tools-evidence-search"
+																																			? "tools evidence search cancelled"
 																																			: commandLine.prompt ===
-																																					"tool-target-value"
-																																				? "tool target value cancelled"
+																																					"dns-servers"
+																																				? "dns server proposal cancelled"
 																																				: commandLine.prompt ===
-																																						"tool-target-action"
-																																					? "tool target action cancelled"
+																																						"tool-target-label"
+																																					? "tool target label cancelled"
 																																					: commandLine.prompt ===
-																																							"tool-target-cleanup"
-																																						? "tool target cleanup cancelled"
+																																							"tool-target-value"
+																																						? "tool target value cancelled"
 																																						: commandLine.prompt ===
-																																								"tool-target-preset"
-																																							? "tool target preset cancelled"
+																																								"tool-target-action"
+																																							? "tool target action cancelled"
 																																							: commandLine.prompt ===
-																																									"remote-profile"
-																																								? "remote profile cancelled"
+																																									"tool-target-cleanup"
+																																								? "tool target cleanup cancelled"
 																																								: commandLine.prompt ===
-																																										"remote-connect"
-																																									? "remote connect confirmation cancelled"
+																																										"tool-target-preset"
+																																									? "tool target preset cancelled"
 																																									: commandLine.prompt ===
-																																											"remote-host-trust"
-																																										? "remote host trust review cancelled"
+																																											"remote-profile"
+																																										? "remote profile cancelled"
 																																										: commandLine.prompt ===
-																																												"remote-host-key-evidence"
-																																											? "remote host key evidence input cancelled"
+																																												"remote-connect"
+																																											? "remote connect confirmation cancelled"
 																																											: commandLine.prompt ===
-																																													"remote-known-hosts-candidate"
-																																												? "remote known_hosts candidate input cancelled"
+																																													"remote-host-trust"
+																																												? "remote host trust review cancelled"
 																																												: commandLine.prompt ===
-																																														"remote-known-hosts-paste"
-																																													? "remote known_hosts paste review cancelled"
+																																														"remote-host-key-evidence"
+																																													? "remote host key evidence input cancelled"
 																																													: commandLine.prompt ===
-																																															"remote-known-hosts-select"
-																																														? "remote known_hosts paste selection cancelled"
+																																															"remote-known-hosts-candidate"
+																																														? "remote known_hosts candidate input cancelled"
 																																														: commandLine.prompt ===
-																																																portProcessControlPrompt
-																																															? "port process control cancelled"
-																																															: commandLine.prompt.startsWith(
-																																																		toolPromptPrefix,
-																																																	)
-																																																? "tool target command cancelled"
-																																																: "path command cancelled",
+																																																"remote-known-hosts-paste"
+																																															? "remote known_hosts paste review cancelled"
+																																															: commandLine.prompt ===
+																																																	"remote-known-hosts-select"
+																																																? "remote known_hosts paste selection cancelled"
+																																																: commandLine.prompt ===
+																																																		portProcessControlPrompt
+																																																	? "port process control cancelled"
+																																																	: commandLine.prompt.startsWith(
+																																																				toolPromptPrefix,
+																																																			)
+																																																		? "tool target command cancelled"
+																																																		: "path command cancelled",
 				);
 				return;
 			}

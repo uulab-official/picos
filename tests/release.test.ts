@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { formatReleaseHealthJson } from "../src/cli/diagnosticOutput";
 import {
 	createReleaseChecklist,
 	createReleaseHealthReport,
@@ -7,7 +8,6 @@ import {
 	getVersionSyncStatus,
 } from "../src/core/release";
 import { VERSION } from "../src/core/version";
-import { formatReleaseHealthJson } from "../src/cli/diagnosticOutput";
 
 type PackageJson = {
 	name: string;

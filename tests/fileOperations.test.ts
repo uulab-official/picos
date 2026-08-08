@@ -72,9 +72,9 @@ describe("local file operation execution", () => {
 		expect((await runFileOperationExecutionPlan(move, provider)).success).toBe(
 			true,
 		);
-		expect((await runFileOperationExecutionPlan(remove, provider)).success).toBe(
-			true,
-		);
+		expect(
+			(await runFileOperationExecutionPlan(remove, provider)).success,
+		).toBe(true);
 		expect(formatFileOperationExecutionRows(copy)).toContain(
 			"confirmed=true willExecute=true reason=ready",
 		);
@@ -97,9 +97,7 @@ describe("local file operation execution", () => {
 		expect(lockedResult.audit.status).toBe("failed");
 		expect(
 			await stat(join(root, "locked-copy.txt")).catch(() => undefined),
-		).toBe(
-			undefined,
-		);
+		).toBe(undefined);
 
 		await Bun.write(join(root, "existing.txt"), "keep\n");
 		const provider = createLocalFileProvider(root, { allowWrites: true });

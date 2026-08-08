@@ -252,7 +252,12 @@ function assertDistinctPaths(source: string, destination: string): void {
 }
 
 async function assertDestinationAvailable(destination: string): Promise<void> {
-	if (await lstat(destination).then(() => true, () => false)) {
+	if (
+		await lstat(destination).then(
+			() => true,
+			() => false,
+		)
+	) {
 		throw new Error("File operation destination already exists");
 	}
 }

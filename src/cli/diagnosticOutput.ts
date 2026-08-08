@@ -1,5 +1,5 @@
-import type { ToolDefinition, ToolResult } from "../core/tools";
 import type { ReleaseHealthReport } from "../core/release";
+import type { ToolDefinition, ToolResult } from "../core/tools";
 import type { DoctorCheck } from "../core/types";
 import {
 	LOCAL_INSPECTOR_JSON_ENTRY_LIMIT,
@@ -37,9 +37,7 @@ export function formatDoctorJson(checks: DoctorCheck[]): string {
 	});
 }
 
-export function formatReleaseHealthJson(
-	report: ReleaseHealthReport,
-): string {
+export function formatReleaseHealthJson(report: ReleaseHealthReport): string {
 	return stringifyLocalInspectorCompleted("release-health", {
 		request: { action: "check" },
 		data: {
@@ -49,9 +47,7 @@ export function formatReleaseHealthJson(
 			checks: report.items.map((item) => ({
 				label: sanitizeLocalInspectorText(item.label),
 				status: item.status,
-				detail: item.detail
-					? sanitizeLocalInspectorText(item.detail)
-					: null,
+				detail: item.detail ? sanitizeLocalInspectorText(item.detail) : null,
 			})),
 		},
 	});

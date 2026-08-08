@@ -4,12 +4,12 @@ import {
 	formatReleaseHealthRows,
 } from "../../core/release";
 import { VERSION } from "../../core/version";
+import { formatReleaseHealthJson } from "../diagnosticOutput";
 import {
 	assertLocalJsonOptions,
 	isLocalJsonRequested,
 	reportLocalInspectorJsonFailure,
 } from "../localInspectorOutput";
-import { formatReleaseHealthJson } from "../diagnosticOutput";
 import { isCliOutputWriteError, writeCliOutput } from "../output";
 
 type ReleaseHealthPackageJson = {

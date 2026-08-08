@@ -30,8 +30,8 @@ import {
 } from "../output";
 import {
 	formatRemoteJsonFailure,
-	formatRemoteProfilesJson,
 	formatRemoteJsonSuccess,
+	formatRemoteProfilesJson,
 	sanitizeRemoteOutputText,
 } from "../remoteOutput";
 

@@ -55,7 +55,7 @@ export function createFileOperationExecutionPlan(input: {
 	const source = input.path;
 	const destination = input.destination;
 	const hasSource = source.trim().length > 0;
-	const hasDestination = destination?.trim().length > 0;
+	const hasDestination = (destination?.trim().length ?? 0) > 0;
 	const confirmed = input.confirmation === confirmationPhrase;
 	const blockers = [
 		...(hasSource ? [] : ["source-required"]),
@@ -168,7 +168,7 @@ function createFileOperationExecutionAudit(
 		status,
 		policy: plan.policy,
 		confirmed: plan.confirmed,
-		willExecute: status === "completed" ? true : false,
+		willExecute: status === "completed",
 		blockers: [...plan.blockers, ...extraBlockers],
 		...(error ? { error } : {}),
 	};
