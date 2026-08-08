@@ -2,7 +2,7 @@
 
 ## Open PR - v0.4.340 through v0.4.346
 
-Draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414), carries every slice from v0.4.340 through v0.4.346 as one PR, because several files carry changes from more than one of them and could not be split mechanically. Fresh local verification for the follow-up changes: 849 tests across 87 files pass, `tsc --noEmit` is clean, all five integration harnesses, the release check, build, and smoke pass, and Biome reports no findings across 219 files. Cross-platform status for each pushed head belongs in the PR checks rather than this snapshot.
+Draft PR [#415](https://github.com/uulab-official/picos/pull/415) on `codex/picos-v0.4.342-operations-presets`, stacked on draft PR [#414](https://github.com/uulab-official/picos/pull/414), carries every slice from v0.4.340 through v0.4.346 as one PR, because several files carry changes from more than one of them and could not be split mechanically. Fresh local verification for the follow-up changes: 853 tests across 87 files pass, `tsc --noEmit` is clean, all five integration harnesses, the release check, build, and smoke pass, and Biome reports no findings across 219 files. Cross-platform status for each pushed head belongs in the PR checks rather than this snapshot.
 
 The v0.4.340 through v0.4.346 labels identify development roadmap slices; they do not update the published package version by themselves. The release sources of truth remain `package.json` and `src/core/version.ts`, both intentionally at `0.2.0` until the maintainer selects a public version through the release checklist in `docs/RELEASE.md`.
 

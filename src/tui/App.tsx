@@ -104,10 +104,7 @@ import {
 	formatFileOpenPlanRows,
 	runFileOpenPlan,
 } from "../core/fileOpen";
-import {
-	createFileOperationExecutionPlan,
-	runFileOperationExecutionPlan,
-} from "../core/fileOperations";
+import { runFileOperationExecutionPlan } from "../core/fileOperations";
 import {
 	createLocalFileProvider,
 	type FileEntry,
@@ -433,11 +430,13 @@ import {
 	pushFileHistory,
 } from "./fileHistory";
 import {
+	applyFileOperationCommandLineTransition,
 	clearFileOperationDialog,
 	type FileOperationDialogState,
 	type FileOperationKind,
-	openFileOperationDialog,
-	setFileOperationDestination,
+	prepareFileOperationConfirmation,
+	prepareFileOperationDestination,
+	prepareFileOperationOpen,
 } from "./fileOperationDialog";
 import {
 	formatFileBreadcrumbRows,
@@ -2994,69 +2993,56 @@ export function App(): React.ReactElement {
 
 	const openSelectedFileOperation = useCallback(
 		(kind: FileOperationKind) => {
-			const dialog = openFileOperationDialog(
+			const transition = prepareFileOperationOpen(
 				kind,
 				displayedFileEntries[selectedFileIndex],
 			);
-			setFileOperationDialog(dialog);
-			if (dialog.active) {
-				setCommandLine(
-					openCommandLine(
-						kind === "delete"
-							? "file-operation-confirm"
-							: "file-operation-destination",
-					),
-				);
-				log(
-					"warn",
-					kind === "delete"
-						? `${dialog.preview.title} confirmation opened`
-						: `${dialog.preview.title} destination opened`,
-				);
-			} else if (dialog.error) {
-				log("warn", dialog.error);
+			setFileOperationDialog(transition.dialog);
+			setCommandLine((current) =>
+				applyFileOperationCommandLineTransition(
+					current,
+					transition.commandLine,
+				),
+			);
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
 			}
 		},
 		[displayedFileEntries, log, selectedFileIndex],
 	);
 
 	const submitFileOperationDestinationCommand = useCallback(() => {
-		if (!fileOperationDialog.active) {
-			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "file operation destination missing preview");
-			return;
-		}
-		const destination = commandLine.value.trim();
-		if (!destination) {
-			log("warn", "file operation destination is required");
-			return;
-		}
-		const nextDialog = setFileOperationDestination(
+		const transition = prepareFileOperationDestination(
 			fileOperationDialog,
-			destination,
+			commandLine.value,
 		);
-		setFileOperationDialog(nextDialog);
-		setCommandLine(openCommandLine("file-operation-confirm"));
-		log("info", `file operation destination set ${destination}`);
+		setFileOperationDialog(transition.dialog);
+		setCommandLine((current) =>
+			applyFileOperationCommandLineTransition(current, transition.commandLine),
+		);
+		if (transition.notice) {
+			log(transition.notice.level, transition.notice.message);
+		}
 	}, [commandLine.value, fileOperationDialog, log]);
 
 	const submitFileOperationConfirmCommand = useCallback(async () => {
-		if (!fileOperationDialog.active) {
-			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "file operation confirmation missing preview");
-			return;
-		}
-
-		const plan = createFileOperationExecutionPlan({
-			kind: fileOperationDialog.preview.kind,
-			path: fileOperationDialog.preview.path,
-			destination: fileOperationDialog.preview.destination,
+		const transition = prepareFileOperationConfirmation({
+			dialog: fileOperationDialog,
 			providerKind: fileProvider.kind,
 			confirmation: commandLine.value,
 			policy: { mode: editorSaveMode },
 		});
-		setCommandLine((current) => closeCommandLine(current));
-		setFileOperationDialog((current) => clearFileOperationDialog(current));
+		setFileOperationDialog(transition.dialog);
+		setCommandLine((current) =>
+			applyFileOperationCommandLineTransition(current, transition.commandLine),
+		);
+		if (transition.notice) {
+			log(transition.notice.level, transition.notice.message);
+		}
+		const plan = transition.plan;
+		if (!plan) {
+			return;
+		}
 
 		const token = beginRequest(fileOperationTokenRef.current);
 		fileOperationTokenRef.current = token;

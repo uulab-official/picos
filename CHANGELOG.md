@@ -8,6 +8,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Fixed
 
+- Files copy/move/delete dialog guards, prompt transitions, and audit wording now live in a tested pure TUI module instead of React callbacks, and previews report the real `destination-required` / `confirmation-required` state instead of claiming the already-wired execution flow is unfinished.
 - README와 Status 로드맵의 파일 관리자 상태를 현재 구현과 맞추고, 사용되지 않는 `src/tui/screens/*` legacy placeholder 모듈 6개를 제거했습니다.
 - Files selection now uses the shared lower/upper-bound clamp, so empty lists and out-of-range `j/k` selections cannot produce a negative index.
 - The Connections workspace hint row now advertises `enter process`. `enter` has always run the same process inspection there that the Ports row documents, but the Connections row omitted it, so the feature was undiscoverable from one of the two screens that offer it. Both rows are now built from one table, so the two screens can no longer describe a shared binding differently.

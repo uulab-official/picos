@@ -9,7 +9,7 @@
 - [x] 상태: 완료 — OS mutation은 읽기 전용/잠금 preview 경계로 유지하고, 파일 작업만 `editorSaveMode=local-write` opt-in 예외로 확정
 - [x] 상태: 완료 — 이미 구현된 Logs, SFTP read, Operations preset, Routes/Ports/Connections, Timeline을 미비 기능에서 제외
 - [x] 상태: 완료 — 실제 OS 변경과 단순 placeholder/dead code를 구분
-- [x] 상태: 완료 — 의존성 설치 후 `git diff --check`와 `bun run verify` 통과(87개 파일, 849개 테스트, lint/typecheck/build/smoke 및 local JSON·diagnostics JSON·operations JSON·automation presets·SFTP harness)
+- [x] 상태: 완료 — 의존성 설치 후 `git diff --check`와 `bun run verify` 통과(87개 파일, 853개 테스트, lint/typecheck/build/smoke 및 local JSON·diagnostics JSON·operations JSON·automation presets·SFTP harness)
 
 ## 2. CLI 자동화 범위
 
@@ -49,8 +49,8 @@
 
 ## 6. 구조 및 품질
 
-- [ ] 상태: 진행 중 — 파일 selection guard는 `clampIndex()`와 테스트로 분리 완료; `App.tsx` 입력 dispatch의 나머지 상태 전이·selection guard 분리 남음
-- [ ] 상태: 대기 — 분리된 TUI 로직의 단위 테스트 보강
+- [ ] 상태: 진행 중 — 파일 selection guard는 `clampIndex()`로, 파일 copy/move/delete의 open·destination·confirmation guard와 prompt/문구 전이는 `fileOperationDialog.ts`로 분리 완료; `App.tsx` 입력 dispatch의 나머지 상태 전이·selection guard 분리 남음
+- [ ] 상태: 진행 중 — 파일 작업 dialog의 순수 전이·누락 preview·빈 destination·command-line 적용 단위 테스트 7개 보강 완료; 나머지 분리 대상 테스트 남음
 - [x] 상태: 완료 — 사용되지 않는 `src/tui/screens/*` legacy placeholder 6개 제거; 실제 workspace 경로는 `App.tsx`에 있으며 `src/tui` 순수 모듈이 상태 전이를 담당
 - [x] 상태: 완료 — `src/core/roadmap.ts`, README, CHANGELOG, LOCAL_AUTOMATION의 구현 상태 동기화
 - [x] 상태: 완료 — `package.json`과 `src/core/version.ts`는 `0.2.0`으로 동기화되고 release check가 통과함. ROADMAP의 v0.4.340~346은 공개 버전을 자동 변경하지 않는 개발 slice이며, npm 미게시·원격 태그 없음 상태에서 실제 공개 버전 선택은 maintainer release 절차로 유지
