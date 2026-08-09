@@ -34,6 +34,33 @@ afterEach(async () => {
 });
 
 describe("config store", () => {
+	test("serializes concurrent read-modify-write mutations for one config path", async () => {
+		const path = await tempConfigPath();
+
+		await Promise.all([
+			upsertConfigRemoteProfile(
+				{
+					id: "prod",
+					kind: "sftp",
+					host: "prod.example.com",
+					port: 22,
+					username: "operator",
+					root: "/srv/app",
+				},
+				path,
+			),
+			setConfigLogSearchPresets(["kernel"], path),
+			setConfigValue("theme", "light", path),
+		]);
+
+		const config = await readConfig(path);
+		expect(config.theme).toBe("light");
+		expect(config.logSearchPresets).toEqual(["kernel"]);
+		expect(config.remoteProfiles.map((profile) => profile.id)).toEqual([
+			"prod",
+		]);
+	});
+
 	test("applies a core reset without rebuilding the write plan in App", async () => {
 		const path = await tempConfigPath();
 		await mkdir(dirname(path), { recursive: true });

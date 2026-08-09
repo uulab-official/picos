@@ -41,6 +41,7 @@ import type { RemotesFocusCommand } from "./appInputDispatcher";
 import type { ClipboardPreview } from "./clipboardPreview";
 import type { ConsoleEvent } from "./events";
 import { clampIndex } from "./navigation";
+import { classifyRequestPublication } from "./requestSequence";
 import {
 	createRemoteConnectStatusActivityResult,
 	createRemoteHostKeyEvidenceInputStatusActivityResult,
@@ -74,6 +75,35 @@ export type RemoteProfileSelection = {
 	profile: SftpRemoteProfile | undefined;
 	selectedIndex: number;
 };
+
+export function classifyRemoteProfileSavePublication(input: {
+	currentSaveToken: number;
+	requestSaveToken: number;
+	connectionRunTokenAtStart: number;
+	currentConnectionRunToken: number;
+	ownsPendingConnectionAtStart: boolean;
+}): {
+	publication: "current" | "stale";
+	publishConfig: boolean;
+	publishSession: boolean;
+	abortPendingConnection: boolean;
+} {
+	const publication = classifyRequestPublication(
+		input.currentSaveToken,
+		input.requestSaveToken,
+	);
+	const publishConfig = publication === "current";
+	const publishSession =
+		publishConfig &&
+		input.connectionRunTokenAtStart === input.currentConnectionRunToken;
+	return {
+		publication,
+		publishConfig,
+		publishSession,
+		abortPendingConnection:
+			publishSession && input.ownsPendingConnectionAtStart,
+	};
+}
 
 export type RemoteConnectSubmission =
 	| {

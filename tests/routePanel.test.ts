@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { FileOpenOrigin } from "../src/core/fileOpen";
 import type { RoutePathResult, RouteTableResult } from "../src/core/routes";
 import {
+	classifyRoutePathRequestOutcome,
 	createRouteFilterCleanupPreview,
 	createRouteRawHandoffPlan,
 	formatRoutePathRows,
@@ -49,6 +50,39 @@ const fixture: RouteTableResult = {
 	],
 	rawOutput: "$ netstat -rn\nInternet:\ndefault 192.168.0.1 UGSc en0",
 };
+
+describe("route path request publication", () => {
+	test("keeps only the newest route result current and records stale failures", () => {
+		expect(
+			classifyRoutePathRequestOutcome({
+				currentToken: 2,
+				requestToken: 1,
+				destination: "old.example.com",
+				outcome: { kind: "success", result: pathFixture },
+			}),
+		).toMatchObject({
+			publication: "stale",
+			publishCurrent: false,
+			notice: { level: "info" },
+		});
+		expect(
+			classifyRoutePathRequestOutcome({
+				currentToken: 2,
+				requestToken: 1,
+				destination: "old.example.com",
+				outcome: { kind: "failure", error: new Error("timed out") },
+			}),
+		).toEqual({
+			publication: "stale",
+			publishCurrent: false,
+			notice: {
+				level: "fail",
+				message:
+					"route path old.example.com failed timed out publication=stale",
+			},
+		});
+	});
+});
 
 const configRouteOrigin: FileOpenOrigin = {
 	kind: "config-shelf",

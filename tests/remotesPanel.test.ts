@@ -12,6 +12,7 @@ import {
 	canStartRemoteConnection,
 	classifyRemoteConnectionPublication,
 	classifyRemoteDisconnectPublication,
+	classifyRemoteProfileSavePublication,
 	moveRemoteProfileSelection,
 	prepareRemoteConnectionCancellation,
 	prepareRemoteConnectPrompt,
@@ -61,6 +62,38 @@ function createDiagnostic(
 }
 
 describe("Remotes panel transitions", () => {
+	test("does not let an older profile save cancel or replace a newer connection", () => {
+		expect(
+			classifyRemoteProfileSavePublication({
+				currentSaveToken: 3,
+				requestSaveToken: 3,
+				connectionRunTokenAtStart: 8,
+				currentConnectionRunToken: 9,
+				ownsPendingConnectionAtStart: false,
+			}),
+		).toEqual({
+			publication: "current",
+			publishConfig: true,
+			publishSession: false,
+			abortPendingConnection: false,
+		});
+
+		expect(
+			classifyRemoteProfileSavePublication({
+				currentSaveToken: 4,
+				requestSaveToken: 3,
+				connectionRunTokenAtStart: 8,
+				currentConnectionRunToken: 8,
+				ownsPendingConnectionAtStart: true,
+			}),
+		).toMatchObject({
+			publication: "stale",
+			publishConfig: false,
+			publishSession: false,
+			abortPendingConnection: false,
+		});
+	});
+
 	test("owns numeric paste-review shortcut parsing", () => {
 		expect(prepareRemotePasteNumberInput("7")).toEqual({
 			kind: "select",

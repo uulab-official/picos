@@ -141,6 +141,33 @@ describe("editor buffer", () => {
 	});
 
 	describe("editor mutation transitions", () => {
+		test("suppresses an older save result after the editor revision changes", () => {
+			const submitted = {
+				...createEditorBuffer({
+					path: "/workspace/picos/README.md",
+					content: "before\n",
+					truncated: false,
+				}),
+				content: "submitted\n",
+			};
+
+			expect(
+				classifyEditorSaveBufferPublication({
+					currentRequestToken: 4,
+					requestToken: 4,
+					currentRevision: 8,
+					submittedRevision: 7,
+					current: { ...submitted, content: "newer edit\n" },
+					submitted,
+					success: true,
+				}),
+			).toMatchObject({
+				status: "stale",
+				publishResult: false,
+				markedClean: false,
+			});
+		});
+
 		test("keeps newer edits dirty when an older save completes", () => {
 			const submitted = {
 				...createEditorBuffer({
@@ -156,20 +183,34 @@ describe("editor buffer", () => {
 				classifyEditorSaveBufferPublication({
 					currentRequestToken: 4,
 					requestToken: 4,
+					currentRevision: 4,
+					submittedRevision: 4,
 					current,
 					submitted,
 					success: true,
 				}),
-			).toEqual({ status: "current", buffer: current, markedClean: false });
+			).toEqual({
+				status: "stale",
+				buffer: current,
+				markedClean: false,
+				publishResult: false,
+			});
 			expect(
 				classifyEditorSaveBufferPublication({
 					currentRequestToken: 5,
 					requestToken: 4,
+					currentRevision: 4,
+					submittedRevision: 4,
 					current: submitted,
 					submitted,
 					success: true,
 				}),
-			).toEqual({ status: "stale", buffer: submitted, markedClean: false });
+			).toEqual({
+				status: "stale",
+				buffer: submitted,
+				markedClean: false,
+				publishResult: false,
+			});
 		});
 
 		test("marks only the submitted editor revision clean", () => {
@@ -187,6 +228,8 @@ describe("editor buffer", () => {
 				classifyEditorSaveBufferPublication({
 					currentRequestToken: 4,
 					requestToken: 4,
+					currentRevision: 4,
+					submittedRevision: 4,
 					current: submitted,
 					submitted,
 					success: true,
@@ -199,6 +242,7 @@ describe("editor buffer", () => {
 					editHistory: [],
 				},
 				markedClean: true,
+				publishResult: true,
 			});
 		});
 

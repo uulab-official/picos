@@ -49,6 +49,27 @@ export function getConfigPath(): string {
 	return getConfigPathForPlatform(process.platform, homedir(), process.env);
 }
 
+const configMutationQueues = new Map<string, Promise<void>>();
+
+function enqueueConfigMutation<T>(
+	path: string,
+	mutation: () => Promise<T>,
+): Promise<T> {
+	const previous = configMutationQueues.get(path) ?? Promise.resolve();
+	const result = previous.catch(() => undefined).then(mutation);
+	const tail = result.then(
+		() => undefined,
+		() => undefined,
+	);
+	configMutationQueues.set(path, tail);
+	void tail.finally(() => {
+		if (configMutationQueues.get(path) === tail) {
+			configMutationQueues.delete(path);
+		}
+	});
+	return result;
+}
+
 export async function readConfig(path = getConfigPath()): Promise<PicosConfig> {
 	try {
 		const raw = await readFile(path, "utf8");
@@ -61,12 +82,30 @@ export async function readConfig(path = getConfigPath()): Promise<PicosConfig> {
 	}
 }
 
-export async function writeConfig(
+async function writeConfigFile(
 	config: PicosConfig,
-	path = getConfigPath(),
+	path: string,
 ): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+}
+
+export function writeConfig(
+	config: PicosConfig,
+	path = getConfigPath(),
+): Promise<void> {
+	return enqueueConfigMutation(path, () => writeConfigFile(config, path));
+}
+
+function updateConfig(
+	path: string,
+	update: (config: PicosConfig) => PicosConfig,
+): Promise<PicosConfig> {
+	return enqueueConfigMutation(path, async () => {
+		const next = update(await readConfig(path));
+		await writeConfigFile(next, path);
+		return next;
+	});
 }
 
 export async function setConfigValue(
@@ -78,105 +117,83 @@ export async function setConfigValue(
 		throw new Error(`Unknown config key: ${key}`);
 	}
 
-	const config = await readConfig(path);
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		[key]: coerceConfigValue(key, value),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function resetConfigWorkspaceValues(
 	values: ConfigWorkspaceResetValues,
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next = mergeConfigWorkspaceResetValues(config, values);
-	await writeConfig(next, path);
-	return next;
+	return updateConfig(path, (config) =>
+		mergeConfigWorkspaceResetValues(config, values),
+	);
 }
 
 export async function upsertConfigRemoteProfile(
 	profile: SftpRemoteProfile,
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		remoteProfiles: normalizeRemoteProfiles([
 			profile,
 			...config.remoteProfiles.filter((item) => item.id !== profile.id),
 		]),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function setConfigLogProfiles(
 	profiles: LogProfile[],
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		logProfiles: normalizeLogProfiles(profiles),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function setConfigLogSearchPresets(
 	presets: string[],
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		logSearchPresets: normalizeLogSearchPresets(presets),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function setConfigOperationPresets(
 	presets: OperationPreset[],
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		operationPresets: normalizeOperationPresets(presets),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function setConfigInterfaceEvidenceSearchPresets(
 	presets: string[],
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		interfaceEvidenceSearchPresets:
 			normalizeInterfaceEvidenceSearchPresets(presets),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function setConfigRouteFilterPresets(
 	presets: string[],
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		routeFilterPresets: normalizeRouteFilterPresets(presets),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function setConfigEndpointFilterPresets(
@@ -184,15 +201,12 @@ export async function setConfigEndpointFilterPresets(
 	presets: string[],
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
 	const key =
 		kind === "connections" ? "connectionFilterPresets" : "portFilterPresets";
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		[key]: normalizeEndpointFilterPresets(presets),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function setConfigEndpointSort(
@@ -200,8 +214,7 @@ export async function setConfigEndpointSort(
 	sort: ConnectionSort | PortSort,
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next =
+	return updateConfig(path, (config) =>
 		kind === "connections"
 			? {
 					...config,
@@ -214,9 +227,8 @@ export async function setConfigEndpointSort(
 					portSort: normalizePortSortPreference(
 						formatPortSortPreference(sort as PortSort),
 					),
-				};
-	await writeConfig(next, path);
-	return next;
+				},
+	);
 }
 
 export async function setConfigToolHistoryPreferences(
@@ -228,8 +240,7 @@ export async function setConfigToolHistoryPreferences(
 	},
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const next = {
+	return updateConfig(path, (config) => ({
 		...config,
 		...(preferences.filterPresets
 			? {
@@ -257,22 +268,19 @@ export async function setConfigToolHistoryPreferences(
 					),
 				}
 			: {}),
-	};
-	await writeConfig(next, path);
-	return next;
+	}));
 }
 
 export async function setConfigToolTargetPresets(
 	presets: unknown,
 	path = getConfigPath(),
 ): Promise<PicosConfig> {
-	const config = await readConfig(path);
-	const limit = normalizeToolTargetPresetLimit(config.toolTargetPresetLimit);
-	const next = {
-		...config,
-		toolTargetPresetLimit: limit,
-		toolTargetPresets: normalizeToolTargetPresets(presets).slice(0, limit),
-	};
-	await writeConfig(next, path);
-	return next;
+	return updateConfig(path, (config) => {
+		const limit = normalizeToolTargetPresetLimit(config.toolTargetPresetLimit);
+		return {
+			...config,
+			toolTargetPresetLimit: limit,
+			toolTargetPresets: normalizeToolTargetPresets(presets).slice(0, limit),
+		};
+	});
 }

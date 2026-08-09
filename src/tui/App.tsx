@@ -458,6 +458,7 @@ import {
 import {
 	classifyRemoteConnectionPublication,
 	classifyRemoteDisconnectPublication,
+	classifyRemoteProfileSavePublication,
 	prepareRemoteConnectionCancellation,
 	prepareRemoteConnectPrompt,
 	prepareRemoteDisconnect,
@@ -481,6 +482,7 @@ import {
 	isStaleRequest,
 } from "./requestSequence";
 import {
+	classifyRoutePathRequestOutcome,
 	createRouteFilterCleanupPreview,
 	formatRoutePathRows,
 	formatRouteWorkspaceRows,
@@ -815,6 +817,7 @@ export function App(): React.ReactElement {
 	// transport attempt that is allowed to publish onto that diagnostic group.
 	const remoteConnectionDiagnosticSequenceRef = useRef(0);
 	const remoteConnectionRunTokenRef = useRef(0);
+	const remoteProfileSaveTokenRef = useRef(0);
 	const activeRemoteConnectionRunTokenRef = useRef<number | undefined>(
 		undefined,
 	);
@@ -1152,6 +1155,8 @@ export function App(): React.ReactElement {
 	const initialFileLoadStartedRef = useRef(false);
 	const fileOperationTokenRef = useRef(0);
 	const editorSaveTokenRef = useRef(0);
+	const editorRevisionRef = useRef(0);
+	const routePathTokenRef = useRef(0);
 	useEffect(() => {
 		if (!remoteFileProvider) {
 			// Local provider recreation changes write capability, not listing identity.
@@ -1905,6 +1910,7 @@ export function App(): React.ReactElement {
 				if (transition.status !== "success") {
 					return false;
 				}
+				editorRevisionRef.current = beginRequest(editorRevisionRef.current);
 				setEditorPreview(transition.buffer);
 				if (transition.clearSaveResult) {
 					setEditorSaveResult(undefined);
@@ -2250,13 +2256,29 @@ export function App(): React.ReactElement {
 				return;
 			}
 
+			const requestToken = beginRequest(routePathTokenRef.current);
+			routePathTokenRef.current = requestToken;
 			try {
 				const result = await runRoutePath(submission.destination);
-				setRoutePath(result);
-				setScreen("routes");
-				log("ok", `route path ${result.destination}`);
+				const outcome = classifyRoutePathRequestOutcome({
+					currentToken: routePathTokenRef.current,
+					requestToken,
+					destination: submission.destination,
+					outcome: { kind: "success", result },
+				});
+				if (outcome.publishCurrent && outcome.result) {
+					setRoutePath(outcome.result);
+					setScreen("routes");
+				}
+				log(outcome.notice.level, outcome.notice.message);
 			} catch (caught) {
-				log("fail", caught instanceof Error ? caught.message : String(caught));
+				const outcome = classifyRoutePathRequestOutcome({
+					currentToken: routePathTokenRef.current,
+					requestToken,
+					destination: submission.destination,
+					outcome: { kind: "failure", error: caught },
+				});
+				log(outcome.notice.level, outcome.notice.message);
 			}
 		},
 		[log],
@@ -2308,6 +2330,9 @@ export function App(): React.ReactElement {
 	const submitEditorAppendLineCommand = useCallback(
 		(transition: CommandTransition<"submit-editor-append">) => {
 			setCommandLine((current) => closeCommandLine(current));
+			if (transition.applies) {
+				editorRevisionRef.current = beginRequest(editorRevisionRef.current);
+			}
 			setEditorPreview(transition.buffer);
 			setSelectedEditorLineIndex(transition.selectedLineIndex);
 			if (transition.clearSaveResult) setEditorSaveResult(undefined);
@@ -2324,6 +2349,9 @@ export function App(): React.ReactElement {
 				| CommandTransition<"submit-editor-insert-after">,
 		) => {
 			setCommandLine((current) => closeCommandLine(current));
+			if (transition.applies) {
+				editorRevisionRef.current = beginRequest(editorRevisionRef.current);
+			}
 			setEditorPreview(transition.buffer);
 			setSelectedEditorLineIndex(transition.selectedLineIndex);
 			if (transition.clearSaveResult) setEditorSaveResult(undefined);
@@ -2336,6 +2364,9 @@ export function App(): React.ReactElement {
 	const submitEditorReplaceLineCommand = useCallback(
 		(transition: CommandTransition<"submit-editor-replace">) => {
 			setCommandLine((current) => closeCommandLine(current));
+			if (transition.applies) {
+				editorRevisionRef.current = beginRequest(editorRevisionRef.current);
+			}
 			setEditorPreview(transition.buffer);
 			setSelectedEditorLineIndex(transition.selectedLineIndex);
 			if (transition.clearSaveResult) setEditorSaveResult(undefined);
@@ -2346,6 +2377,7 @@ export function App(): React.ReactElement {
 	);
 
 	const undoEditorEdit = useCallback(() => {
+		editorRevisionRef.current = beginRequest(editorRevisionRef.current);
 		setEditorPreview((current) => {
 			const transition = transitionEditorUndo({
 				buffer: current,
@@ -2363,6 +2395,7 @@ export function App(): React.ReactElement {
 	}, [log, selectedEditorLineIndex]);
 
 	const deleteSelectedEditorLine = useCallback(() => {
+		editorRevisionRef.current = beginRequest(editorRevisionRef.current);
 		setEditorPreview((current) => {
 			const transition = transitionEditorDeleteLine({
 				buffer: current,
@@ -2388,6 +2421,7 @@ export function App(): React.ReactElement {
 			}
 			const requestToken = beginRequest(editorSaveTokenRef.current);
 			editorSaveTokenRef.current = requestToken;
+			const submittedRevision = editorRevisionRef.current;
 			try {
 				const { plan, provider } = submission.execution;
 				const result = await runEditorSaveExecutionPlan(plan, provider);
@@ -2400,17 +2434,21 @@ export function App(): React.ReactElement {
 					formatEditorSaveExecutionAuditMessage(result.audit),
 				);
 				if (isStaleRequest(editorSaveTokenRef.current, requestToken)) return;
-				setEditorSaveResult(result);
-				setEditorPreview(
-					(current) =>
-						classifyEditorSaveBufferPublication({
-							currentRequestToken: editorSaveTokenRef.current,
-							requestToken,
-							current,
-							submitted: submission.editorPreview,
-							success: result.success,
-						}).buffer,
-				);
+				setEditorPreview((current) => {
+					const publication = classifyEditorSaveBufferPublication({
+						currentRequestToken: editorSaveTokenRef.current,
+						requestToken,
+						currentRevision: editorRevisionRef.current,
+						submittedRevision,
+						current,
+						submitted: submission.editorPreview,
+						success: result.success,
+					});
+					if (publication.publishResult) {
+						setEditorSaveResult(result);
+					}
+					return publication.buffer;
+				});
 			} catch (caught) {
 				log(
 					"fail",
@@ -4062,10 +4100,36 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const profile = transition.profile;
+			const requestSaveToken = beginRequest(remoteProfileSaveTokenRef.current);
+			remoteProfileSaveTokenRef.current = requestSaveToken;
+			const connectionRunTokenAtStart = remoteConnectionRunTokenRef.current;
+			const pendingConnectionAtStart = pendingRemoteConnectRef.current;
 
 			try {
 				const nextConfig = await upsertConfigRemoteProfile(profile);
-				pendingRemoteConnectRef.current?.abort();
+				const publication = classifyRemoteProfileSavePublication({
+					currentSaveToken: remoteProfileSaveTokenRef.current,
+					requestSaveToken,
+					connectionRunTokenAtStart,
+					currentConnectionRunToken: remoteConnectionRunTokenRef.current,
+					ownsPendingConnectionAtStart: Boolean(
+						pendingConnectionAtStart &&
+							pendingRemoteConnectRef.current === pendingConnectionAtStart,
+					),
+				});
+				if (!publication.publishConfig) {
+					log("info", `remote profile ${profile.id} saved publication=stale`);
+					return;
+				}
+				syncConfigSessionState(nextConfig);
+				if (!publication.publishSession) {
+					log(transition.successNotice.level, transition.successNotice.message);
+					log("info", "newer remote connection preserved after profile save");
+					return;
+				}
+				if (publication.abortPendingConnection) {
+					pendingConnectionAtStart?.abort();
+				}
 				if (remoteFileProvider) {
 					if (
 						!(await loadFiles(
@@ -4097,7 +4161,6 @@ export function App(): React.ReactElement {
 				} else {
 					setRemoteFileContext(undefined);
 				}
-				syncConfigSessionState(nextConfig);
 				setSelectedRemoteIndex(transition.selectedIndex);
 				setScreen("remotes");
 				setFocusArea("workspaces");

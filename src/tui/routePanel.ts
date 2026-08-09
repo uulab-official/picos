@@ -27,6 +27,7 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
+import { classifyRequestPublication } from "./requestSequence";
 
 export type RouteDetailView = "table" | "raw" | "diagnostics" | "path";
 
@@ -56,9 +57,63 @@ export type RouteFilterCleanupConfirmation = {
 };
 
 export type RoutePanelNotice = {
-	level: "info" | "warn";
+	level: "info" | "ok" | "warn" | "fail";
 	message: string;
 };
+
+export type RoutePathRequestPublication = {
+	publication: "current" | "stale";
+	publishCurrent: boolean;
+	notice: RoutePanelNotice;
+	result?: RoutePathResult;
+};
+
+export function classifyRoutePathRequestOutcome(input: {
+	currentToken: number;
+	requestToken: number;
+	destination: string;
+	outcome:
+		| { kind: "success"; result: RoutePathResult }
+		| { kind: "failure"; error: unknown };
+}): RoutePathRequestPublication {
+	const publication = classifyRequestPublication(
+		input.currentToken,
+		input.requestToken,
+	);
+	if (input.outcome.kind === "failure") {
+		const detail =
+			input.outcome.error instanceof Error
+				? input.outcome.error.message
+				: String(input.outcome.error);
+		return {
+			publication,
+			publishCurrent: false,
+			notice: {
+				level: "fail",
+				message: `route path ${input.destination} failed ${detail}${publication === "stale" ? " publication=stale" : ""}`,
+			},
+		};
+	}
+	if (publication === "stale") {
+		return {
+			publication,
+			publishCurrent: false,
+			notice: {
+				level: "info",
+				message: `route path ${input.destination} completed publication=stale`,
+			},
+		};
+	}
+	return {
+		publication,
+		publishCurrent: true,
+		result: input.outcome.result,
+		notice: {
+			level: "ok",
+			message: `route path ${input.outcome.result.destination}`,
+		},
+	};
+}
 
 export type RouteHandoffPreparation =
 	| { kind: "notice"; notice: RoutePanelNotice }

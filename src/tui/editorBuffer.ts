@@ -35,25 +35,39 @@ export type EditorSaveBufferPublication = {
 	status: "current" | "stale";
 	buffer: EditorBuffer | undefined;
 	markedClean: boolean;
+	publishResult: boolean;
 };
 
 export function classifyEditorSaveBufferPublication(input: {
 	currentRequestToken: number;
 	requestToken: number;
+	currentRevision: number;
+	submittedRevision: number;
 	current: EditorBuffer | undefined;
 	submitted: EditorBuffer;
 	success: boolean;
 }): EditorSaveBufferPublication {
-	if (input.currentRequestToken !== input.requestToken) {
-		return { status: "stale", buffer: input.current, markedClean: false };
-	}
 	if (
-		!input.success ||
+		input.currentRequestToken !== input.requestToken ||
+		input.currentRevision !== input.submittedRevision ||
 		!input.current ||
 		input.current.path !== input.submitted.path ||
 		input.current.content !== input.submitted.content
 	) {
-		return { status: "current", buffer: input.current, markedClean: false };
+		return {
+			status: "stale",
+			buffer: input.current,
+			markedClean: false,
+			publishResult: false,
+		};
+	}
+	if (!input.success) {
+		return {
+			status: "current",
+			buffer: input.current,
+			markedClean: false,
+			publishResult: true,
+		};
 	}
 	return {
 		status: "current",
@@ -63,6 +77,7 @@ export function classifyEditorSaveBufferPublication(input: {
 			editHistory: [],
 		},
 		markedClean: true,
+		publishResult: true,
 	};
 }
 
