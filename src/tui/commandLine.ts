@@ -90,17 +90,6 @@ export type CommandSubmitEffect =
 	| "submit-file-operation-destination"
 	| "submit-file-operation-confirmation";
 
-export type CommandSubmitHandlers = {
-	[Effect in CommandSubmitEffect]: (request: CommandSubmitRequest) => void;
-};
-
-export function dispatchCommandSubmit(
-	transition: CommandSubmitTransition,
-	handlers: CommandSubmitHandlers,
-): void {
-	handlers[transition.effect](transition.request);
-}
-
 export type CommandPromptCleanupIntent =
 	| "clipboard-confirmation"
 	| "connection-copy-preview"

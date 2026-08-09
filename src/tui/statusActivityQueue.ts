@@ -3109,6 +3109,52 @@ export function nextTimelineEvidenceTrailSourceFilter(
 	}
 }
 
+export function prepareTimelineEvidenceTrailSourceFilterTransition(input: {
+	exports: ConsoleAuditExportPlan[];
+	filter: TimelineEvidenceTrailSourceFilter;
+	origin?: "keyboard" | "palette";
+}): {
+	filter: TimelineEvidenceTrailSourceFilter;
+	selectedIndex: 0;
+	notice: { level: "info" | "warn"; message: string };
+	auditMessage?: string;
+	activityResult?: StatusActivityResult;
+} {
+	const filter = nextTimelineEvidenceTrailSourceFilter(input.filter);
+	const visible = filterTimelineEvidenceTrailAuditExports(
+		input.exports,
+		filter,
+	);
+	const context = {
+		sourceFilter: filter,
+		visible: visible.length,
+		total: input.exports.length,
+	};
+	return {
+		filter,
+		selectedIndex: 0,
+		notice: {
+			level: visible.length ? "info" : "warn",
+			message: `timeline evidence trail source filter ${filter} visible ${visible.length}/${input.exports.length}${input.origin === "palette" ? " origin=palette" : ""}`,
+		},
+		...(input.origin === "palette"
+			? {
+					auditMessage: formatTimelineEvidenceTrailPaletteAuditMessage(
+						"source",
+						undefined,
+						context,
+					),
+					activityResult:
+						createTimelineEvidenceTrailPaletteStatusActivityResult(
+							"source",
+							undefined,
+							context,
+						),
+				}
+			: {}),
+	};
+}
+
 export function createStatusActivityCopyIntentTimelineSearch(
 	history: StatusActivityCopyIntentRecord[],
 	selectedIndex: number,

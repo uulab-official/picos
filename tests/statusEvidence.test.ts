@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
 	classifyAuditExportArchiveIndexRefresh,
+	classifyAuditExportArchiveOutcome,
 	classifyAuditExportIndexRefresh,
+	classifyCleanupExportArchiveOutcome,
 	classifyHandoffIndexRefresh,
+	classifyToolArchiveRetentionOutcome,
+	classifyToolExportArchiveOutcome,
 	createStatusEvidenceActionPlan,
 	createStatusEvidenceEnterPlan,
 	createStatusEvidenceItemMovePlan,
@@ -23,6 +27,115 @@ import {
 	prepareStatusEvidenceActionTransition,
 	prepareStatusEvidenceOpenTransition,
 } from "../src/tui/statusEvidence";
+
+describe("evidence archive outcome transitions", () => {
+	test("owns archive notices, activity records, refreshes, and selected evidence", () => {
+		expect(
+			classifyCleanupExportArchiveOutcome({
+				currentToken: 1,
+				requestToken: 1,
+				result: {
+					status: "archived",
+					sourcePath: "/tmp/cleanup.md",
+					archivedPath: "/tmp/archive/cleanup.md",
+					message: "archived cleanup.md",
+				},
+			}),
+		).toMatchObject({
+			publication: "current",
+			publishCurrentState: true,
+			notices: [
+				{ level: "ok", message: "cleanup export archive archived cleanup.md" },
+			],
+			refreshActive: true,
+			refreshArchive: true,
+		});
+
+		const toolPlan = {
+			fileName: "tools.md",
+		} as never;
+		const toolResult = {
+			status: "archived",
+			sourcePath: "/tmp/tools.md",
+			archivedPath: "/tmp/archive/tools.md",
+			message: "archived tools.md",
+		} as const;
+		expect(
+			classifyToolExportArchiveOutcome({
+				currentToken: 1,
+				requestToken: 1,
+				plan: toolPlan,
+				result: toolResult,
+			}),
+		).toMatchObject({
+			selectedEvidenceKind: "tools-archive",
+			activityResult: { action: "tools-evidence-archive" },
+			refreshActive: true,
+			refreshArchive: true,
+		});
+
+		expect(
+			classifyAuditExportArchiveOutcome({
+				currentToken: 1,
+				requestToken: 1,
+				scope: "interface",
+				plan: { fileName: "interface.log" } as never,
+				result: {
+					status: "archived",
+					sourcePath: "/tmp/interface.log",
+					archivedPath: "/tmp/archive/interface.log",
+					message: "archived interface.log",
+				},
+			}),
+		).toMatchObject({
+			selectedEvidenceKind: "interface",
+			interfaceStateFilter: "archived",
+			selectedIndex: 0,
+			activityResult: { action: "interface-evidence-archive" },
+		});
+
+		expect(
+			classifyToolArchiveRetentionOutcome({
+				currentToken: 1,
+				requestToken: 1,
+				result: {
+					status: "pruned",
+					removed: 2,
+					removedPaths: ["a", "b"],
+					message: "pruned 2 tools exports",
+				},
+			}),
+		).toMatchObject({
+			refreshArchive: true,
+			activityResult: { action: "tools-evidence-retention" },
+		});
+	});
+
+	test("preserves history and refresh intents while suppressing stale selection", () => {
+		const outcome = classifyAuditExportArchiveOutcome({
+			currentToken: 2,
+			requestToken: 1,
+			scope: "interface",
+			plan: { fileName: "interface.log" } as never,
+			result: {
+				status: "archived",
+				sourcePath: "/tmp/interface.log",
+				archivedPath: "/tmp/archive/interface.log",
+				message: "archived interface.log",
+			},
+		});
+
+		expect(outcome).toMatchObject({
+			publication: "stale",
+			publishCurrentState: false,
+			refreshActive: true,
+			refreshArchive: true,
+			selectedEvidenceKind: "interface",
+			activityResult: { action: "interface-evidence-archive" },
+		});
+		expect(outcome.notices).toHaveLength(2);
+	});
+});
 
 describe("Status evidence detail rows", () => {
 	const origin = {

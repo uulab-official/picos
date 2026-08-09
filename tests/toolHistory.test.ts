@@ -32,6 +32,7 @@ import {
 	formatToolHistoryExportIndexRows,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getNewestToolHistoryIndex,
 	getSelectedToolCompareClipboardPreview,
 	getSelectedToolHistoryExport,
 	getSelectedToolHistoryItem,
@@ -105,6 +106,11 @@ const result: ToolResult = {
 	],
 	rawOutput: "$ picos tools dns example.com\n[Summary]\nQuery: example.com",
 };
+
+test("selects the newest Tools history item through the shared clamp", () => {
+	expect(getNewestToolHistoryIndex([])).toBe(0);
+	expect(getNewestToolHistoryIndex([{} as never, {} as never])).toBe(1);
+});
 
 const summary: NetworkSummary = {
 	status: "online",

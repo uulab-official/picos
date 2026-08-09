@@ -3,9 +3,7 @@ import {
 	applyCommandLineInput,
 	applyToolPromptCommandLineInput,
 	applyToolTargetCommandLineIntent,
-	type CommandSubmitHandlers,
 	closeCommandLine,
-	dispatchCommandSubmit,
 	getCommandPromptExamples,
 	getCommandPromptInputMode,
 	getCommandSubmitRoute,
@@ -151,22 +149,7 @@ describe("TUI command line", () => {
 		}
 	});
 
-	test("dispatches the resolved submit effect through its exhaustive handler map", () => {
-		const calls: string[] = [];
-		const handlers = new Proxy({} as CommandSubmitHandlers, {
-			get: (_target, effect: string) => () => calls.push(effect),
-		});
-
-		dispatchCommandSubmit(
-			{
-				owner: "editorBuffer",
-				effect: "submit-editor-save",
-				request: { prompt: "editor-save", value: "save file" },
-			},
-			handlers,
-		);
-
-		expect(calls).toEqual(["submit-editor-save"]);
+	test("preserves submit request fields for the single owned dispatcher", () => {
 		expect(
 			prepareCommandSubmit({
 				active: true,

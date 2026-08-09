@@ -275,6 +275,75 @@ describe("TUI callback audit", () => {
 		}
 	});
 
+	test("rejects computed Math, aliased clamps, and direct clampIndex calls", () => {
+		const fixtures = [
+			`const move = React.useCallback(() => {
+				setSelectedIndex(Math["min"](index, items.length - 1));
+			}, [index, items.length]);`,
+			`const move = useCallback(() => {
+				const min = Math.min;
+				setSelectedIndex(min(index, items.length - 1));
+			}, [index, items.length]);`,
+			`const move = useCallback(() => {
+				setSelectedIndex(clampIndex(index, items.length));
+			}, [index, items.length]);`,
+		];
+
+		for (const sourceText of fixtures) {
+			expect(() =>
+				auditTuiCallbacks({
+					sourceText,
+					manifest: [manifest("move")],
+				}),
+			).toThrow("inline domain-selection clamp: move");
+		}
+	});
+
+	test("requires useInput to own an inline handler", () => {
+		const sourceText = `
+			const handler = () => {};
+			useInput(handler);
+		`;
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("useInput")],
+			}),
+		).toThrow("useInput handler must be inline");
+	});
+
+	test("requires every delegated owner and its focused test to exist", () => {
+		const sourceText = "const save = useCallback(() => {}, []);";
+		const exists = new Set(["src/tui/saveOwner.ts", "tests/saveOwner.test.ts"]);
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [
+					manifest("save", {
+						owner: "src/tui/saveOwner.ts",
+					}),
+				],
+				ownerFileExists: (path) => exists.has(path),
+			}),
+		).not.toThrow();
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("save", { owner: "imaginary owner" })],
+				ownerFileExists: () => false,
+			}),
+		).toThrow("invalid delegated owner reference: save");
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileExists: (path) => path === "src/tui/saveOwner.ts",
+			}),
+		).toThrow("missing delegated owner test: tests/saveOwner.test.ts");
+	});
+
 	test("strict mode rejects an inline decision", () => {
 		const sourceText = "const save = useCallback(() => {}, []);";
 

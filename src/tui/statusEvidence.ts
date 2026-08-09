@@ -1,6 +1,8 @@
 import {
+	type ConsoleAuditArchivePruneResult,
 	type ConsoleAuditArchiveRetentionPlan,
 	type ConsoleAuditExportArchivePlan,
+	type ConsoleAuditExportArchiveResult,
 	type ConsoleAuditExportIndex,
 	type ConsoleAuditExportIndexItem,
 	type ConsoleAuditExportPlan,
@@ -24,6 +26,7 @@ import type { HandoffIndex, HandoffIndexItem } from "../core/handoffIndex";
 import { getSelectedHandoffIndexItem } from "../core/handoffIndex";
 import type { SupportedPlatform } from "../core/types";
 import type {
+	CleanupHandoffHistoryExportArchiveResult,
 	CleanupHandoffHistoryExportIndex,
 	CleanupHandoffHistoryExportIndexItem,
 } from "./cleanupIndex";
@@ -35,16 +38,231 @@ import {
 import { clampIndex } from "./navigation";
 import { classifyRequestPublication } from "./requestSequence";
 import {
+	createInterfaceEvidenceOutcomeStatusActivityResult,
 	createRecoveredStatusEvidenceIndex,
 	filterInterfaceConfirmationAuditExportIndex,
+	formatInterfaceEvidenceOutcomeAuditMessage,
 	type RecoveredStatusEvidenceIndex,
+	type StatusActivityResult,
 	type TimelineEvidenceTrailSourceFilter,
 } from "./statusActivityQueue";
 import type {
+	ToolHistoryArchivePruneResult,
 	ToolHistoryEvidenceFilter,
+	ToolHistoryExportArchiveResult,
 	ToolHistoryExportIndex,
 	ToolHistoryExportIndexItem,
 } from "./toolHistory";
+
+export type EvidenceArchiveOutcomeTransition = {
+	publication: "current" | "stale";
+	publishCurrentState: boolean;
+	notices: { level: "info" | "ok" | "warn"; message: string }[];
+	activityResult?: StatusActivityResult;
+	refreshActive: boolean;
+	refreshArchive: boolean;
+	selectedEvidenceKind?: "tools-archive" | "interface";
+	interfaceStateFilter?: "archived";
+	selectedIndex?: 0;
+};
+
+type EvidenceArchiveRequest = {
+	currentToken: number;
+	requestToken: number;
+};
+
+function classifyEvidenceArchiveRequest(
+	input: EvidenceArchiveRequest,
+): Pick<
+	EvidenceArchiveOutcomeTransition,
+	"publication" | "publishCurrentState"
+> {
+	const publication = classifyRequestPublication(
+		input.currentToken,
+		input.requestToken,
+	);
+	return {
+		publication,
+		publishCurrentState: publication === "current",
+	};
+}
+
+export function classifyCleanupExportArchiveOutcome(
+	input: EvidenceArchiveRequest & {
+		result: CleanupHandoffHistoryExportArchiveResult;
+	},
+): EvidenceArchiveOutcomeTransition {
+	return {
+		...classifyEvidenceArchiveRequest(input),
+		notices: [
+			{
+				level: input.result.status === "archived" ? "ok" : "warn",
+				message: `cleanup export archive ${input.result.message}`,
+			},
+		],
+		refreshActive: input.result.status === "archived",
+		refreshArchive: input.result.status === "archived",
+	};
+}
+
+export function classifyToolExportArchiveOutcome(
+	input: EvidenceArchiveRequest & {
+		plan: ToolHistoryExportArchivePlan;
+		result: ToolHistoryExportArchiveResult;
+	},
+): EvidenceArchiveOutcomeTransition {
+	return {
+		...classifyEvidenceArchiveRequest(input),
+		notices: [
+			{
+				level: input.result.status === "archived" ? "ok" : "warn",
+				message: `tools evidence archive ${input.result.message}`,
+			},
+		],
+		activityResult: {
+			source: "evidence",
+			action: "tools-evidence-archive",
+			message: `tools evidence archive ${input.result.status} ${input.plan.fileName}`,
+			detail: `${input.result.message} from=${input.result.sourcePath} to=${input.result.archivedPath}`,
+		},
+		refreshActive: input.result.status === "archived",
+		refreshArchive: input.result.status === "archived",
+		...(input.result.status === "archived"
+			? { selectedEvidenceKind: "tools-archive" as const }
+			: {}),
+	};
+}
+
+export function classifyAuditExportArchiveOutcome(
+	input: {
+		scope: "audit" | "interface";
+		plan: ConsoleAuditExportArchivePlan;
+		result: ConsoleAuditExportArchiveResult;
+	} & EvidenceArchiveRequest,
+): EvidenceArchiveOutcomeTransition {
+	const label =
+		input.scope === "interface" ? "interface evidence" : "audit export";
+	const outcome = {
+		status: input.result.status,
+		message: input.result.message,
+		fileName: input.plan.fileName,
+		sourcePath: input.result.sourcePath,
+		archivedPath: input.result.archivedPath,
+	};
+	return {
+		...classifyEvidenceArchiveRequest(input),
+		notices: [
+			{
+				level: input.result.status === "archived" ? "ok" : "warn",
+				message: `${label} archive ${input.result.message}`,
+			},
+			...(input.scope === "interface"
+				? [
+						{
+							level: "info" as const,
+							message: formatInterfaceEvidenceOutcomeAuditMessage(
+								"archive",
+								outcome,
+							),
+						},
+					]
+				: []),
+		],
+		activityResult:
+			input.scope === "interface"
+				? createInterfaceEvidenceOutcomeStatusActivityResult("archive", outcome)
+				: {
+						source: "evidence",
+						action: "audit-evidence-archive",
+						message: `audit export archive ${input.result.status} ${input.plan.fileName}`,
+						detail: `${input.result.message} from=${input.result.sourcePath} to=${input.result.archivedPath}`,
+					},
+		refreshActive: input.result.status === "archived",
+		refreshArchive: input.result.status === "archived",
+		...(input.scope === "interface" && input.result.status === "archived"
+			? {
+					selectedEvidenceKind: "interface" as const,
+					interfaceStateFilter: "archived" as const,
+					selectedIndex: 0 as const,
+				}
+			: {}),
+	};
+}
+
+export function classifyAuditArchiveRetentionOutcome(
+	input: {
+		scope: "audit" | "interface";
+		plan: ConsoleAuditArchiveRetentionPlan;
+		result: ConsoleAuditArchivePruneResult;
+	} & EvidenceArchiveRequest,
+): EvidenceArchiveOutcomeTransition {
+	const outcome = {
+		status: input.result.status,
+		message: input.result.message,
+		removed: input.result.removed,
+		candidates: input.plan.candidateItems.length,
+		maxItems: input.plan.maxItems,
+	};
+	return {
+		...classifyEvidenceArchiveRequest(input),
+		notices: [
+			{
+				level: input.result.status === "pruned" ? "ok" : "warn",
+				message: `${input.scope === "interface" ? "interface evidence" : "audit"} archive retention ${input.result.message}`,
+			},
+			...(input.scope === "interface"
+				? [
+						{
+							level: "info" as const,
+							message: formatInterfaceEvidenceOutcomeAuditMessage(
+								"retention",
+								outcome,
+							),
+						},
+					]
+				: []),
+		],
+		activityResult:
+			input.scope === "interface"
+				? createInterfaceEvidenceOutcomeStatusActivityResult(
+						"retention",
+						outcome,
+					)
+				: {
+						source: "evidence",
+						action: "audit-evidence-retention",
+						message: `audit archive retention ${input.result.status} removed=${input.result.removed}`,
+						detail: input.result.message,
+					},
+		refreshActive: false,
+		refreshArchive: input.result.status === "pruned",
+	};
+}
+
+export function classifyToolArchiveRetentionOutcome(
+	input: {
+		result: ToolHistoryArchivePruneResult;
+	} & EvidenceArchiveRequest,
+): EvidenceArchiveOutcomeTransition {
+	return {
+		...classifyEvidenceArchiveRequest(input),
+		notices: [
+			{
+				level: input.result.status === "pruned" ? "ok" : "warn",
+				message: `tools archive retention ${input.result.message}`,
+			},
+		],
+		activityResult: {
+			source: "evidence",
+			action: "tools-evidence-retention",
+			message: `tools archive retention ${input.result.status} removed=${input.result.removed}`,
+			detail: input.result.message,
+		},
+		refreshActive: false,
+		refreshArchive: input.result.status === "pruned",
+	};
+}
+
 import {
 	createToolHistoryArchiveRetentionPlan,
 	filterToolHistoryExportIndex,

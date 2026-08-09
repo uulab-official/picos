@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { tuiCallbackManifest } from "./support/tuiCallbackManifest";
@@ -57,6 +58,7 @@ type AuditOptions = {
 	sourceText: string;
 	manifest: readonly TuiCallbackManifestRow[];
 	mathBoundaryAllowlist?: readonly TuiCallbackMathBoundaryAllowlistEntry[];
+	ownerFileExists?: (path: string) => boolean;
 	strict?: boolean;
 };
 
@@ -72,7 +74,11 @@ export type TuiCallbackAudit = {
 };
 
 const callbackName = (call: ts.CallExpression, expectedName: string) =>
-	ts.isIdentifier(call.expression) && call.expression.text === expectedName;
+	(ts.isIdentifier(call.expression) && call.expression.text === expectedName) ||
+	(ts.isPropertyAccessExpression(call.expression) &&
+		ts.isIdentifier(call.expression.expression) &&
+		call.expression.expression.text === "React" &&
+		call.expression.name.text === expectedName);
 
 const lineNumber = (sourceFile: ts.SourceFile, position: number) =>
 	sourceFile.getLineAndCharacterOfPosition(position).line + 1;
@@ -123,12 +129,37 @@ export function extractTuiCallbackInventory(
 	return inventory;
 }
 
-const isMathBoundaryCall = (node: ts.Node): node is ts.CallExpression =>
-	ts.isCallExpression(node) &&
-	ts.isPropertyAccessExpression(node.expression) &&
-	ts.isIdentifier(node.expression.expression) &&
-	node.expression.expression.text === "Math" &&
-	(node.expression.name.text === "min" || node.expression.name.text === "max");
+const isInlineFunction = (
+	node: ts.Node | undefined,
+): node is ts.ArrowFunction | ts.FunctionExpression =>
+	Boolean(node) &&
+	(ts.isArrowFunction(node as ts.Node) ||
+		ts.isFunctionExpression(node as ts.Node));
+
+const getMathBoundaryName = (
+	node: ts.Expression,
+): "min" | "max" | undefined => {
+	if (
+		ts.isPropertyAccessExpression(node) &&
+		ts.isIdentifier(node.expression) &&
+		node.expression.text === "Math" &&
+		(node.name.text === "min" || node.name.text === "max")
+	) {
+		return node.name.text;
+	}
+	if (
+		ts.isElementAccessExpression(node) &&
+		ts.isIdentifier(node.expression) &&
+		node.expression.text === "Math" &&
+		node.argumentExpression &&
+		ts.isStringLiteral(node.argumentExpression) &&
+		(node.argumentExpression.text === "min" ||
+			node.argumentExpression.text === "max")
+	) {
+		return node.argumentExpression.text;
+	}
+	return undefined;
+};
 
 export function extractInlineDomainSelectionClamps(
 	sourceText: string,
@@ -148,8 +179,29 @@ export function extractInlineDomainSelectionClamps(
 		callback: ts.Node | undefined,
 	): void => {
 		if (!callback) return;
+		const boundaryAliases = new Set<string>(["clampIndex"]);
+		const collectAliases = (node: ts.Node): void => {
+			if (
+				ts.isVariableDeclaration(node) &&
+				ts.isIdentifier(node.name) &&
+				node.initializer &&
+				(getMathBoundaryName(node.initializer) ||
+					(ts.isIdentifier(node.initializer) &&
+						boundaryAliases.has(node.initializer.text)))
+			) {
+				boundaryAliases.add(node.name.text);
+			}
+			ts.forEachChild(node, collectAliases);
+		};
+		collectAliases(callback);
+
+		const isBoundaryCall = (node: ts.Node): node is ts.CallExpression =>
+			ts.isCallExpression(node) &&
+			(Boolean(getMathBoundaryName(node.expression)) ||
+				(ts.isIdentifier(node.expression) &&
+					boundaryAliases.has(node.expression.text)));
 		const visit = (node: ts.Node): void => {
-			if (isMathBoundaryCall(node) && !isMathBoundaryCall(node.parent)) {
+			if (isBoundaryCall(node) && !isBoundaryCall(node.parent)) {
 				const line = lineNumber(sourceFile, node.getStart(sourceFile));
 				const expression = node.getText(sourceFile);
 				const occurrenceKey = `${name}\0${line}\0${expression}`;
@@ -183,6 +235,9 @@ export function extractInlineDomainSelectionClamps(
 			callbackName(node, "useInput") &&
 			ts.isExpressionStatement(node.parent)
 		) {
+			if (!isInlineFunction(node.arguments[0])) {
+				fail("useInput handler must be inline");
+			}
 			inspectCallback("useInput", node.arguments[0]);
 		}
 		ts.forEachChild(node, visit);
@@ -239,6 +294,7 @@ export function auditTuiCallbacks({
 	sourceText,
 	manifest,
 	mathBoundaryAllowlist = [],
+	ownerFileExists,
 	strict = false,
 }: AuditOptions): TuiCallbackAudit {
 	const inventory = extractTuiCallbackInventory(sourceText);
@@ -295,6 +351,23 @@ export function auditTuiCallbacks({
 				fail(
 					`mismatched wiring reason: ${row.name} expected=${expectedReason}`,
 				);
+			}
+		} else if (row.classification === "delegated" && ownerFileExists) {
+			const owners = row.owner.split(" + ");
+			if (
+				owners.length === 0 ||
+				owners.some((owner) => !/^src\/tui\/[A-Za-z0-9]+\.tsx?$/.test(owner))
+			) {
+				fail(`invalid delegated owner reference: ${row.name}`);
+			}
+			for (const owner of owners) {
+				if (!ownerFileExists(owner)) {
+					fail(`missing delegated owner: ${owner}`);
+				}
+				const testPath = `tests/${basename(owner).replace(/\.tsx?$/, ".test.ts")}`;
+				if (!ownerFileExists(testPath)) {
+					fail(`missing delegated owner test: ${testPath}`);
+				}
 			}
 		}
 	}
@@ -372,6 +445,10 @@ export function runTuiCallbackAudit(
 			sourceText,
 			manifest: tuiCallbackManifest,
 			mathBoundaryAllowlist: appCallbackMathBoundaryAllowlist,
+			ownerFileExists: (path) =>
+				existsSync(
+					resolve(fileURLToPath(new URL("..", import.meta.url)), path),
+				),
 			strict,
 		});
 		selectionClamps = audit.counts.selectionClamps;

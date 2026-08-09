@@ -304,7 +304,8 @@ const delegatedCallbacks = {
 			"delegates preview guard, shared request-token publication, execution intent, stale result classification, and audit outcome while App retains config and runner I/O",
 	},
 	runAction: {
-		owner: "src/tui/actionControlTransitions.ts + existing feature owners",
+		owner:
+			"src/tui/actionControlTransitions.ts + src/tui/actionRunTransitions.ts",
 		reason:
 			"delegates catalog lookup, metadata and safety guards, read-versus-mutation routing, preview state, and exact notices while App retains existing feature-owner handoffs and I/O",
 	},
@@ -837,7 +838,7 @@ const commandInputDelegatedCallbacks = {
 		reason: "delegates recovered evidence selection repair",
 	},
 	cycleTimelineEvidenceTrailSourceFilter: {
-		owner: "src/tui/statusEvidence.ts",
+		owner: "src/tui/statusActivityQueue.ts",
 		reason: "delegates trail source filter, selection repair, and exact notice",
 	},
 	getSelectedProcessControlEvidenceResultOptions: {
@@ -869,7 +870,7 @@ const commandInputDelegatedCallbacks = {
 	},
 	useInput: {
 		owner:
-			"src/tui/appInputDispatcher.ts + src/tui/commandLine.ts + src/tui/commandCancellation.ts + feature panel input owners",
+			"src/tui/appInputDispatcher.ts + src/tui/commandLine.ts + src/tui/commandCancellation.ts",
 		reason:
 			"delegates modal precedence, screen/focus routing, key ownership, prompt routing, selection movement, and notices; App normalizes Ink keys and applies typed state or I/O effects",
 	},

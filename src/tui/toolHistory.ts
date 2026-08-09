@@ -2693,6 +2693,10 @@ export function getSelectedToolHistoryItem(
 	return history[Math.min(Math.max(selectedIndex, 0), history.length - 1)];
 }
 
+export function getNewestToolHistoryIndex(history: ToolHistoryItem[]): number {
+	return clampIndex(history.length - 1, history.length);
+}
+
 export function rerunToolHistoryItem(
 	item: ToolHistoryItem | undefined,
 ): ToolRunPlan | undefined {

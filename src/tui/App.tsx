@@ -216,11 +216,7 @@ import {
 	createUpdateApplyActionPreviewPlan,
 	createUpdateApplyPreview,
 	createUpdateReleaseHandoff,
-	formatGitHubReleaseCheckRows,
 	formatStatusReleaseConsoleRows,
-	formatUpdateApplyPreviewRows,
-	formatUpdateCheckRows,
-	formatUpdateReleaseHandoffRows,
 	type GitHubReleaseCheckResult,
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
@@ -235,6 +231,15 @@ import {
 	prepareControlExecutionTransition,
 	prepareControlPolicySync,
 } from "./actionControlTransitions";
+import {
+	classifyActionRunOutcome,
+	dispatchStatusActionRun,
+	getActionRunEffect,
+	getInterfaceProposalInput,
+	prepareRawToolHistoryView,
+	prepareToolActionPrompt,
+	type StatusActionRunHandlers,
+} from "./actionRunTransitions";
 import {
 	type GlobalControlExecutionRequest,
 	getAppInputOverlay,
@@ -496,7 +501,6 @@ import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
 	createInterfaceConfirmationStatusActivityResult,
-	createInterfaceEvidenceOutcomeStatusActivityResult,
 	createOperationRunStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
 	createStatusActivityProcessControlPaletteResult,
@@ -506,12 +510,10 @@ import {
 	createStatusActivityToolsEvidencePaletteResult,
 	createStatusActivityToolsEvidenceSearchRecovery,
 	createTimelineEvidenceTrailAuditExportPlan,
-	createTimelineEvidenceTrailPaletteStatusActivityResult,
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineSelectedStatusActivityResult,
 	filterInterfaceConfirmationAuditExportIndex,
 	filterTimelineEvidenceTrailAuditExports,
-	formatInterfaceEvidenceOutcomeAuditMessage,
 	formatRemoteActivityShelfRows,
 	formatRemoteKnownHostsSelectionHistoryRows,
 	formatStatusActivityCopyIntentRows,
@@ -523,7 +525,6 @@ import {
 	formatStatusActivityResultRows,
 	formatStatusActivityResultTimelineJumpRows,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
-	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityResultAuditJumpIntent,
 	getSelectedProcessControlAuditExport,
 	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
@@ -535,13 +536,13 @@ import {
 	getStatusActivityResultTimelineJumpIndexes,
 	getStatusActivityResultTimelineJumpSelection,
 	nextStatusActivityResultTimelineJumpFilter,
-	nextTimelineEvidenceTrailSourceFilter,
 	prepareRecoveredEvidenceOpenTransition,
 	prepareRecoveredEvidenceSearchTransition,
 	prepareRecoveredEvidenceSelectionTransition,
 	prepareStatusActivityResultTimelineHandoffOpenTransition,
 	prepareStatusActivityToolsEvidenceMatchArchive,
 	prepareStatusActivityToolsEvidenceMatchOpen,
+	prepareTimelineEvidenceTrailSourceFilterTransition,
 	type StatusActivityCopyIntentEvidenceFocusPlan,
 	type StatusActivityCopyIntentRecord,
 	type StatusActivityResult,
@@ -560,9 +561,14 @@ import {
 	type StatusDialogPreviewGroup,
 } from "./statusDialogPreview";
 import {
+	classifyAuditArchiveRetentionOutcome,
 	classifyAuditExportArchiveIndexRefresh,
+	classifyAuditExportArchiveOutcome,
 	classifyAuditExportIndexRefresh,
+	classifyCleanupExportArchiveOutcome,
 	classifyHandoffIndexRefresh,
+	classifyToolArchiveRetentionOutcome,
+	classifyToolExportArchiveOutcome,
 	filterInterfaceConfirmationEvidenceExports,
 	formatInterfaceEvidenceFilterRows,
 	formatStatusEvidenceCommandStripRows,
@@ -615,6 +621,7 @@ import {
 	formatToolHistoryExportArchiveRows,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getNewestToolHistoryIndex,
 	getSelectedToolCompareClipboardPreview,
 	getSelectedToolHistoryExport,
 	getSelectedToolOutputClipboardPreview,
@@ -1067,6 +1074,9 @@ export function App(): React.ReactElement {
 	const cleanupExportArchiveIndexRequestTokenRef = useRef(0);
 	const toolExportIndexRequestTokenRef = useRef(0);
 	const toolExportArchiveIndexRequestTokenRef = useRef(0);
+	// Every evidence mutation shares this publication lane because archive and
+	// retention callbacks can overlap while targeting the same current selection.
+	const evidenceArchiveMutationTokenRef = useRef(0);
 	const selectedHandoffIndexRef = useRef(selectedHandoffIndex);
 	selectedHandoffIndexRef.current = selectedHandoffIndex;
 	const selectedAuditExportIndexRef = useRef(selectedAuditExportIndex);
@@ -2302,7 +2312,7 @@ export function App(): React.ReactElement {
 			});
 			setToolHistory((current) => {
 				const next = appendToolHistory(current, { plan, result });
-				setSelectedToolHistoryIndex(clampIndex(next.length - 1, next.length));
+				setSelectedToolHistoryIndex(getNewestToolHistoryIndex(next));
 				return next;
 			});
 		},
@@ -5085,39 +5095,21 @@ export function App(): React.ReactElement {
 	const cycleTimelineEvidenceTrailSourceFilter = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
 			setScreen("status");
-			const nextFilter = nextTimelineEvidenceTrailSourceFilter(
-				timelineEvidenceTrailSourceFilter,
+			const transition = prepareTimelineEvidenceTrailSourceFilterTransition({
+				exports: timelineEvidenceTrailAuditExports,
+				filter: timelineEvidenceTrailSourceFilter,
+				origin: options.origin,
+			});
+			setTimelineEvidenceTrailSourceFilter(transition.filter);
+			setSelectedTimelineEvidenceTrailAuditExportIndex(
+				transition.selectedIndex,
 			);
-			const visible = filterTimelineEvidenceTrailAuditExports(
-				timelineEvidenceTrailAuditExports,
-				nextFilter,
-			);
-			setTimelineEvidenceTrailSourceFilter(nextFilter);
-			setSelectedTimelineEvidenceTrailAuditExportIndex(0);
-			log(
-				visible.length ? "info" : "warn",
-				`timeline evidence trail source filter ${nextFilter} visible ${visible.length}/${timelineEvidenceTrailAuditExports.length}${options.origin === "palette" ? " origin=palette" : ""}`,
-			);
-			if (options.origin === "palette") {
-				log(
-					"info",
-					formatTimelineEvidenceTrailPaletteAuditMessage("source", undefined, {
-						sourceFilter: nextFilter,
-						visible: visible.length,
-						total: timelineEvidenceTrailAuditExports.length,
-					}),
-				);
-				recordStatusActivityResult(
-					createTimelineEvidenceTrailPaletteStatusActivityResult(
-						"source",
-						undefined,
-						{
-							sourceFilter: nextFilter,
-							visible: visible.length,
-							total: timelineEvidenceTrailAuditExports.length,
-						},
-					),
-				);
+			log(transition.notice.level, transition.notice.message);
+			if (transition.auditMessage) {
+				log("info", transition.auditMessage);
+			}
+			if (transition.activityResult) {
+				recordStatusActivityResult(transition.activityResult);
 			}
 		},
 		[
@@ -5919,154 +5911,212 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const action = transition.action;
+			const effect = getActionRunEffect(action.id);
 			beginCommand();
+			const publishOutcome = (
+				outcome: Parameters<typeof classifyActionRunOutcome>[0]["outcome"],
+			) => {
+				const publication = classifyActionRunOutcome({
+					actionId: action.id,
+					currentToken: actionControlSequenceRef.current,
+					requestToken,
+					outcome,
+				});
+				for (const notice of publication.notices) {
+					log(notice.level, notice.message);
+				}
+				return publication.publishCurrent;
+			};
 
 			try {
-				if (action.id === "network.inspect") {
+				if (!effect) {
+					throw new Error("read action has no execution effect");
+				}
+				if (effect === "network-refresh") {
 					await refresh();
-					log("ok", "network refreshed");
+					publishOutcome({ kind: "success", summary: { kind: "network" } });
 				}
 
-				if (action.id === "system.inventory") {
-					setInventory(await createSystemInventory());
-					log("ok", "system inventory refreshed");
+				if (effect === "system-inventory") {
+					const result = await createSystemInventory();
+					if (
+						publishOutcome({
+							kind: "success",
+							summary: { kind: "system-inventory" },
+						})
+					) {
+						setInventory(result);
+					}
 				}
 
-				if (action.id === "logs.read") {
+				if (effect === "logs-read") {
 					const snapshot = await createOsLogSnapshot({ limit: 50 });
-					setOsLogs(snapshot);
-					setScreen("logs");
-					log(
-						snapshot.status === "ok" ? "ok" : "warn",
-						`logs read ${snapshot.entries.length}`,
-					);
-				}
-
-				if (action.id === "doctor.run") {
-					const checks = await runDoctorChecks();
-					setDoctorChecks(checks);
-					for (const check of checks) {
-						log(check.status === "pass" ? "ok" : check.status, check.label);
-					}
-				}
-
-				if (action.id === "config.show") {
-					const config = await readConfig();
-					log("info", `config path ${getConfigPath()}`);
-					log(
-						"info",
-						`theme=${config.theme} refresh=${config.refreshInterval}`,
-					);
-					log(
-						"info",
-						`retention auditArchive=${config.auditArchiveRetentionLimit} toolTargets=${config.toolTargetPresetLimit}`,
-					);
-				}
-
-				const configFocusTransition =
-					createConfigWorkspaceActionFocusTransition(
-						action.id,
-						configWorkspaceItems,
-					);
-				if (configFocusTransition) {
-					if (configFocusTransition.kind === "focus") {
-						setScreen(configFocusTransition.screen);
-						setFocusArea(configFocusTransition.focusArea);
-						setSelectedConfigIndex(configFocusTransition.selectedIndex);
-					}
-					log(
-						configFocusTransition.notice.level,
-						configFocusTransition.notice.message,
-					);
-				}
-
-				const configRecoveryFocusTarget = getConfigRecoveryActionFocusTarget(
-					action.id,
-				);
-				const configShelfFocusTarget =
-					configRecoveryFocusTarget ??
-					getConfigManagedShelfActionFocusTarget(action.id);
-				if (configShelfFocusTarget) {
-					const transition = createConfigManagedShelfJumpTransition(
-						configShelfFocusTarget,
-						{
-							origin: configRecoveryFocusTarget
-								? "recovery-palette"
-								: "palette",
-							counts: {
-								network: summary?.interfaces.length ?? 0,
-								routes: routeFilterPresets.length,
-								connections: connectionFilterPresets.length,
-								ports: portFilterPresets.length,
-								tools: toolTargetPresets.length,
-								logs: logProfiles.length,
-								remotes: remoteProfiles.length,
+					if (
+						publishOutcome({
+							kind: "success",
+							summary: {
+								kind: "logs",
+								count: snapshot.entries.length,
+								status: snapshot.status,
 							},
-						},
+						})
+					) {
+						setOsLogs(snapshot);
+						setScreen("logs");
+					}
+				}
+
+				if (effect === "doctor") {
+					const checks = await runDoctorChecks();
+					if (
+						publishOutcome({
+							kind: "success",
+							summary: { kind: "doctor", checks },
+						})
+					) {
+						setDoctorChecks(checks);
+					}
+				}
+
+				if (effect === "config-show") {
+					const config = await readConfig();
+					publishOutcome({
+						kind: "success",
+						summary: { kind: "config", path: getConfigPath(), config },
+					});
+				}
+
+				if (effect === "config-focus") {
+					const configFocusTransition =
+						createConfigWorkspaceActionFocusTransition(
+							action.id,
+							configWorkspaceItems,
+						);
+					if (configFocusTransition) {
+						if (configFocusTransition.kind === "focus") {
+							setScreen(configFocusTransition.screen);
+							setFocusArea(configFocusTransition.focusArea);
+							setSelectedConfigIndex(configFocusTransition.selectedIndex);
+						}
+						log(
+							configFocusTransition.notice.level,
+							configFocusTransition.notice.message,
+						);
+					}
+
+					const configRecoveryFocusTarget = getConfigRecoveryActionFocusTarget(
+						action.id,
 					);
-					applyConfigManagedShelfStateEffects(
-						transition.effects,
-						configManagedShelfStateEffectSetters,
-					);
-					const promptTransition = prepareConfigRecoveryDirectPromptTransition(
-						configRecoveryFocusTarget,
-						{
-							routes: routeFilterPresets.length,
-							connections: connectionFilterPresets.length,
-							ports: portFilterPresets.length,
-							logs: logProfiles.length,
-							tools: customToolTargetPresets.length,
-							remotes: remoteProfiles.length,
-						},
-					);
-					if (promptTransition.kind === "apply") {
+					const configShelfFocusTarget =
+						configRecoveryFocusTarget ??
+						getConfigManagedShelfActionFocusTarget(action.id);
+					if (configShelfFocusTarget) {
+						const transition = createConfigManagedShelfJumpTransition(
+							configShelfFocusTarget,
+							{
+								origin: configRecoveryFocusTarget
+									? "recovery-palette"
+									: "palette",
+								counts: {
+									network: summary?.interfaces.length ?? 0,
+									routes: routeFilterPresets.length,
+									connections: connectionFilterPresets.length,
+									ports: portFilterPresets.length,
+									tools: toolTargetPresets.length,
+									logs: logProfiles.length,
+									remotes: remoteProfiles.length,
+								},
+							},
+						);
 						applyConfigManagedShelfStateEffects(
-							promptTransition.effects,
+							transition.effects,
 							configManagedShelfStateEffectSetters,
 						);
-						log(promptTransition.notice.level, promptTransition.notice.message);
+						const promptTransition =
+							prepareConfigRecoveryDirectPromptTransition(
+								configRecoveryFocusTarget,
+								{
+									routes: routeFilterPresets.length,
+									connections: connectionFilterPresets.length,
+									ports: portFilterPresets.length,
+									logs: logProfiles.length,
+									tools: customToolTargetPresets.length,
+									remotes: remoteProfiles.length,
+								},
+							);
+						if (promptTransition.kind === "apply") {
+							applyConfigManagedShelfStateEffects(
+								promptTransition.effects,
+								configManagedShelfStateEffectSetters,
+							);
+							log(
+								promptTransition.notice.level,
+								promptTransition.notice.message,
+							);
+						}
+						log(transition.notice.level, transition.notice.message);
 					}
-					log(transition.notice.level, transition.notice.message);
 				}
 
-				if (action.id === "remote.profiles") {
+				if (effect === "remote-profiles") {
 					const config = await readConfig();
-					log("info", `remote profiles ${config.remoteProfiles.length}`);
+					publishOutcome({
+						kind: "success",
+						summary: {
+							kind: "remote-profiles",
+							count: config.remoteProfiles.length,
+						},
+					});
 				}
 
-				if (action.id === "remote.knownHosts.select") {
+				if (effect === "remote-known-hosts-select") {
 					setScreen("remotes");
 					setFocusArea("remotes");
 					setCommandLine(openCommandLine("remote-known-hosts-select"));
-					log(
-						"info",
-						"remote known_hosts candidate selection opened via palette",
-					);
+					publishOutcome({
+						kind: "success",
+						summary: { kind: "remote-known-hosts-prompt" },
+					});
 				}
 
-				if (action.id === "files.list") {
+				if (effect === "files-list") {
 					await refreshFiles();
-					log("ok", `files listed ${fileRoot}`);
+					publishOutcome({
+						kind: "success",
+						summary: { kind: "files-list", root: fileRoot },
+					});
 				}
 
-				if (action.id === "files.read") {
+				if (effect === "files-read") {
 					await refreshFiles();
-					log("ok", "editor preview refreshed");
+					publishOutcome({
+						kind: "success",
+						summary: { kind: "files-read" },
+					});
 				}
 
-				if (action.id === "routes.inspect") {
+				if (effect === "routes-inspect") {
 					const result = await runRouteTable();
-					setRouteTable(result);
-					log("ok", `routes listed ${result.routes.length}`);
+					if (
+						publishOutcome({
+							kind: "success",
+							summary: { kind: "routes", count: result.routes.length },
+						})
+					) {
+						setRouteTable(result);
+					}
 				}
 
-				if (action.id === "routes.path") {
+				if (effect === "route-prompt") {
 					setScreen("routes");
 					setCommandLine(openCommandLine("route"));
-					log("info", "route destination prompt opened");
+					publishOutcome({
+						kind: "success",
+						summary: { kind: "route-prompt" },
+					});
 				}
 
-				if (action.id === "timeline.export") {
+				if (effect === "timeline-export") {
 					const scopedEvents = filterTimelineEvents(
 						events,
 						timelineSearchQuery,
@@ -6081,43 +6131,47 @@ export function App(): React.ReactElement {
 						scope: scoped ? "filtered" : undefined,
 					});
 					const written = await writeConsoleAuditExport(plan);
-					log(
-						"ok",
-						`audit exported ${written.path} events=${written.eventCount}`,
-					);
+					publishOutcome({
+						kind: "success",
+						summary: {
+							kind: "timeline-export",
+							path: written.path,
+							eventCount: written.eventCount,
+						},
+					});
 				}
 
-				const toolPlan = createToolRunPlan(
-					action.id,
-					(await readConfig()).defaultPingHost,
-					summaryRef.current,
-				);
-				if (toolPlan) {
-					setScreen("tools");
+				if (effect === "tool-prompt") {
+					const toolPlan = createToolRunPlan(
+						action.id,
+						defaultPingHost,
+						summaryRef.current,
+					);
+					if (!toolPlan) {
+						throw new Error("tool action has no prompt plan");
+					}
+					const prompt = prepareToolActionPrompt(toolPlan);
+					setScreen(prompt.screen);
 					setCommandLine(
-						openCommandLine(`${toolPromptPrefix}${action.id}`, {
-							value: toolPlan.args.join(" "),
-							fieldIndex: 0,
+						openCommandLine(prompt.prompt, {
+							value: prompt.value,
+							fieldIndex: prompt.fieldIndex,
 						}),
 					);
-					log("info", `${toolPlan.label} target prompt opened`);
+					log(prompt.notice.level, prompt.notice.message);
 				}
 
-				if (action.id === "raw.view") {
-					const latestTool = toolHistory.at(-1);
-					if (latestTool) {
-						setScreen("tools");
-						setSelectedToolHistoryIndex(
-							clampIndex(toolHistory.length - 1, toolHistory.length),
-						);
-						log("info", `raw.view latest ${latestTool.label}`);
-					} else {
-						log("warn", "raw.view has no tool history yet");
+				if (effect === "raw-view") {
+					const rawView = prepareRawToolHistoryView(toolHistory);
+					if (rawView.kind === "view") {
+						setScreen(rawView.screen);
+						setSelectedToolHistoryIndex(rawView.selectedIndex);
 					}
+					log(rawView.notice.level, rawView.notice.message);
 				}
 
-				if (action.id === "tools.export") {
-					const effect = prepareToolHistoryExportEffect({
+				if (effect === "tools-export") {
+					const exportEffect = prepareToolHistoryExportEffect({
 						history: toolHistory,
 						selectedIndex: selectedToolHistoryIndex,
 						scope: "all",
@@ -6131,220 +6185,207 @@ export function App(): React.ReactElement {
 							},
 						},
 					});
-					if (effect.kind === "export") {
-						await exportToolHistory(effect);
+					if (exportEffect.kind === "export") {
+						await exportToolHistory(exportEffect);
+						publishOutcome({
+							kind: "success",
+							summary: { kind: "notices", notices: [] },
+						});
 					} else {
-						log(effect.notice.level, effect.notice.message);
+						log(exportEffect.notice.level, exportEffect.notice.message);
 					}
 				}
 
-				if (action.id === "picos.update") {
-					const result = await checkForPackageUpdate({
-						packageName: "@uulab/picos",
-						currentVersion: VERSION,
-					});
-					const releaseResult = await checkForGitHubReleaseUpdate({
-						owner: "uulab-official",
-						repo: "picos",
-						currentVersion: VERSION,
-					});
-					setUpdateCheckResult(result);
-					setGitHubReleaseCheckResult(releaseResult);
-					setSelectedUpdateHandoffIndex(0);
-					setScreen("status");
-					for (const row of formatUpdateCheckRows(result)) {
-						log(result.status === "unknown" ? "warn" : "info", row);
-					}
-					for (const row of formatGitHubReleaseCheckRows(releaseResult)) {
-						log(releaseResult.status === "unknown" ? "warn" : "info", row);
-					}
-					const applyPreview = createUpdateApplyPreview(result);
-					if (applyPreview) {
-						for (const row of formatUpdateApplyPreviewRows(applyPreview)) {
-							log("warn", row);
-						}
-					}
-					const releaseHandoff = createUpdateReleaseHandoff(result);
-					if (releaseHandoff) {
-						for (const row of formatUpdateReleaseHandoffRows(releaseHandoff)) {
-							log("info", row);
-						}
+				if (effect === "update-check") {
+					const [result, releaseResult] = await Promise.all([
+						checkForPackageUpdate({
+							packageName: "@uulab/picos",
+							currentVersion: VERSION,
+						}),
+						checkForGitHubReleaseUpdate({
+							owner: "uulab-official",
+							repo: "picos",
+							currentVersion: VERSION,
+						}),
+					]);
+					if (
+						publishOutcome({
+							kind: "success",
+							summary: {
+								kind: "update",
+								packageResult: result,
+								releaseResult,
+							},
+						})
+					) {
+						setUpdateCheckResult(result);
+						setGitHubReleaseCheckResult(releaseResult);
+						setSelectedUpdateHandoffIndex(0);
+						setScreen("status");
 					}
 				}
 
-				if (action.id === "status.timelineTrail.select") {
-					selectNextTimelineEvidenceTrailExport({ origin: "palette" });
-				}
-
-				if (action.id === "status.timelineTrail.open") {
-					openSelectedTimelineEvidenceTrailExport({ origin: "palette" });
-				}
-
-				if (action.id === "status.timelineTrail.search") {
-					jumpSelectedTimelineEvidenceTrailSearch({ origin: "palette" });
-				}
-
-				if (action.id === "status.timelineTrail.source") {
-					cycleTimelineEvidenceTrailSourceFilter({ origin: "palette" });
-				}
-
-				if (action.id === "status.processEvidence.select") {
-					selectNextProcessControlEvidenceExport({ origin: "palette" });
-				}
-
-				if (action.id === "status.processEvidence.open") {
-					openSelectedProcessControlEvidenceExport({ origin: "palette" });
-				}
-
-				if (action.id === "status.processEvidence.search") {
-					jumpSelectedProcessControlEvidenceSearch({ origin: "palette" });
-				}
-
-				if (action.id === "status.remoteKnownHostsEvidence.select") {
-					selectNextRemoteKnownHostsSelectionEvidenceExport({
-						origin: "palette",
+				if (effect === "status-owner") {
+					dispatchStatusActionRun(action.id as keyof StatusActionRunHandlers, {
+						"status.timelineTrail.select": () =>
+							selectNextTimelineEvidenceTrailExport({ origin: "palette" }),
+						"status.timelineTrail.open": () =>
+							openSelectedTimelineEvidenceTrailExport({ origin: "palette" }),
+						"status.timelineTrail.search": () =>
+							jumpSelectedTimelineEvidenceTrailSearch({ origin: "palette" }),
+						"status.timelineTrail.source": () =>
+							cycleTimelineEvidenceTrailSourceFilter({ origin: "palette" }),
+						"status.processEvidence.select": () =>
+							selectNextProcessControlEvidenceExport({ origin: "palette" }),
+						"status.processEvidence.open": () =>
+							openSelectedProcessControlEvidenceExport({ origin: "palette" }),
+						"status.processEvidence.search": () =>
+							jumpSelectedProcessControlEvidenceSearch({ origin: "palette" }),
+						"status.remoteKnownHostsEvidence.select": () =>
+							selectNextRemoteKnownHostsSelectionEvidenceExport({
+								origin: "palette",
+							}),
+						"status.remoteKnownHostsEvidence.open": () =>
+							openSelectedRemoteKnownHostsSelectionEvidenceExport({
+								origin: "palette",
+							}),
+						"status.remoteKnownHostsEvidence.search": () =>
+							jumpSelectedRemoteKnownHostsSelectionEvidenceSearch({
+								origin: "palette",
+							}),
+						"status.remoteKnownHostsEvidence.copy": () =>
+							openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff({
+								origin: "palette",
+							}),
+						"status.remoteKnownHostsEvidence.export": () =>
+							exportSelectedRemoteKnownHostsSelectionEvidenceHandoff({
+								origin: "palette",
+							}),
+						"status.remoteKnownHostsEvidence.handoffSelect": () =>
+							selectNextRemoteKnownHostsEvidenceHandoff({ origin: "palette" }),
+						"status.remoteKnownHostsEvidence.handoffOpen": () =>
+							openSelectedRemoteKnownHostsEvidenceHandoff({
+								origin: "palette",
+							}),
+						"status.interfaceEvidence.select": () =>
+							selectNextInterfaceConfirmationEvidenceExport({
+								origin: "palette",
+							}),
+						"status.interfaceEvidence.open": () =>
+							openSelectedInterfaceConfirmationEvidenceExport({
+								origin: "palette",
+							}),
+						"status.interfaceEvidence.search": () =>
+							jumpSelectedInterfaceConfirmationEvidenceSearch({
+								origin: "palette",
+							}),
+						"status.interfaceEvidence.filter": () =>
+							cycleInterfaceEvidenceStateFilter({ origin: "palette" }),
+						"status.interfaceEvidence.find": () =>
+							openInterfaceEvidenceSearchPrompt({ origin: "palette" }),
+						"status.interfaceEvidence.presetSave": () =>
+							saveCurrentInterfaceEvidenceSearchPreset({ origin: "palette" }),
+						"status.interfaceEvidence.presetNext": () =>
+							cycleInterfaceEvidenceSearchPreset({ origin: "palette" }),
+						"status.interfaceEvidence.archive": () =>
+							openSelectedInterfaceEvidenceArchive(),
+						"status.interfaceEvidence.retention": () =>
+							openInterfaceAuditArchiveRetentionPreview(),
+						"status.resultJump.select": () =>
+							selectNextStatusActivityResultTimelineJump({ origin: "palette" }),
+						"status.resultJump.open": () =>
+							openSelectedStatusActivityResultTimelineJump({
+								origin: "palette",
+							}),
+						"status.resultJump.filter": () =>
+							cycleStatusActivityResultTimelineJumpFilter({
+								origin: "palette",
+							}),
+						"status.resultHistory.filter": () =>
+							cycleStatusActivityResultHistoryFilter({ origin: "palette" }),
+						"status.toolsEvidence.filter": () =>
+							cycleToolEvidenceFilter({ origin: "palette" }),
+						"status.toolsEvidence.search": () =>
+							openToolEvidenceSearchPrompt({ origin: "palette" }),
+						"status.toolsEvidence.archive": () =>
+							openSelectedToolExportArchive({ origin: "palette" }),
+						"status.toolsEvidence.retention": () =>
+							openToolArchiveRetentionPreview({ origin: "palette" }),
+						"status.toolsEvidence.matchOpen": () =>
+							openSelectedStatusActivityToolsEvidenceSearchMatchFile(),
+						"status.toolsEvidence.matchArchive": () =>
+							openSelectedStatusActivityToolsEvidenceSearchMatchArchive(),
 					});
 				}
 
-				if (action.id === "status.remoteKnownHostsEvidence.open") {
-					openSelectedRemoteKnownHostsSelectionEvidenceExport({
-						origin: "palette",
+				if (effect === "process-guidance") {
+					publishOutcome({
+						kind: "success",
+						summary: { kind: "process-guidance" },
 					});
 				}
 
-				if (action.id === "status.remoteKnownHostsEvidence.search") {
-					jumpSelectedRemoteKnownHostsSelectionEvidenceSearch({
-						origin: "palette",
+				if (effect === "remote-connect-owner") {
+					setScreen("remotes");
+					setFocusArea("remotes");
+					publishOutcome({
+						kind: "success",
+						summary: { kind: "remote-connect-guidance" },
 					});
 				}
 
-				if (action.id === "status.remoteKnownHostsEvidence.copy") {
-					openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff({
-						origin: "palette",
+				if (effect === "palette-owner") {
+					const proposalInput = getInterfaceProposalInput(action.id);
+					if (!proposalInput) {
+						throw new Error("interface action has no proposal effect");
+					}
+					const proposal = prepareInterfacePanelInput({
+						input: proposalInput,
+						selectedIndex: selectedInterfaceIndex,
+						summary: summaryRef.current,
+						view: interfaceDetailView,
 					});
+					setScreen("interfaces");
+					setFocusArea("workspaces");
+					setInterfaceSourceCopyPreview(false);
+					if (proposal.kind === "proposal") {
+						setSelectedInterfaceIndex(proposal.selectedIndex);
+						setInterfaceStateProposal(proposal.proposal);
+						setInterfaceConfirmationResult(proposal.confirmationResult);
+						log(proposal.notice.level, proposal.notice.message);
+					} else if ("notice" in proposal && proposal.notice) {
+						log(proposal.notice.level, proposal.notice.message);
+					}
 				}
 
-				if (action.id === "status.remoteKnownHostsEvidence.export") {
-					exportSelectedRemoteKnownHostsSelectionEvidenceHandoff({
-						origin: "palette",
-					});
-				}
-
-				if (action.id === "status.remoteKnownHostsEvidence.handoffSelect") {
-					selectNextRemoteKnownHostsEvidenceHandoff({ origin: "palette" });
-				}
-
-				if (action.id === "status.remoteKnownHostsEvidence.handoffOpen") {
-					openSelectedRemoteKnownHostsEvidenceHandoff({ origin: "palette" });
-				}
-
-				if (action.id === "status.interfaceEvidence.select") {
-					selectNextInterfaceConfirmationEvidenceExport({
-						origin: "palette",
-					});
-				}
-
-				if (action.id === "status.interfaceEvidence.open") {
-					openSelectedInterfaceConfirmationEvidenceExport({
-						origin: "palette",
-					});
-				}
-
-				if (action.id === "status.interfaceEvidence.search") {
-					jumpSelectedInterfaceConfirmationEvidenceSearch({
-						origin: "palette",
-					});
-				}
-
-				if (action.id === "status.interfaceEvidence.filter") {
-					cycleInterfaceEvidenceStateFilter({ origin: "palette" });
-				}
-
-				if (action.id === "status.interfaceEvidence.find") {
-					openInterfaceEvidenceSearchPrompt({ origin: "palette" });
-				}
-
-				if (action.id === "status.interfaceEvidence.presetSave") {
-					saveCurrentInterfaceEvidenceSearchPreset({ origin: "palette" });
-				}
-
-				if (action.id === "status.interfaceEvidence.presetNext") {
-					cycleInterfaceEvidenceSearchPreset({ origin: "palette" });
-				}
-
-				if (action.id === "status.interfaceEvidence.archive") {
-					openSelectedInterfaceEvidenceArchive();
-				}
-
-				if (action.id === "status.interfaceEvidence.retention") {
-					openInterfaceAuditArchiveRetentionPreview();
-				}
-
-				if (action.id === "status.resultJump.select") {
-					selectNextStatusActivityResultTimelineJump({ origin: "palette" });
-				}
-
-				if (action.id === "status.resultJump.open") {
-					openSelectedStatusActivityResultTimelineJump({ origin: "palette" });
-				}
-
-				if (action.id === "status.resultJump.filter") {
-					cycleStatusActivityResultTimelineJumpFilter({ origin: "palette" });
-				}
-
-				if (action.id === "status.resultHistory.filter") {
-					cycleStatusActivityResultHistoryFilter({ origin: "palette" });
-				}
-
-				if (action.id === "status.toolsEvidence.filter") {
-					cycleToolEvidenceFilter({ origin: "palette" });
-				}
-
-				if (action.id === "status.toolsEvidence.search") {
-					openToolEvidenceSearchPrompt({ origin: "palette" });
-				}
-
-				if (action.id === "status.toolsEvidence.archive") {
-					openSelectedToolExportArchive({ origin: "palette" });
-				}
-
-				if (action.id === "status.toolsEvidence.retention") {
-					openToolArchiveRetentionPreview({ origin: "palette" });
-				}
-
-				if (action.id === "status.toolsEvidence.matchOpen") {
-					openSelectedStatusActivityToolsEvidenceSearchMatchFile();
-				}
-
-				if (action.id === "status.toolsEvidence.matchArchive") {
-					openSelectedStatusActivityToolsEvidenceSearchMatchArchive();
-				}
-
-				if (
-					action.id === "process.inspect" ||
-					action.id === "remote.sftp.connect"
-				) {
-					log(
-						"info",
-						action.id === "process.inspect"
-							? "use picos process <pid> from endpoint detail"
-							: `${action.id} queued for adapter implementation`,
-					);
-				}
-
-				if (action.id === "connections.list") {
+				if (effect === "connections-list") {
 					const result = await getActiveConnections();
-					setConnectionsResult(result);
-					log("ok", `connections listed ${result.connections.length}`);
+					if (
+						publishOutcome({
+							kind: "success",
+							summary: {
+								kind: "connections",
+								count: result.connections.length,
+							},
+						})
+					) {
+						setConnectionsResult(result);
+					}
 				}
 
-				if (action.id === "ports.list") {
+				if (effect === "ports-list") {
 					const result = await getListeningPorts();
-					setPortsResult(result);
-					log("ok", `ports listed ${result.ports.length}`);
+					if (
+						publishOutcome({
+							kind: "success",
+							summary: { kind: "ports", count: result.ports.length },
+						})
+					) {
+						setPortsResult(result);
+					}
 				}
 			} catch (caught) {
-				log("fail", caught instanceof Error ? caught.message : String(caught));
+				publishOutcome({ kind: "failure", error: caught });
 			} finally {
 				endCommand();
 			}
@@ -6360,6 +6401,7 @@ export function App(): React.ReactElement {
 			cycleToolEvidenceFilter,
 			cycleInterfaceEvidenceStateFilter,
 			cycleTimelineEvidenceTrailSourceFilter,
+			defaultPingHost,
 			events,
 			exportToolHistory,
 			fileRoot,
@@ -6370,6 +6412,7 @@ export function App(): React.ReactElement {
 			jumpSelectedTimelineEvidenceTrailSearch,
 			beginCommand,
 			endCommand,
+			interfaceDetailView,
 			log,
 			logProfiles.length,
 			openInterfaceAuditArchiveRetentionPreview,
@@ -6398,6 +6441,7 @@ export function App(): React.ReactElement {
 			selectNextRemoteKnownHostsSelectionEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
+			selectedInterfaceIndex,
 			selectedToolHistoryIndex,
 			saveCurrentInterfaceEvidenceSearchPreset,
 			timelineFilter,
@@ -6848,15 +6892,25 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
+			const requestToken = beginRequest(
+				evidenceArchiveMutationTokenRef.current,
+			);
+			evidenceArchiveMutationTokenRef.current = requestToken;
 			setCleanupExportArchivePlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await archiveCleanupHandoffHistoryExport(plan);
-			log(
-				result.status === "archived" ? "ok" : "warn",
-				`cleanup export archive ${result.message}`,
-			);
-			if (result.status === "archived") {
+			const outcome = classifyCleanupExportArchiveOutcome({
+				currentToken: evidenceArchiveMutationTokenRef.current,
+				requestToken,
+				result,
+			});
+			for (const notice of outcome.notices) {
+				log(notice.level, notice.message);
+			}
+			if (outcome.refreshActive) {
 				await refreshCleanupExportIndex(false);
+			}
+			if (outcome.refreshArchive) {
 				await refreshCleanupExportArchiveIndex(false);
 			}
 		},
@@ -6871,23 +6925,33 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
+			const requestToken = beginRequest(
+				evidenceArchiveMutationTokenRef.current,
+			);
+			evidenceArchiveMutationTokenRef.current = requestToken;
 			setToolExportArchivePlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await archiveToolHistoryExport(plan);
-			log(
-				result.status === "archived" ? "ok" : "warn",
-				`tools evidence archive ${result.message}`,
-			);
-			recordStatusActivityResult({
-				source: "evidence",
-				action: "tools-evidence-archive",
-				message: `tools evidence archive ${result.status} ${plan.fileName}`,
-				detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
+			const outcome = classifyToolExportArchiveOutcome({
+				currentToken: evidenceArchiveMutationTokenRef.current,
+				requestToken,
+				plan,
+				result,
 			});
-			if (result.status === "archived") {
+			for (const notice of outcome.notices) {
+				log(notice.level, notice.message);
+			}
+			if (outcome.activityResult) {
+				recordStatusActivityResult(outcome.activityResult);
+			}
+			if (outcome.refreshActive) {
 				await refreshToolExportIndex(false);
+			}
+			if (outcome.refreshArchive) {
 				await refreshToolExportArchiveIndex(false);
-				setSelectedStatusEvidenceKind("tools-archive");
+			}
+			if (outcome.publishCurrentState && outcome.selectedEvidenceKind) {
+				setSelectedStatusEvidenceKind(outcome.selectedEvidenceKind);
 			}
 		},
 		[
@@ -6905,49 +6969,41 @@ export function App(): React.ReactElement {
 				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-			const isInterfaceEvidence = transition.scope === "interface";
 			const plan = transition.plan;
+			const requestToken = beginRequest(
+				evidenceArchiveMutationTokenRef.current,
+			);
+			evidenceArchiveMutationTokenRef.current = requestToken;
 			setAuditExportArchivePlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await archiveConsoleAuditExport(plan);
-			log(
-				result.status === "archived" ? "ok" : "warn",
-				`${isInterfaceEvidence ? "interface evidence" : "audit export"} archive ${result.message}`,
-			);
-			if (isInterfaceEvidence) {
-				const outcome = {
-					status: result.status,
-					message: result.message,
-					fileName: plan.fileName,
-					sourcePath: result.sourcePath,
-					archivedPath: result.archivedPath,
-				};
-				log(
-					"info",
-					formatInterfaceEvidenceOutcomeAuditMessage("archive", outcome),
-				);
-				recordStatusActivityResult(
-					createInterfaceEvidenceOutcomeStatusActivityResult(
-						"archive",
-						outcome,
-					),
-				);
-			} else {
-				recordStatusActivityResult({
-					source: "evidence",
-					action: "audit-evidence-archive",
-					message: `audit export archive ${result.status} ${plan.fileName}`,
-					detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
-				});
+			const outcome = classifyAuditExportArchiveOutcome({
+				currentToken: evidenceArchiveMutationTokenRef.current,
+				requestToken,
+				scope: transition.scope,
+				plan,
+				result,
+			});
+			for (const notice of outcome.notices) {
+				log(notice.level, notice.message);
 			}
-			if (result.status === "archived") {
+			if (outcome.activityResult) {
+				recordStatusActivityResult(outcome.activityResult);
+			}
+			if (outcome.refreshActive) {
 				await refreshAuditExportIndex(false);
+			}
+			if (outcome.refreshArchive) {
 				await refreshAuditExportArchiveIndex(false);
-				if (isInterfaceEvidence) {
-					setInterfaceEvidenceStateFilter("archived");
-					setSelectedInterfaceConfirmationAuditExportIndex(0);
-					setSelectedStatusEvidenceKind("interface");
-				}
+			}
+			if (outcome.publishCurrentState && outcome.interfaceStateFilter) {
+				setInterfaceEvidenceStateFilter(outcome.interfaceStateFilter);
+			}
+			if (outcome.publishCurrentState && outcome.selectedIndex !== undefined) {
+				setSelectedInterfaceConfirmationAuditExportIndex(outcome.selectedIndex);
+			}
+			if (outcome.publishCurrentState && outcome.selectedEvidenceKind) {
+				setSelectedStatusEvidenceKind(outcome.selectedEvidenceKind);
 			}
 		},
 		[
@@ -6966,40 +7022,27 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
+			const requestToken = beginRequest(
+				evidenceArchiveMutationTokenRef.current,
+			);
+			evidenceArchiveMutationTokenRef.current = requestToken;
 			setAuditArchiveRetentionPlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await pruneConsoleAuditArchive(plan);
-			log(
-				result.status === "pruned" ? "ok" : "warn",
-				`${transition.scope === "interface" ? "interface evidence" : "audit"} archive retention ${result.message}`,
-			);
-			if (transition.scope === "interface") {
-				const outcome = {
-					status: result.status,
-					message: result.message,
-					removed: result.removed,
-					candidates: plan.candidateItems.length,
-					maxItems: plan.maxItems,
-				};
-				log(
-					"info",
-					formatInterfaceEvidenceOutcomeAuditMessage("retention", outcome),
-				);
-				recordStatusActivityResult(
-					createInterfaceEvidenceOutcomeStatusActivityResult(
-						"retention",
-						outcome,
-					),
-				);
-			} else {
-				recordStatusActivityResult({
-					source: "evidence",
-					action: "audit-evidence-retention",
-					message: `audit archive retention ${result.status} removed=${result.removed}`,
-					detail: result.message,
-				});
+			const outcome = classifyAuditArchiveRetentionOutcome({
+				currentToken: evidenceArchiveMutationTokenRef.current,
+				requestToken,
+				scope: transition.scope,
+				plan,
+				result,
+			});
+			for (const notice of outcome.notices) {
+				log(notice.level, notice.message);
 			}
-			if (result.status === "pruned") {
+			if (outcome.activityResult) {
+				recordStatusActivityResult(outcome.activityResult);
+			}
+			if (outcome.refreshArchive) {
 				await refreshAuditExportArchiveIndex(false);
 			}
 		},
@@ -7014,20 +7057,25 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
+			const requestToken = beginRequest(
+				evidenceArchiveMutationTokenRef.current,
+			);
+			evidenceArchiveMutationTokenRef.current = requestToken;
 			setToolArchiveRetentionPlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await pruneToolHistoryExportArchive(plan);
-			log(
-				result.status === "pruned" ? "ok" : "warn",
-				`tools archive retention ${result.message}`,
-			);
-			recordStatusActivityResult({
-				source: "evidence",
-				action: "tools-evidence-retention",
-				message: `tools archive retention ${result.status} removed=${result.removed}`,
-				detail: result.message,
+			const outcome = classifyToolArchiveRetentionOutcome({
+				currentToken: evidenceArchiveMutationTokenRef.current,
+				requestToken,
+				result,
 			});
-			if (result.status === "pruned") {
+			for (const notice of outcome.notices) {
+				log(notice.level, notice.message);
+			}
+			if (outcome.activityResult) {
+				recordStatusActivityResult(outcome.activityResult);
+			}
+			if (outcome.refreshArchive) {
 				await refreshToolExportArchiveIndex(false);
 			}
 		},
@@ -9151,7 +9199,6 @@ export function App(): React.ReactElement {
 				});
 				void exportTimelineEvidenceInput(exportPlan);
 				setScreen("status");
-				log("info", `${plan.message}; ${plan.rows.at(-1) ?? ""}`);
 			}
 			if ("notice" in decision && decision.notice) {
 				log(decision.notice.level, decision.notice.message);

@@ -158,6 +158,7 @@ import {
 	prepareStatusActivityResultTimelineHandoffReplay,
 	prepareStatusActivityToolsEvidenceMatchArchive,
 	prepareStatusActivityToolsEvidenceMatchOpen,
+	prepareTimelineEvidenceTrailSourceFilterTransition,
 	writeInterfaceConfirmationAuditExport,
 	writeRemoteKnownHostsSelectionHistoryAuditExport,
 	writeStatusActivityCopyIntentAuditExport,
@@ -2903,6 +2904,30 @@ describe("Status activity queue", () => {
 		expect(nextTimelineEvidenceTrailSourceFilter("all")).toBe("evidence");
 		expect(nextTimelineEvidenceTrailSourceFilter("evidence")).toBe("palette");
 		expect(nextTimelineEvidenceTrailSourceFilter("palette")).toBe("all");
+
+		expect(
+			prepareTimelineEvidenceTrailSourceFilterTransition({
+				exports: trailExports,
+				filter: "all",
+				origin: "palette",
+			}),
+		).toEqual({
+			filter: "evidence",
+			selectedIndex: 0,
+			notice: {
+				level: "info",
+				message:
+					"timeline evidence trail source filter evidence visible 1/2 origin=palette",
+			},
+			auditMessage:
+				"palette timeline trail audit action=source source=evidence visible=1/2",
+			activityResult: {
+				source: "evidence",
+				action: "timeline-evidence-trail",
+				message: "palette timeline trail source evidence visible=1/2",
+				detail: "source filter changed to evidence",
+			},
+		});
 	});
 
 	test("replays selected status activity copy intents as locked clipboard previews", () => {

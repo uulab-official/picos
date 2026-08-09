@@ -107,6 +107,7 @@ export type TimelinePanelInputDecision =
 			event: ConsoleEvent;
 			plan: TimelineFocusEvidenceTrailPlan;
 			selectedIndex: number;
+			notice: TimelinePanelNotice;
 	  }
 	| {
 			kind: "filter";
@@ -394,7 +395,16 @@ export function prepareTimelinePanelInput(input: {
 				})
 			: undefined;
 		return plan
-			? { kind: "evidence", event, plan, selectedIndex }
+			? {
+					kind: "evidence",
+					event,
+					plan,
+					selectedIndex,
+					notice: {
+						level: "info",
+						message: `${plan.message}; ${plan.rows.at(-1) ?? ""}`,
+					},
+				}
 			: {
 					kind: "notice",
 					notice: {
