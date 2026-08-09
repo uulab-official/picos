@@ -77,8 +77,8 @@ export type OperationRunTerminalTransition =
 	  };
 
 export type OperationRunPanelInputTransition =
-	| { kind: "run" }
-	| { kind: "cancel" }
+	| { kind: "run"; transition: OperationRunStartTransition }
+	| { kind: "cancel"; transition: OperationRunCancellationTransition }
 	| { kind: "selection"; selectedIndex: number }
 	| { kind: "no-op" };
 
@@ -279,9 +279,21 @@ export function prepareOperationRunPanelInput(input: {
 	direction?: "next" | "previous";
 	presets: OperationPreset[];
 	selectedIndex: number;
+	currentRun: OperationRunProgress | undefined;
+	currentToken: number;
 }): OperationRunPanelInputTransition {
-	if (input.input === "\r") return { kind: "run" };
-	if (input.input === "X") return { kind: "cancel" };
+	if (input.input === "\r") {
+		return { kind: "run", transition: prepareOperationRunStart(input) };
+	}
+	if (input.input === "X") {
+		return {
+			kind: "cancel",
+			transition: prepareOperationRunCancellation({
+				currentRun: input.currentRun,
+				activeToken: input.currentToken,
+			}),
+		};
+	}
 	const direction =
 		input.direction ??
 		(input.input === "j"

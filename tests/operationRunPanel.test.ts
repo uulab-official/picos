@@ -544,25 +544,38 @@ describe("operations run decisions", () => {
 	});
 
 	test("owns Operations run, cancel, and clamped movement input", () => {
+		const activeRun = startOperationRun(monitorPreset, 1000);
 		expect(
 			prepareOperationRunPanelInput({
 				input: "\r",
 				presets: [monitorPreset],
 				selectedIndex: 0,
+				currentRun: undefined,
+				currentToken: 0,
 			}),
-		).toEqual({ kind: "run" });
+		).toMatchObject({
+			kind: "run",
+			transition: { kind: "start", token: 1, preset: monitorPreset },
+		});
 		expect(
 			prepareOperationRunPanelInput({
 				input: "X",
 				presets: [monitorPreset],
 				selectedIndex: 0,
+				currentRun: activeRun,
+				currentToken: 7,
 			}),
-		).toEqual({ kind: "cancel" });
+		).toMatchObject({
+			kind: "cancel",
+			transition: { kind: "cancel", cancelledToken: 7 },
+		});
 		expect(
 			prepareOperationRunPanelInput({
 				input: "j",
 				presets: [monitorPreset, logsPreset],
 				selectedIndex: 99,
+				currentRun: undefined,
+				currentToken: 0,
 			}),
 		).toEqual({ kind: "selection", selectedIndex: 0 });
 	});
@@ -580,6 +593,8 @@ describe("operations run decisions", () => {
 					direction: input.direction,
 					presets: [monitorPreset, logsPreset],
 					selectedIndex: 0,
+					currentRun: undefined,
+					currentToken: 0,
 				}),
 			).toEqual({ kind: "selection", selectedIndex: input.selectedIndexAfter });
 		}

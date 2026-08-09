@@ -60,6 +60,29 @@ export type RoutePanelNotice = {
 	message: string;
 };
 
+export type RouteHandoffPreparation =
+	| { kind: "notice"; notice: RoutePanelNotice }
+	| { kind: "handoff"; plan: RouteRawHandoffPlan };
+
+export type RoutePanelHandoffContext = {
+	baseDir: string;
+	generatedAt?: Date;
+	origin?: FileOpenOrigin;
+};
+
+export type RoutePanelHandoffEffect =
+	| {
+			action: "export";
+			baseDir: string;
+			plan: RouteRawHandoffPlan;
+	  }
+	| {
+			action: "open";
+			baseDir: string;
+			origin: FileOpenOrigin;
+			plan: RouteRawHandoffPlan & { origin: FileOpenOrigin };
+	  };
+
 export type RouteFilterTransition = {
 	filter: string;
 	presets: string[];
@@ -100,15 +123,19 @@ export type RoutePanelInputDecision =
 	  }
 	| {
 			kind: "command";
-			command:
-				| "destination"
-				| "filter"
-				| "cleanup"
-				| "copy"
-				| "export"
-				| "open";
+			command: "destination" | "filter" | "cleanup" | "copy";
 			copyPreview?: false;
+			prompt?: "route" | "route-filter" | "route-filter-cleanup";
 			notice?: RoutePanelNotice;
+			handoff?: never;
+	  }
+	| {
+			kind: "command";
+			command: "export" | "open";
+			copyPreview?: false;
+			prompt?: never;
+			notice?: RoutePanelNotice;
+			handoff: RoutePanelHandoffEffect;
 	  };
 
 export function prepareRouteFilterTransition(input: {
@@ -140,6 +167,7 @@ export function prepareRoutePanelInput(input: {
 	result?: RouteTableResult;
 	path?: RoutePathResult;
 	sort?: RouteSort;
+	handoff?: RoutePanelHandoffContext;
 	home?: boolean;
 	end?: boolean;
 	tab?: boolean;
@@ -162,6 +190,7 @@ export function prepareRoutePanelInput(input: {
 		return {
 			kind: "command",
 			command: "destination",
+			prompt: "route",
 			notice: { level: "info", message: "route destination prompt opened" },
 		};
 	}
@@ -169,6 +198,7 @@ export function prepareRoutePanelInput(input: {
 		return {
 			kind: "command",
 			command: "filter",
+			prompt: "route-filter",
 			copyPreview: false,
 			notice: { level: "info", message: "route filter opened" },
 		};
@@ -202,6 +232,7 @@ export function prepareRoutePanelInput(input: {
 			? {
 					kind: "command",
 					command: "cleanup",
+					prompt: "route-filter-cleanup",
 					copyPreview: false,
 					notice: {
 						level: "warn",
@@ -272,7 +303,66 @@ export function prepareRoutePanelInput(input: {
 	const commands = { e: "export", o: "open" } as const;
 	const command = commands[input.input as keyof typeof commands];
 	if (command) {
-		return { kind: "command", command };
+		if (!input.handoff) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: "route handoff context unavailable",
+				},
+			};
+		}
+		const origin = input.handoff.origin;
+		if (command === "open") {
+			if (!origin) {
+				return {
+					kind: "notice",
+					notice: { level: "warn", message: "route open origin unavailable" },
+				};
+			}
+			const preparation = prepareRouteRawHandoff(input.result, {
+				baseDir: input.handoff.baseDir,
+				filter: input.filter,
+				generatedAt: input.handoff.generatedAt,
+				origin,
+				path: input.path,
+				sort: input.sort,
+				view: input.view,
+			});
+			if (preparation.kind === "notice") {
+				return preparation;
+			}
+			return {
+				kind: "command",
+				command,
+				handoff: {
+					action: command,
+					baseDir: input.handoff.baseDir,
+					origin,
+					plan: { ...preparation.plan, origin },
+				},
+			};
+		}
+		const preparation = prepareRouteRawHandoff(input.result, {
+			baseDir: input.handoff.baseDir,
+			filter: input.filter,
+			generatedAt: input.handoff.generatedAt,
+			path: input.path,
+			sort: input.sort,
+			view: input.view,
+		});
+		if (preparation.kind === "notice") {
+			return preparation;
+		}
+		return {
+			kind: "command",
+			command,
+			handoff: {
+				action: command,
+				baseDir: input.handoff.baseDir,
+				plan: preparation.plan,
+			},
+		};
 	}
 	return { kind: "no-op" };
 }
@@ -638,6 +728,25 @@ export function createRouteRawHandoffPlan(
 		...(options.origin ? { origin: options.origin } : {}),
 		view,
 	};
+}
+
+export function prepareRouteRawHandoff(
+	result: RouteTableResult | undefined,
+	options: Parameters<typeof createRouteRawHandoffPlan>[1],
+): RouteHandoffPreparation {
+	if (!result) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no route table loaded" },
+		};
+	}
+	const plan = createRouteRawHandoffPlan(result, options);
+	return plan
+		? { kind: "handoff", plan }
+		: {
+				kind: "notice",
+				notice: { level: "warn", message: "no route handoff target" },
+			};
 }
 
 export async function writeRouteRawHandoffPlan(

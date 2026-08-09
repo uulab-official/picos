@@ -1,4 +1,9 @@
-import { defaultConfig } from "../config/schema";
+import {
+	type ConfigWorkspaceResetValues,
+	defaultConfig,
+	mergeConfigWorkspaceResetValues,
+} from "../config/schema";
+import type { PicosAction } from "../core/actions";
 import { filterConnections } from "../core/connections";
 import type { FileOpenOrigin } from "../core/fileOpen";
 import { formatLogProfileLabel, nextLogProfile } from "../core/logProfiles";
@@ -11,6 +16,7 @@ import type {
 	LogProfile,
 	PicosConfig,
 } from "../core/types";
+import type { ConfigWorkspaceCommand } from "./appInputDispatcher";
 import { nextEndpointFilterPreset } from "./endpointPanel";
 import type { FocusArea, Screen } from "./navigation";
 import { clampIndex, getNextIndex } from "./navigation";
@@ -27,6 +33,24 @@ export type ConfigWorkspaceItemKey =
 	| "controlExecutionMode"
 	| "allowAdminDryRun"
 	| "editorSaveMode";
+
+const configWorkspaceItemKeys = {
+	auditArchiveRetentionLimit: true,
+	toolTargetPresetLimit: true,
+	language: true,
+	refreshInterval: true,
+	statusResultJumpClassFilter: true,
+	defaultPingHost: true,
+	controlExecutionMode: true,
+	allowAdminDryRun: true,
+	editorSaveMode: true,
+} as const satisfies Record<ConfigWorkspaceItemKey, true>;
+
+export function isConfigWorkspaceItemKey(
+	value: string,
+): value is ConfigWorkspaceItemKey {
+	return Object.hasOwn(configWorkspaceItemKeys, value);
+}
 
 type ConfigWorkspaceItemKind = "number" | "choice" | "text" | "boolean";
 
@@ -220,19 +244,7 @@ export type ConfigSessionSyncIntent = Pick<
 	| "remoteProfiles"
 >;
 
-type ConfigWorkspaceResetKey =
-	| "auditArchiveRetentionLimit"
-	| "toolTargetPresetLimit"
-	| "language"
-	| "refreshInterval"
-	| "defaultPingHost"
-	| "controlExecutionMode"
-	| "allowAdminDryRun"
-	| "enableExperimentalControls"
-	| "editorSaveMode"
-	| "statusResultJumpClassFilter";
-
-type ConfigWorkspaceResetValues = Pick<PicosConfig, ConfigWorkspaceResetKey>;
+type ConfigWorkspaceResetKey = keyof ConfigWorkspaceResetValues;
 
 export type ConfigManagedShelfTarget =
 	| "network"
@@ -744,16 +756,7 @@ export function createConfigWorkspaceResetWriteIntent(
 	config: PicosConfig,
 	values: ConfigWorkspaceResetValues,
 ): ConfigWorkspaceResetWriteIntent {
-	return {
-		config: {
-			...config,
-			...values,
-			toolTargetPresets: config.toolTargetPresets.slice(
-				0,
-				values.toolTargetPresetLimit,
-			),
-		},
-	};
+	return { config: mergeConfigWorkspaceResetValues(config, values) };
 }
 
 export function moveConfigWorkspaceSelection(
@@ -856,11 +859,185 @@ export function adjustConfigWorkspaceItem(
 
 export function getConfigWorkspaceEditPrompt(
 	item: ConfigWorkspaceItem,
-): string | undefined {
+): `config-${ConfigWorkspaceItemKey}` | undefined {
 	if (item.kind !== "text") {
 		return undefined;
 	}
 	return `config-${item.key}`;
+}
+
+export type ConfigWorkspaceInputTransition =
+	| { kind: "no-op" }
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| {
+			kind: "adjust";
+			transition: ConfigWorkspaceAdjustmentTransition;
+	  }
+	| { kind: "cycle-policy" }
+	| {
+			kind: "reset";
+			transition: ConfigWorkspaceResetOpenTransition;
+	  }
+	| {
+			kind: "shelf-selection";
+			target: ConfigManagedShelfTarget;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| {
+			kind: "edit";
+			prompt: `config-${ConfigWorkspaceItemKey}`;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| {
+			kind: "jump-shelf";
+			transition: ConfigManagedShelfApplyTransition;
+	  }
+	| { kind: "run-action"; action: PicosAction }
+	| { kind: "notice"; notice: ConfigWorkspaceNotice };
+
+export function prepareConfigWorkspaceInput(input: {
+	command: ConfigWorkspaceCommand | undefined;
+	items: ConfigWorkspaceItem[];
+	selectedIndex: number;
+	selectedShelfTarget: ConfigManagedShelfTarget | undefined;
+	actions: PicosAction[];
+	resetValues: ConfigWorkspaceResetValues;
+	shelfCounts: ConfigManagedShelfJumpCounts;
+}): ConfigWorkspaceInputTransition {
+	const sectionByCommand = {
+		"jump-display": "display",
+		"jump-safety": "safety",
+		"jump-retention": "retention",
+		"jump-connectivity": "connectivity",
+	} as const satisfies Partial<
+		Record<ConfigWorkspaceCommand, ConfigWorkspaceSectionId>
+	>;
+	const section =
+		sectionByCommand[input.command as keyof typeof sectionByCommand];
+	if (section) {
+		const selectedIndex = getConfigWorkspaceSectionJumpIndex(
+			input.items,
+			section,
+		);
+		if (selectedIndex === undefined) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: `config section unavailable ${section}`,
+				},
+			};
+		}
+		const item = getConfigWorkspaceItem(input.items, selectedIndex);
+		return {
+			kind: "selection",
+			selectedIndex,
+			notice: {
+				level: "info",
+				message: `config section ${section} selected ${item?.key ?? selectedIndex + 1}`,
+			},
+		};
+	}
+	switch (input.command) {
+		case undefined:
+			return { kind: "no-op" };
+		case "move-next":
+		case "move-previous": {
+			const selectedIndex = moveConfigWorkspaceSelection(
+				input.selectedIndex,
+				input.items.length,
+				input.command === "move-next" ? "next" : "previous",
+			);
+			const item = getConfigWorkspaceItem(input.items, selectedIndex);
+			return {
+				kind: "selection",
+				selectedIndex,
+				notice: {
+					level: "info",
+					message: `config selected ${item?.key ?? selectedIndex + 1}`,
+				},
+			};
+		}
+		case "increase":
+		case "decrease":
+			return {
+				kind: "adjust",
+				transition: prepareConfigWorkspaceAdjustment({
+					items: input.items,
+					selectedIndex: input.selectedIndex,
+					direction: input.command,
+				}),
+			};
+		case "cycle-policy":
+			return { kind: "cycle-policy" };
+		case "reset":
+			return {
+				kind: "reset",
+				transition: prepareConfigWorkspaceResetOpenTransition(
+					input.resetValues,
+				),
+			};
+		case "cycle-shelf-next":
+		case "cycle-shelf-previous": {
+			const target = getNextConfigManagedShelfTarget(
+				input.selectedShelfTarget,
+				input.command === "cycle-shelf-next" ? "next" : "previous",
+			);
+			const handoff = getConfigManagedShelfHandoff(target);
+			return {
+				kind: "shelf-selection",
+				target,
+				notice: {
+					level: "info",
+					message: `config shelf target ${handoff.target} -> ${handoff.label}`,
+				},
+			};
+		}
+		case "enter": {
+			const item = getConfigWorkspaceItem(input.items, input.selectedIndex);
+			const prompt = item ? getConfigWorkspaceEditPrompt(item) : undefined;
+			if (prompt) {
+				return {
+					kind: "edit",
+					prompt,
+					notice: {
+						level: "info",
+						message: `config edit opened ${item?.key}`,
+					},
+				};
+			}
+			if (input.selectedShelfTarget) {
+				return {
+					kind: "jump-shelf",
+					transition: createConfigManagedShelfJumpTransition(
+						input.selectedShelfTarget,
+						{ origin: "keyboard", counts: input.shelfCounts },
+					),
+				};
+			}
+			const action = input.actions.find(
+				(candidate) => candidate.id === "config.show",
+			);
+			return action
+				? { kind: "run-action", action }
+				: {
+						kind: "notice",
+						notice: {
+							level: "warn",
+							message: "config action unavailable",
+						},
+					};
+		}
+		case "jump-display":
+		case "jump-safety":
+		case "jump-retention":
+		case "jump-connectivity":
+			return { kind: "no-op" };
+	}
 }
 
 export function formatConfigWorkspaceRows(

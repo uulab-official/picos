@@ -1,5 +1,6 @@
 import {
 	buildClipboardWritePlan,
+	type ClipboardWritePlan,
 	type ClipboardWriteResult,
 	type ClipboardWriteRunner,
 	runClipboardWritePlan,
@@ -104,7 +105,14 @@ export async function submitClipboardConfirmation(
 		confirmation: state.value.trim(),
 		platform: options.platform,
 	});
-	const result = await runClipboardWritePlan(plan, options.runner);
+	return submitClipboardWritePlan(plan, options.runner);
+}
+
+export async function submitClipboardWritePlan(
+	plan: ClipboardWritePlan,
+	runner?: ClipboardWriteRunner,
+): Promise<ClipboardConfirmationOutcome> {
+	const result = await runClipboardWritePlan(plan, runner);
 	return {
 		state: clearClipboardConfirmationState(),
 		event: {

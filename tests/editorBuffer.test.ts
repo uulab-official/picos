@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	appendEditorBufferLine,
+	classifyEditorSaveBufferPublication,
 	createEditorBuffer,
 	deleteEditorBufferLine,
 	formatEditorBufferLines,
@@ -140,6 +141,67 @@ describe("editor buffer", () => {
 	});
 
 	describe("editor mutation transitions", () => {
+		test("keeps newer edits dirty when an older save completes", () => {
+			const submitted = {
+				...createEditorBuffer({
+					path: "/workspace/picos/README.md",
+					content: "before\n",
+					truncated: false,
+				}),
+				content: "submitted\n",
+			};
+			const current = { ...submitted, content: "newer edit\n" };
+
+			expect(
+				classifyEditorSaveBufferPublication({
+					currentRequestToken: 4,
+					requestToken: 4,
+					current,
+					submitted,
+					success: true,
+				}),
+			).toEqual({ status: "current", buffer: current, markedClean: false });
+			expect(
+				classifyEditorSaveBufferPublication({
+					currentRequestToken: 5,
+					requestToken: 4,
+					current: submitted,
+					submitted,
+					success: true,
+				}),
+			).toEqual({ status: "stale", buffer: submitted, markedClean: false });
+		});
+
+		test("marks only the submitted editor revision clean", () => {
+			const submitted = {
+				...createEditorBuffer({
+					path: "/workspace/picos/README.md",
+					content: "before\n",
+					truncated: false,
+				}),
+				content: "submitted\n",
+				editHistory: ["before\n"],
+			};
+
+			expect(
+				classifyEditorSaveBufferPublication({
+					currentRequestToken: 4,
+					requestToken: 4,
+					current: submitted,
+					submitted,
+					success: true,
+				}),
+			).toEqual({
+				status: "current",
+				buffer: {
+					...submitted,
+					originalContent: "submitted\n",
+					editHistory: [],
+				},
+				markedClean: true,
+			});
+		});
+
 		test("reports a missing buffer without applying an append", () => {
 			const transition = transitionEditorAppendLine({
 				buffer: undefined,

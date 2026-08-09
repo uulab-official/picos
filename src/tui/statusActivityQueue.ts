@@ -1323,6 +1323,53 @@ export function moveStatusActivityResultHistorySelection(
 	return (current + delta + history.length) % history.length;
 }
 
+export type StatusActivityResultHistoryMoveTransition =
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			copyPreviewRowIndex: 0;
+			copyPreviewExpanded: false;
+			notice: { level: "info"; message: string };
+	  }
+	| {
+			kind: "notice";
+			notice: { level: "warn"; message: string };
+	  };
+
+export function prepareStatusActivityResultHistoryMove(input: {
+	history: StatusActivityResult[];
+	selectedIndex: number;
+	direction: "next" | "previous";
+	filter: StatusActivityResultHistoryFilter;
+}): StatusActivityResultHistoryMoveTransition {
+	if (input.history.length === 0) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no status activity result history",
+			},
+		};
+	}
+	const selectedIndex = moveStatusActivityResultHistoryFilteredSelection(
+		input.history,
+		input.selectedIndex,
+		input.direction,
+		input.filter,
+	);
+	const result = input.history[selectedIndex];
+	return {
+		kind: "selection",
+		selectedIndex,
+		copyPreviewRowIndex: 0,
+		copyPreviewExpanded: false,
+		notice: {
+			level: "info",
+			message: `status activity history ${selectedIndex + 1}/${input.history.length} filter=${input.filter} ${result?.source ?? "none"} ${result?.action ?? "none"}`,
+		},
+	};
+}
+
 export function getSelectedStatusActivityResultHistoryClipboardPreview(
 	history: StatusActivityResult[],
 	selectedIndex: number,
@@ -4051,6 +4098,41 @@ export function createStatusActivityCopyIntentAuditExportPlan(
 			scope: "selected",
 		},
 	);
+}
+
+export type StatusActivityAuditExportSelection =
+	| { kind: "copy-intent"; plan: ConsoleAuditExportPlan }
+	| { kind: "interface-confirmation"; plan: ConsoleAuditExportPlan }
+	| { kind: "remote-known-hosts" };
+
+export function prepareStatusActivityAuditExportSelection(input: {
+	copyIntents: StatusActivityCopyIntentRecord[];
+	selectedCopyIntentIndex: number;
+	results: StatusActivityResult[];
+	selectedResultIndex: number;
+	baseDir: string;
+	generatedAt?: Date;
+}): StatusActivityAuditExportSelection {
+	const options = {
+		baseDir: input.baseDir,
+		generatedAt: input.generatedAt,
+	};
+	const copyIntentPlan = createStatusActivityCopyIntentAuditExportPlan(
+		input.copyIntents,
+		input.selectedCopyIntentIndex,
+		options,
+	);
+	if (copyIntentPlan) {
+		return { kind: "copy-intent", plan: copyIntentPlan };
+	}
+	const interfacePlan = createInterfaceConfirmationAuditExportPlan(
+		input.results,
+		input.selectedResultIndex,
+		options,
+	);
+	return interfacePlan
+		? { kind: "interface-confirmation", plan: interfacePlan }
+		: { kind: "remote-known-hosts" };
 }
 
 export async function writeStatusActivityCopyIntentAuditExport(

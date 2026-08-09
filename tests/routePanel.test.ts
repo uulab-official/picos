@@ -16,6 +16,7 @@ import {
 	nextRouteFilterPreset,
 	prepareRouteFilterTransition,
 	prepareRoutePanelInput,
+	prepareRouteRawHandoff,
 	saveRouteFilterPreset,
 	submitRouteFilterCleanupConfirmation,
 	writeRouteRawHandoffPlan,
@@ -160,6 +161,19 @@ describe("route TUI panel formatting", () => {
 	});
 
 	test("ignores invalid route section shortcuts and owns preset cleanup notices", () => {
+		expect(
+			prepareRoutePanelInput({
+				input: ":",
+				view: "table",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+			}),
+		).toMatchObject({
+			kind: "command",
+			command: "destination",
+			prompt: "route",
+		});
 		expect(
 			prepareRoutePanelInput({
 				input: "5",
@@ -501,6 +515,10 @@ describe("route TUI panel formatting", () => {
 	});
 
 	test("creates route raw handoff plans for the active detail view", () => {
+		expect(prepareRouteRawHandoff(undefined, { baseDir: "/tmp" })).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no route table loaded" },
+		});
 		const plan = createRouteRawHandoffPlan(fixture, {
 			baseDir: "/tmp/picos",
 			filter: "utun",
@@ -542,6 +560,60 @@ describe("route TUI panel formatting", () => {
 				view: "path",
 			})?.content,
 		).toContain("$ route -n get 8.8.8.8");
+	});
+
+	test("resolves route export and open input into complete handoff payloads", () => {
+		const generatedAt = new Date("2026-08-09T01:02:03.000Z");
+		const exportDecision = prepareRoutePanelInput({
+			input: "e",
+			view: "raw",
+			filter: "utun",
+			presets: [],
+			routes: fixture.routes,
+			result: fixture,
+			sort: { key: "interface", direction: "desc" },
+			handoff: { baseDir: "/tmp/picos", generatedAt },
+		});
+		expect(exportDecision).toMatchObject({
+			kind: "command",
+			command: "export",
+			handoff: {
+				action: "export",
+				baseDir: "/tmp/picos",
+				plan: {
+					path: "/tmp/picos/routes/picos-routes-raw-2026-08-09T010203000Z.md",
+					view: "raw",
+				},
+			},
+		});
+		expect(
+			prepareRoutePanelInput({
+				input: "o",
+				view: "path",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+				result: fixture,
+				path: pathFixture,
+				handoff: {
+					baseDir: "/tmp/picos",
+					generatedAt,
+					origin: configRouteOrigin,
+				},
+			}),
+		).toMatchObject({
+			kind: "command",
+			command: "open",
+			handoff: {
+				action: "open",
+				baseDir: "/tmp/picos",
+				origin: configRouteOrigin,
+				plan: {
+					origin: configRouteOrigin,
+					view: "path",
+				},
+			},
+		});
 	});
 
 	test("writes config-origin metadata into route handoff files", () => {

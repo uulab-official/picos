@@ -3,11 +3,18 @@ import {
 	applyCommandLineInput,
 	applyToolPromptCommandLineInput,
 	applyToolTargetCommandLineIntent,
+	type CommandSubmitHandlers,
 	closeCommandLine,
+	dispatchCommandSubmit,
+	getCommandPromptExamples,
+	getCommandPromptInputMode,
+	getCommandSubmitRoute,
 	isCommandLineFieldTouched,
 	markCommandLineFieldTouched,
 	moveCommandLineField,
 	openCommandLine,
+	prepareCommandLineTextInput,
+	prepareCommandSubmit,
 } from "../src/tui/commandLine";
 
 describe("TUI command line", () => {
@@ -110,5 +117,94 @@ describe("TUI command line", () => {
 			fieldIndex: 0,
 			fieldTouchedIndexes: [0],
 		});
+	});
+
+	test("owns tool form tab movement and clipboard text editing", () => {
+		const tool = prepareCommandLineTextInput({
+			commandLine: openCommandLine("tool:network.connect", { fieldIndex: 0 }),
+			clipboardConfirmation: { active: false, value: "" },
+			input: "",
+			tab: true,
+		});
+		expect(tool.kind).toBe("apply");
+		if (tool.kind === "apply") {
+			expect(tool.commandLine.fieldIndex).toBe(1);
+		}
+
+		const clipboard = prepareCommandLineTextInput({
+			commandLine: openCommandLine("clipboard"),
+			clipboardConfirmation: { active: true, value: "cop" },
+			input: "y",
+		});
+		expect(clipboard).toMatchObject({
+			kind: "apply",
+			commandLine: { value: "y" },
+			clipboardConfirmation: { value: "copy" },
+		});
+	});
+
+	test("routes every registered prompt to exactly one submit owner", () => {
+		for (const prompt of getCommandPromptExamples()) {
+			const route = getCommandSubmitRoute(prompt);
+			expect(route?.owner.length).toBeGreaterThan(0);
+			expect(route?.effect.length).toBeGreaterThan(0);
+		}
+	});
+
+	test("dispatches the resolved submit effect through its exhaustive handler map", () => {
+		const calls: string[] = [];
+		const handlers = new Proxy({} as CommandSubmitHandlers, {
+			get: (_target, effect: string) => () => calls.push(effect),
+		});
+
+		dispatchCommandSubmit(
+			{
+				owner: "editorBuffer",
+				effect: "submit-editor-save",
+				request: { prompt: "editor-save", value: "save file" },
+			},
+			handlers,
+		);
+
+		expect(calls).toEqual(["submit-editor-save"]);
+		expect(
+			prepareCommandSubmit({
+				active: true,
+				prompt: "editor-save",
+				value: "save file",
+				fieldIndex: 2,
+				fieldTouchedIndexes: [2],
+			}),
+		).toEqual({
+			owner: "editorBuffer",
+			effect: "submit-editor-save",
+			request: {
+				prompt: "editor-save",
+				value: "save file",
+				fieldIndex: 2,
+				fieldTouchedIndexes: [2],
+			},
+		});
+	});
+
+	test("derives command editing mode from submit ownership", () => {
+		expect(getCommandPromptInputMode("path")).toBe("plain");
+		expect(getCommandPromptInputMode("tool:tools.dns")).toBe("tool-form");
+		expect(getCommandPromptInputMode("clipboard")).toBe(
+			"clipboard-confirmation",
+		);
+		expect(getCommandPromptInputMode("unknown")).toBeUndefined();
+	});
+
+	test("rejects unknown and inherited prompt keys", () => {
+		expect(getCommandSubmitRoute("unknown")).toBeUndefined();
+		expect(getCommandSubmitRoute("toString")).toBeUndefined();
+		expect(getCommandSubmitRoute("__proto__")).toBeUndefined();
+		expect(getCommandSubmitRoute("config-notAKey")).toBeUndefined();
+		expect(getCommandSubmitRoute("endpoint-filter:bogus")).toBeUndefined();
+		expect(
+			getCommandSubmitRoute("endpoint-filter-cleanup:bogus"),
+		).toBeUndefined();
+		expect(getCommandSubmitRoute("tool:not.registered")).toBeUndefined();
 	});
 });

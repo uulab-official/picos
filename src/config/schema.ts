@@ -54,6 +54,34 @@ export const defaultConfig: PicosConfig = {
 
 export type ConfigInput = Record<string, unknown>;
 
+export type ConfigWorkspaceResetValues = Pick<
+	PicosConfig,
+	| "auditArchiveRetentionLimit"
+	| "toolTargetPresetLimit"
+	| "language"
+	| "refreshInterval"
+	| "defaultPingHost"
+	| "controlExecutionMode"
+	| "allowAdminDryRun"
+	| "enableExperimentalControls"
+	| "editorSaveMode"
+	| "statusResultJumpClassFilter"
+>;
+
+export function mergeConfigWorkspaceResetValues(
+	config: PicosConfig,
+	values: ConfigWorkspaceResetValues,
+): PicosConfig {
+	return {
+		...config,
+		...values,
+		toolTargetPresets: config.toolTargetPresets.slice(
+			0,
+			values.toolTargetPresetLimit,
+		),
+	};
+}
+
 export function getConfigPathForPlatform(
 	platform: SupportedPlatform,
 	homeDirectory: string,

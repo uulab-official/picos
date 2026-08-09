@@ -17,6 +17,8 @@ import {
 	prepareRemoteConnectPrompt,
 	prepareRemoteConnectSubmission,
 	prepareRemoteDisconnect,
+	prepareRemoteHistoryClipboardInput,
+	prepareRemoteHistoryExportInput,
 	prepareRemoteHostKeyEvidenceSubmission,
 	prepareRemoteHostTrustSubmission,
 	prepareRemoteKnownHostsCandidateSubmission,
@@ -25,8 +27,10 @@ import {
 	prepareRemoteKnownHostsEvidenceHandoffSelection,
 	prepareRemoteKnownHostsPasteSelection,
 	prepareRemoteKnownHostsPasteSubmission,
+	prepareRemotePasteNumberInput,
 	prepareRemoteProfileCommand,
 	prepareRemoteProfileStage,
+	prepareRemotePromptInput,
 	prepareRemoteRetry,
 	resolveRemoteEvidenceResultOptions,
 	resolveRemoteProfileSelection,
@@ -57,6 +61,82 @@ function createDiagnostic(
 }
 
 describe("Remotes panel transitions", () => {
+	test("owns numeric paste-review shortcut parsing", () => {
+		expect(prepareRemotePasteNumberInput("7")).toEqual({
+			kind: "select",
+			candidateIndex: 7,
+		});
+	});
+
+	test("owns selected-profile guards and exact prompt notices", () => {
+		expect(
+			prepareRemotePromptInput({
+				command: "host-key-evidence",
+				profiles: [],
+				selectedIndex: 0,
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no remote profile selected" },
+		});
+		expect(
+			prepareRemotePromptInput({
+				command: "host-key-evidence",
+				profiles: [profile],
+				selectedIndex: 4,
+			}),
+		).toEqual({
+			kind: "prompt",
+			selectedIndex: 0,
+			prompt: "remote-host-key-evidence",
+			notice: {
+				level: "info",
+				message: "remote host key evidence input opened compare host key prod",
+			},
+		});
+		expect(
+			prepareRemotePromptInput({
+				command: "host-trust",
+				profiles: [profile],
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			kind: "prompt",
+			prompt: "remote-host-trust",
+			notice: { level: "info" },
+		});
+	});
+
+	test("owns remote history copy and export eligibility", () => {
+		expect(
+			prepareRemoteHistoryClipboardInput({
+				profiles: [profile],
+				selectedIndex: 0,
+				results: [],
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no remote known_hosts selection history to copy",
+			},
+		});
+		expect(
+			prepareRemoteHistoryExportInput({
+				profiles: [profile],
+				selectedIndex: 0,
+				results: [],
+				baseDir: "/tmp/picos",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no remote known_hosts selection history to export",
+			},
+		});
+	});
+
 	test("repairs profile selection and leaves an empty profile shelf unselected", () => {
 		expect(resolveRemoteProfileSelection([], 4)).toEqual({
 			profile: undefined,

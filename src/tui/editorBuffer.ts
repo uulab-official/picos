@@ -31,6 +31,41 @@ export type EditorBufferTransition = {
 	notice?: EditorTransitionNotice;
 };
 
+export type EditorSaveBufferPublication = {
+	status: "current" | "stale";
+	buffer: EditorBuffer | undefined;
+	markedClean: boolean;
+};
+
+export function classifyEditorSaveBufferPublication(input: {
+	currentRequestToken: number;
+	requestToken: number;
+	current: EditorBuffer | undefined;
+	submitted: EditorBuffer;
+	success: boolean;
+}): EditorSaveBufferPublication {
+	if (input.currentRequestToken !== input.requestToken) {
+		return { status: "stale", buffer: input.current, markedClean: false };
+	}
+	if (
+		!input.success ||
+		!input.current ||
+		input.current.path !== input.submitted.path ||
+		input.current.content !== input.submitted.content
+	) {
+		return { status: "current", buffer: input.current, markedClean: false };
+	}
+	return {
+		status: "current",
+		buffer: {
+			...input.current,
+			originalContent: input.submitted.content,
+			editHistory: [],
+		},
+		markedClean: true,
+	};
+}
+
 export function createEditorBuffer(input: {
 	path: string;
 	content: string;

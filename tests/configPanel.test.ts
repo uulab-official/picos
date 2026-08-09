@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { defaultConfig } from "../src/config/schema";
+import { getActionCatalog } from "../src/core/actions";
 import type { PicosConfig } from "../src/core/types";
 import {
 	adjustConfigWorkspaceItem,
@@ -34,6 +35,7 @@ import {
 	prepareConfigManagedShelfLandingDismissal,
 	prepareConfigRecoveryDirectPromptTransition,
 	prepareConfigWorkspaceAdjustment,
+	prepareConfigWorkspaceInput,
 	prepareConfigWorkspaceResetOpenTransition,
 	prepareConfigWorkspaceResetSubmission,
 	prepareConfigWorkspaceTextSubmission,
@@ -43,6 +45,65 @@ import {
 } from "../src/tui/configPanel";
 
 describe("config TUI panel", () => {
+	test("owns Config selection, shelf, edit, and unavailable-action input decisions", () => {
+		const items = createConfigWorkspaceItems(defaultConfig);
+		const context = { resetValues: defaultConfig, shelfCounts: {} };
+		expect(
+			prepareConfigWorkspaceInput({
+				...context,
+				command: "jump-safety",
+				items,
+				selectedIndex: 0,
+				selectedShelfTarget: undefined,
+				actions: getActionCatalog(),
+			}),
+		).toMatchObject({
+			kind: "selection",
+			notice: {
+				level: "info",
+				message: "config section safety selected controlExecutionMode",
+			},
+		});
+		expect(
+			prepareConfigWorkspaceInput({
+				...context,
+				command: "cycle-shelf-next",
+				items,
+				selectedIndex: 0,
+				selectedShelfTarget: undefined,
+				actions: getActionCatalog(),
+			}),
+		).toMatchObject({ kind: "shelf-selection", target: "network" });
+		expect(
+			prepareConfigWorkspaceInput({
+				...context,
+				command: "enter",
+				items,
+				selectedIndex: items.findIndex(
+					(item) => item.key === "defaultPingHost",
+				),
+				selectedShelfTarget: undefined,
+				actions: getActionCatalog(),
+			}),
+		).toMatchObject({
+			kind: "edit",
+			prompt: "config-defaultPingHost",
+		});
+		expect(
+			prepareConfigWorkspaceInput({
+				...context,
+				command: "enter",
+				items: [],
+				selectedIndex: 0,
+				selectedShelfTarget: undefined,
+				actions: [],
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "config action unavailable" },
+		});
+	});
+
 	test("formats retention controls with a visible selection cursor", () => {
 		const items = createConfigWorkspaceItems({
 			auditArchiveRetentionLimit: 10,

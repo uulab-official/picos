@@ -146,6 +146,7 @@ describe("timeline TUI panel formatting", () => {
 			query: "",
 			presets: [] as string[],
 			selectedIndex: 99,
+			handoff: { baseDir: "/tmp" },
 		};
 		for (const input of ["c", "e"] as const) {
 			expect(prepareTimelinePanelInput({ ...base, input, events: [] })).toEqual(

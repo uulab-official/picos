@@ -49,6 +49,21 @@ export type TimelinePanelNotice = {
 	message: string;
 };
 
+export type TimelineSelectedActivityInput = {
+	filter: TimelineFilter;
+	label: string;
+	query: string;
+	selectedIndex: number;
+	total: number;
+};
+
+export type TimelineSelectedExportInput = Omit<
+	TimelineSelectedActivityInput,
+	"label"
+> & {
+	plan: ConsoleAuditExportPlan;
+};
+
 export type TimelineSearchTransition = {
 	query: string;
 	presets: string[];
@@ -78,12 +93,14 @@ export type TimelinePanelInputDecision =
 			event: ConsoleEvent;
 			preview: ClipboardPreview;
 			selectedIndex: number;
+			activity: TimelineSelectedActivityInput;
 	  }
 	| {
 			kind: "selected-command";
 			command: "export";
 			event: ConsoleEvent;
 			selectedIndex: number;
+			exportInput: TimelineSelectedExportInput;
 	  }
 	| {
 			kind: "evidence";
@@ -181,6 +198,7 @@ export function prepareTimelinePanelInput(input: {
 	presets: string[];
 	selectedIndex: number;
 	auditExportIndex?: ConsoleAuditExportIndex;
+	handoff?: { baseDir: string; origin?: FileOpenOrigin };
 }): TimelinePanelInputDecision {
 	if (input.input === "t") {
 		const filter = nextTimelineFilter(input.filter);
@@ -324,6 +342,13 @@ export function prepareTimelinePanelInput(input: {
 						event,
 						preview,
 						selectedIndex,
+						activity: {
+							filter: input.filter,
+							label: preview.label,
+							query: input.query,
+							selectedIndex,
+							total: visible.length,
+						},
 					}
 				: {
 						kind: "notice",
@@ -334,11 +359,32 @@ export function prepareTimelinePanelInput(input: {
 					};
 		}
 		if (input.input === "e") {
+			if (!input.handoff) {
+				return {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "timeline export context unavailable",
+					},
+				};
+			}
 			return {
 				kind: "selected-command",
 				command: "export",
 				event,
 				selectedIndex,
+				exportInput: {
+					plan: createConsoleAuditExportPlan([event], {
+						baseDir: input.handoff.baseDir,
+						origin: input.handoff.origin,
+						query: input.query.trim() || undefined,
+						scope: "selected",
+					}),
+					filter: input.filter,
+					query: input.query,
+					selectedIndex,
+					total: visible.length,
+				},
 			};
 		}
 		const plan = input.auditExportIndex

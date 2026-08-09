@@ -24,7 +24,7 @@ const callbackNames = [
 	"submitRouteFilterCommand",
 	"runToolPlan",
 	"submitToolCommand",
-	"applyToolPromptCommandLineInput",
+	"applyToolsInputIoEffect",
 	"submitEditorAppendLineCommand",
 	"submitEditorInsertLineCommand",
 	"submitEditorReplaceLineCommand",
@@ -107,7 +107,7 @@ const callbackNames = [
 	"selectRemoteKnownHostsPasteReviewCandidateCommand",
 	"submitRemoteKnownHostsPasteSelectionCommand",
 	"submitRemoteHostTrustReviewCommand",
-	"inspectSelectedEndpointProcess",
+	"applyEndpointIoEffect",
 	"openSelectedProcessFile",
 	"refresh",
 	"cycleStatusActivityResultHistoryFilter",
@@ -241,9 +241,10 @@ const delegatedCallbacks = {
 		owner: "src/tui/editorBuffer.ts",
 		reason: "delegates editor delete transition",
 	},
-	applyToolPromptCommandLineInput: {
-		owner: "src/tui/commandLine.ts",
-		reason: "delegates typed tool prompt input transition",
+	applyToolsInputIoEffect: {
+		owner: "src/tui/toolHistory.ts",
+		reason:
+			"applies complete Tools persistence, run, and export intents while App retains config, collector, and export I/O",
 	},
 	submitToolTargetLabelCommand: {
 		owner: "src/tui/toolHistory.ts",
@@ -685,10 +686,10 @@ const delegatedCallbacks = {
 		reason:
 			"delegates selected preset eligibility, run-token progress and terminal publication, cancellation ownership, stale failure history, and exact audit/status results while App retains collector I/O",
 	},
-	inspectSelectedEndpointProcess: {
+	applyEndpointIoEffect: {
 		owner: "src/tui/processPanel.ts + src/tui/endpointPanel.ts",
 		reason:
-			"delegates selected endpoint process guard, atomic sequenced inspection publication, unsupported collector state, and exact notice while App retains collector I/O",
+			"applies complete endpoint persistence and inspection intents with atomic sequenced publication while App retains config and collector I/O",
 	},
 	openSelectedProcessFile: {
 		owner: "src/tui/processPanel.ts + src/tui/fileWorkspaceTransitions.ts",
@@ -696,6 +697,187 @@ const delegatedCallbacks = {
 			"delegates selected process resource resolution, open eligibility, and exact notice while App retains provider I/O",
 	},
 } as const;
+
+const commandInputDelegatedCallbacks = {
+	recordStatusActivityResult: {
+		owner: "src/tui/statusActivityQueue.ts",
+		reason:
+			"delegates bounded status-result history append and selection reset publication",
+	},
+	submitRouteDestinationCommand: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates route destination normalization, cancellation guard, and exact notice",
+	},
+	runToolPlan: {
+		owner: "src/tui/toolHistory.ts + src/tui/navigation.ts",
+		reason:
+			"delegates history append and newest-result selection while App retains tool I/O",
+	},
+	submitToolCommand: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates typed tool prompt resolution, run-plan guard, and exact notice",
+	},
+	submitEditorSaveConfirmationCommand: {
+		owner: "src/tui/appOwners.ts + src/tui/editorBuffer.ts",
+		reason:
+			"delegates editor presence and exact-confirm guards while App retains provider I/O",
+	},
+	submitToolHistoryFilterCommand: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates normalized filter, selected result, preset intent, and exact notice",
+	},
+	submitToolHistoryCleanupCommand: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates exact cleanup confirmation, bounded preset result, and notice",
+	},
+	submitClipboardCommand: {
+		owner: "src/tui/clipboardDialog.ts",
+		reason: "delegates exact clipboard confirmation and terminal dialog state",
+	},
+	openClipboardConfirmation: {
+		owner: "src/tui/appOwners.ts + src/tui/clipboardDialog.ts",
+		reason:
+			"delegates clipboard preview eligibility, dialog state, and exact notice",
+	},
+	openSelectedUpdateHandoffClipboard: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates selected update-link resolution and clipboard handoff intent",
+	},
+	openSelectedUpdateHandoffExternal: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates selected update-link resolution and external-open intent",
+	},
+	submitExternalOpenCommand: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates missing-plan guard and confirmation plan construction while App retains I/O",
+	},
+	submitFileOpenCommand: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates missing-plan guard and confirmation plan construction while App retains I/O",
+	},
+	cycleToolEvidenceFilter: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates evidence target, filter, selection reset, and exact notice",
+	},
+	openToolEvidenceSearchPrompt: {
+		owner: "src/tui/appOwners.ts",
+		reason: "delegates evidence target, prompt focus effects, and exact notice",
+	},
+	submitToolEvidenceSearchCommand: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates query normalization, visible count, selection reset, and audit result",
+	},
+	cycleInterfaceEvidenceStateFilter: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates interface evidence filter, visible count, focus effects, and audit result",
+	},
+	openInterfaceEvidenceSearchPrompt: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates interface search prompt value, focus effects, and exact notice",
+	},
+	submitInterfaceEvidenceSearchCommand: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates interface query, visible count, selection reset, and audit result",
+	},
+	saveCurrentInterfaceEvidenceSearchPreset: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates empty-query guard, bounded preset save, and exact notice",
+	},
+	cycleInterfaceEvidenceSearchPreset: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates preset selection, visible count, focus effects, and audit result",
+	},
+	exportRouteHandoff: {
+		owner: "src/tui/routePanel.ts",
+		reason:
+			"delegates route snapshot guard and handoff plan while App retains file I/O",
+	},
+	openRouteHandoff: {
+		owner: "src/tui/routePanel.ts",
+		reason:
+			"delegates route snapshot guard and handoff plan while App retains file I/O",
+	},
+	exportEndpointHandoff: {
+		owner: "src/tui/endpointPanel.ts",
+		reason:
+			"delegates scoped snapshot resolution and handoff plan while App retains file I/O",
+	},
+	openEndpointHandoff: {
+		owner: "src/tui/endpointPanel.ts",
+		reason:
+			"delegates scoped snapshot resolution and handoff plan while App retains file I/O",
+	},
+	cycleStatusActivityResultHistoryFilter: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates result filter, selected history index, palette effects, and notice",
+	},
+	cycleStatusActivityResultTimelineJumpFilter: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates timeline-jump filter, selected index, palette effects, and notice",
+	},
+	getSelectedTimelineEvidenceTrailResultOptions: {
+		owner: "src/tui/appOwners.ts",
+		reason: "delegates recovered evidence selection repair",
+	},
+	cycleTimelineEvidenceTrailSourceFilter: {
+		owner: "src/tui/statusEvidence.ts",
+		reason: "delegates trail source filter, selection repair, and exact notice",
+	},
+	getSelectedProcessControlEvidenceResultOptions: {
+		owner: "src/tui/appOwners.ts",
+		reason: "delegates recovered process evidence selection repair",
+	},
+	getSelectedInterfaceConfirmationEvidenceResultOptions: {
+		owner: "src/tui/appOwners.ts",
+		reason: "delegates recovered interface evidence selection repair",
+	},
+	selectNextStatusActivityResultTimelineJump: {
+		owner: "src/tui/appOwners.ts",
+		reason:
+			"delegates empty-history guard, filtered selection, palette effects, and notice",
+	},
+	openCleanupHandoffPrompt: {
+		owner: "src/tui/appOwners.ts + src/tui/cleanupIndex.ts",
+		reason:
+			"delegates active cleanup plan guard, prompt ownership, and exact notice",
+	},
+	dismissCleanupHandoff: {
+		owner: "src/tui/appOwners.ts + src/tui/cleanupIndex.ts",
+		reason: "delegates active cleanup dismissal guard and exact notice",
+	},
+	exportCleanupHandoffHistory: {
+		owner: "src/tui/appOwners.ts + src/tui/cleanupIndex.ts",
+		reason:
+			"delegates selected cleanup export guard and plan while App retains file I/O",
+	},
+	useInput: {
+		owner:
+			"src/tui/appInputDispatcher.ts + src/tui/commandLine.ts + src/tui/commandCancellation.ts + feature panel input owners",
+		reason:
+			"delegates modal precedence, screen/focus routing, key ownership, prompt routing, selection movement, and notices; App normalizes Ink keys and applies typed state or I/O effects",
+	},
+} as const;
+
+const commandInputDelegatedNames = new Set(
+	Object.keys(commandInputDelegatedCallbacks),
+);
 
 const filesDelegatedCallbacks = new Set([
 	"previewFile",
@@ -810,7 +992,7 @@ const remotePanelDelegatedCallbacks = new Set([
 const operationRunDelegatedCallbacks = new Set([
 	"cancelOperationRun",
 	"runSelectedOperationPreset",
-	"inspectSelectedEndpointProcess",
+	"applyEndpointIoEffect",
 	"openSelectedProcessFile",
 ]);
 
@@ -826,45 +1008,39 @@ export const tuiCallbackManifest: TuiCallbackManifestRow[] = callbackNames.map(
 	(name) => {
 		const reason = wiringReasons[name as keyof typeof wiringReasons];
 		const delegated =
-			delegatedCallbacks[name as keyof typeof delegatedCallbacks];
+			delegatedCallbacks[name as keyof typeof delegatedCallbacks] ??
+			commandInputDelegatedCallbacks[
+				name as keyof typeof commandInputDelegatedCallbacks
+			];
 		if (delegated) {
 			return {
 				name,
 				owner: delegated.owner,
 				classification: "delegated",
-				slice: filesDelegatedCallbacks.has(name)
-					? "files-transitions"
-					: configDelegatedCallbacks.has(name)
-						? "config-transitions"
-						: statusDelegatedCallbacks.has(name)
-							? "status-transitions"
-							: evidenceLifecycleDelegatedCallbacks.has(name)
-								? "evidence-lifecycle-transitions"
-								: networkPanelDelegatedCallbacks.has(name)
-									? "network-panel-transitions"
-									: remotePanelDelegatedCallbacks.has(name)
-										? "remote-panel-transitions"
-										: operationRunDelegatedCallbacks.has(name)
-											? "operation-run-transitions"
-											: actionControlDelegatedCallbacks.has(name)
-												? "action-control-transitions"
-												: name.startsWith("submitEditor") ||
-														name === "undoEditorEdit" ||
-														name === "deleteSelectedEditorLine"
-													? "editor-transitions"
-													: "tool-target-transitions",
+				slice: commandInputDelegatedNames.has(name)
+					? "command-input-transitions"
+					: filesDelegatedCallbacks.has(name)
+						? "files-transitions"
+						: configDelegatedCallbacks.has(name)
+							? "config-transitions"
+							: statusDelegatedCallbacks.has(name)
+								? "status-transitions"
+								: evidenceLifecycleDelegatedCallbacks.has(name)
+									? "evidence-lifecycle-transitions"
+									: networkPanelDelegatedCallbacks.has(name)
+										? "network-panel-transitions"
+										: remotePanelDelegatedCallbacks.has(name)
+											? "remote-panel-transitions"
+											: operationRunDelegatedCallbacks.has(name)
+												? "operation-run-transitions"
+												: actionControlDelegatedCallbacks.has(name)
+													? "action-control-transitions"
+													: name.startsWith("submitEditor") ||
+															name === "undoEditorEdit" ||
+															name === "deleteSelectedEditorLine"
+														? "editor-transitions"
+														: "tool-target-transitions",
 				reason: delegated.reason,
-			};
-		}
-		if (name === "useInput") {
-			return {
-				name,
-				owner:
-					"src/tui/App.tsx + src/tui/actionControlTransitions.ts + src/tui/fileWorkspaceTransitions.ts + src/tui/configPanel.ts + src/tui/palette.ts + src/tui/statusActivityQueue.ts + src/tui/routePanel.ts + src/tui/endpointPanel.ts + src/tui/timelinePanel.ts + src/tui/logPanel.ts + src/tui/interfacePanel.ts + src/tui/dnsPanel.ts + src/tui/remotesPanel.ts + src/tui/processPanel.ts + src/tui/operationRunPanel.ts",
-				classification: "inline-decision",
-				slice: "action-control-transitions",
-				reason:
-					"Action confirmation and endpoint control availability now delegate to tested owners, but unrelated dispatcher decisions remain inline in App",
 			};
 		}
 		return reason

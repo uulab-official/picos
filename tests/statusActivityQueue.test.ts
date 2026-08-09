@@ -152,6 +152,8 @@ import {
 	prepareRecoveredEvidenceOpenTransition,
 	prepareRecoveredEvidenceSearchTransition,
 	prepareRecoveredEvidenceSelectionTransition,
+	prepareStatusActivityAuditExportSelection,
+	prepareStatusActivityResultHistoryMove,
 	prepareStatusActivityResultTimelineHandoffOpenTransition,
 	prepareStatusActivityResultTimelineHandoffReplay,
 	prepareStatusActivityToolsEvidenceMatchArchive,
@@ -591,6 +593,49 @@ describe("Status activity queue", () => {
 			"    filter=audit search=control preview",
 			"controls=f result filter · u/i filtered history",
 		]);
+	});
+
+	test("owns activity history movement, empty guards, and operator notices", () => {
+		const history = [
+			{
+				source: "dialog" as const,
+				action: "show-dialog" as const,
+				message: "dialog selected",
+			},
+			{
+				source: "cleanup" as const,
+				action: "jump-cleanup" as const,
+				message: "cleanup selected",
+			},
+		];
+		expect(
+			prepareStatusActivityResultHistoryMove({
+				history: [],
+				selectedIndex: 0,
+				direction: "next",
+				filter: "all",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no status activity result history" },
+		});
+		expect(
+			prepareStatusActivityResultHistoryMove({
+				history,
+				selectedIndex: 0,
+				direction: "next",
+				filter: "all",
+			}),
+		).toEqual({
+			kind: "selection",
+			selectedIndex: 1,
+			copyPreviewRowIndex: 0,
+			copyPreviewExpanded: false,
+			notice: {
+				level: "info",
+				message: "status activity history 2/2 filter=all cleanup jump-cleanup",
+			},
+		});
 	});
 
 	test("filters activity result history to evidence handoff rows", () => {
@@ -2955,6 +3000,40 @@ describe("Status activity queue", () => {
 				baseDir: "/Users/bonjin/.config/picos",
 			}),
 		).toBeUndefined();
+	});
+
+	test("selects one owned audit export effect before the App performs I/O", () => {
+		const copyIntent = {
+			label: "status activity cleanup jump-cleanup",
+			copyText: "cleanup jump-cleanup",
+			selectedRow: 1,
+			expanded: false,
+			lines: 1,
+			preview: "cleanup jump-cleanup",
+			auditMessage: "clipboard intent cleanup jump-cleanup",
+		};
+		expect(
+			prepareStatusActivityAuditExportSelection({
+				copyIntents: [copyIntent],
+				selectedCopyIntentIndex: 0,
+				results: [],
+				selectedResultIndex: 0,
+				baseDir: "/Users/bonjin/.config/picos",
+				generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+			}),
+		).toMatchObject({
+			kind: "copy-intent",
+			plan: { eventCount: 1, scope: "selected" },
+		});
+		expect(
+			prepareStatusActivityAuditExportSelection({
+				copyIntents: [],
+				selectedCopyIntentIndex: 0,
+				results: [],
+				selectedResultIndex: 0,
+				baseDir: "/Users/bonjin/.config/picos",
+			}),
+		).toEqual({ kind: "remote-known-hosts" });
 	});
 
 	test("writes selected status activity copy intent audit exports", async () => {

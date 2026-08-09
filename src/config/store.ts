@@ -16,6 +16,7 @@ import {
 } from "../core/logProfiles";
 import { normalizeOperationPresets } from "../core/operationPresets";
 import type { PortSort } from "../core/ports";
+import { normalizeRemoteProfiles } from "../core/remotes";
 import { normalizeRouteFilterPresets } from "../core/routePresets";
 import {
 	normalizeToolHistoryDetailPreference,
@@ -27,13 +28,20 @@ import {
 	type ToolHistoryGroupPreference,
 	type ToolHistorySortPreference,
 } from "../core/toolHistoryPreferences";
-import type { LogProfile, OperationPreset, PicosConfig } from "../core/types";
+import type {
+	LogProfile,
+	OperationPreset,
+	PicosConfig,
+	SftpRemoteProfile,
+} from "../core/types";
 import {
+	type ConfigWorkspaceResetValues,
 	coerceConfigValue,
 	defaultConfig,
 	getConfigPathForPlatform,
 	isConfigKey,
 	mergeConfig,
+	mergeConfigWorkspaceResetValues,
 	normalizeToolTargetPresetLimit,
 } from "./schema";
 
@@ -74,6 +82,32 @@ export async function setConfigValue(
 	const next = {
 		...config,
 		[key]: coerceConfigValue(key, value),
+	};
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function resetConfigWorkspaceValues(
+	values: ConfigWorkspaceResetValues,
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = mergeConfigWorkspaceResetValues(config, values);
+	await writeConfig(next, path);
+	return next;
+}
+
+export async function upsertConfigRemoteProfile(
+	profile: SftpRemoteProfile,
+	path = getConfigPath(),
+): Promise<PicosConfig> {
+	const config = await readConfig(path);
+	const next = {
+		...config,
+		remoteProfiles: normalizeRemoteProfiles([
+			profile,
+			...config.remoteProfiles.filter((item) => item.id !== profile.id),
+		]),
 	};
 	await writeConfig(next, path);
 	return next;

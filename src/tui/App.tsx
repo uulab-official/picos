@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	getConfigPath,
 	readConfig,
+	resetConfigWorkspaceValues,
 	setConfigEndpointFilterPresets,
 	setConfigEndpointSort,
 	setConfigInterfaceEvidenceSearchPresets,
@@ -14,6 +15,7 @@ import {
 	setConfigToolHistoryPreferences,
 	setConfigToolTargetPresets,
 	setConfigValue,
+	upsertConfigRemoteProfile,
 	writeConfig,
 } from "../config/store";
 import {
@@ -47,7 +49,6 @@ import {
 	type ConnectionsResult,
 	filterConnections,
 	getActiveConnections,
-	nextConnectionSort,
 	parseConnectionSort,
 	sortConnections,
 } from "../core/connections";
@@ -65,7 +66,6 @@ import { getControlPreviewCommand } from "../core/controlPreview";
 import type { DnsServerProposal } from "../core/dnsControl";
 import { runDoctorChecks } from "../core/doctor";
 import {
-	createEditorSaveExecutionPlan,
 	type EditorSaveExecutionResult,
 	formatEditorSaveExecutionAuditMessage,
 	formatEditorSaveExecutionResultRows,
@@ -76,7 +76,6 @@ import {
 	formatPortSortPreference,
 } from "../core/endpointSort";
 import {
-	buildExternalOpenPlan,
 	type ExternalOpenPlan,
 	formatExternalOpenPlanRows,
 	runExternalOpenPlan,
@@ -114,11 +113,7 @@ import {
 	type InterfaceStateProposal,
 	type InterfaceStateProposalAction,
 } from "../core/interfaceControl";
-import {
-	nextInterfaceEvidenceSearchPreset,
-	normalizeInterfaceEvidenceQuery,
-	saveInterfaceEvidenceSearchPreset,
-} from "../core/interfaceEvidencePreferences";
+import { nextInterfaceEvidenceSearchPreset } from "../core/interfaceEvidencePreferences";
 import { getNetworkSummary } from "../core/network";
 import {
 	createOsLogSnapshot,
@@ -128,7 +123,6 @@ import {
 import {
 	filterListeningPorts,
 	getListeningPorts,
-	nextPortSort,
 	type PortSort,
 	type PortsResult,
 	parsePortSort,
@@ -196,7 +190,6 @@ import {
 	isReadOnlySftpConnectionCancelledError,
 	ReadOnlySftpConnectionCancelledError,
 	type ReadOnlySftpConnectionDiagnostic,
-	startReadOnlySftpConnectionDiagnostic,
 } from "../core/sftp";
 import { formatUptime } from "../core/system";
 import { createSystemInventory } from "../core/systemInventory";
@@ -229,8 +222,6 @@ import {
 	formatUpdateCheckRows,
 	formatUpdateReleaseHandoffRows,
 	type GitHubReleaseCheckResult,
-	getSelectedUpdateReleaseHandoffLink,
-	getUpdateReleaseHandoffLinks,
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
 import { VERSION } from "../core/version";
@@ -241,12 +232,38 @@ import {
 	classifyControlExecutionFailure,
 	classifyControlExecutionResult,
 	prepareActionDispatch,
-	prepareControlConfirmationPrompt,
-	prepareControlExecutionStart,
 	prepareControlExecutionTransition,
 	prepareControlPolicySync,
-	submitControlConfirmationTransition,
 } from "./actionControlTransitions";
+import {
+	type GlobalControlExecutionRequest,
+	getAppInputOverlay,
+	getConfigWorkspaceCommand,
+	getEditorWorkspaceCommand,
+	getRemotesFocusCommand,
+	getStatusWorkspaceCommand,
+	getToolsWorkspaceCommand,
+	getWorkspaceInputFamily,
+	prepareGlobalHotkeyInput,
+	prepareGlobalNavigationInput,
+	prepareWorkspaceEnterInput,
+} from "./appInputDispatcher";
+import {
+	prepareCleanupHandoffDismissal,
+	prepareCleanupHandoffPrompt,
+	prepareClipboardConfirmationOpen,
+	prepareEditorPromptOpen,
+	prepareInterfaceEvidencePresetCycle,
+	prepareInterfaceEvidencePresetSave,
+	prepareInterfaceEvidenceSearchPrompt,
+	prepareInterfaceEvidenceStateFilterCycle,
+	prepareStatusActivityResultHistoryFilterCycle,
+	prepareStatusActivityResultTimelineJumpFilterCycle,
+	prepareStatusActivityResultTimelineJumpSelection,
+	prepareToolEvidenceFilterCycle,
+	prepareToolEvidenceSearchPrompt,
+	resolveRecoveredEvidenceResultOptions,
+} from "./appOwners";
 import {
 	appendCleanupHandoffHistory,
 	archiveCleanupHandoffHistoryExport,
@@ -259,45 +276,32 @@ import {
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
-	createCleanupHandoffHistoryExportPlan,
-	createCleanupJumpAudit,
 	createCleanupShelfIndex,
 	formatCleanupHandoffActionRows,
 	formatCleanupHandoffDismissRows,
 	formatCleanupHandoffHistoryExportArchiveRows,
 	formatCleanupJumpAuditRows,
 	formatCleanupOpsConsoleRows,
-	getSelectedCleanupHandoffHistory,
-	getSelectedCleanupShelf,
-	moveCleanupHandoffHistorySelection,
-	moveCleanupShelfSelection,
-	prepareCleanupExportArchiveConfirmation,
-	prepareSelectedCleanupExportArchive,
 	readCleanupHandoffHistoryExportArchiveIndex,
 	readCleanupHandoffHistoryExportIndex,
 	readLatestCleanupHandoffHistoryExport,
 	writeCleanupHandoffHistoryExport,
 } from "./cleanupIndex";
 import {
-	appendClipboardConfirmationInput,
-	backspaceClipboardConfirmationInput,
 	type ClipboardConfirmationState,
 	clearClipboardConfirmationState,
-	createClipboardConfirmationState,
-	submitClipboardConfirmation,
+	submitClipboardWritePlan,
 } from "./clipboardDialog";
+import { formatClipboardPreviewRows } from "./clipboardPreview";
+import { prepareCommandCancellation } from "./commandCancellation";
 import {
-	createClipboardPreview,
-	formatClipboardPreviewRows,
-} from "./clipboardPreview";
-import {
-	applyCommandLineInput,
-	applyToolPromptCommandLineInput as applyToolPromptCommandLineInputTransition,
 	applyToolTargetCommandLineIntent,
 	type CommandLineState,
+	type CommandPrompt,
 	closeCommandLine,
-	moveCommandLineField,
 	openCommandLine,
+	prepareCommandLineTextInput,
+	prepareCommandSubmit,
 } from "./commandLine";
 import {
 	beginCommandStatusCount,
@@ -305,6 +309,13 @@ import {
 	endCommandStatusCount,
 	resolveCommandStatus,
 } from "./commandStatus";
+import {
+	type CommandSubmitContextTable,
+	type CommandSubmitResolvedHandlers,
+	type CommandSubmitResolvedTransitionMap,
+	dispatchCommandSubmitEffect,
+	prepareCommandSubmitEffectFromTable,
+} from "./commandSubmitTransitions";
 import {
 	type ConfigManagedShelfStateEffect,
 	type ConfigManagedShelfTarget,
@@ -315,7 +326,6 @@ import {
 	createConfigSessionSyncIntent,
 	createConfigWorkspaceActionFocusTransition,
 	createConfigWorkspaceItems,
-	createConfigWorkspaceResetWriteIntent,
 	formatConfigManagedShelfCleanupBreadcrumbRows,
 	formatConfigManagedShelfHandoffRows,
 	formatConfigManagedShelfLandingRows,
@@ -326,105 +336,77 @@ import {
 	getConfigManagedShelfActionFocusTarget,
 	getConfigManagedShelfHandoff,
 	getConfigRecoveryActionFocusTarget,
-	getConfigWorkspaceEditPrompt,
-	getConfigWorkspaceItem,
-	getConfigWorkspaceSectionJumpIndex,
-	getNextConfigManagedShelfTarget,
-	moveConfigWorkspaceSelection,
 	prepareConfigManagedShelfFocusAction,
 	prepareConfigManagedShelfLandingDismissal,
 	prepareConfigRecoveryDirectPromptTransition,
-	prepareConfigWorkspaceAdjustment,
-	prepareConfigWorkspaceResetOpenTransition,
-	prepareConfigWorkspaceResetSubmission,
-	prepareConfigWorkspaceTextSubmission,
+	type prepareConfigWorkspaceAdjustment,
+	prepareConfigWorkspaceInput,
+	type prepareConfigWorkspaceResetOpenTransition,
 	prepareNextConfigPolicyPresetTransition,
 	withConfigManagedShelfFocusRows,
 } from "./configPanel";
+import { formatDnsPanelWorkspaceRows, prepareDnsPanelInput } from "./dnsPanel";
 import {
-	formatDnsPanelWorkspaceRows,
-	prepareDnsPanelInput,
-	prepareDnsServerProposalTransition,
-} from "./dnsPanel";
-import {
+	classifyEditorSaveBufferPublication,
 	type EditorBuffer,
 	formatEditorBufferLines,
 	getEditorBufferState,
-	transitionEditorAppendLine,
 	transitionEditorDeleteLine,
-	transitionEditorInsertLine,
-	transitionEditorMoveCursor,
-	transitionEditorReplaceLine,
 	transitionEditorUndo,
 } from "./editorBuffer";
 import {
+	classifyEndpointProcessInspectionPublication,
 	createEndpointFilterCleanupPreview,
-	createEndpointHandoffPlan,
-	createPortProcessControlExecutionPlan,
 	createSelectedPortProcessControlPreview,
 	type EndpointDetailView,
+	type EndpointHandoffInputSnapshot,
 	type EndpointHandoffKind,
+	type EndpointProcessRequest,
 	formatConnectionsWorkspaceRows,
 	formatEndpointWorkspaceHintRow,
 	formatPortProcessControlExecutionRows,
 	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
-	getSelectedConnectionClipboardPreview,
-	getSelectedConnectionProcessRequest,
-	getSelectedPortClipboardPreview,
-	getSelectedPortProcessRequest,
 	type PortProcessControlFileEvidenceIssue,
-	prepareEndpointFilterTransition,
+	prepareEndpointHandoffForKind,
 	prepareEndpointPanelInput,
+	prepareEndpointWorkspaceInputEnvelope,
 	preparePortProcessControlPalettePreview,
-	preparePortProcessControlSubmission,
 	repairEndpointSelection,
-	submitEndpointFilterCleanupConfirmation,
 	writeEndpointHandoffPlan,
 } from "./endpointPanel";
 import { appendEvent, type ConsoleEvent, createEvent } from "./events";
-import {
-	type FileFilterState,
-	filterFileEntries,
-	openFileFilter,
-} from "./fileFilter";
+import { type FileFilterState, filterFileEntries } from "./fileFilter";
 import {
 	applyFileOperationCommandLineTransition,
 	type FileOperationDialogState,
-	type FileOperationKind,
+	type FileOperationDialogTransition,
 	prepareActiveFileOperationDialogInput,
-	prepareFileOperationConfirmation,
-	prepareFileOperationDestination,
-	prepareSelectedFileOperationOpen,
 } from "./fileOperationDialog";
 import {
 	formatFileBreadcrumbRows,
 	formatFileProviderBoundaryRows,
 	formatSelectedFilePathRows,
-	getSelectedFilePathClipboardIntent,
 } from "./fileSelection";
 import {
 	classifyFileLoadOutcome,
 	classifyFilePreviewOutcome,
 	type FileLoadRequest,
 	prepareActiveFileFilterInput,
-	prepareFileHistoryNavigation,
-	prepareFileLocationNavigation,
-	prepareFilePathCommand,
+	type prepareFileHistoryNavigation,
+	type prepareFileLocationNavigation,
 	prepareFileWorkspaceCommandLineInput,
 	prepareFileWorkspaceInput,
-	prepareNextFileLocationIndex,
-	prepareParentFileNavigation,
+	type prepareParentFileNavigation,
 	prepareSelectedFileOpen,
+	type SelectedFileOpenTransition,
 } from "./fileWorkspaceTransitions";
 import {
 	formatInterfaceWorkspaceRows,
 	getInterfaceControlIntent,
 	type InterfaceDetailView,
-	prepareInterfaceConfirmationTransition,
+	type InterfacePanelInputDecision,
 	prepareInterfacePanelInput,
-	prepareInterfaceSelectionTransition,
-	prepareInterfaceSourceHandoff,
 	resolveSelectedInterface,
 	writeInterfaceSourceHandoffPlan,
 } from "./interfacePanel";
@@ -434,19 +416,12 @@ import {
 	type LogFollowHistoryItem,
 	type LogProfile,
 	prepareLogPanelInput,
-	prepareLogSearchTransition,
-	submitLogCleanupConfirmation,
 } from "./logPanel";
 import {
 	clampIndex,
-	enterFocus,
 	type FocusArea,
-	getNextIndex,
-	getScreenByShortcut,
 	getScreenIndex,
 	getVisibleWindow,
-	leaveFocus,
-	moveScreen,
 	type Screen,
 	screenOrder,
 } from "./navigation";
@@ -458,12 +433,12 @@ import {
 	type OperationRunTerminalTransition,
 	prepareMonitorOperationRunCompletion,
 	prepareOperationProcessIdentityNotice,
-	prepareOperationRunCancellation,
+	type prepareOperationRunCancellation,
 	prepareOperationRunCompletion,
 	prepareOperationRunFailure,
 	prepareOperationRunPanelInput,
 	prepareOperationRunProgressPublication,
-	prepareOperationRunStart,
+	type prepareOperationRunStart,
 	releaseOperationRunCancellation,
 } from "./operationRunPanel";
 import {
@@ -478,27 +453,23 @@ import {
 	classifyProcessInspectionPublication,
 	formatProcessWorkspaceRows,
 	prepareProcessPanelInput,
-	prepareSelectedProcessInspection,
 	type SelectedProcessResourceAction,
 } from "./processPanel";
 import {
 	classifyRemoteConnectionPublication,
 	classifyRemoteDisconnectPublication,
-	moveRemoteProfileSelection,
 	prepareRemoteConnectionCancellation,
 	prepareRemoteConnectPrompt,
-	prepareRemoteConnectSubmission,
 	prepareRemoteDisconnect,
-	prepareRemoteHostKeyEvidenceSubmission,
-	prepareRemoteHostTrustSubmission,
-	prepareRemoteKnownHostsCandidateSubmission,
+	prepareRemoteHistoryClipboardInput,
+	prepareRemoteHistoryExportInput,
 	prepareRemoteKnownHostsEvidenceHandoff,
 	prepareRemoteKnownHostsEvidenceHandoffOpen,
 	prepareRemoteKnownHostsEvidenceHandoffSelection,
 	prepareRemoteKnownHostsPasteSelection,
-	prepareRemoteKnownHostsPasteSubmission,
-	prepareRemoteProfileCommand,
-	prepareRemoteProfileStage,
+	prepareRemotePasteNumberInput,
+	type prepareRemoteProfileStage,
+	prepareRemotePromptInput,
 	prepareRemoteRetry,
 	resolveRemoteEvidenceResultOptions,
 	resolveRemoteProfileSelection,
@@ -511,39 +482,23 @@ import {
 } from "./requestSequence";
 import {
 	createRouteFilterCleanupPreview,
-	createRouteRawHandoffPlan,
 	formatRoutePathRows,
 	formatRouteWorkspaceRows,
-	prepareRouteFilterTransition,
 	prepareRoutePanelInput,
 	type RouteDetailView,
-	submitRouteFilterCleanupConfirmation,
+	type RoutePanelHandoffEffect,
 	writeRouteRawHandoffPlan,
 } from "./routePanel";
 import { computeShellLayout, formatTopBarLine } from "./shell";
 import {
 	appendStatusActivityCopyIntentHistory,
 	appendStatusActivityResultHistory,
-	createInterfaceConfirmationAuditExportPlan,
 	createInterfaceConfirmationStatusActivityResult,
-	createInterfaceEvidenceManagementStatusActivityResult,
 	createInterfaceEvidenceOutcomeStatusActivityResult,
 	createOperationRunStatusActivityResult,
 	createRemoteHostReviewStatusActivityResult,
-	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
-	createStatusActivityCopyIntentAuditExportOpenPlan,
-	createStatusActivityCopyIntentAuditExportPlan,
-	createStatusActivityCopyIntentEvidenceFocusPlan,
-	createStatusActivityCopyIntentEvidenceFocusResult,
-	createStatusActivityCopyIntentEvidenceFocusTimelineSearch,
-	createStatusActivityCopyIntentRecord,
-	createStatusActivityCopyIntentTimelineSearch,
-	createStatusActivityEnterPlan,
 	createStatusActivityProcessControlPaletteResult,
 	createStatusActivityResultAuditJumpReplayWarningSummary,
-	createStatusActivityResultAuditJumpReplayWarningTimelineSearch,
-	createStatusActivityResultHistoryFilterPaletteResult,
-	createStatusActivityResultTimelineJumpPaletteResult,
 	createStatusActivityResultTimelineSearch,
 	createStatusActivityResultTimelineSearchReplay,
 	createStatusActivityToolsEvidencePaletteResult,
@@ -553,14 +508,10 @@ import {
 	createTimelineEvidenceTrailStatusActivityResult,
 	createTimelineSelectedStatusActivityResult,
 	filterInterfaceConfirmationAuditExportIndex,
-	filterStatusActivityResultHistoryIndexes,
 	filterTimelineEvidenceTrailAuditExports,
-	formatInterfaceEvidenceManagementAuditMessage,
 	formatInterfaceEvidenceOutcomeAuditMessage,
 	formatRemoteActivityShelfRows,
 	formatRemoteKnownHostsSelectionHistoryRows,
-	formatStatusActivityCopyIntentAuditMessage,
-	formatStatusActivityCopyIntentEvidenceFocusAuditMessage,
 	formatStatusActivityCopyIntentRows,
 	formatStatusActivityDetailRows,
 	formatStatusActivityProcessControlPaletteAuditMessage,
@@ -568,35 +519,21 @@ import {
 	formatStatusActivityResultCopyPreviewRows,
 	formatStatusActivityResultHistoryRows,
 	formatStatusActivityResultRows,
-	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
 	formatStatusActivityResultTimelineJumpRows,
 	formatStatusActivityToolsEvidencePaletteAuditMessage,
 	formatTimelineEvidenceTrailPaletteAuditMessage,
 	getLatestStatusActivityResultAuditJumpIntent,
-	getRemoteKnownHostsSelectionHistoryClipboardPreview,
 	getSelectedProcessControlAuditExport,
 	getSelectedRemoteKnownHostsSelectionHistoryAuditExport,
-	getSelectedStatusActivityCopyIntentClipboardPreview,
 	getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff,
 	getSelectedStatusActivityResultAuditJumpIntent,
 	getSelectedStatusActivityResultHistoryClipboardPreview,
-	getSelectedStatusActivityToolsEvidenceSearchMatch,
 	getStatusActivityCopyIntentAuditExportIndex,
 	getStatusActivityResultAuditJumpIntentCount,
-	getStatusActivityResultHistoryFilteredSelection,
 	getStatusActivityResultTimelineJumpIndexes,
 	getStatusActivityResultTimelineJumpSelection,
-	moveStatusActivityCopyIntentSelection,
-	moveStatusActivityCopyPreviewSelection,
-	moveStatusActivityResultAuditJumpSelection,
-	moveStatusActivityResultHistoryFilteredSelection,
-	moveStatusActivityResultTimelineJumpSelection,
-	moveStatusActivitySource,
-	moveStatusActivityToolsEvidenceSearchMatchSelection,
-	nextStatusActivityResultHistoryFilter,
 	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
-	prepareCleanupHandoffHistoryReopen,
 	prepareRecoveredEvidenceOpenTransition,
 	prepareRecoveredEvidenceSearchTransition,
 	prepareRecoveredEvidenceSelectionTransition,
@@ -624,11 +561,6 @@ import {
 	classifyAuditExportArchiveIndexRefresh,
 	classifyAuditExportIndexRefresh,
 	classifyHandoffIndexRefresh,
-	createStatusEvidenceActionPlan,
-	createStatusEvidenceEnterPlan,
-	createStatusEvidenceItemMovePlan,
-	createStatusEvidenceNumberJumpPlan,
-	createStatusEvidenceSearchPlan,
 	filterInterfaceConfirmationEvidenceExports,
 	formatInterfaceEvidenceFilterRows,
 	formatStatusEvidenceCommandStripRows,
@@ -637,39 +569,45 @@ import {
 	formatStatusEvidenceTableDetailRows,
 	formatStatusEvidenceTableRows,
 	type InterfaceEvidenceStateFilter,
-	moveStatusEvidenceFocus,
 	nextInterfaceEvidenceStateFilter,
-	prepareAuditEvidenceArchiveConfirmation,
-	prepareAuditEvidenceRetentionConfirmation,
 	prepareStatusEvidenceActionTransition,
-	prepareStatusEvidenceOpenTransition,
 	type StatusEvidenceKind,
 } from "./statusEvidence";
+import {
+	formatStatusAuditWriteFailure,
+	formatStatusAuditWriteSuccess,
+	formatStatusCleanupHistoryWriteFailure,
+	formatStatusCleanupHistoryWriteSuccess,
+	formatStatusConfigWriteFailure,
+	formatStatusHandoffArchiveFailure,
+	formatStatusHandoffArchiveResult,
+	prepareStatusWorkspaceInput,
+	type StatusAuditWriteEffect,
+	type StatusCleanupHistoryWriteEffect,
+	type StatusConfigWriteEffect,
+	type StatusDialogPlanKey,
+	type StatusHandoffArchiveEffect,
+	type StatusIndexRefreshEffect,
+	type StatusWorkspaceInputEffect,
+	type StatusWorkspaceStatePatch,
+} from "./statusInputTransitions";
 import {
 	createTimelineSearchCleanupPreview,
 	filterTimelineEvents,
 	formatSelectedTimelinePreviewRow,
 	formatTimelineWorkspaceRows,
 	prepareTimelinePanelInput,
-	prepareTimelineSearchJumpTransition,
-	prepareTimelineSearchTransition,
 	repairTimelineSelection,
-	submitTimelineSearchCleanupConfirmation,
 	type TimelineFilter,
 } from "./timelinePanel";
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
 	classifyToolHistoryExportIndexRefresh,
-	createToolFormState,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
 	createToolRunPlan,
-	createToolRunPlanFromForm,
 	createToolTargetCleanupPreview,
-	createToolTargetPromptIntent,
-	createToolTargetRunIntent,
-	filterToolHistory,
 	filterToolHistoryExportIndex,
 	formatToolHistoryArchiveRetentionRows,
 	formatToolHistoryExportArchiveRows,
@@ -677,56 +615,31 @@ import {
 	formatToolsWorkspaceRows,
 	getSelectedToolCompareClipboardPreview,
 	getSelectedToolHistoryExport,
-	getSelectedToolHistoryItem,
 	getSelectedToolOutputClipboardPreview,
 	getSelectedToolSectionClipboardPreview,
 	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
 	getSelectedToolTargetPreset,
-	getToolHistoryDetailViewShortcut,
-	getToolRunActionMetadata,
 	getToolTargetPresets,
 	getVisibleToolHistoryIndex,
-	moveFilteredToolHistorySelection,
-	moveToolHistorySelection,
-	moveToolSectionClipboardRow,
-	nextToolHistoryDetailView,
-	nextToolHistoryEvidenceFilter,
-	nextToolHistoryGroup,
-	nextToolHistoryPreset,
-	nextToolHistorySort,
-	nextToolSectionClipboardSelection,
-	normalizeToolHistoryEvidenceQuery,
-	prepareSelectedToolHistoryExport,
 	prepareSelectedToolHistoryExportArchive,
-	prepareToolHistoryArchiveRetentionConfirmation,
-	prepareToolHistoryExportArchiveConfirmation,
-	promoteToolTargetPresetTransition,
+	prepareToolHistoryExportEffect,
+	prepareToolsWorkspaceInput,
 	pruneToolHistoryExportArchive,
 	readToolHistoryExportArchiveIndex,
 	readToolHistoryExportIndex,
-	reassignToolTargetPresetActionTransition,
-	removeToolTargetPresetTransition,
-	renameToolTargetPresetTransition,
-	rerunToolHistoryItem,
-	retargetToolTargetPresetTransition,
-	saveSelectedToolTargetPresetTransition,
 	saveToolHistoryPreset,
-	selectToolTargetPresetTransition,
-	submitToolHistoryCleanupConfirmation,
-	submitToolTargetCleanupTransition,
-	submitToolTargetPresetCommandTransition,
 	type ToolCopyPreviewMode,
 	type ToolHistoryArchiveRetentionPlan,
 	type ToolHistoryDetailView,
 	type ToolHistoryEvidenceFilter,
 	type ToolHistoryExportArchivePlan,
 	type ToolHistoryExportIndex,
-	type ToolHistoryExportScope,
 	type ToolHistoryGroup,
 	type ToolHistoryItem,
 	type ToolHistorySort,
 	type ToolSectionClipboardSelection,
+	type ToolsWorkspaceInputEffect,
 	type ToolTargetPreset,
 	writeToolHistoryExport,
 } from "./toolHistory";
@@ -735,6 +648,27 @@ const toolPromptPrefix = "tool:";
 const endpointFilterPromptPrefix = "endpoint-filter:";
 const endpointFilterCleanupPromptPrefix = "endpoint-filter-cleanup:";
 const portProcessControlPrompt = "port-process-control";
+
+type CommandTransition<
+	Effect extends keyof CommandSubmitResolvedTransitionMap,
+> = CommandSubmitResolvedTransitionMap[Effect];
+
+type EndpointInputIoEffect =
+	| {
+			kind: "endpoint-filter-presets";
+			scope: EndpointHandoffKind;
+			presets: string[];
+	  }
+	| {
+			kind: "endpoint-sort";
+			scope: EndpointHandoffKind;
+			sort: ConnectionSort | PortSort;
+	  }
+	| {
+			kind: "inspect-process";
+			plan: { scope: EndpointHandoffKind; request: EndpointProcessRequest };
+	  }
+	| { kind: "load-port-file-evidence"; pid: string };
 
 function createActiveFileOpenOrigin(
 	target: ConfigManagedShelfTarget | undefined,
@@ -986,6 +920,9 @@ export function App(): React.ReactElement {
 		useState(0);
 	const [auditExportArchivePlan, setAuditExportArchivePlan] =
 		useState<ConsoleAuditExportArchivePlan>();
+	const [auditExportArchiveScope, setAuditExportArchiveScope] = useState<
+		"all" | "interface"
+	>("all");
 	const [auditArchiveRetentionPlan, setAuditArchiveRetentionPlan] =
 		useState<ConsoleAuditArchiveRetentionPlan>();
 	const [auditArchiveRetentionScope, setAuditArchiveRetentionScope] = useState<
@@ -1000,6 +937,9 @@ export function App(): React.ReactElement {
 	const [toolExportFilter, setToolExportFilter] =
 		useState<ToolHistoryEvidenceFilter>("any");
 	const [toolExportQuery, setToolExportQuery] = useState("");
+	const [toolEvidenceSearchScope, setToolEvidenceSearchScope] = useState<
+		"tools" | "tools-archive"
+	>("tools");
 	const [toolExportArchiveIndex, setToolExportArchiveIndex] =
 		useState<ToolHistoryExportIndex>({
 			baseDir: join(dirname(getConfigPath()), "tools", "archive"),
@@ -1211,6 +1151,7 @@ export function App(): React.ReactElement {
 	const currentErrorTokenRef = useRef(0);
 	const initialFileLoadStartedRef = useRef(false);
 	const fileOperationTokenRef = useRef(0);
+	const editorSaveTokenRef = useRef(0);
 	useEffect(() => {
 		if (!remoteFileProvider) {
 			// Local provider recreation changes write capability, not listing identity.
@@ -1240,15 +1181,6 @@ export function App(): React.ReactElement {
 			interfaceEvidenceStateFilter,
 		],
 	);
-	const selectedInterfaceConfirmationEvidence =
-		interfaceConfirmationEvidenceExports[
-			clampIndex(
-				selectedInterfaceConfirmationAuditExportIndex,
-				interfaceConfirmationEvidenceExports.length,
-			)
-		];
-	const selectedInterfaceConfirmationEvidenceArchived =
-		selectedInterfaceConfirmationEvidence?.state === "archived";
 	const statusEvidenceIndexes = useMemo(
 		() => ({
 			handoffIndex,
@@ -1704,10 +1636,7 @@ export function App(): React.ReactElement {
 
 	useEffect(() => {
 		setSelectedCleanupShelfIndex((index) =>
-			Math.min(
-				Math.max(index, 0),
-				Math.max(0, cleanupShelfIndex.activeShelves - 1),
-			),
+			clampIndex(index, cleanupShelfIndex.activeShelves),
 		);
 	}, [cleanupShelfIndex.activeShelves]);
 	const visibleTimelineEvents = useMemo(
@@ -1722,10 +1651,6 @@ export function App(): React.ReactElement {
 		getSelectedStatusActivityResultAuditJumpIntent(
 			statusActivityCopyIntentHistory,
 			selectedStatusActivityResultAuditJumpIndex,
-		);
-	const statusActivityResultAuditJumpIntentCount =
-		getStatusActivityResultAuditJumpIntentCount(
-			statusActivityCopyIntentHistory,
 		);
 	const statusActivityResultTimelineSearchRecovery =
 		createStatusActivityResultTimelineSearchReplay(
@@ -1825,12 +1750,7 @@ export function App(): React.ReactElement {
 	}, []);
 
 	const saveConfigWorkspaceAdjustment = useCallback(
-		async (direction: "increase" | "decrease") => {
-			const transition = prepareConfigWorkspaceAdjustment({
-				items: configWorkspaceItems,
-				selectedIndex: selectedConfigIndex,
-				direction,
-			});
+		async (transition: ReturnType<typeof prepareConfigWorkspaceAdjustment>) => {
 			if (transition.kind === "notice") {
 				log(transition.notice.level, transition.notice.message);
 				return;
@@ -1859,54 +1779,37 @@ export function App(): React.ReactElement {
 				endCommand();
 			}
 		},
-		[
-			beginCommand,
-			configWorkspaceItems,
-			endCommand,
-			log,
-			selectedConfigIndex,
-			syncConfigSessionState,
-		],
+		[beginCommand, endCommand, log, syncConfigSessionState],
 	);
 
-	const submitConfigTextCommand = useCallback(async () => {
-		const transition = prepareConfigWorkspaceTextSubmission({
-			items: configWorkspaceItems,
-			selectedIndex: selectedConfigIndex,
-			value: commandLine.value,
-		});
-		setCommandLine((current) => closeCommandLine(current));
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		beginCommand();
-		try {
-			const config = await setConfigValue(
-				transition.key,
-				String(transition.value),
-			);
-			syncConfigSessionState(config);
-			log(transition.notice.level, transition.notice.message);
-		} catch (caught) {
-			log(
-				"fail",
-				caught instanceof Error
-					? `config save failed ${caught.message}`
-					: `config save failed ${String(caught)}`,
-			);
-		} finally {
-			endCommand();
-		}
-	}, [
-		beginCommand,
-		commandLine.value,
-		configWorkspaceItems,
-		endCommand,
-		log,
-		selectedConfigIndex,
-		syncConfigSessionState,
-	]);
+	const submitConfigTextCommand = useCallback(
+		async (transition: CommandTransition<"submit-config-text">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			beginCommand();
+			try {
+				const config = await setConfigValue(
+					transition.key,
+					String(transition.value),
+				);
+				syncConfigSessionState(config);
+				log(transition.notice.level, transition.notice.message);
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `config save failed ${caught.message}`
+						: `config save failed ${String(caught)}`,
+				);
+			} finally {
+				endCommand();
+			}
+		},
+		[beginCommand, endCommand, log, syncConfigSessionState],
+	);
 
 	const applyNextConfigPolicyPreset = useCallback(async () => {
 		beginCommand();
@@ -1930,100 +1833,44 @@ export function App(): React.ReactElement {
 		}
 	}, [beginCommand, endCommand, log, syncConfigSessionState]);
 
-	const openConfigResetConfirmation = useCallback(() => {
-		const transition = prepareConfigWorkspaceResetOpenTransition({
-			auditArchiveRetentionLimit,
-			toolTargetPresetLimit,
-			language,
-			refreshInterval,
-			defaultPingHost,
-			controlExecutionMode: controlExecutionPolicy.mode,
-			allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
-			enableExperimentalControls,
-			editorSaveMode,
-			statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
-		});
-		setConfigResetPreview(transition.preview);
-		setCommandLine(openCommandLine(transition.commandLinePrompt));
-		log(transition.notice.level, transition.notice.message);
-	}, [
-		auditArchiveRetentionLimit,
-		controlExecutionPolicy.allowAdminDryRun,
-		controlExecutionPolicy.mode,
-		defaultPingHost,
-		enableExperimentalControls,
-		editorSaveMode,
-		language,
-		log,
-		refreshInterval,
-		statusActivityResultTimelineJumpFilter,
-		toolTargetPresetLimit,
-	]);
+	const openConfigResetConfirmation = useCallback(
+		(
+			transition: ReturnType<typeof prepareConfigWorkspaceResetOpenTransition>,
+		) => {
+			setConfigResetPreview(transition.preview);
+			setCommandLine(openCommandLine(transition.commandLinePrompt));
+			log(transition.notice.level, transition.notice.message);
+		},
+		[log],
+	);
 
-	const submitConfigResetCommand = useCallback(async () => {
-		const preview =
-			configResetPreview ??
-			prepareConfigWorkspaceResetOpenTransition({
-				auditArchiveRetentionLimit,
-				toolTargetPresetLimit,
-				language,
-				refreshInterval,
-				defaultPingHost,
-				controlExecutionMode: controlExecutionPolicy.mode,
-				allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
-				enableExperimentalControls,
-				editorSaveMode,
-				statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
-			}).preview;
-		const transition = prepareConfigWorkspaceResetSubmission(
-			preview,
-			commandLine.value,
-		);
-		setCommandLine((current) => closeCommandLine(current));
-		if (transition.kind === "notice") {
-			setConfigResetPreview(undefined);
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		beginCommand();
-		try {
-			const config = await readConfig();
-			const writeIntent = createConfigWorkspaceResetWriteIntent(
-				config,
-				transition.values,
-			);
-			await writeConfig(writeIntent.config);
-			syncConfigSessionState(writeIntent.config);
-			setConfigResetPreview(undefined);
-			log(transition.notice.level, transition.notice.message);
-		} catch (caught) {
-			log(
-				"fail",
-				caught instanceof Error
-					? `config reset failed ${caught.message}`
-					: `config reset failed ${String(caught)}`,
-			);
-		} finally {
-			endCommand();
-		}
-	}, [
-		auditArchiveRetentionLimit,
-		beginCommand,
-		commandLine.value,
-		configResetPreview,
-		controlExecutionPolicy.allowAdminDryRun,
-		controlExecutionPolicy.mode,
-		defaultPingHost,
-		endCommand,
-		enableExperimentalControls,
-		editorSaveMode,
-		language,
-		log,
-		refreshInterval,
-		statusActivityResultTimelineJumpFilter,
-		syncConfigSessionState,
-		toolTargetPresetLimit,
-	]);
+	const submitConfigResetCommand = useCallback(
+		async (transition: CommandTransition<"submit-config-reset">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			if (transition.kind === "notice") {
+				setConfigResetPreview(undefined);
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			beginCommand();
+			try {
+				const config = await resetConfigWorkspaceValues(transition.values);
+				syncConfigSessionState(config);
+				setConfigResetPreview(undefined);
+				log(transition.notice.level, transition.notice.message);
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `config reset failed ${caught.message}`
+						: `config reset failed ${String(caught)}`,
+				);
+			} finally {
+				endCommand();
+			}
+		},
+		[beginCommand, endCommand, log, syncConfigSessionState],
+	);
 
 	const previewFile = useCallback(
 		async (
@@ -2337,131 +2184,93 @@ export function App(): React.ReactElement {
 		}
 	}, [loadFiles, localFileProvider, log, remoteFileProvider, systemFileRoot]);
 
-	const openSelectedFileEntry = useCallback(async () => {
-		const transition = prepareSelectedFileOpen({
-			entries: displayedFileEntries,
-			selectedIndex: selectedFileIndex,
-			root: fileRoot,
-			backHistory: fileHistory,
-			forwardHistory: fileForwardHistory,
-		});
-		if (transition.action === "none") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		if (transition.action === "load") {
-			await loadFiles(transition.request);
-			return;
-		}
-		await previewFile(transition.entry, {
-			openEditor: transition.openEditor,
-			notice: transition.notice,
-		});
-	}, [
-		displayedFileEntries,
-		fileForwardHistory,
-		fileHistory,
-		fileRoot,
-		loadFiles,
-		log,
-		previewFile,
-		selectedFileIndex,
-	]);
+	const openSelectedFileEntry = useCallback(
+		async (transition: SelectedFileOpenTransition) => {
+			if (transition.action === "none") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			if (transition.action === "load") {
+				await loadFiles(transition.request);
+				return;
+			}
+			await previewFile(transition.entry, {
+				openEditor: transition.openEditor,
+				notice: transition.notice,
+			});
+		},
+		[loadFiles, log, previewFile],
+	);
 
-	const goToParentDirectory = useCallback(async () => {
-		const transition = prepareParentFileNavigation({
-			root: fileRoot,
-			backHistory: fileHistory,
-			forwardHistory: fileForwardHistory,
-		});
-		if (transition.action === "none") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		await loadFiles(transition.request);
-	}, [fileForwardHistory, fileHistory, fileRoot, loadFiles, log]);
+	const goToParentDirectory = useCallback(
+		async (transition: ReturnType<typeof prepareParentFileNavigation>) => {
+			if (transition.action === "none") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			await loadFiles(transition.request);
+		},
+		[loadFiles, log],
+	);
 
 	const jumpToLocation = useCallback(
-		async (locationIndex: number) => {
-			const transition = prepareFileLocationNavigation({
-				locationIndex,
-				locations: fileLocations,
-				root: fileRoot,
-				backHistory: fileHistory,
-				forwardHistory: fileForwardHistory,
-			});
+		async (transition: ReturnType<typeof prepareFileLocationNavigation>) => {
 			if (transition.action === "none") {
 				return;
 			}
 			await loadFiles(transition.request);
 		},
-		[fileForwardHistory, fileHistory, fileLocations, fileRoot, loadFiles],
+		[loadFiles],
 	);
 
-	const jumpToNextLocation = useCallback(async () => {
-		const nextIndex = prepareNextFileLocationIndex(
-			selectedLocationIndex,
-			fileLocations.length,
-		);
-		if (nextIndex === undefined) {
-			return;
-		}
-		await jumpToLocation(nextIndex);
-	}, [fileLocations.length, jumpToLocation, selectedLocationIndex]);
+	const jumpToNextLocation = useCallback(
+		async (transition: ReturnType<typeof prepareFileLocationNavigation>) => {
+			await jumpToLocation(transition);
+		},
+		[jumpToLocation],
+	);
 
-	const submitPathCommand = useCallback(async () => {
-		const transition = prepareFilePathCommand({
-			value: commandLine.value,
-			root: fileRoot,
-			backHistory: fileHistory,
-			forwardHistory: fileForwardHistory,
-		});
-		setCommandLine((current) => closeCommandLine(current));
-		if (transition.action === "cancel") {
+	const submitPathCommand = useCallback(
+		async (transition: CommandTransition<"submit-path">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			if (transition.action === "cancel") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			await loadFiles(transition.request);
+		},
+		[loadFiles, log],
+	);
+
+	const submitRouteDestinationCommand = useCallback(
+		async (submission: CommandTransition<"submit-route-destination">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			if (submission.kind === "notice") {
+				log(submission.notice.level, submission.notice.message);
+				return;
+			}
+
+			try {
+				const result = await runRoutePath(submission.destination);
+				setRoutePath(result);
+				setScreen("routes");
+				log("ok", `route path ${result.destination}`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[log],
+	);
+
+	const submitRouteFilterCommand = useCallback(
+		(transition: CommandTransition<"submit-route-filter">) => {
+			setRouteFilter(transition.filter);
+			setRouteCopyPreview(transition.copyPreview);
+			setCommandLine((current) => closeCommandLine(current));
 			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		await loadFiles(transition.request);
-	}, [
-		commandLine.value,
-		fileForwardHistory,
-		fileHistory,
-		fileRoot,
-		loadFiles,
-		log,
-	]);
-
-	const submitRouteDestinationCommand = useCallback(async () => {
-		const destination = commandLine.value.trim();
-		if (!destination) {
-			setCommandLine((current) => closeCommandLine(current));
-			log("info", "route path command cancelled");
-			return;
-		}
-
-		try {
-			const result = await runRoutePath(destination);
-			setRoutePath(result);
-			setScreen("routes");
-			log("ok", `route path ${result.destination}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		} finally {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-	}, [commandLine.value, log]);
-
-	const submitRouteFilterCommand = useCallback(() => {
-		const transition = prepareRouteFilterTransition({
-			routes: routeTable?.routes ?? [],
-			presets: routeFilterPresets,
-			query: commandLine.value,
-		});
-		setRouteFilter(transition.filter);
-		setRouteCopyPreview(transition.copyPreview);
-		setCommandLine((current) => closeCommandLine(current));
-		log(transition.notice.level, transition.notice.message);
-	}, [commandLine.value, log, routeFilterPresets, routeTable]);
+		},
+		[log],
+	);
 
 	const runToolPlan = useCallback(
 		async (plan: NonNullable<ReturnType<typeof createToolRunPlan>>) => {
@@ -2471,132 +2280,70 @@ export function App(): React.ReactElement {
 			});
 			setToolHistory((current) => {
 				const next = appendToolHistory(current, { plan, result });
-				setSelectedToolHistoryIndex(Math.max(0, next.length - 1));
+				setSelectedToolHistoryIndex(clampIndex(next.length - 1, next.length));
 				return next;
 			});
 		},
 		[],
 	);
 
-	const submitToolCommand = useCallback(async () => {
-		const actionId = commandLine.prompt.slice(toolPromptPrefix.length);
-		try {
-			const config = await readConfig();
-			const form = createToolFormState(
-				actionId,
-				config.defaultPingHost,
-				summaryRef.current,
-				commandLine.value,
-				commandLine.fieldIndex ?? 0,
-			);
-			const plan =
-				createToolRunPlanFromForm(form) ??
-				createToolRunPlan(
-					actionId,
-					config.defaultPingHost,
-					summaryRef.current,
-					commandLine.value,
-				);
-			if (!plan) {
-				log("warn", `unknown tool action ${actionId}`);
-				return;
+	const submitToolCommand = useCallback(
+		async (submission: CommandTransition<"submit-tool">) => {
+			try {
+				setCommandLine((current) => closeCommandLine(current));
+				if (submission.kind === "notice") {
+					log(submission.notice.level, submission.notice.message);
+					return;
+				}
+
+				await runToolPlan(submission.plan);
+				log("ok", `${submission.plan.label} completed`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
-
-			await runToolPlan(plan);
-			log("ok", `${plan.label} completed`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		} finally {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-	}, [
-		commandLine.fieldIndex,
-		commandLine.prompt,
-		commandLine.value,
-		log,
-		runToolPlan,
-	]);
-
-	const applyToolPromptCommandLineInput = useCallback(
-		(
-			current: CommandLineState,
-			event: { input?: string; backspace?: boolean },
-		): CommandLineState =>
-			applyToolPromptCommandLineInputTransition(
-				current,
-				event,
-				summaryRef.current,
-			),
-		[],
+		},
+		[log, runToolPlan],
 	);
 
-	const submitEditorAppendLineCommand = useCallback(() => {
-		const line = commandLine.value;
-		setCommandLine((current) => closeCommandLine(current));
-		setEditorPreview((current) => {
-			const transition = transitionEditorAppendLine({
-				buffer: current,
-				selectedLineIndex: selectedEditorLineIndex,
-				line,
-			});
+	const submitEditorAppendLineCommand = useCallback(
+		(transition: CommandTransition<"submit-editor-append">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			setEditorPreview(transition.buffer);
 			setSelectedEditorLineIndex(transition.selectedLineIndex);
-			if (transition.clearSaveResult) {
-				setEditorSaveResult(undefined);
-			}
-			if (transition.notice) {
-				if (transition.notice) {
-					log(transition.notice.level, transition.notice.message);
-				}
-			}
-			return transition.buffer;
-		});
-	}, [commandLine.value, log, selectedEditorLineIndex]);
+			if (transition.clearSaveResult) setEditorSaveResult(undefined);
+			if (transition.notice)
+				log(transition.notice.level, transition.notice.message);
+		},
+		[log],
+	);
 
 	const submitEditorInsertLineCommand = useCallback(
-		(position: "before" | "after") => {
-			const line = commandLine.value;
+		(
+			transition:
+				| CommandTransition<"submit-editor-insert-before">
+				| CommandTransition<"submit-editor-insert-after">,
+		) => {
 			setCommandLine((current) => closeCommandLine(current));
-			setEditorPreview((current) => {
-				const transition = transitionEditorInsertLine({
-					buffer: current,
-					selectedLineIndex: selectedEditorLineIndex,
-					line,
-					position,
-				});
-				setSelectedEditorLineIndex(transition.selectedLineIndex);
-				if (transition.clearSaveResult) {
-					setEditorSaveResult(undefined);
-				}
-				if (transition.notice) {
-					log(transition.notice.level, transition.notice.message);
-				}
-				return transition.buffer;
-			});
+			setEditorPreview(transition.buffer);
+			setSelectedEditorLineIndex(transition.selectedLineIndex);
+			if (transition.clearSaveResult) setEditorSaveResult(undefined);
+			if (transition.notice)
+				log(transition.notice.level, transition.notice.message);
 		},
-		[commandLine.value, log, selectedEditorLineIndex],
+		[log],
 	);
 
-	const submitEditorReplaceLineCommand = useCallback(() => {
-		const line = commandLine.value;
-		setCommandLine((current) => closeCommandLine(current));
-		setEditorPreview((current) => {
-			const transition = transitionEditorReplaceLine({
-				buffer: current,
-				selectedLineIndex: selectedEditorLineIndex,
-				line,
-			});
+	const submitEditorReplaceLineCommand = useCallback(
+		(transition: CommandTransition<"submit-editor-replace">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			setEditorPreview(transition.buffer);
 			setSelectedEditorLineIndex(transition.selectedLineIndex);
-			if (transition.clearSaveResult) {
-				setEditorSaveResult(undefined);
-			}
-			if (transition.notice) {
-				if (transition.notice) {
-					log(transition.notice.level, transition.notice.message);
-				}
-			}
-			return transition.buffer;
-		});
-	}, [commandLine.value, log, selectedEditorLineIndex]);
+			if (transition.clearSaveResult) setEditorSaveResult(undefined);
+			if (transition.notice)
+				log(transition.notice.level, transition.notice.message);
+		},
+		[log],
+	);
 
 	const undoEditorEdit = useCallback(() => {
 		setEditorPreview((current) => {
@@ -2609,9 +2356,7 @@ export function App(): React.ReactElement {
 				setEditorSaveResult(undefined);
 			}
 			if (transition.notice) {
-				if (transition.notice) {
-					log(transition.notice.level, transition.notice.message);
-				}
+				log(transition.notice.level, transition.notice.message);
 			}
 			return transition.buffer;
 		});
@@ -2628,428 +2373,304 @@ export function App(): React.ReactElement {
 				setEditorSaveResult(undefined);
 			}
 			if (transition.notice) {
-				if (transition.notice) {
-					log(transition.notice.level, transition.notice.message);
-				}
+				log(transition.notice.level, transition.notice.message);
 			}
 			return transition.buffer;
 		});
 	}, [log, selectedEditorLineIndex]);
 
-	const submitEditorSaveConfirmationCommand = useCallback(async () => {
-		const value = commandLine.value.trim();
-		setCommandLine((current) => closeCommandLine(current));
-		if (!editorPreview) {
-			log("warn", "open a text file before saving");
-			return;
-		}
-		if (value !== "save file") {
-			log("warn", "editor save confirmation rejected");
-			return;
-		}
-		try {
-			const config = await readConfig();
-			syncConfigSessionState(config);
-			const executionProvider = createLocalFileProvider(systemFileRoot, {
-				allowWrites: config.editorSaveMode === "local-write",
-			});
-			const preview = createEditorWritePreview({
-				path: editorPreview.path,
-				originalContent: editorPreview.originalContent,
-				nextContent: editorPreview.content,
-				providerKind: executionProvider.kind,
-			});
-			const plan = createEditorSaveExecutionPlan({
-				preview,
-				confirmed: true,
-				policy: { mode: config.editorSaveMode },
-				nextContent: editorPreview.content,
-			});
-			const result = await runEditorSaveExecutionPlan(plan, executionProvider);
-			setEditorSaveResult(result);
-			log(
-				result.success
-					? "ok"
-					: plan.reason === "no-content-changes"
-						? "info"
-						: "warn",
-				formatEditorSaveExecutionAuditMessage(result.audit),
-			);
-			if (result.success) {
-				setEditorPreview((current) =>
-					current && current.path === editorPreview.path
-						? {
-								...current,
-								originalContent: current.content,
-								editHistory: [],
-							}
-						: current,
-				);
+	const submitEditorSaveConfirmationCommand = useCallback(
+		async (submission: CommandTransition<"submit-editor-save">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			if (submission.kind === "notice") {
+				log(submission.notice.level, submission.notice.message);
+				return;
 			}
-		} catch (caught) {
-			log(
-				"fail",
-				caught instanceof Error
-					? `editor save failed ${caught.message}`
-					: `editor save failed ${String(caught)}`,
-			);
-		}
-	}, [
-		commandLine.value,
-		editorPreview,
-		log,
-		syncConfigSessionState,
-		systemFileRoot,
-	]);
-
-	const submitToolHistoryFilterCommand = useCallback(() => {
-		const query = commandLine.value.trim();
-		const filtered = filterToolHistory(toolHistory, query);
-		setToolHistoryFilter(query);
-		if (query) {
-			setToolHistoryFilterPresets((current) =>
-				saveToolHistoryPreset(current, query),
-			);
-		}
-		setToolCopyPreview(false);
-		setSelectedToolHistoryIndex(filtered[0]?.index ?? 0);
-		setCommandLine((current) => closeCommandLine(current));
-		log(
-			filtered.length ? "info" : "warn",
-			query
-				? `tools filter ${query} matches ${filtered.length}`
-				: "tools filter cleared",
-		);
-	}, [commandLine.value, log, toolHistory]);
-
-	const submitToolHistoryCleanupCommand = useCallback(() => {
-		const confirmation = submitToolHistoryCleanupConfirmation(
-			toolHistoryFilterPresets,
-			commandLine.value,
-		);
-		setCommandLine((current) => closeCommandLine(current));
-		if (!confirmation.confirmed) {
-			log("warn", confirmation.message);
-			return;
-		}
-		setToolHistoryFilterPresets(confirmation.presets);
-		setToolCopyPreview(false);
-		void setConfigToolHistoryPreferences({
-			filterPresets: confirmation.presets,
-		}).catch((caught) =>
-			log(
-				"fail",
-				caught instanceof Error
-					? `tool history filter cleanup failed ${caught.message}`
-					: `tool history filter cleanup failed ${String(caught)}`,
-			),
-		);
-		log("info", confirmation.message);
-	}, [commandLine.value, log, toolHistoryFilterPresets]);
-
-	const submitToolTargetLabelCommand = useCallback(() => {
-		const transition = renameToolTargetPresetTransition({
-			presets: customToolTargetPresets,
-			targetPresets: toolTargetPresets,
-			selectedIndex: selectedToolTargetPresetIndex,
-			value: commandLine.value,
-		});
-		setCommandLine((current) =>
-			applyToolTargetCommandLineIntent(current, transition.commandLine),
-		);
-		setSelectedToolTargetPresetIndex(transition.selectedIndex);
-		log(transition.notice.level, transition.notice.message);
-		if (!transition.changed) {
-			return;
-		}
-		setCustomToolTargetPresets(transition.presets);
-		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
-			log(
-				"fail",
-				caught instanceof Error
-					? `tool target label save failed ${caught.message}`
-					: `tool target label save failed ${String(caught)}`,
-			),
-		);
-		setToolCopyPreview(false);
-	}, [
-		commandLine.value,
-		customToolTargetPresets,
-		log,
-		selectedToolTargetPresetIndex,
-		toolTargetPresets,
-	]);
-
-	const submitToolTargetValueCommand = useCallback(() => {
-		const transition = retargetToolTargetPresetTransition({
-			presets: customToolTargetPresets,
-			targetPresets: toolTargetPresets,
-			selectedIndex: selectedToolTargetPresetIndex,
-			value: commandLine.value,
-		});
-		setCommandLine((current) =>
-			applyToolTargetCommandLineIntent(current, transition.commandLine),
-		);
-		setSelectedToolTargetPresetIndex(transition.selectedIndex);
-		log(transition.notice.level, transition.notice.message);
-		if (!transition.changed) {
-			return;
-		}
-		setCustomToolTargetPresets(transition.presets);
-		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
-			log(
-				"fail",
-				caught instanceof Error
-					? `tool target value save failed ${caught.message}`
-					: `tool target value save failed ${String(caught)}`,
-			),
-		);
-		setToolCopyPreview(false);
-	}, [
-		commandLine.value,
-		customToolTargetPresets,
-		log,
-		selectedToolTargetPresetIndex,
-		toolTargetPresets,
-	]);
-
-	const submitToolTargetActionCommand = useCallback(() => {
-		const transition = reassignToolTargetPresetActionTransition({
-			presets: customToolTargetPresets,
-			targetPresets: toolTargetPresets,
-			selectedIndex: selectedToolTargetPresetIndex,
-			value: commandLine.value,
-		});
-		setCommandLine((current) =>
-			applyToolTargetCommandLineIntent(current, transition.commandLine),
-		);
-		setSelectedToolTargetPresetIndex(transition.selectedIndex);
-		log(transition.notice.level, transition.notice.message);
-		if (!transition.changed) {
-			return;
-		}
-		setCustomToolTargetPresets(transition.presets);
-		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
-			log(
-				"fail",
-				caught instanceof Error
-					? `tool target action save failed ${caught.message}`
-					: `tool target action save failed ${String(caught)}`,
-			),
-		);
-		setToolCopyPreview(false);
-	}, [
-		commandLine.value,
-		customToolTargetPresets,
-		log,
-		selectedToolTargetPresetIndex,
-		toolTargetPresets,
-	]);
-
-	const submitToolTargetCleanupCommand = useCallback(() => {
-		const transition = submitToolTargetCleanupTransition({
-			presets: customToolTargetPresets,
-			targetPresets: toolTargetPresets,
-			selectedIndex: selectedToolTargetPresetIndex,
-			value: commandLine.value,
-		});
-		setCommandLine((current) =>
-			applyToolTargetCommandLineIntent(current, transition.commandLine),
-		);
-		setSelectedToolTargetPresetIndex(transition.selectedIndex);
-		log(transition.notice.level, transition.notice.message);
-		if (!transition.changed) {
-			return;
-		}
-		setCustomToolTargetPresets(transition.presets);
-		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
-			log(
-				"fail",
-				caught instanceof Error
-					? `tool target action cleanup failed ${caught.message}`
-					: `tool target action cleanup failed ${String(caught)}`,
-			),
-		);
-		setToolCopyPreview(false);
-	}, [
-		commandLine.value,
-		customToolTargetPresets,
-		log,
-		selectedToolTargetPresetIndex,
-		toolTargetPresets,
-	]);
-
-	const submitToolTargetPresetCommand = useCallback(() => {
-		const transition = submitToolTargetPresetCommandTransition({
-			presets: customToolTargetPresets,
-			targetPresets: toolTargetPresets,
-			selectedIndex: selectedToolTargetPresetIndex,
-			value: commandLine.value,
-			limit: toolTargetPresetLimit,
-		});
-		setCommandLine((current) =>
-			applyToolTargetCommandLineIntent(current, transition.commandLine),
-		);
-		setSelectedToolTargetPresetIndex(transition.selectedIndex);
-		log(transition.notice.level, transition.notice.message);
-		if (!transition.changed) {
-			return;
-		}
-		setCustomToolTargetPresets(transition.presets);
-		void setConfigToolTargetPresets(transition.presets).catch((caught) =>
-			log(
-				"fail",
-				caught instanceof Error
-					? `tool target preset save failed ${caught.message}`
-					: `tool target preset save failed ${String(caught)}`,
-			),
-		);
-		setToolCopyPreview(false);
-	}, [
-		commandLine.value,
-		customToolTargetPresets,
-		log,
-		selectedToolTargetPresetIndex,
-		toolTargetPresetLimit,
-		toolTargetPresets,
-	]);
-
-	const submitEndpointFilterCommand = useCallback(() => {
-		const kind = commandLine.prompt.slice(
-			endpointFilterPromptPrefix.length,
-		) as EndpointHandoffKind;
-		if (kind === "connections") {
-			const transition = prepareEndpointFilterTransition({
-				kind,
-				rows: connections,
-				presets: connectionFilterPresets,
-				query: commandLine.value,
-			});
-			setConnectionFilter(transition.filter);
-			setConnectionFilterPresets(transition.presets);
-			setConnectionCopyPreview(transition.copyPreview);
-			setSelectedConnectionIndex(transition.selectedIndex);
-			log(transition.notice.level, transition.notice.message);
-		} else if (kind === "ports") {
-			const transition = prepareEndpointFilterTransition({
-				kind,
-				rows: ports,
-				presets: portFilterPresets,
-				query: commandLine.value,
-			});
-			setPortFilter(transition.filter);
-			setPortFilterPresets(transition.presets);
-			setPortCopyPreview(transition.copyPreview);
-			setPortProcessControlPreview(transition.processControlPreview);
-			setSelectedPortIndex(transition.selectedIndex);
-			log(transition.notice.level, transition.notice.message);
-		}
-		setCommandLine((current) => closeCommandLine(current));
-	}, [
-		commandLine.prompt,
-		commandLine.value,
-		connectionFilterPresets,
-		connections,
-		log,
-		portFilterPresets,
-		ports,
-	]);
-
-	const submitRouteFilterCleanupCommand = useCallback(() => {
-		const confirmation = submitRouteFilterCleanupConfirmation(
-			routeFilterPresets,
-			commandLine.value,
-		);
-		setCommandLine((current) => closeCommandLine(current));
-		setRouteCopyPreview(confirmation.copyPreview);
-		log(confirmation.notice.level, confirmation.notice.message);
-		if (confirmation.action === "notice") {
-			return;
-		}
-		setRouteFilterPresets(confirmation.presets);
-		void setConfigRouteFilterPresets(confirmation.presets).catch((caught) =>
-			log(
-				"fail",
-				caught instanceof Error
-					? `route filter cleanup failed ${caught.message}`
-					: `route filter cleanup failed ${String(caught)}`,
-			),
-		);
-	}, [commandLine.value, log, routeFilterPresets]);
-
-	const submitEndpointFilterCleanupCommand = useCallback(() => {
-		const kind = commandLine.prompt.slice(
-			endpointFilterCleanupPromptPrefix.length,
-		) as EndpointHandoffKind;
-		const presets =
-			kind === "connections" ? connectionFilterPresets : portFilterPresets;
-		const confirmation = submitEndpointFilterCleanupConfirmation(
-			kind,
-			presets,
-			commandLine.value,
-			kind === "connections" ? sortedConnections.length : sortedPorts.length,
-		);
-		setCommandLine((current) => closeCommandLine(current));
-		log(confirmation.notice.level, confirmation.notice.message);
-		if (confirmation.action === "notice") {
-			return;
-		}
-		if (kind === "connections") {
-			setConnectionFilterPresets(confirmation.presets);
-			setConnectionCopyPreview(confirmation.copyPreview);
-			setSelectedConnectionIndex(confirmation.selectedIndex);
-		} else {
-			setPortFilterPresets(confirmation.presets);
-			setPortCopyPreview(confirmation.copyPreview);
-			setPortProcessControlPreview(confirmation.processControlPreview);
-			setSelectedPortIndex(confirmation.selectedIndex);
-		}
-		void setConfigEndpointFilterPresets(kind, confirmation.presets).catch(
-			(caught) =>
+			const requestToken = beginRequest(editorSaveTokenRef.current);
+			editorSaveTokenRef.current = requestToken;
+			try {
+				const { plan, provider } = submission.execution;
+				const result = await runEditorSaveExecutionPlan(plan, provider);
+				log(
+					result.success
+						? "ok"
+						: plan.reason === "no-content-changes"
+							? "info"
+							: "warn",
+					formatEditorSaveExecutionAuditMessage(result.audit),
+				);
+				if (isStaleRequest(editorSaveTokenRef.current, requestToken)) return;
+				setEditorSaveResult(result);
+				setEditorPreview(
+					(current) =>
+						classifyEditorSaveBufferPublication({
+							currentRequestToken: editorSaveTokenRef.current,
+							requestToken,
+							current,
+							submitted: submission.editorPreview,
+							success: result.success,
+						}).buffer,
+				);
+			} catch (caught) {
 				log(
 					"fail",
 					caught instanceof Error
-						? `${kind} filter cleanup failed ${caught.message}`
-						: `${kind} filter cleanup failed ${String(caught)}`,
-				),
-		);
-	}, [
-		commandLine.prompt,
-		commandLine.value,
-		connectionFilterPresets,
-		log,
-		portFilterPresets,
-		sortedConnections.length,
-		sortedPorts.length,
-	]);
+						? `editor save failed ${caught.message}`
+						: `editor save failed ${String(caught)}`,
+				);
+			}
+		},
+		[log],
+	);
 
-	const submitPortProcessControlCommand = useCallback(() => {
-		const transition = preparePortProcessControlSubmission({
-			ports: sortedPorts,
-			selectedIndex: selectedPortIndex,
-			input: commandLine.value,
-		});
-		setCommandLine((current) => closeCommandLine(current));
-		setPortProcessControlPreview(transition.processControlPreview);
-		for (const notice of transition.notices) {
-			log(notice.level, notice.message);
-		}
-		if (transition.kind === "confirmation") {
-			const executionPlan = createPortProcessControlExecutionPlan(
-				transition.executionRequest.preview,
-				transition.executionRequest.confirmation,
-				getControlPreviewCommand("process.terminate", currentPlatform()),
-				controlExecutionPolicy,
+	const submitToolHistoryFilterCommand = useCallback(
+		(transition: CommandTransition<"submit-tool-history-filter">) => {
+			setToolHistoryFilter(transition.filter);
+			if (transition.persistPreset) {
+				setToolHistoryFilterPresets((current) =>
+					saveToolHistoryPreset(current, transition.filter),
+				);
+			}
+			setToolCopyPreview(transition.copyPreview);
+			setSelectedToolHistoryIndex(transition.selectedIndex);
+			setCommandLine((current) => closeCommandLine(current));
+			log(transition.notice.level, transition.notice.message);
+		},
+		[log],
+	);
+
+	const submitToolHistoryCleanupCommand = useCallback(
+		(confirmation: CommandTransition<"submit-tool-history-cleanup">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			log(confirmation.notice.level, confirmation.notice.message);
+			if (confirmation.kind === "notice") {
+				return;
+			}
+			setToolHistoryFilterPresets(confirmation.presets);
+			setToolCopyPreview(confirmation.copyPreview);
+			void setConfigToolHistoryPreferences({
+				filterPresets: confirmation.presets,
+			}).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool history filter cleanup failed ${caught.message}`
+						: `tool history filter cleanup failed ${String(caught)}`,
+				),
 			);
-			log("warn", formatControlExecutionAuditMessage(executionPlan));
-		}
-	}, [
-		commandLine.value,
-		controlExecutionPolicy,
-		log,
-		selectedPortIndex,
-		sortedPorts,
-	]);
+		},
+		[log],
+	);
+
+	const submitToolTargetLabelCommand = useCallback(
+		(transition: CommandTransition<"submit-tool-target-label">) => {
+			setCommandLine((current) =>
+				applyToolTargetCommandLineIntent(current, transition.commandLine),
+			);
+			setSelectedToolTargetPresetIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (!transition.changed) {
+				return;
+			}
+			setCustomToolTargetPresets(transition.presets);
+			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target label save failed ${caught.message}`
+						: `tool target label save failed ${String(caught)}`,
+				),
+			);
+			setToolCopyPreview(false);
+		},
+		[log],
+	);
+
+	const submitToolTargetValueCommand = useCallback(
+		(transition: CommandTransition<"submit-tool-target-value">) => {
+			setCommandLine((current) =>
+				applyToolTargetCommandLineIntent(current, transition.commandLine),
+			);
+			setSelectedToolTargetPresetIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (!transition.changed) {
+				return;
+			}
+			setCustomToolTargetPresets(transition.presets);
+			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target value save failed ${caught.message}`
+						: `tool target value save failed ${String(caught)}`,
+				),
+			);
+			setToolCopyPreview(false);
+		},
+		[log],
+	);
+
+	const submitToolTargetActionCommand = useCallback(
+		(transition: CommandTransition<"submit-tool-target-action">) => {
+			setCommandLine((current) =>
+				applyToolTargetCommandLineIntent(current, transition.commandLine),
+			);
+			setSelectedToolTargetPresetIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (!transition.changed) {
+				return;
+			}
+			setCustomToolTargetPresets(transition.presets);
+			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target action save failed ${caught.message}`
+						: `tool target action save failed ${String(caught)}`,
+				),
+			);
+			setToolCopyPreview(false);
+		},
+		[log],
+	);
+
+	const submitToolTargetCleanupCommand = useCallback(
+		(transition: CommandTransition<"submit-tool-target-cleanup">) => {
+			setCommandLine((current) =>
+				applyToolTargetCommandLineIntent(current, transition.commandLine),
+			);
+			setSelectedToolTargetPresetIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (!transition.changed) {
+				return;
+			}
+			setCustomToolTargetPresets(transition.presets);
+			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target action cleanup failed ${caught.message}`
+						: `tool target action cleanup failed ${String(caught)}`,
+				),
+			);
+			setToolCopyPreview(false);
+		},
+		[log],
+	);
+
+	const submitToolTargetPresetCommand = useCallback(
+		(transition: CommandTransition<"submit-tool-target-preset">) => {
+			setCommandLine((current) =>
+				applyToolTargetCommandLineIntent(current, transition.commandLine),
+			);
+			setSelectedToolTargetPresetIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			if (!transition.changed) {
+				return;
+			}
+			setCustomToolTargetPresets(transition.presets);
+			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `tool target preset save failed ${caught.message}`
+						: `tool target preset save failed ${String(caught)}`,
+				),
+			);
+			setToolCopyPreview(false);
+		},
+		[log],
+	);
+
+	const submitEndpointFilterCommand = useCallback(
+		(transition: CommandTransition<"submit-endpoint-filter">) => {
+			if (transition.scope === "connections") {
+				setConnectionFilter(transition.filter);
+				setConnectionFilterPresets(transition.presets);
+				setConnectionCopyPreview(transition.copyPreview);
+				setSelectedConnectionIndex(transition.selectedIndex);
+				log(transition.notice.level, transition.notice.message);
+			} else {
+				setPortFilter(transition.filter);
+				setPortFilterPresets(transition.presets);
+				setPortCopyPreview(transition.copyPreview);
+				setPortProcessControlPreview(transition.processControlPreview);
+				setSelectedPortIndex(transition.selectedIndex);
+				log(transition.notice.level, transition.notice.message);
+			}
+			setCommandLine((current) => closeCommandLine(current));
+		},
+		[log],
+	);
+
+	const submitRouteFilterCleanupCommand = useCallback(
+		(confirmation: CommandTransition<"submit-route-filter-cleanup">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			setRouteCopyPreview(confirmation.copyPreview);
+			log(confirmation.notice.level, confirmation.notice.message);
+			if (confirmation.action === "notice") {
+				return;
+			}
+			setRouteFilterPresets(confirmation.presets);
+			void setConfigRouteFilterPresets(confirmation.presets).catch((caught) =>
+				log(
+					"fail",
+					caught instanceof Error
+						? `route filter cleanup failed ${caught.message}`
+						: `route filter cleanup failed ${String(caught)}`,
+				),
+			);
+		},
+		[log],
+	);
+
+	const submitEndpointFilterCleanupCommand = useCallback(
+		(confirmation: CommandTransition<"submit-endpoint-filter-cleanup">) => {
+			const kind = confirmation.scope;
+			setCommandLine((current) => closeCommandLine(current));
+			log(confirmation.notice.level, confirmation.notice.message);
+			if (confirmation.action === "notice") {
+				return;
+			}
+			if (kind === "connections") {
+				setConnectionFilterPresets(confirmation.presets);
+				setConnectionCopyPreview(confirmation.copyPreview);
+				setSelectedConnectionIndex(confirmation.selectedIndex);
+			} else {
+				setPortFilterPresets(confirmation.presets);
+				setPortCopyPreview(confirmation.copyPreview);
+				setPortProcessControlPreview(confirmation.processControlPreview);
+				setSelectedPortIndex(confirmation.selectedIndex);
+			}
+			void setConfigEndpointFilterPresets(kind, confirmation.presets).catch(
+				(caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `${kind} filter cleanup failed ${caught.message}`
+							: `${kind} filter cleanup failed ${String(caught)}`,
+					),
+			);
+		},
+		[log],
+	);
+
+	const submitPortProcessControlCommand = useCallback(
+		(transition: CommandTransition<"submit-port-process-control">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			setPortProcessControlPreview(transition.processControlPreview);
+			for (const notice of transition.notices) {
+				log(notice.level, notice.message);
+			}
+			if (transition.kind === "confirmation") {
+				log(
+					"warn",
+					formatControlExecutionAuditMessage(transition.executionPlan),
+				);
+			}
+		},
+		[log],
+	);
 
 	const openPalettePortProcessControlPreview = useCallback(() => {
 		const transition = preparePortProcessControlPalettePreview({
@@ -3072,220 +2693,202 @@ export function App(): React.ReactElement {
 		log(transition.notice.level, transition.notice.message);
 	}, [log, recordStatusActivityResult, selectedPortIndex, sortedPorts]);
 
-	const submitTimelineSearchCommand = useCallback(() => {
-		const transition = prepareTimelineSearchTransition({
-			events,
-			filter: timelineFilter,
-			presets: timelineSearchPresets,
-			query: commandLine.value,
-		});
-		setTimelineSearchQuery(transition.query);
-		setTimelineSearchPresets(transition.presets);
-		setSelectedTimelineIndex(transition.selectedIndex);
-		setCommandLine((current) => closeCommandLine(current));
-		log(transition.notice.level, transition.notice.message);
-	}, [commandLine.value, events, log, timelineFilter, timelineSearchPresets]);
+	const submitTimelineSearchCommand = useCallback(
+		(transition: CommandTransition<"submit-timeline-search">) => {
+			setTimelineSearchQuery(transition.query);
+			setTimelineSearchPresets(transition.presets);
+			setSelectedTimelineIndex(transition.selectedIndex);
+			setCommandLine((current) => closeCommandLine(current));
+			log(transition.notice.level, transition.notice.message);
+		},
+		[log],
+	);
 
-	const submitTimelineSearchCleanupCommand = useCallback(() => {
-		const confirmation = submitTimelineSearchCleanupConfirmation(
-			timelineSearchPresets,
-			commandLine.value,
-		);
-		setCommandLine((current) => closeCommandLine(current));
-		log(confirmation.notice.level, confirmation.notice.message);
-		if (confirmation.action === "notice") {
-			return;
-		}
-		setTimelineSearchPresets(confirmation.presets);
-	}, [commandLine.value, log, timelineSearchPresets]);
-
-	const submitLogSearchCommand = useCallback(() => {
-		const transition = prepareLogSearchTransition({
-			entries: osLogs?.entries ?? [],
-			level: logLevelFilter,
-			presets: logSearchPresets,
-			query: commandLine.value,
-		});
-		setLogSearchQuery(transition.query);
-		setLogSearchPresets(transition.presets);
-		if (transition.query) {
-			void setConfigLogSearchPresets(transition.presets).catch((caught) =>
-				log(
-					"fail",
-					caught instanceof Error
-						? `logs preset save failed ${caught.message}`
-						: `logs preset save failed ${String(caught)}`,
-				),
-			);
-		}
-		setCommandLine((current) => closeCommandLine(current));
-		log(transition.notice.level, transition.notice.message);
-	}, [commandLine.value, log, logLevelFilter, logSearchPresets, osLogs]);
-
-	const submitLogsCleanupCommand = useCallback(() => {
-		const confirmation = submitLogCleanupConfirmation(
-			logSearchPresets,
-			logProfiles,
-			commandLine.value,
-		);
-		setCommandLine((current) => closeCommandLine(current));
-		log(confirmation.notice.level, confirmation.notice.message);
-		if (confirmation.action === "notice") {
-			return;
-		}
-		setLogSearchPresets(confirmation.presets);
-		setLogProfiles(confirmation.profiles);
-		void (async () => {
-			try {
-				await setConfigLogSearchPresets(confirmation.presets);
-				await setConfigLogProfiles(confirmation.profiles);
-			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `logs cleanup save failed ${caught.message}`
-						: `logs cleanup save failed ${String(caught)}`,
-				);
-			}
-		})();
-	}, [commandLine.value, log, logProfiles, logSearchPresets]);
-
-	const submitControlConfirmationCommand = useCallback(() => {
-		const requestToken = beginRequest(actionControlSequenceRef.current);
-		actionControlSequenceRef.current = requestToken;
-		const transition = submitControlConfirmationTransition({
-			previewPlan: actionPreviewPlan,
-			platform: currentPlatform(),
-			updateCheckResult,
-			input: commandLine.value,
-		});
-		setCommandLine((current) => closeCommandLine(current));
-		if (transition.kind === "confirmation") {
-			setActionConfirmation(transition.confirmation);
-			setActionSimulation(transition.simulation);
-			setActionExecutionPlan(transition.executionPlan);
-		}
-		for (const notice of transition.notices) {
-			log(notice.level, notice.message);
-		}
-	}, [actionPreviewPlan, commandLine.value, log, updateCheckResult]);
-
-	const runControlExecutionAttempt = useCallback(async () => {
-		const requestToken = beginRequest(actionControlSequenceRef.current);
-		actionControlSequenceRef.current = requestToken;
-		const start = prepareControlExecutionStart({
-			previewPlan: actionPreviewPlan,
-			platform: currentPlatform(),
-			updateCheckResult,
-		});
-		if (start.kind === "blocked") {
-			log(start.notice.level, start.notice.message);
-			return;
-		}
-		try {
-			const config = await readConfig();
-			const policy = getControlExecutionPolicyFromConfig(config);
-			const transition = prepareControlExecutionTransition({
-				previewPlan: actionPreviewPlan,
-				confirmation: actionConfirmation,
-				platform: currentPlatform(),
-				updateCheckResult,
-				policy,
-				requestToken,
-				currentToken: actionControlSequenceRef.current,
-			});
-			if (transition.kind === "stale") {
+	const submitTimelineSearchCleanupCommand = useCallback(
+		(confirmation: CommandTransition<"submit-timeline-search-cleanup">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			log(confirmation.notice.level, confirmation.notice.message);
+			if (confirmation.action === "notice") {
 				return;
 			}
-			setControlExecutionPolicy(policy);
-			if (transition.executionPlan) {
+			setTimelineSearchPresets(confirmation.presets);
+		},
+		[log],
+	);
+
+	const submitLogSearchCommand = useCallback(
+		(transition: CommandTransition<"submit-log-search">) => {
+			setLogSearchQuery(transition.query);
+			setLogSearchPresets(transition.presets);
+			if (transition.query) {
+				void setConfigLogSearchPresets(transition.presets).catch((caught) =>
+					log(
+						"fail",
+						caught instanceof Error
+							? `logs preset save failed ${caught.message}`
+							: `logs preset save failed ${String(caught)}`,
+					),
+				);
+			}
+			setCommandLine((current) => closeCommandLine(current));
+			log(transition.notice.level, transition.notice.message);
+		},
+		[log],
+	);
+
+	const submitLogsCleanupCommand = useCallback(
+		(confirmation: CommandTransition<"submit-logs-cleanup">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			log(confirmation.notice.level, confirmation.notice.message);
+			if (confirmation.action === "notice") {
+				return;
+			}
+			setLogSearchPresets(confirmation.presets);
+			setLogProfiles(confirmation.profiles);
+			void (async () => {
+				try {
+					await setConfigLogSearchPresets(confirmation.presets);
+					await setConfigLogProfiles(confirmation.profiles);
+				} catch (caught) {
+					log(
+						"fail",
+						caught instanceof Error
+							? `logs cleanup save failed ${caught.message}`
+							: `logs cleanup save failed ${String(caught)}`,
+					);
+				}
+			})();
+		},
+		[log],
+	);
+
+	const submitControlConfirmationCommand = useCallback(
+		(transition: CommandTransition<"submit-control-confirmation">) => {
+			const requestToken = beginRequest(actionControlSequenceRef.current);
+			actionControlSequenceRef.current = requestToken;
+			setCommandLine((current) => closeCommandLine(current));
+			if (transition.kind === "confirmation") {
+				setActionConfirmation(transition.confirmation);
+				setActionSimulation(transition.simulation);
 				setActionExecutionPlan(transition.executionPlan);
 			}
-			if (transition.kind === "blocked") {
+			for (const notice of transition.notices) {
+				log(notice.level, notice.message);
+			}
+		},
+		[log],
+	);
+
+	const runControlExecutionAttempt = useCallback(
+		async (request: GlobalControlExecutionRequest) => {
+			const requestToken = beginRequest(actionControlSequenceRef.current);
+			actionControlSequenceRef.current = requestToken;
+			const { start } = request;
+			if (start.kind === "blocked") {
+				log(start.notice.level, start.notice.message);
+				return;
+			}
+			try {
+				const config = await readConfig();
+				const policy = getControlExecutionPolicyFromConfig(config);
+				const transition = prepareControlExecutionTransition({
+					previewPlan: request.previewPlan,
+					confirmation: request.confirmation,
+					platform: request.platform,
+					updateCheckResult: request.updateCheckResult,
+					policy,
+					requestToken,
+					currentToken: actionControlSequenceRef.current,
+				});
+				if (transition.kind === "stale") {
+					return;
+				}
+				setControlExecutionPolicy(policy);
+				if (transition.executionPlan) {
+					setActionExecutionPlan(transition.executionPlan);
+				}
+				if (transition.kind === "blocked") {
+					log(transition.notice.level, transition.notice.message);
+					return;
+				}
+
+				const result = await runControlExecutionPlan(transition.executionPlan);
+				const publication = classifyControlExecutionResult({
+					result,
+					requestToken,
+					currentToken: actionControlSequenceRef.current,
+				});
+				log(publication.historyNotice.level, publication.historyNotice.message);
+				for (const notice of publication.currentNotices) {
+					log(notice.level, notice.message);
+				}
+			} catch (caught) {
+				const publication = classifyControlExecutionFailure({
+					actionId: start.actionId,
+					error: caught,
+					requestToken,
+					currentToken: actionControlSequenceRef.current,
+				});
+				log(publication.historyNotice.level, publication.historyNotice.message);
+			}
+		},
+		[log],
+	);
+
+	const submitClipboardCommand = useCallback(
+		async (transition: CommandTransition<"submit-clipboard">) => {
+			if (transition.kind === "notice") {
+				setClipboardConfirmation(transition.state);
+				setCommandLine((current) => closeCommandLine(current));
 				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-
-			const result = await runControlExecutionPlan(transition.executionPlan);
-			const publication = classifyControlExecutionResult({
-				result,
-				requestToken,
-				currentToken: actionControlSequenceRef.current,
-			});
-			log(publication.historyNotice.level, publication.historyNotice.message);
-			for (const notice of publication.currentNotices) {
-				log(notice.level, notice.message);
+			try {
+				const outcome = await submitClipboardWritePlan(transition.plan);
+				setClipboardConfirmation(outcome.state);
+				setCommandLine((current) => closeCommandLine(current));
+				log(outcome.event.level, outcome.event.message);
+				if (outcome.result.success) {
+					setConnectionCopyPreview(false);
+					setPortCopyPreview(false);
+					setProcessClipboardPreview(false);
+					setRouteCopyPreview(false);
+					setInterfaceSourceCopyPreview(false);
+					setToolCopyPreview(false);
+				}
+			} catch (caught) {
+				setCommandLine((current) => closeCommandLine(current));
+				setClipboardConfirmation(clearClipboardConfirmationState());
+				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
-		} catch (caught) {
-			const publication = classifyControlExecutionFailure({
-				actionId: start.actionId,
-				error: caught,
-				requestToken,
-				currentToken: actionControlSequenceRef.current,
-			});
-			log(publication.historyNotice.level, publication.historyNotice.message);
-		}
-	}, [actionConfirmation, actionPreviewPlan, log, updateCheckResult]);
+		},
+		[log],
+	);
 
-	const submitClipboardCommand = useCallback(async () => {
-		try {
-			const outcome = await submitClipboardConfirmation(clipboardConfirmation, {
-				platform: currentPlatform(),
-			});
-			setClipboardConfirmation(outcome.state);
-			setCommandLine((current) => closeCommandLine(current));
-			log(outcome.event.level, outcome.event.message);
-			if (outcome.result.success) {
-				setConnectionCopyPreview(false);
-				setPortCopyPreview(false);
-				setProcessClipboardPreview(false);
-				setRouteCopyPreview(false);
-				setInterfaceSourceCopyPreview(false);
-				setToolCopyPreview(false);
+	const goBackFileHistory = useCallback(
+		async (transition: ReturnType<typeof prepareFileHistoryNavigation>) => {
+			if (transition.action === "none") {
+				log(transition.notice.level, transition.notice.message);
+				return;
 			}
-		} catch (caught) {
-			setCommandLine((current) => closeCommandLine(current));
-			setClipboardConfirmation(clearClipboardConfirmationState());
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [clipboardConfirmation, log]);
+			await loadFiles(transition.request);
+		},
+		[loadFiles, log],
+	);
 
-	const goBackFileHistory = useCallback(async () => {
-		const transition = prepareFileHistoryNavigation({
-			direction: "back",
-			root: fileRoot,
-			backHistory: fileHistory,
-			forwardHistory: fileForwardHistory,
-		});
-		if (transition.action === "none") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		await loadFiles(transition.request);
-	}, [fileForwardHistory, fileHistory, fileRoot, loadFiles, log]);
-
-	const goForwardFileHistory = useCallback(async () => {
-		const transition = prepareFileHistoryNavigation({
-			direction: "forward",
-			root: fileRoot,
-			backHistory: fileHistory,
-			forwardHistory: fileForwardHistory,
-		});
-		if (transition.action === "none") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		await loadFiles(transition.request);
-	}, [fileForwardHistory, fileHistory, fileRoot, loadFiles, log]);
+	const goForwardFileHistory = useCallback(
+		async (transition: ReturnType<typeof prepareFileHistoryNavigation>) => {
+			if (transition.action === "none") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			await loadFiles(transition.request);
+		},
+		[loadFiles, log],
+	);
 
 	const openSelectedFileOperation = useCallback(
-		(kind: FileOperationKind) => {
-			const transition = prepareSelectedFileOperationOpen({
-				kind,
-				entries: displayedFileEntries,
-				selectedIndex: selectedFileIndex,
-				providerKind: fileProvider.kind,
-			});
+		(transition: FileOperationDialogTransition) => {
 			setFileOperationDialog(transition.dialog);
 			setCommandLine((current) =>
 				applyFileOperationCommandLineTransition(
@@ -3297,180 +2900,139 @@ export function App(): React.ReactElement {
 				log(transition.notice.level, transition.notice.message);
 			}
 		},
-		[displayedFileEntries, fileProvider.kind, log, selectedFileIndex],
+		[log],
 	);
 
-	const submitFileOperationDestinationCommand = useCallback(() => {
-		const transition = prepareFileOperationDestination(
-			fileOperationDialog,
-			commandLine.value,
-		);
-		setFileOperationDialog(transition.dialog);
-		setCommandLine((current) =>
-			applyFileOperationCommandLineTransition(current, transition.commandLine),
-		);
-		if (transition.notice) {
-			log(transition.notice.level, transition.notice.message);
-		}
-	}, [commandLine.value, fileOperationDialog, log]);
-
-	const submitFileOperationConfirmCommand = useCallback(async () => {
-		const transition = prepareFileOperationConfirmation({
-			dialog: fileOperationDialog,
-			providerKind: fileProvider.kind,
-			confirmation: commandLine.value,
-			policy: { mode: editorSaveMode },
-		});
-		setFileOperationDialog(transition.dialog);
-		setCommandLine((current) =>
-			applyFileOperationCommandLineTransition(current, transition.commandLine),
-		);
-		if (transition.notice) {
-			log(transition.notice.level, transition.notice.message);
-		}
-		const plan = transition.plan;
-		if (!plan) {
-			return;
-		}
-
-		const token = beginRequest(fileOperationTokenRef.current);
-		fileOperationTokenRef.current = token;
-		const result = await runFileOperationExecutionPlan(plan, fileProvider);
-		if (isStaleRequest(fileOperationTokenRef.current, token)) {
-			return;
-		}
-		log(
-			result.success ? "ok" : "fail",
-			`file operation ${plan.kind} status=${result.audit.status} path=${plan.path}`,
-		);
-		if (result.error) {
-			log("warn", result.error);
-		}
-		if (result.success) {
-			await refreshFiles();
-		}
-	}, [
-		commandLine.value,
-		editorSaveMode,
-		fileOperationDialog,
-		fileProvider,
-		log,
-		refreshFiles,
-	]);
-
-	const openClipboardConfirmation = useCallback(
-		(preview: ClipboardConfirmationState["preview"]) => {
-			if (!preview) {
-				log("warn", "no clipboard value selected");
-				return;
+	const submitFileOperationDestinationCommand = useCallback(
+		(transition: CommandTransition<"submit-file-operation-destination">) => {
+			setFileOperationDialog(transition.dialog);
+			setCommandLine((current) =>
+				applyFileOperationCommandLineTransition(
+					current,
+					transition.commandLine,
+				),
+			);
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
 			}
-			setClipboardConfirmation(createClipboardConfirmationState(preview));
-			setCommandLine(openCommandLine("clipboard"));
-			log("info", `clipboard confirmation opened for ${preview.label}`);
 		},
 		[log],
 	);
 
-	const openSelectedUpdateHandoffClipboard = useCallback(() => {
-		const handoff = updateCheckResult
-			? createUpdateReleaseHandoff(updateCheckResult)
-			: undefined;
-		if (!handoff) {
-			log("warn", "no update handoff link selected");
-			return;
-		}
-		const link = getSelectedUpdateReleaseHandoffLink(
-			handoff,
-			selectedUpdateHandoffIndex,
-		);
-		openClipboardConfirmation(
-			createClipboardPreview({
-				source: "update-handoff",
-				label: link.label,
-				copyText: link.url,
-			}),
-		);
-	}, [
-		log,
-		openClipboardConfirmation,
-		selectedUpdateHandoffIndex,
-		updateCheckResult,
-	]);
+	const submitFileOperationConfirmCommand = useCallback(
+		async (
+			transition: CommandTransition<"submit-file-operation-confirmation">,
+		) => {
+			setFileOperationDialog(transition.dialog);
+			setCommandLine((current) =>
+				applyFileOperationCommandLineTransition(
+					current,
+					transition.commandLine,
+				),
+			);
+			if (transition.notice) {
+				log(transition.notice.level, transition.notice.message);
+			}
+			if (!transition.execution) {
+				return;
+			}
+			const { plan, provider } = transition.execution;
 
-	const openSelectedUpdateHandoffExternal = useCallback(() => {
-		const handoff = updateCheckResult
-			? createUpdateReleaseHandoff(updateCheckResult)
-			: undefined;
-		if (!handoff) {
-			log("warn", "no update handoff link selected");
-			return;
-		}
-		const link = getSelectedUpdateReleaseHandoffLink(
-			handoff,
-			selectedUpdateHandoffIndex,
-		);
-		const plan = buildExternalOpenPlan({
-			source: "update-handoff",
-			label: link.label,
-			url: link.url,
-			platform: currentPlatform(),
-		});
-		setExternalOpenPlan(plan);
-		setCommandLine(openCommandLine("external-open"));
-		log("info", `external open confirmation opened for ${link.label}`);
-	}, [log, selectedUpdateHandoffIndex, updateCheckResult]);
+			const token = beginRequest(fileOperationTokenRef.current);
+			fileOperationTokenRef.current = token;
+			const result = await runFileOperationExecutionPlan(plan, provider);
+			if (isStaleRequest(fileOperationTokenRef.current, token)) {
+				return;
+			}
+			log(
+				result.success ? "ok" : "fail",
+				`file operation ${plan.kind} status=${result.audit.status} path=${plan.path}`,
+			);
+			if (result.error) {
+				log("warn", result.error);
+			}
+			if (result.success) {
+				await refreshFiles();
+			}
+		},
+		[log, refreshFiles],
+	);
 
-	const submitExternalOpenCommand = useCallback(async () => {
-		if (!externalOpenPlan) {
+	const openClipboardConfirmation = useCallback(
+		(preview: ClipboardConfirmationState["preview"]) => {
+			const transition = prepareClipboardConfirmationOpen(preview);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			setClipboardConfirmation(transition.state);
+			setCommandLine(openCommandLine(transition.prompt));
+			log(transition.notice.level, transition.notice.message);
+		},
+		[log],
+	);
+
+	const openSelectedUpdateHandoffClipboard = useCallback(
+		(preview: ClipboardConfirmationState["preview"]) => {
+			openClipboardConfirmation(preview);
+		},
+		[openClipboardConfirmation],
+	);
+
+	const openSelectedUpdateHandoffExternal = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "external-open-confirmation" }
+			>,
+		) => {
+			setExternalOpenPlan(effect.plan);
+			setCommandLine(openCommandLine(effect.prompt));
+		},
+		[],
+	);
+
+	const submitExternalOpenCommand = useCallback(
+		async (transition: CommandTransition<"submit-external-open">) => {
 			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "external open missing preview");
-			return;
-		}
-		const plan = buildExternalOpenPlan({
-			source: externalOpenPlan.source,
-			label: externalOpenPlan.label,
-			url: externalOpenPlan.url,
-			platform: currentPlatform(),
-			confirmation: commandLine.value,
-		});
-		setExternalOpenPlan(plan);
-		setCommandLine((current) => closeCommandLine(current));
-		const result = await runExternalOpenPlan(plan);
-		log(
-			result.success ? "ok" : "fail",
-			`external open ${plan.label} confirmed=${plan.confirmed} adapter=${plan.adapter.command}`,
-		);
-		if (result.error) {
-			log("warn", result.error);
-		}
-	}, [commandLine.value, externalOpenPlan, log]);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			const plan = transition.plan;
+			setExternalOpenPlan(plan);
+			const result = await runExternalOpenPlan(plan);
+			log(
+				result.success ? "ok" : "fail",
+				`external open ${plan.label} confirmed=${plan.confirmed} adapter=${plan.adapter.command}`,
+			);
+			if (result.error) {
+				log("warn", result.error);
+			}
+		},
+		[log],
+	);
 
-	const submitFileOpenCommand = useCallback(async () => {
-		if (!fileOpenPlan) {
+	const submitFileOpenCommand = useCallback(
+		async (transition: CommandTransition<"submit-file-open">) => {
 			setCommandLine((current) => closeCommandLine(current));
-			log("warn", "file open missing preview");
-			return;
-		}
-		const plan = buildFileOpenPlan({
-			baseDir: dirname(getConfigPath()),
-			source: fileOpenPlan.source,
-			label: fileOpenPlan.label,
-			origin: fileOpenPlan.origin,
-			path: fileOpenPlan.path,
-			platform: currentPlatform(),
-			confirmation: commandLine.value,
-		});
-		setFileOpenPlan(plan);
-		setCommandLine((current) => closeCommandLine(current));
-		const result = await runFileOpenPlan(plan);
-		log(
-			result.success ? "ok" : "fail",
-			`file open ${plan.label} confirmed=${plan.confirmed} adapter=${plan.adapter.command}`,
-		);
-		if (result.error) {
-			log("warn", result.error);
-		}
-	}, [commandLine.value, fileOpenPlan, log]);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			const plan = transition.plan;
+			setFileOpenPlan(plan);
+			const result = await runFileOpenPlan(plan);
+			log(
+				result.success ? "ok" : "fail",
+				`file open ${plan.label} confirmed=${plan.confirmed} adapter=${plan.adapter.command}`,
+			);
+			if (result.error) {
+				log("warn", result.error);
+			}
+		},
+		[log],
+	);
 
 	const refreshHandoffIndex = useCallback(
 		async (announce = true) => {
@@ -3656,123 +3218,64 @@ export function App(): React.ReactElement {
 		[log],
 	);
 
-	const openSelectedHandoffFile = useCallback(() => {
-		const transition = prepareStatusEvidenceOpenTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "handoff",
-			baseDir: handoffIndex.baseDir,
-			platform: currentPlatform(),
-			fallbackOrigin: createActiveFileOpenOrigin(configShelfLandingTarget),
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (transition.kind === "notice") {
-			return;
-		}
-		setSelectedHandoffIndex(transition.selectedIndex);
-		setFileOpenPlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCommandLine(openCommandLine("file-open"));
-		setScreen("status");
-	}, [
-		configShelfLandingTarget,
-		handoffIndex.baseDir,
-		log,
-		statusEvidenceIndexes,
-		statusEvidenceSelection,
-	]);
+	const openSelectedHandoffFile = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "open-file-confirmation" }
+			>,
+		) => {
+			setFileOpenPlan(effect.plan);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
-	const openSelectedAuditExportFile = useCallback(() => {
-		const transition = prepareStatusEvidenceOpenTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "audit",
-			baseDir: auditExportIndex.baseDir,
-			platform: currentPlatform(),
-			fallbackOrigin: createActiveFileOpenOrigin(configShelfLandingTarget),
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (transition.kind === "notice") {
-			return;
-		}
-		setSelectedAuditExportIndex(transition.selectedIndex);
-		setFileOpenPlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("file-open"));
-		setScreen("status");
-	}, [
-		auditExportIndex.baseDir,
-		configShelfLandingTarget,
-		log,
-		statusEvidenceIndexes,
-		statusEvidenceSelection,
-	]);
+	const openSelectedAuditExportFile = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "open-file-confirmation" }
+			>,
+		) => {
+			setFileOpenPlan(effect.plan);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
-	const openSelectedAuditExportArchiveFile = useCallback(() => {
-		const transition = prepareStatusEvidenceOpenTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "audit-archive",
-			baseDir: auditExportArchiveIndex.baseDir,
-			platform: currentPlatform(),
-			fallbackOrigin: createActiveFileOpenOrigin(configShelfLandingTarget),
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (transition.kind === "notice") {
-			return;
-		}
-		setSelectedAuditExportArchiveIndex(transition.selectedIndex);
-		setFileOpenPlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("file-open"));
-		setScreen("status");
-	}, [
-		auditExportArchiveIndex.baseDir,
-		configShelfLandingTarget,
-		log,
-		statusEvidenceIndexes,
-		statusEvidenceSelection,
-	]);
+	const openSelectedAuditExportArchiveFile = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "open-file-confirmation" }
+			>,
+		) => {
+			setFileOpenPlan(effect.plan);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
-	const openAuditArchiveRetentionPreview = useCallback(() => {
-		const transition = prepareStatusEvidenceActionTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "audit-archive",
-			intent: "retention",
-			baseDir: auditExportArchiveIndex.baseDir,
-			retentionLimit: auditArchiveRetentionLimit,
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (
-			transition.kind !== "confirmation" ||
-			transition.plan.confirmationPhrase !== "prune audit archive"
-		) {
-			return;
-		}
-		setAuditArchiveRetentionScope("all");
-		setAuditArchiveRetentionPlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setFileOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("audit-archive-retention"));
-		setScreen("status");
-	}, [
-		auditArchiveRetentionLimit,
-		auditExportArchiveIndex.baseDir,
-		log,
-		statusEvidenceIndexes,
-		statusEvidenceSelection,
-	]);
+	const openAuditArchiveRetentionPreview = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "plan-confirmation" }
+			>,
+		) => {
+			setAuditArchiveRetentionScope("all");
+			setAuditArchiveRetentionPlan(
+				effect.plan as ConsoleAuditArchiveRetentionPlan,
+			);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
 	const openInterfaceAuditArchiveRetentionPreview = useCallback(() => {
 		const transition = prepareStatusEvidenceActionTransition({
@@ -3810,35 +3313,22 @@ export function App(): React.ReactElement {
 		statusEvidenceSelection,
 	]);
 
-	const openSelectedAuditExportArchive = useCallback(() => {
-		const transition = prepareStatusEvidenceActionTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "audit",
-			intent: "archive",
-			baseDir: auditExportIndex.baseDir,
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (
-			transition.kind !== "confirmation" ||
-			transition.plan.confirmationPhrase !== "archive audit export"
-		) {
-			return;
-		}
-		setSelectedAuditExportIndex(transition.selectedIndex);
-		setAuditExportArchivePlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setFileOpenPlan(undefined);
-		setAuditArchiveRetentionPlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("audit-export-archive"));
-		setScreen("status");
-	}, [
-		auditExportIndex.baseDir,
-		log,
-		statusEvidenceIndexes,
-		statusEvidenceSelection,
-	]);
+	const openSelectedAuditExportArchive = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "plan-confirmation" }
+			>,
+		) => {
+			setAuditExportArchivePlan(effect.plan as ConsoleAuditExportArchivePlan);
+			setAuditExportArchiveScope(
+				effect.scope === "interface" ? "interface" : "all",
+			);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
 	const openSelectedInterfaceEvidenceArchive = useCallback(() => {
 		const transition = prepareStatusEvidenceActionTransition({
@@ -3857,6 +3347,7 @@ export function App(): React.ReactElement {
 		}
 		setSelectedInterfaceConfirmationAuditExportIndex(transition.selectedIndex);
 		setAuditExportArchivePlan(transition.plan);
+		setAuditExportArchiveScope("interface");
 		setExternalOpenPlan(undefined);
 		setFileOpenPlan(undefined);
 		setAuditArchiveRetentionPlan(undefined);
@@ -3871,79 +3362,47 @@ export function App(): React.ReactElement {
 		statusEvidenceSelection,
 	]);
 
-	const openSelectedCleanupExportFile = useCallback(() => {
-		const transition = prepareStatusEvidenceOpenTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "cleanup",
-			baseDir: cleanupExportIndex.baseDir,
-			platform: currentPlatform(),
-			fallbackOrigin: createActiveFileOpenOrigin(configShelfLandingTarget),
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (transition.kind === "notice") {
-			return;
-		}
-		setSelectedCleanupExportIndex(transition.selectedIndex);
-		setFileOpenPlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("file-open"));
-		setScreen("status");
-	}, [
-		cleanupExportIndex.baseDir,
-		configShelfLandingTarget,
-		log,
-		statusEvidenceIndexes,
-		statusEvidenceSelection,
-	]);
+	const openSelectedCleanupExportFile = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "open-file-confirmation" }
+			>,
+		) => {
+			setFileOpenPlan(effect.plan);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
-	const openSelectedToolExportFile = useCallback(() => {
-		const transition = prepareStatusEvidenceOpenTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "tools",
-			baseDir: dirname(getConfigPath()),
-			platform: currentPlatform(),
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (transition.kind === "notice") {
-			return;
-		}
-		setSelectedToolExportIndex(transition.selectedIndex);
-		setFileOpenPlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setToolExportArchivePlan(undefined);
-		setToolArchiveRetentionPlan(undefined);
-		setCommandLine(openCommandLine("file-open"));
-		setScreen("status");
-	}, [log, statusEvidenceIndexes, statusEvidenceSelection]);
+	const openSelectedToolExportFile = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "open-file-confirmation" }
+			>,
+		) => {
+			setFileOpenPlan(effect.plan);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
-	const openSelectedToolExportArchiveFile = useCallback(() => {
-		const transition = prepareStatusEvidenceOpenTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "tools-archive",
-			baseDir: dirname(getConfigPath()),
-			platform: currentPlatform(),
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (transition.kind === "notice") {
-			return;
-		}
-		setSelectedToolExportArchiveIndex(transition.selectedIndex);
-		setFileOpenPlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setCleanupExportArchivePlan(undefined);
-		setToolExportArchivePlan(undefined);
-		setToolArchiveRetentionPlan(undefined);
-		setCommandLine(openCommandLine("file-open"));
-		setScreen("status");
-	}, [log, statusEvidenceIndexes, statusEvidenceSelection]);
+	const openSelectedToolExportArchiveFile = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "open-file-confirmation" }
+			>,
+		) => {
+			setFileOpenPlan(effect.plan);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
 	const openSelectedStatusActivityToolsEvidenceSearchMatchFile =
 		useCallback(() => {
@@ -4133,150 +3592,87 @@ export function App(): React.ReactElement {
 
 	const cycleToolEvidenceFilter = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const target =
-				selectedStatusEvidenceKind === "tools-archive" ? "archive" : "active";
-			if (target === "archive") {
-				setToolExportArchiveFilter((current) => {
-					const next = nextToolHistoryEvidenceFilter(current);
-					setSelectedToolExportArchiveIndex(0);
-					setSelectedStatusEvidenceKind("tools-archive");
-					log(
-						"info",
-						`tools archive evidence filter ${next}${options.origin === "palette" ? " via palette" : ""}`,
-					);
-					return next;
-				});
-				return;
-			}
-			setToolExportFilter((current) => {
-				const next = nextToolHistoryEvidenceFilter(current);
-				setSelectedToolExportIndex(0);
-				setSelectedStatusEvidenceKind("tools");
-				log(
-					"info",
-					`tools evidence filter ${next}${options.origin === "palette" ? " via palette" : ""}`,
-				);
-				return next;
+			const transition = prepareToolEvidenceFilterCycle({
+				origin: options.origin,
+				selectedKind:
+					selectedStatusEvidenceKind === "tools-archive"
+						? "tools-archive"
+						: "tools",
+				filter:
+					selectedStatusEvidenceKind === "tools-archive"
+						? toolExportArchiveFilter
+						: toolExportFilter,
 			});
+			if (transition.target === "archive") {
+				setToolExportArchiveFilter(transition.filter);
+				setSelectedToolExportArchiveIndex(transition.selectedIndex);
+			} else {
+				setToolExportFilter(transition.filter);
+				setSelectedToolExportIndex(transition.selectedIndex);
+			}
+			setSelectedStatusEvidenceKind(transition.selectedKind);
+			log(transition.notice.level, transition.notice.message);
 		},
-		[log, selectedStatusEvidenceKind],
+		[
+			log,
+			selectedStatusEvidenceKind,
+			toolExportArchiveFilter,
+			toolExportFilter,
+		],
 	);
 
 	const openToolEvidenceSearchPrompt = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const target =
-				selectedStatusEvidenceKind === "tools-archive" ? "archive" : "active";
-			setCommandLine(openCommandLine("tools-evidence-search"));
-			setScreen("status");
-			setFocusArea("workspaces");
-			log(
-				"info",
-				`tools ${target} evidence search prompt opened${options.origin === "palette" ? " via palette" : ""}`,
+			const transition = prepareToolEvidenceSearchPrompt(
+				selectedStatusEvidenceKind === "tools-archive"
+					? "tools-archive"
+					: "tools",
+				options.origin,
 			);
+			setToolEvidenceSearchScope(transition.selectedKind);
+			setCommandLine(openCommandLine(transition.prompt));
+			setScreen(transition.screen);
+			setFocusArea(transition.focusArea);
+			log(transition.notice.level, transition.notice.message);
 		},
 		[log, selectedStatusEvidenceKind],
 	);
 
-	const submitToolEvidenceSearchCommand = useCallback(() => {
-		const query = normalizeToolHistoryEvidenceQuery(commandLine.value);
-		const target =
-			selectedStatusEvidenceKind === "tools-archive" ? "archive" : "active";
-		const resultOptions =
-			target === "archive"
-				? {
-						query,
-						target: "archive" as const,
-						total: toolExportArchiveIndex.items.length,
-						visible: filterToolHistoryExportIndex(
-							toolExportArchiveIndex,
-							toolExportArchiveFilter,
-							query,
-						).items.length,
-					}
-				: {
-						query,
-						target: "active" as const,
-						total: toolExportIndex.items.length,
-						visible: filterToolHistoryExportIndex(
-							toolExportIndex,
-							toolExportFilter,
-							query,
-						).items.length,
-					};
-		if (target === "archive") {
-			setToolExportArchiveQuery(query);
-			setSelectedToolExportArchiveIndex(0);
-			setSelectedStatusEvidenceKind("tools-archive");
-		} else {
-			setToolExportQuery(query);
-			setSelectedToolExportIndex(0);
-			setSelectedStatusEvidenceKind("tools");
-		}
-		setCommandLine((current) => closeCommandLine(current));
-		log(
-			"info",
-			`tools ${target} evidence search ${query ? `query=${query}` : "cleared"}`,
-		);
-		log(
-			"info",
-			formatStatusActivityToolsEvidencePaletteAuditMessage(
-				"search",
-				resultOptions,
-			),
-		);
-		recordStatusActivityResult(
-			createStatusActivityToolsEvidencePaletteResult("search", resultOptions),
-		);
-	}, [
-		commandLine.value,
-		log,
-		recordStatusActivityResult,
-		selectedStatusEvidenceKind,
-		toolExportArchiveFilter,
-		toolExportArchiveIndex,
-		toolExportFilter,
-		toolExportIndex,
-	]);
+	const submitToolEvidenceSearchCommand = useCallback(
+		(transition: CommandTransition<"submit-tools-evidence-search">) => {
+			if (transition.target === "archive") {
+				setToolExportArchiveQuery(transition.query);
+				setSelectedToolExportArchiveIndex(transition.selectedIndex);
+			} else {
+				setToolExportQuery(transition.query);
+				setSelectedToolExportIndex(transition.selectedIndex);
+			}
+			setSelectedStatusEvidenceKind(transition.selectedKind);
+			setCommandLine((current) => closeCommandLine(current));
+			log(transition.notice.level, transition.notice.message);
+			recordStatusActivityResult(transition.result);
+		},
+		[log, recordStatusActivityResult],
+	);
 
 	const cycleInterfaceEvidenceStateFilter = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const next = nextInterfaceEvidenceStateFilter(
-				interfaceEvidenceStateFilter,
-			);
-			const total =
-				interfaceConfirmationAuditExports.length +
-				interfaceConfirmationAuditArchiveExports.length;
-			const visible = filterInterfaceConfirmationEvidenceExports(
-				interfaceConfirmationAuditExports,
-				interfaceConfirmationAuditArchiveExports,
-				next,
-				interfaceEvidenceQuery,
-			).length;
-			const resultOptions = {
-				state: next,
+			const transition = prepareInterfaceEvidenceStateFilterCycle({
+				origin: options.origin,
+				state: interfaceEvidenceStateFilter,
 				query: interfaceEvidenceQuery,
-				visible,
-				total,
-			};
-			setInterfaceEvidenceStateFilter(next);
-			setSelectedInterfaceConfirmationAuditExportIndex(0);
-			setSelectedStatusEvidenceKind("interface");
-			setScreen("status");
-			setFocusArea("workspaces");
-			log(
-				"info",
-				`interface evidence filter ${next} visible=${visible}/${total}${options.origin === "palette" ? " via palette" : ""}`,
+				activeExports: interfaceConfirmationAuditExports,
+				archivedExports: interfaceConfirmationAuditArchiveExports,
+			});
+			setInterfaceEvidenceStateFilter(transition.state);
+			setSelectedInterfaceConfirmationAuditExportIndex(
+				transition.selectedIndex,
 			);
-			log(
-				"info",
-				formatInterfaceEvidenceManagementAuditMessage("filter", resultOptions),
-			);
-			recordStatusActivityResult(
-				createInterfaceEvidenceManagementStatusActivityResult(
-					"filter",
-					resultOptions,
-				),
-			);
+			setSelectedStatusEvidenceKind(transition.selectedKind);
+			setScreen(transition.screen);
+			setFocusArea(transition.focusArea);
+			log(transition.notice.level, transition.notice.message);
+			recordStatusActivityResult(transition.result);
 		},
 		[
 			interfaceConfirmationAuditArchiveExports,
@@ -4290,83 +3686,56 @@ export function App(): React.ReactElement {
 
 	const openInterfaceEvidenceSearchPrompt = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
+			const transition = prepareInterfaceEvidenceSearchPrompt(
+				interfaceEvidenceQuery,
+				options.origin,
+			);
 			setCommandLine(
-				openCommandLine("interface-evidence-search", {
-					value: interfaceEvidenceQuery,
-				}),
+				openCommandLine(transition.prompt, { value: transition.value }),
 			);
-			setSelectedStatusEvidenceKind("interface");
-			setScreen("status");
-			setFocusArea("workspaces");
-			log(
-				"info",
-				`interface evidence search prompt opened${options.origin === "palette" ? " via palette" : ""}`,
-			);
+			setSelectedStatusEvidenceKind(transition.selectedKind);
+			setScreen(transition.screen);
+			setFocusArea(transition.focusArea);
+			log(transition.notice.level, transition.notice.message);
 		},
 		[interfaceEvidenceQuery, log],
 	);
 
-	const submitInterfaceEvidenceSearchCommand = useCallback(() => {
-		const query = normalizeInterfaceEvidenceQuery(commandLine.value);
-		const total =
-			interfaceConfirmationAuditExports.length +
-			interfaceConfirmationAuditArchiveExports.length;
-		const visible = filterInterfaceConfirmationEvidenceExports(
-			interfaceConfirmationAuditExports,
-			interfaceConfirmationAuditArchiveExports,
-			interfaceEvidenceStateFilter,
-			query,
-		).length;
-		const resultOptions = {
-			state: interfaceEvidenceStateFilter,
-			query,
-			visible,
-			total,
-		};
-		setInterfaceEvidenceQuery(query);
-		setSelectedInterfaceConfirmationAuditExportIndex(0);
-		setSelectedStatusEvidenceKind("interface");
-		setCommandLine((current) => closeCommandLine(current));
-		log(
-			visible > 0 || !query ? "info" : "warn",
-			`interface evidence find ${query ? `query=${query}` : "cleared"} visible=${visible}/${total}`,
-		);
-		log(
-			"info",
-			formatInterfaceEvidenceManagementAuditMessage("find", resultOptions),
-		);
-		recordStatusActivityResult(
-			createInterfaceEvidenceManagementStatusActivityResult(
-				"find",
-				resultOptions,
-			),
-		);
-	}, [
-		commandLine.value,
-		interfaceConfirmationAuditArchiveExports,
-		interfaceConfirmationAuditExports,
-		interfaceEvidenceStateFilter,
-		log,
-		recordStatusActivityResult,
-	]);
+	const submitInterfaceEvidenceSearchCommand = useCallback(
+		(transition: CommandTransition<"submit-interface-evidence-search">) => {
+			setInterfaceEvidenceQuery(transition.query);
+			setSelectedInterfaceConfirmationAuditExportIndex(
+				transition.selectedIndex,
+			);
+			setSelectedStatusEvidenceKind(transition.selectedKind);
+			setCommandLine((current) => closeCommandLine(current));
+			log(transition.notice.level, transition.notice.message);
+			recordStatusActivityResult(transition.result);
+		},
+		[log, recordStatusActivityResult],
+	);
 
 	const saveCurrentInterfaceEvidenceSearchPreset = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (!interfaceEvidenceQuery) {
-				log("warn", "no interface evidence query to save");
+			const transition = prepareInterfaceEvidencePresetSave(
+				interfaceEvidenceQuery,
+				interfaceEvidenceSearchPresets,
+			);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-			const next = saveInterfaceEvidenceSearchPreset(
-				interfaceEvidenceSearchPresets,
-				interfaceEvidenceQuery,
-			);
-			setInterfaceEvidenceSearchPresets(next);
-			void setConfigInterfaceEvidenceSearchPresets(next).catch((caught) =>
-				log("fail", caught instanceof Error ? caught.message : String(caught)),
+			setInterfaceEvidenceSearchPresets(transition.presets);
+			void setConfigInterfaceEvidenceSearchPresets(transition.presets).catch(
+				(caught) =>
+					log(
+						"fail",
+						caught instanceof Error ? caught.message : String(caught),
+					),
 			);
 			log(
-				"ok",
-				`interface evidence search preset saved ${interfaceEvidenceQuery} count=${next.length}${options.origin === "palette" ? " via palette" : ""}`,
+				transition.notice.level,
+				`${transition.notice.message}${options.origin === "palette" ? " via palette" : ""}`,
 			);
 		},
 		[interfaceEvidenceQuery, interfaceEvidenceSearchPresets, log],
@@ -4374,48 +3743,27 @@ export function App(): React.ReactElement {
 
 	const cycleInterfaceEvidenceSearchPreset = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			const next = nextInterfaceEvidenceSearchPreset(
-				interfaceEvidenceSearchPresets,
-				interfaceEvidenceQuery,
-			);
-			if (!next) {
-				log("warn", "no interface evidence search presets");
+			const transition = prepareInterfaceEvidencePresetCycle({
+				query: interfaceEvidenceQuery,
+				presets: interfaceEvidenceSearchPresets,
+				state: interfaceEvidenceStateFilter,
+				activeExports: interfaceConfirmationAuditExports,
+				archivedExports: interfaceConfirmationAuditArchiveExports,
+				origin: options.origin,
+			});
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-			const total =
-				interfaceConfirmationAuditExports.length +
-				interfaceConfirmationAuditArchiveExports.length;
-			const visible = filterInterfaceConfirmationEvidenceExports(
-				interfaceConfirmationAuditExports,
-				interfaceConfirmationAuditArchiveExports,
-				interfaceEvidenceStateFilter,
-				next,
-			).length;
-			const resultOptions = {
-				state: interfaceEvidenceStateFilter,
-				query: next,
-				visible,
-				total,
-			};
-			setInterfaceEvidenceQuery(next);
-			setSelectedInterfaceConfirmationAuditExportIndex(0);
-			setSelectedStatusEvidenceKind("interface");
-			setScreen("status");
-			setFocusArea("workspaces");
-			log(
-				visible > 0 ? "info" : "warn",
-				`interface evidence search preset ${next} visible=${visible}/${total}${options.origin === "palette" ? " via palette" : ""}`,
+			setInterfaceEvidenceQuery(transition.query);
+			setSelectedInterfaceConfirmationAuditExportIndex(
+				transition.selectedIndex,
 			);
-			log(
-				"info",
-				formatInterfaceEvidenceManagementAuditMessage("find", resultOptions),
-			);
-			recordStatusActivityResult(
-				createInterfaceEvidenceManagementStatusActivityResult(
-					"find",
-					resultOptions,
-				),
-			);
+			setSelectedStatusEvidenceKind(transition.selectedKind);
+			setScreen(transition.screen);
+			setFocusArea(transition.focusArea);
+			log(transition.notice.level, transition.notice.message);
+			recordStatusActivityResult(transition.result);
 		},
 		[
 			interfaceConfirmationAuditArchiveExports,
@@ -4428,93 +3776,63 @@ export function App(): React.ReactElement {
 		],
 	);
 
-	const openSelectedCleanupExportArchive = useCallback(() => {
-		const transition = prepareSelectedCleanupExportArchive(
-			cleanupExportIndex,
-			selectedCleanupExportIndex,
-		);
-		log(transition.notice.level, transition.notice.message);
-		if (transition.kind === "notice") {
-			return;
-		}
-		setSelectedCleanupExportIndex(transition.selectedIndex);
-		setCleanupExportArchivePlan(transition.plan);
-		setExternalOpenPlan(undefined);
-		setFileOpenPlan(undefined);
-		setAuditExportArchivePlan(undefined);
-		setCommandLine(openCommandLine("cleanup-export-archive"));
-		setScreen("status");
-	}, [cleanupExportIndex, log, selectedCleanupExportIndex]);
+	const openSelectedCleanupExportArchive = useCallback(
+		(
+			effect: Extract<
+				StatusWorkspaceInputEffect,
+				{ kind: "plan-confirmation" }
+			>,
+		) => {
+			setCleanupExportArchivePlan(
+				effect.plan as CleanupHandoffHistoryExportArchivePlan,
+			);
+			setCommandLine(openCommandLine(effect.prompt));
+			setScreen(effect.screen);
+		},
+		[],
+	);
 
-	const archiveSelectedHandoffFile = useCallback(async () => {
-		const transition = prepareStatusEvidenceActionTransition({
-			indexes: statusEvidenceIndexes,
-			selection: statusEvidenceSelection,
-			kind: "handoff",
-			intent: "archive",
-			baseDir: handoffIndex.baseDir,
-		});
-		log(transition.notice.level, transition.notice.message);
-		if (transition.kind !== "archive") {
-			return;
-		}
-		setSelectedHandoffIndex(transition.selectedIndex);
-		const result = await archiveHandoffFile(
-			transition.baseDir,
-			transition.path,
-		);
-		log(
-			result.status === "archived" ? "ok" : "warn",
-			`handoff archive ${result.message}`,
-		);
-		await refreshHandoffIndex(false);
-	}, [
-		handoffIndex.baseDir,
-		log,
-		refreshHandoffIndex,
-		statusEvidenceIndexes,
-		statusEvidenceSelection,
-	]);
+	const archiveSelectedHandoffFile = useCallback(
+		async (effect: StatusHandoffArchiveEffect) => {
+			try {
+				const result = await archiveHandoffFile(effect.baseDir, effect.path);
+				const notice = formatStatusHandoffArchiveResult(effect, result);
+				log(notice.level, notice.message);
+				return result.status === "archived";
+			} catch (caught) {
+				const notice = formatStatusHandoffArchiveFailure(effect, caught);
+				log(notice.level, notice.message);
+				return false;
+			}
+		},
+		[log],
+	);
 
 	const exportToolHistory = useCallback(
-		async (scope: ToolHistoryExportScope) => {
-			const transition = prepareSelectedToolHistoryExport({
-				history: toolHistory,
-				selectedIndex: selectedToolHistoryIndex,
-				filter: toolHistoryFilter,
-				sort: toolHistorySort,
-				scope,
-				baseDir: dirname(getConfigPath()),
-			});
-			log(transition.notice.level, transition.notice.message);
-			if (transition.kind === "notice") {
-				return;
-			}
-
+		async (effect: Extract<ToolsWorkspaceInputEffect, { kind: "export" }>) => {
+			log(effect.notice.level, effect.notice.message);
+			const requestToken = beginRequest(toolExportIndexRequestTokenRef.current);
+			toolExportIndexRequestTokenRef.current = requestToken;
 			try {
-				const written = await writeToolHistoryExport(transition.plan);
-				const requestToken = beginRequest(
-					toolExportIndexRequestTokenRef.current,
-				);
-				toolExportIndexRequestTokenRef.current = requestToken;
+				const written = await writeToolHistoryExport(effect.plan);
 				const index = await readToolHistoryExportIndex(
-					dirname(getConfigPath()),
+					effect.publication.baseDir,
 				);
 				const publication = classifyToolHistoryExportIndexRefresh({
-					target: "active",
+					target: effect.publication.target,
 					currentRequestToken: toolExportIndexRequestTokenRef.current,
 					requestToken,
-					selectedIndex: 0,
-					filter: toolExportFilterRef.current,
-					query: toolExportQueryRef.current,
+					selectedIndex: effect.publication.selectedIndex,
+					filter: effect.publication.filter,
+					query: effect.publication.query,
 					outcome: { status: "success", index },
 				});
 				if (publication.status === "success") {
 					setToolExportIndex(publication.index);
 					setSelectedToolExportIndex(publication.selectedIndex);
+					setSelectedStatusEvidenceKind("tools");
+					setScreen("tools");
 				}
-				setSelectedStatusEvidenceKind("tools");
-				setScreen("tools");
 				log(
 					"ok",
 					`tools exported ${written.scope} ${written.itemCount} run(s) ${written.path}`,
@@ -4523,262 +3841,52 @@ export function App(): React.ReactElement {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
 		},
-		[
-			log,
-			selectedToolHistoryIndex,
-			toolHistory,
-			toolHistoryFilter,
-			toolHistorySort,
-		],
+		[log],
 	);
 
-	const exportRouteHandoff = useCallback(async () => {
-		if (!routeTable) {
-			log("warn", "no route table loaded");
-			return;
-		}
-		const plan = createRouteRawHandoffPlan(routeTable, {
-			baseDir: dirname(getConfigPath()),
-			filter: routeFilter,
-			path: routePath,
-			sort: routeSort,
-			view: routeDetailView,
-		});
-		if (!plan) {
-			log("warn", "no route handoff target");
-			return;
-		}
-
-		try {
-			const written = await writeRouteRawHandoffPlan(plan);
-			await refreshHandoffIndex(false);
-			setScreen("routes");
-			log("ok", `routes exported ${written.view} ${written.path}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [
-		log,
-		refreshHandoffIndex,
-		routeDetailView,
-		routeFilter,
-		routePath,
-		routeSort,
-		routeTable,
-	]);
-
-	const exportInterfaceSourceHandoff = useCallback(async () => {
-		const transition = prepareInterfaceSourceHandoff({
-			action: "export",
-			baseDir: dirname(getConfigPath()),
-			selectedIndex: selectedInterfaceIndex,
-			summary,
-			view: interfaceDetailView,
-		});
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		setSelectedInterfaceIndex(transition.selectedIndex);
-
-		try {
-			const written = await writeInterfaceSourceHandoffPlan(transition.plan);
-			await refreshHandoffIndex(false);
-			setScreen("interfaces");
-			log("ok", `interfaces exported source ${written.path}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [
-		interfaceDetailView,
-		log,
-		refreshHandoffIndex,
-		selectedInterfaceIndex,
-		summary,
-	]);
-
-	const openInterfaceSourceHandoff = useCallback(async () => {
-		const baseDir = dirname(getConfigPath());
-		const transition = prepareInterfaceSourceHandoff({
-			action: "open",
-			baseDir,
-			selectedIndex: selectedInterfaceIndex,
-			summary,
-			view: interfaceDetailView,
-		});
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		setSelectedInterfaceIndex(transition.selectedIndex);
-
-		try {
-			const written = await writeInterfaceSourceHandoffPlan(transition.plan);
-			await refreshHandoffIndex(false);
-			const plan = buildFileOpenPlan({
-				baseDir,
-				source: "interface-handoff",
-				label: written.label,
-				path: written.path,
-				platform: currentPlatform(),
-			});
-			setFileOpenPlan(plan);
-			setExternalOpenPlan(undefined);
-			setCommandLine(openCommandLine("file-open"));
-			setScreen("status");
-			log("info", `file open confirmation opened for ${written.label}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [
-		interfaceDetailView,
-		log,
-		refreshHandoffIndex,
-		selectedInterfaceIndex,
-		summary,
-	]);
-
-	const openRouteHandoff = useCallback(async () => {
-		if (!routeTable) {
-			log("warn", "no route table loaded");
-			return;
-		}
-		const baseDir = dirname(getConfigPath());
-		const handoff = createRouteRawHandoffPlan(routeTable, {
-			baseDir,
-			filter: routeFilter,
-			origin: createActiveFileOpenOrigin(configShelfLandingTarget),
-			path: routePath,
-			sort: routeSort,
-			view: routeDetailView,
-		});
-		if (!handoff) {
-			log("warn", "no route handoff target");
-			return;
-		}
-
-		try {
-			const written = await writeRouteRawHandoffPlan(handoff);
-			await refreshHandoffIndex(false);
-			const plan = buildFileOpenPlan({
-				baseDir,
-				source: "route-handoff",
-				label: written.label,
-				origin:
-					written.origin ??
-					createActiveFileOpenOrigin(configShelfLandingTarget),
-				path: written.path,
-				platform: currentPlatform(),
-			});
-			setFileOpenPlan(plan);
-			setExternalOpenPlan(undefined);
-			setCommandLine(openCommandLine("file-open"));
-			setScreen("status");
-			log("info", `file open confirmation opened for ${written.label}`);
-		} catch (caught) {
-			log("fail", caught instanceof Error ? caught.message : String(caught));
-		}
-	}, [
-		log,
-		configShelfLandingTarget,
-		refreshHandoffIndex,
-		routeDetailView,
-		routeFilter,
-		routePath,
-		routeSort,
-		routeTable,
-	]);
-
-	const exportEndpointHandoff = useCallback(
-		async (kind: "connections" | "ports") => {
-			const plan =
-				kind === "connections"
-					? connectionsResult
-						? createEndpointHandoffPlan("connections", {
-								baseDir: dirname(getConfigPath()),
-								filter: connectionFilter,
-								result: connectionsResult,
-								sort: connectionSort,
-								view: connectionDetailView,
-							})
-						: undefined
-					: portsResult
-						? createEndpointHandoffPlan("ports", {
-								baseDir: dirname(getConfigPath()),
-								filter: portFilter,
-								result: portsResult,
-								sort: portSort,
-								view: portDetailView,
-							})
-						: undefined;
-			if (!plan) {
-				log("warn", `no ${kind} snapshot loaded`);
-				return;
-			}
-
+	const exportRouteHandoff = useCallback(
+		async (handoff: Extract<RoutePanelHandoffEffect, { action: "export" }>) => {
 			try {
-				const written = await writeEndpointHandoffPlan(plan);
+				const written = await writeRouteRawHandoffPlan(handoff.plan);
 				await refreshHandoffIndex(false);
-				setScreen(kind);
-				log("ok", `${kind} exported ${written.view} ${written.path}`);
+				setScreen("routes");
+				log("ok", `routes exported ${written.view} ${written.path}`);
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
 		},
-		[
-			connectionDetailView,
-			connectionFilter,
-			connectionSort,
-			connectionsResult,
-			log,
-			portDetailView,
-			portFilter,
-			portSort,
-			portsResult,
-			refreshHandoffIndex,
-		],
+		[log, refreshHandoffIndex],
 	);
 
-	const openEndpointHandoff = useCallback(
-		async (kind: "connections" | "ports") => {
-			const baseDir = dirname(getConfigPath());
-			const handoff =
-				kind === "connections"
-					? connectionsResult
-						? createEndpointHandoffPlan("connections", {
-								baseDir,
-								filter: connectionFilter,
-								origin: createActiveFileOpenOrigin(configShelfLandingTarget),
-								result: connectionsResult,
-								sort: connectionSort,
-								view: connectionDetailView,
-							})
-						: undefined
-					: portsResult
-						? createEndpointHandoffPlan("ports", {
-								baseDir,
-								filter: portFilter,
-								origin: createActiveFileOpenOrigin(configShelfLandingTarget),
-								result: portsResult,
-								sort: portSort,
-								view: portDetailView,
-							})
-						: undefined;
-			if (!handoff) {
-				log("warn", `no ${kind} snapshot loaded`);
-				return;
-			}
-
+	const exportInterfaceSourceHandoff = useCallback(
+		async (
+			handoff: Extract<InterfacePanelInputDecision, { kind: "source-handoff" }>,
+		) => {
+			setSelectedInterfaceIndex(handoff.selectedIndex);
 			try {
-				const written = await writeEndpointHandoffPlan(handoff);
+				const written = await writeInterfaceSourceHandoffPlan(handoff.plan);
+				await refreshHandoffIndex(false);
+				setScreen("interfaces");
+				log("ok", `interfaces exported source ${written.path}`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[log, refreshHandoffIndex],
+	);
+
+	const openInterfaceSourceHandoff = useCallback(
+		async (
+			handoff: Extract<InterfacePanelInputDecision, { kind: "source-handoff" }>,
+		) => {
+			setSelectedInterfaceIndex(handoff.selectedIndex);
+			try {
+				const written = await writeInterfaceSourceHandoffPlan(handoff.plan);
 				await refreshHandoffIndex(false);
 				const plan = buildFileOpenPlan({
-					baseDir,
-					source: "endpoint-handoff",
+					baseDir: handoff.baseDir,
+					source: "interface-handoff",
 					label: written.label,
-					origin:
-						written.origin ??
-						createActiveFileOpenOrigin(configShelfLandingTarget),
 					path: written.path,
 					platform: currentPlatform(),
 				});
@@ -4791,106 +3899,109 @@ export function App(): React.ReactElement {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
 		},
-		[
-			connectionDetailView,
-			connectionFilter,
-			connectionSort,
-			connectionsResult,
-			configShelfLandingTarget,
-			log,
-			portDetailView,
-			portFilter,
-			portSort,
-			portsResult,
-			refreshHandoffIndex,
-		],
+		[log, refreshHandoffIndex],
 	);
 
-	const selectRemoteProfile = useCallback(async () => {
-		const transition = prepareRemoteProfileStage(
-			remoteProfiles,
-			selectedRemoteIndex,
-		);
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		const profile = transition.profile;
-		setSelectedRemoteIndex(transition.selectedIndex);
-		pendingRemoteConnectRef.current?.abort();
-		const context = await createRemoteFileContext(profile);
-		if (remoteFileProvider) {
-			if (
-				!(await loadFiles(
-					{
-						path: systemFileRoot,
-						backHistory: [],
-						forwardHistory: [],
-						failurePrefix: "local filesystem restore failed",
-					},
-					{
-						switchSession: {
-							provider: localFileProvider,
-							remoteContext: context,
-						},
-					},
-				))
-			) {
+	const openRouteHandoff = useCallback(
+		async (handoff: Extract<RoutePanelHandoffEffect, { action: "open" }>) => {
+			try {
+				const written = await writeRouteRawHandoffPlan(handoff.plan);
+				await refreshHandoffIndex(false);
+				const plan = buildFileOpenPlan({
+					baseDir: handoff.baseDir,
+					source: "route-handoff",
+					label: written.label,
+					origin: handoff.origin,
+					path: written.path,
+					platform: currentPlatform(),
+				});
+				setFileOpenPlan(plan);
+				setExternalOpenPlan(undefined);
+				setCommandLine(openCommandLine("file-open"));
+				setScreen("status");
+				log("info", `file open confirmation opened for ${written.label}`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[log, refreshHandoffIndex],
+	);
+
+	const exportEndpointHandoff = useCallback(
+		async (
+			kind: "connections" | "ports",
+			handoff: EndpointHandoffInputSnapshot,
+		) => {
+			const { origin: _origin, ...exportInput } = handoff;
+			const transition = prepareEndpointHandoffForKind({
+				kind,
+				...exportInput,
+			});
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
+
 			try {
-				await remoteFileProvider.close?.();
+				const written = await writeEndpointHandoffPlan(transition.plan);
+				await refreshHandoffIndex(false);
+				setScreen(kind);
+				log("ok", `${kind} exported ${written.view} ${written.path}`);
 			} catch (caught) {
-				log(
-					"warn",
-					caught instanceof Error
-						? `previous SFTP session close failed ${caught.message}`
-						: `previous SFTP session close failed ${String(caught)}`,
-				);
+				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
-		} else {
-			setRemoteFileContext(context);
-		}
-		setScreen("files");
-		setFocusArea("workspaces");
-		log("info", formatRemoteHostReviewAuditMessage("stage", profile));
-		recordStatusActivityResult(
-			createRemoteHostReviewStatusActivityResult(profile),
-		);
-		log("info", `remote context selected ${context.label}`);
-	}, [
-		localFileProvider,
-		loadFiles,
-		log,
-		recordStatusActivityResult,
-		remoteFileProvider,
-		remoteProfiles,
-		selectedRemoteIndex,
-		systemFileRoot,
-	]);
+		},
+		[log, refreshHandoffIndex],
+	);
 
-	const submitRemoteProfileCommand = useCallback(async () => {
-		const transition = prepareRemoteProfileCommand(commandLine.value);
-		if (transition.closeCommandLine) {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		const profile = transition.profile;
+	const openEndpointHandoff = useCallback(
+		async (
+			kind: "connections" | "ports",
+			handoff: EndpointHandoffInputSnapshot,
+		) => {
+			const { baseDir } = handoff;
+			const transition = prepareEndpointHandoffForKind({
+				kind,
+				...handoff,
+			});
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
 
-		try {
-			const config = await readConfig();
-			const nextConfig: PicosConfig = {
-				...config,
-				remoteProfiles: [
-					profile,
-					...config.remoteProfiles.filter((item) => item.id !== profile.id),
-				],
-			};
-			await writeConfig(nextConfig);
+			try {
+				const written = await writeEndpointHandoffPlan(transition.plan);
+				await refreshHandoffIndex(false);
+				const plan = buildFileOpenPlan({
+					baseDir,
+					source: "endpoint-handoff",
+					label: written.label,
+					origin: written.origin ?? handoff.origin,
+					path: written.path,
+					platform: currentPlatform(),
+				});
+				setFileOpenPlan(plan);
+				setExternalOpenPlan(undefined);
+				setCommandLine(openCommandLine("file-open"));
+				setScreen("status");
+				log("info", `file open confirmation opened for ${written.label}`);
+			} catch (caught) {
+				log("fail", caught instanceof Error ? caught.message : String(caught));
+			}
+		},
+		[log, refreshHandoffIndex],
+	);
+
+	const selectRemoteProfile = useCallback(
+		async (transition: ReturnType<typeof prepareRemoteProfileStage>) => {
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			const profile = transition.profile;
+			setSelectedRemoteIndex(transition.selectedIndex);
 			pendingRemoteConnectRef.current?.abort();
+			const context = await createRemoteFileContext(profile);
 			if (remoteFileProvider) {
 				if (
 					!(await loadFiles(
@@ -4903,6 +4014,7 @@ export function App(): React.ReactElement {
 						{
 							switchSession: {
 								provider: localFileProvider,
+								remoteContext: context,
 							},
 						},
 					))
@@ -4920,252 +4032,302 @@ export function App(): React.ReactElement {
 					);
 				}
 			} else {
-				setRemoteFileContext(undefined);
+				setRemoteFileContext(context);
 			}
-			syncConfigSessionState(nextConfig);
-			setSelectedRemoteIndex(transition.selectedIndex);
-			setScreen("remotes");
+			setScreen("files");
 			setFocusArea("workspaces");
-			log(transition.successNotice.level, transition.successNotice.message);
-		} catch (caught) {
-			log(
-				"fail",
-				caught instanceof Error
-					? `remote profile save failed ${caught.message}`
-					: `remote profile save failed ${String(caught)}`,
+			log("info", formatRemoteHostReviewAuditMessage("stage", profile));
+			recordStatusActivityResult(
+				createRemoteHostReviewStatusActivityResult(profile),
 			);
-		}
-	}, [
-		commandLine.value,
-		localFileProvider,
-		loadFiles,
-		log,
-		remoteFileProvider,
-		syncConfigSessionState,
-		systemFileRoot,
-	]);
+			log("info", `remote context selected ${context.label}`);
+		},
+		[
+			localFileProvider,
+			loadFiles,
+			log,
+			recordStatusActivityResult,
+			remoteFileProvider,
+			systemFileRoot,
+		],
+	);
 
-	const submitRemoteConnectCommand = useCallback(async () => {
-		const transition = prepareRemoteConnectSubmission({
-			profiles: remoteProfiles,
-			selectedIndex: selectedRemoteIndex,
-			candidateSession: remoteKnownHostsCandidateSession,
-			pasteReviewSession: remoteKnownHostsPasteReviewSession,
-			receivedConfirmation: commandLine.value,
-			diagnostic: remoteConnectionDiagnosticRef.current,
-		});
-		if (transition.closeCommandLine) {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-		setSelectedRemoteIndex(transition.selectedIndex);
-		if (transition.kind === "blocked") {
-			if (transition.auditMessage) {
-				log("warn", transition.auditMessage);
+	const submitRemoteProfileCommand = useCallback(
+		async (transition: CommandTransition<"submit-remote-profile">) => {
+			if (transition.closeCommandLine) {
+				setCommandLine((current) => closeCommandLine(current));
 			}
-			if (transition.activityResult) {
-				recordStatusActivityResult(transition.activityResult);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
 			}
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
+			const profile = transition.profile;
 
-		const { candidate, profile } = transition;
-		const preview = transition.confirmation.preview;
-		const runToken = beginRequest(remoteConnectionRunTokenRef.current);
-		remoteConnectionRunTokenRef.current = runToken;
-		activeRemoteConnectionRunTokenRef.current = runToken;
-		const diagnosticSequence = beginRequest(
-			remoteConnectionDiagnosticSequenceRef.current,
-		);
-		remoteConnectionDiagnosticSequenceRef.current = diagnosticSequence;
-		const connectController = new AbortController();
-		pendingRemoteConnectRef.current = connectController;
-		const attemptDiagnostic = startReadOnlySftpConnectionDiagnostic(
-			profile,
-			candidate.fingerprint,
-			remoteConnectionDiagnosticRef.current,
-		);
-		remoteConnectionDiagnosticRef.current = attemptDiagnostic;
-		setRemoteConnectionDiagnostic(attemptDiagnostic);
-		const classifyConnectedAttempt = (target: string, message: string) =>
-			classifyRemoteConnectionPublication({
-				currentDiagnosticSequence:
-					remoteConnectionDiagnosticSequenceRef.current,
-				requestDiagnosticSequence: diagnosticSequence,
-				currentRunToken:
-					activeRemoteConnectionRunTokenRef.current ?? Number.NaN,
-				requestRunToken: runToken,
-				attempt: attemptDiagnostic,
-				currentDiagnostic: remoteConnectionDiagnosticRef.current,
-				connectionAborted: connectController.signal.aborted,
-				ownsPendingConnection:
-					pendingRemoteConnectRef.current === connectController,
-				outcome: {
-					status: "connected",
+			try {
+				const nextConfig = await upsertConfigRemoteProfile(profile);
+				pendingRemoteConnectRef.current?.abort();
+				if (remoteFileProvider) {
+					if (
+						!(await loadFiles(
+							{
+								path: systemFileRoot,
+								backHistory: [],
+								forwardHistory: [],
+								failurePrefix: "local filesystem restore failed",
+							},
+							{
+								switchSession: {
+									provider: localFileProvider,
+								},
+							},
+						))
+					) {
+						return;
+					}
+					try {
+						await remoteFileProvider.close?.();
+					} catch (caught) {
+						log(
+							"warn",
+							caught instanceof Error
+								? `previous SFTP session close failed ${caught.message}`
+								: `previous SFTP session close failed ${String(caught)}`,
+						);
+					}
+				} else {
+					setRemoteFileContext(undefined);
+				}
+				syncConfigSessionState(nextConfig);
+				setSelectedRemoteIndex(transition.selectedIndex);
+				setScreen("remotes");
+				setFocusArea("workspaces");
+				log(transition.successNotice.level, transition.successNotice.message);
+			} catch (caught) {
+				log(
+					"fail",
+					caught instanceof Error
+						? `remote profile save failed ${caught.message}`
+						: `remote profile save failed ${String(caught)}`,
+				);
+			}
+		},
+		[
+			localFileProvider,
+			loadFiles,
+			log,
+			remoteFileProvider,
+			syncConfigSessionState,
+			systemFileRoot,
+		],
+	);
+
+	const submitRemoteConnectCommand = useCallback(
+		async (transition: CommandTransition<"submit-remote-connect">) => {
+			if (transition.closeCommandLine) {
+				setCommandLine((current) => closeCommandLine(current));
+			}
+			setSelectedRemoteIndex(transition.selectedIndex);
+			if (transition.kind === "blocked") {
+				if (transition.auditMessage) {
+					log("warn", transition.auditMessage);
+				}
+				if (transition.activityResult) {
+					recordStatusActivityResult(transition.activityResult);
+				}
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+
+			const { candidate, profile } = transition;
+			const preview = transition.confirmation.preview;
+			const runToken = beginRequest(remoteConnectionRunTokenRef.current);
+			remoteConnectionRunTokenRef.current = runToken;
+			activeRemoteConnectionRunTokenRef.current = runToken;
+			const diagnosticSequence = beginRequest(
+				remoteConnectionDiagnosticSequenceRef.current,
+			);
+			remoteConnectionDiagnosticSequenceRef.current = diagnosticSequence;
+			const connectController = new AbortController();
+			pendingRemoteConnectRef.current = connectController;
+			const { attemptDiagnostic } = transition;
+			remoteConnectionDiagnosticRef.current = attemptDiagnostic;
+			setRemoteConnectionDiagnostic(attemptDiagnostic);
+			const classifyConnectedAttempt = (target: string, message: string) =>
+				classifyRemoteConnectionPublication({
+					currentDiagnosticSequence:
+						remoteConnectionDiagnosticSequenceRef.current,
+					requestDiagnosticSequence: diagnosticSequence,
+					currentRunToken:
+						activeRemoteConnectionRunTokenRef.current ?? Number.NaN,
+					requestRunToken: runToken,
+					attempt: attemptDiagnostic,
+					currentDiagnostic: remoteConnectionDiagnosticRef.current,
+					connectionAborted: connectController.signal.aborted,
+					ownsPendingConnection:
+						pendingRemoteConnectRef.current === connectController,
+					outcome: {
+						status: "connected",
+						id: profile.id,
+						target,
+						host: profile.host,
+						port: profile.port,
+						fingerprint: candidate.fingerprint,
+						message,
+					},
+				});
+			beginCommand();
+			let pendingProvider: FileProvider | undefined;
+			try {
+				pendingProvider = await connectReadOnlySftpFileProvider(profile, {
+					expectedHostKeyFingerprint: candidate.fingerprint,
+					signal: connectController.signal,
+				});
+				if (
+					!classifyConnectedAttempt(
+						preview.target,
+						"read-only SFTP transport connected",
+					).publishCurrent
+				) {
+					throw new ReadOnlySftpConnectionCancelledError();
+				}
+				pendingRemoteFileProviderRef.current = pendingProvider;
+				const root = await pendingProvider.pwd();
+				if (
+					!classifyConnectedAttempt(root, "read-only SFTP root resolved")
+						.publishCurrent
+				) {
+					throw new ReadOnlySftpConnectionCancelledError();
+				}
+				const entries = await pendingProvider.list(root);
+				if (
+					!classifyConnectedAttempt(
+						root,
+						`read-only SFTP listing loaded entries=${entries.length}`,
+					).publishCurrent
+				) {
+					throw new ReadOnlySftpConnectionCancelledError();
+				}
+				const connectedContext: RemoteFileContext = {
 					id: profile.id,
-					target,
+					kind: "sftp",
+					label: profile.id,
+					root,
+					status: "connected read-only",
+					writes: "locked",
+					hostKeyFingerprint: candidate.fingerprint,
+				};
+				const switched = await loadFiles(
+					{ path: root, backHistory: [], forwardHistory: [] },
+					{
+						batch: { resolvedRoot: root, entries },
+						switchSession: {
+							provider: pendingProvider,
+							remoteProvider: pendingProvider,
+							remoteContext: connectedContext,
+						},
+					},
+				);
+				if (!switched) {
+					throw new Error("SFTP provider switch was superseded or failed");
+				}
+				const publication = classifyConnectedAttempt(
+					root,
+					`read-only SFTP connected entries=${entries.length}`,
+				);
+				if (!publication.publishCurrent || !publication.diagnostic) {
+					throw new ReadOnlySftpConnectionCancelledError();
+				}
+				if (pendingRemoteFileProviderRef.current === pendingProvider) {
+					pendingRemoteFileProviderRef.current = undefined;
+				}
+				pendingProvider = undefined;
+				pendingRemoteConnectRef.current = undefined;
+				activeRemoteConnectionRunTokenRef.current = undefined;
+				setScreen("files");
+				setFocusArea("files");
+				remoteConnectionDiagnosticRef.current = publication.diagnostic;
+				setRemoteConnectionDiagnostic(publication.diagnostic);
+				log(publication.notice.level, publication.notice.message);
+				recordStatusActivityResult(publication.activityResult);
+				if (remoteFileProvider) {
+					try {
+						await remoteFileProvider.close?.();
+					} catch (caught) {
+						log(
+							"warn",
+							caught instanceof Error
+								? `previous SFTP session close failed ${caught.message}`
+								: `previous SFTP session close failed ${String(caught)}`,
+						);
+					}
+				}
+			} catch (caught) {
+				try {
+					await pendingProvider?.close?.();
+				} catch {
+					// The original connection failure is the useful diagnostic.
+				}
+				if (pendingRemoteFileProviderRef.current === pendingProvider) {
+					pendingRemoteFileProviderRef.current = undefined;
+				}
+				const cancelled =
+					connectController.signal.aborted ||
+					isReadOnlySftpConnectionCancelledError(caught);
+				const message = cancelled
+					? "SFTP connection cancelled by operator"
+					: caught instanceof Error
+						? caught.message
+						: String(caught);
+				const outcome = {
+					status: cancelled ? ("cancelled" as const) : ("failed" as const),
+					id: profile.id,
+					target: preview.target,
 					host: profile.host,
 					port: profile.port,
 					fingerprint: candidate.fingerprint,
 					message,
-				},
-			});
-		beginCommand();
-		let pendingProvider: FileProvider | undefined;
-		try {
-			pendingProvider = await connectReadOnlySftpFileProvider(profile, {
-				expectedHostKeyFingerprint: candidate.fingerprint,
-				signal: connectController.signal,
-			});
-			if (
-				!classifyConnectedAttempt(
-					preview.target,
-					"read-only SFTP transport connected",
-				).publishCurrent
-			) {
-				throw new ReadOnlySftpConnectionCancelledError();
-			}
-			pendingRemoteFileProviderRef.current = pendingProvider;
-			const root = await pendingProvider.pwd();
-			if (
-				!classifyConnectedAttempt(root, "read-only SFTP root resolved")
-					.publishCurrent
-			) {
-				throw new ReadOnlySftpConnectionCancelledError();
-			}
-			const entries = await pendingProvider.list(root);
-			if (
-				!classifyConnectedAttempt(
-					root,
-					`read-only SFTP listing loaded entries=${entries.length}`,
-				).publishCurrent
-			) {
-				throw new ReadOnlySftpConnectionCancelledError();
-			}
-			const connectedContext: RemoteFileContext = {
-				id: profile.id,
-				kind: "sftp",
-				label: profile.id,
-				root,
-				status: "connected read-only",
-				writes: "locked",
-				hostKeyFingerprint: candidate.fingerprint,
-			};
-			const switched = await loadFiles(
-				{ path: root, backHistory: [], forwardHistory: [] },
-				{
-					batch: { resolvedRoot: root, entries },
-					switchSession: {
-						provider: pendingProvider,
-						remoteProvider: pendingProvider,
-						remoteContext: connectedContext,
-					},
-				},
-			);
-			if (!switched) {
-				throw new Error("SFTP provider switch was superseded or failed");
-			}
-			const publication = classifyConnectedAttempt(
-				root,
-				`read-only SFTP connected entries=${entries.length}`,
-			);
-			if (!publication.publishCurrent || !publication.diagnostic) {
-				throw new ReadOnlySftpConnectionCancelledError();
-			}
-			if (pendingRemoteFileProviderRef.current === pendingProvider) {
-				pendingRemoteFileProviderRef.current = undefined;
-			}
-			pendingProvider = undefined;
-			pendingRemoteConnectRef.current = undefined;
-			activeRemoteConnectionRunTokenRef.current = undefined;
-			setScreen("files");
-			setFocusArea("files");
-			remoteConnectionDiagnosticRef.current = publication.diagnostic;
-			setRemoteConnectionDiagnostic(publication.diagnostic);
-			log(publication.notice.level, publication.notice.message);
-			recordStatusActivityResult(publication.activityResult);
-			if (remoteFileProvider) {
-				try {
-					await remoteFileProvider.close?.();
-				} catch (caught) {
-					log(
-						"warn",
-						caught instanceof Error
-							? `previous SFTP session close failed ${caught.message}`
-							: `previous SFTP session close failed ${String(caught)}`,
-					);
+				};
+				const publication = classifyRemoteConnectionPublication({
+					currentDiagnosticSequence:
+						remoteConnectionDiagnosticSequenceRef.current,
+					requestDiagnosticSequence: diagnosticSequence,
+					currentRunToken:
+						activeRemoteConnectionRunTokenRef.current ?? Number.NaN,
+					requestRunToken: runToken,
+					attempt: attemptDiagnostic,
+					currentDiagnostic: remoteConnectionDiagnosticRef.current,
+					outcome,
+				});
+				if (publication.publishCurrent && publication.diagnostic) {
+					remoteConnectionDiagnosticRef.current = publication.diagnostic;
+					setRemoteConnectionDiagnostic(publication.diagnostic);
 				}
+				// Failure/cancellation is history even when superseded; only the visible
+				// diagnostic publication is sequence/token guarded.
+				log(publication.notice.level, publication.notice.message);
+				recordStatusActivityResult(publication.activityResult);
+			} finally {
+				if (pendingRemoteConnectRef.current === connectController) {
+					pendingRemoteConnectRef.current = undefined;
+				}
+				if (activeRemoteConnectionRunTokenRef.current === runToken) {
+					activeRemoteConnectionRunTokenRef.current = undefined;
+				}
+				// Unconditional, unlike the pointer cleanup above: the count has to
+				// balance even when a newer connect superseded this one, or the shared
+				// indicator strands on running for the rest of the session.
+				endCommand();
 			}
-		} catch (caught) {
-			try {
-				await pendingProvider?.close?.();
-			} catch {
-				// The original connection failure is the useful diagnostic.
-			}
-			if (pendingRemoteFileProviderRef.current === pendingProvider) {
-				pendingRemoteFileProviderRef.current = undefined;
-			}
-			const cancelled =
-				connectController.signal.aborted ||
-				isReadOnlySftpConnectionCancelledError(caught);
-			const message = cancelled
-				? "SFTP connection cancelled by operator"
-				: caught instanceof Error
-					? caught.message
-					: String(caught);
-			const outcome = {
-				status: cancelled ? ("cancelled" as const) : ("failed" as const),
-				id: profile.id,
-				target: preview.target,
-				host: profile.host,
-				port: profile.port,
-				fingerprint: candidate.fingerprint,
-				message,
-			};
-			const publication = classifyRemoteConnectionPublication({
-				currentDiagnosticSequence:
-					remoteConnectionDiagnosticSequenceRef.current,
-				requestDiagnosticSequence: diagnosticSequence,
-				currentRunToken:
-					activeRemoteConnectionRunTokenRef.current ?? Number.NaN,
-				requestRunToken: runToken,
-				attempt: attemptDiagnostic,
-				currentDiagnostic: remoteConnectionDiagnosticRef.current,
-				outcome,
-			});
-			if (publication.publishCurrent && publication.diagnostic) {
-				remoteConnectionDiagnosticRef.current = publication.diagnostic;
-				setRemoteConnectionDiagnostic(publication.diagnostic);
-			}
-			// Failure/cancellation is history even when superseded; only the visible
-			// diagnostic publication is sequence/token guarded.
-			log(publication.notice.level, publication.notice.message);
-			recordStatusActivityResult(publication.activityResult);
-		} finally {
-			if (pendingRemoteConnectRef.current === connectController) {
-				pendingRemoteConnectRef.current = undefined;
-			}
-			if (activeRemoteConnectionRunTokenRef.current === runToken) {
-				activeRemoteConnectionRunTokenRef.current = undefined;
-			}
-			// Unconditional, unlike the pointer cleanup above: the count has to
-			// balance even when a newer connect superseded this one, or the shared
-			// indicator strands on running for the rest of the session.
-			endCommand();
-		}
-	}, [
-		beginCommand,
-		commandLine.value,
-		endCommand,
-		loadFiles,
-		log,
-		recordStatusActivityResult,
-		remoteFileProvider,
-		remoteKnownHostsCandidateSession,
-		remoteKnownHostsPasteReviewSession,
-		remoteProfiles,
-		selectedRemoteIndex,
-	]);
+		},
+		[
+			beginCommand,
+			endCommand,
+			loadFiles,
+			log,
+			recordStatusActivityResult,
+			remoteFileProvider,
+		],
+	);
 
 	const cancelPendingRemoteConnect = useCallback(() => {
 		const controller = pendingRemoteConnectRef.current;
@@ -5186,88 +4348,132 @@ export function App(): React.ReactElement {
 		log(transition.notice.level, transition.notice.message);
 	}, [log]);
 
-	const cancelOperationRun = useCallback(() => {
-		const transition = prepareOperationRunCancellation({
-			currentRun: operationRunRef.current,
-			activeToken: operationRunTokenRef.current,
-		});
-		if (transition.kind === "notice") {
+	const cancelOperationRun = useCallback(
+		(transition: ReturnType<typeof prepareOperationRunCancellation>) => {
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			operationRunCancelledTokenRef.current = transition.cancelledToken;
+			operationRunRef.current = transition.progress;
+			setOperationRun(transition.progress);
 			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		operationRunCancelledTokenRef.current = transition.cancelledToken;
-		operationRunRef.current = transition.progress;
-		setOperationRun(transition.progress);
-		log(transition.notice.level, transition.notice.message);
-	}, [log]);
+		},
+		[log],
+	);
 
-	const runSelectedOperationPreset = useCallback(async () => {
-		const start = prepareOperationRunStart({
-			presets: operationPresets,
-			selectedIndex: selectedOperationPresetIndex,
-			currentRun: operationRunRef.current,
-			currentToken: operationRunTokenRef.current,
-		});
-		if (start.kind === "notice") {
-			log(start.notice.level, start.notice.message);
-			return;
-		}
-		const { preset, token } = start;
-		operationRunTokenRef.current = token;
-		operationRunRef.current = start.progress;
-		setOperationRun(start.progress);
-		beginCommand();
-		let requestProgress = start.progress;
-		try {
-			log(start.audit.level, start.audit.message);
-			let returned = 0;
-			if (preset.kind === "monitor") {
-				const series = await collectSystemMonitorSeries(
-					{ samples: preset.samples, intervalMs: preset.intervalMs },
-					getSystemMonitorSnapshot,
-					undefined,
-					undefined,
-					// `shouldContinue` runs after each sample, which is also the only
-					// point where progress is observable, so it doubles as the progress
-					// hook rather than widening the core API with a second callback.
-					() => {
-						returned += 1;
-						const publication = prepareOperationRunProgressPublication({
-							activeToken: operationRunTokenRef.current,
-							requestToken: token,
-							progress: requestProgress,
-							currentProgress: operationRunRef.current,
-							returnedCount: returned,
-						});
-						requestProgress = publication.progress;
-						if (publication.publishCurrent) {
-							operationRunRef.current = publication.progress;
-							setOperationRun(publication.progress);
-						}
-						return (
-							classifyOperationRunContinuation({
+	const runSelectedOperationPreset = useCallback(
+		async (start: ReturnType<typeof prepareOperationRunStart>) => {
+			if (start.kind === "notice") {
+				log(start.notice.level, start.notice.message);
+				return;
+			}
+			const { preset, token } = start;
+			operationRunTokenRef.current = token;
+			operationRunRef.current = start.progress;
+			setOperationRun(start.progress);
+			beginCommand();
+			let requestProgress = start.progress;
+			try {
+				log(start.audit.level, start.audit.message);
+				let returned = 0;
+				if (preset.kind === "monitor") {
+					const series = await collectSystemMonitorSeries(
+						{ samples: preset.samples, intervalMs: preset.intervalMs },
+						getSystemMonitorSnapshot,
+						undefined,
+						undefined,
+						// `shouldContinue` runs after each sample, which is also the only
+						// point where progress is observable, so it doubles as the progress
+						// hook rather than widening the core API with a second callback.
+						() => {
+							returned += 1;
+							const publication = prepareOperationRunProgressPublication({
 								activeToken: operationRunTokenRef.current,
 								requestToken: token,
-								cancelledToken: operationRunCancelledTokenRef.current,
-							}) === "continue"
-						);
-					},
-				);
-				returned = series.samples.length;
-				const terminal = prepareMonitorOperationRunCompletion({
-					activeToken: operationRunTokenRef.current,
-					requestToken: token,
-					cancelledToken: operationRunCancelledTokenRef.current,
-					progress: requestProgress,
-					returnedCount: returned,
-					collectorCancelled: series.cancelled,
-				});
-				if (terminal.kind === "stale") {
-					log(terminal.notice.level, terminal.notice.message);
+								progress: requestProgress,
+								currentProgress: operationRunRef.current,
+								returnedCount: returned,
+							});
+							requestProgress = publication.progress;
+							if (publication.publishCurrent) {
+								operationRunRef.current = publication.progress;
+								setOperationRun(publication.progress);
+							}
+							return (
+								classifyOperationRunContinuation({
+									activeToken: operationRunTokenRef.current,
+									requestToken: token,
+									cancelledToken: operationRunCancelledTokenRef.current,
+								}) === "continue"
+							);
+						},
+					);
+					returned = series.samples.length;
+					const terminal = prepareMonitorOperationRunCompletion({
+						activeToken: operationRunTokenRef.current,
+						requestToken: token,
+						cancelledToken: operationRunCancelledTokenRef.current,
+						progress: requestProgress,
+						returnedCount: returned,
+						collectorCancelled: series.cancelled,
+					});
+					if (terminal.kind === "stale") {
+						log(terminal.notice.level, terminal.notice.message);
+						return;
+					}
+					requestProgress = terminal.progress;
+					setSystemMonitor(series.samples.at(-1));
+					operationRunRef.current = terminal.progress;
+					setOperationRun(terminal.progress);
+					log(terminal.audit.level, terminal.audit.message);
+					const result = createOperationRunStatusActivityResult(
+						terminal.progress,
+					);
+					if (result) recordStatusActivityResult(result);
 					return;
 				}
+
+				let terminal: OperationRunTerminalTransition;
+				if (preset.kind === "logs") {
+					const snapshot = await createOsLogSnapshot({ limit: preset.limit });
+					terminal = prepareOperationRunCompletion({
+						activeToken: operationRunTokenRef.current,
+						requestToken: token,
+						progress: requestProgress,
+						returnedCount: 1,
+						preset,
+					});
+					if (terminal.kind === "stale") {
+						log(terminal.notice.level, terminal.notice.message);
+						return;
+					}
+					setOsLogs(snapshot);
+					setLogLevelFilter(preset.level);
+					setLogSearchQuery(preset.filter);
+				} else {
+					const detail = await getProcessDetail(String(preset.pid));
+					terminal = prepareOperationRunCompletion({
+						activeToken: operationRunTokenRef.current,
+						requestToken: token,
+						progress: requestProgress,
+						returnedCount: 1,
+						preset,
+					});
+					if (terminal.kind === "stale") {
+						log(terminal.notice.level, terminal.notice.message);
+						return;
+					}
+					setSelectedProcessDetail(detail);
+					const identityNotice = prepareOperationProcessIdentityNotice(
+						preset,
+						detail,
+					);
+					if (identityNotice) {
+						log(identityNotice.level, identityNotice.message);
+					}
+				}
 				requestProgress = terminal.progress;
-				setSystemMonitor(series.samples.at(-1));
 				operationRunRef.current = terminal.progress;
 				setOperationRun(terminal.progress);
 				log(terminal.audit.level, terminal.audit.message);
@@ -5275,164 +4481,83 @@ export function App(): React.ReactElement {
 					terminal.progress,
 				);
 				if (result) recordStatusActivityResult(result);
+			} catch (caught) {
+				const failure = prepareOperationRunFailure({
+					activeToken: operationRunTokenRef.current,
+					requestToken: token,
+					progress: requestProgress,
+					error: caught,
+				});
+				if (failure.kind === "failure") {
+					requestProgress = failure.progress;
+					if (failure.publishCurrent) {
+						operationRunRef.current = failure.progress;
+						setOperationRun(failure.progress);
+					}
+					log(failure.audit.level, failure.audit.message);
+					const result = createOperationRunStatusActivityResult(
+						failure.progress,
+					);
+					if (result) recordStatusActivityResult(result);
+				}
+			} finally {
+				operationRunCancelledTokenRef.current = releaseOperationRunCancellation(
+					token,
+					operationRunCancelledTokenRef.current,
+				);
+				endCommand();
+			}
+		},
+		[beginCommand, endCommand, log, recordStatusActivityResult],
+	);
+
+	const submitRemoteHostKeyEvidenceInputCommand = useCallback(
+		(transition: CommandTransition<"submit-remote-host-key-evidence">) => {
+			if (transition.closeCommandLine) {
+				setCommandLine((current) => closeCommandLine(current));
+			}
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
+			log("warn", transition.auditMessage);
+			setRemoteHostKeyEvidenceSession(transition.session);
+			recordStatusActivityResult(transition.activityResult);
+			log(transition.notice.level, transition.notice.message);
+		},
+		[log, recordStatusActivityResult],
+	);
 
-			let terminal: OperationRunTerminalTransition;
-			if (preset.kind === "logs") {
-				const snapshot = await createOsLogSnapshot({ limit: preset.limit });
-				terminal = prepareOperationRunCompletion({
-					activeToken: operationRunTokenRef.current,
-					requestToken: token,
-					progress: requestProgress,
-					returnedCount: 1,
-					preset,
-				});
-				if (terminal.kind === "stale") {
-					log(terminal.notice.level, terminal.notice.message);
-					return;
-				}
-				setOsLogs(snapshot);
-				setLogLevelFilter(preset.level);
-				setLogSearchQuery(preset.filter);
-			} else {
-				const detail = await getProcessDetail(String(preset.pid));
-				terminal = prepareOperationRunCompletion({
-					activeToken: operationRunTokenRef.current,
-					requestToken: token,
-					progress: requestProgress,
-					returnedCount: 1,
-					preset,
-				});
-				if (terminal.kind === "stale") {
-					log(terminal.notice.level, terminal.notice.message);
-					return;
-				}
-				setSelectedProcessDetail(detail);
-				const identityNotice = prepareOperationProcessIdentityNotice(
-					preset,
-					detail,
-				);
-				if (identityNotice) {
-					log(identityNotice.level, identityNotice.message);
-				}
+	const submitRemoteKnownHostsCandidateCommand = useCallback(
+		(transition: CommandTransition<"submit-remote-known-hosts-candidate">) => {
+			if (transition.closeCommandLine) {
+				setCommandLine((current) => closeCommandLine(current));
 			}
-			requestProgress = terminal.progress;
-			operationRunRef.current = terminal.progress;
-			setOperationRun(terminal.progress);
-			log(terminal.audit.level, terminal.audit.message);
-			const result = createOperationRunStatusActivityResult(terminal.progress);
-			if (result) recordStatusActivityResult(result);
-		} catch (caught) {
-			const failure = prepareOperationRunFailure({
-				activeToken: operationRunTokenRef.current,
-				requestToken: token,
-				progress: requestProgress,
-				error: caught,
-			});
-			if (failure.kind === "failure") {
-				requestProgress = failure.progress;
-				if (failure.publishCurrent) {
-					operationRunRef.current = failure.progress;
-					setOperationRun(failure.progress);
-				}
-				log(failure.audit.level, failure.audit.message);
-				const result = createOperationRunStatusActivityResult(failure.progress);
-				if (result) recordStatusActivityResult(result);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
 			}
-		} finally {
-			operationRunCancelledTokenRef.current = releaseOperationRunCancellation(
-				token,
-				operationRunCancelledTokenRef.current,
-			);
-			endCommand();
-		}
-	}, [
-		beginCommand,
-		endCommand,
-		log,
-		operationPresets,
-		recordStatusActivityResult,
-		selectedOperationPresetIndex,
-	]);
-
-	const submitRemoteHostKeyEvidenceInputCommand = useCallback(() => {
-		const transition = prepareRemoteHostKeyEvidenceSubmission({
-			profiles: remoteProfiles,
-			selectedIndex: selectedRemoteIndex,
-			value: commandLine.value,
-			session: remoteHostKeyEvidenceSession,
-		});
-		if (transition.closeCommandLine) {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-		if (transition.kind === "notice") {
+			setRemoteKnownHostsCandidateSession(transition.session);
 			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		log("warn", transition.auditMessage);
-		setRemoteHostKeyEvidenceSession(transition.session);
-		recordStatusActivityResult(transition.activityResult);
-		log(transition.notice.level, transition.notice.message);
-	}, [
-		commandLine.value,
-		log,
-		recordStatusActivityResult,
-		remoteHostKeyEvidenceSession,
-		remoteProfiles,
-		selectedRemoteIndex,
-	]);
+		},
+		[log],
+	);
 
-	const submitRemoteKnownHostsCandidateCommand = useCallback(() => {
-		const transition = prepareRemoteKnownHostsCandidateSubmission({
-			profiles: remoteProfiles,
-			selectedIndex: selectedRemoteIndex,
-			value: commandLine.value,
-			session: remoteKnownHostsCandidateSession,
-		});
-		if (transition.closeCommandLine) {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-		if (transition.kind === "notice") {
+	const submitRemoteKnownHostsPasteReviewCommand = useCallback(
+		(transition: CommandTransition<"submit-remote-known-hosts-paste">) => {
+			if (transition.closeCommandLine) {
+				setCommandLine((current) => closeCommandLine(current));
+			}
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			setRemoteKnownHostsPasteReviewSession(transition.pasteReviewSession);
+			setRemoteKnownHostsCandidateSession(transition.candidateSession);
 			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		setRemoteKnownHostsCandidateSession(transition.session);
-		log(transition.notice.level, transition.notice.message);
-	}, [
-		commandLine.value,
-		log,
-		remoteKnownHostsCandidateSession,
-		remoteProfiles,
-		selectedRemoteIndex,
-	]);
-
-	const submitRemoteKnownHostsPasteReviewCommand = useCallback(() => {
-		const transition = prepareRemoteKnownHostsPasteSubmission({
-			profiles: remoteProfiles,
-			selectedIndex: selectedRemoteIndex,
-			value: commandLine.value,
-			candidateSession: remoteKnownHostsCandidateSession,
-			pasteReviewSession: remoteKnownHostsPasteReviewSession,
-		});
-		if (transition.closeCommandLine) {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		setRemoteKnownHostsPasteReviewSession(transition.pasteReviewSession);
-		setRemoteKnownHostsCandidateSession(transition.candidateSession);
-		log(transition.notice.level, transition.notice.message);
-	}, [
-		commandLine.value,
-		log,
-		remoteKnownHostsCandidateSession,
-		remoteKnownHostsPasteReviewSession,
-		remoteProfiles,
-		selectedRemoteIndex,
-	]);
+		},
+		[log],
+	);
 
 	const moveRemoteKnownHostsPasteReviewSelectionCommand = useCallback(
 		(direction: "next" | "previous") => {
@@ -5490,127 +4615,145 @@ export function App(): React.ReactElement {
 		],
 	);
 
-	const submitRemoteKnownHostsPasteSelectionCommand = useCallback(() => {
-		const transition = prepareRemoteKnownHostsPasteSelection({
-			profiles: remoteProfiles,
-			selectedIndex: selectedRemoteIndex,
-			candidateSession: remoteKnownHostsCandidateSession,
-			pasteReviewSession: remoteKnownHostsPasteReviewSession,
-			selection: { kind: "input", value: commandLine.value },
-		});
-		if (transition.closeCommandLine) {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		setRemoteKnownHostsPasteReviewSession(transition.pasteReviewSession);
-		setRemoteKnownHostsCandidateSession(transition.candidateSession);
-		recordStatusActivityResult(transition.activityResult);
-		log(transition.notice.level, transition.notice.message);
-	}, [
-		commandLine.value,
-		log,
-		recordStatusActivityResult,
-		remoteKnownHostsCandidateSession,
-		remoteKnownHostsPasteReviewSession,
-		remoteProfiles,
-		selectedRemoteIndex,
-	]);
-
-	const submitRemoteHostTrustReviewCommand = useCallback(() => {
-		const transition = prepareRemoteHostTrustSubmission({
-			profiles: remoteProfiles,
-			selectedIndex: selectedRemoteIndex,
-			receivedConfirmation: commandLine.value,
-		});
-		if (transition.closeCommandLine) {
-			setCommandLine((current) => closeCommandLine(current));
-		}
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		log("warn", transition.auditMessage);
-		recordStatusActivityResult(transition.activityResult);
-		log(transition.notice.level, transition.notice.message);
-	}, [
-		commandLine.value,
-		log,
-		recordStatusActivityResult,
-		remoteProfiles,
-		selectedRemoteIndex,
-	]);
-
-	const inspectSelectedEndpointProcess = useCallback(async () => {
-		const start = prepareSelectedProcessInspection({
-			screen,
-			connectionRequest: getSelectedConnectionProcessRequest(
-				sortedConnections,
-				selectedConnectionIndex,
-			),
-			portRequest: getSelectedPortProcessRequest(
-				sortedPorts,
-				selectedPortIndex,
-			),
-		});
-		if (start.kind === "notice") {
-			log(start.notice.level, start.notice.message);
-			return;
-		}
-		const { request } = start;
-
-		const token = beginRequest(processInspectionTokenRef.current);
-		processInspectionTokenRef.current = token;
-		beginCommand();
-		try {
-			const [detail, fileResult] = await Promise.all([
-				getProcessDetail(request.pid),
-				getProcessFileSnapshotWithSource(request.pid),
-			]);
-			const publication = classifyProcessInspectionPublication({
-				currentToken: processInspectionTokenRef.current,
-				requestToken: token,
-				request,
-				detail,
-				fileResult,
-			});
-			if (publication.kind === "stale") {
-				log(publication.notice.level, publication.notice.message);
+	const submitRemoteKnownHostsPasteSelectionCommand = useCallback(
+		(transition: CommandTransition<"submit-remote-known-hosts-selection">) => {
+			if (transition.closeCommandLine) {
+				setCommandLine((current) => closeCommandLine(current));
+			}
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
 				return;
 			}
-			setSelectedProcessDetail(publication.detail);
-			setSelectedProcessFiles(publication.files);
-			setSelectedProcessFileEvidenceIssue(publication.fileEvidenceIssue);
-			setSelectedProcessFileIndex(publication.selectedFileIndex);
-			setProcessClipboardPreview(publication.clipboardPreview);
-			setScreen("processes");
-			log(publication.notice.level, publication.notice.message);
-		} catch (caught) {
-			const failure = classifyProcessInspectionFailure({
-				currentToken: processInspectionTokenRef.current,
-				requestToken: token,
-				request,
-				error: caught,
-			});
-			if (failure.publishCurrent) {
-				setSelectedProcessFileEvidenceIssue(failure.fileEvidenceIssue);
+			setRemoteKnownHostsPasteReviewSession(transition.pasteReviewSession);
+			setRemoteKnownHostsCandidateSession(transition.candidateSession);
+			recordStatusActivityResult(transition.activityResult);
+			log(transition.notice.level, transition.notice.message);
+		},
+		[log, recordStatusActivityResult],
+	);
+
+	const submitRemoteHostTrustReviewCommand = useCallback(
+		(transition: CommandTransition<"submit-remote-host-trust">) => {
+			if (transition.closeCommandLine) {
+				setCommandLine((current) => closeCommandLine(current));
 			}
-			log(failure.notice.level, failure.notice.message);
-		} finally {
-			endCommand();
-		}
-	}, [
-		log,
-		screen,
-		selectedConnectionIndex,
-		selectedPortIndex,
-		sortedConnections,
-		sortedPorts,
-		beginCommand,
-		endCommand,
-	]);
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			log("warn", transition.auditMessage);
+			recordStatusActivityResult(transition.activityResult);
+			log(transition.notice.level, transition.notice.message);
+		},
+		[log, recordStatusActivityResult],
+	);
+
+	const applyEndpointIoEffect = useCallback(
+		async (effect: EndpointInputIoEffect) => {
+			if (effect.kind === "endpoint-filter-presets") {
+				try {
+					await setConfigEndpointFilterPresets(effect.scope, effect.presets);
+				} catch (caught) {
+					log(
+						"fail",
+						caught instanceof Error
+							? `${effect.scope} preset save failed ${caught.message}`
+							: `${effect.scope} preset save failed ${String(caught)}`,
+					);
+				}
+				return;
+			}
+			if (effect.kind === "endpoint-sort") {
+				try {
+					await setConfigEndpointSort(effect.scope, effect.sort);
+				} catch (caught) {
+					log(
+						"fail",
+						caught instanceof Error
+							? `${effect.scope} sort save failed ${caught.message}`
+							: `${effect.scope} sort save failed ${String(caught)}`,
+					);
+				}
+				return;
+			}
+
+			const token = beginRequest(processInspectionTokenRef.current);
+			processInspectionTokenRef.current = token;
+			beginCommand();
+			if (effect.kind === "load-port-file-evidence") {
+				setSelectedProcessFileEvidenceIssue(undefined);
+				try {
+					const files = await getProcessFileSnapshot(effect.pid);
+					const publication = classifyEndpointProcessInspectionPublication({
+						currentToken: processInspectionTokenRef.current,
+						requestToken: token,
+						pid: effect.pid,
+						outcome: { kind: "success", files },
+					});
+					if (publication.publishCurrent) {
+						setSelectedProcessFiles(publication.files);
+						setSelectedProcessFileEvidenceIssue(publication.fileEvidenceIssue);
+					}
+					log(publication.notice.level, publication.notice.message);
+				} catch (caught) {
+					const publication = classifyEndpointProcessInspectionPublication({
+						currentToken: processInspectionTokenRef.current,
+						requestToken: token,
+						pid: effect.pid,
+						outcome: { kind: "failure", error: caught },
+					});
+					if (publication.publishCurrent) {
+						setSelectedProcessFiles(publication.files);
+						setSelectedProcessFileEvidenceIssue(publication.fileEvidenceIssue);
+					}
+					log(publication.notice.level, publication.notice.message);
+				} finally {
+					endCommand();
+				}
+				return;
+			}
+
+			const { request } = effect.plan;
+			try {
+				const [detail, fileResult] = await Promise.all([
+					getProcessDetail(request.pid),
+					getProcessFileSnapshotWithSource(request.pid),
+				]);
+				const publication = classifyProcessInspectionPublication({
+					currentToken: processInspectionTokenRef.current,
+					requestToken: token,
+					request,
+					detail,
+					fileResult,
+				});
+				if (publication.kind === "stale") {
+					log(publication.notice.level, publication.notice.message);
+					return;
+				}
+				setSelectedProcessDetail(publication.detail);
+				setSelectedProcessFiles(publication.files);
+				setSelectedProcessFileEvidenceIssue(publication.fileEvidenceIssue);
+				setSelectedProcessFileIndex(publication.selectedFileIndex);
+				setProcessClipboardPreview(publication.clipboardPreview);
+				setScreen("processes");
+				log(publication.notice.level, publication.notice.message);
+			} catch (caught) {
+				const failure = classifyProcessInspectionFailure({
+					currentToken: processInspectionTokenRef.current,
+					requestToken: token,
+					request,
+					error: caught,
+				});
+				if (failure.publishCurrent) {
+					setSelectedProcessFileEvidenceIssue(failure.fileEvidenceIssue);
+				}
+				log(failure.notice.level, failure.notice.message);
+			} finally {
+				endCommand();
+			}
+		},
+		[log, beginCommand, endCommand],
+	);
 
 	const openSelectedProcessFile = useCallback(
 		async (selection: SelectedProcessResourceAction) => {
@@ -5777,100 +4920,69 @@ export function App(): React.ReactElement {
 
 	const cycleStatusActivityResultHistoryFilter = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (options.origin === "palette") {
-				setScreen("status");
-				setFocusArea("workspaces");
+			const transition = prepareStatusActivityResultHistoryFilterCycle(
+				statusActivityResults,
+				statusActivityResultHistoryFilter,
+				options.origin,
+			);
+			if (transition.screen) {
+				setScreen(transition.screen);
 			}
-			setStatusActivityResultHistoryFilter((current) => {
-				const next = nextStatusActivityResultHistoryFilter(current);
-				if (options.origin === "palette") {
-					setStatusActivityResults((history) => {
-						const visible =
-							next === "all"
-								? history.length + 1
-								: filterStatusActivityResultHistoryIndexes(history, next)
-										.length;
-						const result = createStatusActivityResultHistoryFilterPaletteResult(
-							next,
-							{
-								total: history.length + 1,
-								visible,
-							},
-						);
-						const nextHistory = appendStatusActivityResultHistory(
-							history,
-							result,
-						);
-						setSelectedStatusActivityResultIndex(
-							getStatusActivityResultHistoryFilteredSelection(
-								nextHistory,
-								0,
-								next,
-							),
-						);
-						return nextHistory;
-					});
-				} else {
-					setSelectedStatusActivityResultIndex((selected) =>
-						getStatusActivityResultHistoryFilteredSelection(
-							statusActivityResults,
-							selected,
-							next,
-						),
-					);
-				}
-				setSelectedStatusActivityCopyPreviewRowIndex(0);
-				setStatusActivityCopyPreviewExpanded(false);
-				log(
-					"info",
-					`status activity result history filter ${next}${options.origin === "palette" ? " origin=palette" : ""}`,
+			if (transition.focusArea) {
+				setFocusArea(transition.focusArea);
+			}
+			setStatusActivityResultHistoryFilter(transition.filter);
+			const result = transition.result;
+			if (result) {
+				setStatusActivityResults((history) =>
+					appendStatusActivityResultHistory(history, result),
 				);
-				return next;
-			});
+			}
+			setSelectedStatusActivityResultIndex(transition.selectedIndex);
+			setSelectedStatusActivityCopyPreviewRowIndex(0);
+			setStatusActivityCopyPreviewExpanded(false);
+			log(transition.notice.level, transition.notice.message);
 		},
-		[log, statusActivityResults],
+		[log, statusActivityResultHistoryFilter, statusActivityResults],
 	);
 
 	const cycleStatusActivityResultTimelineJumpFilter = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (options.origin === "palette") {
-				setScreen("status");
-				setFocusArea("workspaces");
+			const transition = prepareStatusActivityResultTimelineJumpFilterCycle(
+				statusActivityResults,
+				statusActivityResultTimelineJumpFilter,
+				options.origin,
+			);
+			if (transition.screen) {
+				setScreen(transition.screen);
 			}
-			setStatusActivityResultTimelineJumpFilter((current) => {
-				const next = nextStatusActivityResultTimelineJumpFilter(current);
-				setSelectedStatusActivityResultIndex((selected) =>
-					moveStatusActivityResultTimelineJumpSelection(
-						statusActivityResults,
-						selected,
-						"next",
-						next,
-					),
-				);
+			if (transition.focusArea) {
+				setFocusArea(transition.focusArea);
+			}
+			setStatusActivityResultTimelineJumpFilter(transition.filter);
+			setSelectedStatusActivityResultIndex(transition.selectedIndex);
+			log(transition.notice.level, transition.notice.message);
+			void setConfigValue(
+				"statusResultJumpClassFilter",
+				transition.filter,
+			).catch((caught) =>
 				log(
-					"info",
-					`status activity timeline result jump filter ${next}${options.origin === "palette" ? " origin=palette" : ""}`,
-				);
-				void setConfigValue("statusResultJumpClassFilter", next).catch(
-					(caught) =>
-						log(
-							"warn",
-							caught instanceof Error
-								? `status result jump filter persistence failed ${caught.message}`
-								: `status result jump filter persistence failed ${String(caught)}`,
-						),
-				);
-				return next;
-			});
+					"warn",
+					caught instanceof Error
+						? `status result jump filter persistence failed ${caught.message}`
+						: `status result jump filter persistence failed ${String(caught)}`,
+				),
+			);
 		},
-		[log, statusActivityResults],
+		[log, statusActivityResultTimelineJumpFilter, statusActivityResults],
 	);
 
 	const getSelectedTimelineEvidenceTrailResultOptions = useCallback(
-		() => ({
-			selectedIndex: selectedTimelineEvidenceTrailAuditExportIndex,
-			total: filteredTimelineEvidenceTrailAuditExports.length || 1,
-		}),
+		() =>
+			resolveRecoveredEvidenceResultOptions(
+				selectedTimelineEvidenceTrailAuditExportIndex,
+				filteredTimelineEvidenceTrailAuditExports.length,
+			),
 		[
 			filteredTimelineEvidenceTrailAuditExports.length,
 			selectedTimelineEvidenceTrailAuditExportIndex,
@@ -6053,10 +5165,11 @@ export function App(): React.ReactElement {
 	);
 
 	const getSelectedProcessControlEvidenceResultOptions = useCallback(
-		() => ({
-			selectedIndex: selectedProcessControlAuditExportIndex,
-			total: processControlAuditExports.length || 1,
-		}),
+		() =>
+			resolveRecoveredEvidenceResultOptions(
+				selectedProcessControlAuditExportIndex,
+				processControlAuditExports.length,
+			),
 		[processControlAuditExports.length, selectedProcessControlAuditExportIndex],
 	);
 
@@ -6417,10 +5530,11 @@ export function App(): React.ReactElement {
 	);
 
 	const getSelectedInterfaceConfirmationEvidenceResultOptions = useCallback(
-		() => ({
-			selectedIndex: selectedInterfaceConfirmationAuditExportIndex,
-			total: interfaceConfirmationEvidenceExports.length || 1,
-		}),
+		() =>
+			resolveRecoveredEvidenceResultOptions(
+				selectedInterfaceConfirmationAuditExportIndex,
+				interfaceConfirmationEvidenceExports.length,
+			),
 		[
 			interfaceConfirmationEvidenceExports.length,
 			selectedInterfaceConfirmationAuditExportIndex,
@@ -6567,90 +5681,32 @@ export function App(): React.ReactElement {
 
 	const selectNextStatusActivityResultTimelineJump = useCallback(
 		(options: { origin?: "keyboard" | "palette" } = {}) => {
-			if (options.origin === "palette") {
-				setScreen("status");
-				setFocusArea("workspaces");
-			}
-			setSelectedStatusActivityResultIndex((current) => {
-				const next = moveStatusActivityResultTimelineJumpSelection(
-					statusActivityResults,
-					current,
-					"next",
-					statusActivityResultTimelineJumpFilter,
-				);
-				if (next === current && statusActivityResults.length === 0) {
-					log("warn", "no status activity result history");
-					if (options.origin === "palette") {
-						log(
-							"info",
-							formatStatusActivityResultTimelineJumpPaletteAuditMessage(
-								"select",
-							),
-						);
-						recordStatusActivityResult(
-							createStatusActivityResultTimelineJumpPaletteResult("select"),
-						);
-					}
-					return current;
-				}
-				const jump = createStatusActivityResultTimelineSearch(
-					statusActivityResults,
-					next,
-				);
-				if (!jump) {
-					log("warn", "no status activity timeline result jumps");
-					if (options.origin === "palette") {
-						log(
-							"info",
-							formatStatusActivityResultTimelineJumpPaletteAuditMessage(
-								"select",
-							),
-						);
-						recordStatusActivityResult(
-							createStatusActivityResultTimelineJumpPaletteResult("select"),
-						);
-					}
-					return current;
-				}
-				log(
-					"info",
-					`status activity timeline result jump ${next + 1}${options.origin === "palette" ? " origin=palette" : ""}`,
-				);
-				if (options.origin === "palette") {
-					const selection = getStatusActivityResultTimelineJumpSelection(
-						statusActivityResults,
-						next,
-						statusActivityResultTimelineJumpFilter,
-					);
-					log(
-						"info",
-						formatStatusActivityResultTimelineJumpPaletteAuditMessage(
-							"select",
-							{
-								historyIndex: next,
-								jump,
-								selectedIndex: selection?.selectedIndex,
-								total: selection?.total,
-							},
-						),
-					);
-					recordStatusActivityResult(
-						createStatusActivityResultTimelineJumpPaletteResult("select", {
-							historyIndex: next,
-							jump,
-							selectedIndex: selection?.selectedIndex,
-							total: selection?.total,
-						}),
-					);
-				}
-				return next;
+			const transition = prepareStatusActivityResultTimelineJumpSelection({
+				history: statusActivityResults,
+				selectedIndex: selectedStatusActivityResultIndex,
+				filter: statusActivityResultTimelineJumpFilter,
+				origin: options.origin,
 			});
+			if (transition.screen) {
+				setScreen(transition.screen);
+			}
+			if (transition.focusArea) {
+				setFocusArea(transition.focusArea);
+			}
+			if (transition.result) {
+				recordStatusActivityResult(transition.result);
+			}
+			log(transition.notice.level, transition.notice.message);
+			if (transition.kind === "select") {
+				setSelectedStatusActivityResultIndex(transition.selectedIndex);
+			}
 		},
 		[
 			log,
 			recordStatusActivityResult,
 			statusActivityResultTimelineJumpFilter,
 			statusActivityResults,
+			selectedStatusActivityResultIndex,
 		],
 	);
 
@@ -6988,7 +6044,9 @@ export function App(): React.ReactElement {
 					const latestTool = toolHistory.at(-1);
 					if (latestTool) {
 						setScreen("tools");
-						setSelectedToolHistoryIndex(Math.max(0, toolHistory.length - 1));
+						setSelectedToolHistoryIndex(
+							clampIndex(toolHistory.length - 1, toolHistory.length),
+						);
 						log("info", `raw.view latest ${latestTool.label}`);
 					} else {
 						log("warn", "raw.view has no tool history yet");
@@ -6996,7 +6054,25 @@ export function App(): React.ReactElement {
 				}
 
 				if (action.id === "tools.export") {
-					await exportToolHistory("all");
+					const effect = prepareToolHistoryExportEffect({
+						history: toolHistory,
+						selectedIndex: selectedToolHistoryIndex,
+						scope: "all",
+						context: {
+							baseDir: dirname(getConfigPath()),
+							generatedAt: new Date(),
+							publication: {
+								selectedIndex: 0,
+								filter: toolExportFilter,
+								query: toolExportQuery,
+							},
+						},
+					});
+					if (effect.kind === "export") {
+						await exportToolHistory(effect);
+					} else {
+						log(effect.notice.level, effect.notice.message);
+					}
 				}
 
 				if (action.id === "picos.update") {
@@ -7259,10 +6335,13 @@ export function App(): React.ReactElement {
 			selectNextRemoteKnownHostsSelectionEvidenceExport,
 			selectNextStatusActivityResultTimelineJump,
 			selectNextTimelineEvidenceTrailExport,
+			selectedToolHistoryIndex,
 			saveCurrentInterfaceEvidenceSearchPreset,
 			timelineFilter,
 			timelineSearchQuery,
 			toolHistory,
+			toolExportFilter,
+			toolExportQuery,
 			toolTargetPresets.length,
 			customToolTargetPresets.length,
 			summary?.interfaces.length,
@@ -7324,25 +6403,11 @@ export function App(): React.ReactElement {
 	}, [log, logFollowEnabled, refreshInterval, screen]);
 
 	const openCleanupHandoffPrompt = useCallback(() => {
-		const plan = createCleanupHandoffActionPlan(cleanupJumpAudit, screen);
-		if (!plan || !cleanupJumpAudit) {
+		const transition = prepareCleanupHandoffPrompt(cleanupJumpAudit, screen);
+		if (transition.kind === "no-op" || !cleanupJumpAudit) {
 			return false;
 		}
-
-		const prompt =
-			plan.id === "logs"
-				? "logs-cleanup"
-				: plan.id === "routes"
-					? "route-filter-cleanup"
-					: plan.id === "connections" || plan.id === "ports"
-						? `${endpointFilterCleanupPromptPrefix}${plan.id}`
-						: plan.id === "timeline"
-							? "timeline-search-cleanup"
-							: plan.id === "tools-history"
-								? "tool-history-cleanup"
-								: "tool-target-cleanup";
-
-		setCommandLine(openCommandLine(prompt));
+		setCommandLine(openCommandLine(transition.prompt as CommandPrompt));
 		setCleanupHandoffHistory((current) =>
 			appendCleanupHandoffHistory(
 				current,
@@ -7350,16 +6415,13 @@ export function App(): React.ReactElement {
 			),
 		);
 		setSelectedCleanupHandoffHistoryIndex(0);
-		log(
-			"info",
-			`cleanup handoff prompt opened ${plan.label}; type ${plan.confirmationPhrase}`,
-		);
+		log(transition.notice.level, transition.notice.message);
 		return true;
 	}, [cleanupJumpAudit, log, screen]);
 
 	const dismissCleanupHandoff = useCallback(() => {
-		const plan = createCleanupHandoffDismissPlan(cleanupJumpAudit, screen);
-		if (!plan || !cleanupJumpAudit) {
+		const transition = prepareCleanupHandoffDismissal(cleanupJumpAudit, screen);
+		if (transition.kind === "no-op" || !cleanupJumpAudit) {
 			return false;
 		}
 
@@ -7371,10 +6433,7 @@ export function App(): React.ReactElement {
 		);
 		setSelectedCleanupHandoffHistoryIndex(0);
 		setCleanupJumpAudit(undefined);
-		log(
-			"info",
-			`cleanup handoff dismissed ${plan.label}; normal ${plan.workspace} controls restored`,
-		);
+		log(transition.notice.level, transition.notice.message);
 		return true;
 	}, [cleanupJumpAudit, log, screen]);
 
@@ -7457,53 +6516,27 @@ export function App(): React.ReactElement {
 	]);
 
 	const jumpToConfigManagedShelf = useCallback(
-		(target: ConfigManagedShelfTarget) => {
-			const transition = createConfigManagedShelfJumpTransition(target, {
-				origin: "keyboard",
-				counts: {
-					network: summary?.interfaces.length ?? 0,
-					routes: routeFilterPresets.length,
-					connections: connectionFilterPresets.length,
-					ports: portFilterPresets.length,
-					tools: toolTargetPresets.length,
-					logs: logProfiles.length,
-					remotes: remoteProfiles.length,
-				},
-			});
+		(transition: ReturnType<typeof createConfigManagedShelfJumpTransition>) => {
 			applyConfigManagedShelfStateEffects(
 				transition.effects,
 				configManagedShelfStateEffectSetters,
 			);
 			log(transition.notice.level, transition.notice.message);
 		},
-		[
-			configManagedShelfStateEffectSetters,
-			connectionFilterPresets.length,
-			log,
-			logProfiles.length,
-			portFilterPresets.length,
-			remoteProfiles.length,
-			routeFilterPresets.length,
-			summary,
-			toolTargetPresets.length,
-		],
+		[configManagedShelfStateEffectSetters, log],
 	);
 
-	const reopenCleanupHandoffHistory = useCallback(() => {
-		const transition = prepareCleanupHandoffHistoryReopen({
-			history: cleanupHandoffHistory,
-			selectedIndex: selectedCleanupHandoffHistoryIndex,
-		});
-		if (transition.kind === "notice") {
-			log(transition.notice.level, transition.notice.message);
-			return false;
-		}
-
-		setCleanupJumpAudit(transition.audit);
-		setScreen(transition.screen);
-		log(transition.notice.level, transition.notice.message);
-		return true;
-	}, [cleanupHandoffHistory, log, selectedCleanupHandoffHistoryIndex]);
+	const reopenCleanupHandoffHistory = useCallback(
+		(patch: StatusWorkspaceStatePatch) => {
+			if (patch.cleanupJumpAudit !== undefined) {
+				setCleanupJumpAudit(patch.cleanupJumpAudit);
+			}
+			if (patch.screen !== undefined) {
+				setScreen(patch.screen);
+			}
+		},
+		[],
+	);
 
 	const refreshCleanupExportIndex = useCallback(
 		async (announce = true) => {
@@ -7744,255 +6777,213 @@ export function App(): React.ReactElement {
 		syncConfigSessionState,
 	]);
 
-	const submitCleanupExportArchiveCommand = useCallback(async () => {
-		const transition = prepareCleanupExportArchiveConfirmation(
-			cleanupExportArchivePlan,
-			cleanupExportIndex.baseDir,
-			commandLine.value,
-		);
-		if (transition.kind === "notice") {
+	const submitCleanupExportArchiveCommand = useCallback(
+		async (transition: CommandTransition<"submit-cleanup-export-archive">) => {
+			if (transition.kind === "notice") {
+				setCommandLine((current) => closeCommandLine(current));
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			const plan = transition.plan;
+			setCleanupExportArchivePlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		const plan = transition.plan;
-		setCleanupExportArchivePlan(plan);
-		setCommandLine((current) => closeCommandLine(current));
-		const result = await archiveCleanupHandoffHistoryExport(plan);
-		log(
-			result.status === "archived" ? "ok" : "warn",
-			`cleanup export archive ${result.message}`,
-		);
-		if (result.status === "archived") {
-			await refreshCleanupExportIndex(false);
-			await refreshCleanupExportArchiveIndex(false);
-		}
-	}, [
-		cleanupExportArchivePlan,
-		cleanupExportIndex.baseDir,
-		commandLine.value,
-		log,
-		refreshCleanupExportArchiveIndex,
-		refreshCleanupExportIndex,
-	]);
-
-	const submitToolExportArchiveCommand = useCallback(async () => {
-		const transition = prepareToolHistoryExportArchiveConfirmation(
-			toolExportArchivePlan,
-			commandLine.value,
-		);
-		if (transition.kind === "notice") {
-			setCommandLine((current) => closeCommandLine(current));
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		const plan = transition.plan;
-		setToolExportArchivePlan(plan);
-		setCommandLine((current) => closeCommandLine(current));
-		const result = await archiveToolHistoryExport(plan);
-		log(
-			result.status === "archived" ? "ok" : "warn",
-			`tools evidence archive ${result.message}`,
-		);
-		recordStatusActivityResult({
-			source: "evidence",
-			action: "tools-evidence-archive",
-			message: `tools evidence archive ${result.status} ${plan.fileName}`,
-			detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
-		});
-		if (result.status === "archived") {
-			await refreshToolExportIndex(false);
-			await refreshToolExportArchiveIndex(false);
-			setSelectedStatusEvidenceKind("tools-archive");
-		}
-	}, [
-		commandLine.value,
-		log,
-		recordStatusActivityResult,
-		refreshToolExportArchiveIndex,
-		refreshToolExportIndex,
-		toolExportArchivePlan,
-	]);
-
-	const submitAuditExportArchiveCommand = useCallback(async () => {
-		const transition = prepareAuditEvidenceArchiveConfirmation(
-			auditExportArchivePlan,
-			auditExportIndex.baseDir,
-			commandLine.value,
-		);
-		if (transition.kind === "notice") {
-			setCommandLine((current) => closeCommandLine(current));
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		const isInterfaceEvidence = interfaceConfirmationAuditExports.some(
-			(item) => item.path === transition.plan.sourcePath,
-		);
-		const plan = transition.plan;
-		setAuditExportArchivePlan(plan);
-		setCommandLine((current) => closeCommandLine(current));
-		const result = await archiveConsoleAuditExport(plan);
-		log(
-			result.status === "archived" ? "ok" : "warn",
-			`${isInterfaceEvidence ? "interface evidence" : "audit export"} archive ${result.message}`,
-		);
-		if (isInterfaceEvidence) {
-			const outcome = {
-				status: result.status,
-				message: result.message,
-				fileName: plan.fileName,
-				sourcePath: result.sourcePath,
-				archivedPath: result.archivedPath,
-			};
+			const result = await archiveCleanupHandoffHistoryExport(plan);
 			log(
-				"info",
-				formatInterfaceEvidenceOutcomeAuditMessage("archive", outcome),
+				result.status === "archived" ? "ok" : "warn",
+				`cleanup export archive ${result.message}`,
 			);
-			recordStatusActivityResult(
-				createInterfaceEvidenceOutcomeStatusActivityResult("archive", outcome),
+			if (result.status === "archived") {
+				await refreshCleanupExportIndex(false);
+				await refreshCleanupExportArchiveIndex(false);
+			}
+		},
+		[log, refreshCleanupExportArchiveIndex, refreshCleanupExportIndex],
+	);
+
+	const submitToolExportArchiveCommand = useCallback(
+		async (transition: CommandTransition<"submit-tool-export-archive">) => {
+			if (transition.kind === "notice") {
+				setCommandLine((current) => closeCommandLine(current));
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			const plan = transition.plan;
+			setToolExportArchivePlan(plan);
+			setCommandLine((current) => closeCommandLine(current));
+			const result = await archiveToolHistoryExport(plan);
+			log(
+				result.status === "archived" ? "ok" : "warn",
+				`tools evidence archive ${result.message}`,
 			);
-		} else {
 			recordStatusActivityResult({
 				source: "evidence",
-				action: "audit-evidence-archive",
-				message: `audit export archive ${result.status} ${plan.fileName}`,
+				action: "tools-evidence-archive",
+				message: `tools evidence archive ${result.status} ${plan.fileName}`,
 				detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
 			});
-		}
-		if (result.status === "archived") {
-			await refreshAuditExportIndex(false);
-			await refreshAuditExportArchiveIndex(false);
-			if (isInterfaceEvidence) {
-				setInterfaceEvidenceStateFilter("archived");
-				setSelectedInterfaceConfirmationAuditExportIndex(0);
-				setSelectedStatusEvidenceKind("interface");
+			if (result.status === "archived") {
+				await refreshToolExportIndex(false);
+				await refreshToolExportArchiveIndex(false);
+				setSelectedStatusEvidenceKind("tools-archive");
 			}
-		}
-	}, [
-		auditExportArchivePlan,
-		auditExportIndex.baseDir,
-		commandLine.value,
-		interfaceConfirmationAuditExports,
-		log,
-		recordStatusActivityResult,
-		refreshAuditExportArchiveIndex,
-		refreshAuditExportIndex,
-	]);
+		},
+		[
+			log,
+			recordStatusActivityResult,
+			refreshToolExportArchiveIndex,
+			refreshToolExportIndex,
+		],
+	);
 
-	const submitAuditArchiveRetentionCommand = useCallback(async () => {
-		const retentionIndex =
-			auditArchiveRetentionScope === "interface"
-				? filterInterfaceConfirmationAuditExportIndex(auditExportArchiveIndex)
-				: auditExportArchiveIndex;
-		const transition = prepareAuditEvidenceRetentionConfirmation(
-			auditArchiveRetentionPlan,
-			retentionIndex,
-			commandLine.value,
-		);
-		if (transition.kind === "notice") {
+	const submitAuditExportArchiveCommand = useCallback(
+		async (transition: CommandTransition<"submit-audit-export-archive">) => {
+			if (transition.kind === "notice") {
+				setCommandLine((current) => closeCommandLine(current));
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			const isInterfaceEvidence = transition.scope === "interface";
+			const plan = transition.plan;
+			setAuditExportArchivePlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		const plan = transition.plan;
-		setAuditArchiveRetentionPlan(plan);
-		setCommandLine((current) => closeCommandLine(current));
-		const result = await pruneConsoleAuditArchive(plan);
-		log(
-			result.status === "pruned" ? "ok" : "warn",
-			`${auditArchiveRetentionScope === "interface" ? "interface evidence" : "audit"} archive retention ${result.message}`,
-		);
-		if (auditArchiveRetentionScope === "interface") {
-			const outcome = {
-				status: result.status,
-				message: result.message,
-				removed: result.removed,
-				candidates: plan.candidateItems.length,
-				maxItems: plan.maxItems,
-			};
+			const result = await archiveConsoleAuditExport(plan);
 			log(
-				"info",
-				formatInterfaceEvidenceOutcomeAuditMessage("retention", outcome),
+				result.status === "archived" ? "ok" : "warn",
+				`${isInterfaceEvidence ? "interface evidence" : "audit export"} archive ${result.message}`,
 			);
-			recordStatusActivityResult(
-				createInterfaceEvidenceOutcomeStatusActivityResult(
-					"retention",
-					outcome,
-				),
+			if (isInterfaceEvidence) {
+				const outcome = {
+					status: result.status,
+					message: result.message,
+					fileName: plan.fileName,
+					sourcePath: result.sourcePath,
+					archivedPath: result.archivedPath,
+				};
+				log(
+					"info",
+					formatInterfaceEvidenceOutcomeAuditMessage("archive", outcome),
+				);
+				recordStatusActivityResult(
+					createInterfaceEvidenceOutcomeStatusActivityResult(
+						"archive",
+						outcome,
+					),
+				);
+			} else {
+				recordStatusActivityResult({
+					source: "evidence",
+					action: "audit-evidence-archive",
+					message: `audit export archive ${result.status} ${plan.fileName}`,
+					detail: `${result.message} from=${result.sourcePath} to=${result.archivedPath}`,
+				});
+			}
+			if (result.status === "archived") {
+				await refreshAuditExportIndex(false);
+				await refreshAuditExportArchiveIndex(false);
+				if (isInterfaceEvidence) {
+					setInterfaceEvidenceStateFilter("archived");
+					setSelectedInterfaceConfirmationAuditExportIndex(0);
+					setSelectedStatusEvidenceKind("interface");
+				}
+			}
+		},
+		[
+			log,
+			recordStatusActivityResult,
+			refreshAuditExportArchiveIndex,
+			refreshAuditExportIndex,
+		],
+	);
+
+	const submitAuditArchiveRetentionCommand = useCallback(
+		async (transition: CommandTransition<"submit-audit-archive-retention">) => {
+			if (transition.kind === "notice") {
+				setCommandLine((current) => closeCommandLine(current));
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			const plan = transition.plan;
+			setAuditArchiveRetentionPlan(plan);
+			setCommandLine((current) => closeCommandLine(current));
+			const result = await pruneConsoleAuditArchive(plan);
+			log(
+				result.status === "pruned" ? "ok" : "warn",
+				`${transition.scope === "interface" ? "interface evidence" : "audit"} archive retention ${result.message}`,
 			);
-		} else {
+			if (transition.scope === "interface") {
+				const outcome = {
+					status: result.status,
+					message: result.message,
+					removed: result.removed,
+					candidates: plan.candidateItems.length,
+					maxItems: plan.maxItems,
+				};
+				log(
+					"info",
+					formatInterfaceEvidenceOutcomeAuditMessage("retention", outcome),
+				);
+				recordStatusActivityResult(
+					createInterfaceEvidenceOutcomeStatusActivityResult(
+						"retention",
+						outcome,
+					),
+				);
+			} else {
+				recordStatusActivityResult({
+					source: "evidence",
+					action: "audit-evidence-retention",
+					message: `audit archive retention ${result.status} removed=${result.removed}`,
+					detail: result.message,
+				});
+			}
+			if (result.status === "pruned") {
+				await refreshAuditExportArchiveIndex(false);
+			}
+		},
+		[log, recordStatusActivityResult, refreshAuditExportArchiveIndex],
+	);
+
+	const submitToolArchiveRetentionCommand = useCallback(
+		async (transition: CommandTransition<"submit-tools-archive-retention">) => {
+			if (transition.kind === "notice") {
+				setCommandLine((current) => closeCommandLine(current));
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			const plan = transition.plan;
+			setToolArchiveRetentionPlan(plan);
+			setCommandLine((current) => closeCommandLine(current));
+			const result = await pruneToolHistoryExportArchive(plan);
+			log(
+				result.status === "pruned" ? "ok" : "warn",
+				`tools archive retention ${result.message}`,
+			);
 			recordStatusActivityResult({
 				source: "evidence",
-				action: "audit-evidence-retention",
-				message: `audit archive retention ${result.status} removed=${result.removed}`,
+				action: "tools-evidence-retention",
+				message: `tools archive retention ${result.status} removed=${result.removed}`,
 				detail: result.message,
 			});
-		}
-		if (result.status === "pruned") {
-			await refreshAuditExportArchiveIndex(false);
-		}
-	}, [
-		auditArchiveRetentionPlan,
-		auditArchiveRetentionScope,
-		auditExportArchiveIndex,
-		commandLine.value,
-		log,
-		recordStatusActivityResult,
-		refreshAuditExportArchiveIndex,
-	]);
+			if (result.status === "pruned") {
+				await refreshToolExportArchiveIndex(false);
+			}
+		},
+		[log, recordStatusActivityResult, refreshToolExportArchiveIndex],
+	);
 
-	const submitToolArchiveRetentionCommand = useCallback(async () => {
-		const transition = prepareToolHistoryArchiveRetentionConfirmation(
-			toolArchiveRetentionPlan,
-			toolExportArchiveIndex,
-			commandLine.value,
-		);
-		if (transition.kind === "notice") {
+	const submitDnsServerProposalCommand = useCallback(
+		(transition: CommandTransition<"submit-dns-proposal">) => {
 			setCommandLine((current) => closeCommandLine(current));
+			if (transition.kind === "no-op") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			setSelectedDnsTargetIndex(transition.selectedIndex);
+			setDnsServerProposal(transition.proposal);
 			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		const plan = transition.plan;
-		setToolArchiveRetentionPlan(plan);
-		setCommandLine((current) => closeCommandLine(current));
-		const result = await pruneToolHistoryExportArchive(plan);
-		log(
-			result.status === "pruned" ? "ok" : "warn",
-			`tools archive retention ${result.message}`,
-		);
-		recordStatusActivityResult({
-			source: "evidence",
-			action: "tools-evidence-retention",
-			message: `tools archive retention ${result.status} removed=${result.removed}`,
-			detail: result.message,
-		});
-		if (result.status === "pruned") {
-			await refreshToolExportArchiveIndex(false);
-		}
-	}, [
-		commandLine.value,
-		log,
-		recordStatusActivityResult,
-		refreshToolExportArchiveIndex,
-		toolArchiveRetentionPlan,
-		toolExportArchiveIndex,
-	]);
-
-	const submitDnsServerProposalCommand = useCallback(() => {
-		const transition = prepareDnsServerProposalTransition({
-			input: commandLine.value,
-			selectedIndex: selectedDnsTargetIndex,
-			summary: summaryRef.current,
-		});
-		setCommandLine((current) => closeCommandLine(current));
-		if (transition.kind === "no-op") {
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		setSelectedDnsTargetIndex(transition.selectedIndex);
-		setDnsServerProposal(transition.proposal);
-		log(transition.notice.level, transition.notice.message);
-	}, [commandLine.value, log, selectedDnsTargetIndex]);
+		},
+		[log],
+	);
 
 	const openInterfaceStateProposal = useCallback(
 		(action: InterfaceStateProposalAction) => {
@@ -8016,70 +7007,985 @@ export function App(): React.ReactElement {
 		[interfaceDetailView, log, selectedInterfaceIndex],
 	);
 
-	const submitInterfaceConfirmationCommand = useCallback(() => {
-		const transition = prepareInterfaceConfirmationTransition({
-			proposal: interfaceStateProposal,
-			receivedPhrase: commandLine.value,
-		});
-		setCommandLine((current) => closeCommandLine(current));
-		if (transition.kind === "notice") {
+	const submitInterfaceConfirmationCommand = useCallback(
+		(transition: CommandTransition<"submit-interface-confirmation">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			setInterfaceConfirmationResult(transition.result);
 			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-		setInterfaceConfirmationResult(transition.result);
-		log(transition.notice.level, transition.notice.message);
-		recordStatusActivityResult(
-			createInterfaceConfirmationStatusActivityResult(transition.result),
-		);
-	}, [
-		commandLine.value,
-		interfaceStateProposal,
-		log,
-		recordStatusActivityResult,
-	]);
-
-	const exportCleanupHandoffHistory = useCallback(async () => {
-		const plan = createCleanupHandoffHistoryExportPlan(
-			cleanupHandoffHistory,
-			selectedCleanupHandoffHistoryIndex,
-			{
-				baseDir: dirname(getConfigPath()),
-				origin: createActiveFileOpenOrigin(configShelfLandingTarget),
-				scope: "all",
-			},
-		);
-		if (!plan) {
-			log("warn", "no cleanup handoff history to export");
-			return false;
-		}
-
-		try {
-			const written = await writeCleanupHandoffHistoryExport(plan);
-			log(
-				"ok",
-				`cleanup history exported ${written.itemCount} entries to ${written.path}`,
+			recordStatusActivityResult(
+				createInterfaceConfirmationStatusActivityResult(transition.result),
 			);
-			await refreshCleanupExportIndex(false);
-			return true;
+		},
+		[log, recordStatusActivityResult],
+	);
+
+	const exportCleanupHandoffHistory = useCallback(
+		async (effect: StatusCleanupHistoryWriteEffect) => {
+			try {
+				const written = await writeCleanupHandoffHistoryExport(effect.plan);
+				const notice = formatStatusCleanupHistoryWriteSuccess(effect, written);
+				log(notice.level, notice.message);
+				return true;
+			} catch (caught) {
+				const notice = formatStatusCleanupHistoryWriteFailure(effect, caught);
+				log(notice.level, notice.message);
+				return false;
+			}
+		},
+		[log],
+	);
+
+	const applyToolsInputIoEffect = useCallback(
+		async (
+			effect: Extract<
+				ToolsWorkspaceInputEffect,
+				| { kind: "persist-history-preferences" }
+				| { kind: "persist-target-presets" }
+				| { kind: "run" }
+				| { kind: "export" }
+			>,
+		) => {
+			try {
+				switch (effect.kind) {
+					case "persist-history-preferences":
+						await setConfigToolHistoryPreferences(effect.preferences);
+						break;
+					case "persist-target-presets":
+						await setConfigToolTargetPresets(effect.presets);
+						break;
+					case "run":
+						await runToolPlan(effect.plan);
+						log("ok", effect.completionNotice);
+						break;
+					case "export":
+						await exportToolHistory(effect);
+						break;
+				}
+			} catch (caught) {
+				const detail =
+					caught instanceof Error ? caught.message : String(caught);
+				const prefix =
+					effect.kind === "persist-history-preferences" ||
+					effect.kind === "persist-target-presets"
+						? `${effect.failureMessagePrefix} `
+						: "";
+				log("fail", `${prefix}${detail}`);
+			}
+		},
+		[exportToolHistory, log, runToolPlan],
+	);
+
+	async function persistRouteInputPresets(presets: string[]): Promise<void> {
+		try {
+			await setConfigRouteFilterPresets(presets);
 		} catch (caught) {
 			log(
 				"fail",
 				caught instanceof Error
-					? `cleanup history export failed ${caught.message}`
-					: `cleanup history export failed ${String(caught)}`,
+					? `route preset save failed ${caught.message}`
+					: `route preset save failed ${String(caught)}`,
 			);
-			return false;
 		}
-	}, [
-		cleanupHandoffHistory,
-		configShelfLandingTarget,
-		log,
-		refreshCleanupExportIndex,
-		selectedCleanupHandoffHistoryIndex,
-	]);
+	}
+
+	async function exportRemoteHistoryInput(
+		plan: ConsoleAuditExportPlan,
+	): Promise<void> {
+		try {
+			const written =
+				await writeRemoteKnownHostsSelectionHistoryAuditExport(plan);
+			setLastStatusActivityCopyIntentAuditExport(written);
+			log(
+				"ok",
+				`remote known_hosts selection history exported ${written.path} events=${written.eventCount}`,
+			);
+			void refreshAuditExportIndex(false);
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `remote known_hosts selection history export failed ${caught.message}`
+					: `remote known_hosts selection history export failed ${String(caught)}`,
+			);
+		}
+	}
+
+	async function exportSelectedTimelineInput(input: {
+		plan: ConsoleAuditExportPlan;
+		filter: TimelineFilter;
+		query: string;
+		selectedIndex: number;
+		total: number;
+	}): Promise<void> {
+		try {
+			const written = await writeConsoleAuditExport(input.plan);
+			log(
+				"ok",
+				`audit selected exported ${written.path} events=${written.eventCount}`,
+			);
+			recordStatusActivityResult(
+				createTimelineSelectedStatusActivityResult("export", {
+					filter: input.filter,
+					label: `timeline audit selected ${written.eventCount}`,
+					path: written.path,
+					query: input.query,
+					selectedIndex: input.selectedIndex,
+					total: input.total,
+				}),
+			);
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `audit selected export failed ${caught.message}`
+					: `audit selected export failed ${String(caught)}`,
+			);
+		}
+	}
+
+	async function exportTimelineEvidenceInput(
+		plan: ConsoleAuditExportPlan,
+	): Promise<void> {
+		try {
+			const written = await writeTimelineEvidenceTrailAuditExport(plan);
+			log(
+				"ok",
+				`timeline evidence trail exported ${written.path} events=${written.eventCount}`,
+			);
+			void refreshAuditExportIndex(false, "newest");
+		} catch (caught) {
+			log(
+				"fail",
+				caught instanceof Error
+					? `timeline evidence trail export failed ${caught.message}`
+					: `timeline evidence trail export failed ${String(caught)}`,
+			);
+		}
+	}
+
+	async function persistLogInput(
+		effect:
+			| { kind: "presets"; presets: string[] }
+			| { kind: "profiles"; profiles: LogProfile[] },
+	): Promise<void> {
+		try {
+			if (effect.kind === "presets") {
+				await setConfigLogSearchPresets(effect.presets);
+			} else {
+				await setConfigLogProfiles(effect.profiles);
+			}
+		} catch (caught) {
+			const label = effect.kind === "presets" ? "preset" : "profile";
+			log(
+				"fail",
+				caught instanceof Error
+					? `logs ${label} save failed ${caught.message}`
+					: `logs ${label} save failed ${String(caught)}`,
+			);
+		}
+	}
+
+	async function refreshLogsInput(): Promise<void> {
+		try {
+			const snapshot = await createOsLogSnapshot({ limit: 50 });
+			setOsLogs(snapshot);
+			log(
+				snapshot.status === "ok" ? "ok" : "warn",
+				`logs refreshed ${snapshot.entries.length}`,
+			);
+		} catch (caught) {
+			log("fail", caught instanceof Error ? caught.message : String(caught));
+		}
+	}
+
+	async function applyStatusAuditWriteInput(
+		effect: StatusAuditWriteEffect,
+	): Promise<void> {
+		try {
+			const written =
+				effect.writer === "interface-confirmation"
+					? await writeInterfaceConfirmationAuditExport(effect.plan)
+					: effect.writer === "remote-known-hosts"
+						? await writeRemoteKnownHostsSelectionHistoryAuditExport(
+								effect.plan,
+							)
+						: await writeStatusActivityCopyIntentAuditExport(effect.plan);
+			if (effect.publication.setLastStatusActivityCopyIntentAuditExport) {
+				setLastStatusActivityCopyIntentAuditExport(written);
+			}
+			const notice = formatStatusAuditWriteSuccess(effect, written);
+			log(notice.level, notice.message);
+			void applyStatusIndexRefresh(effect.publication.refresh);
+		} catch (caught) {
+			const notice = formatStatusAuditWriteFailure(effect, caught);
+			log(notice.level, notice.message);
+		}
+	}
+
+	async function applyStatusIndexRefresh(
+		effect: StatusIndexRefreshEffect,
+	): Promise<void> {
+		const snapshot = effect.snapshot;
+		if (effect.target === "handoff") {
+			const requestToken = beginRequest(handoffIndexRequestTokenRef.current);
+			handoffIndexRequestTokenRef.current = requestToken;
+			try {
+				const index = await readHandoffIndex(effect.baseDir);
+				const transition = classifyHandoffIndexRefresh({
+					currentRequestToken: handoffIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: snapshot.selectedIndex,
+					announce: effect.announce,
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setHandoffIndex(transition.index);
+					setSelectedHandoffIndex(transition.selectedIndex);
+				}
+				if (transition.notice)
+					log(transition.notice.level, transition.notice.message);
+			} catch (caught) {
+				const transition = classifyHandoffIndexRefresh({
+					currentRequestToken: handoffIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: snapshot.selectedIndex,
+					announce: effect.announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice)
+					log(transition.notice.level, transition.notice.message);
+			}
+			return;
+		}
+
+		if (effect.target === "audit") {
+			const requestToken = beginRequest(
+				auditExportIndexRequestTokenRef.current,
+			);
+			auditExportIndexRequestTokenRef.current = requestToken;
+			try {
+				const index = await readConsoleAuditExportIndex(effect.baseDir);
+				const transition = classifyAuditExportIndexRefresh({
+					currentRequestToken: auditExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: snapshot.selectedIndex,
+					announce: effect.announce,
+					timelineSourceFilter: snapshot.timelineEvidenceTrailSourceFilter,
+					interfaceConfirmationAuditArchiveExports:
+						snapshot.interfaceConfirmationAuditArchiveExports,
+					interfaceStateFilter: snapshot.interfaceEvidenceStateFilter,
+					interfaceQuery: snapshot.interfaceEvidenceQuery,
+					recoveredSelections: {
+						timeline: snapshot.selectedTimelineEvidenceTrailAuditExportIndex,
+						process: snapshot.selectedProcessControlAuditExportIndex,
+						remoteKnownHosts:
+							snapshot.selectedRemoteKnownHostsSelectionAuditExportIndex,
+						interface: snapshot.selectedInterfaceConfirmationAuditExportIndex,
+					},
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setAuditExportIndex(transition.index);
+					setSelectedAuditExportIndex(transition.selectedIndex);
+					setLastStatusActivityCopyIntentAuditExport(
+						transition.lastStatusActivityCopyIntentAuditExport,
+					);
+					setTimelineEvidenceTrailAuditExports(
+						transition.timelineEvidenceTrailAuditExports,
+					);
+					setLastTimelineEvidenceTrailAuditExport(
+						transition.latestTimelineEvidenceTrailAuditExport,
+					);
+					setSelectedTimelineEvidenceTrailAuditExportIndex(
+						transition.selectedTimelineIndex,
+					);
+					setProcessControlAuditExports(transition.processControlAuditExports);
+					setSelectedProcessControlAuditExportIndex(
+						transition.selectedProcessIndex,
+					);
+					setRemoteKnownHostsSelectionAuditExports(
+						transition.remoteKnownHostsSelectionAuditExports,
+					);
+					setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+						transition.selectedRemoteKnownHostsIndex,
+					);
+					setInterfaceConfirmationAuditExports(
+						transition.interfaceConfirmationAuditExports,
+					);
+					interfaceConfirmationAuditExportsRef.current =
+						transition.interfaceConfirmationAuditExports;
+					selectedInterfaceConfirmationAuditExportIndexRef.current =
+						transition.selectedInterfaceIndex;
+					setSelectedInterfaceConfirmationAuditExportIndex(
+						transition.selectedInterfaceIndex,
+					);
+				}
+				if (transition.notice)
+					log(transition.notice.level, transition.notice.message);
+			} catch (caught) {
+				const transition = classifyAuditExportIndexRefresh({
+					currentRequestToken: auditExportIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: snapshot.selectedIndex,
+					announce: effect.announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice)
+					log(transition.notice.level, transition.notice.message);
+			}
+			return;
+		}
+
+		if (effect.target === "audit-archive") {
+			const requestToken = beginRequest(
+				auditExportArchiveIndexRequestTokenRef.current,
+			);
+			auditExportArchiveIndexRequestTokenRef.current = requestToken;
+			try {
+				const index = await readConsoleAuditExportArchiveIndex(effect.baseDir);
+				const transition = classifyAuditExportArchiveIndexRefresh({
+					currentRequestToken: auditExportArchiveIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: snapshot.selectedIndex,
+					selectedInterfaceIndex:
+						snapshot.selectedInterfaceConfirmationAuditExportIndex,
+					interfaceStateFilter: snapshot.interfaceEvidenceStateFilter,
+					interfaceQuery: snapshot.interfaceEvidenceQuery,
+					interfaceConfirmationAuditExports:
+						snapshot.interfaceConfirmationAuditExports,
+					announce: effect.announce,
+					outcome: { status: "success", index },
+				});
+				if (transition.status === "success") {
+					setAuditExportArchiveIndex(transition.index);
+					setSelectedAuditExportArchiveIndex(transition.selectedIndex);
+					setInterfaceConfirmationAuditArchiveExports(
+						transition.interfaceConfirmationAuditArchiveExports,
+					);
+					interfaceConfirmationAuditArchiveExportsRef.current =
+						transition.interfaceConfirmationAuditArchiveExports;
+					selectedInterfaceConfirmationAuditExportIndexRef.current =
+						transition.selectedInterfaceIndex;
+					setSelectedInterfaceConfirmationAuditExportIndex(
+						transition.selectedInterfaceIndex,
+					);
+				}
+				if (transition.notice)
+					log(transition.notice.level, transition.notice.message);
+			} catch (caught) {
+				const transition = classifyAuditExportArchiveIndexRefresh({
+					currentRequestToken: auditExportArchiveIndexRequestTokenRef.current,
+					requestToken,
+					selectedIndex: snapshot.selectedIndex,
+					announce: effect.announce,
+					outcome: { status: "failure", error: caught },
+				});
+				if (transition.notice)
+					log(transition.notice.level, transition.notice.message);
+			}
+			return;
+		}
+
+		const archive = effect.target === "cleanup-archive";
+		const tokenRef = archive
+			? cleanupExportArchiveIndexRequestTokenRef
+			: cleanupExportIndexRequestTokenRef;
+		const requestToken = beginRequest(tokenRef.current);
+		tokenRef.current = requestToken;
+		try {
+			const index = archive
+				? await readCleanupHandoffHistoryExportArchiveIndex(effect.baseDir)
+				: await readCleanupHandoffHistoryExportIndex(effect.baseDir);
+			const transition = classifyCleanupExportIndexRefresh({
+				target: archive ? "archive" : "active",
+				currentRequestToken: tokenRef.current,
+				requestToken,
+				selectedIndex: snapshot.selectedIndex,
+				announce: effect.announce,
+				outcome: { status: "success", index },
+			});
+			if (transition.status === "success") {
+				if (archive) {
+					setCleanupExportArchiveIndex(transition.index);
+					setSelectedCleanupExportArchiveIndex(transition.selectedIndex);
+				} else {
+					setCleanupExportIndex(transition.index);
+					setSelectedCleanupExportIndex(transition.selectedIndex);
+				}
+			}
+			if (transition.notice)
+				log(transition.notice.level, transition.notice.message);
+		} catch (caught) {
+			const transition = classifyCleanupExportIndexRefresh({
+				target: archive ? "archive" : "active",
+				currentRequestToken: tokenRef.current,
+				requestToken,
+				selectedIndex: snapshot.selectedIndex,
+				announce: effect.announce,
+				outcome: { status: "failure", error: caught },
+			});
+			if (transition.notice)
+				log(transition.notice.level, transition.notice.message);
+		}
+	}
+
+	async function applyStatusConfigWrite(
+		effect: StatusConfigWriteEffect,
+	): Promise<void> {
+		try {
+			if (effect.key === "interfaceEvidenceSearchPresets") {
+				await setConfigInterfaceEvidenceSearchPresets(effect.value as string[]);
+			} else {
+				await setConfigValue(effect.key, String(effect.value));
+			}
+		} catch (caught) {
+			const notice = formatStatusConfigWriteFailure(effect, caught);
+			log(notice.level, notice.message);
+		}
+	}
+
+	function clearStatusDialogPlan(key: StatusDialogPlanKey): void {
+		switch (key) {
+			case "externalOpen":
+				setExternalOpenPlan(undefined);
+				break;
+			case "fileOpen":
+				setFileOpenPlan(undefined);
+				break;
+			case "auditExportArchive":
+				setAuditExportArchivePlan(undefined);
+				break;
+			case "auditArchiveRetention":
+				setAuditArchiveRetentionPlan(undefined);
+				break;
+			case "cleanupExportArchive":
+				setCleanupExportArchivePlan(undefined);
+				break;
+			case "toolExportArchive":
+				setToolExportArchivePlan(undefined);
+				break;
+			case "toolArchiveRetention":
+				setToolArchiveRetentionPlan(undefined);
+				break;
+		}
+	}
+
+	function applyStatusWorkspaceStatePatch(
+		patch: StatusWorkspaceStatePatch,
+	): void {
+		if (patch.selectedUpdateHandoffIndex !== undefined)
+			setSelectedUpdateHandoffIndex(patch.selectedUpdateHandoffIndex);
+		if (patch.selectedStatusActivitySource !== undefined)
+			setSelectedStatusActivitySource(patch.selectedStatusActivitySource);
+		if (patch.selectedStatusActivityResultIndex !== undefined)
+			setSelectedStatusActivityResultIndex(
+				patch.selectedStatusActivityResultIndex,
+			);
+		if (patch.statusActivityResultHistoryFilter !== undefined)
+			setStatusActivityResultHistoryFilter(
+				patch.statusActivityResultHistoryFilter,
+			);
+		if (patch.statusActivityResultTimelineJumpFilter !== undefined)
+			setStatusActivityResultTimelineJumpFilter(
+				patch.statusActivityResultTimelineJumpFilter,
+			);
+		if (patch.selectedStatusActivityCopyPreviewRowIndex !== undefined)
+			setSelectedStatusActivityCopyPreviewRowIndex(
+				patch.selectedStatusActivityCopyPreviewRowIndex,
+			);
+		if (patch.statusActivityCopyPreviewExpanded !== undefined)
+			setStatusActivityCopyPreviewExpanded(
+				patch.statusActivityCopyPreviewExpanded,
+			);
+		if (patch.statusActivityCopyIntentHistory !== undefined)
+			setStatusActivityCopyIntentHistory(patch.statusActivityCopyIntentHistory);
+		if (patch.selectedStatusActivityCopyIntentIndex !== undefined)
+			setSelectedStatusActivityCopyIntentIndex(
+				patch.selectedStatusActivityCopyIntentIndex,
+			);
+		if (patch.selectedStatusActivityResultAuditJumpIndex !== undefined)
+			setSelectedStatusActivityResultAuditJumpIndex(
+				patch.selectedStatusActivityResultAuditJumpIndex,
+			);
+		if (patch.selectedStatusActivityToolsEvidenceSearchMatchIndex !== undefined)
+			setSelectedStatusActivityToolsEvidenceSearchMatchIndex(
+				patch.selectedStatusActivityToolsEvidenceSearchMatchIndex,
+			);
+		if (patch.selectedTimelineEvidenceTrailAuditExportIndex !== undefined)
+			setSelectedTimelineEvidenceTrailAuditExportIndex(
+				patch.selectedTimelineEvidenceTrailAuditExportIndex,
+			);
+		if (patch.timelineEvidenceTrailSourceFilter !== undefined)
+			setTimelineEvidenceTrailSourceFilter(
+				patch.timelineEvidenceTrailSourceFilter,
+			);
+		if (patch.selectedStatusEvidenceKind !== undefined)
+			setSelectedStatusEvidenceKind(patch.selectedStatusEvidenceKind);
+		if (patch.selectedHandoffIndex !== undefined)
+			setSelectedHandoffIndex(patch.selectedHandoffIndex);
+		if (patch.selectedAuditExportIndex !== undefined)
+			setSelectedAuditExportIndex(patch.selectedAuditExportIndex);
+		if (patch.selectedAuditExportArchiveIndex !== undefined)
+			setSelectedAuditExportArchiveIndex(patch.selectedAuditExportArchiveIndex);
+		if (patch.selectedCleanupExportIndex !== undefined)
+			setSelectedCleanupExportIndex(patch.selectedCleanupExportIndex);
+		if (patch.selectedCleanupExportArchiveIndex !== undefined)
+			setSelectedCleanupExportArchiveIndex(
+				patch.selectedCleanupExportArchiveIndex,
+			);
+		if (patch.selectedToolExportIndex !== undefined)
+			setSelectedToolExportIndex(patch.selectedToolExportIndex);
+		if (patch.selectedToolExportArchiveIndex !== undefined)
+			setSelectedToolExportArchiveIndex(patch.selectedToolExportArchiveIndex);
+		if (patch.toolExportFilter !== undefined)
+			setToolExportFilter(patch.toolExportFilter);
+		if (patch.toolExportArchiveFilter !== undefined)
+			setToolExportArchiveFilter(patch.toolExportArchiveFilter);
+		if (patch.selectedProcessControlAuditExportIndex !== undefined)
+			setSelectedProcessControlAuditExportIndex(
+				patch.selectedProcessControlAuditExportIndex,
+			);
+		if (patch.selectedRemoteKnownHostsSelectionAuditExportIndex !== undefined)
+			setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+				patch.selectedRemoteKnownHostsSelectionAuditExportIndex,
+			);
+		if (patch.selectedInterfaceConfirmationAuditExportIndex !== undefined)
+			setSelectedInterfaceConfirmationAuditExportIndex(
+				patch.selectedInterfaceConfirmationAuditExportIndex,
+			);
+		if (patch.interfaceEvidenceStateFilter !== undefined)
+			setInterfaceEvidenceStateFilter(patch.interfaceEvidenceStateFilter);
+		if (patch.interfaceEvidenceQuery !== undefined)
+			setInterfaceEvidenceQuery(patch.interfaceEvidenceQuery);
+		if (patch.interfaceEvidenceSearchPresets !== undefined)
+			setInterfaceEvidenceSearchPresets(patch.interfaceEvidenceSearchPresets);
+		if (patch.selectedCleanupShelfIndex !== undefined)
+			setSelectedCleanupShelfIndex(patch.selectedCleanupShelfIndex);
+		if (patch.selectedTimelineIndex !== undefined)
+			setSelectedTimelineIndex(patch.selectedTimelineIndex);
+		if (patch.timelineFilter !== undefined)
+			setTimelineFilter(patch.timelineFilter);
+		if (patch.timelineSearchQuery !== undefined)
+			setTimelineSearchQuery(patch.timelineSearchQuery);
+		if (patch.screen !== undefined) setScreen(patch.screen);
+		if (patch.focusArea !== undefined) setFocusArea(patch.focusArea);
+		if (patch.cleanupJumpAudit !== undefined)
+			setCleanupJumpAudit(patch.cleanupJumpAudit);
+		if (patch.lastStatusActivityEvidenceFocusPlan !== undefined)
+			setLastStatusActivityEvidenceFocusPlan(
+				patch.lastStatusActivityEvidenceFocusPlan,
+			);
+	}
+
+	const commandSubmitContexts = {
+		"submit-path": {
+			effect: "submit-path",
+			snapshot: {
+				root: fileRoot,
+				backHistory: fileHistory,
+				forwardHistory: fileForwardHistory,
+			},
+		},
+		"submit-clipboard": {
+			effect: "submit-clipboard",
+			snapshot: { state: clipboardConfirmation, platform: currentPlatform() },
+		},
+		"submit-route-destination": { effect: "submit-route-destination" },
+		"submit-route-filter": {
+			effect: "submit-route-filter",
+			snapshot: {
+				routes: routeTable?.routes ?? [],
+				presets: routeFilterPresets,
+			},
+		},
+		"submit-route-filter-cleanup": {
+			effect: "submit-route-filter-cleanup",
+			snapshot: { presets: routeFilterPresets },
+		},
+		"submit-tool-history-filter": {
+			effect: "submit-tool-history-filter",
+			snapshot: { history: toolHistory },
+		},
+		"submit-tool-history-cleanup": {
+			effect: "submit-tool-history-cleanup",
+			snapshot: { presets: toolHistoryFilterPresets },
+		},
+		"submit-tool-target-label": {
+			effect: "submit-tool-target-label",
+			snapshot: {
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+			},
+		},
+		"submit-tool-target-value": {
+			effect: "submit-tool-target-value",
+			snapshot: {
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+			},
+		},
+		"submit-tool-target-action": {
+			effect: "submit-tool-target-action",
+			snapshot: {
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+			},
+		},
+		"submit-tool-target-cleanup": {
+			effect: "submit-tool-target-cleanup",
+			snapshot: {
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+			},
+		},
+		"submit-tool-target-preset": {
+			effect: "submit-tool-target-preset",
+			snapshot: {
+				presets: customToolTargetPresets,
+				targetPresets: toolTargetPresets,
+				selectedIndex: selectedToolTargetPresetIndex,
+				limit: toolTargetPresetLimit,
+			},
+		},
+		"submit-remote-profile": { effect: "submit-remote-profile" },
+		"submit-remote-connect": {
+			effect: "submit-remote-connect",
+			snapshot: {
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				candidateSession: remoteKnownHostsCandidateSession,
+				pasteReviewSession: remoteKnownHostsPasteReviewSession,
+				diagnostic: undefined,
+				startedAt: 0,
+			},
+		},
+		"submit-remote-host-trust": {
+			effect: "submit-remote-host-trust",
+			snapshot: {
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+			},
+		},
+		"submit-remote-host-key-evidence": {
+			effect: "submit-remote-host-key-evidence",
+			snapshot: {
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				session: remoteHostKeyEvidenceSession,
+			},
+		},
+		"submit-remote-known-hosts-candidate": {
+			effect: "submit-remote-known-hosts-candidate",
+			snapshot: {
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				session: remoteKnownHostsCandidateSession,
+			},
+		},
+		"submit-remote-known-hosts-paste": {
+			effect: "submit-remote-known-hosts-paste",
+			snapshot: {
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				candidateSession: remoteKnownHostsCandidateSession,
+				pasteReviewSession: remoteKnownHostsPasteReviewSession,
+			},
+		},
+		"submit-remote-known-hosts-selection": {
+			effect: "submit-remote-known-hosts-selection",
+			snapshot: {
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				candidateSession: remoteKnownHostsCandidateSession,
+				pasteReviewSession: remoteKnownHostsPasteReviewSession,
+			},
+		},
+		"submit-endpoint-filter": {
+			effect: "submit-endpoint-filter",
+			snapshot: {
+				connections: {
+					kind: "connections",
+					rows: sortedConnections,
+					presets: connectionFilterPresets,
+				},
+				ports: {
+					kind: "ports",
+					rows: sortedPorts,
+					presets: portFilterPresets,
+				},
+			},
+		},
+		"submit-endpoint-filter-cleanup": {
+			effect: "submit-endpoint-filter-cleanup",
+			snapshot: {
+				connections: {
+					presets: connectionFilterPresets,
+					rowCount: sortedConnections.length,
+				},
+				ports: { presets: portFilterPresets, rowCount: sortedPorts.length },
+			},
+		},
+		"submit-timeline-search": {
+			effect: "submit-timeline-search",
+			snapshot: {
+				events,
+				filter: timelineFilter,
+				presets: timelineSearchPresets,
+			},
+		},
+		"submit-timeline-search-cleanup": {
+			effect: "submit-timeline-search-cleanup",
+			snapshot: { presets: timelineSearchPresets },
+		},
+		"submit-log-search": {
+			effect: "submit-log-search",
+			snapshot: {
+				entries: osLogs?.entries ?? [],
+				level: logLevelFilter,
+				presets: logSearchPresets,
+			},
+		},
+		"submit-logs-cleanup": {
+			effect: "submit-logs-cleanup",
+			snapshot: { presets: logSearchPresets, profiles: logProfiles },
+		},
+		"submit-control-confirmation": {
+			effect: "submit-control-confirmation",
+			snapshot: {
+				previewPlan: actionPreviewPlan,
+				platform: currentPlatform(),
+				updateCheckResult,
+			},
+		},
+		"submit-port-process-control": {
+			effect: "submit-port-process-control",
+			snapshot: {
+				ports: sortedPorts,
+				selectedIndex: selectedPortIndex,
+				platform: currentPlatform(),
+				policy: controlExecutionPolicy,
+			},
+		},
+		"submit-external-open": {
+			effect: "submit-external-open",
+			snapshot: { plan: externalOpenPlan, platform: currentPlatform() },
+		},
+		"submit-file-open": {
+			effect: "submit-file-open",
+			snapshot: {
+				plan: fileOpenPlan,
+				baseDir: dirname(getConfigPath()),
+				platform: currentPlatform(),
+			},
+		},
+		"submit-cleanup-export-archive": {
+			effect: "submit-cleanup-export-archive",
+			snapshot: {
+				preview: cleanupExportArchivePlan,
+				baseDir: cleanupExportIndex.baseDir,
+			},
+		},
+		"submit-tool-export-archive": {
+			effect: "submit-tool-export-archive",
+			snapshot: { preview: toolExportArchivePlan },
+		},
+		"submit-audit-export-archive": {
+			effect: "submit-audit-export-archive",
+			snapshot: {
+				preview: auditExportArchivePlan,
+				baseDir: auditExportIndex.baseDir,
+				scope: auditExportArchiveScope,
+			},
+		},
+		"submit-audit-archive-retention": {
+			effect: "submit-audit-archive-retention",
+			snapshot: {
+				preview: auditArchiveRetentionPlan,
+				auditIndex: auditExportArchiveIndex,
+				scope: auditArchiveRetentionScope,
+			},
+		},
+		"submit-tools-archive-retention": {
+			effect: "submit-tools-archive-retention",
+			snapshot: {
+				preview: toolArchiveRetentionPlan,
+				index: toolExportArchiveIndex,
+			},
+		},
+		"submit-tools-evidence-search": {
+			effect: "submit-tools-evidence-search",
+			snapshot: {
+				selectedKind: toolEvidenceSearchScope,
+				activeIndex: toolExportIndex,
+				activeFilter: toolExportFilter,
+				archiveIndex: toolExportArchiveIndex,
+				archiveFilter: toolExportArchiveFilter,
+			},
+		},
+		"submit-interface-evidence-search": {
+			effect: "submit-interface-evidence-search",
+			snapshot: {
+				state: interfaceEvidenceStateFilter,
+				activeExports: interfaceConfirmationAuditExports,
+				archivedExports: interfaceConfirmationAuditArchiveExports,
+			},
+		},
+		"submit-dns-proposal": {
+			effect: "submit-dns-proposal",
+			snapshot: { selectedIndex: selectedDnsTargetIndex, summary },
+		},
+		"submit-interface-confirmation": {
+			effect: "submit-interface-confirmation",
+			snapshot: { proposal: interfaceStateProposal },
+		},
+		"submit-config-reset": {
+			effect: "submit-config-reset",
+			snapshot: {
+				preview: configResetPreview,
+				resetValues: {
+					auditArchiveRetentionLimit,
+					toolTargetPresetLimit,
+					language,
+					refreshInterval,
+					defaultPingHost,
+					controlExecutionMode: controlExecutionPolicy.mode,
+					allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
+					enableExperimentalControls,
+					editorSaveMode,
+					statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
+				},
+			},
+		},
+		"submit-editor-append": {
+			effect: "submit-editor-append",
+			snapshot: {
+				buffer: editorPreview,
+				selectedLineIndex: selectedEditorLineIndex,
+			},
+		},
+		"submit-editor-insert-before": {
+			effect: "submit-editor-insert-before",
+			snapshot: {
+				buffer: editorPreview,
+				selectedLineIndex: selectedEditorLineIndex,
+			},
+		},
+		"submit-editor-insert-after": {
+			effect: "submit-editor-insert-after",
+			snapshot: {
+				buffer: editorPreview,
+				selectedLineIndex: selectedEditorLineIndex,
+			},
+		},
+		"submit-editor-replace": {
+			effect: "submit-editor-replace",
+			snapshot: {
+				buffer: editorPreview,
+				selectedLineIndex: selectedEditorLineIndex,
+			},
+		},
+		"submit-editor-save": {
+			effect: "submit-editor-save",
+			snapshot: {
+				editorPreview,
+				provider: localFileProvider,
+				policy: { mode: editorSaveMode },
+			},
+		},
+		"submit-config-text": {
+			effect: "submit-config-text",
+			snapshot: {
+				items: configWorkspaceItems,
+				selectedIndex: selectedConfigIndex,
+			},
+		},
+		"submit-tool": {
+			effect: "submit-tool",
+			snapshot: { defaultPingHost, summary },
+		},
+		"submit-file-operation-destination": {
+			effect: "submit-file-operation-destination",
+			snapshot: { dialog: fileOperationDialog },
+		},
+		"submit-file-operation-confirmation": {
+			effect: "submit-file-operation-confirmation",
+			snapshot: {
+				dialog: fileOperationDialog,
+				provider: fileProvider,
+				policy: { mode: editorSaveMode },
+			},
+		},
+	} satisfies CommandSubmitContextTable;
+
+	const commandSubmitHandlers = {
+		"submit-path": submitPathCommand,
+		"submit-clipboard": submitClipboardCommand,
+		"submit-route-destination": submitRouteDestinationCommand,
+		"submit-route-filter": submitRouteFilterCommand,
+		"submit-route-filter-cleanup": submitRouteFilterCleanupCommand,
+		"submit-tool-history-filter": submitToolHistoryFilterCommand,
+		"submit-tool-history-cleanup": submitToolHistoryCleanupCommand,
+		"submit-tool-target-label": submitToolTargetLabelCommand,
+		"submit-tool-target-value": submitToolTargetValueCommand,
+		"submit-tool-target-action": submitToolTargetActionCommand,
+		"submit-tool-target-cleanup": submitToolTargetCleanupCommand,
+		"submit-tool-target-preset": submitToolTargetPresetCommand,
+		"submit-remote-profile": submitRemoteProfileCommand,
+		"submit-remote-connect": submitRemoteConnectCommand,
+		"submit-remote-host-trust": submitRemoteHostTrustReviewCommand,
+		"submit-remote-host-key-evidence": submitRemoteHostKeyEvidenceInputCommand,
+		"submit-remote-known-hosts-candidate":
+			submitRemoteKnownHostsCandidateCommand,
+		"submit-remote-known-hosts-paste": submitRemoteKnownHostsPasteReviewCommand,
+		"submit-remote-known-hosts-selection":
+			submitRemoteKnownHostsPasteSelectionCommand,
+		"submit-endpoint-filter": submitEndpointFilterCommand,
+		"submit-endpoint-filter-cleanup": submitEndpointFilterCleanupCommand,
+		"submit-timeline-search": submitTimelineSearchCommand,
+		"submit-timeline-search-cleanup": submitTimelineSearchCleanupCommand,
+		"submit-log-search": submitLogSearchCommand,
+		"submit-logs-cleanup": submitLogsCleanupCommand,
+		"submit-control-confirmation": submitControlConfirmationCommand,
+		"submit-port-process-control": submitPortProcessControlCommand,
+		"submit-external-open": submitExternalOpenCommand,
+		"submit-file-open": submitFileOpenCommand,
+		"submit-cleanup-export-archive": submitCleanupExportArchiveCommand,
+		"submit-tool-export-archive": submitToolExportArchiveCommand,
+		"submit-audit-export-archive": submitAuditExportArchiveCommand,
+		"submit-audit-archive-retention": submitAuditArchiveRetentionCommand,
+		"submit-tools-archive-retention": submitToolArchiveRetentionCommand,
+		"submit-tools-evidence-search": submitToolEvidenceSearchCommand,
+		"submit-interface-evidence-search": submitInterfaceEvidenceSearchCommand,
+		"submit-dns-proposal": submitDnsServerProposalCommand,
+		"submit-interface-confirmation": submitInterfaceConfirmationCommand,
+		"submit-config-reset": submitConfigResetCommand,
+		"submit-editor-append": submitEditorAppendLineCommand,
+		"submit-editor-insert-before": submitEditorInsertLineCommand,
+		"submit-editor-insert-after": submitEditorInsertLineCommand,
+		"submit-editor-replace": submitEditorReplaceLineCommand,
+		"submit-editor-save": submitEditorSaveConfirmationCommand,
+		"submit-config-text": submitConfigTextCommand,
+		"submit-tool": submitToolCommand,
+		"submit-file-operation-destination": submitFileOperationDestinationCommand,
+		"submit-file-operation-confirmation": submitFileOperationConfirmCommand,
+	} satisfies CommandSubmitResolvedHandlers;
 
 	useInput((input, key) => {
-		if (commandLine.active) {
+		const overlay = getAppInputOverlay({
+			commandLineActive: commandLine.active,
+			paletteActive: palette.active,
+			fileOperationDialogActive: fileOperationDialog.active,
+			fileFilterActive: fileFilter.active,
+		});
+		if (overlay === "command-line") {
 			const fileCommandTransition = prepareFileWorkspaceCommandLineInput({
 				commandLine,
 				dialog: fileOperationDialog,
@@ -8098,324 +8004,173 @@ export function App(): React.ReactElement {
 					);
 				}
 				if (fileCommandTransition.submit === "destination") {
-					submitFileOperationDestinationCommand();
+					const submission = prepareCommandSubmit(
+						fileCommandTransition.commandLine,
+					);
+					if (submission) {
+						const effect = prepareCommandSubmitEffectFromTable(
+							submission,
+							{
+								...commandSubmitContexts,
+								"submit-file-operation-destination": {
+									effect: "submit-file-operation-destination",
+									snapshot: { dialog: fileCommandTransition.dialog },
+								},
+							},
+							{
+								remoteConnectionDiagnostic:
+									remoteConnectionDiagnosticRef.current,
+								remoteConnectionStartedAt: Date.now(),
+							},
+						);
+						const guard = dispatchCommandSubmitEffect(
+							effect,
+							commandSubmitHandlers,
+						);
+						if (guard) {
+							log(guard.notice.level, guard.notice.message);
+						}
+					}
 				}
 				if (fileCommandTransition.submit === "confirmation") {
-					void submitFileOperationConfirmCommand();
+					const submission = prepareCommandSubmit(
+						fileCommandTransition.commandLine,
+					);
+					if (submission) {
+						const effect = prepareCommandSubmitEffectFromTable(
+							submission,
+							{
+								...commandSubmitContexts,
+								"submit-file-operation-confirmation": {
+									effect: "submit-file-operation-confirmation",
+									snapshot: {
+										dialog: fileCommandTransition.dialog,
+										provider: fileProvider,
+										policy: { mode: editorSaveMode },
+									},
+								},
+							},
+							{
+								remoteConnectionDiagnostic:
+									remoteConnectionDiagnosticRef.current,
+								remoteConnectionStartedAt: Date.now(),
+							},
+						);
+						const guard = dispatchCommandSubmitEffect(
+							effect,
+							commandSubmitHandlers,
+						);
+						if (guard) {
+							log(guard.notice.level, guard.notice.message);
+						}
+					}
 				}
 				return;
 			}
 			if (key.escape) {
-				setCommandLine((current) => closeCommandLine(current));
-				if (commandLine.prompt === "clipboard") {
-					setClipboardConfirmation(clearClipboardConfirmationState());
-					setConnectionCopyPreview(false);
-					setPortCopyPreview(false);
-					setProcessClipboardPreview(false);
-					setRouteCopyPreview(false);
-					setToolCopyPreview(false);
-				}
-				if (commandLine.prompt === "external-open") {
-					setExternalOpenPlan(undefined);
-				}
-				if (commandLine.prompt === "file-open") {
-					setFileOpenPlan(undefined);
-				}
-				if (commandLine.prompt === portProcessControlPrompt) {
-					setPortProcessControlPreview(false);
-				}
-				if (commandLine.prompt === "cleanup-export-archive") {
-					setCleanupExportArchivePlan(undefined);
-				}
-				if (commandLine.prompt === "tool-export-archive") {
-					setToolExportArchivePlan(undefined);
-				}
-				if (commandLine.prompt === "audit-export-archive") {
-					setAuditExportArchivePlan(undefined);
-				}
-				if (commandLine.prompt === "audit-archive-retention") {
-					setAuditArchiveRetentionPlan(undefined);
-				}
-				if (commandLine.prompt === "tools-archive-retention") {
-					setToolArchiveRetentionPlan(undefined);
-				}
-				if (commandLine.prompt === "config-reset") {
-					setConfigResetPreview(undefined);
-				}
-				log(
-					"info",
-					commandLine.prompt === "route"
-						? "route path command cancelled"
-						: commandLine.prompt === "clipboard"
-							? "clipboard confirmation cancelled"
-							: commandLine.prompt === "route-filter"
-								? "route filter cancelled"
-								: commandLine.prompt === "route-filter-cleanup"
-									? "route filter cleanup cancelled"
-									: commandLine.prompt === "tool-filter"
-										? "tool history filter cancelled"
-										: commandLine.prompt === "tool-history-cleanup"
-											? "tool history filter cleanup cancelled"
-											: commandLine.prompt.startsWith(
-														endpointFilterPromptPrefix,
-													)
-												? "endpoint filter cancelled"
-												: commandLine.prompt.startsWith(
-															endpointFilterCleanupPromptPrefix,
-														)
-													? "endpoint filter cleanup cancelled"
-													: commandLine.prompt === "timeline-search"
-														? "timeline search cancelled"
-														: commandLine.prompt === "timeline-search-cleanup"
-															? "timeline search cleanup cancelled"
-															: commandLine.prompt === "control-confirm"
-																? "control confirmation cancelled"
-																: commandLine.prompt === "external-open"
-																	? "external open confirmation cancelled"
-																	: commandLine.prompt === "file-open"
-																		? "file open confirmation cancelled"
-																		: commandLine.prompt ===
-																				"cleanup-export-archive"
-																			? "cleanup export archive cancelled"
-																			: commandLine.prompt ===
-																					"tool-export-archive"
-																				? "tools evidence archive cancelled"
-																				: commandLine.prompt ===
-																						"audit-export-archive"
-																					? "audit export archive cancelled"
-																					: commandLine.prompt ===
-																							"audit-archive-retention"
-																						? "audit archive retention cancelled"
-																						: commandLine.prompt ===
-																								"tools-archive-retention"
-																							? "tools archive retention cancelled"
-																							: commandLine.prompt ===
-																									"config-reset"
-																								? "config reset cancelled"
-																								: commandLine.prompt ===
-																										"editor-append"
-																									? "editor append cancelled"
-																									: commandLine.prompt ===
-																											"editor-insert-before"
-																										? "editor insert before cancelled"
-																										: commandLine.prompt ===
-																												"editor-insert-after"
-																											? "editor insert after cancelled"
-																											: commandLine.prompt ===
-																													"editor-replace"
-																												? "editor replace cancelled"
-																												: commandLine.prompt ===
-																														"editor-save"
-																													? "editor save confirmation cancelled"
-																													: commandLine.prompt.startsWith(
-																																"config-",
-																															)
-																														? "config edit cancelled"
-																														: commandLine.prompt ===
-																																"log-search"
-																															? "logs search cancelled"
-																															: commandLine.prompt ===
-																																	"logs-cleanup"
-																																? "logs cleanup cancelled"
-																																: commandLine.prompt ===
-																																		"tools-evidence-search"
-																																	? "tools evidence search cancelled"
-																																	: commandLine.prompt ===
-																																			"dns-servers"
-																																		? "dns server proposal cancelled"
-																																		: commandLine.prompt ===
-																																				"tool-target-label"
-																																			? "tool target label cancelled"
-																																			: commandLine.prompt ===
-																																					"tool-target-value"
-																																				? "tool target value cancelled"
-																																				: commandLine.prompt ===
-																																						"tool-target-action"
-																																					? "tool target action cancelled"
-																																					: commandLine.prompt ===
-																																							"tool-target-cleanup"
-																																						? "tool target cleanup cancelled"
-																																						: commandLine.prompt ===
-																																								"tool-target-preset"
-																																							? "tool target preset cancelled"
-																																							: commandLine.prompt ===
-																																									"remote-profile"
-																																								? "remote profile cancelled"
-																																								: commandLine.prompt ===
-																																										"remote-connect"
-																																									? "remote connect confirmation cancelled"
-																																									: commandLine.prompt ===
-																																											"remote-host-trust"
-																																										? "remote host trust review cancelled"
-																																										: commandLine.prompt ===
-																																												"remote-host-key-evidence"
-																																											? "remote host key evidence input cancelled"
-																																											: commandLine.prompt ===
-																																													"remote-known-hosts-candidate"
-																																												? "remote known_hosts candidate input cancelled"
-																																												: commandLine.prompt ===
-																																														"remote-known-hosts-paste"
-																																													? "remote known_hosts paste review cancelled"
-																																													: commandLine.prompt ===
-																																															"remote-known-hosts-select"
-																																														? "remote known_hosts paste selection cancelled"
-																																														: commandLine.prompt ===
-																																																portProcessControlPrompt
-																																															? "port process control cancelled"
-																																															: commandLine.prompt.startsWith(
-																																																		toolPromptPrefix,
-																																																	)
-																																																? "tool target command cancelled"
-																																																: "path command cancelled",
+				const cancellation = prepareCommandCancellation(
+					commandLine.prompt,
+					focusArea,
+					{ fileOperationDialog },
 				);
+				if (!cancellation) return;
+				setCommandLine((current) => closeCommandLine(current));
+				setFocusArea(cancellation.focusArea);
+				for (const cleanup of cancellation.cleanup) {
+					switch (cleanup) {
+						case "clipboard-confirmation":
+							setClipboardConfirmation(clearClipboardConfirmationState());
+							break;
+						case "connection-copy-preview":
+							setConnectionCopyPreview(false);
+							break;
+						case "port-copy-preview":
+							setPortCopyPreview(false);
+							break;
+						case "process-copy-preview":
+							setProcessClipboardPreview(false);
+							break;
+						case "route-copy-preview":
+							setRouteCopyPreview(false);
+							break;
+						case "tool-copy-preview":
+							setToolCopyPreview(false);
+							break;
+						case "external-open-plan":
+							setExternalOpenPlan(undefined);
+							break;
+						case "file-open-plan":
+							setFileOpenPlan(undefined);
+							break;
+						case "port-process-preview":
+							setPortProcessControlPreview(false);
+							break;
+						case "cleanup-export-archive-plan":
+							setCleanupExportArchivePlan(undefined);
+							break;
+						case "tool-export-archive-plan":
+							setToolExportArchivePlan(undefined);
+							break;
+						case "audit-export-archive-plan":
+							setAuditExportArchivePlan(undefined);
+							break;
+						case "audit-archive-retention-plan":
+							setAuditArchiveRetentionPlan(undefined);
+							break;
+						case "tool-archive-retention-plan":
+							setToolArchiveRetentionPlan(undefined);
+							break;
+						case "config-reset-preview":
+							setConfigResetPreview(undefined);
+							break;
+						case "file-operation-dialog":
+							if (cancellation.fileOperationDialog) {
+								setFileOperationDialog(cancellation.fileOperationDialog);
+							}
+							break;
+					}
+				}
+				log(cancellation.notice.level, cancellation.notice.message);
 				return;
 			}
 
 			if (key.return) {
-				if (commandLine.prompt === "clipboard") {
-					void submitClipboardCommand();
-				} else if (commandLine.prompt === "route") {
-					void submitRouteDestinationCommand();
-				} else if (commandLine.prompt === "route-filter") {
-					submitRouteFilterCommand();
-				} else if (commandLine.prompt === "route-filter-cleanup") {
-					submitRouteFilterCleanupCommand();
-				} else if (commandLine.prompt === "tool-filter") {
-					submitToolHistoryFilterCommand();
-				} else if (commandLine.prompt === "tool-history-cleanup") {
-					submitToolHistoryCleanupCommand();
-				} else if (commandLine.prompt === "tool-target-label") {
-					submitToolTargetLabelCommand();
-				} else if (commandLine.prompt === "tool-target-value") {
-					submitToolTargetValueCommand();
-				} else if (commandLine.prompt === "tool-target-action") {
-					submitToolTargetActionCommand();
-				} else if (commandLine.prompt === "tool-target-cleanup") {
-					submitToolTargetCleanupCommand();
-				} else if (commandLine.prompt === "tool-target-preset") {
-					submitToolTargetPresetCommand();
-				} else if (commandLine.prompt === "remote-profile") {
-					void submitRemoteProfileCommand();
-				} else if (commandLine.prompt === "remote-connect") {
-					void submitRemoteConnectCommand();
-				} else if (commandLine.prompt === "remote-host-trust") {
-					submitRemoteHostTrustReviewCommand();
-				} else if (commandLine.prompt === "remote-host-key-evidence") {
-					submitRemoteHostKeyEvidenceInputCommand();
-				} else if (commandLine.prompt === "remote-known-hosts-candidate") {
-					submitRemoteKnownHostsCandidateCommand();
-				} else if (commandLine.prompt === "remote-known-hosts-paste") {
-					submitRemoteKnownHostsPasteReviewCommand();
-				} else if (commandLine.prompt === "remote-known-hosts-select") {
-					submitRemoteKnownHostsPasteSelectionCommand();
-				} else if (commandLine.prompt.startsWith(endpointFilterPromptPrefix)) {
-					submitEndpointFilterCommand();
-				} else if (
-					commandLine.prompt.startsWith(endpointFilterCleanupPromptPrefix)
-				) {
-					submitEndpointFilterCleanupCommand();
-				} else if (commandLine.prompt === "timeline-search") {
-					submitTimelineSearchCommand();
-				} else if (commandLine.prompt === "timeline-search-cleanup") {
-					submitTimelineSearchCleanupCommand();
-				} else if (commandLine.prompt === "log-search") {
-					submitLogSearchCommand();
-				} else if (commandLine.prompt === "logs-cleanup") {
-					submitLogsCleanupCommand();
-				} else if (commandLine.prompt === "control-confirm") {
-					submitControlConfirmationCommand();
-				} else if (commandLine.prompt === portProcessControlPrompt) {
-					submitPortProcessControlCommand();
-				} else if (commandLine.prompt === "external-open") {
-					void submitExternalOpenCommand();
-				} else if (commandLine.prompt === "file-open") {
-					void submitFileOpenCommand();
-				} else if (commandLine.prompt === "cleanup-export-archive") {
-					void submitCleanupExportArchiveCommand();
-				} else if (commandLine.prompt === "tool-export-archive") {
-					void submitToolExportArchiveCommand();
-				} else if (commandLine.prompt === "audit-export-archive") {
-					void submitAuditExportArchiveCommand();
-				} else if (commandLine.prompt === "audit-archive-retention") {
-					void submitAuditArchiveRetentionCommand();
-				} else if (commandLine.prompt === "tools-archive-retention") {
-					void submitToolArchiveRetentionCommand();
-				} else if (commandLine.prompt === "tools-evidence-search") {
-					submitToolEvidenceSearchCommand();
-				} else if (commandLine.prompt === "interface-evidence-search") {
-					submitInterfaceEvidenceSearchCommand();
-				} else if (commandLine.prompt === "dns-servers") {
-					submitDnsServerProposalCommand();
-				} else if (commandLine.prompt === "interface-confirm") {
-					submitInterfaceConfirmationCommand();
-				} else if (commandLine.prompt === "config-reset") {
-					void submitConfigResetCommand();
-				} else if (commandLine.prompt === "editor-append") {
-					submitEditorAppendLineCommand();
-				} else if (commandLine.prompt === "editor-insert-before") {
-					submitEditorInsertLineCommand("before");
-				} else if (commandLine.prompt === "editor-insert-after") {
-					submitEditorInsertLineCommand("after");
-				} else if (commandLine.prompt === "editor-replace") {
-					submitEditorReplaceLineCommand();
-				} else if (commandLine.prompt === "editor-save") {
-					void submitEditorSaveConfirmationCommand();
-				} else if (commandLine.prompt.startsWith("config-")) {
-					void submitConfigTextCommand();
-				} else if (commandLine.prompt.startsWith(toolPromptPrefix)) {
-					void submitToolCommand();
-				} else {
-					void submitPathCommand();
+				const submission = prepareCommandSubmit(commandLine);
+				if (!submission) return;
+				const effect = prepareCommandSubmitEffectFromTable(
+					submission,
+					commandSubmitContexts,
+					{
+						remoteConnectionDiagnostic: remoteConnectionDiagnosticRef.current,
+						remoteConnectionStartedAt: Date.now(),
+					},
+				);
+				const guard = dispatchCommandSubmitEffect(
+					effect,
+					commandSubmitHandlers,
+				);
+				if (guard) {
+					log(guard.notice.level, guard.notice.message);
 				}
 				return;
 			}
 
-			if (
-				commandLine.prompt.startsWith(toolPromptPrefix) &&
-				(key.tab || input === "\u001B[Z")
-			) {
-				const direction = input === "\u001B[Z" ? "previous" : "next";
-				setCommandLine((current) => {
-					const actionId = current.prompt.slice(toolPromptPrefix.length);
-					const metadata = getToolRunActionMetadata(actionId);
-					const form = createToolFormState(
-						actionId,
-						metadata?.defaultTarget ?? "",
-						summaryRef.current,
-						current.value,
-						current.fieldIndex ?? 0,
-					);
-					return moveCommandLineField(
-						current,
-						form?.fields.length ?? 0,
-						direction,
-					);
-				});
-				return;
-			}
-
-			setCommandLine((current) =>
-				commandLine.prompt.startsWith(toolPromptPrefix)
-					? applyToolPromptCommandLineInput(current, {
-							input,
-							backspace: key.backspace || key.delete,
-						})
-					: applyCommandLineInput(current, {
-							input,
-							backspace: key.backspace || key.delete,
-						}),
-			);
-			if (commandLine.prompt === "clipboard") {
-				setClipboardConfirmation((current) =>
-					key.backspace || key.delete
-						? backspaceClipboardConfirmationInput(current)
-						: appendClipboardConfirmationInput(current, input),
-				);
+			const textInput = prepareCommandLineTextInput({
+				commandLine,
+				clipboardConfirmation,
+				input,
+				backspace: key.backspace || key.delete,
+				tab: key.tab,
+				summary: summaryRef.current,
+			});
+			if (textInput.kind === "apply") {
+				setCommandLine(textInput.commandLine);
+				setClipboardConfirmation(textInput.clipboardConfirmation);
 			}
 			return;
 		}
 
-		if (palette.active) {
+		if (overlay === "palette") {
 			const decision = prepareCommandPaletteInput({
 				actions,
 				state: palette,
@@ -8452,7 +8207,7 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (fileOperationDialog.active) {
+		if (overlay === "file-operation-dialog") {
 			const transition = prepareActiveFileOperationDialogInput(
 				fileOperationDialog,
 				{ input, escape: key.escape, return: key.return },
@@ -8464,7 +8219,7 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (fileFilter.active) {
+		if (overlay === "file-filter") {
 			const transition = prepareActiveFileFilterInput({
 				filter: fileFilter,
 				input,
@@ -8480,6 +8235,8 @@ export function App(): React.ReactElement {
 			return;
 		}
 
+		const workspaceInputFamily = getWorkspaceInputFamily(screen, focusArea);
+
 		if (key.escape && dismissCleanupHandoff()) {
 			return;
 		}
@@ -8488,103 +8245,50 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (screen === "status" && focusArea === "workspaces" && input === "q") {
-			if (selectedStatusEvidenceKind === "interface") {
-				cycleInterfaceEvidenceStateFilter();
-			} else {
-				cycleToolEvidenceFilter();
-			}
-			return;
-		}
-
-		if (input === "q") {
-			exit();
-		}
-
-		if (input === "?" || input === "/") {
-			setFocusArea("workspaces");
-			setPalette(openCommandPalette());
-			log("info", "command palette opened");
-			return;
-		}
-
-		if (input === "r") {
-			runAction(
-				actions.find((action) => action.id === "network.inspect") ?? actions[0],
-			);
-		}
-
-		if (input === "d") {
-			const doctor = actions.find((action) => action.id === "doctor.run");
-			if (doctor) {
-				setScreen("actions");
-				runAction(doctor);
-			}
-		}
-
-		if (input === "p") {
-			const ping = actions.find((action) => action.id === "ping.default");
-			if (ping) {
-				setScreen("actions");
-				runAction(ping);
-			}
-		}
-
-		if (
-			screen === "dns" &&
-			focusArea === "workspaces" &&
-			["S", "T", "C"].includes(input)
-		) {
-			const decision = prepareDnsPanelInput({
-				input,
-				selectedIndex: selectedDnsTargetIndex,
-				summary,
-			});
-			if (decision.kind === "command") {
-				setCommandLine(openCommandLine("dns-servers"));
-			} else if (decision.kind === "selection") {
-				setSelectedDnsTargetIndex(decision.selectedIndex);
-				setDnsServerProposal(decision.proposal);
-			} else if (decision.kind === "clear") {
-				setDnsServerProposal(decision.proposal);
-			}
-			if (decision.notice) {
-				log(decision.notice.level, decision.notice.message);
-			}
-			return;
-		}
-
-		if (
-			screen === "actions" &&
-			focusArea === "actions" &&
-			(input === "c" || input === "C")
-		) {
-			const transition = prepareControlConfirmationPrompt({
+		const globalHotkey = prepareGlobalHotkeyInput({
+			input,
+			family: workspaceInputFamily,
+			actions,
+			control: {
 				previewPlan: actionPreviewPlan,
+				confirmation: actionConfirmation,
 				platform: currentPlatform(),
 				updateCheckResult,
-			});
-			if (transition.kind === "prompt") {
-				setCommandLine(openCommandLine(transition.prompt));
+			},
+		});
+		switch (globalHotkey.kind) {
+			case "quit":
+				exit();
+				return;
+			case "open-palette":
+				setFocusArea(globalHotkey.focusArea);
+				setPalette(openCommandPalette());
+				log(globalHotkey.notice.level, globalHotkey.notice.message);
+				return;
+			case "run-action":
+				if (globalHotkey.screen) setScreen(globalHotkey.screen);
+				runAction(globalHotkey.action);
+				break;
+			case "confirm-action": {
+				const { transition } = globalHotkey;
+				if (transition.kind === "prompt") {
+					setCommandLine(openCommandLine(transition.prompt));
+				}
+				log(transition.notice.level, transition.notice.message);
+				return;
 			}
-			log(transition.notice.level, transition.notice.message);
-			return;
+			case "execute-action":
+				void runControlExecutionAttempt(globalHotkey.request);
+				return;
+			case "no-op":
+				break;
 		}
 
-		if (
-			screen === "actions" &&
-			focusArea === "actions" &&
-			(input === "x" || input === "X")
-		) {
-			void runControlExecutionAttempt();
+		const enterPressed = input === "\r" || key.return;
+		if (enterPressed && openCleanupHandoffPrompt()) {
 			return;
 		}
-
-		if (input === "\r" && openCleanupHandoffPrompt()) {
-			return;
-		}
-
-		if (input === "\r" && runConfigShelfFocusAction()) {
+		if (enterPressed && runConfigShelfFocusAction()) {
 			return;
 		}
 
@@ -8601,67 +8305,87 @@ export function App(): React.ReactElement {
 			selectedIndex: selectedFileIndex,
 			providerKind: fileProvider.kind,
 			locationCount: fileLocations.length,
+			root: fileRoot,
+			backHistory: fileHistory,
+			forwardHistory: fileForwardHistory,
+			locations: fileLocations,
+			selectedLocationIndex,
+			filterQuery: fileFilter.query,
 		});
 		if (fileInputTransition.action !== "unhandled") {
-			if (fileInputTransition.action === "enter-focus") {
-				setFocusArea(fileInputTransition.focusArea);
-				log(
-					fileInputTransition.notice.level,
-					fileInputTransition.notice.message,
-				);
-			} else if (fileInputTransition.action === "leave-focus") {
-				setFocusArea(fileInputTransition.focusArea);
-			} else if (fileInputTransition.action === "open-selected") {
-				void openSelectedFileEntry();
-			} else if (fileInputTransition.action === "parent") {
-				void goToParentDirectory();
-			} else if (fileInputTransition.action === "history") {
-				void (fileInputTransition.direction === "back"
-					? goBackFileHistory()
-					: goForwardFileHistory());
-			} else if (fileInputTransition.action === "clipboard") {
-				const intent = getSelectedFilePathClipboardIntent(
-					displayedFileEntries,
-					selectedFileIndex,
-				);
-				if (intent.preview) {
-					openClipboardConfirmation(intent.preview);
-				} else if (intent.notice) {
-					log(intent.notice.level, intent.notice.message);
-				}
-			} else if (fileInputTransition.action === "filter") {
-				setFileFilter((current) => openFileFilter(current.query));
-				setSelectedFileIndex(fileInputTransition.selectedIndex);
-				log(
-					fileInputTransition.notice.level,
-					fileInputTransition.notice.message,
-				);
-			} else if (fileInputTransition.action === "operation") {
-				openSelectedFileOperation(fileInputTransition.kind);
-			} else if (fileInputTransition.action === "disconnect") {
-				void disconnectRemoteFiles();
-			} else if (fileInputTransition.action === "next-location") {
-				void jumpToNextLocation();
-			} else if (fileInputTransition.action === "location") {
-				void jumpToLocation(fileInputTransition.locationIndex);
-			} else if (fileInputTransition.action === "path") {
-				setCommandLine(openCommandLine("path"));
-				log(
-					fileInputTransition.notice.level,
-					fileInputTransition.notice.message,
-				);
-			} else if (fileInputTransition.action === "select") {
-				setSelectedFileIndex(fileInputTransition.selectedIndex);
-			} else if (fileInputTransition.action === "notice") {
-				log(
-					fileInputTransition.notice.level,
-					fileInputTransition.notice.message,
-				);
+			switch (fileInputTransition.action) {
+				case "enter-focus":
+					setFocusArea(fileInputTransition.focusArea);
+					log(
+						fileInputTransition.notice.level,
+						fileInputTransition.notice.message,
+					);
+					break;
+				case "leave-focus":
+					setFocusArea(fileInputTransition.focusArea);
+					break;
+				case "open-selected":
+					void openSelectedFileEntry(fileInputTransition.transition);
+					break;
+				case "parent":
+					void goToParentDirectory(fileInputTransition.transition);
+					break;
+				case "history":
+					void (fileInputTransition.direction === "back"
+						? goBackFileHistory(fileInputTransition.transition)
+						: goForwardFileHistory(fileInputTransition.transition));
+					break;
+				case "clipboard":
+					if (fileInputTransition.intent.preview) {
+						openClipboardConfirmation(fileInputTransition.intent.preview);
+					} else if (fileInputTransition.intent.notice) {
+						log(
+							fileInputTransition.intent.notice.level,
+							fileInputTransition.intent.notice.message,
+						);
+					}
+					break;
+				case "filter":
+					setFileFilter(fileInputTransition.filter);
+					setSelectedFileIndex(fileInputTransition.selectedIndex);
+					log(
+						fileInputTransition.notice.level,
+						fileInputTransition.notice.message,
+					);
+					break;
+				case "operation":
+					openSelectedFileOperation(fileInputTransition.transition);
+					break;
+				case "disconnect":
+					void disconnectRemoteFiles();
+					break;
+				case "next-location":
+					void jumpToNextLocation(fileInputTransition.transition);
+					break;
+				case "location":
+					void jumpToLocation(fileInputTransition.transition);
+					break;
+				case "path":
+					setCommandLine(openCommandLine("path"));
+					log(
+						fileInputTransition.notice.level,
+						fileInputTransition.notice.message,
+					);
+					break;
+				case "select":
+					setSelectedFileIndex(fileInputTransition.selectedIndex);
+					break;
+				case "notice":
+					log(
+						fileInputTransition.notice.level,
+						fileInputTransition.notice.message,
+					);
+					break;
 			}
 			return;
 		}
 
-		if (screen === "processes" && focusArea === "workspaces") {
+		if (workspaceInputFamily === "processes") {
 			const decision = prepareProcessPanelInput({
 				input: key.return ? "\r" : input,
 				direction: key.downArrow
@@ -8684,7 +8408,7 @@ export function App(): React.ReactElement {
 			if (decision.kind !== "no-op") return;
 		}
 
-		if (screen === "operations" && focusArea === "workspaces") {
+		if (workspaceInputFamily === "operations") {
 			const decision = prepareOperationRunPanelInput({
 				input: key.return ? "\r" : input,
 				direction: key.downArrow
@@ -8694,88 +8418,68 @@ export function App(): React.ReactElement {
 						: undefined,
 				presets: operationPresets,
 				selectedIndex: selectedOperationPresetIndex,
+				currentRun: operationRunRef.current,
+				currentToken: operationRunTokenRef.current,
 			});
 			if (decision.kind === "selection") {
 				setSelectedOperationPresetIndex(decision.selectedIndex);
 			} else if (decision.kind === "run") {
-				void runSelectedOperationPreset();
+				void runSelectedOperationPreset(decision.transition);
 			} else if (decision.kind === "cancel") {
-				cancelOperationRun();
+				cancelOperationRun(decision.transition);
 			}
 			if (decision.kind !== "no-op") return;
 		}
 
-		if (input === "\r") {
-			if (screen === "actions" && focusArea === "workspaces") {
-				setFocusArea(enterFocus(screen, focusArea));
-				log("info", "actions focus entered");
-			} else if (screen === "remotes" && focusArea === "workspaces") {
-				setFocusArea(enterFocus(screen, focusArea));
-				log("info", "remotes focus entered");
-			} else if (focusArea === "actions") {
-				runAction(actions[selectedActionIndex]);
-			} else if (focusArea === "remotes") {
-				void selectRemoteProfile();
-			}
+		const workspaceEnter = prepareWorkspaceEnterInput({
+			input,
+			key,
+			family: workspaceInputFamily,
+			actions,
+			selectedActionIndex,
+			remoteProfiles,
+			selectedRemoteIndex,
+		});
+		if (workspaceEnter.kind === "focus") {
+			setFocusArea(workspaceEnter.focusArea);
+			log(workspaceEnter.notice.level, workspaceEnter.notice.message);
+			return;
 		}
-
-		if (screen === "editor" && focusArea === "workspaces" && input === "a") {
-			setCommandLine(openCommandLine("editor-append"));
-			log("info", "editor append prompt opened");
+		if (workspaceEnter.kind === "run-action") {
+			runAction(workspaceEnter.action);
+			return;
+		}
+		if (workspaceEnter.kind === "select-remote-profile") {
+			void selectRemoteProfile(workspaceEnter.transition);
 			return;
 		}
 
-		if (screen === "editor" && focusArea === "workspaces" && input === "i") {
-			if (!editorPreview) {
-				log("warn", "open a text file before inserting lines");
-				return;
-			}
-			setCommandLine(openCommandLine("editor-insert-before"));
-			log("info", `editor insert before line ${selectedEditorLineIndex + 1}`);
-			return;
-		}
-
-		if (screen === "editor" && focusArea === "workspaces" && input === "o") {
-			if (!editorPreview) {
-				log("warn", "open a text file before inserting lines");
-				return;
-			}
-			setCommandLine(openCommandLine("editor-insert-after"));
-			log("info", `editor insert after line ${selectedEditorLineIndex + 1}`);
-			return;
-		}
-
-		if (screen === "editor" && focusArea === "workspaces" && input === "r") {
-			if (!editorPreview) {
-				log("warn", "open a text file before replacing lines");
-				return;
-			}
-			setCommandLine(openCommandLine("editor-replace"));
-			log("info", `editor replace line ${selectedEditorLineIndex + 1} opened`);
-			return;
-		}
-
-		if (screen === "editor" && focusArea === "workspaces" && input === "x") {
+		const editorCommand =
+			workspaceInputFamily === "editor"
+				? getEditorWorkspaceCommand(input)
+				: undefined;
+		if (editorCommand === "delete") {
 			deleteSelectedEditorLine();
 			return;
 		}
-
-		if (screen === "editor" && focusArea === "workspaces" && input === "u") {
+		if (editorCommand === "undo") {
 			undoEditorEdit();
 			return;
 		}
-
-		if (screen === "editor" && focusArea === "workspaces" && input === "s") {
-			if (!editorPreview) {
-				log("warn", "open a text file before saving");
-				return;
+		if (editorCommand) {
+			const transition = prepareEditorPromptOpen({
+				command: editorCommand,
+				editorPreview,
+				selectedLineIndex: selectedEditorLineIndex,
+			});
+			if (transition.kind === "open") {
+				setCommandLine(openCommandLine(transition.prompt));
 			}
-			setCommandLine(openCommandLine("editor-save"));
-			log("info", "editor save confirmation opened");
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
-		if (screen === "routes" && focusArea === "workspaces") {
+		if (workspaceInputFamily === "routes") {
 			const decision = prepareRoutePanelInput({
 				input,
 				view: routeDetailView,
@@ -8785,6 +8489,10 @@ export function App(): React.ReactElement {
 				result: routeTable,
 				path: routePath,
 				sort: routeSort,
+				handoff: {
+					baseDir: dirname(getConfigPath()),
+					origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+				},
 				end: key.end,
 				home: key.home,
 				tab: key.tab,
@@ -8798,14 +8506,7 @@ export function App(): React.ReactElement {
 			} else if (decision.kind === "save-preset") {
 				setRouteFilterPresets(decision.presets);
 				setRouteCopyPreview(decision.copyPreview);
-				void setConfigRouteFilterPresets(decision.presets).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `route preset save failed ${caught.message}`
-							: `route preset save failed ${String(caught)}`,
-					),
-				);
+				void persistRouteInputPresets(decision.presets);
 			} else if (decision.kind === "sort") {
 				setRouteSort(decision.sort);
 				setRouteCopyPreview(decision.copyPreview);
@@ -8813,45 +8514,28 @@ export function App(): React.ReactElement {
 				setRouteCopyPreview(true);
 				openClipboardConfirmation(decision.preview);
 			} else if (decision.kind === "command") {
-				if (["destination", "filter", "cleanup"].includes(decision.command)) {
-					setCommandLine(
-						openCommandLine(
-							decision.command === "destination"
-								? "route"
-								: decision.command === "filter"
-									? "route-filter"
-									: "route-filter-cleanup",
-						),
-					);
-				} else if (decision.command === "export") {
-					void exportRouteHandoff();
-				} else if (decision.command === "open") {
-					void openRouteHandoff();
+				if (decision.prompt) {
+					setCommandLine(openCommandLine(decision.prompt));
+				} else if (decision.handoff?.action === "export") {
+					void exportRouteHandoff(decision.handoff);
+				} else if (decision.handoff?.action === "open") {
+					void openRouteHandoff(decision.handoff);
 				}
-				if (decision.copyPreview === false) {
-					setRouteCopyPreview(false);
-				}
+				if (decision.copyPreview === false) setRouteCopyPreview(false);
 			}
-			if (decision.kind !== "no-op") {
-				if ("notice" in decision && decision.notice) {
-					log(decision.notice.level, decision.notice.message);
-				}
-				return;
+			if ("notice" in decision && decision.notice) {
+				log(decision.notice.level, decision.notice.message);
 			}
+			if (decision.kind !== "no-op") return;
 		}
 
-		if (
-			screen === "interfaces" &&
-			focusArea === "workspaces" &&
-			(key.tab ||
-				key.return ||
-				["D", "U", "K", "C", "c", "e", "o"].includes(input))
-		) {
+		if (workspaceInputFamily === "interfaces") {
 			const decision = prepareInterfacePanelInput({
 				input: key.return ? "\r" : input,
 				proposal: interfaceStateProposal,
 				selectedIndex: selectedInterfaceIndex,
 				summary,
+				handoff: { baseDir: dirname(getConfigPath()) },
 				tab: key.tab,
 				view: interfaceDetailView,
 			});
@@ -8863,7 +8547,7 @@ export function App(): React.ReactElement {
 				setInterfaceStateProposal(decision.proposal);
 				setInterfaceConfirmationResult(decision.confirmationResult);
 			} else if (decision.kind === "confirmation") {
-				setCommandLine(openCommandLine("interface-confirm"));
+				setCommandLine(openCommandLine(decision.prompt));
 			} else if (decision.kind === "clear") {
 				setInterfaceStateProposal(decision.proposal);
 				setInterfaceConfirmationResult(decision.confirmationResult);
@@ -8872,22 +8556,20 @@ export function App(): React.ReactElement {
 				openClipboardConfirmation(decision.preview);
 			} else if (decision.kind === "source-handoff") {
 				if (decision.action === "export") {
-					void exportInterfaceSourceHandoff();
+					void exportInterfaceSourceHandoff(decision);
 				} else {
-					void openInterfaceSourceHandoff();
+					void openInterfaceSourceHandoff(decision);
 				}
 			}
 			if ("notice" in decision && decision.notice) {
 				log(decision.notice.level, decision.notice.message);
 			}
-			return;
+			if (decision.kind !== "no-op") return;
 		}
 
-		if (
-			(screen === "connections" || screen === "ports") &&
-			focusArea === "workspaces"
-		) {
-			const kind: EndpointHandoffKind = screen;
+		if (workspaceInputFamily === "endpoints") {
+			const kind: EndpointHandoffKind =
+				screen === "connections" ? "connections" : "ports";
 			const decision = prepareEndpointPanelInput({
 				kind,
 				input: key.return ? "\r" : input,
@@ -8906,1716 +8588,451 @@ export function App(): React.ReactElement {
 				downArrow: key.downArrow,
 				processControlInspector: portProcessControlInspector,
 			});
-			if (decision.kind === "detail") {
-				if (kind === "connections") {
-					setConnectionDetailView(decision.view);
-					setConnectionCopyPreview(decision.copyPreview);
-				} else {
-					setPortDetailView(decision.view);
-					setPortCopyPreview(decision.copyPreview);
-					setPortProcessControlPreview(decision.processControlPreview);
-				}
-			} else if (decision.kind === "filter") {
-				if (kind === "connections") {
-					setConnectionFilter(decision.filter);
-					setSelectedConnectionIndex(decision.selectedIndex);
-					setConnectionCopyPreview(decision.copyPreview);
-				} else {
-					setPortFilter(decision.filter);
-					setSelectedPortIndex(decision.selectedIndex);
-					setPortCopyPreview(decision.copyPreview);
-					setPortProcessControlPreview(decision.processControlPreview);
-				}
-			} else if (decision.kind === "save-preset") {
-				if (kind === "connections") {
-					setConnectionFilterPresets(decision.presets);
-					setConnectionCopyPreview(decision.copyPreview);
-				} else {
-					setPortFilterPresets(decision.presets);
-					setPortCopyPreview(decision.copyPreview);
-					setPortProcessControlPreview(decision.processControlPreview);
-				}
-				void setConfigEndpointFilterPresets(kind, decision.presets).catch(
-					(caught) =>
-						log(
-							"fail",
-							caught instanceof Error
-								? `${kind} preset save failed ${caught.message}`
-								: `${kind} preset save failed ${String(caught)}`,
-						),
-				);
-			} else if (decision.kind === "selection") {
-				if (kind === "connections") {
-					setSelectedConnectionIndex(decision.selectedIndex);
-					setConnectionCopyPreview(decision.copyPreview);
-				} else {
-					setSelectedPortIndex(decision.selectedIndex);
-					setPortCopyPreview(decision.copyPreview);
-					setPortProcessControlPreview(decision.processControlPreview);
-				}
-			} else if (decision.kind === "control") {
-				setPortProcessControlPreview(true);
-				setPortCopyPreview(decision.copyPreview);
-				setCommandLine(openCommandLine(portProcessControlPrompt));
-			} else if (decision.kind === "inspect-policy") {
-				setPortProcessControlInspector(decision.inspectorVisible);
-				const io = decision.io;
-				if (io.kind === "load-process-files") {
-					void (async () => {
-						const token = beginRequest(processInspectionTokenRef.current);
-						processInspectionTokenRef.current = token;
-						beginCommand();
-						setSelectedProcessFileEvidenceIssue(undefined);
-						try {
-							const files = await getProcessFileSnapshot(io.pid);
-							if (isStaleRequest(processInspectionTokenRef.current, token)) {
-								return;
+			const envelope = prepareEndpointWorkspaceInputEnvelope({
+				kind,
+				decision,
+				handoff: {
+					baseDir: dirname(getConfigPath()),
+					origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+					connections: {
+						filter: connectionFilter,
+						result: connectionsResult,
+						sort: connectionSort,
+						view: connectionDetailView,
+					},
+					ports: {
+						filter: portFilter,
+						result: portsResult,
+						sort: portSort,
+						view: portDetailView,
+					},
+				},
+				connections: {
+					rows: connections,
+					visibleRows: sortedConnections,
+					selectedIndex: selectedConnectionIndex,
+					view: connectionDetailView,
+					filter: connectionFilter,
+					sort: connectionSort,
+					presets: connectionFilterPresets,
+					copyPreview: connectionCopyPreview,
+				},
+				ports: {
+					rows: ports,
+					visibleRows: sortedPorts,
+					selectedIndex: selectedPortIndex,
+					view: portDetailView,
+					filter: portFilter,
+					sort: portSort,
+					presets: portFilterPresets,
+					copyPreview: portCopyPreview,
+					processControlPreview: portProcessControlPreview,
+					processControlInspector: portProcessControlInspector,
+				},
+			});
+			if (envelope.kind === "handled") {
+				for (const effect of envelope.effects) {
+					switch (effect.kind) {
+						case "connections-detail":
+							setConnectionDetailView(effect.view);
+							setConnectionCopyPreview(effect.copyPreview);
+							break;
+						case "ports-detail":
+							setPortDetailView(effect.view);
+							setPortCopyPreview(effect.copyPreview);
+							setPortProcessControlPreview(effect.processControlPreview);
+							break;
+						case "connections-filter":
+							setConnectionFilter(effect.filter);
+							setSelectedConnectionIndex(effect.selectedIndex);
+							setConnectionCopyPreview(effect.copyPreview);
+							break;
+						case "ports-filter":
+							setPortFilter(effect.filter);
+							setSelectedPortIndex(effect.selectedIndex);
+							setPortCopyPreview(effect.copyPreview);
+							setPortProcessControlPreview(effect.processControlPreview);
+							break;
+						case "connections-save-preset":
+							setConnectionFilterPresets(effect.presets);
+							setConnectionCopyPreview(effect.copyPreview);
+							void applyEndpointIoEffect(effect.persistence);
+							break;
+						case "ports-save-preset":
+							setPortFilterPresets(effect.presets);
+							setPortCopyPreview(effect.copyPreview);
+							setPortProcessControlPreview(effect.processControlPreview);
+							void applyEndpointIoEffect(effect.persistence);
+							break;
+						case "connections-selection":
+							setSelectedConnectionIndex(effect.selectedIndex);
+							setConnectionCopyPreview(effect.copyPreview);
+							break;
+						case "ports-selection":
+							setSelectedPortIndex(effect.selectedIndex);
+							setPortCopyPreview(effect.copyPreview);
+							setPortProcessControlPreview(effect.processControlPreview);
+							break;
+						case "ports-control":
+							setPortProcessControlPreview(effect.processControlPreview);
+							setPortCopyPreview(effect.copyPreview);
+							setCommandLine(openCommandLine(effect.prompt));
+							break;
+						case "connections-sort":
+							setConnectionSort(effect.sort);
+							setConnectionCopyPreview(effect.copyPreview);
+							void applyEndpointIoEffect(effect.persistence);
+							break;
+						case "ports-sort":
+							setPortSort(effect.sort);
+							setPortCopyPreview(effect.copyPreview);
+							setPortProcessControlPreview(effect.processControlPreview);
+							void applyEndpointIoEffect(effect.persistence);
+							break;
+						case "command-line":
+							setCommandLine(openCommandLine(effect.prompt));
+							break;
+						case "callback":
+							if ("handoff" in effect) {
+								void (effect.callback === "export-endpoint"
+									? exportEndpointHandoff(effect.scope, effect.handoff)
+									: openEndpointHandoff(effect.scope, effect.handoff));
+							} else {
+								void applyEndpointIoEffect({
+									kind: "inspect-process",
+									plan: effect.plan,
+								});
 							}
-							setSelectedProcessFiles(files);
-							setSelectedProcessFileEvidenceIssue(
-								files
-									? undefined
-									: {
-											status: "unavailable",
-											pid: io.pid,
-											reason: "no snapshot returned",
-										},
-							);
-							log(
-								files ? "info" : "warn",
-								files
-									? `ports file evidence loaded pid ${io.pid}`
-									: `ports file evidence unavailable pid=${io.pid} reason=no snapshot returned`,
-							);
-						} catch (caught) {
-							log(
-								"fail",
-								caught instanceof Error
-									? `ports file evidence failed ${caught.message}`
-									: `ports file evidence failed ${String(caught)}`,
-							);
-							if (isStaleRequest(processInspectionTokenRef.current, token)) {
-								return;
+							break;
+						case "connection-clipboard":
+							setConnectionCopyPreview(effect.copyPreview);
+							openClipboardConfirmation(effect.preview);
+							break;
+						case "port-clipboard":
+							setPortCopyPreview(effect.copyPreview);
+							setPortProcessControlPreview(effect.processControlPreview);
+							openClipboardConfirmation(effect.preview);
+							break;
+						case "port-process-inspector":
+							setPortProcessControlInspector(effect.inspectorVisible);
+							if (effect.request.kind === "load-port-file-evidence") {
+								void applyEndpointIoEffect(effect.request);
 							}
-							setSelectedProcessFiles(undefined);
-							setSelectedProcessFileEvidenceIssue({
-								status: "error",
-								pid: io.pid,
-								reason:
-									caught instanceof Error ? caught.message : String(caught),
-							});
-						} finally {
-							endCommand();
-						}
-					})();
-				}
-			} else if (decision.kind === "command") {
-				if (decision.command === "filter") {
-					setCommandLine(
-						openCommandLine(`${endpointFilterPromptPrefix}${decision.scope}`),
-					);
-				} else if (decision.command === "cleanup") {
-					setCommandLine(
-						openCommandLine(
-							`${endpointFilterCleanupPromptPrefix}${decision.scope}`,
-						),
-					);
-				} else if (decision.command === "export") {
-					void exportEndpointHandoff(decision.scope);
-				} else if (decision.command === "open") {
-					void openEndpointHandoff(decision.scope);
-				} else if (decision.command === "inspect-process") {
-					void inspectSelectedEndpointProcess();
-				} else if (decision.command === "copy") {
-					const preview =
-						kind === "connections"
-							? getSelectedConnectionClipboardPreview(
-									sortedConnections,
-									selectedConnectionIndex,
-								)
-							: getSelectedPortClipboardPreview(sortedPorts, selectedPortIndex);
-					if (preview) {
-						if (kind === "connections") {
-							setConnectionCopyPreview(true);
-						} else {
-							setPortCopyPreview(true);
-							setPortProcessControlPreview(false);
-						}
-						openClipboardConfirmation(preview);
+							break;
+						case "notice":
+							break;
+					}
+					if ("notice" in effect && effect.notice) {
+						log(effect.notice.level, effect.notice.message);
 					}
 				}
-			}
-			if ("notice" in decision) {
-				const notice = decision.notice;
-				if (notice) {
-					log(notice.level, notice.message);
-				}
-			}
-			if (
-				decision.kind !== "no-op" &&
-				!(decision.kind === "command" && decision.command === "sort")
-			) {
 				return;
 			}
 		}
 
-		if (
-			screen === "connections" &&
-			focusArea === "workspaces" &&
-			input === "s"
-		) {
-			setConnectionSort((current) => {
-				const next = nextConnectionSort(current);
-				void setConfigEndpointSort("connections", next).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `connections sort save failed ${caught.message}`
-							: `connections sort save failed ${String(caught)}`,
-					),
-				);
-				log("info", `connections sort ${next.key} ${next.direction}`);
-				return next;
-			});
-			setConnectionCopyPreview(false);
-			return;
-		}
-
-		if (screen === "ports" && focusArea === "workspaces" && input === "s") {
-			setPortSort((current) => {
-				const next = nextPortSort(current);
-				void setConfigEndpointSort("ports", next).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `ports sort save failed ${caught.message}`
-							: `ports sort save failed ${String(caught)}`,
-					),
-				);
-				log("info", `ports sort ${next.key} ${next.direction}`);
-				return next;
-			});
-			setPortCopyPreview(false);
-			setPortProcessControlPreview(false);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "n") {
-			const handoff = updateCheckResult
-				? createUpdateReleaseHandoff(updateCheckResult)
-				: undefined;
-			if (!handoff) {
-				log("warn", "no update handoff links");
-				return;
-			}
-			const links = getUpdateReleaseHandoffLinks(handoff);
-			setSelectedUpdateHandoffIndex((index) => {
-				const next = (index + 1) % links.length;
-				log("info", `update handoff selected ${links[next].label}`);
-				return next;
-			});
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			(input === "," || input === ".")
-		) {
-			setSelectedStatusActivitySource((current) => {
-				const next = moveStatusActivitySource(
-					{
-						releaseRows:
-							updateCheckResult || githubReleaseCheckResult
-								? ["STATUS RELEASE CONSOLE"]
-								: [],
-						dialogRows:
-							externalOpenPlan ||
-							fileOpenPlan ||
-							auditExportArchivePlan ||
-							auditArchiveRetentionPlan ||
-							cleanupExportArchivePlan ||
-							toolExportArchivePlan ||
-							toolArchiveRetentionPlan
-								? ["STATUS DIALOG PREVIEW"]
-								: [],
-						cleanupRows:
-							cleanupShelfIndex.activeShelves > 0 ||
-							cleanupHandoffHistory.length > 0
-								? ["CLEANUP OPS"]
-								: [],
-						configRows: configManagedShelfRows,
-						evidenceRows:
-							handoffIndex.items.length > 0 ||
-							auditExportIndex.items.length > 0 ||
-							auditExportArchiveIndex.items.length > 0 ||
-							cleanupExportIndex.items.length > 0 ||
-							cleanupExportArchiveIndex.items.length > 0
-								? ["STATUS EVIDENCE SUMMARY"]
-								: [],
-					},
-					current,
-					input === "." ? 1 : -1,
-				);
-				log("info", `status activity focus ${next}`);
-				return next;
-			});
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			(input === "u" || input === "i")
-		) {
-			if (statusActivityResults.length === 0) {
-				log("warn", "no status activity result history");
-				return;
-			}
-			setSelectedStatusActivityResultIndex((current) => {
-				const next = moveStatusActivityResultHistoryFilteredSelection(
-					statusActivityResults,
-					current,
-					input === "i" ? "next" : "previous",
-					statusActivityResultHistoryFilter,
-				);
-				const result = statusActivityResults[next];
-				log(
-					"info",
-					`status activity history ${next + 1}/${statusActivityResults.length} filter=${statusActivityResultHistoryFilter} ${result?.source ?? "none"} ${result?.action ?? "none"}`,
-				);
-				setSelectedStatusActivityCopyPreviewRowIndex(0);
-				setStatusActivityCopyPreviewExpanded(false);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "f") {
-			if (selectedStatusEvidenceKind === "interface") {
-				openInterfaceEvidenceSearchPrompt();
-				return;
-			}
-			cycleStatusActivityResultHistoryFilter();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "^") {
-			cycleStatusActivityResultTimelineJumpFilter();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === ";") {
-			const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
-				statusActivityResults,
-				selectedStatusActivityResultIndex,
-			);
-			if (!preview) {
-				log("warn", "no status activity copy preview rows");
-				return;
-			}
-			setSelectedStatusActivityCopyPreviewRowIndex((current) => {
-				const next = moveStatusActivityCopyPreviewSelection(
-					preview,
-					current,
-					"next",
-				);
-				log("info", `status activity copy preview row ${next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "=") {
-			const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
-				statusActivityResults,
-				selectedStatusActivityResultIndex,
-			);
-			if (!preview) {
-				log("warn", "no status activity copy preview to expand");
-				return;
-			}
-			setStatusActivityCopyPreviewExpanded((current) => {
-				const next = !current;
-				log("info", `status activity copy preview expanded=${next}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "I") {
-			const selectedResult =
-				statusActivityResults[
-					Math.min(
-						selectedStatusActivityResultIndex,
-						Math.max(0, statusActivityResults.length - 1),
-					)
-				];
-			if (
-				selectedResult?.action === "interface-evidence-filter" ||
-				selectedResult?.action === "interface-evidence-find" ||
-				selectedResult?.action === "interface-evidence-archive" ||
-				selectedResult?.action === "interface-evidence-retention"
-			) {
-				openSelectedStatusActivityResultTimelineJump();
-				return;
-			}
-			if (
-				selectedStatusEvidenceKind === "interface" &&
-				interfaceConfirmationEvidenceExports.length > 0
-			) {
-				openSelectedInterfaceConfirmationEvidenceExport();
-				return;
-			}
-			openSelectedStatusActivityResultTimelineJump();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "y") {
-			const preview = getSelectedStatusActivityResultHistoryClipboardPreview(
-				statusActivityResults,
-				selectedStatusActivityResultIndex,
-			);
-			if (!preview) {
-				openSelectedRemoteKnownHostsSelectionEvidenceClipboardHandoff();
-				return;
-			}
-			const intent = createStatusActivityCopyIntentRecord(preview, {
-				selectedRowIndex: selectedStatusActivityCopyPreviewRowIndex,
-				expanded: statusActivityCopyPreviewExpanded,
-			});
-			setStatusActivityCopyIntentHistory((current) =>
-				appendStatusActivityCopyIntentHistory(current, intent),
-			);
-			setSelectedStatusActivityCopyIntentIndex(0);
-			log(
-				"info",
-				intent?.auditMessage ??
-					formatStatusActivityCopyIntentAuditMessage(preview, {
-						selectedRowIndex: selectedStatusActivityCopyPreviewRowIndex,
-						expanded: statusActivityCopyPreviewExpanded,
-					}),
-			);
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			(input === "<" || input === ">")
-		) {
-			if (statusActivityCopyIntentHistory.length === 0) {
-				log("warn", "no status activity copy intents");
-				return;
-			}
-			setSelectedStatusActivityCopyIntentIndex((current) => {
-				const next = moveStatusActivityCopyIntentSelection(
-					statusActivityCopyIntentHistory,
-					current,
-					input === ">" ? "next" : "previous",
-				);
-				const intent = statusActivityCopyIntentHistory[next];
-				log(
-					"info",
-					`status activity copy intent ${next + 1}/${statusActivityCopyIntentHistory.length} ${intent?.label ?? "none"}`,
-				);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "P") {
-			if (selectedStatusEvidenceKind === "interface") {
-				saveCurrentInterfaceEvidenceSearchPreset();
-				return;
-			}
-			if (statusActivityResultAuditJumpIntentCount === 0) {
-				log("warn", "no status activity result audit jumps");
-				return;
-			}
-			setSelectedStatusActivityResultAuditJumpIndex((current) => {
-				const next = moveStatusActivityResultAuditJumpSelection(
-					statusActivityCopyIntentHistory,
-					current,
-					"next",
-				);
-				log(
-					"info",
-					`status activity result audit jump ${next + 1}/${statusActivityResultAuditJumpIntentCount}`,
-				);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "H") {
-			selectNextRemoteKnownHostsEvidenceHandoff();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "J") {
-			selectNextStatusActivityResultTimelineJump();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "g") {
-			const jump = createStatusActivityCopyIntentTimelineSearch(
-				statusActivityCopyIntentHistory,
-				selectedStatusActivityCopyIntentIndex,
-			);
-			if (!jump) {
-				log("warn", "no status activity copy intent for timeline");
-				return;
-			}
-			const transition = prepareTimelineSearchJumpTransition(events, jump);
-			setTimelineFilter(transition.filter);
-			setTimelineSearchQuery(transition.query);
-			setSelectedTimelineIndex(transition.selectedIndex);
-			setScreen("timeline");
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "G") {
-			if (
-				selectedStatusEvidenceKind === "process" ||
-				selectedStatusEvidenceKind === "remote-known-hosts" ||
-				selectedStatusEvidenceKind === "interface"
-			) {
-				const evidenceSearchPlan = createStatusEvidenceSearchPlan(
-					{
-						handoffIndex,
-						auditExportIndex,
-						auditExportArchiveIndex,
-						cleanupExportIndex,
-						cleanupExportArchiveIndex,
-						toolExportIndex,
-						toolExportArchiveIndex,
-						processControlAuditExports,
-						remoteKnownHostsSelectionAuditExports,
-						interfaceConfirmationAuditExports,
-						interfaceConfirmationAuditArchiveExports,
-					},
-					{
-						selectedHandoffIndex,
-						selectedAuditExportIndex,
-						selectedAuditExportArchiveIndex,
-						selectedCleanupExportIndex,
-						selectedCleanupExportArchiveIndex,
-						selectedToolExportIndex,
-						selectedToolExportArchiveIndex,
-						selectedProcessControlAuditExportIndex,
-						selectedRemoteKnownHostsSelectionAuditExportIndex,
-						selectedInterfaceConfirmationAuditExportIndex,
-						toolExportFilter,
-						toolExportArchiveFilter,
-						toolExportQuery,
-						toolExportArchiveQuery,
-						interfaceEvidenceStateFilter,
-						interfaceEvidenceQuery,
-					},
-					selectedStatusEvidenceKind,
-				);
-				if (!evidenceSearchPlan) {
-					log(
-						"warn",
-						`no ${selectedStatusEvidenceKind} evidence search target`,
-					);
-					return;
-				}
-				if (evidenceSearchPlan.action === "search-process-evidence") {
-					jumpSelectedProcessControlEvidenceSearch({
-						origin: "status-evidence",
-					});
-				}
-				if (
-					evidenceSearchPlan.action === "search-remote-known-hosts-evidence"
-				) {
-					jumpSelectedRemoteKnownHostsSelectionEvidenceSearch({
-						origin: "status-evidence",
-					});
-				}
-				if (evidenceSearchPlan.action === "search-interface-evidence") {
-					jumpSelectedInterfaceConfirmationEvidenceSearch({
-						origin: "status-evidence",
-					});
-				}
-				log(
-					"info",
-					`status evidence search ${evidenceSearchPlan.shortcut} ${evidenceSearchPlan.label}`,
-				);
-				return;
-			}
-			const jump = createStatusActivityCopyIntentEvidenceFocusTimelineSearch(
-				lastStatusActivityEvidenceFocusPlan,
-			);
-			if (!jump) {
-				log("warn", "no status activity evidence focus for timeline");
-				return;
-			}
-			const transition = prepareTimelineSearchJumpTransition(events, jump);
-			setTimelineFilter(transition.filter);
-			setTimelineSearchQuery(transition.query);
-			setSelectedTimelineIndex(transition.selectedIndex);
-			setScreen("timeline");
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "K") {
-			if (statusActivityToolsEvidenceSearchRecovery?.items.length) {
-				openSelectedStatusActivityToolsEvidenceSearchMatchFile();
-				return;
-			}
-			if (selectedStatusEvidenceKind === "tools") {
-				openSelectedToolExportFile();
-				return;
-			}
-			if (selectedStatusEvidenceKind === "tools-archive") {
-				openSelectedToolExportArchiveFile();
-				return;
-			}
-			const jump =
-				createStatusActivityResultAuditJumpReplayWarningTimelineSearch(events);
-			if (!jump) {
-				log("warn", "no status activity stale replay warning for timeline");
-				return;
-			}
-			const transition = prepareTimelineSearchJumpTransition(events, jump);
-			setTimelineFilter(transition.filter);
-			setTimelineSearchQuery(transition.query);
-			setSelectedTimelineIndex(transition.selectedIndex);
-			setScreen("timeline");
-			log(transition.notice.level, transition.notice.message);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "N") {
-			if (selectedStatusEvidenceKind === "interface") {
-				cycleInterfaceEvidenceSearchPreset();
-				return;
-			}
-			jumpSelectedTimelineEvidenceTrailSearch();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "S") {
-			selectNextTimelineEvidenceTrailExport();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "Q") {
-			cycleTimelineEvidenceTrailSourceFilter();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "F") {
-			selectNextProcessControlEvidenceExport();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "v") {
-			const preview = getSelectedStatusActivityCopyIntentClipboardPreview(
-				statusActivityCopyIntentHistory,
-				selectedStatusActivityCopyIntentIndex,
-			);
-			if (!preview) {
-				log("warn", "no status activity copy intent to replay");
-				return;
-			}
-			log("info", `status activity copy intent replay ${preview.label}`);
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "e") {
-			const plan = createStatusActivityCopyIntentAuditExportPlan(
-				statusActivityCopyIntentHistory,
-				selectedStatusActivityCopyIntentIndex,
-				{
-					baseDir: dirname(getConfigPath()),
-				},
-			);
-			if (!plan) {
-				const interfacePlan = createInterfaceConfirmationAuditExportPlan(
-					statusActivityResults,
-					selectedStatusActivityResultIndex,
-					{
-						baseDir: dirname(getConfigPath()),
-					},
-				);
-				if (interfacePlan) {
-					void writeInterfaceConfirmationAuditExport(interfacePlan)
-						.then((written) => {
-							setLastStatusActivityCopyIntentAuditExport(written);
-							log(
-								"ok",
-								`interface confirmation audit exported ${written.path} events=${written.eventCount}`,
-							);
-							void refreshAuditExportIndex(false);
-						})
-						.catch((caught) =>
-							log(
-								"fail",
-								caught instanceof Error
-									? `interface confirmation audit export failed ${caught.message}`
-									: `interface confirmation audit export failed ${String(caught)}`,
-							),
-						);
-					return;
-				}
-				exportSelectedRemoteKnownHostsSelectionEvidenceHandoff();
-				return;
-			}
-			void writeStatusActivityCopyIntentAuditExport(plan)
-				.then((written) => {
-					setLastStatusActivityCopyIntentAuditExport(written);
-					log(
-						"ok",
-						`status activity copy intent exported ${written.path} events=${written.eventCount}`,
-					);
-					void refreshAuditExportIndex(false);
-				})
-				.catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `status activity copy intent export failed ${caught.message}`
-							: `status activity copy intent export failed ${String(caught)}`,
-					),
-				);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "z") {
-			if (!lastStatusActivityCopyIntentAuditExport) {
-				log("warn", "no status activity copy intent export to open");
-				return;
-			}
-			const plan = createStatusActivityCopyIntentAuditExportOpenPlan(
-				lastStatusActivityCopyIntentAuditExport,
-				{
-					baseDir: dirname(getConfigPath()),
-					platform: currentPlatform(),
-				},
-			);
-			const evidenceIndex = getStatusActivityCopyIntentAuditExportIndex(
-				auditExportIndex,
-				lastStatusActivityCopyIntentAuditExport,
-			);
-			if (evidenceIndex !== undefined) {
-				setSelectedAuditExportIndex(evidenceIndex);
-				setSelectedStatusEvidenceKind("audit");
-			}
-			setFileOpenPlan(plan);
-			setExternalOpenPlan(undefined);
-			setAuditExportArchivePlan(undefined);
-			setAuditArchiveRetentionPlan(undefined);
-			setCleanupExportArchivePlan(undefined);
-			setCommandLine(openCommandLine("file-open"));
-			setScreen("status");
-			log(
-				"info",
-				`status activity copy intent export open confirmation opened for ${lastStatusActivityCopyIntentAuditExport.path}${evidenceIndex !== undefined ? ` evidence=${evidenceIndex + 1}` : ""}`,
-			);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "L") {
-			openSelectedTimelineEvidenceTrailExport();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "w") {
-			if (!lastStatusActivityCopyIntentAuditExport) {
-				log("warn", "no status activity copy intent export to focus");
-				return;
-			}
-			const focusPlan = createStatusActivityCopyIntentEvidenceFocusPlan(
-				auditExportIndex,
-				lastStatusActivityCopyIntentAuditExport,
-			);
-			if (!focusPlan) {
-				log("warn", "status activity copy intent evidence unavailable");
-				return;
-			}
-			setSelectedAuditExportIndex(focusPlan.selectedIndex);
-			setSelectedStatusEvidenceKind(focusPlan.kind);
-			setLastStatusActivityEvidenceFocusPlan(focusPlan);
-			setScreen("status");
-			recordStatusActivityResult(
-				createStatusActivityCopyIntentEvidenceFocusResult(focusPlan),
-			);
-			log(
-				"info",
-				formatStatusActivityCopyIntentEvidenceFocusAuditMessage(focusPlan),
-			);
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			/^[1-9]$/.test(input)
-		) {
-			const evidenceJumpPlan = createStatusEvidenceNumberJumpPlan(
-				{
-					handoffIndex,
-					auditExportIndex,
-					auditExportArchiveIndex,
-					cleanupExportIndex,
-					cleanupExportArchiveIndex,
-					toolExportIndex,
-					toolExportArchiveIndex,
-					processControlAuditExports,
-					remoteKnownHostsSelectionAuditExports,
-					interfaceConfirmationAuditExports,
-					interfaceConfirmationAuditArchiveExports,
-				},
-				{
-					selectedHandoffIndex,
-					selectedAuditExportIndex,
-					selectedAuditExportArchiveIndex,
-					selectedCleanupExportIndex,
-					selectedCleanupExportArchiveIndex,
-					selectedToolExportIndex,
-					selectedToolExportArchiveIndex,
-					selectedProcessControlAuditExportIndex,
-					selectedRemoteKnownHostsSelectionAuditExportIndex,
-					selectedInterfaceConfirmationAuditExportIndex,
-					toolExportFilter,
-					toolExportArchiveFilter,
-					toolExportQuery,
-					toolExportArchiveQuery,
-					interfaceEvidenceStateFilter,
-					interfaceEvidenceQuery,
-				},
+		if (workspaceInputFamily === "dns") {
+			const decision = prepareDnsPanelInput({
 				input,
-			);
-			if (!evidenceJumpPlan) {
-				log("warn", `status evidence index unavailable ${input}`);
-				return;
-			}
-			setSelectedStatusEvidenceKind(evidenceJumpPlan.kind);
-			log(
-				"info",
-				`status evidence focus ${evidenceJumpPlan.shortcut} ${evidenceJumpPlan.kind} ${evidenceJumpPlan.label}`,
-			);
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			(input === "[" || input === "]")
-		) {
-			if (
-				statusActivityToolsEvidenceSearchRecovery &&
-				statusActivityToolsEvidenceSearchRecovery.items.length > 1
-			) {
-				setSelectedStatusActivityToolsEvidenceSearchMatchIndex((current) => {
-					const next = moveStatusActivityToolsEvidenceSearchMatchSelection(
-						statusActivityToolsEvidenceSearchRecovery,
-						current,
-						input === "]" ? "next" : "previous",
-					);
-					const item = getSelectedStatusActivityToolsEvidenceSearchMatch(
-						statusActivityToolsEvidenceSearchRecovery,
-						next,
-					);
-					log(
-						"info",
-						`tools evidence match selected ${next + 1}/${statusActivityToolsEvidenceSearchRecovery.items.length} ${item?.fileName ?? ""}`.trim(),
-					);
-					return next;
-				});
-				return;
-			}
-			const evidenceMovePlan = createStatusEvidenceItemMovePlan(
-				{
-					handoffIndex,
-					auditExportIndex,
-					auditExportArchiveIndex,
-					cleanupExportIndex,
-					cleanupExportArchiveIndex,
-					toolExportIndex,
-					toolExportArchiveIndex,
-					processControlAuditExports,
-					remoteKnownHostsSelectionAuditExports,
-					interfaceConfirmationAuditExports,
-					interfaceConfirmationAuditArchiveExports,
-				},
-				{
-					selectedHandoffIndex,
-					selectedAuditExportIndex,
-					selectedAuditExportArchiveIndex,
-					selectedCleanupExportIndex,
-					selectedCleanupExportArchiveIndex,
-					selectedToolExportIndex,
-					selectedToolExportArchiveIndex,
-					selectedProcessControlAuditExportIndex,
-					selectedRemoteKnownHostsSelectionAuditExportIndex,
-					selectedInterfaceConfirmationAuditExportIndex,
-					toolExportFilter,
-					toolExportArchiveFilter,
-					toolExportQuery,
-					toolExportArchiveQuery,
-					interfaceEvidenceStateFilter,
-					interfaceEvidenceQuery,
-				},
-				selectedStatusEvidenceKind,
-				input === "]" ? "next" : "previous",
-			);
-			if (!evidenceMovePlan) {
-				log(
-					"warn",
-					`status evidence item unavailable ${selectedStatusEvidenceKind}`,
-				);
-				return;
-			}
-			switch (evidenceMovePlan.kind) {
-				case "handoff":
-					setSelectedHandoffIndex(evidenceMovePlan.selectedIndex);
-					break;
-				case "audit":
-					setSelectedAuditExportIndex(evidenceMovePlan.selectedIndex);
-					break;
-				case "audit-archive":
-					setSelectedAuditExportArchiveIndex(evidenceMovePlan.selectedIndex);
-					break;
-				case "cleanup":
-					setSelectedCleanupExportIndex(evidenceMovePlan.selectedIndex);
-					break;
-				case "cleanup-archive":
-					setSelectedCleanupExportArchiveIndex(evidenceMovePlan.selectedIndex);
-					break;
-				case "tools":
-					setSelectedToolExportIndex(evidenceMovePlan.selectedIndex);
-					break;
-				case "tools-archive":
-					setSelectedToolExportArchiveIndex(evidenceMovePlan.selectedIndex);
-					break;
-				case "process":
-					setSelectedProcessControlAuditExportIndex(
-						evidenceMovePlan.selectedIndex,
-					);
-					break;
-				case "remote-known-hosts":
-					setSelectedRemoteKnownHostsSelectionAuditExportIndex(
-						evidenceMovePlan.selectedIndex,
-					);
-					break;
-				case "interface":
-					setSelectedInterfaceConfirmationAuditExportIndex(
-						evidenceMovePlan.selectedIndex,
-					);
-					break;
-			}
-			log(
-				"info",
-				`status evidence item ${evidenceMovePlan.shortcut} ${evidenceMovePlan.kind} ${evidenceMovePlan.selectedIndex + 1}/${evidenceMovePlan.itemCount} ${evidenceMovePlan.label}`,
-			);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && key.tab) {
-			const evidenceCount =
-				handoffIndex.items.length +
-				auditExportIndex.items.length +
-				auditExportArchiveIndex.items.length +
-				cleanupExportIndex.items.length +
-				cleanupExportArchiveIndex.items.length +
-				toolExportIndex.items.length +
-				toolExportArchiveIndex.items.length +
-				processControlAuditExports.length +
-				remoteKnownHostsSelectionAuditExports.length +
-				interfaceConfirmationAuditExports.length;
-			if (evidenceCount === 0) {
-				log("warn", "no status evidence indexed");
-				return;
-			}
-			setSelectedStatusEvidenceKind((current) => {
-				const next = moveStatusEvidenceFocus(
-					{
-						handoffIndex,
-						auditExportIndex,
-						auditExportArchiveIndex,
-						cleanupExportIndex,
-						cleanupExportArchiveIndex,
-						toolExportIndex,
-						toolExportArchiveIndex,
-						processControlAuditExports,
-						remoteKnownHostsSelectionAuditExports,
-						interfaceConfirmationAuditExports,
-						interfaceConfirmationAuditArchiveExports,
-					},
-					current,
-					"next",
-				);
-				log("info", `status evidence focus ${next}`);
-				return next;
+				selectedIndex: selectedDnsTargetIndex,
+				summary,
 			});
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			(key.downArrow || input === "j")
-		) {
-			if (cleanupShelfIndex.activeShelves === 0) {
-				log("warn", "no cleanup shelves with saved items");
-				return;
+			if (decision.kind === "command") {
+				setCommandLine(openCommandLine("dns-servers"));
+			} else if (decision.kind === "selection") {
+				setSelectedDnsTargetIndex(decision.selectedIndex);
+				setDnsServerProposal(decision.proposal);
+			} else if (decision.kind === "clear") {
+				setDnsServerProposal(decision.proposal);
 			}
-			setSelectedCleanupShelfIndex((index) => {
-				const next = moveCleanupShelfSelection(
-					cleanupShelfIndex,
-					index,
-					"next",
-				);
-				const shelf = getSelectedCleanupShelf(cleanupShelfIndex, next);
-				log("info", `cleanup shelf selected ${shelf?.label ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			(key.upArrow || input === "k")
-		) {
-			if (cleanupShelfIndex.activeShelves === 0) {
-				log("warn", "no cleanup shelves with saved items");
-				return;
+			if (decision.notice) {
+				log(decision.notice.level, decision.notice.message);
 			}
-			setSelectedCleanupShelfIndex((index) => {
-				const next = moveCleanupShelfSelection(
-					cleanupShelfIndex,
-					index,
-					"previous",
-				);
-				const shelf = getSelectedCleanupShelf(cleanupShelfIndex, next);
-				log("info", `cleanup shelf selected ${shelf?.label ?? next + 1}`);
-				return next;
-			});
-			return;
+			if (decision.kind !== "no-op") return;
 		}
 
-		if (screen === "status" && focusArea === "workspaces" && input === "[") {
-			if (cleanupHandoffHistory.length === 0) {
-				log("warn", "no cleanup handoff history");
-				return;
-			}
-			setSelectedCleanupHandoffHistoryIndex((index) => {
-				const next = moveCleanupHandoffHistorySelection(
-					cleanupHandoffHistory,
-					index,
-					"next",
-				);
-				const history = getSelectedCleanupHandoffHistory(
-					cleanupHandoffHistory,
-					next,
-				);
-				log("info", `cleanup history selected ${history?.label ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "R") {
-			if (selectedStatusEvidenceKind === "remote-known-hosts") {
-				openSelectedRemoteKnownHostsSelectionEvidenceExport();
-				return;
-			}
-			reopenCleanupHandoffHistory();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "E") {
-			void exportCleanupHandoffHistory();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "\r") {
-			const activityEnterPlan = createStatusActivityEnterPlan(
-				{
-					releaseRows:
-						updateCheckResult || githubReleaseCheckResult
-							? ["STATUS RELEASE CONSOLE"]
-							: [],
-					dialogRows:
-						externalOpenPlan ||
-						fileOpenPlan ||
-						auditExportArchivePlan ||
-						auditArchiveRetentionPlan ||
-						cleanupExportArchivePlan ||
-						toolExportArchivePlan ||
-						toolArchiveRetentionPlan
-							? ["STATUS DIALOG PREVIEW"]
-							: [],
-					cleanupRows:
-						cleanupShelfIndex.activeShelves > 0 ||
-						cleanupHandoffHistory.length > 0
-							? ["CLEANUP OPS"]
-							: [],
-					configRows: configManagedShelfRows,
-					evidenceRows:
-						handoffIndex.items.length > 0 ||
-						auditExportIndex.items.length > 0 ||
-						auditExportArchiveIndex.items.length > 0 ||
-						cleanupExportIndex.items.length > 0 ||
-						cleanupExportArchiveIndex.items.length > 0 ||
-						toolExportIndex.items.length > 0 ||
-						toolExportArchiveIndex.items.length > 0 ||
-						processControlAuditExports.length > 0 ||
-						remoteKnownHostsSelectionAuditExports.length > 0 ||
-						interfaceConfirmationAuditExports.length > 0
-							? ["STATUS EVIDENCE SUMMARY"]
-							: [],
-				},
-				selectedStatusActivitySource,
-			);
-			switch (activityEnterPlan.action) {
-				case "cycle-release-link": {
-					const handoff = updateCheckResult
-						? createUpdateReleaseHandoff(updateCheckResult)
-						: undefined;
-					if (!handoff) {
-						log("warn", "no update handoff links");
-						return;
-					}
-					const links = getUpdateReleaseHandoffLinks(handoff);
-					setSelectedUpdateHandoffIndex((index) => {
-						const next = (index + 1) % links.length;
-						log("info", `update handoff selected ${links[next].label}`);
-						return next;
-					});
-					recordStatusActivityResult({
-						...activityEnterPlan,
-						detail: "release handoff link cycled",
-					});
-					log("info", activityEnterPlan.message);
-					return;
-				}
-				case "show-dialog":
-					recordStatusActivityResult(activityEnterPlan);
-					log("info", activityEnterPlan.message);
-					return;
-				case "jump-cleanup": {
-					const shelf = getSelectedCleanupShelf(
-						cleanupShelfIndex,
-						selectedCleanupShelfIndex,
-					);
-					if (!shelf) {
-						log("warn", "no cleanup shelf selected");
-						return;
-					}
-					setCleanupJumpAudit(createCleanupJumpAudit(shelf));
-					setScreen(shelf.screen);
-					recordStatusActivityResult({
-						...activityEnterPlan,
-						detail: `cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
-					});
-					log("info", activityEnterPlan.message);
-					log(
-						"info",
-						`cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
-					);
-					return;
-				}
-				case "focus-config":
-					setScreen("config");
-					setFocusArea("workspaces");
-					recordStatusActivityResult({
-						...activityEnterPlan,
-						detail: "Config recovery hints opened",
-					});
-					log("info", activityEnterPlan.message);
-					return;
-				case "none":
-					recordStatusActivityResult(activityEnterPlan);
-					log("warn", activityEnterPlan.message);
-					return;
-				case "enter-evidence":
-					break;
-			}
-			const evidenceEnterPlan = createStatusEvidenceEnterPlan(
-				{
-					handoffIndex,
-					auditExportIndex,
-					auditExportArchiveIndex,
-					cleanupExportIndex,
-					cleanupExportArchiveIndex,
-					toolExportIndex,
-					toolExportArchiveIndex,
-					processControlAuditExports,
-					remoteKnownHostsSelectionAuditExports,
-					interfaceConfirmationAuditExports,
-					interfaceConfirmationAuditArchiveExports,
-				},
-				{
-					selectedHandoffIndex,
-					selectedAuditExportIndex,
-					selectedAuditExportArchiveIndex,
-					selectedCleanupExportIndex,
-					selectedCleanupExportArchiveIndex,
-					selectedToolExportIndex,
-					selectedToolExportArchiveIndex,
-					selectedProcessControlAuditExportIndex,
-					selectedRemoteKnownHostsSelectionAuditExportIndex,
-					selectedInterfaceConfirmationAuditExportIndex,
-					toolExportFilter,
-					toolExportArchiveFilter,
-					toolExportQuery,
-					toolExportArchiveQuery,
-					interfaceEvidenceStateFilter,
-					interfaceEvidenceQuery,
-				},
-				selectedStatusEvidenceKind,
-			);
-			if (evidenceEnterPlan) {
-				switch (evidenceEnterPlan.action) {
-					case "open-handoff":
-						openSelectedHandoffFile();
+		const statusCommand =
+			workspaceInputFamily === "status"
+				? getStatusWorkspaceCommand(input, key)
+				: undefined;
+		const statusTransition = prepareStatusWorkspaceInput({
+			command: statusCommand,
+			inputDigit: input,
+			state:
+				workspaceInputFamily === "status"
+					? {
+							baseDir: dirname(getConfigPath()),
+							platform: currentPlatform(),
+							generatedAt: new Date(),
+							fileOpenOrigin: createActiveFileOpenOrigin(
+								configShelfLandingTarget,
+							),
+							retentionLimit: auditArchiveRetentionLimit,
+							updates: {
+								packageResult: updateCheckResult,
+								githubResult: githubReleaseCheckResult,
+								selectedLinkIndex: selectedUpdateHandoffIndex,
+							},
+							activity: {
+								selectedSource: selectedStatusActivitySource,
+								results: statusActivityResults,
+								selectedResultIndex: selectedStatusActivityResultIndex,
+								resultHistoryFilter: statusActivityResultHistoryFilter,
+								resultTimelineJumpFilter:
+									statusActivityResultTimelineJumpFilter,
+								selectedCopyPreviewRowIndex:
+									selectedStatusActivityCopyPreviewRowIndex,
+								copyPreviewExpanded: statusActivityCopyPreviewExpanded,
+								copyIntents: statusActivityCopyIntentHistory,
+								selectedCopyIntentIndex: selectedStatusActivityCopyIntentIndex,
+								selectedAuditJumpIndex:
+									selectedStatusActivityResultAuditJumpIndex,
+								selectedToolsEvidenceMatchIndex:
+									selectedStatusActivityToolsEvidenceSearchMatchIndex,
+								timelineEvidenceTrailAuditExports,
+								selectedTimelineEvidenceTrailAuditExportIndex,
+								timelineEvidenceTrailSourceFilter,
+								toolsEvidenceRecovery:
+									statusActivityToolsEvidenceSearchRecovery,
+								lastCopyIntentAuditExport:
+									lastStatusActivityCopyIntentAuditExport,
+								lastEvidenceFocusPlan: lastStatusActivityEvidenceFocusPlan,
+							},
+							evidence: {
+								indexes: statusEvidenceIndexes,
+								selection: statusEvidenceSelection,
+								selectedKind: selectedStatusEvidenceKind,
+								interfaceEvidenceSearchPresets,
+							},
+							cleanup: {
+								index: cleanupShelfIndex,
+								selectedShelfIndex: selectedCleanupShelfIndex,
+								history: cleanupHandoffHistory,
+								selectedHistoryIndex: selectedCleanupHandoffHistoryIndex,
+							},
+							dialogs: {
+								externalOpen: Boolean(externalOpenPlan),
+								fileOpen: Boolean(fileOpenPlan),
+								auditExportArchive: Boolean(auditExportArchivePlan),
+								auditArchiveRetention: Boolean(auditArchiveRetentionPlan),
+								cleanupExportArchive: Boolean(cleanupExportArchivePlan),
+								toolExportArchive: Boolean(toolExportArchivePlan),
+								toolArchiveRetention: Boolean(toolArchiveRetentionPlan),
+							},
+							configManagedShelfRows,
+							events,
+						}
+					: undefined,
+		});
+		if (statusTransition.kind === "handled") {
+			for (const effect of statusTransition.effects) {
+				switch (effect.kind) {
+					case "state":
+						if (effect.patch.cleanupJumpAudit !== undefined) {
+							reopenCleanupHandoffHistory(effect.patch);
+						}
+						applyStatusWorkspaceStatePatch(effect.patch);
 						break;
-					case "open-audit":
-						openSelectedAuditExportFile();
+					case "notice":
+						log(effect.notice.level, effect.notice.message);
 						break;
-					case "open-audit-archive":
-						openSelectedAuditExportArchiveFile();
+					case "clipboard-confirmation":
+						openSelectedUpdateHandoffClipboard(effect.preview);
 						break;
-					case "open-cleanup":
-						openSelectedCleanupExportFile();
+					case "record-activity":
+						recordStatusActivityResult(effect.result);
 						break;
-					case "open-tools":
-						openSelectedToolExportFile();
+					case "command-prompt":
+						setCommandLine(
+							openCommandLine(effect.prompt, { value: effect.value ?? "" }),
+						);
+						setScreen(effect.screen);
+						setFocusArea(effect.focusArea);
 						break;
-					case "open-tools-archive":
-						openSelectedToolExportArchiveFile();
-						break;
-					case "open-process-evidence":
-						openSelectedProcessControlEvidenceExport();
-						break;
-					case "open-remote-known-hosts-evidence":
-						openSelectedRemoteKnownHostsSelectionEvidenceExport();
-						break;
-					case "open-interface-evidence":
-						openSelectedInterfaceConfirmationEvidenceExport();
-						break;
-					case "select-cleanup-archive":
+					case "timeline-jump":
+						setTimelineFilter(effect.transition.filter);
+						setTimelineSearchQuery(effect.transition.query);
+						setSelectedTimelineIndex(effect.transition.selectedIndex);
+						setScreen(effect.screen);
 						log(
-							"info",
-							`cleanup archive selected ${evidenceEnterPlan.label}; use { to cycle archived cleanup exports`,
+							effect.transition.notice.level,
+							effect.transition.notice.message,
 						);
 						break;
+					case "open-file-confirmation":
+						for (const plan of effect.clearPlans) {
+							clearStatusDialogPlan(plan);
+						}
+						switch (effect.target) {
+							case "handoff":
+								openSelectedHandoffFile(effect);
+								break;
+							case "audit":
+								openSelectedAuditExportFile(effect);
+								break;
+							case "audit-archive":
+								openSelectedAuditExportArchiveFile(effect);
+								break;
+							case "cleanup":
+							case "cleanup-archive":
+								openSelectedCleanupExportFile(effect);
+								break;
+							case "tools":
+								openSelectedToolExportFile(effect);
+								break;
+							case "tools-archive":
+								openSelectedToolExportArchiveFile(effect);
+								break;
+							case "process":
+							case "remote-known-hosts":
+							case "interface":
+								setFileOpenPlan(effect.plan);
+								setCommandLine(openCommandLine(effect.prompt));
+								setScreen(effect.screen);
+								break;
+						}
+						break;
+					case "external-open-confirmation":
+						openSelectedUpdateHandoffExternal(effect);
+						break;
+					case "plan-confirmation":
+						for (const plan of effect.clearPlans) {
+							clearStatusDialogPlan(plan);
+						}
+						switch (effect.prompt) {
+							case "audit-export-archive":
+								openSelectedAuditExportArchive(effect);
+								break;
+							case "audit-archive-retention":
+								if (effect.scope === "interface") {
+									setAuditArchiveRetentionPlan(
+										effect.plan as ConsoleAuditArchiveRetentionPlan,
+									);
+									setAuditArchiveRetentionScope("interface");
+									setCommandLine(openCommandLine(effect.prompt));
+									setScreen(effect.screen);
+								} else {
+									openAuditArchiveRetentionPreview(effect);
+								}
+								break;
+							case "cleanup-export-archive":
+								openSelectedCleanupExportArchive(effect);
+								break;
+							case "tool-export-archive":
+								setToolExportArchivePlan(
+									effect.plan as ToolHistoryExportArchivePlan,
+								);
+								break;
+							case "tools-archive-retention":
+								setToolArchiveRetentionPlan(
+									effect.plan as ToolHistoryArchiveRetentionPlan,
+								);
+								break;
+						}
+						if (
+							effect.prompt === "tool-export-archive" ||
+							effect.prompt === "tools-archive-retention"
+						) {
+							setCommandLine(openCommandLine(effect.prompt));
+							setScreen(effect.screen);
+						}
+						break;
+					case "refresh-index":
+						void applyStatusIndexRefresh(effect);
+						break;
+					case "handoff-archive":
+						void archiveSelectedHandoffFile(effect).then((succeeded) => {
+							if (succeeded) void applyStatusIndexRefresh(effect.refresh);
+						});
+						break;
+					case "cleanup-history-write":
+						void exportCleanupHandoffHistory(effect).then((succeeded) => {
+							if (succeeded) void applyStatusIndexRefresh(effect.refresh);
+						});
+						break;
+					case "config-write":
+						void applyStatusConfigWrite(effect);
+						break;
+					case "audit-write":
+						void applyStatusAuditWriteInput(effect);
+						break;
 				}
-				log(
-					"info",
-					`status evidence enter ${evidenceEnterPlan.action} ${evidenceEnterPlan.shortcut} ${evidenceEnterPlan.label}`,
-				);
-				recordStatusActivityResult({
-					...activityEnterPlan,
-					detail: `${evidenceEnterPlan.action} ${evidenceEnterPlan.shortcut} ${evidenceEnterPlan.label}`,
-				});
-				return;
-			}
-			const shelf = getSelectedCleanupShelf(
-				cleanupShelfIndex,
-				selectedCleanupShelfIndex,
-			);
-			if (!shelf) {
-				log("warn", "no cleanup shelf selected");
-				return;
-			}
-			setCleanupJumpAudit(createCleanupJumpAudit(shelf));
-			setScreen(shelf.screen);
-			recordStatusActivityResult({
-				...activityEnterPlan,
-				detail: `cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
-			});
-			log(
-				"info",
-				`cleanup handoff ${shelf.label}: press ${shelf.shortcut} then type ${shelf.confirmationPhrase}`,
-			);
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			(input === "a" || input === "x")
-		) {
-			const evidenceActionPlan = createStatusEvidenceActionPlan(
-				{
-					handoffIndex,
-					auditExportIndex,
-					auditExportArchiveIndex,
-					cleanupExportIndex,
-					cleanupExportArchiveIndex,
-					toolExportIndex,
-					toolExportArchiveIndex,
-					processControlAuditExports,
-					remoteKnownHostsSelectionAuditExports,
-					interfaceConfirmationAuditExports,
-					interfaceConfirmationAuditArchiveExports,
-				},
-				{
-					selectedHandoffIndex,
-					selectedAuditExportIndex,
-					selectedAuditExportArchiveIndex,
-					selectedCleanupExportIndex,
-					selectedCleanupExportArchiveIndex,
-					selectedToolExportIndex,
-					selectedToolExportArchiveIndex,
-					selectedProcessControlAuditExportIndex,
-					selectedRemoteKnownHostsSelectionAuditExportIndex,
-					selectedInterfaceConfirmationAuditExportIndex,
-					toolExportFilter,
-					toolExportArchiveFilter,
-					toolExportQuery,
-					toolExportArchiveQuery,
-					interfaceEvidenceStateFilter,
-					interfaceEvidenceQuery,
-				},
-				selectedStatusEvidenceKind,
-				"archive",
-			);
-			if (!evidenceActionPlan) {
-				log(
-					"warn",
-					`status evidence archive unavailable for ${selectedStatusEvidenceKind}`,
-				);
-				return;
-			}
-			switch (evidenceActionPlan.action) {
-				case "archive-handoff":
-					void archiveSelectedHandoffFile();
-					break;
-				case "archive-audit":
-					openSelectedAuditExportArchive();
-					break;
-				case "archive-cleanup":
-					openSelectedCleanupExportArchive();
-					break;
-				case "archive-tools":
-					openSelectedToolExportArchive();
-					break;
-				case "archive-interface-evidence":
-					openSelectedInterfaceEvidenceArchive();
-					break;
-				case "preview-audit-retention":
-				case "preview-tools-retention":
-				case "preview-interface-retention":
-					break;
-			}
-			log(
-				"info",
-				`status evidence action ${evidenceActionPlan.action} ${evidenceActionPlan.shortcut} ${evidenceActionPlan.label}`,
-			);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "m") {
-			const evidenceActionPlan = createStatusEvidenceActionPlan(
-				{
-					handoffIndex,
-					auditExportIndex,
-					auditExportArchiveIndex,
-					cleanupExportIndex,
-					cleanupExportArchiveIndex,
-					toolExportIndex,
-					toolExportArchiveIndex,
-					processControlAuditExports,
-					remoteKnownHostsSelectionAuditExports,
-					interfaceConfirmationAuditExports,
-					interfaceConfirmationAuditArchiveExports,
-				},
-				{
-					selectedHandoffIndex,
-					selectedAuditExportIndex,
-					selectedAuditExportArchiveIndex,
-					selectedCleanupExportIndex,
-					selectedCleanupExportArchiveIndex,
-					selectedToolExportIndex,
-					selectedToolExportArchiveIndex,
-					selectedProcessControlAuditExportIndex,
-					selectedRemoteKnownHostsSelectionAuditExportIndex,
-					selectedInterfaceConfirmationAuditExportIndex,
-					toolExportFilter,
-					toolExportArchiveFilter,
-					toolExportQuery,
-					toolExportArchiveQuery,
-					interfaceEvidenceStateFilter,
-					interfaceEvidenceQuery,
-				},
-				selectedStatusEvidenceKind,
-				"retention",
-			);
-			if (!evidenceActionPlan) {
-				log(
-					"warn",
-					`status evidence retention unavailable for ${selectedStatusEvidenceKind}`,
-				);
-				return;
-			}
-			if (evidenceActionPlan.action === "preview-tools-retention") {
-				openToolArchiveRetentionPreview();
-			} else if (evidenceActionPlan.action === "preview-interface-retention") {
-				openInterfaceAuditArchiveRetentionPreview();
-			} else {
-				openAuditArchiveRetentionPreview();
-			}
-			log(
-				"info",
-				`status evidence action ${evidenceActionPlan.action} ${evidenceActionPlan.shortcut} ${evidenceActionPlan.label}`,
-			);
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "H") {
-			void refreshHandoffIndex();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "Y") {
-			void refreshCleanupExportIndex();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "T") {
-			void refreshAuditExportIndex();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "U") {
-			void refreshAuditExportArchiveIndex();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "B") {
-			void refreshCleanupExportArchiveIndex();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "D") {
-			if (statusActivityToolsEvidenceSearchRecovery?.items.length) {
-				openSelectedStatusActivityToolsEvidenceSearchMatchArchive();
-				return;
-			}
-			openSelectedToolExportArchive();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "}") {
-			if (cleanupExportIndex.items.length === 0) {
-				log("warn", "no cleanup exports indexed");
-				return;
-			}
-			setSelectedCleanupExportIndex((index) => {
-				const next =
-					(clampIndex(index, cleanupExportIndex.items.length) + 1) %
-					cleanupExportIndex.items.length;
-				const item = cleanupExportIndex.items[next];
-				log("info", `cleanup export selected ${item?.fileName ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === ")") {
-			if (auditExportIndex.items.length === 0) {
-				log("warn", "no audit exports indexed");
-				return;
-			}
-			setSelectedAuditExportIndex((index) => {
-				const next =
-					(clampIndex(index, auditExportIndex.items.length) + 1) %
-					auditExportIndex.items.length;
-				const item = auditExportIndex.items[next];
-				log("info", `audit export selected ${item?.fileName ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "(") {
-			if (auditExportArchiveIndex.items.length === 0) {
-				log("warn", "no audit archive indexed");
-				return;
-			}
-			setSelectedAuditExportArchiveIndex((index) => {
-				const next =
-					(clampIndex(index, auditExportArchiveIndex.items.length) + 1) %
-					auditExportArchiveIndex.items.length;
-				const item = auditExportArchiveIndex.items[next];
-				log("info", `audit archive selected ${item?.fileName ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "{") {
-			if (cleanupExportArchiveIndex.items.length === 0) {
-				log("warn", "no cleanup archive indexed");
-				return;
-			}
-			setSelectedCleanupExportArchiveIndex((index) => {
-				const next =
-					(clampIndex(index, cleanupExportArchiveIndex.items.length) + 1) %
-					cleanupExportArchiveIndex.items.length;
-				const item = cleanupExportArchiveIndex.items[next];
-				log("info", `cleanup archive selected ${item?.fileName ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (
-			screen === "status" &&
-			focusArea === "workspaces" &&
-			input === "]" &&
-			selectedStatusEvidenceKind === "tools-archive"
-		) {
-			if (toolExportArchiveIndex.items.length === 0) {
-				log("warn", "no tools archive indexed");
-				return;
-			}
-			setSelectedToolExportArchiveIndex((index) => {
-				const next =
-					(clampIndex(index, toolExportArchiveIndex.items.length) + 1) %
-					toolExportArchiveIndex.items.length;
-				const item = toolExportArchiveIndex.items[next];
-				log("info", `tools archive selected ${item?.fileName ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "V") {
-			openSelectedCleanupExportFile();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "W") {
-			openSelectedAuditExportFile();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "J") {
-			openSelectedAuditExportArchiveFile();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "M") {
-			if (selectedStatusEvidenceKind === "tools-archive") {
-				openToolArchiveRetentionPreview();
-			} else if (
-				selectedStatusEvidenceKind === "interface" &&
-				selectedInterfaceConfirmationEvidenceArchived
-			) {
-				openInterfaceAuditArchiveRetentionPreview();
-			} else {
-				openAuditArchiveRetentionPreview();
 			}
 			return;
 		}
 
-		if (screen === "status" && focusArea === "workspaces" && input === "Z") {
-			openSelectedAuditExportArchive();
+		const configCommand =
+			workspaceInputFamily === "config"
+				? getConfigWorkspaceCommand(input, key)
+				: undefined;
+		const configTransition = prepareConfigWorkspaceInput({
+			command: configCommand,
+			items: configWorkspaceItems,
+			selectedIndex: selectedConfigIndex,
+			selectedShelfTarget: selectedConfigShelfTarget,
+			actions,
+			resetValues: {
+				auditArchiveRetentionLimit,
+				toolTargetPresetLimit,
+				language,
+				refreshInterval,
+				defaultPingHost,
+				controlExecutionMode: controlExecutionPolicy.mode,
+				allowAdminDryRun: controlExecutionPolicy.allowAdminDryRun,
+				enableExperimentalControls,
+				editorSaveMode,
+				statusResultJumpClassFilter: statusActivityResultTimelineJumpFilter,
+			},
+			shelfCounts: {
+				network: summary?.interfaces.length ?? 0,
+				routes: routeFilterPresets.length,
+				connections: connectionFilterPresets.length,
+				ports: portFilterPresets.length,
+				tools: toolTargetPresets.length,
+				logs: logProfiles.length,
+				remotes: remoteProfiles.length,
+			},
+		});
+		if (configTransition.kind === "selection") {
+			setSelectedConfigIndex(configTransition.selectedIndex);
+			log(configTransition.notice.level, configTransition.notice.message);
 			return;
 		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "X") {
-			openSelectedCleanupExportArchive();
+		if (configTransition.kind === "adjust") {
+			void saveConfigWorkspaceAdjustment(configTransition.transition);
 			return;
 		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "]") {
-			if (handoffIndex.items.length === 0) {
-				log("warn", "no handoff files indexed");
-				return;
-			}
-			setSelectedHandoffIndex((index) => {
-				const next =
-					(clampIndex(index, handoffIndex.items.length) + 1) %
-					handoffIndex.items.length;
-				const item = handoffIndex.items[next];
-				log("info", `handoff selected ${item?.label ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "O") {
-			openSelectedHandoffFile();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "A") {
-			if (
-				selectedStatusEvidenceKind === "interface" &&
-				!selectedInterfaceConfirmationEvidenceArchived
-			) {
-				openSelectedInterfaceEvidenceArchive();
-				return;
-			}
-			void archiveSelectedHandoffFile();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "c") {
-			openSelectedUpdateHandoffClipboard();
-			return;
-		}
-
-		if (screen === "status" && focusArea === "workspaces" && input === "o") {
-			openSelectedUpdateHandoffExternal();
-			return;
-		}
-
-		if (
-			screen === "config" &&
-			focusArea === "workspaces" &&
-			["1", "2", "3", "4"].includes(input)
-		) {
-			const section =
-				input === "1"
-					? "display"
-					: input === "2"
-						? "safety"
-						: input === "3"
-							? "retention"
-							: "connectivity";
-			const next = getConfigWorkspaceSectionJumpIndex(
-				configWorkspaceItems,
-				section,
-			);
-			if (next === undefined) {
-				log("warn", `config section unavailable ${section}`);
-				return;
-			}
-			setSelectedConfigIndex(next);
-			const item = getConfigWorkspaceItem(configWorkspaceItems, next);
-			log(
-				"info",
-				`config section ${section} selected ${item?.key ?? next + 1}`,
-			);
-			return;
-		}
-
-		if (
-			screen === "config" &&
-			focusArea === "workspaces" &&
-			(key.downArrow || input === "j")
-		) {
-			setSelectedConfigIndex((index) => {
-				const next = moveConfigWorkspaceSelection(
-					index,
-					configWorkspaceItems.length,
-					"next",
-				);
-				const item = getConfigWorkspaceItem(configWorkspaceItems, next);
-				log("info", `config selected ${item?.key ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (
-			screen === "config" &&
-			focusArea === "workspaces" &&
-			(key.upArrow || input === "k")
-		) {
-			setSelectedConfigIndex((index) => {
-				const next = moveConfigWorkspaceSelection(
-					index,
-					configWorkspaceItems.length,
-					"previous",
-				);
-				const item = getConfigWorkspaceItem(configWorkspaceItems, next);
-				log("info", `config selected ${item?.key ?? next + 1}`);
-				return next;
-			});
-			return;
-		}
-
-		if (
-			screen === "config" &&
-			focusArea === "workspaces" &&
-			(input === "+" || input === "=")
-		) {
-			void saveConfigWorkspaceAdjustment("increase");
-			return;
-		}
-
-		if (
-			screen === "config" &&
-			focusArea === "workspaces" &&
-			(input === "-" || input === "_")
-		) {
-			void saveConfigWorkspaceAdjustment("decrease");
-			return;
-		}
-
-		if (screen === "config" && focusArea === "workspaces" && input === "P") {
+		if (configTransition.kind === "cycle-policy") {
 			void applyNextConfigPolicyPreset();
 			return;
 		}
-
-		if (screen === "config" && focusArea === "workspaces" && input === "R") {
-			openConfigResetConfirmation();
+		if (configTransition.kind === "reset") {
+			openConfigResetConfirmation(configTransition.transition);
+			return;
+		}
+		if (configTransition.kind === "shelf-selection") {
+			setSelectedConfigShelfTarget(configTransition.target);
+			log(configTransition.notice.level, configTransition.notice.message);
+			return;
+		}
+		if (configTransition.kind === "edit") {
+			setCommandLine(openCommandLine(configTransition.prompt));
+			log(configTransition.notice.level, configTransition.notice.message);
+			return;
+		}
+		if (configTransition.kind === "jump-shelf") {
+			jumpToConfigManagedShelf(configTransition.transition);
+			return;
+		}
+		if (configTransition.kind === "run-action") {
+			void runAction(configTransition.action);
+			return;
+		}
+		if (configTransition.kind === "notice") {
+			log(configTransition.notice.level, configTransition.notice.message);
 			return;
 		}
 
-		if (
-			screen === "config" &&
-			focusArea === "workspaces" &&
-			(input === "g" || input === "G")
-		) {
-			setSelectedConfigShelfTarget((current) => {
-				const next = getNextConfigManagedShelfTarget(
-					current,
-					input === "g" ? "next" : "previous",
-				);
-				const handoff = getConfigManagedShelfHandoff(next);
-				log(
-					"info",
-					`config shelf target ${handoff.target} -> ${handoff.label}`,
-				);
-				return next;
-			});
-			return;
-		}
-
-		if (screen === "config" && focusArea === "workspaces" && input === "\r") {
-			const item = getConfigWorkspaceItem(
-				configWorkspaceItems,
-				selectedConfigIndex,
-			);
-			const prompt = item ? getConfigWorkspaceEditPrompt(item) : undefined;
-			if (prompt) {
-				setCommandLine(openCommandLine(prompt));
-				log("info", `config edit opened ${item?.key}`);
-				return;
-			}
-			if (selectedConfigShelfTarget) {
-				jumpToConfigManagedShelf(selectedConfigShelfTarget);
-				return;
-			}
-			const configAction = actions.find(
-				(action) => action.id === "config.show",
-			);
-			if (!configAction) {
-				log("warn", "config action unavailable");
-				return;
-			}
-			void runAction(configAction);
-			return;
-		}
-
-		if (screen === "timeline" && focusArea === "workspaces") {
+		if (workspaceInputFamily === "timeline") {
 			const decision = prepareTimelinePanelInput({
 				input,
 				events,
@@ -10624,6 +9041,10 @@ export function App(): React.ReactElement {
 				presets: timelineSearchPresets,
 				selectedIndex: selectedTimelineIndex,
 				auditExportIndex,
+				handoff: {
+					baseDir: dirname(getConfigPath()),
+					origin: createActiveFileOpenOrigin(configShelfLandingTarget),
+				},
 			});
 			if (decision.kind === "filter") {
 				setTimelineFilter(decision.filter);
@@ -10646,46 +9067,13 @@ export function App(): React.ReactElement {
 				if (decision.command === "copy") {
 					openClipboardConfirmation(decision.preview);
 					recordStatusActivityResult(
-						createTimelineSelectedStatusActivityResult("copy", {
-							filter: timelineFilter,
-							label: decision.preview.label,
-							query: timelineSearchQuery,
-							selectedIndex: decision.selectedIndex,
-							total: visibleTimelineEvents.length,
-						}),
+						createTimelineSelectedStatusActivityResult(
+							"copy",
+							decision.activity,
+						),
 					);
 				} else {
-					const plan = createConsoleAuditExportPlan([decision.event], {
-						baseDir: dirname(getConfigPath()),
-						origin: createActiveFileOpenOrigin(configShelfLandingTarget),
-						query: timelineSearchQuery.trim() || undefined,
-						scope: "selected",
-					});
-					void writeConsoleAuditExport(plan)
-						.then((written) => {
-							log(
-								"ok",
-								`audit selected exported ${written.path} events=${written.eventCount}`,
-							);
-							recordStatusActivityResult(
-								createTimelineSelectedStatusActivityResult("export", {
-									filter: timelineFilter,
-									label: `timeline audit selected ${written.eventCount}`,
-									path: written.path,
-									query: timelineSearchQuery,
-									selectedIndex: decision.selectedIndex,
-									total: visibleTimelineEvents.length,
-								}),
-							);
-						})
-						.catch((caught) =>
-							log(
-								"fail",
-								caught instanceof Error
-									? `audit selected export failed ${caught.message}`
-									: `audit selected export failed ${String(caught)}`,
-							),
-						);
+					void exportSelectedTimelineInput(decision.exportInput);
 				}
 			} else if (decision.kind === "evidence") {
 				const plan = decision.plan;
@@ -10698,22 +9086,7 @@ export function App(): React.ReactElement {
 				const exportPlan = createTimelineEvidenceTrailAuditExportPlan(plan, {
 					baseDir: dirname(getConfigPath()),
 				});
-				void writeTimelineEvidenceTrailAuditExport(exportPlan)
-					.then((written) => {
-						log(
-							"ok",
-							`timeline evidence trail exported ${written.path} events=${written.eventCount}`,
-						);
-						void refreshAuditExportIndex(false, "newest");
-					})
-					.catch((caught) =>
-						log(
-							"fail",
-							caught instanceof Error
-								? `timeline evidence trail export failed ${caught.message}`
-								: `timeline evidence trail export failed ${String(caught)}`,
-						),
-					);
+				void exportTimelineEvidenceInput(exportPlan);
 				setScreen("status");
 				log("info", `${plan.message}; ${plan.rows.at(-1) ?? ""}`);
 			}
@@ -10725,7 +9098,7 @@ export function App(): React.ReactElement {
 			}
 		}
 
-		if (screen === "logs" && focusArea === "workspaces") {
+		if (workspaceInputFamily === "logs") {
 			const decision = prepareLogPanelInput({
 				input,
 				entries: osLogs?.entries ?? [],
@@ -10741,24 +9114,10 @@ export function App(): React.ReactElement {
 				setLogSearchQuery(decision.query);
 			} else if (decision.kind === "save-preset") {
 				setLogSearchPresets(decision.presets);
-				void setConfigLogSearchPresets(decision.presets).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `logs preset save failed ${caught.message}`
-							: `logs preset save failed ${String(caught)}`,
-					),
-				);
+				void persistLogInput({ kind: "presets", presets: decision.presets });
 			} else if (decision.kind === "save-profile") {
 				setLogProfiles(decision.profiles);
-				void setConfigLogProfiles(decision.profiles).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `logs profile save failed ${caught.message}`
-							: `logs profile save failed ${String(caught)}`,
-					),
-				);
+				void persistLogInput({ kind: "profiles", profiles: decision.profiles });
 			} else if (decision.kind === "profile") {
 				setLogLevelFilter(decision.profile.level);
 				setLogSearchQuery(decision.profile.query);
@@ -10773,589 +9132,145 @@ export function App(): React.ReactElement {
 					setLogFollowRefreshCount(0);
 					setLogFollowLastStatus("idle");
 					setLogFollowHistory([]);
+				} else if (decision.command === "refresh") {
+					void refreshLogsInput();
 				}
 			}
 			if ("notice" in decision && decision.notice) {
 				log(decision.notice.level, decision.notice.message);
 			}
-			if (
-				decision.kind !== "no-op" &&
-				!(decision.kind === "command" && decision.command === "refresh")
-			) {
+			if (decision.kind !== "no-op") {
 				return;
 			}
 		}
 
-		if (screen === "logs" && focusArea === "workspaces" && input === "r") {
-			void (async () => {
-				try {
-					const snapshot = await createOsLogSnapshot({ limit: 50 });
-					setOsLogs(snapshot);
-					log(
-						snapshot.status === "ok" ? "ok" : "warn",
-						`logs refreshed ${snapshot.entries.length}`,
-					);
-				} catch (caught) {
-					log(
-						"fail",
-						caught instanceof Error ? caught.message : String(caught),
-					);
-				}
-			})();
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "f") {
-			setCommandLine(openCommandLine("tool-filter"));
-			log("info", "tool history filter opened");
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "F") {
-			setToolHistoryFilter("");
-			setToolCopyPreview(false);
-			setSelectedToolHistoryIndex((index) =>
-				Math.min(index, Math.max(0, toolHistory.length - 1)),
-			);
-			log("info", "tool history filter cleared");
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "P") {
-			if (!toolHistoryFilter.trim()) {
-				log("warn", "no tools filter to save");
-				return;
-			}
-			setToolHistoryFilterPresets((current) => {
-				const next = saveToolHistoryPreset(current, toolHistoryFilter);
-				void setConfigToolHistoryPreferences({ filterPresets: next }).catch(
-					(caught) =>
-						log(
-							"fail",
-							caught instanceof Error
-								? `tools preset save failed ${caught.message}`
-								: `tools preset save failed ${String(caught)}`,
-						),
-				);
-				return next;
-			});
-			log("info", `tools preset saved ${toolHistoryFilter}`);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "C") {
-			const preview = createToolHistoryCleanupPreview(toolHistoryFilterPresets);
-			if (!preview) {
-				log("warn", "no tools filter presets to clean");
-				return;
-			}
-			setCommandLine(openCommandLine("tool-history-cleanup"));
-			setToolCopyPreview(false);
-			log(
-				"warn",
-				`tool history filter cleanup confirm ${preview.confirmationPhrase}`,
-			);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "]") {
-			const preset = nextToolHistoryPreset(
-				toolHistoryFilterPresets,
-				toolHistoryFilter,
-			);
-			if (!preset) {
-				log("warn", "no tools filter presets");
-				return;
-			}
-			const filtered = filterToolHistory(toolHistory, preset);
-			setToolHistoryFilter(preset);
-			setToolCopyPreview(false);
-			setSelectedToolHistoryIndex(filtered[0]?.index ?? 0);
-			log(
-				filtered.length ? "info" : "warn",
-				`tools preset ${preset} matches ${filtered.length}`,
-			);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces") {
-			const next = getToolHistoryDetailViewShortcut(input, {
-				home: key.home,
-				end: key.end,
-			});
-			if (next) {
-				setToolHistoryDetailView(next);
-				void setConfigToolHistoryPreferences({ detailView: next }).catch(
-					(caught) =>
-						log(
-							"fail",
-							caught instanceof Error
-								? `tools detail save failed ${caught.message}`
-								: `tools detail save failed ${String(caught)}`,
-						),
-				);
-				setToolCopyPreview(false);
-				log("info", `tools detail ${next}`);
-				return;
-			}
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && key.tab) {
-			setToolHistoryDetailView((current) => {
-				const next = nextToolHistoryDetailView(current);
-				void setConfigToolHistoryPreferences({ detailView: next }).catch(
-					(caught) =>
-						log(
-							"fail",
-							caught instanceof Error
-								? `tools detail save failed ${caught.message}`
-								: `tools detail save failed ${String(caught)}`,
-						),
-				);
-				log("info", `tools detail ${next}`);
-				return next;
-			});
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "s") {
-			setToolHistorySort((current) => {
-				const next = nextToolHistorySort(current);
-				void setConfigToolHistoryPreferences({ sort: next }).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `tools sort save failed ${caught.message}`
-							: `tools sort save failed ${String(caught)}`,
-					),
-				);
-				log("info", `tools sort ${next}`);
-				return next;
-			});
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "G") {
-			setToolHistoryGroup((current) => {
-				const next = nextToolHistoryGroup(current);
-				void setConfigToolHistoryPreferences({ group: next }).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `tools group save failed ${caught.message}`
-							: `tools group save failed ${String(caught)}`,
-					),
-				);
-				log("info", `tools group ${next}`);
-				return next;
-			});
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "r") {
-			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
-				toolHistory,
-				selectedToolHistoryIndex,
-				toolHistoryFilter,
-				toolHistorySort,
-			);
-			const plan = rerunToolHistoryItem(
-				getSelectedToolHistoryItem(toolHistory, visibleToolHistoryIndex),
-			);
-			if (!plan) {
-				log("warn", "no tool history selected");
-				return;
-			}
-			void (async () => {
-				try {
-					const result = await runTool(plan.toolId, plan.args, {
-						timeoutMs: 10000,
-					});
-					setToolHistory((current) => {
-						const next = appendToolHistory(current, { plan, result });
-						setSelectedToolHistoryIndex(Math.max(0, next.length - 1));
-						return next;
-					});
-					log("ok", `${plan.label} rerun completed`);
-				} catch (caught) {
-					log(
-						"fail",
-						caught instanceof Error ? caught.message : String(caught),
-					);
-				}
-			})();
-			return;
-		}
-
-		if (
-			screen === "tools" &&
-			focusArea === "workspaces" &&
-			(input === "n" || input === "N")
-		) {
-			setSelectedToolTargetPresetIndex((index) => {
-				const transition = selectToolTargetPresetTransition(
-					toolTargetPresets,
-					index,
-					input === "N" ? "previous" : "next",
-				);
-				if (transition.notice) {
-					log(transition.notice.level, transition.notice.message);
-				}
-				return transition.selectedIndex;
-			});
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "T") {
-			const transition = saveSelectedToolTargetPresetTransition({
-				presets: customToolTargetPresets,
-				targetPresets: toolTargetPresets,
-				selectedIndex: selectedToolTargetPresetIndex,
-				limit: toolTargetPresetLimit,
-			});
-			setSelectedToolTargetPresetIndex(transition.selectedIndex);
-			log(transition.notice.level, transition.notice.message);
-			if (!transition.changed) {
-				return;
-			}
-			setCustomToolTargetPresets(transition.presets);
-			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
-				log(
-					"fail",
-					caught instanceof Error
-						? `tool target save failed ${caught.message}`
-						: `tool target save failed ${String(caught)}`,
-				),
-			);
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "U") {
-			const transition = promoteToolTargetPresetTransition({
-				presets: customToolTargetPresets,
-				targetPresets: toolTargetPresets,
-				selectedIndex: selectedToolTargetPresetIndex,
-			});
-			setSelectedToolTargetPresetIndex(transition.selectedIndex);
-			log(transition.notice.level, transition.notice.message);
-			if (!transition.changed) {
-				return;
-			}
-			setCustomToolTargetPresets(transition.presets);
-			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
-				log(
-					"fail",
-					caught instanceof Error
-						? `tool target pin failed ${caught.message}`
-						: `tool target pin failed ${String(caught)}`,
-				),
-			);
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "X") {
-			const transition = removeToolTargetPresetTransition({
-				presets: customToolTargetPresets,
-				targetPresets: toolTargetPresets,
-				selectedIndex: selectedToolTargetPresetIndex,
-			});
-			setSelectedToolTargetPresetIndex(transition.selectedIndex);
-			log(transition.notice.level, transition.notice.message);
-			if (!transition.changed) {
-				return;
-			}
-			setCustomToolTargetPresets(transition.presets);
-			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
-				log(
-					"fail",
-					caught instanceof Error
-						? `tool target delete failed ${caught.message}`
-						: `tool target delete failed ${String(caught)}`,
-				),
-			);
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (
-			screen === "tools" &&
-			focusArea === "workspaces" &&
-			(input === "D" || input === "L" || input === "M" || input === "A")
-		) {
-			const prompt =
-				input === "D"
-					? "cleanup"
-					: input === "L"
-						? "label"
-						: input === "M"
-							? "value"
-							: "action";
-			const intent = createToolTargetPromptIntent({
-				presets: customToolTargetPresets,
-				targetPresets: toolTargetPresets,
-				selectedIndex: selectedToolTargetPresetIndex,
-				prompt,
-			});
-			setSelectedToolTargetPresetIndex(intent.selectedIndex);
-			if (intent.commandLine !== "preserve") {
-				setCommandLine(openCommandLine(intent.commandLine));
-				setToolCopyPreview(false);
-			}
-			log(intent.notice.level, intent.notice.message);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "R") {
-			const intent = createToolTargetRunIntent({
-				presets: toolTargetPresets,
-				selectedIndex: selectedToolTargetPresetIndex,
-			});
-			setSelectedToolTargetPresetIndex(intent.selectedIndex);
-			if (!intent.plan) {
-				if (intent.notice) {
-					log(intent.notice.level, intent.notice.message);
-				}
-				return;
-			}
-			const plan = intent.plan;
-			void (async () => {
-				try {
-					await runToolPlan(plan);
-					if (intent.completionNotice) {
-						log("ok", intent.completionNotice);
-					}
-				} catch (caught) {
-					log(
-						"fail",
-						caught instanceof Error ? caught.message : String(caught),
-					);
-				}
-			})();
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "c") {
-			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
-				toolHistory,
-				selectedToolHistoryIndex,
-				toolHistoryFilter,
-				toolHistorySort,
-			);
-			const preview = getSelectedToolOutputClipboardPreview(
-				toolHistory,
-				visibleToolHistoryIndex,
-			);
-			if (!preview) {
-				log("warn", "no tool output selected");
-				return;
-			}
-			setToolCopyPreview("raw");
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "y") {
-			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
-				toolHistory,
-				selectedToolHistoryIndex,
-				toolHistoryFilter,
-				toolHistorySort,
-			);
-			const preview = getSelectedToolSummaryClipboardPreview(
-				toolHistory,
-				visibleToolHistoryIndex,
-			);
-			if (!preview) {
-				log("warn", "no tool summary selected");
-				return;
-			}
-			setToolCopyPreview("summary");
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "o") {
-			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
-				toolHistory,
-				selectedToolHistoryIndex,
-				toolHistoryFilter,
-				toolHistorySort,
-			);
-			const preview = getSelectedToolCompareClipboardPreview(
-				toolHistory,
-				visibleToolHistoryIndex,
-			);
-			if (!preview) {
-				log("warn", "no tool compare selected");
-				return;
-			}
-			setToolCopyPreview("compare");
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "V") {
-			setToolSectionClipboardSelection((current) => {
-				const next = nextToolSectionClipboardSelection(current);
-				log("info", `tools copy section ${next}`);
-				return next;
-			});
-			setToolSectionClipboardRowIndex(0);
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (
-			screen === "tools" &&
-			focusArea === "workspaces" &&
-			(input === "." || input === ",")
-		) {
-			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
-				toolHistory,
-				selectedToolHistoryIndex,
-				toolHistoryFilter,
-				toolHistorySort,
-			);
-			setToolSectionClipboardRowIndex((current) =>
-				moveToolSectionClipboardRow(
-					toolHistory,
-					visibleToolHistoryIndex,
-					toolSectionClipboardSelection,
-					current,
-					input === "." ? "next" : "previous",
-				),
-			);
-			setToolCopyPreview(false);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "b") {
-			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
-				toolHistory,
-				selectedToolHistoryIndex,
-				toolHistoryFilter,
-				toolHistorySort,
-			);
-			const preview = getSelectedToolSectionRowClipboardPreview(
-				toolHistory,
-				visibleToolHistoryIndex,
-				toolSectionClipboardSelection,
-				toolSectionClipboardRowIndex,
-			);
-			if (!preview) {
-				log("warn", `no tool ${toolSectionClipboardSelection} row selected`);
-				return;
-			}
-			setToolCopyPreview("row");
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "v") {
-			const visibleToolHistoryIndex = getVisibleToolHistoryIndex(
-				toolHistory,
-				selectedToolHistoryIndex,
-				toolHistoryFilter,
-				toolHistorySort,
-			);
-			const preview = getSelectedToolSectionClipboardPreview(
-				toolHistory,
-				visibleToolHistoryIndex,
-				toolSectionClipboardSelection,
-			);
-			if (!preview) {
-				log("warn", `no tool ${toolSectionClipboardSelection} fields selected`);
-				return;
-			}
-			setToolCopyPreview(toolSectionClipboardSelection);
-			openClipboardConfirmation(preview);
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "e") {
-			void exportToolHistory("selected");
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "E") {
-			void exportToolHistory("all");
-			return;
-		}
-
-		if (screen === "tools" && focusArea === "workspaces" && input === "O") {
-			void exportToolHistory("compare");
-			return;
-		}
-
-		if (focusArea === "remotes" && input === "y") {
-			const profile = resolveRemoteProfileSelection(
-				remoteProfiles,
-				selectedRemoteIndex,
-			).profile;
-			const preview = getRemoteKnownHostsSelectionHistoryClipboardPreview(
-				statusActivityResults,
-				{
-					selectedProfileId: profile?.id,
-					limit: 5,
+		const toolsCommand =
+			workspaceInputFamily === "tools"
+				? getToolsWorkspaceCommand(input, key)
+				: undefined;
+		const toolsTransition = prepareToolsWorkspaceInput({
+			command: toolsCommand,
+			input,
+			key: { home: key.home, end: key.end },
+			history: toolHistory,
+			selectedHistoryIndex: selectedToolHistoryIndex,
+			filter: toolHistoryFilter,
+			filterPresets: toolHistoryFilterPresets,
+			sort: toolHistorySort,
+			group: toolHistoryGroup,
+			detail: toolHistoryDetailView,
+			customTargetPresets: customToolTargetPresets,
+			targetPresets: toolTargetPresets,
+			selectedTargetIndex: selectedToolTargetPresetIndex,
+			targetPresetLimit: toolTargetPresetLimit,
+			copySection: toolSectionClipboardSelection,
+			copyRowIndex: toolSectionClipboardRowIndex,
+			exportContext: {
+				baseDir: dirname(getConfigPath()),
+				generatedAt: new Date(),
+				publication: {
+					selectedIndex: 0,
+					filter: toolExportFilter,
+					query: toolExportQuery,
 				},
-			);
-			if (!preview) {
-				log("warn", "no remote known_hosts selection history to copy");
-				return;
+			},
+		});
+		if (toolsTransition.kind === "handled") {
+			for (const effect of toolsTransition.effects) {
+				switch (effect.kind) {
+					case "history-selection":
+						setSelectedToolHistoryIndex(effect.selectedIndex);
+						break;
+					case "filter":
+						setToolHistoryFilter(effect.filter);
+						break;
+					case "filter-presets":
+						setToolHistoryFilterPresets(effect.presets);
+						break;
+					case "sort":
+						setToolHistorySort(effect.sort);
+						break;
+					case "group":
+						setToolHistoryGroup(effect.group);
+						break;
+					case "detail":
+						setToolHistoryDetailView(effect.detail);
+						break;
+					case "target-selection":
+						setSelectedToolTargetPresetIndex(effect.selectedIndex);
+						break;
+					case "target-presets":
+						setCustomToolTargetPresets(effect.presets);
+						break;
+					case "copy-preview":
+						setToolCopyPreview(effect.mode);
+						break;
+					case "copy-section":
+						setToolSectionClipboardSelection(effect.section);
+						break;
+					case "copy-row":
+						setToolSectionClipboardRowIndex(effect.rowIndex);
+						break;
+					case "prompt":
+						setCommandLine(openCommandLine(effect.prompt));
+						break;
+					case "notice":
+						log(effect.notice.level, effect.notice.message);
+						break;
+					case "clipboard":
+						setToolCopyPreview(effect.mode);
+						openClipboardConfirmation(effect.preview);
+						break;
+					case "persist-history-preferences":
+					case "persist-target-presets":
+					case "run":
+					case "export":
+						void applyToolsInputIoEffect(effect);
+						break;
+				}
 			}
-			openClipboardConfirmation(preview);
 			return;
 		}
 
-		if (focusArea === "remotes" && input === "E") {
-			const profile = resolveRemoteProfileSelection(
-				remoteProfiles,
-				selectedRemoteIndex,
-			).profile;
-			const plan = createRemoteKnownHostsSelectionHistoryAuditExportPlan(
-				statusActivityResults,
-				{
-					baseDir: dirname(getConfigPath()),
-					selectedProfileId: profile?.id,
-					limit: 25,
-				},
-			);
-			if (!plan) {
-				log("warn", "no remote known_hosts selection history to export");
-				return;
+		const remotesCommand =
+			workspaceInputFamily === "remotes-focus"
+				? getRemotesFocusCommand(input)
+				: undefined;
+		if (remotesCommand === "copy-history") {
+			const transition = prepareRemoteHistoryClipboardInput({
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				results: statusActivityResults,
+			});
+			if (transition.kind === "copy") {
+				openClipboardConfirmation(transition.preview);
+			} else {
+				log(transition.notice.level, transition.notice.message);
 			}
-			void writeRemoteKnownHostsSelectionHistoryAuditExport(plan)
-				.then((written) => {
-					setLastStatusActivityCopyIntentAuditExport(written);
-					log(
-						"ok",
-						`remote known_hosts selection history exported ${written.path} events=${written.eventCount}`,
-					);
-					void refreshAuditExportIndex(false);
-				})
-				.catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `remote known_hosts selection history export failed ${caught.message}`
-							: `remote known_hosts selection history export failed ${String(caught)}`,
-					),
-				);
 			return;
 		}
 
-		if (focusArea === "remotes" && input === "X") {
+		if (remotesCommand === "export-history") {
+			const transition = prepareRemoteHistoryExportInput({
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+				results: statusActivityResults,
+				baseDir: dirname(getConfigPath()),
+			});
+			if (transition.kind === "notice") {
+				log(transition.notice.level, transition.notice.message);
+				return;
+			}
+			void exportRemoteHistoryInput(transition.plan);
+			return;
+		}
+
+		if (remotesCommand === "cancel") {
 			cancelPendingRemoteConnect();
 			return;
 		}
 
-		if (focusArea === "remotes" && input === "R") {
+		if (remotesCommand === "retry") {
 			const transition = prepareRemoteRetry({
 				profiles: remoteProfiles,
 				selectedIndex: selectedRemoteIndex,
@@ -11372,7 +9287,7 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (focusArea === "remotes" && input === "c") {
+		if (remotesCommand === "connect") {
 			const transition = prepareRemoteConnectPrompt({
 				profiles: remoteProfiles,
 				selectedIndex: selectedRemoteIndex,
@@ -11391,216 +9306,84 @@ export function App(): React.ReactElement {
 			return;
 		}
 
-		if (focusArea === "remotes" && input === "e") {
-			const profile = resolveRemoteProfileSelection(
-				remoteProfiles,
-				selectedRemoteIndex,
-			).profile;
-			if (!profile) {
-				log("warn", "no remote profile selected");
-				return;
+		if (
+			remotesCommand === "host-key-evidence" ||
+			remotesCommand === "known-hosts-candidate" ||
+			remotesCommand === "known-hosts-paste" ||
+			remotesCommand === "known-hosts-select" ||
+			remotesCommand === "host-trust"
+		) {
+			const transition = prepareRemotePromptInput({
+				command: remotesCommand,
+				profiles: remoteProfiles,
+				selectedIndex: selectedRemoteIndex,
+			});
+			if (transition.kind === "prompt") {
+				setSelectedRemoteIndex(transition.selectedIndex);
+				setCommandLine(openCommandLine(transition.prompt));
 			}
-			const evidenceInput = createRemoteHostKeyEvidenceInput(profile);
-			setCommandLine(openCommandLine("remote-host-key-evidence"));
-			log(
-				"info",
-				`remote host key evidence input opened ${evidenceInput.confirm}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 			return;
 		}
 
-		if (focusArea === "remotes" && input === "K") {
-			const profile = resolveRemoteProfileSelection(
-				remoteProfiles,
-				selectedRemoteIndex,
-			).profile;
-			if (!profile) {
-				log("warn", "no remote profile selected");
-				return;
-			}
-			setCommandLine(openCommandLine("remote-known-hosts-candidate"));
-			log("info", `remote known_hosts candidate input opened ${profile.id}`);
-			return;
-		}
-
-		if (focusArea === "remotes" && input === "P") {
-			const profile = resolveRemoteProfileSelection(
-				remoteProfiles,
-				selectedRemoteIndex,
-			).profile;
-			if (!profile) {
-				log("warn", "no remote profile selected");
-				return;
-			}
-			setCommandLine(openCommandLine("remote-known-hosts-paste"));
-			log("info", `remote known_hosts paste review opened ${profile.id}`);
-			return;
-		}
-
-		if (focusArea === "remotes" && input === "S") {
-			const profile = resolveRemoteProfileSelection(
-				remoteProfiles,
-				selectedRemoteIndex,
-			).profile;
-			if (!profile) {
-				log("warn", "no remote profile selected");
-				return;
-			}
-			setCommandLine(openCommandLine("remote-known-hosts-select"));
-			log(
-				"info",
-				`remote known_hosts candidate selection opened ${profile.id}`,
-			);
-			return;
-		}
-
-		if (focusArea === "remotes" && input === "]") {
+		if (remotesCommand === "paste-next") {
 			moveRemoteKnownHostsPasteReviewSelectionCommand("next");
 			return;
 		}
 
-		if (focusArea === "remotes" && input === "[") {
+		if (remotesCommand === "paste-previous") {
 			moveRemoteKnownHostsPasteReviewSelectionCommand("previous");
 			return;
 		}
 
-		if (focusArea === "remotes" && /^[1-9]$/.test(input)) {
-			selectRemoteKnownHostsPasteReviewCandidateCommand(Number(input));
+		if (remotesCommand === "paste-number") {
+			const transition = prepareRemotePasteNumberInput(input);
+			selectRemoteKnownHostsPasteReviewCandidateCommand(
+				transition.candidateIndex,
+			);
 			return;
 		}
 
-		if (focusArea === "remotes" && input === "t") {
-			const profile = resolveRemoteProfileSelection(
-				remoteProfiles,
-				selectedRemoteIndex,
-			).profile;
-			if (!profile) {
-				log("warn", "no remote profile selected");
-				return;
-			}
-			const preview = createRemoteHostKeyTrustDecisionPreview(profile);
-			setCommandLine(openCommandLine("remote-host-trust"));
-			log("info", `remote host trust review opened ${preview.confirm}`);
-			return;
-		}
-
-		if (key.escape) {
-			setFocusArea((current) => leaveFocus(current));
-		}
-
-		if (key.rightArrow || input === "l") {
-			if (focusArea === "actions") {
-				setFocusArea("workspaces");
-			} else {
-				setScreen((current) => moveScreen(current, "next"));
-			}
-		}
-		if (key.leftArrow || input === "h") {
-			if (focusArea === "actions" || focusArea === "remotes") {
-				setFocusArea("workspaces");
-			} else {
-				setScreen((current) => moveScreen(current, "previous"));
-			}
-		}
-
-		if (key.downArrow || input === "j") {
-			if (focusArea === "actions") {
-				setSelectedActionIndex((index) =>
-					getNextIndex(index, actions.length, "next"),
-				);
-			} else if (focusArea === "remotes") {
-				setSelectedRemoteIndex((index) =>
-					moveRemoteProfileSelection(remoteProfiles, index, "next"),
-				);
-			} else if (screen === "editor" && editorPreview) {
-				const transition = transitionEditorMoveCursor({
-					buffer: editorPreview,
-					selectedLineIndex: selectedEditorLineIndex,
-					direction: "next",
-				});
-				setSelectedEditorLineIndex(transition.selectedLineIndex);
-			} else if (screen === "interfaces") {
-				const transition = prepareInterfaceSelectionTransition({
-					direction: "down",
-					selectedIndex: selectedInterfaceIndex,
-					summary,
-				});
-				if (transition.kind === "selection") {
-					setSelectedInterfaceIndex(transition.selectedIndex);
-					setInterfaceSourceCopyPreview(transition.copyPreview);
-					setInterfaceStateProposal(transition.proposal);
-					setInterfaceConfirmationResult(transition.confirmationResult);
-				}
-			} else if (screen === "tools") {
-				setSelectedToolHistoryIndex((index) =>
-					toolHistoryFilter || toolHistorySort !== "time"
-						? moveFilteredToolHistorySelection(
-								toolHistory,
-								index,
-								toolHistoryFilter,
-								"next",
-								toolHistorySort,
-							)
-						: moveToolHistorySelection(index, toolHistory.length, "next"),
-				);
-				setToolSectionClipboardRowIndex(0);
-				setToolCopyPreview(false);
-			} else {
-				setScreen((current) => moveScreen(current, "next"));
-			}
-		}
-
-		if (key.upArrow || input === "k") {
-			if (focusArea === "actions") {
-				setSelectedActionIndex((index) =>
-					getNextIndex(index, actions.length, "previous"),
-				);
-			} else if (focusArea === "remotes") {
-				setSelectedRemoteIndex((index) =>
-					moveRemoteProfileSelection(remoteProfiles, index, "previous"),
-				);
-			} else if (screen === "editor" && editorPreview) {
-				const transition = transitionEditorMoveCursor({
-					buffer: editorPreview,
-					selectedLineIndex: selectedEditorLineIndex,
-					direction: "previous",
-				});
-				setSelectedEditorLineIndex(transition.selectedLineIndex);
-			} else if (screen === "interfaces") {
-				const transition = prepareInterfaceSelectionTransition({
-					direction: "up",
-					selectedIndex: selectedInterfaceIndex,
-					summary,
-				});
-				if (transition.kind === "selection") {
-					setSelectedInterfaceIndex(transition.selectedIndex);
-					setInterfaceSourceCopyPreview(transition.copyPreview);
-					setInterfaceStateProposal(transition.proposal);
-					setInterfaceConfirmationResult(transition.confirmationResult);
-				}
-			} else if (screen === "tools") {
-				setSelectedToolHistoryIndex((index) =>
-					toolHistoryFilter || toolHistorySort !== "time"
-						? moveFilteredToolHistorySelection(
-								toolHistory,
-								index,
-								toolHistoryFilter,
-								"previous",
-								toolHistorySort,
-							)
-						: moveToolHistorySelection(index, toolHistory.length, "previous"),
-				);
-				setToolSectionClipboardRowIndex(0);
-				setToolCopyPreview(false);
-			} else {
-				setScreen((current) => moveScreen(current, "previous"));
-			}
-		}
-
-		const shortcut = getScreenByShortcut(input);
-		if (shortcut) {
-			setFocusArea("workspaces");
-			setScreen(shortcut);
+		const navigation = prepareGlobalNavigationInput({
+			input,
+			key,
+			screen,
+			focusArea,
+			actionsLength: actions.length,
+			selectedActionIndex,
+			remoteProfiles,
+			selectedRemoteIndex,
+			editorPreview,
+			selectedEditorLineIndex,
+			summary,
+			selectedInterfaceIndex,
+			toolHistory,
+			selectedToolHistoryIndex,
+			toolHistoryFilter,
+			toolHistorySort,
+		});
+		if (navigation.kind === "focus") {
+			setFocusArea(navigation.focusArea);
+		} else if (navigation.kind === "screen") {
+			setScreen(navigation.screen);
+		} else if (navigation.kind === "workspace") {
+			setFocusArea(navigation.focusArea);
+			setScreen(navigation.screen);
+		} else if (navigation.kind === "action-selection") {
+			setSelectedActionIndex(navigation.selectedIndex);
+		} else if (navigation.kind === "remote-selection") {
+			setSelectedRemoteIndex(navigation.selectedIndex);
+		} else if (navigation.kind === "editor-selection") {
+			setSelectedEditorLineIndex(navigation.selectedIndex);
+		} else if (navigation.kind === "interface-selection") {
+			setSelectedInterfaceIndex(navigation.transition.selectedIndex);
+			setInterfaceSourceCopyPreview(navigation.transition.copyPreview);
+			setInterfaceStateProposal(navigation.transition.proposal);
+			setInterfaceConfirmationResult(navigation.transition.confirmationResult);
+		} else if (navigation.kind === "tool-selection") {
+			setSelectedToolHistoryIndex(navigation.selectedIndex);
+			setToolSectionClipboardRowIndex(navigation.clipboardRowIndex);
+			setToolCopyPreview(navigation.copyPreview);
 		}
 	});
 
@@ -12746,9 +10529,9 @@ function renderWorkspace(
 			);
 		const selectedInterfaceConfirmationEvidence =
 			filteredInterfaceEvidenceExports[
-				Math.min(
+				clampIndex(
 					selectedInterfaceConfirmationAuditExportIndex,
-					Math.max(0, filteredInterfaceEvidenceExports.length - 1),
+					filteredInterfaceEvidenceExports.length,
 				)
 			];
 		const selectedInterfaceConfirmationAuditExport =

@@ -31,6 +31,7 @@ import {
 	resolvePathLike,
 	samePathLike,
 } from "../utils/pathStyle";
+import type { ToolsWorkspaceCommand } from "./appInputDispatcher";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
@@ -325,6 +326,663 @@ export type ToolCopyPreviewMode =
 	| ToolSectionClipboardSelection
 	| "row"
 	| false;
+
+const toolHistoryLimit = 12;
+
+export type ToolHistoryExportSnapshot = {
+	history: ToolHistoryItem[];
+	selectedIndex: number;
+	scope: ToolHistoryExportScope;
+};
+
+export type ToolHistoryExportPublicationSnapshot = {
+	target: "active";
+	baseDir: string;
+	selectedIndex: number;
+	filter: ToolHistoryEvidenceFilter;
+	query: string;
+};
+
+export type ToolHistoryExportContext = {
+	baseDir: string;
+	generatedAt?: Date;
+	publication: Omit<ToolHistoryExportPublicationSnapshot, "target" | "baseDir">;
+};
+
+export type ToolsWorkspaceInput = {
+	command: ToolsWorkspaceCommand | undefined;
+	input: string;
+	key: { home?: boolean; end?: boolean };
+	history: ToolHistoryItem[];
+	selectedHistoryIndex: number;
+	filter: string;
+	filterPresets: string[];
+	sort: ToolHistorySort;
+	group: ToolHistoryGroup;
+	detail: ToolHistoryDetailView;
+	customTargetPresets: ToolTargetPreset[];
+	targetPresets: ToolTargetPreset[];
+	selectedTargetIndex: number;
+	targetPresetLimit: number;
+	copySection: ToolSectionClipboardSelection;
+	copyRowIndex: number;
+	exportContext: ToolHistoryExportContext;
+};
+
+export type ToolsWorkspaceInputEffect =
+	| { kind: "history-selection"; selectedIndex: number }
+	| { kind: "filter"; filter: string }
+	| { kind: "filter-presets"; presets: string[] }
+	| { kind: "sort"; sort: ToolHistorySort }
+	| { kind: "group"; group: ToolHistoryGroup }
+	| { kind: "detail"; detail: ToolHistoryDetailView }
+	| { kind: "target-selection"; selectedIndex: number }
+	| { kind: "target-presets"; presets: ToolTargetPreset[] }
+	| { kind: "copy-preview"; mode: ToolCopyPreviewMode }
+	| { kind: "copy-section"; section: ToolSectionClipboardSelection }
+	| { kind: "copy-row"; rowIndex: number }
+	| {
+			kind: "prompt";
+			prompt:
+				| "tool-filter"
+				| "tool-history-cleanup"
+				| "tool-target-label"
+				| "tool-target-value"
+				| "tool-target-action"
+				| "tool-target-cleanup";
+	  }
+	| {
+			kind: "notice";
+			notice: { level: "ok" | "info" | "warn" | "fail"; message: string };
+	  }
+	| {
+			kind: "persist-history-preferences";
+			preferences: {
+				filterPresets?: string[];
+				sort?: ToolHistorySort;
+				group?: ToolHistoryGroup;
+				detailView?: ToolHistoryDetailView;
+			};
+			failureMessagePrefix: string;
+	  }
+	| {
+			kind: "persist-target-presets";
+			presets: ToolTargetPreset[];
+			failureMessagePrefix: string;
+	  }
+	| {
+			kind: "run";
+			source: "rerun" | "target";
+			plan: ToolRunPlan;
+			completionNotice: string;
+	  }
+	| {
+			kind: "clipboard";
+			mode: Exclude<ToolCopyPreviewMode, false>;
+			preview: ClipboardPreview;
+	  }
+	| {
+			kind: "export";
+			plan: ToolHistoryExportPlan;
+			publication: ToolHistoryExportPublicationSnapshot;
+			notice: ToolHistoryEvidenceNotice;
+	  };
+
+export type ToolsWorkspaceInputTransition =
+	| { kind: "unhandled" }
+	| { kind: "handled"; effects: ToolsWorkspaceInputEffect[] };
+
+export function prepareToolsWorkspaceInput(
+	input: ToolsWorkspaceInput,
+): ToolsWorkspaceInputTransition {
+	const command = input.command;
+	switch (command) {
+		case undefined:
+			return { kind: "unhandled" };
+		case "open-filter":
+			return handledToolsWorkspaceInput(
+				{ kind: "prompt", prompt: "tool-filter" },
+				createToolsWorkspaceNotice("info", "tool history filter opened"),
+			);
+		case "clear-filter":
+			return handledToolsWorkspaceInput(
+				{ kind: "filter", filter: "" },
+				{ kind: "copy-preview", mode: false },
+				{
+					kind: "history-selection",
+					selectedIndex: clampIndex(
+						input.selectedHistoryIndex,
+						input.history.length,
+					),
+				},
+				createToolsWorkspaceNotice("info", "tool history filter cleared"),
+			);
+		case "save-filter": {
+			if (!input.filter.trim()) {
+				return handledToolsWorkspaceInput(
+					createToolsWorkspaceNotice("warn", "no tools filter to save"),
+				);
+			}
+			const presets = saveToolHistoryPreset(input.filterPresets, input.filter);
+			return handledToolsWorkspaceInput(
+				{ kind: "filter-presets", presets },
+				{
+					kind: "persist-history-preferences",
+					preferences: { filterPresets: presets },
+					failureMessagePrefix: "tools preset save failed",
+				},
+				createToolsWorkspaceNotice(
+					"info",
+					`tools preset saved ${input.filter}`,
+				),
+			);
+		}
+		case "cleanup-filter": {
+			const preview = createToolHistoryCleanupPreview(input.filterPresets);
+			if (!preview) {
+				return handledToolsWorkspaceInput(
+					createToolsWorkspaceNotice(
+						"warn",
+						"no tools filter presets to clean",
+					),
+				);
+			}
+			return handledToolsWorkspaceInput(
+				{ kind: "prompt", prompt: "tool-history-cleanup" },
+				{ kind: "copy-preview", mode: false },
+				createToolsWorkspaceNotice(
+					"warn",
+					`tool history filter cleanup confirm ${preview.confirmationPhrase}`,
+				),
+			);
+		}
+		case "cycle-filter-preset": {
+			const preset = nextToolHistoryPreset(input.filterPresets, input.filter);
+			if (!preset) {
+				return handledToolsWorkspaceInput(
+					createToolsWorkspaceNotice("warn", "no tools filter presets"),
+				);
+			}
+			const filtered = filterToolHistory(input.history, preset);
+			return handledToolsWorkspaceInput(
+				{ kind: "filter", filter: preset },
+				{ kind: "copy-preview", mode: false },
+				{
+					kind: "history-selection",
+					selectedIndex: filtered[0]?.index ?? 0,
+				},
+				createToolsWorkspaceNotice(
+					filtered.length ? "info" : "warn",
+					`tools preset ${preset} matches ${filtered.length}`,
+				),
+			);
+		}
+		case "detail-shortcut": {
+			const detail = getToolHistoryDetailViewShortcut(input.input, input.key);
+			return detail
+				? prepareToolsWorkspaceDetailTransition(detail)
+				: { kind: "unhandled" };
+		}
+		case "cycle-detail":
+			return prepareToolsWorkspaceDetailTransition(
+				nextToolHistoryDetailView(input.detail),
+			);
+		case "cycle-sort": {
+			const sort = nextToolHistorySort(input.sort);
+			return handledToolsWorkspaceInput(
+				{ kind: "sort", sort },
+				{
+					kind: "persist-history-preferences",
+					preferences: { sort },
+					failureMessagePrefix: "tools sort save failed",
+				},
+				{ kind: "copy-preview", mode: false },
+				createToolsWorkspaceNotice("info", `tools sort ${sort}`),
+			);
+		}
+		case "cycle-group": {
+			const group = nextToolHistoryGroup(input.group);
+			return handledToolsWorkspaceInput(
+				{ kind: "group", group },
+				{
+					kind: "persist-history-preferences",
+					preferences: { group },
+					failureMessagePrefix: "tools group save failed",
+				},
+				{ kind: "copy-preview", mode: false },
+				createToolsWorkspaceNotice("info", `tools group ${group}`),
+			);
+		}
+		case "rerun": {
+			const selectedIndex = getVisibleToolHistoryIndex(
+				input.history,
+				input.selectedHistoryIndex,
+				input.filter,
+				input.sort,
+			);
+			const plan = rerunToolHistoryItem(
+				getSelectedToolHistoryItem(input.history, selectedIndex),
+			);
+			return plan
+				? handledToolsWorkspaceInput({
+						kind: "run",
+						source: "rerun",
+						plan,
+						completionNotice: `${plan.label} rerun completed`,
+					})
+				: handledToolsWorkspaceInput(
+						createToolsWorkspaceNotice("warn", "no tool history selected"),
+					);
+		}
+		case "select-target-next":
+		case "select-target-previous": {
+			const transition = selectToolTargetPresetTransition(
+				input.targetPresets,
+				input.selectedTargetIndex,
+				input.command === "select-target-previous" ? "previous" : "next",
+			);
+			return handledToolsWorkspaceInput(
+				{ kind: "target-selection", selectedIndex: transition.selectedIndex },
+				...(transition.notice
+					? [
+							createToolsWorkspaceNotice(
+								transition.notice.level,
+								transition.notice.message,
+							),
+						]
+					: []),
+				{ kind: "copy-preview", mode: false },
+			);
+		}
+		case "save-target":
+			return prepareToolsWorkspaceTargetMutation(
+				saveSelectedToolTargetPresetTransition({
+					presets: input.customTargetPresets,
+					targetPresets: input.targetPresets,
+					selectedIndex: input.selectedTargetIndex,
+					limit: input.targetPresetLimit,
+				}),
+				"tool target save failed",
+			);
+		case "promote-target":
+			return prepareToolsWorkspaceTargetMutation(
+				promoteToolTargetPresetTransition({
+					presets: input.customTargetPresets,
+					targetPresets: input.targetPresets,
+					selectedIndex: input.selectedTargetIndex,
+				}),
+				"tool target pin failed",
+			);
+		case "remove-target":
+			return prepareToolsWorkspaceTargetMutation(
+				removeToolTargetPresetTransition({
+					presets: input.customTargetPresets,
+					targetPresets: input.targetPresets,
+					selectedIndex: input.selectedTargetIndex,
+				}),
+				"tool target delete failed",
+			);
+		case "prompt-target-cleanup":
+		case "prompt-target-label":
+		case "prompt-target-value":
+		case "prompt-target-action": {
+			const promptByCommand = {
+				"prompt-target-cleanup": "cleanup",
+				"prompt-target-label": "label",
+				"prompt-target-value": "value",
+				"prompt-target-action": "action",
+			} as const satisfies Record<
+				Extract<ToolsWorkspaceCommand, `prompt-target-${string}`>,
+				ToolTargetPrompt
+			>;
+			const transition = createToolTargetPromptIntent({
+				presets: input.customTargetPresets,
+				targetPresets: input.targetPresets,
+				selectedIndex: input.selectedTargetIndex,
+				prompt: promptByCommand[command],
+			});
+			const effects: ToolsWorkspaceInputEffect[] = [
+				{ kind: "target-selection", selectedIndex: transition.selectedIndex },
+			];
+			if (
+				transition.commandLine !== "preserve" &&
+				transition.commandLine !== "close"
+			) {
+				effects.push(
+					{ kind: "prompt", prompt: transition.commandLine },
+					{ kind: "copy-preview", mode: false },
+				);
+			}
+			effects.push(
+				createToolsWorkspaceNotice(
+					transition.notice.level,
+					transition.notice.message,
+				),
+			);
+			return { kind: "handled", effects };
+		}
+		case "run-target": {
+			const transition = createToolTargetRunIntent({
+				presets: input.targetPresets,
+				selectedIndex: input.selectedTargetIndex,
+			});
+			const effects: ToolsWorkspaceInputEffect[] = [
+				{ kind: "target-selection", selectedIndex: transition.selectedIndex },
+			];
+			if (transition.plan && transition.completionNotice) {
+				effects.push({
+					kind: "run",
+					source: "target",
+					plan: transition.plan,
+					completionNotice: transition.completionNotice,
+				});
+			} else if (transition.notice) {
+				effects.push(
+					createToolsWorkspaceNotice(
+						transition.notice.level,
+						transition.notice.message,
+					),
+				);
+			}
+			return { kind: "handled", effects };
+		}
+		case "copy-raw":
+			return prepareToolsWorkspaceClipboardTransition(
+				input,
+				"raw",
+				getSelectedToolOutputClipboardPreview,
+				"no tool output selected",
+			);
+		case "copy-summary":
+			return prepareToolsWorkspaceClipboardTransition(
+				input,
+				"summary",
+				getSelectedToolSummaryClipboardPreview,
+				"no tool summary selected",
+			);
+		case "copy-compare":
+			return prepareToolsWorkspaceClipboardTransition(
+				input,
+				"compare",
+				getSelectedToolCompareClipboardPreview,
+				"no tool compare selected",
+			);
+		case "cycle-copy-section": {
+			const section = nextToolSectionClipboardSelection(input.copySection);
+			return handledToolsWorkspaceInput(
+				{ kind: "copy-section", section },
+				{ kind: "copy-row", rowIndex: 0 },
+				{ kind: "copy-preview", mode: false },
+				createToolsWorkspaceNotice("info", `tools copy section ${section}`),
+			);
+		}
+		case "move-copy-row-next":
+		case "move-copy-row-previous": {
+			const selectedIndex = getVisibleToolHistoryIndex(
+				input.history,
+				input.selectedHistoryIndex,
+				input.filter,
+				input.sort,
+			);
+			const rowIndex = moveToolSectionClipboardRow(
+				input.history,
+				selectedIndex,
+				input.copySection,
+				input.copyRowIndex,
+				input.command === "move-copy-row-next" ? "next" : "previous",
+			);
+			return handledToolsWorkspaceInput(
+				{ kind: "copy-row", rowIndex },
+				{ kind: "copy-preview", mode: false },
+			);
+		}
+		case "copy-row": {
+			const selectedIndex = getToolsWorkspaceSelectedHistoryIndex(input);
+			const preview = getSelectedToolSectionRowClipboardPreview(
+				input.history,
+				selectedIndex,
+				input.copySection,
+				input.copyRowIndex,
+			);
+			return preview
+				? handledToolsWorkspaceInput({
+						kind: "clipboard",
+						mode: "row",
+						preview,
+					})
+				: handledToolsWorkspaceInput(
+						createToolsWorkspaceNotice(
+							"warn",
+							`no tool ${input.copySection} row selected`,
+						),
+					);
+		}
+		case "copy-section": {
+			const selectedIndex = getToolsWorkspaceSelectedHistoryIndex(input);
+			const preview = getSelectedToolSectionClipboardPreview(
+				input.history,
+				selectedIndex,
+				input.copySection,
+			);
+			return preview
+				? handledToolsWorkspaceInput({
+						kind: "clipboard",
+						mode: input.copySection,
+						preview,
+					})
+				: handledToolsWorkspaceInput(
+						createToolsWorkspaceNotice(
+							"warn",
+							`no tool ${input.copySection} fields selected`,
+						),
+					);
+		}
+		case "export-selected":
+			return prepareToolsWorkspaceExportTransition(input, "selected");
+		case "export-all":
+			return prepareToolsWorkspaceExportTransition(input, "all");
+		case "export-compare":
+			return prepareToolsWorkspaceExportTransition(input, "compare");
+	}
+	return assertNeverToolsWorkspaceCommand(command);
+}
+
+function assertNeverToolsWorkspaceCommand(command: never): never {
+	throw new Error(`Unhandled Tools workspace command: ${String(command)}`);
+}
+
+function handledToolsWorkspaceInput(
+	...effects: ToolsWorkspaceInputEffect[]
+): ToolsWorkspaceInputTransition {
+	return { kind: "handled", effects };
+}
+
+function createToolsWorkspaceNotice(
+	level: "ok" | "info" | "warn" | "fail",
+	message: string,
+): Extract<ToolsWorkspaceInputEffect, { kind: "notice" }> {
+	return { kind: "notice", notice: { level, message } };
+}
+
+function prepareToolsWorkspaceDetailTransition(
+	detail: ToolHistoryDetailView,
+): ToolsWorkspaceInputTransition {
+	return handledToolsWorkspaceInput(
+		{ kind: "detail", detail },
+		{
+			kind: "persist-history-preferences",
+			preferences: { detailView: detail },
+			failureMessagePrefix: "tools detail save failed",
+		},
+		{ kind: "copy-preview", mode: false },
+		createToolsWorkspaceNotice("info", `tools detail ${detail}`),
+	);
+}
+
+function prepareToolsWorkspaceTargetMutation(
+	transition: ToolTargetPresetTransition,
+	failureMessagePrefix: string,
+): ToolsWorkspaceInputTransition {
+	const effects: ToolsWorkspaceInputEffect[] = [
+		{ kind: "target-selection", selectedIndex: transition.selectedIndex },
+		createToolsWorkspaceNotice(
+			transition.notice.level,
+			transition.notice.message,
+		),
+	];
+	if (transition.changed) {
+		effects.push(
+			{ kind: "target-presets", presets: transition.presets },
+			{
+				kind: "persist-target-presets",
+				presets: transition.presets,
+				failureMessagePrefix,
+			},
+			{ kind: "copy-preview", mode: false },
+		);
+	}
+	return { kind: "handled", effects };
+}
+
+function getToolsWorkspaceSelectedHistoryIndex(
+	input: ToolsWorkspaceInput,
+): number {
+	return getVisibleToolHistoryIndex(
+		input.history,
+		input.selectedHistoryIndex,
+		input.filter,
+		input.sort,
+	);
+}
+
+function prepareToolsWorkspaceClipboardTransition(
+	input: ToolsWorkspaceInput,
+	mode: "raw" | "summary" | "compare",
+	createPreview: (
+		history: ToolHistoryItem[],
+		selectedIndex: number,
+	) => ClipboardPreview | undefined,
+	emptyMessage: string,
+): ToolsWorkspaceInputTransition {
+	const preview = createPreview(
+		input.history,
+		getToolsWorkspaceSelectedHistoryIndex(input),
+	);
+	return preview
+		? handledToolsWorkspaceInput({ kind: "clipboard", mode, preview })
+		: handledToolsWorkspaceInput(
+				createToolsWorkspaceNotice("warn", emptyMessage),
+			);
+}
+
+function prepareToolsWorkspaceExportTransition(
+	input: ToolsWorkspaceInput,
+	scope: ToolHistoryExportScope,
+): ToolsWorkspaceInputTransition {
+	const effect = prepareToolHistoryExportEffect({
+		history: input.history,
+		selectedIndex: getToolsWorkspaceSelectedHistoryIndex(input),
+		scope,
+		context: input.exportContext,
+	});
+	return handledToolsWorkspaceInput(effect);
+}
+
+export function prepareToolHistoryExportEffect(input: {
+	history: ToolHistoryItem[];
+	selectedIndex: number;
+	scope: ToolHistoryExportScope;
+	context: ToolHistoryExportContext;
+}): Extract<
+	ToolsWorkspaceInputEffect,
+	{ kind: "export" } | { kind: "notice" }
+> {
+	const snapshot = createToolHistoryExportSnapshot(
+		input.history,
+		input.selectedIndex,
+		input.scope,
+	);
+	if (!snapshot) {
+		return createToolsWorkspaceNotice("warn", "no tool history to export");
+	}
+	const transition = prepareToolHistoryExport(
+		snapshot.history,
+		snapshot.selectedIndex,
+		snapshot.scope,
+		{
+			baseDir: input.context.baseDir,
+			...(input.context.generatedAt
+				? { generatedAt: input.context.generatedAt }
+				: {}),
+		},
+	);
+	if (transition.kind === "notice") {
+		return createToolsWorkspaceNotice(
+			transition.notice.level,
+			transition.notice.message,
+		);
+	}
+	return {
+		kind: "export",
+		plan: transition.plan,
+		publication: {
+			target: "active",
+			baseDir: input.context.baseDir,
+			...input.context.publication,
+		},
+		notice: transition.notice,
+	};
+}
+
+export function createToolHistoryExportSnapshot(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	scope: ToolHistoryExportScope,
+): ToolHistoryExportSnapshot | undefined {
+	const selected = getSelectedToolHistoryItem(history, selectedIndex);
+	if (!selected) {
+		return undefined;
+	}
+
+	if (scope === "selected") {
+		return {
+			history: [cloneToolHistoryItem(selected)],
+			selectedIndex: 0,
+			scope,
+		};
+	}
+	if (scope === "compare") {
+		const previous = findPreviousMatchingToolHistoryItem(
+			history,
+			selectedIndex,
+			selected,
+		);
+		const snapshot = previous ? [previous, selected] : [selected];
+		return {
+			history: snapshot.map(cloneToolHistoryItem),
+			selectedIndex: snapshot.length - 1,
+			scope,
+		};
+	}
+
+	const startIndex = Math.max(0, history.length - toolHistoryLimit);
+	const snapshot = history.slice(startIndex).map(cloneToolHistoryItem);
+	return {
+		history: snapshot,
+		selectedIndex: clampIndex(selectedIndex - startIndex, snapshot.length),
+		scope,
+	};
+}
+
+function cloneToolHistoryItem(item: ToolHistoryItem): ToolHistoryItem {
+	return {
+		...item,
+		plan: {
+			...item.plan,
+			args: [...item.plan.args],
+		},
+	};
+}
 
 const toolCopyPreviewValueLimit = 64;
 
@@ -762,7 +1420,7 @@ export function appendToolHistory(
 		status?: "ok" | "fail";
 	},
 	time = new Date().toLocaleTimeString("en-US", { hour12: false }),
-	limit = 12,
+	limit = toolHistoryLimit,
 ): ToolHistoryItem[] {
 	const item: ToolHistoryItem = {
 		id: createToolHistoryId(time, input.plan.label),

@@ -432,6 +432,30 @@ describe("interface TUI panel formatting", () => {
 		});
 	});
 
+	test("resolves interface export and open input into complete handoff payloads", () => {
+		const generatedAt = new Date("2026-08-09T01:02:03.000Z");
+		for (const action of ["export", "open"] as const) {
+			const decision = prepareInterfacePanelInput({
+				input: action === "export" ? "e" : "o",
+				selectedIndex: 0,
+				summary: fixture,
+				view: "source",
+				handoff: { baseDir: "/tmp/picos", generatedAt },
+			});
+			expect(decision).toMatchObject({
+				kind: "source-handoff",
+				action,
+				baseDir: "/tmp/picos",
+				selectedIndex: 0,
+				plan: {
+					path: "/tmp/picos/interfaces/picos-interfaces-source-2026-08-09T010203000Z.md",
+					label: "interface source evidence en0",
+					view: "source",
+				},
+			});
+		}
+	});
+
 	test("requires a proposal and preserves exact confirmation mismatch audit", () => {
 		expect(
 			prepareInterfacePanelInput({

@@ -15,14 +15,21 @@ import {
 	clearFileFilter,
 	closeFileFilter,
 	type FileFilterState,
+	openFileFilter,
 } from "./fileFilter";
 import { prepareFileHistoryMove, prepareFileNavigation } from "./fileHistory";
 import {
 	type FileOperationCommandLineInputTransition,
 	type FileOperationDialogState,
+	type FileOperationDialogTransition,
 	prepareFileOperationCommandLineInput,
+	prepareSelectedFileOperationOpen,
 } from "./fileOperationDialog";
-import { getSelectedFileEntry, moveFileSelection } from "./fileSelection";
+import {
+	getSelectedFileEntry,
+	getSelectedFilePathClipboardIntent,
+	moveFileSelection,
+} from "./fileSelection";
 import {
 	clampIndex,
 	type FocusArea,
@@ -491,15 +498,36 @@ export type FileWorkspaceInputTransition =
 	| { action: "unhandled" }
 	| { action: "enter-focus"; focusArea: "files"; notice: FileWorkspaceNotice }
 	| { action: "leave-focus"; focusArea: "workspaces" }
-	| { action: "open-selected" }
-	| { action: "parent" }
-	| { action: "history"; direction: "back" | "forward" }
-	| { action: "clipboard" }
-	| { action: "filter"; selectedIndex: 0; notice: FileWorkspaceNotice }
-	| { action: "operation"; kind: "copy" | "move" | "delete" }
+	| { action: "open-selected"; transition: SelectedFileOpenTransition }
+	| {
+			action: "parent";
+			transition: ReturnType<typeof prepareParentFileNavigation>;
+	  }
+	| {
+			action: "history";
+			direction: "back" | "forward";
+			transition: ReturnType<typeof prepareFileHistoryNavigation>;
+	  }
+	| {
+			action: "clipboard";
+			intent: ReturnType<typeof getSelectedFilePathClipboardIntent>;
+	  }
+	| {
+			action: "filter";
+			filter: FileFilterState;
+			selectedIndex: 0;
+			notice: FileWorkspaceNotice;
+	  }
+	| { action: "operation"; transition: FileOperationDialogTransition }
 	| { action: "disconnect" }
-	| { action: "next-location" }
-	| { action: "location"; locationIndex: number }
+	| {
+			action: "next-location";
+			transition: ReturnType<typeof prepareFileLocationNavigation>;
+	  }
+	| {
+			action: "location";
+			transition: ReturnType<typeof prepareFileLocationNavigation>;
+	  }
 	| { action: "path"; notice: FileWorkspaceNotice }
 	| { action: "select"; selectedIndex: number }
 	| { action: "notice"; notice: FileWorkspaceNotice };
@@ -517,6 +545,12 @@ export function prepareFileWorkspaceInput(input: {
 	selectedIndex: number;
 	providerKind: FileProviderKind;
 	locationCount: number;
+	root: string;
+	backHistory: string[];
+	forwardHistory: string[];
+	locations: FileLocation[];
+	selectedLocationIndex: number;
+	filterQuery?: string;
 }): FileWorkspaceInputTransition {
 	const enter = input.return || input.input === "\r";
 	if (input.screen === "files" && input.focusArea === "workspaces" && enter) {
@@ -529,23 +563,65 @@ export function prepareFileWorkspaceInput(input: {
 	if (input.screen !== "files" || input.focusArea !== "files") {
 		return { action: "unhandled" };
 	}
-	if (enter) return { action: "open-selected" };
-	if (input.input === "u") return { action: "parent" };
-	if (input.input === "b") return { action: "history", direction: "back" };
-	if (input.input === "B") return { action: "history", direction: "forward" };
-	if (input.input === "y") return { action: "clipboard" };
+	if (enter) {
+		return {
+			action: "open-selected",
+			transition: prepareSelectedFileOpen({
+				entries: input.entries,
+				selectedIndex: input.selectedIndex,
+				root: input.root,
+				backHistory: input.backHistory,
+				forwardHistory: input.forwardHistory,
+			}),
+		};
+	}
+	if (input.input === "u") {
+		return {
+			action: "parent",
+			transition: prepareParentFileNavigation(input),
+		};
+	}
+	if (input.input === "b" || input.input === "B") {
+		const direction = input.input === "b" ? "back" : "forward";
+		return {
+			action: "history",
+			direction,
+			transition: prepareFileHistoryNavigation({
+				direction,
+				root: input.root,
+				backHistory: input.backHistory,
+				forwardHistory: input.forwardHistory,
+			}),
+		};
+	}
+	if (input.input === "y") {
+		return {
+			action: "clipboard",
+			intent: getSelectedFilePathClipboardIntent(
+				input.entries,
+				input.selectedIndex,
+			),
+		};
+	}
 	if (input.input === "f") {
 		return {
 			action: "filter",
+			filter: openFileFilter(input.filterQuery ?? ""),
 			selectedIndex: 0,
 			notice: { level: "info", message: "file filter opened" },
 		};
 	}
 	if (input.input === "c" || input.input === "m" || input.input === "x") {
+		const kind =
+			input.input === "c" ? "copy" : input.input === "m" ? "move" : "delete";
 		return {
 			action: "operation",
-			kind:
-				input.input === "c" ? "copy" : input.input === "m" ? "move" : "delete",
+			transition: prepareSelectedFileOperationOpen({
+				kind,
+				entries: input.entries,
+				selectedIndex: input.selectedIndex,
+				providerKind: input.providerKind,
+			}),
 		};
 	}
 	if (input.input === "L" && input.providerKind === "sftp") {
@@ -561,7 +637,20 @@ export function prepareFileWorkspaceInput(input: {
 							"close the SFTP session with L before using local locations",
 					},
 				}
-			: { action: "next-location" };
+			: {
+					action: "next-location",
+					transition: prepareFileLocationNavigation({
+						locationIndex:
+							prepareNextFileLocationIndex(
+								input.selectedLocationIndex,
+								input.locations.length,
+							) ?? 0,
+						locations: input.locations,
+						root: input.root,
+						backHistory: input.backHistory,
+						forwardHistory: input.forwardHistory,
+					}),
+				};
 	}
 	if (input.providerKind === "local") {
 		const locationIndex = getLocationShortcutIndex(
@@ -569,7 +658,16 @@ export function prepareFileWorkspaceInput(input: {
 			input.locationCount,
 		);
 		if (locationIndex !== undefined) {
-			return { action: "location", locationIndex };
+			return {
+				action: "location",
+				transition: prepareFileLocationNavigation({
+					locationIndex,
+					locations: input.locations,
+					root: input.root,
+					backHistory: input.backHistory,
+					forwardHistory: input.forwardHistory,
+				}),
+			};
 		}
 	}
 	if (input.input === ":") {

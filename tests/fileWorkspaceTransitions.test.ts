@@ -34,6 +34,14 @@ const locations: FileLocation[] = [
 	{ label: "Workspace", path: "/workspace", kind: "workspace" },
 ];
 
+const fileWorkspaceContext = {
+	root: "/workspace",
+	backHistory: ["/"],
+	forwardHistory: ["/old"],
+	locations,
+	selectedLocationIndex: 0,
+};
+
 const remoteContext = {
 	id: "staging",
 	kind: "sftp" as const,
@@ -524,6 +532,7 @@ describe("Files workspace transitions", () => {
 	test("owns Files focus guards, movement, and product bindings", () => {
 		expect(
 			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
 				screen: "files",
 				focusArea: "workspaces",
 				input: "\r",
@@ -540,6 +549,7 @@ describe("Files workspace transitions", () => {
 
 		expect(
 			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
 				screen: "files",
 				focusArea: "files",
 				input: "j",
@@ -552,6 +562,41 @@ describe("Files workspace transitions", () => {
 
 		expect(
 			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
+				screen: "files",
+				focusArea: "files",
+				input: "y",
+				entries: [directory, file],
+				selectedIndex: 99,
+				providerKind: "local",
+				locationCount: locations.length,
+			}),
+		).toMatchObject({
+			action: "clipboard",
+			intent: { preview: { label: "file path README.md" } },
+		});
+
+		expect(
+			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
+				screen: "files",
+				focusArea: "files",
+				input: "f",
+				entries: [directory, file],
+				selectedIndex: 1,
+				providerKind: "local",
+				locationCount: locations.length,
+				filterQuery: "read",
+			}),
+		).toMatchObject({
+			action: "filter",
+			filter: { active: true, query: "read" },
+			selectedIndex: 0,
+		});
+
+		expect(
+			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
 				screen: "files",
 				focusArea: "files",
 				input: "g",
@@ -570,6 +615,7 @@ describe("Files workspace transitions", () => {
 
 		expect(
 			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
 				screen: "dashboard",
 				focusArea: "files",
 				input: "j",
@@ -579,6 +625,95 @@ describe("Files workspace transitions", () => {
 				locationCount: locations.length,
 			}),
 		).toEqual({ action: "unhandled" });
+	});
+
+	test("returns complete selected, navigation, location, and operation effects", () => {
+		expect(
+			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
+				screen: "files",
+				focusArea: "files",
+				input: "\r",
+				entries: [directory, file],
+				selectedIndex: 0,
+				providerKind: "local",
+				locationCount: locations.length,
+			}),
+		).toEqual({
+			action: "open-selected",
+			transition: {
+				action: "load",
+				request: {
+					path: "/workspace/src",
+					backHistory: ["/", "/workspace"],
+					forwardHistory: [],
+					notice: { level: "info", message: "entered /workspace/src" },
+				},
+			},
+		});
+
+		expect(
+			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
+				screen: "files",
+				focusArea: "files",
+				input: "b",
+				entries: [directory, file],
+				selectedIndex: 0,
+				providerKind: "local",
+				locationCount: locations.length,
+			}),
+		).toEqual({
+			action: "history",
+			direction: "back",
+			transition: {
+				action: "load",
+				request: {
+					path: "/",
+					backHistory: [],
+					forwardHistory: ["/old", "/workspace"],
+					notice: { level: "info", message: "back to /" },
+				},
+			},
+		});
+
+		expect(
+			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
+				screen: "files",
+				focusArea: "files",
+				input: "g",
+				entries: [directory, file],
+				selectedIndex: 0,
+				providerKind: "local",
+				locationCount: locations.length,
+			}),
+		).toMatchObject({
+			action: "next-location",
+			transition: {
+				action: "load",
+				request: { path: "/workspace", selectedLocationIndex: 1 },
+			},
+		});
+
+		expect(
+			prepareFileWorkspaceInput({
+				...fileWorkspaceContext,
+				screen: "files",
+				focusArea: "files",
+				input: "x",
+				entries: [directory, file],
+				selectedIndex: 1,
+				providerKind: "local",
+				locationCount: locations.length,
+			}),
+		).toMatchObject({
+			action: "operation",
+			transition: {
+				dialog: { active: true, preview: { kind: "delete" } },
+				commandLine: { action: "open", prompt: "file-operation-confirm" },
+			},
+		});
 	});
 
 	test("prepares parent, history, location, and typed-path loads", () => {

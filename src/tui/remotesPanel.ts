@@ -37,6 +37,7 @@ import {
 	requestReadOnlySftpConnectionCancellation,
 } from "../core/sftp";
 import type { SftpRemoteProfile } from "../core/types";
+import type { RemotesFocusCommand } from "./appInputDispatcher";
 import type { ClipboardPreview } from "./clipboardPreview";
 import type { ConsoleEvent } from "./events";
 import { clampIndex } from "./navigation";
@@ -46,6 +47,7 @@ import {
 	createRemoteHostKeyTrustReviewStatusActivityResult,
 	createRemoteKnownHostsEvidenceHandoffOpenCopyIntent,
 	createRemoteKnownHostsPasteSelectionStatusActivityResult,
+	createRemoteKnownHostsSelectionHistoryAuditExportPlan,
 	createRemoteKnownHostsSelectionHistoryEvidenceAuditExportPlan,
 	createRemoteKnownHostsSelectionHistoryEvidenceClipboardPreview,
 	createRemoteKnownHostsSelectionHistoryEvidencePaletteStatusActivityResult,
@@ -55,6 +57,7 @@ import {
 	formatRemoteKnownHostsSelectionHistoryEvidencePaletteAuditMessage,
 	formatStatusActivityCopyIntentAuditMessage,
 	formatStatusActivityResultTimelineJumpPaletteAuditMessage,
+	getRemoteKnownHostsSelectionHistoryClipboardPreview,
 	getSelectedStatusActivityRemoteKnownHostsEvidenceHandoff,
 	moveStatusActivityResultHistoryFilteredSelection,
 	type StatusActivityCopyIntentRecord,
@@ -125,6 +128,171 @@ export function moveRemoteProfileSelection(
 		(current + offset + profiles.length) % profiles.length,
 		profiles.length,
 	);
+}
+
+export type RemotePromptInputCommand = Extract<
+	RemotesFocusCommand,
+	| "host-key-evidence"
+	| "known-hosts-candidate"
+	| "known-hosts-paste"
+	| "known-hosts-select"
+	| "host-trust"
+>;
+
+export type RemotePromptInputTransition =
+	| { kind: "notice"; notice: RemotesPanelNotice }
+	| {
+			kind: "prompt";
+			selectedIndex: number;
+			prompt:
+				| "remote-host-key-evidence"
+				| "remote-known-hosts-candidate"
+				| "remote-known-hosts-paste"
+				| "remote-known-hosts-select"
+				| "remote-host-trust";
+			notice: RemotesPanelNotice;
+	  };
+
+export function prepareRemotePromptInput(input: {
+	command: RemotePromptInputCommand;
+	profiles: SftpRemoteProfile[];
+	selectedIndex: number;
+}): RemotePromptInputTransition {
+	const selection = resolveRemoteProfileSelection(
+		input.profiles,
+		input.selectedIndex,
+	);
+	if (!selection.profile) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no remote profile selected" },
+		};
+	}
+	const profile = selection.profile;
+	switch (input.command) {
+		case "host-key-evidence": {
+			const evidence = createRemoteHostKeyEvidenceInput(profile);
+			return {
+				kind: "prompt",
+				selectedIndex: selection.selectedIndex,
+				prompt: "remote-host-key-evidence",
+				notice: {
+					level: "info",
+					message: `remote host key evidence input opened ${evidence.confirm}`,
+				},
+			};
+		}
+		case "known-hosts-candidate":
+			return {
+				kind: "prompt",
+				selectedIndex: selection.selectedIndex,
+				prompt: "remote-known-hosts-candidate",
+				notice: {
+					level: "info",
+					message: `remote known_hosts candidate input opened ${profile.id}`,
+				},
+			};
+		case "known-hosts-paste":
+			return {
+				kind: "prompt",
+				selectedIndex: selection.selectedIndex,
+				prompt: "remote-known-hosts-paste",
+				notice: {
+					level: "info",
+					message: `remote known_hosts paste review opened ${profile.id}`,
+				},
+			};
+		case "known-hosts-select":
+			return {
+				kind: "prompt",
+				selectedIndex: selection.selectedIndex,
+				prompt: "remote-known-hosts-select",
+				notice: {
+					level: "info",
+					message: `remote known_hosts candidate selection opened ${profile.id}`,
+				},
+			};
+		case "host-trust": {
+			const preview = createRemoteHostKeyTrustDecisionPreview(profile);
+			return {
+				kind: "prompt",
+				selectedIndex: selection.selectedIndex,
+				prompt: "remote-host-trust",
+				notice: {
+					level: "info",
+					message: `remote host trust review opened ${preview.confirm}`,
+				},
+			};
+		}
+	}
+}
+
+export type RemoteHistoryClipboardInputTransition =
+	| { kind: "copy"; preview: ClipboardPreview }
+	| { kind: "notice"; notice: RemotesPanelNotice };
+
+export function prepareRemoteHistoryClipboardInput(input: {
+	profiles: SftpRemoteProfile[];
+	selectedIndex: number;
+	results: StatusActivityResult[];
+}): RemoteHistoryClipboardInputTransition {
+	const profile = resolveRemoteProfileSelection(
+		input.profiles,
+		input.selectedIndex,
+	).profile;
+	const preview = getRemoteKnownHostsSelectionHistoryClipboardPreview(
+		input.results,
+		{ selectedProfileId: profile?.id, limit: 5 },
+	);
+	return preview
+		? { kind: "copy", preview }
+		: {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: "no remote known_hosts selection history to copy",
+				},
+			};
+}
+
+export type RemoteHistoryExportInputTransition =
+	| { kind: "export"; plan: ConsoleAuditExportPlan }
+	| { kind: "notice"; notice: RemotesPanelNotice };
+
+export function prepareRemoteHistoryExportInput(input: {
+	profiles: SftpRemoteProfile[];
+	selectedIndex: number;
+	results: StatusActivityResult[];
+	baseDir: string;
+}): RemoteHistoryExportInputTransition {
+	const profile = resolveRemoteProfileSelection(
+		input.profiles,
+		input.selectedIndex,
+	).profile;
+	const plan = createRemoteKnownHostsSelectionHistoryAuditExportPlan(
+		input.results,
+		{
+			baseDir: input.baseDir,
+			selectedProfileId: profile?.id,
+			limit: 25,
+		},
+	);
+	return plan
+		? { kind: "export", plan }
+		: {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: "no remote known_hosts selection history to export",
+				},
+			};
+}
+
+export function prepareRemotePasteNumberInput(input: string): {
+	kind: "select";
+	candidateIndex: number;
+} {
+	return { kind: "select", candidateIndex: Number(input) };
 }
 
 export type RemoteProfileStageTransition =

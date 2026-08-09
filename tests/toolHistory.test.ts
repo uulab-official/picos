@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { ToolResult } from "../src/core/tools";
 import type { NetworkSummary } from "../src/core/types";
+import type { ToolsWorkspaceCommand } from "../src/tui/appInputDispatcher";
+import type { ClipboardPreview } from "../src/tui/clipboardPreview";
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
@@ -62,6 +64,7 @@ import {
 	prepareToolHistoryArchiveRetentionConfirmation,
 	prepareToolHistoryExport,
 	prepareToolHistoryExportArchiveConfirmation,
+	prepareToolsWorkspaceInput,
 	promoteToolTargetPreset,
 	promoteToolTargetPresetTransition,
 	pruneToolHistoryExportArchive,
@@ -87,6 +90,8 @@ import {
 	submitToolTargetCleanupConfirmation,
 	submitToolTargetCleanupTransition,
 	submitToolTargetPresetCommandTransition,
+	type ToolsWorkspaceInput,
+	type ToolsWorkspaceInputEffect,
 	type ToolTargetPreset,
 	updateToolFormFieldValue,
 	writeToolHistoryExport,
@@ -3708,5 +3713,958 @@ describe("TUI tool history", () => {
 		expect(
 			transition.kind === "export" ? transition.plan.content : "",
 		).toContain("network.connect api.example.com:443");
+	});
+
+	describe("Tools workspace input owner", () => {
+		const workspaceHistory = [
+			{
+				id: "12:00:00-network-connect-example-com-443",
+				time: "12:00:00",
+				status: "ok" as const,
+				label: "network.connect example.com:443",
+				plan: {
+					actionId: "network.connect" as const,
+					toolId: "telnet" as const,
+					args: ["example.com", "443"],
+					label: "network.connect example.com:443",
+				},
+				title: "Telnet TCP Check",
+				summary: "Summary: OPEN",
+				rawOutput: [
+					"$ picos tools telnet example.com 443",
+					"[Target]",
+					"Host: example.com",
+					"Port: 443",
+					"Command: picos tools telnet example.com 443",
+					"Timeout: 2000ms",
+					"[Status]",
+					"OPEN",
+					"Elapsed: 42ms",
+				].join("\n"),
+			},
+		];
+
+		function workspaceInput(
+			overrides: Partial<ToolsWorkspaceInput> = {},
+		): ToolsWorkspaceInput {
+			return {
+				command: undefined,
+				input: "",
+				key: {},
+				history: workspaceHistory,
+				selectedHistoryIndex: 0,
+				filter: "",
+				filterPresets: ["failed"],
+				sort: "time",
+				group: "none",
+				detail: "raw",
+				customTargetPresets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedTargetIndex: 0,
+				targetPresetLimit: 8,
+				copySection: "target",
+				copyRowIndex: 0,
+				exportContext: {
+					baseDir: "/tmp/picos",
+					generatedAt: new Date("2026-08-09T01:02:03.004Z"),
+					publication: {
+						selectedIndex: 4,
+						filter: "any",
+						query: "active evidence",
+					},
+				},
+				...overrides,
+			};
+		}
+
+		test("returns unhandled when no Tools command owns the key", () => {
+			expect(prepareToolsWorkspaceInput(workspaceInput())).toEqual({
+				kind: "unhandled",
+			});
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "detail-shortcut", input: "5" }),
+				),
+			).toEqual({ kind: "unhandled" });
+		});
+
+		test("owns filter and view commands with exact state, persistence, prompts, and notices", () => {
+			const cases: Array<{
+				name: string;
+				input: Partial<ToolsWorkspaceInput>;
+				effects: ToolsWorkspaceInputEffect[];
+			}> = [
+				{
+					name: "open filter",
+					input: { command: "open-filter" as const },
+					effects: [
+						{ kind: "prompt", prompt: "tool-filter" },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tool history filter opened" },
+						},
+					],
+				},
+				{
+					name: "clear filter",
+					input: {
+						command: "clear-filter" as const,
+						selectedHistoryIndex: 99,
+						filter: "tcp",
+					},
+					effects: [
+						{ kind: "filter", filter: "" },
+						{ kind: "copy-preview", mode: false },
+						{ kind: "history-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tool history filter cleared" },
+						},
+					],
+				},
+				{
+					name: "save filter",
+					input: { command: "save-filter" as const, filter: "tcp" },
+					effects: [
+						{ kind: "filter-presets", presets: ["tcp", "failed"] },
+						{
+							kind: "persist-history-preferences",
+							preferences: { filterPresets: ["tcp", "failed"] },
+							failureMessagePrefix: "tools preset save failed",
+						},
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools preset saved tcp" },
+						},
+					],
+				},
+				{
+					name: "cleanup filter",
+					input: { command: "cleanup-filter" as const },
+					effects: [
+						{ kind: "prompt", prompt: "tool-history-cleanup" },
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: {
+								level: "warn",
+								message:
+									"tool history filter cleanup confirm clear tools history",
+							},
+						},
+					],
+				},
+				{
+					name: "cycle filter preset",
+					input: {
+						command: "cycle-filter-preset" as const,
+						filter: "failed",
+						filterPresets: ["failed", "tcp"],
+					},
+					effects: [
+						{ kind: "filter", filter: "tcp" },
+						{ kind: "copy-preview", mode: false },
+						{ kind: "history-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools preset tcp matches 1" },
+						},
+					],
+				},
+				{
+					name: "detail shortcut",
+					input: { command: "detail-shortcut" as const, input: "4" },
+					effects: [
+						{ kind: "detail", detail: "compare" },
+						{
+							kind: "persist-history-preferences",
+							preferences: { detailView: "compare" },
+							failureMessagePrefix: "tools detail save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools detail compare" },
+						},
+					],
+				},
+				{
+					name: "cycle detail",
+					input: { command: "cycle-detail" as const },
+					effects: [
+						{ kind: "detail", detail: "summary" },
+						{
+							kind: "persist-history-preferences",
+							preferences: { detailView: "summary" },
+							failureMessagePrefix: "tools detail save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools detail summary" },
+						},
+					],
+				},
+				{
+					name: "cycle sort",
+					input: { command: "cycle-sort" as const },
+					effects: [
+						{ kind: "sort", sort: "tool" },
+						{
+							kind: "persist-history-preferences",
+							preferences: { sort: "tool" },
+							failureMessagePrefix: "tools sort save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools sort tool" },
+						},
+					],
+				},
+				{
+					name: "cycle group",
+					input: { command: "cycle-group" as const },
+					effects: [
+						{ kind: "group", group: "tool" },
+						{
+							kind: "persist-history-preferences",
+							preferences: { group: "tool" },
+							failureMessagePrefix: "tools group save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools group tool" },
+						},
+					],
+				},
+			];
+
+			for (const current of cases) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput(current.input)),
+					current.name,
+				).toEqual({ kind: "handled", effects: current.effects });
+			}
+		});
+
+		test("owns target selection, persistence, prompts, and run plans", () => {
+			const cases: Array<{
+				name: string;
+				input: Partial<ToolsWorkspaceInput>;
+				effects: ToolsWorkspaceInputEffect[];
+			}> = [
+				{
+					name: "next target",
+					input: { command: "select-target-next" as const },
+					effects: [
+						{ kind: "target-selection", selectedIndex: 1 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target DB ping db.example.com",
+							},
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				{
+					name: "previous target",
+					input: { command: "select-target-previous" as const },
+					effects: [
+						{ kind: "target-selection", selectedIndex: 1 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target DB ping db.example.com",
+							},
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				{
+					name: "save target",
+					input: {
+						command: "save-target" as const,
+						customTargetPresets: [],
+						targetPresets: [savedToolTargetPresets[0]],
+					},
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target saved API DNS api.example.com",
+							},
+						},
+						{ kind: "target-presets", presets: [savedToolTargetPresets[0]] },
+						{
+							kind: "persist-target-presets",
+							presets: [savedToolTargetPresets[0]],
+							failureMessagePrefix: "tool target save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				{
+					name: "promote target",
+					input: {
+						command: "promote-target" as const,
+						selectedTargetIndex: 1,
+					},
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target pinned DB ping db.example.com",
+							},
+						},
+						{
+							kind: "target-presets",
+							presets: [savedToolTargetPresets[1], savedToolTargetPresets[0]],
+						},
+						{
+							kind: "persist-target-presets",
+							presets: [savedToolTargetPresets[1], savedToolTargetPresets[0]],
+							failureMessagePrefix: "tool target pin failed",
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				{
+					name: "remove target",
+					input: {
+						command: "remove-target" as const,
+						selectedTargetIndex: 1,
+					},
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target removed DB ping db.example.com",
+							},
+						},
+						{ kind: "target-presets", presets: [savedToolTargetPresets[0]] },
+						{
+							kind: "persist-target-presets",
+							presets: [savedToolTargetPresets[0]],
+							failureMessagePrefix: "tool target delete failed",
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				...(
+					[
+						["prompt-target-cleanup", "tool-target-cleanup", "cleanup", "warn"],
+						["prompt-target-label", "tool-target-label", "label", "info"],
+						["prompt-target-value", "tool-target-value", "value", "info"],
+						["prompt-target-action", "tool-target-action", "action", "info"],
+					] as const
+				).map(([command, prompt, label, level]) => ({
+					name: command,
+					input: { command },
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{ kind: "prompt", prompt },
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: {
+								level,
+								message:
+									label === "cleanup"
+										? "tool target cleanup confirm delete tools.dns"
+										: `tool target ${label} opened API DNS`,
+							},
+						},
+					] satisfies ToolsWorkspaceInputEffect[],
+				})),
+				{
+					name: "run target",
+					input: { command: "run-target" as const, selectedTargetIndex: 1 },
+					effects: [
+						{ kind: "target-selection", selectedIndex: 1 },
+						{
+							kind: "run",
+							source: "target",
+							plan: {
+								actionId: "ping.default",
+								toolId: "ping",
+								args: ["db.example.com"],
+								label: "ping.default db.example.com",
+							},
+							completionNotice: "DB ping completed",
+						},
+					],
+				},
+			];
+
+			for (const current of cases) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput(current.input)),
+					current.name,
+				).toEqual({ kind: "handled", effects: current.effects });
+			}
+		});
+
+		test("owns rerun, clipboard, section-row, and export commands with complete payloads", () => {
+			const rawPreview = {
+				source: "tool-output",
+				label: "network.connect example.com:443 raw output",
+				copyText: workspaceHistory[0]?.rawOutput ?? "",
+				details: ["path c raw", "tool telnet", "action network.connect"],
+				confirmation: "copy",
+				enabled: false,
+				reason: "Clipboard writes require explicit confirmation plumbing.",
+			} satisfies ClipboardPreview;
+			const summaryPreview = {
+				source: "tool-summary",
+				label: "network.connect example.com:443 summary",
+				copyText: "Summary: OPEN",
+				details: ["path y summary", "tool telnet", "action network.connect"],
+				confirmation: "copy",
+				enabled: false,
+				reason: "Clipboard writes require explicit confirmation plumbing.",
+			} satisfies ClipboardPreview;
+
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "rerun", selectedHistoryIndex: 99 }),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{
+						kind: "run",
+						source: "rerun",
+						plan: workspaceHistory[0]?.plan,
+						completionNotice: "network.connect example.com:443 rerun completed",
+					},
+				],
+			});
+
+			for (const [command, mode, preview] of [
+				["copy-raw", "raw", rawPreview],
+				["copy-summary", "summary", summaryPreview],
+			] as const) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput({ command })),
+					command,
+				).toEqual({
+					kind: "handled",
+					effects: [{ kind: "clipboard", mode, preview }],
+				});
+			}
+
+			expect(
+				prepareToolsWorkspaceInput(workspaceInput({ command: "copy-compare" })),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{
+						kind: "clipboard",
+						mode: "compare",
+						preview: {
+							source: "tool-compare",
+							label: "network.connect example.com:443 compare",
+							copyText: [
+								"DETAIL compare",
+								"current=12:00:00 ok network.connect example.com:443",
+								"no previous matching tool run",
+								"compare key=network.connect example.com 443",
+							].join("\n"),
+							details: [
+								"path o compare",
+								"previous none",
+								"tool telnet",
+								"action network.connect",
+							],
+							confirmation: "copy",
+							enabled: false,
+							reason:
+								"Clipboard writes require explicit confirmation plumbing.",
+						},
+					},
+				],
+			});
+
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "cycle-copy-section", copyRowIndex: 3 }),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{ kind: "copy-section", section: "status" },
+					{ kind: "copy-row", rowIndex: 0 },
+					{ kind: "copy-preview", mode: false },
+					{
+						kind: "notice",
+						notice: { level: "info", message: "tools copy section status" },
+					},
+				],
+			});
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "move-copy-row-next" }),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{ kind: "copy-row", rowIndex: 1 },
+					{ kind: "copy-preview", mode: false },
+				],
+			});
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "move-copy-row-previous" }),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{ kind: "copy-row", rowIndex: 3 },
+					{ kind: "copy-preview", mode: false },
+				],
+			});
+
+			for (const [command, mode, label, copyText, details] of [
+				[
+					"copy-row",
+					"row",
+					"network.connect example.com:443 target row 3",
+					"Command: picos tools telnet example.com 443",
+					[
+						"path b row",
+						"section target row 3/4",
+						"tool telnet",
+						"action network.connect",
+					],
+				],
+				[
+					"copy-section",
+					"target",
+					"network.connect example.com:443 target fields",
+					[
+						"Host: example.com",
+						"Port: 443",
+						"Command: picos tools telnet example.com 443",
+						"Timeout: 2000ms",
+					].join("\n"),
+					[
+						"path v section",
+						"section target rows 4",
+						"tool telnet",
+						"action network.connect",
+					],
+				],
+			] as const) {
+				expect(
+					prepareToolsWorkspaceInput(
+						workspaceInput({
+							command,
+							copyRowIndex: command === "copy-row" ? 2 : 0,
+						}),
+					),
+					command,
+				).toEqual({
+					kind: "handled",
+					effects: [
+						{
+							kind: "clipboard",
+							mode,
+							preview: {
+								source: command === "copy-row" ? "tool-row" : "tool-target",
+								label,
+								copyText,
+								details: [...details],
+								confirmation: "copy",
+								enabled: false,
+								reason:
+									"Clipboard writes require explicit confirmation plumbing.",
+							},
+						},
+					],
+				});
+			}
+
+			for (const [command, scope] of [
+				["export-selected", "selected"],
+				["export-all", "all"],
+				["export-compare", "compare"],
+			] as const) {
+				const transition = prepareToolsWorkspaceInput(
+					workspaceInput({ command, selectedHistoryIndex: 99 }),
+				);
+				expect(transition, command).toMatchObject({
+					kind: "handled",
+					effects: [
+						{
+							kind: "export",
+							plan: {
+								path: `/tmp/picos/tools/picos-tools-${scope}-2026-08-09T010203004Z.md`,
+								itemCount: 1,
+								scope,
+							},
+							publication: {
+								target: "active",
+								selectedIndex: 4,
+								filter: "any",
+								query: "active evidence",
+							},
+							notice: {
+								level: "ok",
+								message: `tools export ${scope} prepared 1 run(s)`,
+							},
+						},
+					],
+				});
+				if (transition.kind === "handled") {
+					const effect = transition.effects[0];
+					if (effect?.kind === "export") {
+						expect(effect.plan.content).toContain(
+							"generatedAt=2026-08-09T01:02:03.004Z",
+						);
+						expect(effect).not.toHaveProperty("snapshot");
+					}
+				}
+			}
+		});
+
+		test("prepares the final export plan and immutable refresh publication", () => {
+			const transition = prepareToolsWorkspaceInput({
+				...workspaceInput({
+					command: "export-selected",
+					selectedHistoryIndex: 99,
+				}),
+				exportContext: {
+					baseDir: "/tmp/picos",
+					generatedAt: new Date("2026-08-09T01:02:03.004Z"),
+					publication: {
+						selectedIndex: 7,
+						filter: "selected",
+						query: "api.example.com",
+					},
+				},
+			} as ToolsWorkspaceInput & {
+				exportContext: {
+					baseDir: string;
+					generatedAt: Date;
+					publication: {
+						selectedIndex: number;
+						filter: "selected";
+						query: string;
+					};
+				};
+			});
+
+			expect(transition).toMatchObject({
+				kind: "handled",
+				effects: [
+					{
+						kind: "export",
+						plan: {
+							path: "/tmp/picos/tools/picos-tools-selected-2026-08-09T010203004Z.md",
+							itemCount: 1,
+							scope: "selected",
+						},
+						publication: {
+							target: "active",
+							selectedIndex: 7,
+							filter: "selected",
+							query: "api.example.com",
+						},
+					},
+				],
+			});
+			if (transition.kind !== "handled") {
+				throw new Error("expected handled tools export");
+			}
+			const effect = transition.effects[0] as ToolsWorkspaceInputEffect & {
+				plan?: { content: string };
+			};
+			expect(effect.plan?.content).toContain(
+				"## [12:00:00] network.connect example.com:443",
+			);
+		});
+
+		test("bounds final export plans while retaining the selected and compare runs", () => {
+			const history = Array.from({ length: 14 }, (_, index) => ({
+				...workspaceHistory[0],
+				id: `run-${index}`,
+				time: `12:00:${String(index).padStart(2, "0")}`,
+				plan: {
+					...workspaceHistory[0]?.plan,
+					args: [...(workspaceHistory[0]?.plan.args ?? [])],
+				},
+				rawOutput: `run ${index}`,
+			}));
+
+			const allTransition = prepareToolsWorkspaceInput(
+				workspaceInput({
+					command: "export-all",
+					history,
+					selectedHistoryIndex: 0,
+				}),
+			);
+			expect(allTransition).toMatchObject({
+				kind: "handled",
+				effects: [
+					{
+						kind: "export",
+						plan: {
+							itemCount: 12,
+							scope: "all",
+						},
+						notice: {
+							level: "ok",
+							message: "tools export all prepared 12 run(s)",
+						},
+					},
+				],
+			});
+			if (allTransition.kind !== "handled") {
+				throw new Error("expected handled all export");
+			}
+			const allEffect = allTransition.effects[0];
+			if (allEffect?.kind !== "export") {
+				throw new Error("expected all export effect");
+			}
+			expect(allEffect.plan.content).toContain("```txt\nrun 2\n```");
+			expect(allEffect.plan.content).toContain("```txt\nrun 13\n```");
+			expect(allEffect.plan.content).not.toContain("```txt\nrun 0\n```");
+			expect(allEffect.plan.content).not.toContain("```txt\nrun 1\n```");
+
+			const selectedTransition = prepareToolsWorkspaceInput(
+				workspaceInput({
+					command: "export-selected",
+					history,
+					selectedHistoryIndex: 13,
+				}),
+			);
+			expect(selectedTransition).toMatchObject({
+				kind: "handled",
+				effects: [
+					{
+						kind: "export",
+						plan: {
+							itemCount: 1,
+							scope: "selected",
+						},
+					},
+				],
+			});
+			if (selectedTransition.kind !== "handled") {
+				throw new Error("expected handled selected export");
+			}
+			const selectedEffect = selectedTransition.effects[0];
+			if (selectedEffect?.kind !== "export") {
+				throw new Error("expected selected export effect");
+			}
+			expect(selectedEffect.plan.content).toContain("```txt\nrun 13\n```");
+			expect(selectedEffect.plan.content).not.toContain("```txt\nrun 12\n```");
+
+			const compareTransition = prepareToolsWorkspaceInput(
+				workspaceInput({
+					command: "export-compare",
+					history,
+					selectedHistoryIndex: 13,
+				}),
+			);
+			expect(compareTransition).toMatchObject({
+				kind: "handled",
+				effects: [
+					{
+						kind: "export",
+						plan: {
+							itemCount: 1,
+							scope: "compare",
+						},
+					},
+				],
+			});
+			if (compareTransition.kind !== "handled") {
+				throw new Error("expected handled compare export");
+			}
+			const compareEffect = compareTransition.effects[0];
+			if (compareEffect?.kind !== "export") {
+				throw new Error("expected compare export effect");
+			}
+			expect(compareEffect.plan.content).toContain(
+				"current=12:00:13 ok network.connect example.com:443",
+			);
+			expect(compareEffect.plan.content).toContain(
+				"previous=12:00:12 ok network.connect example.com:443",
+			);
+		});
+
+		test("reports exact empty filter, history, target, and clipboard notices", () => {
+			const cases: Array<[Partial<ToolsWorkspaceInput>, string]> = [
+				[
+					{ command: "save-filter" as const, filter: "  " },
+					"no tools filter to save",
+				],
+				[
+					{ command: "cleanup-filter" as const, filterPresets: [] },
+					"no tools filter presets to clean",
+				],
+				[
+					{ command: "cycle-filter-preset" as const, filterPresets: [] },
+					"no tools filter presets",
+				],
+				[
+					{ command: "rerun" as const, history: [] },
+					"no tool history selected",
+				],
+				[
+					{ command: "copy-raw" as const, history: [] },
+					"no tool output selected",
+				],
+				[
+					{ command: "copy-summary" as const, history: [] },
+					"no tool summary selected",
+				],
+				[
+					{ command: "copy-compare" as const, history: [] },
+					"no tool compare selected",
+				],
+				[
+					{ command: "copy-row" as const, history: [] },
+					"no tool target row selected",
+				],
+				[
+					{ command: "copy-section" as const, history: [] },
+					"no tool target fields selected",
+				],
+				[
+					{ command: "export-selected" as const, history: [] },
+					"no tool history to export",
+				],
+				[
+					{ command: "export-all" as const, history: [] },
+					"no tool history to export",
+				],
+				[
+					{ command: "export-compare" as const, history: [] },
+					"no tool history to export",
+				],
+			];
+
+			for (const [overrides, message] of cases) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput(overrides)),
+					message,
+				).toEqual({
+					kind: "handled",
+					effects: [{ kind: "notice", notice: { level: "warn", message } }],
+				});
+			}
+
+			const emptyTargetCases: Array<[Partial<ToolsWorkspaceInput>, string]> = [
+				[
+					{
+						command: "save-target" as const,
+						customTargetPresets: [],
+						targetPresets: [],
+					},
+					"no tool target preset to save",
+				],
+				[
+					{
+						command: "prompt-target-label" as const,
+						customTargetPresets: [],
+						targetPresets: [],
+					},
+					"no tool target preset selected",
+				],
+				[
+					{ command: "run-target" as const, targetPresets: [] },
+					"no tool target presets",
+				],
+			];
+			for (const [overrides, message] of emptyTargetCases) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput(overrides)),
+					message,
+				).toEqual({
+					kind: "handled",
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{ kind: "notice", notice: { level: "warn", message } },
+					],
+				});
+			}
+
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({
+						command: "select-target-next",
+						targetPresets: [],
+						selectedTargetIndex: -1,
+					}),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{ kind: "target-selection", selectedIndex: 0 },
+					{ kind: "copy-preview", mode: false },
+				],
+			});
+		});
+
+		test("enumerates every ToolsWorkspaceCommand through the owner", () => {
+			const commands = {
+				"open-filter": {},
+				"clear-filter": {},
+				"save-filter": { filter: "tcp" },
+				"cleanup-filter": {},
+				"cycle-filter-preset": {},
+				"detail-shortcut": { input: "1" },
+				"cycle-detail": {},
+				"cycle-sort": {},
+				"cycle-group": {},
+				rerun: {},
+				"select-target-next": {},
+				"select-target-previous": {},
+				"save-target": {},
+				"promote-target": {},
+				"remove-target": {},
+				"prompt-target-cleanup": {},
+				"prompt-target-label": {},
+				"prompt-target-value": {},
+				"prompt-target-action": {},
+				"run-target": {},
+				"copy-raw": {},
+				"copy-summary": {},
+				"copy-compare": {},
+				"cycle-copy-section": {},
+				"move-copy-row-next": {},
+				"move-copy-row-previous": {},
+				"copy-row": {},
+				"copy-section": {},
+				"export-selected": {},
+				"export-all": {},
+				"export-compare": {},
+			} satisfies Record<ToolsWorkspaceCommand, Partial<ToolsWorkspaceInput>>;
+
+			for (const [command, overrides] of Object.entries(commands)) {
+				expect(
+					prepareToolsWorkspaceInput(
+						workspaceInput({
+							...overrides,
+							command: command as ToolsWorkspaceCommand,
+						}),
+					).kind,
+					command,
+				).toBe("handled");
+			}
+		});
 	});
 });

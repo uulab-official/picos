@@ -40,6 +40,11 @@ export type InterfaceSourceHandoffPlan = {
 	view: "source";
 };
 
+export type InterfacePanelHandoffContext = {
+	baseDir: string;
+	generatedAt?: Date;
+};
+
 export type InterfacePanelNotice = {
 	level: "info" | "warn" | "fail";
 	message: string;
@@ -109,7 +114,11 @@ export type InterfacePanelInputDecision =
 			selectedIndex: number;
 			notice: InterfacePanelNotice;
 	  }
-	| { kind: "confirmation"; notice: InterfacePanelNotice }
+	| {
+			kind: "confirmation";
+			prompt: "interface-confirm";
+			notice: InterfacePanelNotice;
+	  }
 	| {
 			kind: "clear";
 			proposal: undefined;
@@ -117,7 +126,13 @@ export type InterfacePanelInputDecision =
 			notice: InterfacePanelNotice;
 	  }
 	| { kind: "copy"; preview: ClipboardPreview }
-	| { kind: "source-handoff"; action: "export" | "open" };
+	| {
+			kind: "source-handoff";
+			action: "export" | "open";
+			baseDir: string;
+			plan: InterfaceSourceHandoffPlan;
+			selectedIndex: number;
+	  };
 
 export function resolveSelectedInterface(
 	summary: NetworkSummary | undefined,
@@ -193,6 +208,7 @@ export function prepareInterfaceSelectionTransition(input: {
 export function prepareInterfaceSourceHandoff(input: {
 	action: "export" | "open";
 	baseDir: string;
+	generatedAt?: Date;
 	selectedIndex: number;
 	summary: NetworkSummary | undefined;
 	view: InterfaceDetailView;
@@ -224,6 +240,7 @@ export function prepareInterfaceSourceHandoff(input: {
 	}
 	const plan = createInterfaceSourceHandoffPlan(input.summary, {
 		baseDir: input.baseDir,
+		generatedAt: input.generatedAt,
 		selected: selected.selected,
 	});
 	return plan
@@ -270,6 +287,7 @@ export function prepareInterfacePanelInput(input: {
 	summary: NetworkSummary | undefined;
 	view: InterfaceDetailView;
 	proposal?: InterfaceStateProposal;
+	handoff?: InterfacePanelHandoffContext;
 	tab?: boolean;
 }): InterfacePanelInputDecision {
 	if (input.tab) {
@@ -325,6 +343,7 @@ export function prepareInterfacePanelInput(input: {
 		return input.proposal
 			? {
 					kind: "confirmation",
+					prompt: "interface-confirm",
 					notice: {
 						level: "warn",
 						message: `interface confirmation prompt opened type ${input.proposal.confirmationDraft.phrase}`,
@@ -411,9 +430,32 @@ export function prepareInterfacePanelInput(input: {
 				},
 			};
 		}
+		if (!input.handoff) {
+			return {
+				kind: "no-op",
+				notice: {
+					level: "warn",
+					message: "interface source handoff context unavailable",
+				},
+			};
+		}
+		const transition = prepareInterfaceSourceHandoff({
+			action,
+			baseDir: input.handoff.baseDir,
+			generatedAt: input.handoff.generatedAt,
+			selectedIndex: input.selectedIndex,
+			summary: input.summary,
+			view: input.view,
+		});
+		if (transition.kind === "notice") {
+			return { kind: "no-op", notice: transition.notice };
+		}
 		return {
 			kind: "source-handoff",
 			action,
+			baseDir: input.handoff.baseDir,
+			plan: transition.plan,
+			selectedIndex: transition.selectedIndex,
 		};
 	}
 	return { kind: "no-op" };

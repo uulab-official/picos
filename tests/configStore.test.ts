@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
 	readConfig,
+	resetConfigWorkspaceValues,
 	setConfigEndpointFilterPresets,
 	setConfigEndpointSort,
 	setConfigInterfaceEvidenceSearchPresets,
@@ -14,6 +15,7 @@ import {
 	setConfigToolHistoryPreferences,
 	setConfigToolTargetPresets,
 	setConfigValue,
+	upsertConfigRemoteProfile,
 	writeConfig,
 } from "../src/config/store";
 
@@ -32,6 +34,84 @@ afterEach(async () => {
 });
 
 describe("config store", () => {
+	test("applies a core reset without rebuilding the write plan in App", async () => {
+		const path = await tempConfigPath();
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(
+			path,
+			JSON.stringify({
+				theme: "light",
+				toolTargetPresets: [
+					{ id: "api", actionId: "tools.dns", target: "api.example.com" },
+					{ id: "db", actionId: "tools.dns", target: "db.example.com" },
+				],
+			}),
+		);
+
+		const config = await resetConfigWorkspaceValues(
+			{
+				auditArchiveRetentionLimit: 10,
+				toolTargetPresetLimit: 1,
+				language: "en",
+				refreshInterval: 3000,
+				defaultPingHost: "google.com",
+				controlExecutionMode: "disabled",
+				allowAdminDryRun: false,
+				enableExperimentalControls: false,
+				editorSaveMode: "disabled",
+				statusResultJumpClassFilter: "all",
+			},
+			path,
+		);
+
+		expect(config.theme).toBe("light");
+		expect(config.toolTargetPresets).toHaveLength(1);
+	});
+
+	test("upserts a remote profile without rebuilding config in App", async () => {
+		const path = await tempConfigPath();
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(
+			path,
+			JSON.stringify({
+				theme: "light",
+				remoteProfiles: [
+					{
+						id: "prod",
+						kind: "sftp",
+						host: "old.example.com",
+						port: 22,
+						username: "deploy",
+					},
+				],
+			}),
+		);
+
+		const config = await upsertConfigRemoteProfile(
+			{
+				id: "prod",
+				kind: "sftp",
+				host: "new.example.com",
+				port: 2222,
+				username: "operator",
+				root: "/srv/app",
+			},
+			path,
+		);
+
+		expect(config.theme).toBe("light");
+		expect(config.remoteProfiles).toEqual([
+			{
+				id: "prod",
+				kind: "sftp",
+				host: "new.example.com",
+				port: 2222,
+				username: "operator",
+				root: "/srv/app",
+			},
+		]);
+	});
+
 	test("persists normalized log profiles without losing existing config", async () => {
 		const path = await tempConfigPath();
 		await setConfigLogProfiles(
