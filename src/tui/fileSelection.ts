@@ -4,6 +4,12 @@ import {
 	type ClipboardPreview,
 	createClipboardPreview,
 } from "./clipboardPreview";
+import { clampIndex } from "./navigation";
+
+export type SelectedFilePathClipboardIntent = {
+	preview: ClipboardPreview | undefined;
+	notice?: { level: "warn"; message: string };
+};
 
 export function formatSelectedFilePathRows(
 	entries: FileEntry[],
@@ -46,6 +52,40 @@ export function getSelectedFilePathClipboardPreview(
 	});
 }
 
+export function getSelectedFilePathClipboardIntent(
+	entries: FileEntry[],
+	selectedIndex: number,
+): SelectedFilePathClipboardIntent {
+	const preview = getSelectedFilePathClipboardPreview(entries, selectedIndex);
+	return preview
+		? { preview }
+		: {
+				preview: undefined,
+				notice: { level: "warn", message: "no file path selected" },
+			};
+}
+
+export function moveFileSelection(
+	selectedIndex: number,
+	total: number,
+	direction: "next" | "previous",
+): number {
+	if (total <= 0) {
+		return 0;
+	}
+
+	const current = clampIndex(selectedIndex, total);
+	const next =
+		direction === "next"
+			? current === total - 1
+				? 0
+				: current + 1
+			: current === 0
+				? total - 1
+				: current - 1;
+	return clampIndex(next, total);
+}
+
 export function formatFileBreadcrumbRows(
 	root: string,
 	entries: FileEntry[],
@@ -78,7 +118,10 @@ export function formatFileProviderBoundaryRows(options: {
 				: ["hostKey=unverified verified=no"]),
 			connected
 				? "controls=enter open · y copy path · L close SFTP · writes disabled"
-				: "controls=enter preview · y copy path · c connect from Remotes",
+				: // Names the workspace rather than the key. This row renders inside
+					// Files, where `c` is the copy operation, so advertising `c` here sent
+					// a reader to the wrong action.
+					"controls=enter preview · y copy path · connect from the Remotes workspace",
 		];
 	}
 
@@ -90,11 +133,11 @@ export function formatFileProviderBoundaryRows(options: {
 	];
 }
 
-function getSelectedFileEntry(
+export function getSelectedFileEntry(
 	entries: FileEntry[],
 	selectedIndex: number,
 ): FileEntry | undefined {
-	return entries[Math.min(Math.max(selectedIndex, 0), entries.length - 1)];
+	return entries[clampIndex(selectedIndex, entries.length)];
 }
 
 function formatPathBreadcrumb(path: string, maxSegments = 5): string {

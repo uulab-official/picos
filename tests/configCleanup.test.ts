@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { defaultConfig } from "../src/config/schema";
 import {
 	createConfigCleanupPreview,
 	submitConfigCleanupConfirmation,
 } from "../src/core/configCleanup";
+import { createConfigWorkspaceResetWriteIntent } from "../src/tui/configPanel";
 
 describe("config cleanup confirmation", () => {
 	test("creates reusable exact-confirm previews for config cleanup operations", () => {
@@ -48,6 +50,48 @@ describe("config cleanup confirmation", () => {
 			confirmed: true,
 			message: "config cleanup confirmed logs.search (4 items)",
 			preview,
+		});
+	});
+
+	test("creates the reset write intent with a shelf bounded by the reset limit", () => {
+		const config = {
+			...defaultConfig,
+			toolTargetPresets: [
+				{
+					id: "dns-one",
+					label: "DNS one",
+					actionId: "tools.dns" as const,
+					target: "one.example",
+					hint: "lookup",
+				},
+				{
+					id: "dns-two",
+					label: "DNS two",
+					actionId: "tools.dns" as const,
+					target: "two.example",
+					hint: "lookup",
+				},
+			],
+		};
+		expect(
+			createConfigWorkspaceResetWriteIntent(config, {
+				auditArchiveRetentionLimit: 10,
+				toolTargetPresetLimit: 1,
+				language: "en",
+				refreshInterval: 3000,
+				defaultPingHost: "google.com",
+				controlExecutionMode: "disabled",
+				allowAdminDryRun: false,
+				enableExperimentalControls: false,
+				editorSaveMode: "disabled",
+				statusResultJumpClassFilter: "all",
+			}),
+		).toEqual({
+			config: {
+				...config,
+				toolTargetPresetLimit: 1,
+				toolTargetPresets: [config.toolTargetPresets[0]],
+			},
 		});
 	});
 });

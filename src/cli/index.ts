@@ -21,6 +21,7 @@ import { handoffsCommand } from "./commands/handoffs";
 import { infoCommand } from "./commands/info";
 import { logsCommand } from "./commands/logs";
 import { monitorCommand } from "./commands/monitor";
+import { operationsCommand } from "./commands/operations";
 import { pingCommand } from "./commands/ping";
 import { portsCommand } from "./commands/ports";
 import { processCommand } from "./commands/process";
@@ -101,6 +102,8 @@ export function createCli(): ReturnType<typeof cac> {
 		.action(infoCommand);
 	cli
 		.command("monitor", "Print a live system monitor snapshot")
+		.option("--samples <n>", "Collect 1-60 bounded monitor samples")
+		.option("--interval <ms>", "Sampling interval from 250 to 60000 ms")
 		.option("--json", "Emit one structured system-monitor result")
 		.action(monitorCommand);
 	cli
@@ -117,9 +120,11 @@ export function createCli(): ReturnType<typeof cac> {
 	cli.command("pwd", "Print current picos file root").action(pwdCommand);
 	cli
 		.command("locations", "List system file locations")
+		.option("--json", "Emit one structured file-location result")
 		.action(locationsCommand);
 	cli
 		.command("remotes", "List configured remote file profiles")
+		.option("--json", "Emit one structured remote-profile result")
 		.action(remotesCommand);
 	cli
 		.command("remote <id>", "Inspect or read from a remote file profile")
@@ -134,6 +139,7 @@ export function createCli(): ReturnType<typeof cac> {
 		.action(remoteCommand);
 	cli
 		.command("drives", "List system drives and file locations")
+		.option("--json", "Emit one structured file-location result")
 		.action(drivesCommand);
 	cli.command("dir [path]", "List local files in DOS style").action(dirCommand);
 	cli.command("ls [path]", "List local files").action(lsCommand);
@@ -201,6 +207,21 @@ export function createCli(): ReturnType<typeof cac> {
 		.option("--json", "Emit one structured process-inspection result")
 		.action(processCommand);
 	cli
+		.command(
+			"operations [action] [id] [kind]",
+			"Discover, manage, and run monitor, logs, and process presets",
+		)
+		.option("--samples <n>", "Monitor sample count for save")
+		.option("--interval <ms>", "Monitor interval for save")
+		.option("--limit <n>", "Log entry limit for save")
+		.option("--level <level>", "Log level for save")
+		.option("--filter <query>", "Log filter for save")
+		.option("--pid <pid>", "Process PID for save")
+		.option("--files", "Include process cwd/open resources")
+		.option("--confirm <phrase>", "Exact confirmation for save/remove")
+		.option("--json", "Emit one structured operation result")
+		.action(operationsCommand);
+	cli
 		.command("tools [name] [...args]", "Run lazyifconfig-style Tools Hub")
 		.option("--timeout <ms>", "Tool timeout in milliseconds")
 		.option("--raw", "Print raw tool output")
@@ -212,9 +233,11 @@ export function createCli(): ReturnType<typeof cac> {
 	cli
 		.command("handoffs", "List route and endpoint handoff files")
 		.option("--archive <path>", "Archive a picos route/endpoint handoff file")
+		.option("--json", "Emit one structured handoff index or archive result")
 		.action(handoffsCommand);
 	cli
 		.command("release-health", "Check release automation health")
+		.option("--json", "Emit one structured release-health result")
 		.action(releaseHealthCommand);
 	cli
 		.command("dns [action]", "Show DNS information")

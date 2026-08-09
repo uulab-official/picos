@@ -4,6 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatPwd, formatType } from "../src/cli/commands/files";
 import {
+	formatFileLocationsJson,
+	LOCAL_INSPECTOR_JSON_SCHEMA_VERSION,
+} from "../src/cli/localInspectorOutput";
+import {
 	createFileProvider,
 	createLocalFileProvider,
 	formatDirEntries,
@@ -104,6 +108,32 @@ describe("local file provider", () => {
 			"Filesystem Root",
 		);
 		expect(formatFileLocations(locations)).toContain("Workspace");
+	});
+
+	test("formats bounded redacted JSON for locations and drives", () => {
+		const locations = getSystemFileLocations({
+			cwd: "/Users/alice/project",
+			homeDir: "/Users/alice",
+			tempDir: "/tmp/picos",
+			platform: "darwin",
+		});
+
+		const locationsDocument = JSON.parse(
+			formatFileLocationsJson(locations, "locations"),
+		);
+		const drivesDocument = JSON.parse(
+			formatFileLocationsJson(locations, "drives"),
+		);
+
+		expect(locationsDocument).toMatchObject({
+			schemaVersion: LOCAL_INSPECTOR_JSON_SCHEMA_VERSION,
+			command: "locations",
+			status: "completed",
+			data: { returnedCount: locations.length, truncated: false },
+		});
+		expect(drivesDocument.command).toBe("drives");
+		expect(JSON.stringify(locationsDocument)).not.toContain("/Users/alice");
+		expect(locationsDocument.data.locations[1].path).toBe("$HOME");
 	});
 
 	test("creates local providers through the shared provider factory", async () => {

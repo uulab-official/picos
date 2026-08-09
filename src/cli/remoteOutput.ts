@@ -2,6 +2,8 @@ import type { FileEntry, FileReadResult } from "../core/files";
 import type { SftpRemoteProfile } from "../core/types";
 
 export const REMOTE_JSON_SCHEMA_VERSION = 1;
+export const REMOTE_PROFILE_JSON_ENTRY_LIMIT = 1_000;
+export const REMOTE_PROFILE_JSON_MAX_BYTES = 4 * 1024 * 1024;
 const REMOTE_JSON_TEXT_MAX_LENGTH = 4_096;
 
 export type RemoteJsonOperation = "list" | "read";
@@ -38,6 +40,61 @@ export type RemoteJsonFailureInput = {
 	fingerprint?: string;
 	network?: "closed" | "unknown";
 };
+
+export function formatRemoteProfilesJson(
+	profiles: SftpRemoteProfile[],
+): string {
+	const normalized = profiles
+		.slice(0, REMOTE_PROFILE_JSON_ENTRY_LIMIT)
+		.map(formatRemoteJsonProfile);
+	let lower = 0;
+	let upper = normalized.length;
+	let best: string | undefined;
+	while (lower <= upper) {
+		const count = Math.floor((lower + upper) / 2);
+		const output = serializeRemoteProfilesJson(
+			profiles.length,
+			normalized.slice(0, count),
+		);
+		if (Buffer.byteLength(output, "utf8") <= REMOTE_PROFILE_JSON_MAX_BYTES) {
+			best = output;
+			lower = count + 1;
+		} else {
+			upper = count - 1;
+		}
+	}
+	if (best) return best;
+	throw new Error(
+		`Remote profiles JSON exceeds ${REMOTE_PROFILE_JSON_MAX_BYTES} bytes without profiles`,
+	);
+}
+
+function serializeRemoteProfilesJson(
+	totalCount: number,
+	profiles: Array<ReturnType<typeof formatRemoteJsonProfile>>,
+): string {
+	return JSON.stringify(
+		{
+			schemaVersion: REMOTE_JSON_SCHEMA_VERSION,
+			command: "remotes",
+			status: "completed",
+			limits: {
+				maxBytes: REMOTE_PROFILE_JSON_MAX_BYTES,
+				entryLimit: REMOTE_PROFILE_JSON_ENTRY_LIMIT,
+			},
+			request: { action: "list" },
+			source: { kind: "picos-remote-profiles", success: true },
+			data: {
+				totalCount,
+				returnedCount: profiles.length,
+				truncated: profiles.length < totalCount,
+				profiles,
+			},
+		},
+		null,
+		2,
+	);
+}
 
 export function formatRemoteJsonSuccess(input: RemoteJsonSuccessInput): string {
 	const data =
@@ -140,11 +197,11 @@ export function formatRemoteJsonFailure(input: RemoteJsonFailureInput): string {
 
 function formatRemoteJsonProfile(profile: SftpRemoteProfile) {
 	return {
-		id: profile.id,
+		id: sanitizeRemoteOutputText(profile.id),
 		kind: profile.kind,
-		host: profile.host,
+		host: sanitizeRemoteOutputText(profile.host),
 		port: profile.port,
-		username: profile.username,
+		username: sanitizeRemoteOutputText(profile.username),
 		root: sanitizeRemoteOutputText(profile.root),
 	};
 }

@@ -18,6 +18,7 @@ import type {
 import {
 	filterRouteEntries,
 	formatRouteTable,
+	nextRouteSort,
 	sortRouteEntries,
 } from "../core/routes";
 import { joinPathLike } from "../utils/pathStyle";
@@ -26,6 +27,7 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
+import { classifyRequestPublication } from "./requestSequence";
 
 export type RouteDetailView = "table" | "raw" | "diagnostics" | "path";
 
@@ -45,11 +47,380 @@ export type RouteFilterCleanupPreview = {
 };
 
 export type RouteFilterCleanupConfirmation = {
+	action: "apply" | "notice";
 	confirmed: boolean;
+	copyPreview: false;
 	message: string;
+	notice: RoutePanelNotice;
 	presets: string[];
 	removed: number;
 };
+
+export type RoutePanelNotice = {
+	level: "info" | "ok" | "warn" | "fail";
+	message: string;
+};
+
+export type RoutePathRequestPublication = {
+	publication: "current" | "stale";
+	publishCurrent: boolean;
+	notice: RoutePanelNotice;
+	result?: RoutePathResult;
+};
+
+export function classifyRoutePathRequestOutcome(input: {
+	currentToken: number;
+	requestToken: number;
+	destination: string;
+	outcome:
+		| { kind: "success"; result: RoutePathResult }
+		| { kind: "failure"; error: unknown };
+}): RoutePathRequestPublication {
+	const publication = classifyRequestPublication(
+		input.currentToken,
+		input.requestToken,
+	);
+	if (input.outcome.kind === "failure") {
+		const detail =
+			input.outcome.error instanceof Error
+				? input.outcome.error.message
+				: String(input.outcome.error);
+		return {
+			publication,
+			publishCurrent: false,
+			notice: {
+				level: "fail",
+				message: `route path ${input.destination} failed ${detail}${publication === "stale" ? " publication=stale" : ""}`,
+			},
+		};
+	}
+	if (publication === "stale") {
+		return {
+			publication,
+			publishCurrent: false,
+			notice: {
+				level: "info",
+				message: `route path ${input.destination} completed publication=stale`,
+			},
+		};
+	}
+	return {
+		publication,
+		publishCurrent: true,
+		result: input.outcome.result,
+		notice: {
+			level: "ok",
+			message: `route path ${input.outcome.result.destination}`,
+		},
+	};
+}
+
+export type RouteHandoffPreparation =
+	| { kind: "notice"; notice: RoutePanelNotice }
+	| { kind: "handoff"; plan: RouteRawHandoffPlan };
+
+export type RoutePanelHandoffContext = {
+	baseDir: string;
+	generatedAt?: Date;
+	origin?: FileOpenOrigin;
+};
+
+export type RoutePanelHandoffEffect =
+	| {
+			action: "export";
+			baseDir: string;
+			plan: RouteRawHandoffPlan;
+	  }
+	| {
+			action: "open";
+			baseDir: string;
+			origin: FileOpenOrigin;
+			plan: RouteRawHandoffPlan & { origin: FileOpenOrigin };
+	  };
+
+export type RouteFilterTransition = {
+	filter: string;
+	presets: string[];
+	copyPreview: false;
+	notice: RoutePanelNotice;
+};
+
+export type RoutePanelInputDecision =
+	| { kind: "no-op" }
+	| { kind: "notice"; notice: RoutePanelNotice }
+	| {
+			kind: "detail";
+			view: RouteDetailView;
+			copyPreview: false;
+			notice: RoutePanelNotice;
+	  }
+	| {
+			kind: "filter";
+			filter: string;
+			copyPreview: false;
+			notice: RoutePanelNotice;
+	  }
+	| {
+			kind: "save-preset";
+			presets: string[];
+			copyPreview: false;
+			notice: RoutePanelNotice;
+	  }
+	| {
+			kind: "sort";
+			sort: RouteSort;
+			copyPreview: false;
+			notice: RoutePanelNotice;
+	  }
+	| {
+			kind: "copy";
+			preview: ClipboardPreview;
+	  }
+	| {
+			kind: "command";
+			command: "destination" | "filter" | "cleanup" | "copy";
+			copyPreview?: false;
+			prompt?: "route" | "route-filter" | "route-filter-cleanup";
+			notice?: RoutePanelNotice;
+			handoff?: never;
+	  }
+	| {
+			kind: "command";
+			command: "export" | "open";
+			copyPreview?: false;
+			prompt?: never;
+			notice?: RoutePanelNotice;
+			handoff: RoutePanelHandoffEffect;
+	  };
+
+export function prepareRouteFilterTransition(input: {
+	routes: RouteTableResult["routes"];
+	presets: string[];
+	query: string;
+}): RouteFilterTransition {
+	const filter = input.query.trim();
+	const matches = filterRouteEntries(input.routes, filter).length;
+	return {
+		filter,
+		presets: input.presets,
+		copyPreview: false,
+		notice: {
+			level: matches ? "info" : "warn",
+			message: filter
+				? `route filter ${filter} matches ${matches}`
+				: "route filter cleared",
+		},
+	};
+}
+
+export function prepareRoutePanelInput(input: {
+	input: string;
+	view: RouteDetailView;
+	filter: string;
+	presets: string[];
+	routes: RouteTableResult["routes"];
+	result?: RouteTableResult;
+	path?: RoutePathResult;
+	sort?: RouteSort;
+	handoff?: RoutePanelHandoffContext;
+	home?: boolean;
+	end?: boolean;
+	tab?: boolean;
+}): RoutePanelInputDecision {
+	const shortcut = getRouteDetailViewShortcut(input.input, {
+		home: input.home,
+		end: input.end,
+	});
+	const detail =
+		shortcut ?? (input.tab ? nextRouteDetailView(input.view) : undefined);
+	if (detail) {
+		return {
+			kind: "detail",
+			view: detail,
+			copyPreview: false,
+			notice: { level: "info", message: `route detail ${detail}` },
+		};
+	}
+	if (input.input === ":") {
+		return {
+			kind: "command",
+			command: "destination",
+			prompt: "route",
+			notice: { level: "info", message: "route destination prompt opened" },
+		};
+	}
+	if (input.input === "f") {
+		return {
+			kind: "command",
+			command: "filter",
+			prompt: "route-filter",
+			copyPreview: false,
+			notice: { level: "info", message: "route filter opened" },
+		};
+	}
+	if (input.input === "F") {
+		return {
+			kind: "filter",
+			filter: "",
+			copyPreview: false,
+			notice: { level: "info", message: "route filter cleared" },
+		};
+	}
+	if (input.input === "P") {
+		const filter = input.filter.trim();
+		if (!filter) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no route filter to save" },
+			};
+		}
+		return {
+			kind: "save-preset",
+			presets: saveRouteFilterPreset(input.presets, filter),
+			copyPreview: false,
+			notice: { level: "info", message: `route preset saved ${filter}` },
+		};
+	}
+	if (input.input === "D") {
+		const preview = createRouteFilterCleanupPreview(input.presets);
+		return preview
+			? {
+					kind: "command",
+					command: "cleanup",
+					prompt: "route-filter-cleanup",
+					copyPreview: false,
+					notice: {
+						level: "warn",
+						message: `route filter cleanup confirm ${preview.confirmationPhrase}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no route filter presets to clean",
+					},
+				};
+	}
+	if (input.input === "]") {
+		const filter = nextRouteFilterPreset(input.presets, input.filter);
+		if (!filter) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no route filter presets" },
+			};
+		}
+		const matches = filterRouteEntries(input.routes, filter).length;
+		return {
+			kind: "filter",
+			filter,
+			copyPreview: false,
+			notice: {
+				level: matches ? "info" : "warn",
+				message: `route preset ${filter} matches ${matches}`,
+			},
+		};
+	}
+	if (input.input === "s") {
+		const sort = nextRouteSort(
+			input.sort ?? { key: "default", direction: "asc" },
+		);
+		return {
+			kind: "sort",
+			sort,
+			copyPreview: false,
+			notice: {
+				level: "info",
+				message: `route sort ${sort.key} ${sort.direction}`,
+			},
+		};
+	}
+	if (input.input === "c") {
+		if (!input.result) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no route table loaded" },
+			};
+		}
+		const preview = getRouteClipboardPreview(input.result, {
+			filter: input.filter,
+			path: input.path,
+			sort: input.sort,
+			view: input.view,
+		});
+		return preview
+			? { kind: "copy", preview }
+			: {
+					kind: "notice",
+					notice: { level: "warn", message: "no route clipboard target" },
+				};
+	}
+	const commands = { e: "export", o: "open" } as const;
+	const command = commands[input.input as keyof typeof commands];
+	if (command) {
+		if (!input.handoff) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: "route handoff context unavailable",
+				},
+			};
+		}
+		const origin = input.handoff.origin;
+		if (command === "open") {
+			if (!origin) {
+				return {
+					kind: "notice",
+					notice: { level: "warn", message: "route open origin unavailable" },
+				};
+			}
+			const preparation = prepareRouteRawHandoff(input.result, {
+				baseDir: input.handoff.baseDir,
+				filter: input.filter,
+				generatedAt: input.handoff.generatedAt,
+				origin,
+				path: input.path,
+				sort: input.sort,
+				view: input.view,
+			});
+			if (preparation.kind === "notice") {
+				return preparation;
+			}
+			return {
+				kind: "command",
+				command,
+				handoff: {
+					action: command,
+					baseDir: input.handoff.baseDir,
+					origin,
+					plan: { ...preparation.plan, origin },
+				},
+			};
+		}
+		const preparation = prepareRouteRawHandoff(input.result, {
+			baseDir: input.handoff.baseDir,
+			filter: input.filter,
+			generatedAt: input.handoff.generatedAt,
+			path: input.path,
+			sort: input.sort,
+			view: input.view,
+		});
+		if (preparation.kind === "notice") {
+			return preparation;
+		}
+		return {
+			kind: "command",
+			command,
+			handoff: {
+				action: command,
+				baseDir: input.handoff.baseDir,
+				plan: preparation.plan,
+			},
+		};
+	}
+	return { kind: "no-op" };
+}
 
 export function getRouteDetailViewShortcut(
 	input: string,
@@ -144,9 +515,13 @@ export function submitRouteFilterCleanupConfirmation(
 ): RouteFilterCleanupConfirmation {
 	const preview = createRouteFilterCleanupPreview(presets);
 	if (!preview) {
+		const message = "route filter cleanup unavailable";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "route filter cleanup unavailable",
+			copyPreview: false,
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
@@ -156,16 +531,24 @@ export function submitRouteFilterCleanupConfirmation(
 		confirmation,
 	);
 	if (!cleanupConfirmation.confirmed) {
+		const message = "route filter cleanup rejected";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "route filter cleanup rejected",
+			copyPreview: false,
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
 	}
+	const message = `route filter cleanup removed ${preview.count} presets`;
 	return {
+		action: "apply",
 		confirmed: true,
-		message: `route filter cleanup removed ${preview.count} presets`,
+		copyPreview: false,
+		message,
+		notice: { level: "info", message },
 		presets: [],
 		removed: preview.count,
 	};
@@ -400,6 +783,25 @@ export function createRouteRawHandoffPlan(
 		...(options.origin ? { origin: options.origin } : {}),
 		view,
 	};
+}
+
+export function prepareRouteRawHandoff(
+	result: RouteTableResult | undefined,
+	options: Parameters<typeof createRouteRawHandoffPlan>[1],
+): RouteHandoffPreparation {
+	if (!result) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no route table loaded" },
+		};
+	}
+	const plan = createRouteRawHandoffPlan(result, options);
+	return plan
+		? { kind: "handoff", plan }
+		: {
+				kind: "notice",
+				notice: { level: "warn", message: "no route handoff target" },
+			};
 }
 
 export async function writeRouteRawHandoffPlan(

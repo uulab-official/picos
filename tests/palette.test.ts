@@ -17,6 +17,7 @@ import {
 	getPaletteAction,
 	moveCommandPalette,
 	openCommandPalette,
+	prepareCommandPaletteInput,
 } from "../src/tui/palette";
 import type { StatusActivityToolsEvidenceSearchRecovery } from "../src/tui/statusActivityQueue";
 import type {
@@ -55,8 +56,8 @@ describe("TUI command palette", () => {
 				active: true,
 				selectedIndex: 999,
 				query: "",
-			}),
-		).toBe(undefined);
+			})?.id,
+		).toBe(actions.at(-1)?.id);
 	});
 
 	test("filters actions by query text and resets selection", () => {
@@ -1545,5 +1546,59 @@ describe("TUI command palette", () => {
 		expect(state.query).toBe("dn");
 		const inactiveState = { ...state, active: false };
 		expect(backspaceCommandPaletteQuery(inactiveState)).toBe(inactiveState);
+	});
+
+	test("classifies palette navigation, dismissal, commands, and no-op input", () => {
+		const actions = getActionCatalog();
+
+		expect(
+			prepareCommandPaletteInput({
+				actions,
+				state: { active: true, selectedIndex: 999, query: "" },
+				input: "j",
+			}),
+		).toMatchObject({
+			kind: "navigation",
+			state: { active: true, selectedIndex: 0, query: "" },
+		});
+		expect(
+			prepareCommandPaletteInput({
+				actions,
+				state: openCommandPalette(),
+				input: "q",
+			}),
+		).toEqual({
+			kind: "dismiss",
+			state: { active: false, selectedIndex: 0, query: "" },
+			notice: { level: "info", message: "command palette closed" },
+		});
+		expect(
+			prepareCommandPaletteInput({
+				actions,
+				state: openCommandPalette(),
+				input: "\r",
+				return: true,
+			}),
+		).toMatchObject({ kind: "command", command: { kind: "run-action" } });
+		expect(
+			prepareCommandPaletteInput({
+				actions,
+				state: { active: false, selectedIndex: 0, query: "" },
+				input: "x",
+			}),
+		).toEqual({
+			kind: "no-op",
+			state: { active: false, selectedIndex: 0, query: "" },
+		});
+		expect(
+			prepareCommandPaletteInput({
+				actions,
+				state: openCommandPalette(),
+				input: "\u0003",
+			}),
+		).toEqual({
+			kind: "no-op",
+			state: { active: true, selectedIndex: 0, query: "" },
+		});
 	});
 });

@@ -18,6 +18,69 @@ export type EditorBufferState = {
 	truncated: boolean;
 };
 
+export type EditorTransitionNotice = {
+	level: "ok" | "info" | "warn";
+	message: string;
+};
+
+export type EditorBufferTransition = {
+	buffer: EditorBuffer | undefined;
+	selectedLineIndex: number;
+	applies: boolean;
+	clearSaveResult: boolean;
+	notice?: EditorTransitionNotice;
+};
+
+export type EditorSaveBufferPublication = {
+	status: "current" | "stale";
+	buffer: EditorBuffer | undefined;
+	markedClean: boolean;
+	publishResult: boolean;
+};
+
+export function classifyEditorSaveBufferPublication(input: {
+	currentRequestToken: number;
+	requestToken: number;
+	currentRevision: number;
+	submittedRevision: number;
+	current: EditorBuffer | undefined;
+	submitted: EditorBuffer;
+	success: boolean;
+}): EditorSaveBufferPublication {
+	if (
+		input.currentRequestToken !== input.requestToken ||
+		input.currentRevision !== input.submittedRevision ||
+		!input.current ||
+		input.current.path !== input.submitted.path ||
+		input.current.content !== input.submitted.content
+	) {
+		return {
+			status: "stale",
+			buffer: input.current,
+			markedClean: false,
+			publishResult: false,
+		};
+	}
+	if (!input.success) {
+		return {
+			status: "current",
+			buffer: input.current,
+			markedClean: false,
+			publishResult: true,
+		};
+	}
+	return {
+		status: "current",
+		buffer: {
+			...input.current,
+			originalContent: input.submitted.content,
+			editHistory: [],
+		},
+		markedClean: true,
+		publishResult: true,
+	};
+}
+
 export function createEditorBuffer(input: {
 	path: string;
 	content: string;
@@ -73,10 +136,215 @@ export function moveEditorBufferLineSelection(
 	if (lineCount <= 0) {
 		return 0;
 	}
-	const normalized = normalizeEditorLineIndex(selectedIndex, lineCount);
+	const normalized = repairEditorBufferLineSelection(buffer, selectedIndex);
 	return direction === "next"
 		? (normalized + 1) % lineCount
 		: (normalized - 1 + lineCount) % lineCount;
+}
+
+export function repairEditorBufferLineSelection(
+	buffer: EditorBuffer,
+	selectedIndex: number,
+): number {
+	return normalizeEditorLineIndex(
+		selectedIndex,
+		splitEditorLines(buffer.content).length,
+	);
+}
+
+export function transitionEditorAppendLine(input: {
+	buffer: EditorBuffer | undefined;
+	selectedLineIndex: number;
+	line: string;
+}): EditorBufferTransition {
+	if (!input.buffer) {
+		return missingEditorBufferTransition("open a text file before editing");
+	}
+
+	const buffer = appendEditorBufferLine(input.buffer, input.line);
+	const state = getEditorBufferState(buffer);
+	return {
+		buffer,
+		selectedLineIndex: repairEditorBufferLineSelection(
+			buffer,
+			state.lineCount - 1,
+		),
+		applies: true,
+		clearSaveResult: true,
+		notice: {
+			level: "ok",
+			message: `editor appended line ${state.lineCount} dirty=${state.dirty}`,
+		},
+	};
+}
+
+export function transitionEditorInsertLine(input: {
+	buffer: EditorBuffer | undefined;
+	selectedLineIndex: number;
+	line: string;
+	position: "before" | "after";
+}): EditorBufferTransition {
+	if (!input.buffer) {
+		return missingEditorBufferTransition(
+			"open a text file before inserting lines",
+		);
+	}
+
+	const selectedLineIndex = repairEditorBufferLineSelection(
+		input.buffer,
+		input.selectedLineIndex,
+	);
+	const buffer = insertEditorBufferLine(
+		input.buffer,
+		selectedLineIndex,
+		input.line,
+		input.position,
+	);
+	const state = getEditorBufferState(buffer);
+	const insertedLineIndex =
+		input.position === "before" ? selectedLineIndex : selectedLineIndex + 1;
+	return {
+		buffer,
+		selectedLineIndex: repairEditorBufferLineSelection(
+			buffer,
+			insertedLineIndex,
+		),
+		applies: true,
+		clearSaveResult: true,
+		notice: {
+			level: "ok",
+			message: `editor inserted ${input.position} line ${selectedLineIndex + 1} dirty=${state.dirty}`,
+		},
+	};
+}
+
+export function transitionEditorReplaceLine(input: {
+	buffer: EditorBuffer | undefined;
+	selectedLineIndex: number;
+	line: string;
+}): EditorBufferTransition {
+	if (!input.buffer) {
+		return missingEditorBufferTransition(
+			"open a text file before replacing lines",
+		);
+	}
+
+	const selectedLineIndex = repairEditorBufferLineSelection(
+		input.buffer,
+		input.selectedLineIndex,
+	);
+	const buffer = replaceEditorBufferLine(
+		input.buffer,
+		selectedLineIndex,
+		input.line,
+	);
+	const state = getEditorBufferState(buffer);
+	return {
+		buffer,
+		selectedLineIndex: repairEditorBufferLineSelection(
+			buffer,
+			selectedLineIndex,
+		),
+		applies: true,
+		clearSaveResult: true,
+		notice: {
+			level: "ok",
+			message: `editor replaced line ${selectedLineIndex + 1} dirty=${state.dirty}`,
+		},
+	};
+}
+
+export function transitionEditorDeleteLine(input: {
+	buffer: EditorBuffer | undefined;
+	selectedLineIndex: number;
+}): EditorBufferTransition {
+	if (!input.buffer) {
+		return missingEditorBufferTransition(
+			"open a text file before deleting lines",
+		);
+	}
+
+	const selectedLineIndex = repairEditorBufferLineSelection(
+		input.buffer,
+		input.selectedLineIndex,
+	);
+	const buffer = deleteEditorBufferLine(input.buffer, selectedLineIndex);
+	const state = getEditorBufferState(buffer);
+	const applies = buffer !== input.buffer;
+	return {
+		buffer,
+		selectedLineIndex: repairEditorBufferLineSelection(
+			buffer,
+			selectedLineIndex,
+		),
+		applies,
+		clearSaveResult: applies,
+		notice: {
+			level: "warn",
+			message: `editor deleted line ${selectedLineIndex + 1} dirty=${state.dirty}`,
+		},
+	};
+}
+
+export function transitionEditorUndo(input: {
+	buffer: EditorBuffer | undefined;
+	selectedLineIndex: number;
+}): EditorBufferTransition {
+	if (!input.buffer) {
+		return missingEditorBufferTransition("open a text file before undo");
+	}
+
+	if (input.buffer.editHistory.length <= 0) {
+		return {
+			buffer: input.buffer,
+			selectedLineIndex: repairEditorBufferLineSelection(
+				input.buffer,
+				input.selectedLineIndex,
+			),
+			applies: false,
+			clearSaveResult: false,
+			notice: { level: "info", message: "editor undo history empty" },
+		};
+	}
+
+	const buffer = undoEditorBufferEdit(input.buffer);
+	const state = getEditorBufferState(buffer);
+	return {
+		buffer,
+		selectedLineIndex: repairEditorBufferLineSelection(
+			buffer,
+			input.selectedLineIndex,
+		),
+		applies: true,
+		clearSaveResult: true,
+		notice: { level: "info", message: `editor undo dirty=${state.dirty}` },
+	};
+}
+
+export function transitionEditorMoveCursor(input: {
+	buffer: EditorBuffer | undefined;
+	selectedLineIndex: number;
+	direction: "next" | "previous";
+}): EditorBufferTransition {
+	if (!input.buffer) {
+		return {
+			buffer: undefined,
+			selectedLineIndex: 0,
+			applies: false,
+			clearSaveResult: false,
+		};
+	}
+
+	return {
+		buffer: input.buffer,
+		selectedLineIndex: moveEditorBufferLineSelection(
+			input.buffer,
+			input.selectedLineIndex,
+			input.direction,
+		),
+		applies: true,
+		clearSaveResult: false,
+	};
 }
 
 export function replaceEditorBufferLine(
@@ -149,6 +417,18 @@ function splitEditorLines(content: string): string[] {
 		return lines.slice(0, -1);
 	}
 	return lines;
+}
+
+function missingEditorBufferTransition(
+	message: string,
+): EditorBufferTransition {
+	return {
+		buffer: undefined,
+		selectedLineIndex: 0,
+		applies: false,
+		clearSaveResult: false,
+		notice: { level: "warn", message },
+	};
 }
 
 function normalizeEditorLineIndex(index: number, lineCount: number): number {

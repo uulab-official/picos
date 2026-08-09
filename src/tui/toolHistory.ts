@@ -12,6 +12,7 @@ import {
 	createConfigCleanupPreview,
 	submitConfigCleanupConfirmation,
 } from "../core/configCleanup";
+import { buildFileOpenPlan, type FileOpenPlan } from "../core/fileOpen";
 import {
 	normalizeToolTargetPresets,
 	type ToolTargetPresetPreference,
@@ -22,7 +23,7 @@ import {
 	type ToolId,
 	type ToolResult,
 } from "../core/tools";
-import type { NetworkSummary } from "../core/types";
+import type { NetworkSummary, SupportedPlatform } from "../core/types";
 import {
 	basenamePathLike,
 	dirnamePathLike,
@@ -30,10 +31,13 @@ import {
 	resolvePathLike,
 	samePathLike,
 } from "../utils/pathStyle";
+import type { ToolsWorkspaceCommand } from "./appInputDispatcher";
 import {
 	type ClipboardPreview,
 	createClipboardPreview,
 } from "./clipboardPreview";
+import { clampIndex } from "./navigation";
+import { classifyRequestPublication } from "./requestSequence";
 
 export type ToolRunActionId =
 	| "tools.dns"
@@ -57,6 +61,48 @@ export type ToolTargetPreset = {
 	actionId: ToolRunActionId;
 	target: string;
 	hint: string;
+};
+
+export type ToolTargetNotice = {
+	level: "ok" | "info" | "warn";
+	message: string;
+};
+
+export type ToolTargetCommandLineIntent =
+	| "close"
+	| "preserve"
+	| "tool-target-label"
+	| "tool-target-value"
+	| "tool-target-action"
+	| "tool-target-cleanup";
+
+export type ToolTargetPresetTransition = {
+	presets: ToolTargetPreset[];
+	selectedIndex: number;
+	commandLine: ToolTargetCommandLineIntent;
+	changed: boolean;
+	notice: ToolTargetNotice;
+};
+
+export type ToolTargetPresetTransitionInput = {
+	presets: ToolTargetPreset[];
+	targetPresets: ToolTargetPreset[];
+	selectedIndex: number;
+	value?: string;
+	limit?: number;
+};
+
+export type ToolTargetPrompt = "label" | "value" | "action" | "cleanup";
+
+export type ToolTargetPromptIntent = ToolTargetPresetTransition;
+
+export type ToolTargetRunIntent = {
+	presets: ToolTargetPreset[];
+	selectedIndex: number;
+	commandLine: "preserve";
+	plan?: ToolRunPlan;
+	completionNotice?: string;
+	notice?: ToolTargetNotice;
 };
 
 export type ToolRunActionMetadata = {
@@ -281,6 +327,663 @@ export type ToolCopyPreviewMode =
 	| "row"
 	| false;
 
+const toolHistoryLimit = 12;
+
+export type ToolHistoryExportSnapshot = {
+	history: ToolHistoryItem[];
+	selectedIndex: number;
+	scope: ToolHistoryExportScope;
+};
+
+export type ToolHistoryExportPublicationSnapshot = {
+	target: "active";
+	baseDir: string;
+	selectedIndex: number;
+	filter: ToolHistoryEvidenceFilter;
+	query: string;
+};
+
+export type ToolHistoryExportContext = {
+	baseDir: string;
+	generatedAt?: Date;
+	publication: Omit<ToolHistoryExportPublicationSnapshot, "target" | "baseDir">;
+};
+
+export type ToolsWorkspaceInput = {
+	command: ToolsWorkspaceCommand | undefined;
+	input: string;
+	key: { home?: boolean; end?: boolean };
+	history: ToolHistoryItem[];
+	selectedHistoryIndex: number;
+	filter: string;
+	filterPresets: string[];
+	sort: ToolHistorySort;
+	group: ToolHistoryGroup;
+	detail: ToolHistoryDetailView;
+	customTargetPresets: ToolTargetPreset[];
+	targetPresets: ToolTargetPreset[];
+	selectedTargetIndex: number;
+	targetPresetLimit: number;
+	copySection: ToolSectionClipboardSelection;
+	copyRowIndex: number;
+	exportContext: ToolHistoryExportContext;
+};
+
+export type ToolsWorkspaceInputEffect =
+	| { kind: "history-selection"; selectedIndex: number }
+	| { kind: "filter"; filter: string }
+	| { kind: "filter-presets"; presets: string[] }
+	| { kind: "sort"; sort: ToolHistorySort }
+	| { kind: "group"; group: ToolHistoryGroup }
+	| { kind: "detail"; detail: ToolHistoryDetailView }
+	| { kind: "target-selection"; selectedIndex: number }
+	| { kind: "target-presets"; presets: ToolTargetPreset[] }
+	| { kind: "copy-preview"; mode: ToolCopyPreviewMode }
+	| { kind: "copy-section"; section: ToolSectionClipboardSelection }
+	| { kind: "copy-row"; rowIndex: number }
+	| {
+			kind: "prompt";
+			prompt:
+				| "tool-filter"
+				| "tool-history-cleanup"
+				| "tool-target-label"
+				| "tool-target-value"
+				| "tool-target-action"
+				| "tool-target-cleanup";
+	  }
+	| {
+			kind: "notice";
+			notice: { level: "ok" | "info" | "warn" | "fail"; message: string };
+	  }
+	| {
+			kind: "persist-history-preferences";
+			preferences: {
+				filterPresets?: string[];
+				sort?: ToolHistorySort;
+				group?: ToolHistoryGroup;
+				detailView?: ToolHistoryDetailView;
+			};
+			failureMessagePrefix: string;
+	  }
+	| {
+			kind: "persist-target-presets";
+			presets: ToolTargetPreset[];
+			failureMessagePrefix: string;
+	  }
+	| {
+			kind: "run";
+			source: "rerun" | "target";
+			plan: ToolRunPlan;
+			completionNotice: string;
+	  }
+	| {
+			kind: "clipboard";
+			mode: Exclude<ToolCopyPreviewMode, false>;
+			preview: ClipboardPreview;
+	  }
+	| {
+			kind: "export";
+			plan: ToolHistoryExportPlan;
+			publication: ToolHistoryExportPublicationSnapshot;
+			notice: ToolHistoryEvidenceNotice;
+	  };
+
+export type ToolsWorkspaceInputTransition =
+	| { kind: "unhandled" }
+	| { kind: "handled"; effects: ToolsWorkspaceInputEffect[] };
+
+export function prepareToolsWorkspaceInput(
+	input: ToolsWorkspaceInput,
+): ToolsWorkspaceInputTransition {
+	const command = input.command;
+	switch (command) {
+		case undefined:
+			return { kind: "unhandled" };
+		case "open-filter":
+			return handledToolsWorkspaceInput(
+				{ kind: "prompt", prompt: "tool-filter" },
+				createToolsWorkspaceNotice("info", "tool history filter opened"),
+			);
+		case "clear-filter":
+			return handledToolsWorkspaceInput(
+				{ kind: "filter", filter: "" },
+				{ kind: "copy-preview", mode: false },
+				{
+					kind: "history-selection",
+					selectedIndex: clampIndex(
+						input.selectedHistoryIndex,
+						input.history.length,
+					),
+				},
+				createToolsWorkspaceNotice("info", "tool history filter cleared"),
+			);
+		case "save-filter": {
+			if (!input.filter.trim()) {
+				return handledToolsWorkspaceInput(
+					createToolsWorkspaceNotice("warn", "no tools filter to save"),
+				);
+			}
+			const presets = saveToolHistoryPreset(input.filterPresets, input.filter);
+			return handledToolsWorkspaceInput(
+				{ kind: "filter-presets", presets },
+				{
+					kind: "persist-history-preferences",
+					preferences: { filterPresets: presets },
+					failureMessagePrefix: "tools preset save failed",
+				},
+				createToolsWorkspaceNotice(
+					"info",
+					`tools preset saved ${input.filter}`,
+				),
+			);
+		}
+		case "cleanup-filter": {
+			const preview = createToolHistoryCleanupPreview(input.filterPresets);
+			if (!preview) {
+				return handledToolsWorkspaceInput(
+					createToolsWorkspaceNotice(
+						"warn",
+						"no tools filter presets to clean",
+					),
+				);
+			}
+			return handledToolsWorkspaceInput(
+				{ kind: "prompt", prompt: "tool-history-cleanup" },
+				{ kind: "copy-preview", mode: false },
+				createToolsWorkspaceNotice(
+					"warn",
+					`tool history filter cleanup confirm ${preview.confirmationPhrase}`,
+				),
+			);
+		}
+		case "cycle-filter-preset": {
+			const preset = nextToolHistoryPreset(input.filterPresets, input.filter);
+			if (!preset) {
+				return handledToolsWorkspaceInput(
+					createToolsWorkspaceNotice("warn", "no tools filter presets"),
+				);
+			}
+			const filtered = filterToolHistory(input.history, preset);
+			return handledToolsWorkspaceInput(
+				{ kind: "filter", filter: preset },
+				{ kind: "copy-preview", mode: false },
+				{
+					kind: "history-selection",
+					selectedIndex: filtered[0]?.index ?? 0,
+				},
+				createToolsWorkspaceNotice(
+					filtered.length ? "info" : "warn",
+					`tools preset ${preset} matches ${filtered.length}`,
+				),
+			);
+		}
+		case "detail-shortcut": {
+			const detail = getToolHistoryDetailViewShortcut(input.input, input.key);
+			return detail
+				? prepareToolsWorkspaceDetailTransition(detail)
+				: { kind: "unhandled" };
+		}
+		case "cycle-detail":
+			return prepareToolsWorkspaceDetailTransition(
+				nextToolHistoryDetailView(input.detail),
+			);
+		case "cycle-sort": {
+			const sort = nextToolHistorySort(input.sort);
+			return handledToolsWorkspaceInput(
+				{ kind: "sort", sort },
+				{
+					kind: "persist-history-preferences",
+					preferences: { sort },
+					failureMessagePrefix: "tools sort save failed",
+				},
+				{ kind: "copy-preview", mode: false },
+				createToolsWorkspaceNotice("info", `tools sort ${sort}`),
+			);
+		}
+		case "cycle-group": {
+			const group = nextToolHistoryGroup(input.group);
+			return handledToolsWorkspaceInput(
+				{ kind: "group", group },
+				{
+					kind: "persist-history-preferences",
+					preferences: { group },
+					failureMessagePrefix: "tools group save failed",
+				},
+				{ kind: "copy-preview", mode: false },
+				createToolsWorkspaceNotice("info", `tools group ${group}`),
+			);
+		}
+		case "rerun": {
+			const selectedIndex = getVisibleToolHistoryIndex(
+				input.history,
+				input.selectedHistoryIndex,
+				input.filter,
+				input.sort,
+			);
+			const plan = rerunToolHistoryItem(
+				getSelectedToolHistoryItem(input.history, selectedIndex),
+			);
+			return plan
+				? handledToolsWorkspaceInput({
+						kind: "run",
+						source: "rerun",
+						plan,
+						completionNotice: `${plan.label} rerun completed`,
+					})
+				: handledToolsWorkspaceInput(
+						createToolsWorkspaceNotice("warn", "no tool history selected"),
+					);
+		}
+		case "select-target-next":
+		case "select-target-previous": {
+			const transition = selectToolTargetPresetTransition(
+				input.targetPresets,
+				input.selectedTargetIndex,
+				input.command === "select-target-previous" ? "previous" : "next",
+			);
+			return handledToolsWorkspaceInput(
+				{ kind: "target-selection", selectedIndex: transition.selectedIndex },
+				...(transition.notice
+					? [
+							createToolsWorkspaceNotice(
+								transition.notice.level,
+								transition.notice.message,
+							),
+						]
+					: []),
+				{ kind: "copy-preview", mode: false },
+			);
+		}
+		case "save-target":
+			return prepareToolsWorkspaceTargetMutation(
+				saveSelectedToolTargetPresetTransition({
+					presets: input.customTargetPresets,
+					targetPresets: input.targetPresets,
+					selectedIndex: input.selectedTargetIndex,
+					limit: input.targetPresetLimit,
+				}),
+				"tool target save failed",
+			);
+		case "promote-target":
+			return prepareToolsWorkspaceTargetMutation(
+				promoteToolTargetPresetTransition({
+					presets: input.customTargetPresets,
+					targetPresets: input.targetPresets,
+					selectedIndex: input.selectedTargetIndex,
+				}),
+				"tool target pin failed",
+			);
+		case "remove-target":
+			return prepareToolsWorkspaceTargetMutation(
+				removeToolTargetPresetTransition({
+					presets: input.customTargetPresets,
+					targetPresets: input.targetPresets,
+					selectedIndex: input.selectedTargetIndex,
+				}),
+				"tool target delete failed",
+			);
+		case "prompt-target-cleanup":
+		case "prompt-target-label":
+		case "prompt-target-value":
+		case "prompt-target-action": {
+			const promptByCommand = {
+				"prompt-target-cleanup": "cleanup",
+				"prompt-target-label": "label",
+				"prompt-target-value": "value",
+				"prompt-target-action": "action",
+			} as const satisfies Record<
+				Extract<ToolsWorkspaceCommand, `prompt-target-${string}`>,
+				ToolTargetPrompt
+			>;
+			const transition = createToolTargetPromptIntent({
+				presets: input.customTargetPresets,
+				targetPresets: input.targetPresets,
+				selectedIndex: input.selectedTargetIndex,
+				prompt: promptByCommand[command],
+			});
+			const effects: ToolsWorkspaceInputEffect[] = [
+				{ kind: "target-selection", selectedIndex: transition.selectedIndex },
+			];
+			if (
+				transition.commandLine !== "preserve" &&
+				transition.commandLine !== "close"
+			) {
+				effects.push(
+					{ kind: "prompt", prompt: transition.commandLine },
+					{ kind: "copy-preview", mode: false },
+				);
+			}
+			effects.push(
+				createToolsWorkspaceNotice(
+					transition.notice.level,
+					transition.notice.message,
+				),
+			);
+			return { kind: "handled", effects };
+		}
+		case "run-target": {
+			const transition = createToolTargetRunIntent({
+				presets: input.targetPresets,
+				selectedIndex: input.selectedTargetIndex,
+			});
+			const effects: ToolsWorkspaceInputEffect[] = [
+				{ kind: "target-selection", selectedIndex: transition.selectedIndex },
+			];
+			if (transition.plan && transition.completionNotice) {
+				effects.push({
+					kind: "run",
+					source: "target",
+					plan: transition.plan,
+					completionNotice: transition.completionNotice,
+				});
+			} else if (transition.notice) {
+				effects.push(
+					createToolsWorkspaceNotice(
+						transition.notice.level,
+						transition.notice.message,
+					),
+				);
+			}
+			return { kind: "handled", effects };
+		}
+		case "copy-raw":
+			return prepareToolsWorkspaceClipboardTransition(
+				input,
+				"raw",
+				getSelectedToolOutputClipboardPreview,
+				"no tool output selected",
+			);
+		case "copy-summary":
+			return prepareToolsWorkspaceClipboardTransition(
+				input,
+				"summary",
+				getSelectedToolSummaryClipboardPreview,
+				"no tool summary selected",
+			);
+		case "copy-compare":
+			return prepareToolsWorkspaceClipboardTransition(
+				input,
+				"compare",
+				getSelectedToolCompareClipboardPreview,
+				"no tool compare selected",
+			);
+		case "cycle-copy-section": {
+			const section = nextToolSectionClipboardSelection(input.copySection);
+			return handledToolsWorkspaceInput(
+				{ kind: "copy-section", section },
+				{ kind: "copy-row", rowIndex: 0 },
+				{ kind: "copy-preview", mode: false },
+				createToolsWorkspaceNotice("info", `tools copy section ${section}`),
+			);
+		}
+		case "move-copy-row-next":
+		case "move-copy-row-previous": {
+			const selectedIndex = getVisibleToolHistoryIndex(
+				input.history,
+				input.selectedHistoryIndex,
+				input.filter,
+				input.sort,
+			);
+			const rowIndex = moveToolSectionClipboardRow(
+				input.history,
+				selectedIndex,
+				input.copySection,
+				input.copyRowIndex,
+				input.command === "move-copy-row-next" ? "next" : "previous",
+			);
+			return handledToolsWorkspaceInput(
+				{ kind: "copy-row", rowIndex },
+				{ kind: "copy-preview", mode: false },
+			);
+		}
+		case "copy-row": {
+			const selectedIndex = getToolsWorkspaceSelectedHistoryIndex(input);
+			const preview = getSelectedToolSectionRowClipboardPreview(
+				input.history,
+				selectedIndex,
+				input.copySection,
+				input.copyRowIndex,
+			);
+			return preview
+				? handledToolsWorkspaceInput({
+						kind: "clipboard",
+						mode: "row",
+						preview,
+					})
+				: handledToolsWorkspaceInput(
+						createToolsWorkspaceNotice(
+							"warn",
+							`no tool ${input.copySection} row selected`,
+						),
+					);
+		}
+		case "copy-section": {
+			const selectedIndex = getToolsWorkspaceSelectedHistoryIndex(input);
+			const preview = getSelectedToolSectionClipboardPreview(
+				input.history,
+				selectedIndex,
+				input.copySection,
+			);
+			return preview
+				? handledToolsWorkspaceInput({
+						kind: "clipboard",
+						mode: input.copySection,
+						preview,
+					})
+				: handledToolsWorkspaceInput(
+						createToolsWorkspaceNotice(
+							"warn",
+							`no tool ${input.copySection} fields selected`,
+						),
+					);
+		}
+		case "export-selected":
+			return prepareToolsWorkspaceExportTransition(input, "selected");
+		case "export-all":
+			return prepareToolsWorkspaceExportTransition(input, "all");
+		case "export-compare":
+			return prepareToolsWorkspaceExportTransition(input, "compare");
+	}
+	return assertNeverToolsWorkspaceCommand(command);
+}
+
+function assertNeverToolsWorkspaceCommand(command: never): never {
+	throw new Error(`Unhandled Tools workspace command: ${String(command)}`);
+}
+
+function handledToolsWorkspaceInput(
+	...effects: ToolsWorkspaceInputEffect[]
+): ToolsWorkspaceInputTransition {
+	return { kind: "handled", effects };
+}
+
+function createToolsWorkspaceNotice(
+	level: "ok" | "info" | "warn" | "fail",
+	message: string,
+): Extract<ToolsWorkspaceInputEffect, { kind: "notice" }> {
+	return { kind: "notice", notice: { level, message } };
+}
+
+function prepareToolsWorkspaceDetailTransition(
+	detail: ToolHistoryDetailView,
+): ToolsWorkspaceInputTransition {
+	return handledToolsWorkspaceInput(
+		{ kind: "detail", detail },
+		{
+			kind: "persist-history-preferences",
+			preferences: { detailView: detail },
+			failureMessagePrefix: "tools detail save failed",
+		},
+		{ kind: "copy-preview", mode: false },
+		createToolsWorkspaceNotice("info", `tools detail ${detail}`),
+	);
+}
+
+function prepareToolsWorkspaceTargetMutation(
+	transition: ToolTargetPresetTransition,
+	failureMessagePrefix: string,
+): ToolsWorkspaceInputTransition {
+	const effects: ToolsWorkspaceInputEffect[] = [
+		{ kind: "target-selection", selectedIndex: transition.selectedIndex },
+		createToolsWorkspaceNotice(
+			transition.notice.level,
+			transition.notice.message,
+		),
+	];
+	if (transition.changed) {
+		effects.push(
+			{ kind: "target-presets", presets: transition.presets },
+			{
+				kind: "persist-target-presets",
+				presets: transition.presets,
+				failureMessagePrefix,
+			},
+			{ kind: "copy-preview", mode: false },
+		);
+	}
+	return { kind: "handled", effects };
+}
+
+function getToolsWorkspaceSelectedHistoryIndex(
+	input: ToolsWorkspaceInput,
+): number {
+	return getVisibleToolHistoryIndex(
+		input.history,
+		input.selectedHistoryIndex,
+		input.filter,
+		input.sort,
+	);
+}
+
+function prepareToolsWorkspaceClipboardTransition(
+	input: ToolsWorkspaceInput,
+	mode: "raw" | "summary" | "compare",
+	createPreview: (
+		history: ToolHistoryItem[],
+		selectedIndex: number,
+	) => ClipboardPreview | undefined,
+	emptyMessage: string,
+): ToolsWorkspaceInputTransition {
+	const preview = createPreview(
+		input.history,
+		getToolsWorkspaceSelectedHistoryIndex(input),
+	);
+	return preview
+		? handledToolsWorkspaceInput({ kind: "clipboard", mode, preview })
+		: handledToolsWorkspaceInput(
+				createToolsWorkspaceNotice("warn", emptyMessage),
+			);
+}
+
+function prepareToolsWorkspaceExportTransition(
+	input: ToolsWorkspaceInput,
+	scope: ToolHistoryExportScope,
+): ToolsWorkspaceInputTransition {
+	const effect = prepareToolHistoryExportEffect({
+		history: input.history,
+		selectedIndex: getToolsWorkspaceSelectedHistoryIndex(input),
+		scope,
+		context: input.exportContext,
+	});
+	return handledToolsWorkspaceInput(effect);
+}
+
+export function prepareToolHistoryExportEffect(input: {
+	history: ToolHistoryItem[];
+	selectedIndex: number;
+	scope: ToolHistoryExportScope;
+	context: ToolHistoryExportContext;
+}): Extract<
+	ToolsWorkspaceInputEffect,
+	{ kind: "export" } | { kind: "notice" }
+> {
+	const snapshot = createToolHistoryExportSnapshot(
+		input.history,
+		input.selectedIndex,
+		input.scope,
+	);
+	if (!snapshot) {
+		return createToolsWorkspaceNotice("warn", "no tool history to export");
+	}
+	const transition = prepareToolHistoryExport(
+		snapshot.history,
+		snapshot.selectedIndex,
+		snapshot.scope,
+		{
+			baseDir: input.context.baseDir,
+			...(input.context.generatedAt
+				? { generatedAt: input.context.generatedAt }
+				: {}),
+		},
+	);
+	if (transition.kind === "notice") {
+		return createToolsWorkspaceNotice(
+			transition.notice.level,
+			transition.notice.message,
+		);
+	}
+	return {
+		kind: "export",
+		plan: transition.plan,
+		publication: {
+			target: "active",
+			baseDir: input.context.baseDir,
+			...input.context.publication,
+		},
+		notice: transition.notice,
+	};
+}
+
+export function createToolHistoryExportSnapshot(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	scope: ToolHistoryExportScope,
+): ToolHistoryExportSnapshot | undefined {
+	const selected = getSelectedToolHistoryItem(history, selectedIndex);
+	if (!selected) {
+		return undefined;
+	}
+
+	if (scope === "selected") {
+		return {
+			history: [cloneToolHistoryItem(selected)],
+			selectedIndex: 0,
+			scope,
+		};
+	}
+	if (scope === "compare") {
+		const previous = findPreviousMatchingToolHistoryItem(
+			history,
+			selectedIndex,
+			selected,
+		);
+		const snapshot = previous ? [previous, selected] : [selected];
+		return {
+			history: snapshot.map(cloneToolHistoryItem),
+			selectedIndex: snapshot.length - 1,
+			scope,
+		};
+	}
+
+	const startIndex = Math.max(0, history.length - toolHistoryLimit);
+	const snapshot = history.slice(startIndex).map(cloneToolHistoryItem);
+	return {
+		history: snapshot,
+		selectedIndex: clampIndex(selectedIndex - startIndex, snapshot.length),
+		scope,
+	};
+}
+
+function cloneToolHistoryItem(item: ToolHistoryItem): ToolHistoryItem {
+	return {
+		...item,
+		plan: {
+			...item.plan,
+			args: [...item.plan.args],
+		},
+	};
+}
+
 const toolCopyPreviewValueLimit = 64;
 
 export type ToolHistoryExportPlan = {
@@ -343,6 +1046,73 @@ export type ToolHistoryArchivePruneResult = {
 	removedPaths: string[];
 	message: string;
 };
+
+export type ToolHistoryEvidenceNotice = {
+	level: "ok" | "info" | "warn" | "fail";
+	message: string;
+};
+
+export type ToolHistoryExportIndexRefreshTransition =
+	| { status: "stale"; notice?: ToolHistoryEvidenceNotice }
+	| { status: "failure"; notice: ToolHistoryEvidenceNotice }
+	| {
+			status: "success";
+			index: ToolHistoryExportIndex;
+			selectedIndex: number;
+			notice?: ToolHistoryEvidenceNotice;
+	  };
+
+export type ToolHistoryEvidenceIndexBatchRefreshTransition =
+	| { status: "stale"; notice?: ToolHistoryEvidenceNotice }
+	| { status: "failure"; notice: ToolHistoryEvidenceNotice }
+	| {
+			status: "success";
+			active: Extract<
+				ToolHistoryExportIndexRefreshTransition,
+				{ status: "success" }
+			>;
+			archive: Extract<
+				ToolHistoryExportIndexRefreshTransition,
+				{ status: "success" }
+			>;
+	  };
+
+export type PrepareToolHistoryExportTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| {
+			kind: "export";
+			selectedIndex: number;
+			plan: ToolHistoryExportPlan;
+			notice: ToolHistoryEvidenceNotice;
+	  };
+
+export type SelectedToolHistoryExportOpenTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| {
+			kind: "open";
+			selectedIndex: number;
+			item: ToolHistoryExportIndexItem;
+			plan: FileOpenPlan;
+			notice: ToolHistoryEvidenceNotice;
+	  };
+
+export type SelectedToolHistoryExportArchiveTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| {
+			kind: "confirmation";
+			selectedIndex: number;
+			item: ToolHistoryExportIndexItem;
+			plan: ToolHistoryExportArchivePlan;
+			notice: ToolHistoryEvidenceNotice;
+	  };
+
+export type ToolHistoryExportArchiveConfirmationTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| { kind: "execute"; plan: ToolHistoryExportArchivePlan };
+
+export type ToolHistoryArchiveRetentionConfirmationTransition =
+	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
+	| { kind: "execute"; plan: ToolHistoryArchiveRetentionPlan };
 
 export type FilteredToolHistoryItem = {
 	index: number;
@@ -665,7 +1435,7 @@ export function appendToolHistory(
 		status?: "ok" | "fail";
 	},
 	time = new Date().toLocaleTimeString("en-US", { hour12: false }),
-	limit = 12,
+	limit = toolHistoryLimit,
 ): ToolHistoryItem[] {
 	const item: ToolHistoryItem = {
 		id: createToolHistoryId(time, input.plan.label),
@@ -727,10 +1497,10 @@ export function formatToolsWorkspaceRows(
 	const filter = filterQuery.trim();
 	const presetSummary = formatToolHistoryPresetSummary(presets);
 	const detailSummary = detailView === "raw" ? "" : ` detail=${detailView}`;
-	const activeTargetPreset =
-		targetPresets[
-			Math.min(Math.max(selectedTargetPresetIndex, 0), targetPresets.length - 1)
-		];
+	const activeTargetPreset = getSelectedToolTargetPreset(
+		targetPresets,
+		selectedTargetPresetIndex,
+	);
 	const sectionRowCount = latest
 		? getToolSectionClipboardRowCountForItem(latest, sectionClipboardSelection)
 		: 0;
@@ -1194,6 +1964,544 @@ export function promoteToolTargetPreset(
 	];
 }
 
+export function getSelectedToolTargetPreset(
+	presets: readonly ToolTargetPreset[],
+	selectedIndex: number,
+): ToolTargetPreset | undefined {
+	if (!presets.length) {
+		return undefined;
+	}
+	return presets[clampIndex(selectedIndex, presets.length)];
+}
+
+export function selectToolTargetPresetTransition(
+	presets: readonly ToolTargetPreset[],
+	selectedIndex: number,
+	direction: "next" | "previous",
+): {
+	selectedIndex: number;
+	preset?: ToolTargetPreset;
+	notice?: ToolTargetNotice;
+} {
+	const nextIndex = moveToolTargetPresetSelection(
+		selectedIndex,
+		presets.length,
+		direction,
+	);
+	const preset = getSelectedToolTargetPreset(presets, nextIndex);
+	if (!preset) {
+		return { selectedIndex: nextIndex };
+	}
+	return {
+		selectedIndex: nextIndex,
+		preset,
+		notice: {
+			level: "info",
+			message: `tool target ${preset.label} ${preset.target}`,
+		},
+	};
+}
+
+export function renameToolTargetPresetTransition(
+	input: ToolTargetPresetTransitionInput,
+): ToolTargetPresetTransition {
+	return createToolTargetEditTransition(input, "label");
+}
+
+export function retargetToolTargetPresetTransition(
+	input: ToolTargetPresetTransitionInput,
+): ToolTargetPresetTransition {
+	return createToolTargetEditTransition(input, "target");
+}
+
+export function reassignToolTargetPresetActionTransition(
+	input: ToolTargetPresetTransitionInput,
+): ToolTargetPresetTransition {
+	return createToolTargetEditTransition(input, "action");
+}
+
+export function promoteToolTargetPresetTransition(
+	input: Omit<ToolTargetPresetTransitionInput, "value" | "limit">,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset selected" },
+		});
+	}
+	const next = promoteToolTargetPreset(presets, preset);
+	const changed = !sameToolTargetPresetShelf(next, presets);
+	if (!changed) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target ${preset.label} is not a movable saved preset`,
+			},
+		});
+	}
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: 0,
+		commandLine: "preserve",
+		changed: true,
+		notice: {
+			level: "info",
+			message: `tool target pinned ${preset.label} ${preset.target}`,
+		},
+	});
+}
+
+export function removeToolTargetPresetTransition(
+	input: Omit<ToolTargetPresetTransitionInput, "value" | "limit">,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset selected" },
+		});
+	}
+	const next = removeToolTargetPreset(presets, preset);
+	const changed = !sameToolTargetPresetShelf(next, presets);
+	if (!changed) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target ${preset.label} is not a saved preset`,
+			},
+		});
+	}
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			Math.max(0, input.targetPresets.length - 1),
+		),
+		commandLine: "preserve",
+		changed: true,
+		notice: {
+			level: "info",
+			message: `tool target removed ${preset.label} ${preset.target}`,
+		},
+	});
+}
+
+export function submitToolTargetCleanupTransition(
+	input: Required<Pick<ToolTargetPresetTransitionInput, "value">> &
+		Omit<ToolTargetPresetTransitionInput, "value" | "limit">,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	const confirmation = submitToolTargetCleanupConfirmation(
+		presets,
+		preset,
+		input.value,
+	);
+	const changed = confirmation.confirmed;
+	return createToolTargetTransition({
+		presets: confirmation.presets,
+		selectedIndex: clampIndex(
+			input.selectedIndex,
+			Math.max(0, input.targetPresets.length - confirmation.removed),
+		),
+		commandLine: "close",
+		changed,
+		notice: {
+			level: confirmation.confirmed ? "info" : "warn",
+			message: confirmation.message,
+		},
+	});
+}
+
+export function submitToolTargetPresetCommandTransition(
+	input: Required<Pick<ToolTargetPresetTransitionInput, "value">> &
+		ToolTargetPresetTransitionInput,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = parseToolTargetPresetCommand(input.value);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target preset requires: <action> <target> [label]",
+			},
+		});
+	}
+	const next = saveToolTargetPreset(presets, preset, input.limit);
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: clampIndex(
+			next.findIndex((current) => sameToolTargetPreset(current, preset)),
+			next.length,
+		),
+		commandLine: "close",
+		changed: !sameToolTargetPresetShelf(next, presets),
+		notice: {
+			level: "ok",
+			message: `tool target preset saved ${preset.label} ${preset.target}`,
+		},
+	});
+}
+
+export function saveSelectedToolTargetPresetTransition(
+	input: Omit<ToolTargetPresetTransitionInput, "value">,
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset to save" },
+		});
+	}
+	const next = saveToolTargetPreset(presets, preset, input.limit);
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: clampIndex(
+			next.findIndex((current) => sameToolTargetPreset(current, preset)),
+			next.length,
+		),
+		commandLine: "preserve",
+		changed: !sameToolTargetPresetShelf(next, presets),
+		notice: {
+			level: "info",
+			message: `tool target saved ${preset.label} ${preset.target}`,
+		},
+	});
+}
+
+export function createToolTargetPromptIntent(
+	input: Omit<ToolTargetPresetTransitionInput, "value" | "limit"> & {
+		prompt: ToolTargetPrompt;
+	},
+): ToolTargetPromptIntent {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset selected" },
+		});
+	}
+	if (input.prompt === "cleanup") {
+		const preview = createToolTargetCleanupPreview(presets, preset);
+		if (!preview) {
+			return createToolTargetTransition({
+				presets,
+				selectedIndex,
+				commandLine: "preserve",
+				changed: false,
+				notice: {
+					level: "warn",
+					message: `tool target ${preset.label} is not a saved preset`,
+				},
+			});
+		}
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "tool-target-cleanup",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target cleanup confirm ${preview.confirmationPhrase}`,
+			},
+		});
+	}
+	if (!isSavedToolTargetPreset(presets, preset)) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target ${preset.label} is not a saved preset`,
+			},
+		});
+	}
+	const commandLine = `tool-target-${input.prompt}` as const;
+	return createToolTargetTransition({
+		presets,
+		selectedIndex,
+		commandLine,
+		changed: false,
+		notice: {
+			level: "info",
+			message: `tool target ${input.prompt} opened ${preset.label}`,
+		},
+	});
+}
+
+export function createToolTargetRunIntent(input: {
+	presets: ToolTargetPreset[];
+	selectedIndex: number;
+}): ToolTargetRunIntent {
+	const selectedIndex = clampIndex(input.selectedIndex, input.presets.length);
+	const preset = getSelectedToolTargetPreset(
+		input.presets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return {
+			presets: input.presets,
+			selectedIndex,
+			commandLine: "preserve",
+			notice: { level: "warn", message: "no tool target presets" },
+		};
+	}
+	const plan = createToolRunPlanFromPreset(preset);
+	if (!plan) {
+		return {
+			presets: input.presets,
+			selectedIndex,
+			commandLine: "preserve",
+			notice: {
+				level: "warn",
+				message: `cannot run tool preset ${preset.label}`,
+			},
+		};
+	}
+	return {
+		presets: input.presets,
+		selectedIndex,
+		commandLine: "preserve",
+		plan,
+		completionNotice: `${preset.label} completed`,
+	};
+}
+
+function createToolTargetEditTransition(
+	input: ToolTargetPresetTransitionInput,
+	kind: "label" | "target" | "action",
+): ToolTargetPresetTransition {
+	const presets = normalizeToolTargetPresets(input.presets);
+	const selectedIndex = clampIndex(
+		input.selectedIndex,
+		input.targetPresets.length,
+	);
+	const preset = getSelectedToolTargetPreset(
+		input.targetPresets,
+		input.selectedIndex,
+	);
+	if (!preset) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "close",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset selected" },
+		});
+	}
+	if (!isSavedToolTargetPreset(presets, preset)) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: `tool target ${preset.label} is not a saved preset`,
+			},
+		});
+	}
+	const next =
+		kind === "label"
+			? renameToolTargetPreset(presets, preset, input.value ?? "")
+			: kind === "target"
+				? retargetToolTargetPreset(presets, preset, input.value ?? "")
+				: reassignToolTargetPresetAction(presets, preset, input.value ?? "");
+	const changed = !sameToolTargetPresetShelf(next, presets);
+	if (!changed) {
+		return createToolTargetTransition({
+			presets,
+			selectedIndex,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "info",
+				message:
+					kind === "label"
+						? "tool target label unchanged"
+						: kind === "target"
+							? "tool target value unchanged"
+							: "tool target action unchanged",
+			},
+		});
+	}
+	return createToolTargetTransition({
+		presets: next,
+		selectedIndex: getUpdatedToolTargetPresetSelectionIndex(
+			input,
+			presets,
+			next,
+			preset,
+			kind,
+		),
+		commandLine: "close",
+		changed: true,
+		notice: {
+			level: "info",
+			message:
+				kind === "label"
+					? `tool target renamed ${preset.target}`
+					: kind === "target"
+						? `tool target updated ${preset.label}`
+						: `tool target action updated ${preset.label}`,
+		},
+	});
+}
+
+function createToolTargetTransition(
+	transition: ToolTargetPresetTransition,
+): ToolTargetPresetTransition {
+	return transition;
+}
+
+function isSavedToolTargetPreset(
+	presets: readonly ToolTargetPreset[],
+	preset: ToolTargetPreset,
+): boolean {
+	return presets.some((current) => sameToolTargetPreset(current, preset));
+}
+
+function sameToolTargetPreset(
+	left: ToolTargetPreset,
+	right: ToolTargetPreset,
+): boolean {
+	return (
+		left.actionId === right.actionId &&
+		left.target.trim() === right.target.trim()
+	);
+}
+
+function sameToolTargetPresetShelf(
+	left: readonly ToolTargetPreset[],
+	right: readonly ToolTargetPreset[],
+): boolean {
+	return (
+		left.length === right.length &&
+		left.every(
+			(preset, index) =>
+				preset.id === right[index]?.id &&
+				preset.label === right[index]?.label &&
+				preset.actionId === right[index]?.actionId &&
+				preset.target === right[index]?.target &&
+				preset.hint === right[index]?.hint,
+		)
+	);
+}
+
+function getUpdatedToolTargetPresetSelectionIndex(
+	input: ToolTargetPresetTransitionInput,
+	previous: readonly ToolTargetPreset[],
+	next: readonly ToolTargetPreset[],
+	preset: ToolTargetPreset,
+	kind: "label" | "target" | "action",
+): number {
+	const survivor =
+		next.find((current) => current.id === preset.id) ??
+		next.find((current) =>
+			sameToolTargetPreset(
+				current,
+				getEditedToolTargetPreset(preset, input.value ?? "", kind),
+			),
+		);
+	const previousSurvivor = previous.find(
+		(current) => current.id === survivor?.id,
+	);
+	const survivorIndex = previousSurvivor
+		? input.targetPresets.findIndex(
+				(current) =>
+					current.id === previousSurvivor.id &&
+					sameToolTargetPreset(current, previousSurvivor),
+			)
+		: -1;
+	return clampIndex(
+		survivorIndex < 0 ? input.selectedIndex : survivorIndex,
+		input.targetPresets.length,
+	);
+}
+
+function getEditedToolTargetPreset(
+	preset: ToolTargetPreset,
+	value: string,
+	kind: "label" | "target" | "action",
+): ToolTargetPreset {
+	if (kind === "target") {
+		return { ...preset, target: value.trim() };
+	}
+	if (kind === "action") {
+		return {
+			...preset,
+			actionId: normalizeToolRunActionId(value) ?? preset.actionId,
+		};
+	}
+	return { ...preset, label: value.trim() };
+}
+
 export function nextToolHistoryPreset(
 	presets: string[],
 	currentQuery: string,
@@ -1347,7 +2655,7 @@ export function moveToolHistorySelection(
 	if (total <= 0) {
 		return 0;
 	}
-	const normalized = Math.min(Math.max(current, 0), total - 1);
+	const normalized = clampIndex(current, total);
 	const offset = direction === "next" ? 1 : -1;
 	return (normalized + offset + total) % total;
 }
@@ -1398,6 +2706,10 @@ export function getSelectedToolHistoryItem(
 		return undefined;
 	}
 	return history[Math.min(Math.max(selectedIndex, 0), history.length - 1)];
+}
+
+export function getNewestToolHistoryIndex(history: ToolHistoryItem[]): number {
+	return clampIndex(history.length - 1, history.length);
 }
 
 export function rerunToolHistoryItem(
@@ -1623,7 +2935,7 @@ export function createToolHistoryCompareExportPlan(
 	if (!item) {
 		return undefined;
 	}
-	const boundedIndex = Math.min(Math.max(selectedIndex, 0), history.length - 1);
+	const boundedIndex = clampIndex(selectedIndex, history.length);
 	const previous = findPreviousMatchingToolHistoryItem(
 		history,
 		boundedIndex,
@@ -1701,6 +3013,287 @@ async function readToolHistoryExportIndexFromDirectory(
 		.sort((left, right) => right.generatedAt.localeCompare(left.generatedAt))
 		.slice(0, limit);
 	return { baseDir: toolsDir, items };
+}
+
+export function classifyToolHistoryExportIndexRefresh(input: {
+	target: "active" | "archive";
+	currentRequestToken: number;
+	requestToken: number;
+	selectedIndex: number;
+	filter?: ToolHistoryEvidenceFilter;
+	query?: string;
+	announce?: boolean;
+	outcome:
+		| { status: "success"; index: ToolHistoryExportIndex }
+		| { status: "failure"; error: unknown };
+}): ToolHistoryExportIndexRefreshTransition {
+	const prefix = input.target === "active" ? "tools evidence" : "tools archive";
+	if (input.outcome.status === "failure") {
+		const notice = {
+			level: "fail",
+			message: `${prefix} index failed ${formatToolHistoryEvidenceError(input.outcome.error)}`,
+		} as const;
+		return classifyRequestPublication(
+			input.currentRequestToken,
+			input.requestToken,
+		) === "stale"
+			? { status: "stale", notice }
+			: { status: "failure", notice };
+	}
+	if (
+		classifyRequestPublication(
+			input.currentRequestToken,
+			input.requestToken,
+		) === "stale"
+	) {
+		return { status: "stale" };
+	}
+	const filtered = filterToolHistoryExportIndex(
+		input.outcome.index,
+		input.filter,
+		input.query,
+	);
+	return {
+		status: "success",
+		index: input.outcome.index,
+		selectedIndex: clampIndex(input.selectedIndex, filtered.items.length),
+		...(input.announce
+			? {
+					notice: {
+						level: "info" as const,
+						message:
+							input.target === "active"
+								? `tools evidence indexed ${input.outcome.index.items.length}`
+								: `tools archive indexed ${input.outcome.index.items.length}`,
+					},
+				}
+			: {}),
+	};
+}
+
+export function classifyToolHistoryEvidenceIndexBatchRefresh(input: {
+	currentMutationToken: number;
+	requestMutationToken: number;
+	active: {
+		currentRequestToken: number;
+		requestToken: number;
+		selectedIndex: number;
+		filter?: ToolHistoryEvidenceFilter;
+		query?: string;
+	};
+	archive: {
+		currentRequestToken: number;
+		requestToken: number;
+		selectedIndex: number;
+		filter?: ToolHistoryEvidenceFilter;
+		query?: string;
+	};
+	outcome:
+		| {
+				status: "success";
+				activeIndex: ToolHistoryExportIndex;
+				archiveIndex: ToolHistoryExportIndex;
+		  }
+		| { status: "failure"; error: unknown };
+}): ToolHistoryEvidenceIndexBatchRefreshTransition {
+	const mutationPublication = classifyRequestPublication(
+		input.currentMutationToken,
+		input.requestMutationToken,
+	);
+	if (input.outcome.status === "failure") {
+		const notice = {
+			level: "fail" as const,
+			message: `tools evidence index batch failed ${formatToolHistoryEvidenceError(input.outcome.error)}`,
+		};
+		return mutationPublication === "stale"
+			? { status: "stale", notice }
+			: { status: "failure", notice };
+	}
+	if (mutationPublication === "stale") {
+		return { status: "stale" };
+	}
+	const active = classifyToolHistoryExportIndexRefresh({
+		target: "active",
+		...input.active,
+		outcome: { status: "success", index: input.outcome.activeIndex },
+	});
+	const archive = classifyToolHistoryExportIndexRefresh({
+		target: "archive",
+		...input.archive,
+		outcome: { status: "success", index: input.outcome.archiveIndex },
+	});
+	if (active.status !== "success" || archive.status !== "success") {
+		return { status: "stale" };
+	}
+	return { status: "success", active, archive };
+}
+
+export function prepareToolHistoryExport(
+	history: ToolHistoryItem[],
+	selectedIndex: number,
+	scope: ToolHistoryExportScope,
+	options: { baseDir: string; generatedAt?: Date },
+): PrepareToolHistoryExportTransition {
+	const normalizedIndex = clampIndex(selectedIndex, history.length);
+	const plan =
+		scope === "compare"
+			? createToolHistoryCompareExportPlan(history, normalizedIndex, options)
+			: createToolHistoryExportPlan(history, normalizedIndex, {
+					...options,
+					scope,
+				});
+	if (!plan) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no tool history to export" },
+		};
+	}
+	return {
+		kind: "export",
+		selectedIndex: normalizedIndex,
+		plan,
+		notice: {
+			level: "ok",
+			message: `tools export ${scope} prepared ${plan.itemCount} run(s)`,
+		},
+	};
+}
+
+export function prepareSelectedToolHistoryExport(input: {
+	history: ToolHistoryItem[];
+	selectedIndex: number;
+	filter: string;
+	sort: ToolHistorySort;
+	scope: ToolHistoryExportScope;
+	baseDir: string;
+	generatedAt?: Date;
+}): PrepareToolHistoryExportTransition {
+	const selectedIndex = getVisibleToolHistoryIndex(
+		input.history,
+		input.selectedIndex,
+		input.filter,
+		input.sort,
+	);
+	return prepareToolHistoryExport(input.history, selectedIndex, input.scope, {
+		baseDir: input.baseDir,
+		...(input.generatedAt ? { generatedAt: input.generatedAt } : {}),
+	});
+}
+
+export function prepareSelectedToolHistoryExportOpen(input: {
+	index: ToolHistoryExportIndex;
+	selectedIndex: number;
+	filter?: ToolHistoryEvidenceFilter;
+	query?: string;
+	platform: SupportedPlatform;
+}): SelectedToolHistoryExportOpenTransition {
+	const filtered = filterToolHistoryExportIndex(
+		input.index,
+		input.filter,
+		input.query,
+	);
+	const selectedIndex = clampIndex(input.selectedIndex, filtered.items.length);
+	const item = filtered.items[selectedIndex];
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no tools evidence selected" },
+		};
+	}
+	return {
+		kind: "open",
+		selectedIndex,
+		item,
+		plan: buildFileOpenPlan({
+			baseDir: getToolHistoryExportRoot(input.index.baseDir),
+			label: `tools export ${item.scope} ${item.generatedAt}`,
+			path: item.path,
+			platform: input.platform,
+			source: "tools-export",
+		}),
+		notice: {
+			level: "info",
+			message: `tools evidence open confirmation opened for ${item.fileName}`,
+		},
+	};
+}
+
+export function prepareSelectedToolHistoryExportArchive(input: {
+	baseDir: string;
+	index: ToolHistoryExportIndex;
+	selectedIndex: number;
+	filter?: ToolHistoryEvidenceFilter;
+	query?: string;
+}): SelectedToolHistoryExportArchiveTransition {
+	const filtered = filterToolHistoryExportIndex(
+		input.index,
+		input.filter,
+		input.query,
+	);
+	const selectedIndex = clampIndex(input.selectedIndex, filtered.items.length);
+	const item = filtered.items[selectedIndex];
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no tools evidence selected" },
+		};
+	}
+	return {
+		kind: "confirmation",
+		selectedIndex,
+		item,
+		plan: createToolHistoryExportArchivePlan(input.baseDir, item.path),
+		notice: {
+			level: "info",
+			message: `tools export archive confirmation opened for ${item.fileName}`,
+		},
+	};
+}
+
+export function prepareToolHistoryExportArchiveConfirmation(
+	preview: ToolHistoryExportArchivePlan | undefined,
+	confirmation: string,
+): ToolHistoryExportArchiveConfirmationTransition {
+	if (!preview) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "tools export archive missing preview",
+			},
+		};
+	}
+	return {
+		kind: "execute",
+		plan: createToolHistoryExportArchivePlan(
+			getToolHistoryExportRoot(dirnamePathLike(preview.sourcePath)),
+			preview.sourcePath,
+			{ confirmation },
+		),
+	};
+}
+
+export function prepareToolHistoryArchiveRetentionConfirmation(
+	preview: ToolHistoryArchiveRetentionPlan | undefined,
+	index: ToolHistoryExportIndex,
+	confirmation: string,
+): ToolHistoryArchiveRetentionConfirmationTransition {
+	if (!preview) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "tools archive retention missing preview",
+			},
+		};
+	}
+	return {
+		kind: "execute",
+		plan: createToolHistoryArchiveRetentionPlan(index, {
+			maxItems: preview.maxItems,
+			confirmation,
+		}),
+	};
 }
 
 export function createToolHistoryExportArchivePlan(
@@ -1875,9 +3468,7 @@ export function getSelectedToolHistoryExport(
 	if (filtered.items.length === 0) {
 		return undefined;
 	}
-	return filtered.items[
-		Math.min(Math.max(selectedIndex, 0), filtered.items.length - 1)
-	];
+	return filtered.items[clampIndex(selectedIndex, filtered.items.length)];
 }
 
 export function filterToolHistoryExportIndex(
@@ -2088,6 +3679,16 @@ function toToolHistoryExportScope(
 		: undefined;
 }
 
+function getToolHistoryExportRoot(baseDir: string): string {
+	return basenamePathLike(baseDir) === "archive"
+		? dirnamePathLike(dirnamePathLike(baseDir))
+		: dirnamePathLike(baseDir);
+}
+
+function formatToolHistoryEvidenceError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 function toNonNegativeInt(value: string | undefined): number {
 	const parsed = Number.parseInt(value ?? "0", 10);
 	return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
@@ -2142,10 +3743,7 @@ function formatToolTargetPresetRows(
 	if (!presets.length) {
 		return [];
 	}
-	const normalizedIndex = Math.min(
-		Math.max(selectedIndex, 0),
-		presets.length - 1,
-	);
+	const normalizedIndex = clampIndex(selectedIndex, presets.length);
 	return [
 		"TARGET PRESETS n/N cycle · T save · U pin · L label · M edit · A action · X delete · D delete action · R run",
 		...presets.map(

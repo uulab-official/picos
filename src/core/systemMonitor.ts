@@ -1,4 +1,9 @@
 import { cpus, freemem, loadavg, totalmem, uptime } from "node:os";
+import {
+	assertMonitorSamplingWindow,
+	parseMonitorInterval,
+	parseMonitorSampleCount,
+} from "./operationPresets";
 import { getProcessSummaryWithSource } from "./processes";
 import type { InventorySourceStatus, ProcessSummary } from "./types";
 
@@ -19,6 +24,18 @@ export type SystemMonitorSnapshot = {
 	processCount: number;
 	topProcesses: ProcessSummary[];
 	processSource?: InventorySourceStatus;
+};
+
+export type SystemMonitorSeries = {
+	startedAt: string;
+	completedAt: string;
+	requestedCount: number;
+	intervalMs: number;
+	samples: SystemMonitorSnapshot[];
+	// True when sampling stopped before reaching `requestedCount`. `samples.length`
+	// already implies it, but only for a reader who knows the two are otherwise
+	// always equal, so the fact is stated rather than left to be derived.
+	cancelled: boolean;
 };
 
 export function createSystemMonitorSnapshot(input: {
@@ -74,6 +91,42 @@ export async function getSystemMonitorSnapshot(): Promise<SystemMonitorSnapshot>
 	});
 }
 
+export async function collectSystemMonitorSeries(
+	options: { samples: number; intervalMs: number },
+	readSnapshot: () => Promise<SystemMonitorSnapshot> = getSystemMonitorSnapshot,
+	wait: (milliseconds: number) => Promise<void> = delay,
+	now: () => string = () => new Date().toISOString(),
+	// Consulted after each sample rather than before, so a stopped run always keeps
+	// the samples it already paid for and never sleeps through an interval for a
+	// sample it will not take. The request is bounded without this; it exists so a
+	// caller that cannot wait out the whole interval span can stop early instead of
+	// being forced to abandon the result.
+	shouldContinue: () => boolean = () => true,
+): Promise<SystemMonitorSeries> {
+	const requestedCount = parseMonitorSampleCount(options.samples);
+	const intervalMs = parseMonitorInterval(options.intervalMs);
+	assertMonitorSamplingWindow(requestedCount, intervalMs);
+	const startedAt = now();
+	const samples: SystemMonitorSnapshot[] = [];
+	let cancelled = false;
+	for (let index = 0; index < requestedCount; index += 1) {
+		if (index > 0) await wait(intervalMs);
+		samples.push(await readSnapshot());
+		if (index + 1 < requestedCount && !shouldContinue()) {
+			cancelled = true;
+			break;
+		}
+	}
+	return {
+		startedAt,
+		completedAt: now(),
+		requestedCount,
+		intervalMs,
+		samples,
+		cancelled,
+	};
+}
+
 export function formatSystemMonitorRows(
 	snapshot: SystemMonitorSnapshot,
 ): string[] {
@@ -119,4 +172,8 @@ function formatMonitorUptime(seconds: number): string {
 		return `${minutes}m`;
 	}
 	return `${hours}h ${minutes}m`;
+}
+
+function delay(milliseconds: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

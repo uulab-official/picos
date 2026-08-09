@@ -19,7 +19,8 @@ export type Screen =
 	| "actions"
 	| "status"
 	| "config"
-	| "logs";
+	| "logs"
+	| "operations";
 
 export const screenOrder: Screen[] = [
 	"dashboard",
@@ -43,6 +44,9 @@ export const screenOrder: Screen[] = [
 	"status",
 	"config",
 	"logs",
+	// Appended rather than inserted next to `config`, so every existing screen
+	// index stays stable for callers and tests that hardcode them.
+	"operations",
 ];
 
 export type FocusArea = "workspaces" | "actions" | "files" | "remotes";
@@ -107,6 +111,16 @@ export function leaveFocus(current: FocusArea): FocusArea {
 	return current;
 }
 
+// Clamps an index into a list's valid range, returning 0 for an empty list so a
+// caller can index without a second guard. Extracted because this arithmetic was
+// spelled three different ways across `App.tsx` and this module, and two of those
+// spellings omitted the lower bound, letting a negative index survive. That is
+// unreachable today only because every writer happens to clamp already, which is
+// the kind of accident worth removing rather than relying on.
+export function clampIndex(index: number, total: number): number {
+	return total <= 0 ? 0 : Math.min(Math.max(index, 0), total - 1);
+}
+
 export function getNextIndex(
 	current: number,
 	total: number,
@@ -116,7 +130,7 @@ export function getNextIndex(
 		return 0;
 	}
 
-	const normalized = Math.min(Math.max(current, 0), total - 1);
+	const normalized = clampIndex(current, total);
 	const offset = direction === "next" ? 1 : -1;
 	return (normalized + offset + total) % total;
 }
@@ -143,7 +157,7 @@ export function getVisibleWindow(
 	}
 
 	const clampedVisibleCount = Math.min(total, visibleCount);
-	const clampedSelectedIndex = Math.min(Math.max(selectedIndex, 0), total - 1);
+	const clampedSelectedIndex = clampIndex(selectedIndex, total);
 	const centeredStart =
 		clampedSelectedIndex - Math.floor(clampedVisibleCount / 2);
 	const maxStart = total - clampedVisibleCount;

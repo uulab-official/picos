@@ -4,6 +4,11 @@ import {
 	filterConnections,
 	sortConnections,
 } from "../core/connections";
+import type {
+	HandoffArchiveResult,
+	HandoffIndex,
+	HandoffIndexItem,
+} from "../core/handoffIndex";
 import {
 	filterListeningPorts,
 	type PortSort,
@@ -35,6 +40,10 @@ const LOCAL_INSPECTOR_JSON_ROW_BUDGET =
 
 export type LocalInspectorCommand =
 	| "info"
+	| "locations"
+	| "drives"
+	| "remotes"
+	| "release-health"
 	| "routes"
 	| "route"
 	| "connections"
@@ -44,7 +53,9 @@ export type LocalInspectorCommand =
 	| "tools"
 	| "monitor"
 	| "logs"
-	| "process";
+	| "process"
+	| "operations"
+	| "handoffs";
 
 type InfoJsonInput =
 	| {
@@ -116,6 +127,35 @@ export function formatInfoJson(input: InfoJsonInput): string {
 	return stringifyCompleted("info", {
 		scope: input.scope,
 		data,
+	});
+}
+
+export function formatFileLocationsJson(
+	locations: Array<{ label: string; path: string; kind: string }>,
+	command: "locations" | "drives",
+): string {
+	const entries = locations
+		.slice(0, LOCAL_INSPECTOR_JSON_ENTRY_LIMIT)
+		.map((location) => ({
+			label: sanitizeText(location.label),
+			path: sanitizeText(location.path),
+			kind: sanitizeText(location.kind),
+		}));
+
+	return stringifyCompleted(command, {
+		request: { action: "list" },
+		source: {
+			kind: "picos-file-locations",
+			success: true,
+		},
+		data: {
+			totalCount: locations.length,
+			returnedCount: entries.length,
+			limit: LOCAL_INSPECTOR_JSON_ENTRY_LIMIT,
+			byteLimit: LOCAL_INSPECTOR_JSON_MAX_BYTES,
+			truncated: entries.length < locations.length,
+			locations: entries,
+		},
 	});
 }
 
@@ -257,6 +297,59 @@ export function formatRoutePathJson(result: RoutePathResult): string {
 				? sanitizeText(result.interfaceName)
 				: null,
 			sourceIp: result.sourceIp ? sanitizeText(result.sourceIp) : null,
+		},
+	});
+}
+
+export function formatHandoffsJson(
+	index: HandoffIndex,
+	request: { limit: number },
+): string {
+	const limited = limitEntries(index.items, normalizeHandoffIndexItem);
+	return stringifyCompletedRows(
+		"handoffs",
+		limited.entries,
+		limited.truncated,
+		(handoffs, truncated) => ({
+			request: sanitizeRequest({ action: "list", limit: request.limit }),
+			source: {
+				kind: "picos-handoff-index",
+				location: sanitizeText(index.baseDir),
+			},
+			data: {
+				action: "list",
+				baseDir: sanitizeText(index.baseDir),
+				requestedLimit: request.limit,
+				returnedCount: handoffs.length,
+				indexedCount: index.items.length,
+				atRequestedLimit: index.items.length >= request.limit,
+				entryLimit: LOCAL_INSPECTOR_JSON_ENTRY_LIMIT,
+				byteLimit: LOCAL_INSPECTOR_JSON_MAX_BYTES,
+				truncated,
+				handoffs,
+			},
+		}),
+	);
+}
+
+export function formatHandoffArchiveJson(
+	result: HandoffArchiveResult,
+	request: { archive: string },
+): string {
+	return stringifyCompleted("handoffs", {
+		request: sanitizeRequest({ action: "archive", archive: request.archive }),
+		source: {
+			kind: "picos-handoff-index",
+			location: sanitizeText(result.sourcePath),
+		},
+		data: {
+			action: "archive",
+			status: result.status,
+			sourcePath: sanitizeText(result.sourcePath),
+			archivedPath: result.archivedPath
+				? sanitizeText(result.archivedPath)
+				: null,
+			message: sanitizeText(result.message),
 		},
 	});
 }
@@ -644,6 +737,26 @@ function normalizePort(port: PortsResult["ports"][number]) {
 	};
 }
 
+function normalizeHandoffIndexItem(item: HandoffIndexItem) {
+	return {
+		source: item.source,
+		kind: item.kind,
+		view: sanitizeText(item.view),
+		label: sanitizeText(item.label),
+		command: sanitizeText(item.command),
+		generatedAt: sanitizeText(item.generatedAt),
+		origin: item.origin
+			? {
+					kind: item.origin.kind,
+					target: sanitizeText(item.origin.target),
+					label: sanitizeText(item.origin.label),
+					scope: sanitizeText(item.origin.scope),
+				}
+			: null,
+		path: sanitizeText(item.path),
+	};
+}
+
 function normalizeRoute(route: RouteTableResult["routes"][number]) {
 	return {
 		destination: sanitizeText(route.destination),
@@ -773,22 +886,30 @@ function normalizeProcessName(command: string): string {
 	);
 }
 
+const localInspectorCommands: Record<LocalInspectorCommand, true> = {
+	connections: true,
+	dns: true,
+	doctor: true,
+	drives: true,
+	handoffs: true,
+	info: true,
+	logs: true,
+	locations: true,
+	monitor: true,
+	operations: true,
+	ports: true,
+	process: true,
+	remotes: true,
+	"release-health": true,
+	route: true,
+	routes: true,
+	tools: true,
+};
+
 function isLocalInspectorCommand(
 	value: string | undefined,
 ): value is LocalInspectorCommand {
-	return (
-		value === "info" ||
-		value === "routes" ||
-		value === "route" ||
-		value === "connections" ||
-		value === "ports" ||
-		value === "doctor" ||
-		value === "dns" ||
-		value === "tools" ||
-		value === "monitor" ||
-		value === "logs" ||
-		value === "process"
-	);
+	return value !== undefined && Object.hasOwn(localInspectorCommands, value);
 }
 
 function isLocalJsonArgument(value: string): boolean {

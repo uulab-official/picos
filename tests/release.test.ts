@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { formatReleaseHealthJson } from "../src/cli/diagnosticOutput";
 import {
 	createReleaseChecklist,
 	createReleaseHealthReport,
@@ -109,6 +110,32 @@ describe("release readiness", () => {
 			"PASS release workflow defaults to dry-run",
 			"PASS npm publish requires NPM_TOKEN",
 		]);
+	});
+
+	test("formats release health as one structured document", () => {
+		const report = createReleaseHealthReport({
+			packageName: "@uulab/picos",
+			packageVersion: "0.2.0",
+			runtimeVersion: "0.2.0",
+			publishAccess: "public",
+			files: ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
+			distExists: true,
+			ciWorkflow: "run: bun run verify\nrun: bun run release:check\n",
+			releaseWorkflow: "workflow_dispatch:\ndry_run: default: true",
+		});
+		const result = JSON.parse(formatReleaseHealthJson(report));
+
+		expect(result).toMatchObject({
+			schemaVersion: 1,
+			command: "release-health",
+			status: "completed",
+			data: {
+				status: "fail",
+				passCount: report.passCount,
+				failCount: report.failCount,
+			},
+		});
+		expect(result.data.checks.length).toBe(report.items.length);
 	});
 
 	test("reports release health blockers with details", () => {

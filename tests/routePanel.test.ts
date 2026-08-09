@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { FileOpenOrigin } from "../src/core/fileOpen";
 import type { RoutePathResult, RouteTableResult } from "../src/core/routes";
 import {
+	classifyRoutePathRequestOutcome,
 	createRouteFilterCleanupPreview,
 	createRouteRawHandoffPlan,
 	formatRoutePathRows,
@@ -14,6 +15,9 @@ import {
 	getRouteDetailViewShortcut,
 	nextRouteDetailView,
 	nextRouteFilterPreset,
+	prepareRouteFilterTransition,
+	prepareRoutePanelInput,
+	prepareRouteRawHandoff,
 	saveRouteFilterPreset,
 	submitRouteFilterCleanupConfirmation,
 	writeRouteRawHandoffPlan,
@@ -47,6 +51,39 @@ const fixture: RouteTableResult = {
 	rawOutput: "$ netstat -rn\nInternet:\ndefault 192.168.0.1 UGSc en0",
 };
 
+describe("route path request publication", () => {
+	test("keeps only the newest route result current and records stale failures", () => {
+		expect(
+			classifyRoutePathRequestOutcome({
+				currentToken: 2,
+				requestToken: 1,
+				destination: "old.example.com",
+				outcome: { kind: "success", result: pathFixture },
+			}),
+		).toMatchObject({
+			publication: "stale",
+			publishCurrent: false,
+			notice: { level: "info" },
+		});
+		expect(
+			classifyRoutePathRequestOutcome({
+				currentToken: 2,
+				requestToken: 1,
+				destination: "old.example.com",
+				outcome: { kind: "failure", error: new Error("timed out") },
+			}),
+		).toEqual({
+			publication: "stale",
+			publishCurrent: false,
+			notice: {
+				level: "fail",
+				message:
+					"route path old.example.com failed timed out publication=stale",
+			},
+		});
+	});
+});
+
 const configRouteOrigin: FileOpenOrigin = {
 	kind: "config-shelf",
 	target: "routes",
@@ -64,6 +101,170 @@ const pathFixture: RoutePathResult = {
 };
 
 describe("route TUI panel formatting", () => {
+	test("owns route filter application and exact empty or filtered notices", () => {
+		expect(
+			prepareRouteFilterTransition({
+				routes: fixture.routes,
+				presets: ["default"],
+				query: "  ",
+			}),
+		).toEqual({
+			filter: "",
+			presets: ["default"],
+			copyPreview: false,
+			notice: { level: "info", message: "route filter cleared" },
+		});
+		expect(
+			prepareRouteFilterTransition({
+				routes: fixture.routes,
+				presets: ["default"],
+				query: " utun ",
+			}),
+		).toEqual({
+			filter: "utun",
+			presets: ["default"],
+			copyPreview: false,
+			notice: {
+				level: "info",
+				message: "route filter utun matches 1",
+			},
+		});
+		expect(
+			prepareRouteFilterTransition({
+				routes: [],
+				presets: [],
+				query: " ",
+			}),
+		).toEqual({
+			filter: "",
+			presets: [],
+			copyPreview: false,
+			notice: { level: "warn", message: "route filter cleared" },
+		});
+	});
+
+	test("resolves route copy targets and exact no-target notices", () => {
+		const base = {
+			input: "c",
+			view: "table" as const,
+			filter: "utun",
+			presets: [] as string[],
+			routes: fixture.routes,
+		};
+		expect(prepareRoutePanelInput(base)).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no route table loaded" },
+		});
+		expect(
+			prepareRoutePanelInput({
+				...base,
+				result: fixture,
+				sort: { key: "interface", direction: "asc" },
+			}),
+		).toMatchObject({
+			kind: "copy",
+			preview: {
+				source: "route-table",
+				label: "route table",
+			},
+		});
+		expect(
+			prepareRoutePanelInput({
+				...base,
+				result: fixture,
+				view: "path",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no route clipboard target" },
+		});
+		expect(
+			prepareRoutePanelInput({
+				...base,
+				result: fixture,
+				view: "path",
+				path: pathFixture,
+			}),
+		).toMatchObject({
+			kind: "copy",
+			preview: {
+				source: "route-path",
+				label: "route path 8.8.8.8",
+			},
+		});
+	});
+
+	test("ignores invalid route section shortcuts and owns preset cleanup notices", () => {
+		expect(
+			prepareRoutePanelInput({
+				input: ":",
+				view: "table",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+			}),
+		).toMatchObject({
+			kind: "command",
+			command: "destination",
+			prompt: "route",
+		});
+		expect(
+			prepareRoutePanelInput({
+				input: "5",
+				view: "raw",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+			}),
+		).toEqual({ kind: "no-op" });
+		expect(
+			prepareRoutePanelInput({
+				input: "D",
+				view: "raw",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no route filter presets to clean" },
+		});
+		expect(
+			prepareRoutePanelInput({
+				input: "]",
+				view: "raw",
+				filter: "",
+				presets: ["missing"],
+				routes: fixture.routes,
+			}),
+		).toEqual({
+			kind: "filter",
+			filter: "missing",
+			copyPreview: false,
+			notice: {
+				level: "warn",
+				message: "route preset missing matches 0",
+			},
+		});
+		expect(
+			prepareRoutePanelInput({
+				input: "s",
+				view: "table",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+				sort: { key: "default", direction: "asc" },
+			}),
+		).toEqual({
+			kind: "sort",
+			sort: { key: "destination", direction: "asc" },
+			copyPreview: false,
+			notice: {
+				level: "info",
+				message: "route sort destination asc",
+			},
+		});
+	});
 	test("formats route summary, diagnostics, rows, and raw output", () => {
 		expect(formatRouteWorkspaceRows(fixture, 10)).toEqual([
 			"SUMMARY routes=2 command=netstat -rn",
@@ -166,18 +367,30 @@ describe("route TUI panel formatting", () => {
 		expect(
 			submitRouteFilterCleanupConfirmation(presets, "clear route"),
 		).toEqual({
+			action: "notice",
 			confirmed: false,
 			message: "route filter cleanup rejected",
 			presets,
 			removed: 0,
+			copyPreview: false,
+			notice: {
+				level: "warn",
+				message: "route filter cleanup rejected",
+			},
 		});
 		expect(
 			submitRouteFilterCleanupConfirmation(presets, " clear routes "),
 		).toEqual({
+			action: "apply",
 			confirmed: true,
 			message: "route filter cleanup removed 2 presets",
 			presets: [],
 			removed: 2,
+			copyPreview: false,
+			notice: {
+				level: "info",
+				message: "route filter cleanup removed 2 presets",
+			},
 		});
 		expect(createRouteFilterCleanupPreview([])).toBeUndefined();
 	});
@@ -336,6 +549,10 @@ describe("route TUI panel formatting", () => {
 	});
 
 	test("creates route raw handoff plans for the active detail view", () => {
+		expect(prepareRouteRawHandoff(undefined, { baseDir: "/tmp" })).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no route table loaded" },
+		});
 		const plan = createRouteRawHandoffPlan(fixture, {
 			baseDir: "/tmp/picos",
 			filter: "utun",
@@ -377,6 +594,60 @@ describe("route TUI panel formatting", () => {
 				view: "path",
 			})?.content,
 		).toContain("$ route -n get 8.8.8.8");
+	});
+
+	test("resolves route export and open input into complete handoff payloads", () => {
+		const generatedAt = new Date("2026-08-09T01:02:03.000Z");
+		const exportDecision = prepareRoutePanelInput({
+			input: "e",
+			view: "raw",
+			filter: "utun",
+			presets: [],
+			routes: fixture.routes,
+			result: fixture,
+			sort: { key: "interface", direction: "desc" },
+			handoff: { baseDir: "/tmp/picos", generatedAt },
+		});
+		expect(exportDecision).toMatchObject({
+			kind: "command",
+			command: "export",
+			handoff: {
+				action: "export",
+				baseDir: "/tmp/picos",
+				plan: {
+					path: "/tmp/picos/routes/picos-routes-raw-2026-08-09T010203000Z.md",
+					view: "raw",
+				},
+			},
+		});
+		expect(
+			prepareRoutePanelInput({
+				input: "o",
+				view: "path",
+				filter: "",
+				presets: [],
+				routes: fixture.routes,
+				result: fixture,
+				path: pathFixture,
+				handoff: {
+					baseDir: "/tmp/picos",
+					generatedAt,
+					origin: configRouteOrigin,
+				},
+			}),
+		).toMatchObject({
+			kind: "command",
+			command: "open",
+			handoff: {
+				action: "open",
+				baseDir: "/tmp/picos",
+				origin: configRouteOrigin,
+				plan: {
+					origin: configRouteOrigin,
+					view: "path",
+				},
+			},
+		});
 	});
 
 	test("writes config-origin metadata into route handoff files", () => {

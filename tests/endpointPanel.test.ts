@@ -4,21 +4,33 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FileOpenOrigin } from "../src/core/fileOpen";
 import {
+	classifyEndpointProcessInspectionPublication,
 	createEndpointFilterCleanupPreview,
 	createEndpointHandoffPlan,
 	createSelectedPortProcessControlPreview,
 	formatConnectionsWorkspaceRows,
+	formatEndpointWorkspaceHintRow,
 	formatPortProcessControlConfirmationAuditMessage,
 	formatPortProcessControlExecutionRows,
 	formatPortProcessControlInspectorRows,
 	formatPortsWorkspaceRows,
 	getEndpointDetailViewShortcut,
+	getEndpointWorkspaceHintKeys,
 	getSelectedConnectionClipboardPreview,
 	getSelectedConnectionProcessRequest,
 	getSelectedPortClipboardPreview,
 	getSelectedPortProcessRequest,
+	moveEndpointSelection,
 	nextEndpointDetailView,
 	nextEndpointFilterPreset,
+	prepareEndpointFilterTransition,
+	prepareEndpointHandoff,
+	prepareEndpointPanelInput,
+	prepareEndpointWorkspaceInputEnvelope,
+	preparePortProcessControlPalettePreview,
+	preparePortProcessControlSubmission,
+	repairEndpointSelection,
+	resolveEndpointSelectedRow,
 	saveEndpointFilterPreset,
 	submitEndpointFilterCleanupConfirmation,
 	submitPortProcessControlConfirmation,
@@ -32,7 +44,983 @@ const configPortOrigin: FileOpenOrigin = {
 	scope: "ports.filters",
 };
 
+const envelopeConnection = {
+	protocol: "tcp4",
+	localAddress: "127.0.0.1",
+	localPort: "3000",
+	remoteAddress: "10.0.0.8",
+	remotePort: "443",
+	state: "ESTABLISHED",
+	pid: "77",
+	command: "node",
+};
+
+const envelopePort = {
+	protocol: "tcp",
+	localAddress: "*",
+	localPort: "3000",
+	pid: "123",
+	command: "bun",
+	user: "alice",
+};
+
+const endpointEnvelopeState = {
+	handoff: {
+		baseDir: "/tmp/picos",
+		origin: configPortOrigin,
+		connections: {
+			filter: "443",
+			result: {
+				command: "netstat",
+				args: ["-an"],
+				connections: [envelopeConnection],
+				rawOutput: "tcp4 connection",
+			},
+			sort: { key: "state", direction: "asc" } as const,
+			view: "detail" as const,
+		},
+		ports: {
+			filter: "3000",
+			result: {
+				command: "lsof",
+				args: ["-nP"],
+				ports: [envelopePort],
+				rawOutput: "tcp port",
+			},
+			sort: { key: "port", direction: "asc" } as const,
+			view: "detail" as const,
+		},
+	},
+	connections: {
+		rows: [envelopeConnection],
+		visibleRows: [envelopeConnection],
+		selectedIndex: 0,
+		view: "detail" as const,
+		filter: "443",
+		sort: { key: "state", direction: "asc" } as const,
+		presets: ["443"],
+		copyPreview: true,
+	},
+	ports: {
+		rows: [envelopePort],
+		visibleRows: [envelopePort],
+		selectedIndex: 0,
+		view: "detail" as const,
+		filter: "3000",
+		sort: { key: "port", direction: "asc" } as const,
+		presets: ["3000"],
+		copyPreview: true,
+		processControlPreview: true,
+		processControlInspector: false,
+	},
+};
+
+describe("endpoint workspace input envelope", () => {
+	test("returns complete kind-specific detail, filter, preset, and selection effects", () => {
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "connections",
+				decision: {
+					kind: "detail",
+					view: "raw",
+					copyPreview: false,
+					processControlPreview: false,
+					notice: { level: "info", message: "connections detail raw" },
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "connections-detail",
+					view: "raw",
+					copyPreview: false,
+					notice: { level: "info", message: "connections detail raw" },
+				},
+			],
+		});
+
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "ports",
+				decision: {
+					kind: "filter",
+					filter: "bun",
+					selectedIndex: 0,
+					copyPreview: false,
+					processControlPreview: false,
+					notice: {
+						level: "info",
+						message: "ports preset bun matches 1",
+					},
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "ports-filter",
+					filter: "bun",
+					selectedIndex: 0,
+					copyPreview: false,
+					processControlPreview: false,
+					notice: {
+						level: "info",
+						message: "ports preset bun matches 1",
+					},
+				},
+			],
+		});
+
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "connections",
+				decision: {
+					kind: "save-preset",
+					presets: ["443", "node"],
+					copyPreview: false,
+					processControlPreview: false,
+					notice: {
+						level: "info",
+						message: "connections preset saved node",
+					},
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "connections-save-preset",
+					presets: ["443", "node"],
+					copyPreview: false,
+					persistence: {
+						kind: "endpoint-filter-presets",
+						scope: "connections",
+						presets: ["443", "node"],
+					},
+					notice: {
+						level: "info",
+						message: "connections preset saved node",
+					},
+				},
+			],
+		});
+
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "ports",
+				decision: {
+					kind: "selection",
+					selectedIndex: 0,
+					copyPreview: false,
+					processControlPreview: false,
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "ports-selection",
+					selectedIndex: 0,
+					copyPreview: false,
+					processControlPreview: false,
+				},
+			],
+		});
+	});
+
+	test("returns a complete locked port-control effect with its exact prompt", () => {
+		const preview = {
+			actionId: "process.terminate" as const,
+			kind: "terminate" as const,
+			port: envelopePort,
+			confirmationPhrase: "kill pid 123",
+			risk: "destructive" as const,
+			privilege: "user" as const,
+			enabled: false as const,
+			rows: [
+				"PORT PROCESS CONTROL",
+				"action=process.terminate status=locked risk=destructive privilege=user",
+				"target port=*:3000 pid=123 process=bun user=alice",
+				"confirm kill pid 123 locked",
+				"dryRun no process signal will be sent",
+			],
+		};
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "ports",
+				decision: {
+					kind: "control",
+					scope: "ports",
+					preview,
+					copyPreview: false,
+					notice: {
+						level: "warn",
+						message: "ports process control confirm kill pid 123",
+					},
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "ports-control",
+					preview: {
+						actionId: "process.terminate",
+						kind: "terminate",
+						port: envelopePort,
+						confirmationPhrase: "kill pid 123",
+						risk: "destructive",
+						privilege: "user",
+						enabled: false,
+						rows: [
+							"PORT PROCESS CONTROL",
+							"action=process.terminate status=locked risk=destructive privilege=user",
+							"target port=*:3000 pid=123 process=bun user=alice",
+							"confirm kill pid 123 locked",
+							"dryRun no process signal will be sent",
+						],
+					},
+					copyPreview: false,
+					processControlPreview: true,
+					prompt: "port-process-control",
+					notice: {
+						level: "warn",
+						message: "ports process control confirm kill pid 123",
+					},
+				},
+			],
+		});
+	});
+
+	test("owns sort advancement, persistence payloads, and exact notices for both kinds", () => {
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "connections",
+				decision: {
+					kind: "command",
+					scope: "connections",
+					command: "sort",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "connections-sort",
+					sort: { key: "remote", direction: "asc" },
+					copyPreview: false,
+					persistence: {
+						kind: "endpoint-sort",
+						scope: "connections",
+						sort: { key: "remote", direction: "asc" },
+					},
+					notice: {
+						level: "info",
+						message: "connections sort remote asc",
+					},
+				},
+			],
+		});
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "ports",
+				decision: {
+					kind: "command",
+					scope: "ports",
+					command: "sort",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "ports-sort",
+					sort: { key: "process", direction: "asc" },
+					copyPreview: false,
+					processControlPreview: false,
+					persistence: {
+						kind: "endpoint-sort",
+						scope: "ports",
+						sort: { key: "process", direction: "asc" },
+					},
+					notice: {
+						level: "info",
+						message: "ports sort process asc",
+					},
+				},
+			],
+		});
+	});
+
+	test("owns exact prompt names and endpoint callback intents", () => {
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "connections",
+				decision: {
+					kind: "command",
+					scope: "connections",
+					command: "filter",
+					notice: {
+						level: "info",
+						message: "connections filter opened",
+					},
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "command-line",
+					prompt: "endpoint-filter:connections",
+					notice: {
+						level: "info",
+						message: "connections filter opened",
+					},
+				},
+			],
+		});
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "ports",
+				decision: {
+					kind: "command",
+					scope: "ports",
+					command: "cleanup",
+					notice: {
+						level: "warn",
+						message: "ports filter cleanup confirm clear ports",
+					},
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "command-line",
+					prompt: "endpoint-filter-cleanup:ports",
+					notice: {
+						level: "warn",
+						message: "ports filter cleanup confirm clear ports",
+					},
+				},
+			],
+		});
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "connections",
+				decision: {
+					kind: "command",
+					scope: "connections",
+					command: "export",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "callback",
+					callback: "export-endpoint",
+					scope: "connections",
+					handoff: endpointEnvelopeState.handoff,
+				},
+			],
+		});
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "ports",
+				decision: {
+					kind: "command",
+					scope: "ports",
+					command: "open",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "callback",
+					callback: "open-endpoint",
+					scope: "ports",
+					handoff: endpointEnvelopeState.handoff,
+				},
+			],
+		});
+	});
+
+	test("resolves selected clipboard previews and copy modes without App branching", () => {
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "connections",
+				decision: {
+					kind: "command",
+					scope: "connections",
+					command: "copy",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "connection-clipboard",
+					mode: "connection",
+					copyPreview: true,
+					preview: {
+						source: "connection",
+						label: "selected connection",
+						copyText: "127.0.0.1:3000 -> 10.0.0.8:443",
+						confirmation: "copy",
+						enabled: false,
+						reason: "Clipboard writes require explicit confirmation plumbing.",
+					},
+				},
+			],
+		});
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "ports",
+				decision: {
+					kind: "command",
+					scope: "ports",
+					command: "copy",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "port-clipboard",
+					mode: "port",
+					copyPreview: true,
+					processControlPreview: false,
+					preview: {
+						source: "port",
+						label: "selected port",
+						copyText: "*:3000 bun pid=123",
+						confirmation: "copy",
+						enabled: false,
+						reason: "Clipboard writes require explicit confirmation plumbing.",
+					},
+				},
+			],
+		});
+	});
+
+	test("handles empty endpoint domains without resolving phantom selections", () => {
+		const emptyState = {
+			handoff: endpointEnvelopeState.handoff,
+			connections: {
+				...endpointEnvelopeState.connections,
+				rows: [],
+				visibleRows: [],
+				selectedIndex: 7,
+			},
+			ports: {
+				...endpointEnvelopeState.ports,
+				rows: [],
+				visibleRows: [],
+				selectedIndex: 7,
+			},
+		};
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...emptyState,
+				kind: "connections",
+				decision: {
+					kind: "command",
+					scope: "connections",
+					command: "copy",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "notice",
+					notice: { level: "warn", message: "no connection selected" },
+				},
+			],
+		});
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...emptyState,
+				kind: "ports",
+				decision: {
+					kind: "command",
+					scope: "ports",
+					command: "inspect-process",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no process PID available for selected endpoint",
+					},
+				},
+			],
+		});
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...emptyState,
+				kind: "connections",
+				decision: { kind: "no-op" },
+			}),
+		).toEqual({ kind: "unhandled" });
+	});
+
+	test("returns process callback and port file-evidence request plans", () => {
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "connections",
+				decision: {
+					kind: "command",
+					scope: "connections",
+					command: "inspect-process",
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "callback",
+					callback: "inspect-process",
+					plan: {
+						scope: "connections",
+						request: { pid: "77", command: "picos process 77 --files" },
+					},
+				},
+			],
+		});
+		expect(
+			prepareEndpointWorkspaceInputEnvelope({
+				...endpointEnvelopeState,
+				kind: "ports",
+				decision: {
+					kind: "inspect-policy",
+					scope: "ports",
+					port: envelopePort,
+					inspectorVisible: true,
+					io: { kind: "load-process-files", pid: "123" },
+					notice: {
+						level: "info",
+						message: "ports process policy inspector 123",
+					},
+				},
+			}),
+		).toEqual({
+			kind: "handled",
+			effects: [
+				{
+					kind: "port-process-inspector",
+					inspectorVisible: true,
+					request: {
+						kind: "load-port-file-evidence",
+						pid: "123",
+						clearFileEvidenceIssue: true,
+					},
+					notice: {
+						level: "info",
+						message: "ports process policy inspector 123",
+					},
+				},
+			],
+		});
+	});
+
+	test("classifies current success, current failure, and stale file-evidence publications", () => {
+		const files = {
+			pid: 123,
+			cwd: "/tmp/project",
+			fileEntries: [],
+			openFiles: [],
+			rawOutput: "",
+		};
+		expect(
+			classifyEndpointProcessInspectionPublication({
+				currentToken: 4,
+				requestToken: 4,
+				pid: "123",
+				outcome: { kind: "success", files },
+			}),
+		).toEqual({
+			kind: "success",
+			publishCurrent: true,
+			files,
+			fileEvidenceIssue: undefined,
+			notice: { level: "info", message: "ports file evidence loaded pid 123" },
+		});
+		expect(
+			classifyEndpointProcessInspectionPublication({
+				currentToken: 4,
+				requestToken: 4,
+				pid: "123",
+				outcome: { kind: "failure", error: new Error("permission denied") },
+			}),
+		).toEqual({
+			kind: "failure",
+			publishCurrent: true,
+			files: undefined,
+			fileEvidenceIssue: {
+				status: "error",
+				pid: "123",
+				reason: "permission denied",
+			},
+			notice: {
+				level: "fail",
+				message: "ports file evidence failed permission denied",
+			},
+		});
+		expect(
+			classifyEndpointProcessInspectionPublication({
+				currentToken: 5,
+				requestToken: 4,
+				pid: "123",
+				outcome: { kind: "success", files },
+			}),
+		).toEqual({
+			kind: "stale",
+			publishCurrent: false,
+			files: undefined,
+			fileEvidenceIssue: undefined,
+			notice: {
+				level: "info",
+				message: "ports file evidence superseded pid 123",
+			},
+		});
+	});
+});
+
 describe("endpoint TUI panel formatting", () => {
+	test("clamps empty and last-row endpoint selection in the panel", () => {
+		const rows = [
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52000",
+				state: "ESTABLISHED",
+			},
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "4000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "53000",
+				state: "CLOSE_WAIT",
+			},
+		];
+		expect(repairEndpointSelection(9, 0)).toBe(0);
+		expect(repairEndpointSelection(9, rows.length)).toBe(1);
+		expect(resolveEndpointSelectedRow([], 9)).toBeUndefined();
+		expect(resolveEndpointSelectedRow(rows, 9)).toEqual(rows[1]);
+		expect(moveEndpointSelection(1, rows.length, "next")).toBe(0);
+	});
+
+	test("owns endpoint filter application and exact notices", () => {
+		const rows = [
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52000",
+				state: "ESTABLISHED",
+			},
+		];
+		expect(
+			prepareEndpointFilterTransition({
+				kind: "connections",
+				rows,
+				presets: ["tcp4"],
+				query: " ",
+			}),
+		).toEqual({
+			filter: "",
+			presets: ["tcp4"],
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: { level: "info", message: "connections filter cleared" },
+		});
+		expect(
+			prepareEndpointFilterTransition({
+				kind: "ports",
+				rows: [],
+				presets: [],
+				query: " ",
+			}),
+		).toEqual({
+			filter: "",
+			presets: [],
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: { level: "warn", message: "ports filter cleared" },
+		});
+	});
+
+	test("normalizes endpoint arrow movement without losing j and k", () => {
+		const connectionRows = [
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52000",
+			},
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "4000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "53000",
+			},
+		];
+		const portRows = [
+			{
+				protocol: "tcp",
+				localAddress: "*",
+				localPort: "3000",
+				pid: "123",
+				command: "node",
+				user: "alice",
+			},
+			{
+				protocol: "tcp",
+				localAddress: "*",
+				localPort: "4000",
+				pid: "456",
+				command: "bun",
+				user: "alice",
+			},
+		];
+		const expectedNext = {
+			kind: "selection" as const,
+			selectedIndex: 1,
+			copyPreview: false as const,
+			processControlPreview: false as const,
+		};
+		const expectedPrevious = {
+			kind: "selection" as const,
+			selectedIndex: 0,
+			copyPreview: false as const,
+			processControlPreview: false as const,
+		};
+		for (const state of [
+			{ kind: "connections" as const, rows: connectionRows },
+			{ kind: "ports" as const, rows: portRows },
+		]) {
+			const base = {
+				...state,
+				view: "detail" as const,
+				filter: "",
+				presets: [] as string[],
+				visibleRows: state.rows,
+			};
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "",
+					downArrow: true,
+					selectedIndex: 0,
+				}),
+			).toEqual(expectedNext);
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "j",
+					selectedIndex: 0,
+				}),
+			).toEqual(expectedNext);
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "",
+					upArrow: true,
+					selectedIndex: 1,
+				}),
+			).toEqual(expectedPrevious);
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "k",
+					selectedIndex: 1,
+				}),
+			).toEqual(expectedPrevious);
+		}
+	});
+
+	test("derives scoped endpoint intents from shared bindings", () => {
+		const base = {
+			view: "raw" as const,
+			filter: "",
+			presets: [] as string[],
+			rows: [] as const,
+			selectedIndex: 0,
+		};
+		expect(
+			prepareEndpointPanelInput({ ...base, kind: "connections", input: "I" }),
+		).toEqual({ kind: "no-op" });
+		expect(
+			prepareEndpointPanelInput({ ...base, kind: "ports", input: "I" }),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no port process policy to inspect",
+			},
+		});
+		const selectedPort = {
+			protocol: "tcp",
+			localAddress: "*",
+			localPort: "3000",
+			pid: "123",
+			command: "node",
+			user: "alice",
+		};
+		expect(
+			prepareEndpointPanelInput({
+				...base,
+				kind: "ports",
+				input: "I",
+				rows: [selectedPort],
+				processControlInspector: false,
+			}),
+		).toEqual({
+			kind: "inspect-policy",
+			scope: "ports",
+			port: selectedPort,
+			inspectorVisible: true,
+			io: { kind: "load-process-files", pid: "123" },
+			notice: {
+				level: "info",
+				message: "ports process policy inspector 123",
+			},
+		});
+		expect(
+			prepareEndpointPanelInput({ ...base, kind: "ports", input: "4" }),
+		).toEqual({ kind: "no-op" });
+		expect(
+			prepareEndpointPanelInput({ ...base, kind: "ports", input: "D" }),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no ports filter presets to clean" },
+		});
+	});
+
+	test("blocks port policy and control intents without a usable numeric pid", () => {
+		const port = (pid: string) => ({
+			protocol: "tcp",
+			localAddress: "*",
+			localPort: "3000",
+			pid,
+			command: "node",
+			user: "alice",
+		});
+		const base = {
+			kind: "ports" as const,
+			view: "process" as const,
+			filter: "",
+			presets: [] as string[],
+			selectedIndex: 0,
+		};
+		expect(
+			prepareEndpointPanelInput({ ...base, input: "K", rows: [] }),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no port process selected" },
+		});
+		for (const pid of ["-", "abc", "12x"]) {
+			expect(
+				prepareEndpointPanelInput({
+					...base,
+					input: "I",
+					rows: [port(pid)],
+					processControlInspector: true,
+				}),
+			).toEqual({
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: "no port process policy to inspect",
+				},
+			});
+			expect(
+				prepareEndpointPanelInput({ ...base, input: "K", rows: [port(pid)] }),
+			).toEqual({
+				kind: "notice",
+				notice: { level: "warn", message: "no port process selected" },
+			});
+		}
+		const selected = port("123");
+		expect(
+			prepareEndpointPanelInput({
+				...base,
+				input: "I",
+				rows: [selected],
+				processControlInspector: false,
+			}),
+		).toEqual({
+			kind: "inspect-policy",
+			scope: "ports",
+			port: selected,
+			inspectorVisible: true,
+			io: { kind: "load-process-files", pid: "123" },
+			notice: {
+				level: "info",
+				message: "ports process policy inspector 123",
+			},
+		});
+		expect(
+			prepareEndpointPanelInput({
+				...base,
+				input: "I",
+				rows: [selected],
+				processControlInspector: true,
+			}),
+		).toEqual({
+			kind: "inspect-policy",
+			scope: "ports",
+			port: selected,
+			inspectorVisible: false,
+			io: { kind: "none" },
+			notice: {
+				level: "info",
+				message: "ports process policy inspector hidden",
+			},
+		});
+		expect(
+			prepareEndpointPanelInput({ ...base, input: "K", rows: [selected] }),
+		).toMatchObject({
+			kind: "control",
+			scope: "ports",
+			preview: { port: selected, confirmationPhrase: "kill pid 123" },
+			copyPreview: false,
+			notice: {
+				level: "warn",
+				message: "ports process control confirm kill pid 123",
+			},
+		});
+	});
 	test("formats connections with raw source output", () => {
 		expect(
 			formatConnectionsWorkspaceRows(
@@ -179,26 +1167,55 @@ describe("endpoint TUI panel formatting", () => {
 				"connections",
 				presets,
 				"clear connection",
+				2,
 			),
 		).toEqual({
+			action: "notice",
 			confirmed: false,
 			kind: "connections",
 			message: "connections filter cleanup rejected",
 			presets,
 			removed: 0,
+			notice: {
+				level: "warn",
+				message: "connections filter cleanup rejected",
+			},
+		});
+		expect(
+			submitEndpointFilterCleanupConfirmation("ports", [], "clear ports", 3),
+		).toEqual({
+			action: "notice",
+			confirmed: false,
+			kind: "ports",
+			message: "ports filter cleanup unavailable",
+			presets: [],
+			removed: 0,
+			notice: {
+				level: "warn",
+				message: "ports filter cleanup unavailable",
+			},
 		});
 		expect(
 			submitEndpointFilterCleanupConfirmation(
 				"connections",
 				presets,
 				" clear connections ",
+				2,
 			),
 		).toEqual({
+			action: "apply",
 			confirmed: true,
 			kind: "connections",
 			message: "connections filter cleanup removed 2 presets",
 			presets: [],
 			removed: 2,
+			selectedIndex: 0,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "info",
+				message: "connections filter cleanup removed 2 presets",
+			},
 		});
 		expect(
 			createEndpointFilterCleanupPreview("ports", ["8080"])?.confirmationPhrase,
@@ -771,6 +1788,106 @@ describe("endpoint TUI panel formatting", () => {
 		);
 	});
 
+	test("owns port process control submission guards and exact audit notices", () => {
+		expect(
+			preparePortProcessControlSubmission({
+				ports: [],
+				selectedIndex: 0,
+				input: "kill pid 123",
+			}),
+		).toEqual({
+			kind: "blocked",
+			closeCommandLine: true,
+			processControlPreview: false,
+			notices: [
+				{ level: "warn", message: "port process control missing target" },
+			],
+		});
+
+		const port = {
+			protocol: "tcp",
+			localAddress: "*",
+			localPort: "3000",
+			pid: "123",
+			command: "node",
+			user: "alice",
+		};
+		const transition = preparePortProcessControlSubmission({
+			ports: [port],
+			selectedIndex: 0,
+			input: "kill pid 123",
+		});
+		expect(transition).toMatchObject({
+			kind: "confirmation",
+			closeCommandLine: true,
+			processControlPreview: false,
+			confirmation: {
+				confirmed: true,
+				executionEnabled: false,
+			},
+			executionRequest: {
+				preview: {
+					actionId: "process.terminate",
+					port,
+				},
+				confirmation: {
+					confirmed: true,
+					executionEnabled: false,
+				},
+			},
+			notices: [
+				{
+					level: "warn",
+					message:
+						"port process control process.terminate status=confirmed-disabled risk=destructive privilege=user executionEnabled=false port=*:3000 pid=123 process=node user=alice",
+				},
+			],
+		});
+		expect(transition).not.toHaveProperty("executionPlan");
+	});
+
+	test("owns palette control availability and actionable prompt routing", () => {
+		expect(
+			preparePortProcessControlPalettePreview({ ports: [], selectedIndex: 0 }),
+		).toEqual({
+			kind: "blocked",
+			screen: "ports",
+			focusArea: "workspaces",
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "warn",
+				message: "palette process control preview unavailable",
+			},
+		});
+		const port = {
+			protocol: "tcp",
+			localAddress: "127.0.0.1",
+			localPort: "5173",
+			pid: "777",
+			command: "vite",
+			user: "alice",
+		};
+		expect(
+			preparePortProcessControlPalettePreview({
+				ports: [port],
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			kind: "preview",
+			screen: "ports",
+			focusArea: "workspaces",
+			copyPreview: false,
+			processControlPreview: true,
+			preview: { port, confirmationPhrase: "kill pid 777" },
+			commandLinePrompt: "port-process-control",
+			notice: {
+				level: "warn",
+				message: "ports process control confirm kill pid 777 via palette",
+			},
+		});
+	});
+
 	test("formats selected port process control execution policy blockers", () => {
 		const preview = createSelectedPortProcessControlPreview(
 			[
@@ -1020,6 +2137,10 @@ describe("endpoint TUI panel formatting", () => {
 	});
 
 	test("creates endpoint handoff plans for connection and port evidence", () => {
+		expect(prepareEndpointHandoff({ kind: "ports", baseDir: "/tmp" })).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no ports snapshot loaded" },
+		});
 		expect(
 			createEndpointHandoffPlan("connections", {
 				baseDir: "/tmp/picos",
@@ -1155,5 +2276,196 @@ describe("endpoint TUI panel formatting", () => {
 		} finally {
 			await rm(root, { force: true, recursive: true });
 		}
+	});
+});
+
+describe("endpoint workspace hint rows", () => {
+	test("shows only always-actionable controls while a snapshot is loading", () => {
+		expect(
+			formatEndpointWorkspaceHintRow("connections", {
+				snapshotLoaded: false,
+				filter: "",
+				presetCount: 0,
+				visibleRows: [],
+				selectedIndex: 0,
+			}),
+		).toBe("active endpoints · f filter · tab/1-3 detail · home/end");
+	});
+
+	test("keeps loaded-empty export and open but hides filter and selection actions", () => {
+		expect(
+			formatEndpointWorkspaceHintRow("ports", {
+				snapshotLoaded: true,
+				filter: "   ",
+				presetCount: 0,
+				visibleRows: [],
+				selectedIndex: 0,
+			}),
+		).toBe(
+			"listening ports · f filter · e export · o open · tab/1-3 detail · home/end",
+		);
+	});
+
+	test("shows filter and preset actions for one selected row without immobile j/k", () => {
+		expect(
+			formatEndpointWorkspaceHintRow("ports", {
+				snapshotLoaded: true,
+				filter: " node ",
+				presetCount: 2,
+				visibleRows: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "123",
+						command: "node",
+						user: "alice",
+					},
+				],
+				selectedIndex: 0,
+			}),
+		).toBe(
+			"listening ports · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · I inspector · K control · tab/1-3 detail · home/end",
+		);
+	});
+
+	test("shows j/k for a movable multi-row domain without inventing filter presets", () => {
+		const rows = [
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3000",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52000",
+				pid: "4242",
+			},
+			{
+				protocol: "tcp4",
+				localAddress: "127.0.0.1",
+				localPort: "3001",
+				remoteAddress: "127.0.0.1",
+				remotePort: "52001",
+				pid: undefined,
+			},
+		];
+		const hint = formatEndpointWorkspaceHintRow("connections", {
+			snapshotLoaded: true,
+			filter: "",
+			presetCount: 0,
+			visibleRows: rows,
+			selectedIndex: 0,
+		});
+
+		expect(hint).toBe(
+			"active endpoints · f filter · e export · o open · enter Processes / picos process · tab/1-3 detail · home/end · j/k select",
+		);
+	});
+
+	test("advertises actionable port controls and names the Processes handoff", () => {
+		expect(
+			formatEndpointWorkspaceHintRow("ports", {
+				snapshotLoaded: true,
+				filter: "node",
+				presetCount: 1,
+				visibleRows: [
+					{
+						protocol: "tcp",
+						localAddress: "*",
+						localPort: "3000",
+						pid: "123",
+						command: "node",
+						user: "alice",
+					},
+				],
+				selectedIndex: 0,
+			}),
+		).toBe(
+			"listening ports · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · I inspector · K control · tab/1-3 detail · home/end",
+		);
+	});
+
+	test("advertises the named Processes handoff only for a selected connection PID", () => {
+		const selected = {
+			protocol: "tcp4",
+			localAddress: "127.0.0.1",
+			localPort: "3000",
+			remoteAddress: "127.0.0.1",
+			remotePort: "52000",
+			pid: "4242",
+		};
+		expect(
+			formatEndpointWorkspaceHintRow("connections", {
+				snapshotLoaded: true,
+				filter: "tcp4",
+				presetCount: 1,
+				visibleRows: [selected],
+				selectedIndex: 0,
+			}),
+		).toBe(
+			"active endpoints · f filter · P save · ] preset · D cleanup · e export · o open · enter Processes / picos process · tab/1-3 detail · home/end",
+		);
+		expect(
+			formatEndpointWorkspaceHintRow("connections", {
+				snapshotLoaded: true,
+				filter: "",
+				presetCount: 0,
+				visibleRows: [{ ...selected, pid: undefined }],
+				selectedIndex: 0,
+			}),
+		).not.toContain("enter");
+	});
+
+	test("omits port inspector and control keys when no numeric PID can act", () => {
+		const hint = formatEndpointWorkspaceHintRow("ports", {
+			snapshotLoaded: true,
+			filter: "",
+			presetCount: 0,
+			visibleRows: [
+				{
+					protocol: "tcp",
+					localAddress: "*",
+					localPort: "3000",
+					pid: "-",
+					command: "node",
+					user: "alice",
+				},
+			],
+			selectedIndex: 0,
+		});
+		expect(hint).not.toContain("enter");
+		expect(hint).not.toContain("I inspector");
+		expect(hint).not.toContain("K control");
+	});
+
+	test("derives control availability from the supplied visible endpoint domain", () => {
+		const hint = formatEndpointWorkspaceHintRow("ports", {
+			snapshotLoaded: true,
+			filter: "postgres",
+			presetCount: 0,
+			visibleRows: [
+				{
+					protocol: "tcp",
+					localAddress: "127.0.0.1",
+					localPort: "5432",
+					pid: "222",
+					command: "postgres",
+					user: "alice",
+				},
+			],
+			selectedIndex: 0,
+		});
+		expect(hint).toContain("enter Processes / picos process");
+		expect(hint).toContain("I inspector");
+		expect(hint).toContain("K control");
+	});
+
+	test("scopes inspector and control to ports and shares the rest", () => {
+		const connections = getEndpointWorkspaceHintKeys("connections");
+		const ports = getEndpointWorkspaceHintKeys("ports");
+		expect(connections.every((key) => ports.includes(key))).toBe(true);
+		expect(ports.filter((key) => !connections.includes(key))).toEqual([
+			"I",
+			"K",
+		]);
 	});
 });

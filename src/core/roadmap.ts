@@ -18,7 +18,10 @@ export function getRoadmapItems(): RoadmapItem[] {
 			label: "Routes, ports, connections, timeline, and preset-aware tools",
 			status: "active",
 		},
-		{ label: "DOS-style file manager and text editor", status: "next" },
+		{
+			label: "DOS-style file manager and text editor",
+			status: "active",
+		},
 		{
 			label: "Privileged control previews and confirmations",
 			status: "active",

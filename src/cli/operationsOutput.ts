@@ -6,9 +6,13 @@ import {
 import type {
 	ProcessDetailResult,
 	ProcessFileSnapshotResult,
+	ProcessIdentityVerdict,
 	ProcessInspectionSource,
 } from "../core/processes";
-import type { SystemMonitorSnapshot } from "../core/systemMonitor";
+import type {
+	SystemMonitorSeries,
+	SystemMonitorSnapshot,
+} from "../core/systemMonitor";
 import type { InventorySourceStatus, ProcessSummary } from "../core/types";
 import {
 	LOCAL_INSPECTOR_JSON_ENTRY_LIMIT,
@@ -19,9 +23,15 @@ import {
 	stringifyLocalInspectorCompleted,
 } from "./localInspectorOutput";
 
-export function formatMonitorJson(snapshot: SystemMonitorSnapshot): string {
+export function formatMonitorJson(
+	snapshot: SystemMonitorSnapshot,
+	options: { presetId?: string } = {},
+): string {
 	return stringifyLocalInspectorCompleted("monitor", {
-		request: { operation: "snapshot" },
+		request: {
+			operation: "snapshot",
+			presetId: options.presetId ?? null,
+		},
 		source: {
 			system: {
 				kind: "node",
@@ -67,9 +77,61 @@ export function formatMonitorJson(snapshot: SystemMonitorSnapshot): string {
 	});
 }
 
+export function formatMonitorSeriesJson(
+	series: SystemMonitorSeries,
+	options: { presetId?: string } = {},
+): string {
+	const partial = series.samples.some(isMonitorSnapshotPartial);
+	return stringifyLocalInspectorCompleted("monitor", {
+		request: {
+			operation: "sample",
+			presetId: options.presetId ?? null,
+			samples: series.requestedCount,
+			intervalMs: series.intervalMs,
+		},
+		source: {
+			system: {
+				kind: "node",
+				apis: [
+					"os.uptime",
+					"os.loadavg",
+					"os.totalmem",
+					"os.freemem",
+					"os.cpus",
+				],
+				success: true,
+			},
+			processes: series.samples.map((sample, index) => ({
+				index: index + 1,
+				at: sanitizeLocalInspectorText(sample.at),
+				evidence: sample.processSource
+					? normalizeInventorySource(sample.processSource)
+					: null,
+			})),
+		},
+		data: {
+			outcome: partial ? "partial" : "ok",
+			startedAt: sanitizeLocalInspectorText(series.startedAt),
+			completedAt: sanitizeLocalInspectorText(series.completedAt),
+			requestedCount: series.requestedCount,
+			returnedCount: series.samples.length,
+			cancelled: series.cancelled,
+			intervalMs: series.intervalMs,
+			durationMs: durationMilliseconds(series.startedAt, series.completedAt),
+			aggregate: summarizeMonitorSeries(series.samples),
+			samples: series.samples.map(normalizeMonitorSample),
+		},
+	});
+}
+
 export function formatLogsJson(
 	snapshot: OsLogSnapshot,
-	options: { filter?: string; level: OsLogLevelFilter; limit: number },
+	options: {
+		filter?: string;
+		level: OsLogLevelFilter;
+		limit: number;
+		presetId?: string;
+	},
 ): string {
 	assertLogSourceCompleted(snapshot);
 	const entries = filterOsLogEntries(
@@ -80,6 +142,7 @@ export function formatLogsJson(
 
 	return stringifyLocalInspectorCompleted("logs", {
 		request: {
+			presetId: options.presetId ?? null,
 			limit: options.limit,
 			filter: options.filter?.trim()
 				? sanitizeLocalInspectorText(options.filter.trim())
@@ -101,6 +164,11 @@ export function formatLogsJson(
 			visibleCount: entries.length,
 			returnedCount: entries.length,
 			limit: options.limit,
+			// True when the collector filled the window, meaning `level` and `filter`
+			// narrowed a set that was already capped and matches may exist further
+			// back. A consumer can derive this from totalCount and limit, but only if
+			// it knows the limit is applied before filtering, which is the trap.
+			limitReached: snapshot.entries.length >= options.limit,
 			byteLimit: LOCAL_INSPECTOR_JSON_MAX_BYTES,
 			truncated: false,
 			entries: entries.map((entry) => ({
@@ -115,8 +183,10 @@ export function formatLogsJson(
 export function formatProcessJson(input: {
 	pid: number;
 	filesRequested: boolean;
+	presetId?: string;
 	detailResult: ProcessDetailResult;
 	fileResult?: ProcessFileSnapshotResult;
+	identity?: ProcessIdentityVerdict;
 }): string {
 	assertProcessDetailCompleted(input.pid, input.detailResult);
 	const detail = input.detailResult.detail;
@@ -137,7 +207,11 @@ export function formatProcessJson(input: {
 			}));
 
 	return stringifyLocalInspectorCompleted("process", {
-		request: { pid: input.pid, files: input.filesRequested },
+		request: {
+			presetId: input.presetId ?? null,
+			pid: input.pid,
+			files: input.filesRequested,
+		},
 		source: {
 			detail: normalizeProcessSource(input.detailResult.source),
 			files: input.fileResult
@@ -152,6 +226,10 @@ export function formatProcessJson(input: {
 					input.fileResult.source.truncated)
 					? "partial"
 					: "ok",
+			// Only meaningful for a preset run, which has a saved instant to compare
+			// against. `reused` is a proof that this is a different process; the other
+			// values are not proof of sameness, only the absence of that proof.
+			identity: input.identity ?? null,
 			detail: {
 				pid: detail.pid,
 				ppid: detail.ppid ?? null,
@@ -283,4 +361,68 @@ function optionalText(value: string | undefined): string | null {
 
 function finiteNumber(value: number): number {
 	return Number.isFinite(value) ? value : 0;
+}
+
+function isMonitorSnapshotPartial(snapshot: SystemMonitorSnapshot): boolean {
+	return Boolean(
+		snapshot.processSource &&
+			(snapshot.processSource.supported === false ||
+				snapshot.processSource.success === false ||
+				snapshot.processSource.truncated),
+	);
+}
+
+function normalizeMonitorSample(snapshot: SystemMonitorSnapshot) {
+	return {
+		at: sanitizeLocalInspectorText(snapshot.at),
+		uptimeSeconds: finiteNumber(snapshot.uptimeSeconds),
+		loadAverage: snapshot.loadAverage.map(finiteNumber),
+		memory: {
+			totalBytes: finiteNumber(snapshot.memory.totalBytes),
+			freeBytes: finiteNumber(snapshot.memory.freeBytes),
+			usedBytes: finiteNumber(snapshot.memory.usedBytes),
+			usedPercent: finiteNumber(snapshot.memory.usedPercent),
+		},
+		cpu: {
+			model: sanitizeLocalInspectorText(snapshot.cpu.model),
+			count: finiteNumber(snapshot.cpu.count),
+		},
+		processCount: finiteNumber(snapshot.processCount),
+		topProcesses: snapshot.topProcesses
+			.slice(0, 5)
+			.map(normalizeProcessSummary),
+	};
+}
+
+function summarizeMonitorSeries(samples: SystemMonitorSnapshot[]) {
+	return {
+		memoryUsedPercent: summarizeNumbers(
+			samples.map((sample) => sample.memory.usedPercent),
+		),
+		loadOneMinute: summarizeNumbers(
+			samples.map((sample) => sample.loadAverage[0]),
+		),
+		processCount: summarizeNumbers(
+			samples.map((sample) => sample.processCount),
+		),
+	};
+}
+
+function summarizeNumbers(values: number[]) {
+	const finiteValues = values.map(finiteNumber);
+	if (finiteValues.length === 0) {
+		return { min: 0, max: 0, average: 0, last: 0 };
+	}
+	const total = finiteValues.reduce((sum, value) => sum + value, 0);
+	return {
+		min: Math.min(...finiteValues),
+		max: Math.max(...finiteValues),
+		average: Math.round((total / finiteValues.length) * 100) / 100,
+		last: finiteValues[finiteValues.length - 1] ?? 0,
+	};
+}
+
+function durationMilliseconds(startedAt: string, completedAt: string): number {
+	const duration = Date.parse(completedAt) - Date.parse(startedAt);
+	return Number.isFinite(duration) && duration > 0 ? duration : 0;
 }

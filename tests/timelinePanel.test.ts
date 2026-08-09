@@ -26,7 +26,13 @@ import {
 	moveTimelineSelection,
 	nextTimelineFilter,
 	nextTimelineSearchPreset,
+	prepareTimelinePanelInput,
+	prepareTimelineSearchJumpTransition,
+	prepareTimelineSearchTransition,
+	repairTimelineSelection,
+	resolveSelectedTimelineEvent,
 	saveTimelineSearchPreset,
+	selectNewestTimelineResult,
 	submitTimelineSearchCleanupConfirmation,
 	type TimelineFilter,
 } from "../src/tui/timelinePanel";
@@ -78,6 +84,162 @@ const events: ConsoleEvent[] = [
 ];
 
 describe("timeline TUI panel formatting", () => {
+	test("clamps empty and last-row timeline selection and selects newest results", () => {
+		expect(repairTimelineSelection(8, 0)).toBe(0);
+		expect(repairTimelineSelection(8, events.length)).toBe(events.length - 1);
+		expect(resolveSelectedTimelineEvent([], 8)).toBeUndefined();
+		expect(resolveSelectedTimelineEvent(events, 99)).toEqual(events.at(-1));
+		expect(selectNewestTimelineResult(events.length)).toBe(events.length - 1);
+		expect(selectNewestTimelineResult(0)).toBe(0);
+	});
+
+	test("owns timeline filter application and exact preset notices", () => {
+		expect(
+			prepareTimelineSearchTransition({
+				events,
+				filter: "network",
+				presets: ["clipboard"],
+				query: " ",
+			}),
+		).toEqual({
+			query: "",
+			presets: ["clipboard"],
+			selectedIndex: 0,
+			notice: { level: "info", message: "timeline search cleared" },
+		});
+		expect(
+			prepareTimelinePanelInput({
+				input: "]",
+				events,
+				filter: "network",
+				query: "",
+				presets: ["missing"],
+				selectedIndex: 0,
+			}),
+		).toEqual({
+			kind: "search",
+			query: "missing",
+			selectedIndex: 0,
+			notice: {
+				level: "warn",
+				message: "timeline preset missing matches 0",
+			},
+		});
+		expect(
+			prepareTimelineSearchTransition({
+				events: [],
+				filter: "all",
+				presets: [],
+				query: " ",
+			}),
+		).toEqual({
+			query: "",
+			presets: [],
+			selectedIndex: 0,
+			notice: { level: "warn", message: "timeline search cleared" },
+		});
+	});
+
+	test("resolves selected timeline commands after clamping", () => {
+		const base = {
+			filter: "all" as const,
+			query: "",
+			presets: [] as string[],
+			selectedIndex: 99,
+			handoff: { baseDir: "/tmp" },
+		};
+		for (const input of ["c", "e"] as const) {
+			expect(prepareTimelinePanelInput({ ...base, input, events: [] })).toEqual(
+				{
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message:
+							input === "c"
+								? "no timeline row to copy"
+								: "no timeline row to export",
+					},
+				},
+			);
+			expect(
+				prepareTimelinePanelInput({ ...base, input, events }),
+			).toMatchObject({
+				kind: "selected-command",
+				command: input === "c" ? "copy" : "export",
+				selectedIndex: events.length - 1,
+				event: events.at(-1),
+			});
+		}
+	});
+
+	test("resolves timeline evidence intents or returns the exact blocked notice", () => {
+		const focusEvent: ConsoleEvent = {
+			id: "12:00:08-info-status-evidence-focus",
+			level: "info",
+			time: "12:00:08",
+			message:
+				'status activity evidence focus kind=audit shortcut=w selected=1/1 label="focus.log" path="/tmp/focus.log"',
+		};
+		const auditExportIndex = {
+			baseDir: "/tmp",
+			items: [
+				{
+					fileName: "focus.log",
+					path: "/tmp/focus.log",
+					generatedAt: "2026-08-09T00:00:00.000Z",
+					scope: "selected" as const,
+					entryCount: 1,
+				},
+			],
+		};
+		const base = {
+			input: "E",
+			filter: "all" as const,
+			query: "",
+			presets: [] as string[],
+			selectedIndex: 99,
+			auditExportIndex,
+		};
+		expect(prepareTimelinePanelInput({ ...base, events: [] })).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no timeline focus evidence trail",
+			},
+		});
+		expect(
+			prepareTimelinePanelInput({ ...base, events: [focusEvent] }),
+		).toMatchObject({
+			kind: "evidence",
+			selectedIndex: 0,
+			event: focusEvent,
+			plan: {
+				kind: "audit",
+				selectedIndex: 0,
+				path: "/tmp/focus.log",
+			},
+		});
+	});
+
+	test("keeps invalid timeline section shortcuts and empty cleanup as no-op decisions", () => {
+		const state = {
+			events,
+			filter: "all" as const,
+			query: "",
+			presets: [] as string[],
+			selectedIndex: 0,
+		};
+		expect(prepareTimelinePanelInput({ ...state, input: "1" })).toEqual({
+			kind: "no-op",
+		});
+		expect(prepareTimelinePanelInput({ ...state, input: "D" })).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no timeline search presets to clean",
+			},
+		});
+	});
 	test("cycles timeline filters for keyboard use", () => {
 		const sequence: TimelineFilter[] = [];
 		let current: TimelineFilter = "all";
@@ -884,19 +1046,61 @@ describe("timeline TUI panel formatting", () => {
 		expect(
 			submitTimelineSearchCleanupConfirmation(presets, "clear timelines"),
 		).toEqual({
+			action: "notice",
 			confirmed: false,
 			message: "timeline search cleanup rejected",
 			presets,
 			removed: 0,
+			notice: {
+				level: "warn",
+				message: "timeline search cleanup rejected",
+			},
 		});
 		expect(
 			submitTimelineSearchCleanupConfirmation(presets, " clear timeline "),
 		).toEqual({
+			action: "apply",
 			confirmed: true,
 			message: "timeline search cleanup removed 2 presets",
 			presets: [],
 			removed: 2,
+			notice: {
+				level: "info",
+				message: "timeline search cleanup removed 2 presets",
+			},
 		});
 		expect(createTimelineSearchCleanupPreview([])).toBeUndefined();
+	});
+
+	test("owns evidence search jumps and selects the newest matching result", () => {
+		expect(
+			prepareTimelineSearchJumpTransition(events, {
+				filter: "audit",
+				query: "control",
+				message: "process control evidence recovered search process.log",
+			}),
+		).toEqual({
+			filter: "audit",
+			query: "control",
+			matches: 1,
+			selectedIndex: 0,
+			notice: {
+				level: "info",
+				message:
+					"process control evidence recovered search process.log matches 1",
+			},
+		});
+		expect(
+			prepareTimelineSearchJumpTransition(events, {
+				filter: "audit",
+				query: "missing",
+				message:
+					"interface confirmation evidence recovered search interface.log",
+			}),
+		).toMatchObject({
+			matches: 0,
+			selectedIndex: 0,
+			notice: { level: "warn" },
+		});
 	});
 });

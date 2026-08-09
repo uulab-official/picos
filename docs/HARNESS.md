@@ -15,10 +15,11 @@ This runs:
 3. `bun run integration:local-json`
 4. `bun run integration:diagnostics-json`
 5. `bun run integration:operations-json`
-6. `bun run integration:sftp`
-7. `bun run typecheck`
-8. `bun run build`
-9. `bun run smoke`
+6. `bun run integration:automation-presets`
+7. `bun run integration:sftp`
+8. `bun run typecheck`
+9. `bun run build`
+10. `bun run smoke`
 
 `typecheck` covers `src/`, `tests/`, and `scripts/`, including the harness itself.
 
@@ -66,10 +67,35 @@ bun run harness operations-json
 
 This launches the real CLI for monitor, current-process detail, current-process file/resource inspection, and bounded OS logs. Monitor and process must complete without command arguments or raw collector output. Logs may complete or return a structured source failure because platform log access is environment-dependent; either outcome must be one complete JSON document with matching exit status and no stderr. Five deterministic cases verify lower/upper log-limit bounds, invalid severity, invalid PID, and missing PID. The check runs in `bun run verify` on macOS, Linux, and Windows.
 
+## Automation Presets Integration
+
+```bash
+bun run harness automation-presets
+```
+
+This launches the real CLI against an isolated temporary config directory, so it never reads or writes the operator's saved presets. It verifies the published preset contract and the empty shelf, saves and runs one bounded monitor sampling preset, one OS log preset, and one current-process `--files` preset, then lists and removes presets through their exact confirmations.
+
+Checked behavior:
+
+1. `operations kinds --json` returns the three preset kinds, the save/remove confirmation templates, and the published id pattern and normalization rule without serializing the config path, and `operations kinds monitor --json` narrows to one entry while still reporting the full catalog count.
+2. An empty shelf returns `request.operation=list`, `totalCount=0`, and `source.location=user-config` without serializing the config path.
+3. The monitor preset is saved using the option names and confirmation template taken from that published contract, so the contract is proven executable rather than merely descriptive.
+4. A saved monitor preset runs as a `monitor` document with `request.operation=sample`, matching requested and returned sample counts, and no raw output or command line.
+5. A saved logs preset returns either a completed `logs` document or one structured `operations` source failure, because platform log access is environment-dependent; both outcomes stay a single document with matching exit status and no stderr.
+6. A saved process preset returns a `process` document with the requested PID and `files=true` without command arguments or raw `lsof` output.
+7. `operations list --json` reports the saved count with newest-saved-first ordering.
+8. Eight deterministic cases verify a wrong confirmation phrase, an oversized monitor interval span, a missing preset id, an unknown action, an unknown preset kind, a surplus argument after a valid kind, a confirmation that repeats an un-normalized id instead of the normalized one, and an id that violates the published pattern by starting with a dot; each exits non-zero with one `operations` `PICOS_LOCAL_INSPECTOR_FAILED` document, no stderr, and an unchanged preset shelf. Each case is additionally paired with a substring of the message its own guard produces, and the document's echoed `request.operation` is checked, so a case that begins failing at a different guard than intended is caught rather than passing on the shared failure envelope. The two `kinds` failures also pin `request.kind`, because they echo it differently: an unknown kind echoes the rejected input, while a surplus argument echoes the kind accepted before it.
+9. `operations remove <id>` with its published confirmation template reduces the saved count.
+
+The check requires no public service and runs in `bun run verify` on macOS, Linux, and Windows.
+
 Additional local manual checks:
 
 ```bash
 bun src/bin/picos.ts info --full
+bun src/bin/picos.ts monitor --samples 3 --interval 500
+bun src/bin/picos.ts operations kinds
+bun src/bin/picos.ts operations list
 bun src/bin/picos.ts ping google.com --count 2 --timeout 5000
 bun src/bin/picos.ts connect example.com 443
 bun src/bin/picos.ts pwd

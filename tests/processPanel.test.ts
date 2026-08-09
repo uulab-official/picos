@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import type { ProcessFileSnapshot } from "../src/core/processes";
 import {
+	classifyProcessInspectionFailure,
+	classifyProcessInspectionPublication,
 	formatProcessWorkspaceRows,
 	getProcessFileSelectionCount,
 	getSelectedProcessClipboardPreview,
 	getSelectedProcessFileRequest,
 	getSelectedProcessResourceRequest,
+	prepareProcessPanelInput,
+	prepareSelectedProcessInspection,
+	prepareSelectedProcessResourceAction,
 } from "../src/tui/processPanel";
 
 describe("process TUI panel formatting", () => {
@@ -143,5 +148,273 @@ describe("process TUI panel formatting", () => {
 			"1       -      -      init",
 			"↓ 2 more processes",
 		]);
+	});
+
+	test("distinguishes unavailable and failed file evidence from a supported empty snapshot", () => {
+		const selected = { pid: 12345, command: "bun worker.ts" };
+		const unavailableRows = formatProcessWorkspaceRows(
+			[],
+			selected,
+			undefined,
+			10,
+			0,
+			false,
+			{
+				status: "unavailable",
+				pid: "12345",
+				reason: "collector unsupported",
+			},
+		);
+		expect(unavailableRows).toContain(
+			"fileEvidence status=unavailable pid=12345 reason=collector unsupported",
+		);
+		expect(unavailableRows).not.toContain("- none detected");
+
+		const failedRows = formatProcessWorkspaceRows(
+			[],
+			selected,
+			undefined,
+			10,
+			0,
+			false,
+			{
+				status: "error",
+				pid: "12345",
+				reason: "collector failed exit=1",
+			},
+		);
+		expect(failedRows).toContain(
+			"fileEvidence status=error pid=12345 reason=collector failed exit=1",
+		);
+		expect(failedRows).not.toContain("- none detected");
+
+		const supportedEmptyRows = formatProcessWorkspaceRows(
+			[],
+			selected,
+			{
+				pid: 12345,
+				fileEntries: [],
+				openFiles: [],
+				rawOutput: "",
+			},
+			10,
+		);
+		expect(supportedEmptyRows).toContain("- none detected");
+		expect(
+			supportedEmptyRows.some((row) => row.startsWith("fileEvidence")),
+		).toBe(false);
+	});
+});
+
+describe("process inspection transitions", () => {
+	const request = { pid: "12345", command: "picos process 12345 --files" };
+
+	test("rejects inspection when the selected endpoint has no process", () => {
+		expect(
+			prepareSelectedProcessInspection({
+				screen: "connections",
+				connectionRequest: undefined,
+				portRequest: request,
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no process PID available for selected endpoint",
+			},
+		});
+		expect(
+			prepareSelectedProcessInspection({
+				screen: "ports",
+				connectionRequest: undefined,
+				portRequest: request,
+			}),
+		).toEqual({ kind: "inspect", request });
+	});
+
+	test("publishes detail while identifying an unsupported file collector", () => {
+		const transition = classifyProcessInspectionPublication({
+			currentToken: 4,
+			requestToken: 4,
+			request,
+			detail: { pid: 12345, command: "bun worker.ts" },
+			fileResult: {
+				source: {
+					key: "process-files",
+					command: null,
+					args: [],
+					supported: false,
+					success: null,
+					exitCode: null,
+					truncated: false,
+					totalCount: 0,
+				},
+			},
+		});
+
+		expect(transition).toEqual({
+			kind: "publish",
+			detail: { pid: 12345, command: "bun worker.ts" },
+			files: undefined,
+			fileEvidenceIssue: {
+				status: "unavailable",
+				pid: "12345",
+				reason: "collector unsupported",
+			},
+			selectedFileIndex: 0,
+			clipboardPreview: false,
+			notice: {
+				level: "warn",
+				message:
+					"process inspected picos process 12345 --files; file evidence unsupported",
+			},
+		});
+	});
+
+	test("does not publish a superseded inspection batch", () => {
+		expect(
+			classifyProcessInspectionPublication({
+				currentToken: 5,
+				requestToken: 4,
+				request,
+				detail: { pid: 12345, command: "bun worker.ts" },
+				fileResult: {
+					snapshot: {
+						pid: 12345,
+						fileEntries: [],
+						openFiles: [],
+						rawOutput: "",
+					},
+					source: {
+						key: "process-files",
+						command: "lsof",
+						args: [],
+						supported: true,
+						success: true,
+						exitCode: 0,
+						truncated: false,
+						totalCount: 0,
+					},
+				},
+			}),
+		).toEqual({
+			kind: "stale",
+			notice: {
+				level: "info",
+				message: "process inspection superseded picos process 12345 --files",
+			},
+		});
+	});
+
+	test("keeps stale inspection failures as history without current error state", () => {
+		expect(
+			classifyProcessInspectionFailure({
+				currentToken: 5,
+				requestToken: 4,
+				request,
+				error: new Error("detail lookup failed"),
+			}),
+		).toEqual({
+			publishCurrent: false,
+			fileEvidenceIssue: undefined,
+			notice: { level: "fail", message: "detail lookup failed" },
+		});
+	});
+});
+
+describe("process workspace input transitions", () => {
+	const files: ProcessFileSnapshot = {
+		pid: 12345,
+		cwd: "/srv/app",
+		fileEntries: [
+			{
+				descriptor: "1",
+				label: "socket",
+				resourceKind: "socket",
+				path: "localhost:3000",
+			},
+		],
+		openFiles: ["localhost:3000"],
+		rawOutput: "",
+	};
+
+	test("owns selected resource guards and exact notices", () => {
+		expect(prepareSelectedProcessResourceAction(undefined, 0)).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "selected process file is not openable",
+			},
+		});
+		expect(prepareSelectedProcessResourceAction(files, 1)).toEqual({
+			kind: "resource",
+			resource: {
+				descriptor: "1",
+				label: "socket",
+				resourceKind: "socket",
+				copyText: "localhost:3000",
+				summary: "socket 1 socket localhost:3000",
+			},
+			notice: {
+				level: "info",
+				message: "process resource socket 1 socket localhost:3000",
+			},
+		});
+	});
+
+	test("repairs process resource selection through panel input", () => {
+		expect(
+			prepareProcessPanelInput({
+				input: "j",
+				files,
+				selectedIndex: 99,
+			}),
+		).toEqual({
+			kind: "selection",
+			selectedIndex: 0,
+			clipboardPreview: false,
+		});
+		expect(
+			prepareProcessPanelInput({
+				input: "c",
+				files: undefined,
+				selectedIndex: 0,
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no process resource selected" },
+		});
+	});
+
+	test("consumes arrow directions and j/k as process resource movement", () => {
+		for (const input of [
+			{ input: "j", selectedIndex: 0, selectedIndexAfter: 1 },
+			{
+				input: "",
+				direction: "next" as const,
+				selectedIndex: 0,
+				selectedIndexAfter: 1,
+			},
+			{ input: "k", selectedIndex: 0, selectedIndexAfter: 1 },
+			{
+				input: "",
+				direction: "previous" as const,
+				selectedIndex: 0,
+				selectedIndexAfter: 1,
+			},
+		]) {
+			expect(
+				prepareProcessPanelInput({
+					input: input.input,
+					direction: input.direction,
+					files,
+					selectedIndex: input.selectedIndex,
+				}),
+			).toEqual({
+				kind: "selection",
+				selectedIndex: input.selectedIndexAfter,
+				clipboardPreview: false,
+			});
+		}
 	});
 });

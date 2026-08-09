@@ -1,3 +1,4 @@
+import type { ReleaseHealthReport } from "../core/release";
 import type { ToolDefinition, ToolResult } from "../core/tools";
 import type { DoctorCheck } from "../core/types";
 import {
@@ -32,6 +33,22 @@ export function formatDoctorJson(checks: DoctorCheck[]): string {
 			failCount,
 			checkCount: checks.length,
 			checks: normalizedChecks,
+		},
+	});
+}
+
+export function formatReleaseHealthJson(report: ReleaseHealthReport): string {
+	return stringifyLocalInspectorCompleted("release-health", {
+		request: { action: "check" },
+		data: {
+			status: report.status,
+			passCount: report.passCount,
+			failCount: report.failCount,
+			checks: report.items.map((item) => ({
+				label: sanitizeLocalInspectorText(item.label),
+				status: item.status,
+				detail: item.detail ? sanitizeLocalInspectorText(item.detail) : null,
+			})),
 		},
 	});
 }

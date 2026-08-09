@@ -7,6 +7,8 @@ import {
 	type LogProfile,
 	nextLogProfile,
 	nextLogSearchPreset,
+	prepareLogPanelInput,
+	prepareLogSearchTransition,
 	saveLogProfile,
 	saveLogSearchPreset,
 	submitLogCleanupConfirmation,
@@ -26,6 +28,69 @@ const snapshot: OsLogSnapshot = {
 };
 
 describe("log TUI panel formatting", () => {
+	test("owns empty and filtered log search transitions with exact notices", () => {
+		expect(
+			prepareLogSearchTransition({
+				entries: snapshot.entries,
+				level: "warn",
+				presets: ["kernel"],
+				query: " ",
+			}),
+		).toEqual({
+			query: "",
+			presets: ["kernel"],
+			notice: { level: "info", message: "logs search cleared" },
+		});
+		expect(
+			prepareLogSearchTransition({
+				entries: snapshot.entries,
+				level: "fail",
+				presets: [],
+				query: "missing",
+			}),
+		).toEqual({
+			query: "missing",
+			presets: ["missing"],
+			notice: {
+				level: "warn",
+				message: "logs search missing matches 0",
+			},
+		});
+		expect(
+			prepareLogSearchTransition({
+				entries: [],
+				level: "all",
+				presets: [],
+				query: " ",
+			}),
+		).toEqual({
+			query: "",
+			presets: [],
+			notice: { level: "warn", message: "logs search cleared" },
+		});
+	});
+
+	test("owns log preset, cleanup no-op, and invalid shortcut decisions", () => {
+		const state = {
+			entries: snapshot.entries,
+			level: "all" as const,
+			query: "",
+			presets: [] as string[],
+			profiles: [] as LogProfile[],
+			follow: false,
+		};
+		expect(prepareLogPanelInput({ ...state, input: "1" })).toEqual({
+			kind: "no-op",
+		});
+		expect(prepareLogPanelInput({ ...state, input: "]" })).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no logs search presets" },
+		});
+		expect(prepareLogPanelInput({ ...state, input: "D" })).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no logs presets to clean" },
+		});
+	});
 	test("formats filtered log rows with preset context", () => {
 		const profiles: LogProfile[] = [{ level: "warn", query: "kernel" }];
 		expect(
@@ -182,20 +247,27 @@ describe("log TUI panel formatting", () => {
 		expect(
 			submitLogCleanupConfirmation(presets, profiles, "clear log"),
 		).toEqual({
+			action: "notice",
 			confirmed: false,
 			message: "logs cleanup rejected",
 			presets,
 			profiles,
 			removed: 0,
+			notice: { level: "warn", message: "logs cleanup rejected" },
 		});
 		expect(
 			submitLogCleanupConfirmation(presets, profiles, " clear logs "),
 		).toEqual({
+			action: "apply",
 			confirmed: true,
 			message: "logs cleanup removed 3 presets",
 			presets: [],
 			profiles: [],
 			removed: 3,
+			notice: {
+				level: "info",
+				message: "logs cleanup removed 3 presets",
+			},
 		});
 		expect(createLogCleanupPreview([], [])).toBeUndefined();
 	});

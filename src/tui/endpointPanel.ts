@@ -15,6 +15,7 @@ import {
 	type ConnectionsResult,
 	filterConnections,
 	formatConnections,
+	nextConnectionSort,
 	sortConnections,
 } from "../core/connections";
 import {
@@ -28,6 +29,7 @@ import type { FileOpenOrigin } from "../core/fileOpen";
 import {
 	filterListeningPorts,
 	formatPorts,
+	nextPortSort,
 	type PortSort,
 	type PortsResult,
 	sortListeningPorts,
@@ -44,6 +46,7 @@ import {
 	createClipboardPreview,
 	formatClipboardPreviewRows,
 } from "./clipboardPreview";
+import { clampIndex } from "./navigation";
 
 export type EndpointProcessRequest = {
 	pid: string;
@@ -63,6 +66,32 @@ export type EndpointHandoffPlan = {
 	view: EndpointDetailView;
 };
 
+export type EndpointHandoffPreparation =
+	| { kind: "notice"; notice: EndpointPanelNotice }
+	| { kind: "handoff"; plan: EndpointHandoffPlan };
+
+export type EndpointHandoffPreparationInput =
+	| {
+			kind: "connections";
+			baseDir: string;
+			filter?: string;
+			generatedAt?: Date;
+			origin?: FileOpenOrigin;
+			result?: ConnectionsResult;
+			sort?: ConnectionSort;
+			view?: EndpointDetailView;
+	  }
+	| {
+			kind: "ports";
+			baseDir: string;
+			filter?: string;
+			generatedAt?: Date;
+			origin?: FileOpenOrigin;
+			result?: PortsResult;
+			sort?: PortSort;
+			view?: EndpointDetailView;
+	  };
+
 export type EndpointFilterCleanupPreview = {
 	kind: EndpointHandoffKind;
 	count: number;
@@ -71,12 +100,325 @@ export type EndpointFilterCleanupPreview = {
 	rows: string[];
 };
 
-export type EndpointFilterCleanupConfirmation = {
-	confirmed: boolean;
-	kind: EndpointHandoffKind;
+export type EndpointFilterCleanupConfirmation =
+	| {
+			action: "notice";
+			confirmed: false;
+			kind: EndpointHandoffKind;
+			message: string;
+			notice: EndpointPanelNotice;
+			presets: string[];
+			removed: 0;
+	  }
+	| {
+			action: "apply";
+			confirmed: true;
+			copyPreview: false;
+			kind: EndpointHandoffKind;
+			message: string;
+			notice: EndpointPanelNotice;
+			presets: string[];
+			processControlPreview: false;
+			removed: number;
+			selectedIndex: number;
+	  };
+
+export type EndpointPanelNotice = {
+	level: "info" | "warn" | "fail";
 	message: string;
+};
+
+export type EndpointPanelCommand =
+	| "filter"
+	| "cleanup"
+	| "export"
+	| "open"
+	| "inspect-process"
+	| "sort"
+	| "copy";
+
+export type EndpointPanelInputDecision =
+	| { kind: "no-op" }
+	| { kind: "notice"; notice: EndpointPanelNotice }
+	| {
+			kind: "command";
+			scope: EndpointHandoffKind;
+			command: EndpointPanelCommand;
+			notice?: EndpointPanelNotice;
+	  }
+	| {
+			kind: "inspect-policy";
+			scope: "ports";
+			port: ListeningPort;
+			inspectorVisible: boolean;
+			io: { kind: "load-process-files"; pid: string } | { kind: "none" };
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "control";
+			scope: "ports";
+			preview: PortProcessControlPreview;
+			copyPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "detail";
+			view: EndpointDetailView;
+			copyPreview: false;
+			processControlPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "filter";
+			filter: string;
+			selectedIndex: number;
+			copyPreview: false;
+			processControlPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "save-preset";
+			presets: string[];
+			copyPreview: false;
+			processControlPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			copyPreview: false;
+			processControlPreview: false;
+	  };
+
+export type EndpointConnectionsWorkspaceState = {
+	rows: readonly ActiveConnection[];
+	visibleRows: readonly ActiveConnection[];
+	selectedIndex: number;
+	view: EndpointDetailView;
+	filter: string;
+	sort: ConnectionSort;
 	presets: string[];
-	removed: number;
+	copyPreview: boolean;
+};
+
+export type EndpointPortsWorkspaceState = {
+	rows: readonly ListeningPort[];
+	visibleRows: readonly ListeningPort[];
+	selectedIndex: number;
+	view: EndpointDetailView;
+	filter: string;
+	sort: PortSort;
+	presets: string[];
+	copyPreview: boolean;
+	processControlPreview: boolean;
+	processControlInspector: boolean;
+};
+
+export type EndpointWorkspaceInputEnvelopeInput = {
+	kind: EndpointHandoffKind;
+	connections: EndpointConnectionsWorkspaceState;
+	ports: EndpointPortsWorkspaceState;
+	handoff: EndpointHandoffInputSnapshot;
+	decision: EndpointPanelInputDecision;
+};
+
+export type EndpointHandoffInputSnapshot = {
+	baseDir: string;
+	origin?: FileOpenOrigin;
+	connections: {
+		filter: string;
+		result?: ConnectionsResult;
+		sort: ConnectionSort;
+		view: EndpointDetailView;
+	};
+	ports: {
+		filter: string;
+		result?: PortsResult;
+		sort: PortSort;
+		view: EndpointDetailView;
+	};
+};
+
+export type EndpointWorkspacePrompt =
+	| "endpoint-filter:connections"
+	| "endpoint-filter:ports"
+	| "endpoint-filter-cleanup:connections"
+	| "endpoint-filter-cleanup:ports";
+
+export type EndpointWorkspaceInputEffect =
+	| {
+			kind: "connections-detail";
+			view: EndpointDetailView;
+			copyPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "ports-detail";
+			view: EndpointDetailView;
+			copyPreview: false;
+			processControlPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "connections-filter";
+			filter: string;
+			selectedIndex: number;
+			copyPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "ports-filter";
+			filter: string;
+			selectedIndex: number;
+			copyPreview: false;
+			processControlPreview: false;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "connections-save-preset";
+			presets: string[];
+			copyPreview: false;
+			persistence: {
+				kind: "endpoint-filter-presets";
+				scope: "connections";
+				presets: string[];
+			};
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "ports-save-preset";
+			presets: string[];
+			copyPreview: false;
+			processControlPreview: false;
+			persistence: {
+				kind: "endpoint-filter-presets";
+				scope: "ports";
+				presets: string[];
+			};
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "connections-selection";
+			selectedIndex: number;
+			copyPreview: false;
+	  }
+	| {
+			kind: "ports-selection";
+			selectedIndex: number;
+			copyPreview: false;
+			processControlPreview: false;
+	  }
+	| {
+			kind: "ports-control";
+			preview: PortProcessControlPreview;
+			copyPreview: false;
+			processControlPreview: true;
+			prompt: "port-process-control";
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "connections-sort";
+			sort: ConnectionSort;
+			copyPreview: false;
+			persistence: {
+				kind: "endpoint-sort";
+				scope: "connections";
+				sort: ConnectionSort;
+			};
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "ports-sort";
+			sort: PortSort;
+			copyPreview: false;
+			processControlPreview: false;
+			persistence: {
+				kind: "endpoint-sort";
+				scope: "ports";
+				sort: PortSort;
+			};
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "command-line";
+			prompt: EndpointWorkspacePrompt;
+			notice?: EndpointPanelNotice;
+	  }
+	| {
+			kind: "callback";
+			callback: "export-endpoint" | "open-endpoint";
+			scope: EndpointHandoffKind;
+			handoff: EndpointHandoffInputSnapshot;
+	  }
+	| {
+			kind: "callback";
+			callback: "inspect-process";
+			plan: {
+				scope: EndpointHandoffKind;
+				request: EndpointProcessRequest;
+			};
+	  }
+	| {
+			kind: "connection-clipboard";
+			mode: "connection";
+			copyPreview: true;
+			preview: ClipboardPreview;
+	  }
+	| {
+			kind: "port-clipboard";
+			mode: "port";
+			copyPreview: true;
+			processControlPreview: false;
+			preview: ClipboardPreview;
+	  }
+	| {
+			kind: "port-process-inspector";
+			inspectorVisible: boolean;
+			request:
+				| {
+						kind: "load-port-file-evidence";
+						pid: string;
+						clearFileEvidenceIssue: true;
+				  }
+				| { kind: "none" };
+			notice: EndpointPanelNotice;
+	  }
+	| { kind: "notice"; notice: EndpointPanelNotice };
+
+export type EndpointWorkspaceInputEnvelope =
+	| { kind: "unhandled" }
+	| { kind: "handled"; effects: EndpointWorkspaceInputEffect[] };
+
+export type EndpointProcessInspectionPublication =
+	| {
+			kind: "success";
+			publishCurrent: true;
+			files: ProcessFileSnapshot | undefined;
+			fileEvidenceIssue: PortProcessControlFileEvidenceIssue | undefined;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "failure";
+			publishCurrent: true;
+			files: undefined;
+			fileEvidenceIssue: PortProcessControlFileEvidenceIssue;
+			notice: EndpointPanelNotice;
+	  }
+	| {
+			kind: "stale";
+			publishCurrent: false;
+			files: undefined;
+			fileEvidenceIssue: undefined;
+			notice: EndpointPanelNotice;
+	  };
+
+export type EndpointFilterTransition = {
+	filter: string;
+	presets: string[];
+	selectedIndex: number;
+	copyPreview: false;
+	processControlPreview: false;
+	notice: EndpointPanelNotice;
 };
 
 export type PortProcessControlKind = "terminate";
@@ -110,6 +452,52 @@ export type PortProcessControlFileEvidenceIssue = {
 	reason: string;
 };
 
+export type PortProcessControlNotice = {
+	level: "warn" | "fail";
+	message: string;
+};
+
+export type PortProcessControlExecutionRequest = {
+	preview: PortProcessControlPreview;
+	confirmation: PortProcessControlConfirmation;
+};
+
+export type PortProcessControlSubmissionTransition =
+	| {
+			kind: "blocked";
+			closeCommandLine: true;
+			processControlPreview: false;
+			notices: PortProcessControlNotice[];
+	  }
+	| {
+			kind: "confirmation";
+			closeCommandLine: true;
+			processControlPreview: false;
+			confirmation: PortProcessControlConfirmation;
+			executionRequest: PortProcessControlExecutionRequest;
+			notices: PortProcessControlNotice[];
+	  };
+
+export type PortProcessControlPaletteTransition =
+	| {
+			kind: "blocked";
+			screen: "ports";
+			focusArea: "workspaces";
+			copyPreview: false;
+			processControlPreview: false;
+			notice: PortProcessControlNotice;
+	  }
+	| {
+			kind: "preview";
+			screen: "ports";
+			focusArea: "workspaces";
+			copyPreview: false;
+			processControlPreview: true;
+			preview: PortProcessControlPreview;
+			commandLinePrompt: "port-process-control";
+			notice: PortProcessControlNotice;
+	  };
+
 export function nextEndpointDetailView(
 	view: EndpointDetailView,
 ): EndpointDetailView {
@@ -142,6 +530,812 @@ export function getEndpointDetailViewShortcut(
 		return "process";
 	}
 	return undefined;
+}
+
+const ENDPOINT_WORKSPACE_HINT_ENTRIES: readonly {
+	key: string;
+	label?: string;
+	kinds?: readonly EndpointHandoffKind[];
+	hint?: boolean;
+	intent:
+		| "filter"
+		| "clear-filter"
+		| "save-preset"
+		| "preset"
+		| "cleanup"
+		| "export"
+		| "open"
+		| "inspect-process"
+		| "inspect-policy"
+		| "control"
+		| "detail"
+		| "select"
+		| "sort"
+		| "copy";
+}[] = [
+	{ key: "f", label: "filter", intent: "filter" },
+	{ key: "F", hint: false, intent: "clear-filter" },
+	{ key: "P", label: "save", intent: "save-preset" },
+	{ key: "]", label: "preset", intent: "preset" },
+	{ key: "D", label: "cleanup", intent: "cleanup" },
+	{ key: "e", label: "export", intent: "export" },
+	{ key: "o", label: "open", intent: "open" },
+	{ key: "enter", label: "process", intent: "inspect-process" },
+	{
+		key: "I",
+		label: "inspector",
+		kinds: ["ports"],
+		intent: "inspect-policy",
+	},
+	{ key: "K", label: "control", kinds: ["ports"], intent: "control" },
+	{ key: "tab/1-3", label: "detail", intent: "detail" },
+	{ key: "home/end", intent: "detail" },
+	{ key: "j/k", label: "select", intent: "select" },
+	{ key: "s", hint: false, intent: "sort" },
+	{ key: "c", hint: false, intent: "copy" },
+];
+
+export function repairEndpointSelection(index: number, total: number): number {
+	return clampIndex(index, total);
+}
+
+export function selectFirstEndpointResult(total: number): number {
+	return repairEndpointSelection(0, total);
+}
+
+export function moveEndpointSelection(
+	index: number,
+	total: number,
+	direction: "next" | "previous",
+): number {
+	if (total <= 0) {
+		return clampIndex(index, total);
+	}
+	const current = clampIndex(index, total);
+	const offset = direction === "next" ? 1 : -1;
+	return clampIndex((current + offset + total) % total, total);
+}
+
+export function resolveEndpointSelectedRow<T>(
+	rows: readonly T[],
+	selectedIndex: number,
+): T | undefined {
+	if (!rows.length) {
+		return undefined;
+	}
+	return rows[clampIndex(selectedIndex, rows.length)];
+}
+
+export function prepareEndpointFilterTransition(
+	input:
+		| {
+				kind: "connections";
+				rows: readonly ActiveConnection[];
+				presets: string[];
+				query: string;
+		  }
+		| {
+				kind: "ports";
+				rows: readonly ListeningPort[];
+				presets: string[];
+				query: string;
+		  },
+): EndpointFilterTransition {
+	const filter = input.query.trim();
+	const matches =
+		input.kind === "connections"
+			? filterConnections([...input.rows], filter).length
+			: filterListeningPorts([...input.rows], filter).length;
+	return {
+		filter,
+		presets: filter
+			? saveEndpointFilterPreset(input.presets, filter)
+			: input.presets,
+		selectedIndex: selectFirstEndpointResult(matches),
+		copyPreview: false,
+		processControlPreview: false,
+		notice: {
+			level: matches ? "info" : "warn",
+			message: filter
+				? `${input.kind} filter ${filter} matches ${matches}`
+				: `${input.kind} filter cleared`,
+		},
+	};
+}
+
+export function prepareEndpointPanelInput(input: {
+	kind: EndpointHandoffKind;
+	input: string;
+	view: EndpointDetailView;
+	filter: string;
+	presets: string[];
+	rows: readonly (ActiveConnection | ListeningPort)[];
+	visibleRows?: readonly (ActiveConnection | ListeningPort)[];
+	selectedIndex: number;
+	home?: boolean;
+	end?: boolean;
+	tab?: boolean;
+	upArrow?: boolean;
+	downArrow?: boolean;
+	processControlInspector?: boolean;
+}): EndpointPanelInputDecision {
+	const visibleRows = input.visibleRows ?? input.rows;
+	const normalizedInput = input.downArrow
+		? "j"
+		: input.upArrow
+			? "k"
+			: input.input;
+	const entry = ENDPOINT_WORKSPACE_HINT_ENTRIES.find(
+		(candidate) =>
+			(!candidate.kinds || candidate.kinds.includes(input.kind)) &&
+			(candidate.key === normalizedInput ||
+				(candidate.key === "enter" && normalizedInput === "\r") ||
+				(candidate.key === "j/k" && ["j", "k"].includes(normalizedInput)) ||
+				(candidate.key === "tab/1-3" &&
+					(input.tab || ["1", "2", "3"].includes(normalizedInput))) ||
+				(candidate.key === "home/end" && (input.home || input.end))),
+	);
+	if (!entry) {
+		return { kind: "no-op" };
+	}
+	if (entry.intent === "detail") {
+		const view =
+			getEndpointDetailViewShortcut(normalizedInput, {
+				home: input.home,
+				end: input.end,
+			}) ?? nextEndpointDetailView(input.view);
+		return {
+			kind: "detail",
+			view,
+			copyPreview: false,
+			processControlPreview: false,
+			notice: { level: "info", message: `${input.kind} detail ${view}` },
+		};
+	}
+	if (entry.intent === "select") {
+		return {
+			kind: "selection",
+			selectedIndex: moveEndpointSelection(
+				input.selectedIndex,
+				visibleRows.length,
+				normalizedInput === "j" ? "next" : "previous",
+			),
+			copyPreview: false,
+			processControlPreview: false,
+		};
+	}
+	if (entry.intent === "clear-filter") {
+		return {
+			kind: "filter",
+			filter: "",
+			selectedIndex: selectFirstEndpointResult(input.rows.length),
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "info",
+				message: `${input.kind} filter cleared`,
+			},
+		};
+	}
+	if (entry.intent === "save-preset") {
+		const filter = input.filter.trim();
+		return filter
+			? {
+					kind: "save-preset",
+					presets: saveEndpointFilterPreset(input.presets, filter),
+					copyPreview: false,
+					processControlPreview: false,
+					notice: {
+						level: "info",
+						message: `${input.kind} preset saved ${filter}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: `no ${input.kind} filter to save`,
+					},
+				};
+	}
+	if (entry.intent === "cleanup") {
+		const preview = createEndpointFilterCleanupPreview(
+			input.kind,
+			input.presets,
+		);
+		return preview
+			? {
+					kind: "command",
+					scope: input.kind,
+					command: "cleanup",
+					notice: {
+						level: "warn",
+						message: `${input.kind} filter cleanup confirm ${preview.confirmationPhrase}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: `no ${input.kind} filter presets to clean`,
+					},
+				};
+	}
+	if (entry.intent === "preset") {
+		const filter = nextEndpointFilterPreset(input.presets, input.filter);
+		if (!filter) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: `no ${input.kind} filter presets`,
+				},
+			};
+		}
+		const matches =
+			input.kind === "connections"
+				? filterConnections(input.rows as ActiveConnection[], filter).length
+				: filterListeningPorts(input.rows as ListeningPort[], filter).length;
+		return {
+			kind: "filter",
+			filter,
+			selectedIndex: selectFirstEndpointResult(matches),
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: matches ? "info" : "warn",
+				message: `${input.kind} preset ${filter} matches ${matches}`,
+			},
+		};
+	}
+	if (entry.intent === "copy") {
+		if (!resolveEndpointSelectedRow(visibleRows, input.selectedIndex)) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message:
+						input.kind === "connections"
+							? "no connection selected"
+							: "no port selected",
+				},
+			};
+		}
+		return { kind: "command", scope: input.kind, command: "copy" };
+	}
+	const selectedRow = resolveEndpointSelectedRow(
+		visibleRows,
+		input.selectedIndex,
+	);
+	if (
+		["inspect-process", "inspect-policy", "control"].includes(entry.intent) &&
+		!selectedRow
+	) {
+		const message =
+			entry.intent === "inspect-process"
+				? "no endpoint process selected"
+				: entry.intent === "inspect-policy"
+					? "no port process policy to inspect"
+					: "no port process selected";
+		return { kind: "notice", notice: { level: "warn", message } };
+	}
+	if (entry.intent === "inspect-policy" || entry.intent === "control") {
+		const port = selectedRow as ListeningPort;
+		if (!createProcessRequest(port.pid)) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message:
+						entry.intent === "inspect-policy"
+							? "no port process policy to inspect"
+							: "no port process selected",
+				},
+			};
+		}
+		if (entry.intent === "inspect-policy") {
+			const inspectorVisible = !input.processControlInspector;
+			return {
+				kind: "inspect-policy",
+				scope: "ports",
+				port,
+				inspectorVisible,
+				io: inspectorVisible
+					? { kind: "load-process-files", pid: port.pid }
+					: { kind: "none" },
+				notice: {
+					level: "info",
+					message: inspectorVisible
+						? `ports process policy inspector ${port.pid}`
+						: "ports process policy inspector hidden",
+				},
+			};
+		}
+		const preview = createPortProcessControlPreview(port);
+		return {
+			kind: "control",
+			scope: "ports",
+			preview,
+			copyPreview: false,
+			notice: {
+				level: "warn",
+				message: `ports process control confirm ${preview.confirmationPhrase}`,
+			},
+		};
+	}
+	return {
+		kind: "command",
+		scope: input.kind,
+		command: entry.intent,
+		...(entry.intent === "filter"
+			? {
+					notice: {
+						level: "info" as const,
+						message: `${input.kind} filter opened`,
+					},
+				}
+			: {}),
+	};
+}
+
+export function prepareEndpointWorkspaceInputEnvelope(
+	input: EndpointWorkspaceInputEnvelopeInput,
+): EndpointWorkspaceInputEnvelope {
+	const { decision } = input;
+	if (decision.kind === "no-op") {
+		return { kind: "unhandled" };
+	}
+	if (decision.kind === "notice") {
+		return {
+			kind: "handled",
+			effects: [{ kind: "notice", notice: decision.notice }],
+		};
+	}
+	if (decision.kind === "detail") {
+		return input.kind === "connections"
+			? {
+					kind: "handled",
+					effects: [
+						{
+							kind: "connections-detail",
+							view: decision.view,
+							copyPreview: decision.copyPreview,
+							notice: decision.notice,
+						},
+					],
+				}
+			: {
+					kind: "handled",
+					effects: [
+						{
+							kind: "ports-detail",
+							view: decision.view,
+							copyPreview: decision.copyPreview,
+							processControlPreview: decision.processControlPreview,
+							notice: decision.notice,
+						},
+					],
+				};
+	}
+	if (decision.kind === "filter") {
+		return input.kind === "connections"
+			? {
+					kind: "handled",
+					effects: [
+						{
+							kind: "connections-filter",
+							filter: decision.filter,
+							selectedIndex: decision.selectedIndex,
+							copyPreview: decision.copyPreview,
+							notice: decision.notice,
+						},
+					],
+				}
+			: {
+					kind: "handled",
+					effects: [
+						{
+							kind: "ports-filter",
+							filter: decision.filter,
+							selectedIndex: decision.selectedIndex,
+							copyPreview: decision.copyPreview,
+							processControlPreview: decision.processControlPreview,
+							notice: decision.notice,
+						},
+					],
+				};
+	}
+	if (decision.kind === "save-preset") {
+		return input.kind === "connections"
+			? {
+					kind: "handled",
+					effects: [
+						{
+							kind: "connections-save-preset",
+							presets: decision.presets,
+							copyPreview: decision.copyPreview,
+							persistence: {
+								kind: "endpoint-filter-presets",
+								scope: "connections",
+								presets: decision.presets,
+							},
+							notice: decision.notice,
+						},
+					],
+				}
+			: {
+					kind: "handled",
+					effects: [
+						{
+							kind: "ports-save-preset",
+							presets: decision.presets,
+							copyPreview: decision.copyPreview,
+							processControlPreview: decision.processControlPreview,
+							persistence: {
+								kind: "endpoint-filter-presets",
+								scope: "ports",
+								presets: decision.presets,
+							},
+							notice: decision.notice,
+						},
+					],
+				};
+	}
+	if (decision.kind === "selection") {
+		return input.kind === "connections"
+			? {
+					kind: "handled",
+					effects: [
+						{
+							kind: "connections-selection",
+							selectedIndex: decision.selectedIndex,
+							copyPreview: decision.copyPreview,
+						},
+					],
+				}
+			: {
+					kind: "handled",
+					effects: [
+						{
+							kind: "ports-selection",
+							selectedIndex: decision.selectedIndex,
+							copyPreview: decision.copyPreview,
+							processControlPreview: decision.processControlPreview,
+						},
+					],
+				};
+	}
+	if (decision.kind === "control") {
+		return {
+			kind: "handled",
+			effects: [
+				{
+					kind: "ports-control",
+					preview: decision.preview,
+					copyPreview: decision.copyPreview,
+					processControlPreview: true,
+					prompt: "port-process-control",
+					notice: decision.notice,
+				},
+			],
+		};
+	}
+	if (decision.kind === "inspect-policy") {
+		return {
+			kind: "handled",
+			effects: [
+				{
+					kind: "port-process-inspector",
+					inspectorVisible: decision.inspectorVisible,
+					request:
+						decision.io.kind === "load-process-files"
+							? {
+									kind: "load-port-file-evidence",
+									pid: decision.io.pid,
+									clearFileEvidenceIssue: true,
+								}
+							: { kind: "none" },
+					notice: decision.notice,
+				},
+			],
+		};
+	}
+
+	switch (decision.command) {
+		case "filter":
+			return {
+				kind: "handled",
+				effects: [
+					{
+						kind: "command-line",
+						prompt: `endpoint-filter:${input.kind}`,
+						...(decision.notice ? { notice: decision.notice } : {}),
+					},
+				],
+			};
+		case "cleanup":
+			return {
+				kind: "handled",
+				effects: [
+					{
+						kind: "command-line",
+						prompt: `endpoint-filter-cleanup:${input.kind}`,
+						...(decision.notice ? { notice: decision.notice } : {}),
+					},
+				],
+			};
+		case "export":
+		case "open":
+			return {
+				kind: "handled",
+				effects: [
+					{
+						kind: "callback",
+						callback:
+							decision.command === "export"
+								? "export-endpoint"
+								: "open-endpoint",
+						scope: input.kind,
+						handoff: input.handoff,
+					},
+				],
+			};
+		case "sort": {
+			if (input.kind === "connections") {
+				const sort = nextConnectionSort(input.connections.sort);
+				return {
+					kind: "handled",
+					effects: [
+						{
+							kind: "connections-sort",
+							sort,
+							copyPreview: false,
+							persistence: {
+								kind: "endpoint-sort",
+								scope: "connections",
+								sort,
+							},
+							notice: {
+								level: "info",
+								message: `connections sort ${sort.key} ${sort.direction}`,
+							},
+						},
+					],
+				};
+			}
+			const sort = nextPortSort(input.ports.sort);
+			return {
+				kind: "handled",
+				effects: [
+					{
+						kind: "ports-sort",
+						sort,
+						copyPreview: false,
+						processControlPreview: false,
+						persistence: {
+							kind: "endpoint-sort",
+							scope: "ports",
+							sort,
+						},
+						notice: {
+							level: "info",
+							message: `ports sort ${sort.key} ${sort.direction}`,
+						},
+					},
+				],
+			};
+		}
+		case "copy": {
+			if (input.kind === "connections") {
+				const preview = getSelectedConnectionClipboardPreview(
+					[...input.connections.visibleRows],
+					input.connections.selectedIndex,
+				);
+				return {
+					kind: "handled",
+					effects: [
+						preview
+							? {
+									kind: "connection-clipboard",
+									mode: "connection",
+									copyPreview: true,
+									preview,
+								}
+							: {
+									kind: "notice",
+									notice: {
+										level: "warn",
+										message: "no connection selected",
+									},
+								},
+					],
+				};
+			}
+			const preview = getSelectedPortClipboardPreview(
+				[...input.ports.visibleRows],
+				input.ports.selectedIndex,
+			);
+			return {
+				kind: "handled",
+				effects: [
+					preview
+						? {
+								kind: "port-clipboard",
+								mode: "port",
+								copyPreview: true,
+								processControlPreview: false,
+								preview,
+							}
+						: {
+								kind: "notice",
+								notice: {
+									level: "warn",
+									message: "no port selected",
+								},
+							},
+				],
+			};
+		}
+		case "inspect-process": {
+			const request =
+				input.kind === "connections"
+					? getSelectedConnectionProcessRequest(
+							[...input.connections.visibleRows],
+							input.connections.selectedIndex,
+						)
+					: getSelectedPortProcessRequest(
+							[...input.ports.visibleRows],
+							input.ports.selectedIndex,
+						);
+			return request
+				? {
+						kind: "handled",
+						effects: [
+							{
+								kind: "callback",
+								callback: "inspect-process",
+								plan: { scope: input.kind, request },
+							},
+						],
+					}
+				: {
+						kind: "handled",
+						effects: [
+							{
+								kind: "notice",
+								notice: {
+									level: "warn",
+									message: "no process PID available for selected endpoint",
+								},
+							},
+						],
+					};
+		}
+	}
+}
+
+export function classifyEndpointProcessInspectionPublication(input: {
+	currentToken: number;
+	requestToken: number;
+	pid: string;
+	outcome:
+		| { kind: "success"; files: ProcessFileSnapshot | undefined }
+		| { kind: "failure"; error: unknown };
+}): EndpointProcessInspectionPublication {
+	if (input.currentToken !== input.requestToken) {
+		const failureMessage =
+			input.outcome.kind === "failure"
+				? formatEndpointInspectionFailure(input.outcome.error)
+				: undefined;
+		return {
+			kind: "stale",
+			publishCurrent: false,
+			files: undefined,
+			fileEvidenceIssue: undefined,
+			notice: failureMessage
+				? { level: "fail", message: failureMessage }
+				: {
+						level: "info",
+						message: `ports file evidence superseded pid ${input.pid}`,
+					},
+		};
+	}
+	if (input.outcome.kind === "failure") {
+		const reason =
+			input.outcome.error instanceof Error
+				? input.outcome.error.message
+				: String(input.outcome.error);
+		return {
+			kind: "failure",
+			publishCurrent: true,
+			files: undefined,
+			fileEvidenceIssue: { status: "error", pid: input.pid, reason },
+			notice: {
+				level: "fail",
+				message: `ports file evidence failed ${reason}`,
+			},
+		};
+	}
+	if (!input.outcome.files) {
+		return {
+			kind: "success",
+			publishCurrent: true,
+			files: undefined,
+			fileEvidenceIssue: {
+				status: "unavailable",
+				pid: input.pid,
+				reason: "no snapshot returned",
+			},
+			notice: {
+				level: "warn",
+				message: `ports file evidence unavailable pid=${input.pid} reason=no snapshot returned`,
+			},
+		};
+	}
+	return {
+		kind: "success",
+		publishCurrent: true,
+		files: input.outcome.files,
+		fileEvidenceIssue: undefined,
+		notice: {
+			level: "info",
+			message: `ports file evidence loaded pid ${input.pid}`,
+		},
+	};
+}
+
+function formatEndpointInspectionFailure(error: unknown): string {
+	return `ports file evidence failed ${error instanceof Error ? error.message : String(error)}`;
+}
+
+export function getEndpointWorkspaceHintKeys(
+	kind: EndpointHandoffKind,
+): string[] {
+	return ENDPOINT_WORKSPACE_HINT_ENTRIES.filter(
+		(entry) =>
+			entry.hint !== false && (!entry.kinds || entry.kinds.includes(kind)),
+	).map((entry) => entry.key);
+}
+
+export function formatEndpointWorkspaceHintRow(
+	kind: EndpointHandoffKind,
+	options: {
+		snapshotLoaded: boolean;
+		filter: string;
+		presetCount: number;
+		visibleRows: readonly (ActiveConnection | ListeningPort)[];
+		selectedIndex: number;
+	},
+): string {
+	const lead = kind === "connections" ? "active endpoints" : "listening ports";
+	const selected = resolveEndpointSelectedRow(
+		options.visibleRows,
+		options.selectedIndex,
+	);
+	const hasProcessTarget = Boolean(createProcessRequest(selected?.pid));
+	const hasFilter = options.filter.trim().length > 0;
+	const hasPresets = options.presetCount > 0;
+	const canMoveSelection = options.visibleRows.length > 1;
+	const hints = ENDPOINT_WORKSPACE_HINT_ENTRIES.filter(
+		(entry) =>
+			entry.hint !== false &&
+			(!entry.kinds || entry.kinds.includes(kind)) &&
+			(entry.intent !== "save-preset" || hasFilter) &&
+			(!["preset", "cleanup"].includes(entry.intent) || hasPresets) &&
+			(!["export", "open"].includes(entry.intent) || options.snapshotLoaded) &&
+			(entry.intent !== "select" || canMoveSelection) &&
+			(!["inspect-process", "inspect-policy", "control"].includes(
+				entry.intent,
+			) ||
+				hasProcessTarget),
+	).map((entry) => {
+		const label =
+			entry.intent === "inspect-process"
+				? "Processes / picos process"
+				: entry.label;
+		return label ? `${entry.key} ${label}` : entry.key;
+	});
+	return [lead, ...hints].join(" · ");
 }
 
 export function saveEndpointFilterPreset(
@@ -203,13 +1397,17 @@ export function submitEndpointFilterCleanupConfirmation(
 	kind: EndpointHandoffKind,
 	presets: string[],
 	confirmation: string,
+	rowCount = 0,
 ): EndpointFilterCleanupConfirmation {
 	const preview = createEndpointFilterCleanupPreview(kind, presets);
 	if (!preview) {
+		const message = `${kind} filter cleanup unavailable`;
 		return {
+			action: "notice",
 			confirmed: false,
 			kind,
-			message: `${kind} filter cleanup unavailable`,
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
@@ -219,20 +1417,29 @@ export function submitEndpointFilterCleanupConfirmation(
 		confirmation,
 	);
 	if (!cleanupConfirmation.confirmed) {
+		const message = `${kind} filter cleanup rejected`;
 		return {
+			action: "notice",
 			confirmed: false,
 			kind,
-			message: `${kind} filter cleanup rejected`,
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
 	}
+	const message = `${kind} filter cleanup removed ${preview.count} presets`;
 	return {
+		action: "apply",
 		confirmed: true,
+		copyPreview: false,
 		kind,
-		message: `${kind} filter cleanup removed ${preview.count} presets`,
+		message,
+		notice: { level: "info", message },
 		presets: [],
+		processControlPreview: false,
 		removed: preview.count,
+		selectedIndex: selectFirstEndpointResult(rowCount),
 	};
 }
 
@@ -262,6 +1469,87 @@ export function createSelectedPortProcessControlPreview(
 	if (!port || !createProcessRequest(port.pid)) {
 		return undefined;
 	}
+	return createPortProcessControlPreview(port, kind);
+}
+
+export function preparePortProcessControlSubmission(input: {
+	ports: ListeningPort[];
+	selectedIndex: number;
+	input: string;
+}): PortProcessControlSubmissionTransition {
+	const preview = createSelectedPortProcessControlPreview(
+		input.ports,
+		input.selectedIndex,
+	);
+	if (!preview) {
+		return {
+			kind: "blocked",
+			closeCommandLine: true,
+			processControlPreview: false,
+			notices: [
+				{ level: "warn", message: "port process control missing target" },
+			],
+		};
+	}
+	const confirmation = submitPortProcessControlConfirmation(
+		preview,
+		input.input,
+	);
+	return {
+		kind: "confirmation",
+		closeCommandLine: true,
+		processControlPreview: false,
+		confirmation,
+		executionRequest: { preview, confirmation },
+		notices: [
+			{
+				level: confirmation.confirmed ? "warn" : "fail",
+				message: formatPortProcessControlConfirmationAuditMessage(confirmation),
+			},
+		],
+	};
+}
+
+export function preparePortProcessControlPalettePreview(input: {
+	ports: ListeningPort[];
+	selectedIndex: number;
+}): PortProcessControlPaletteTransition {
+	const preview = createSelectedPortProcessControlPreview(
+		input.ports,
+		input.selectedIndex,
+	);
+	if (!preview) {
+		return {
+			kind: "blocked",
+			screen: "ports",
+			focusArea: "workspaces",
+			copyPreview: false,
+			processControlPreview: false,
+			notice: {
+				level: "warn",
+				message: "palette process control preview unavailable",
+			},
+		};
+	}
+	return {
+		kind: "preview",
+		screen: "ports",
+		focusArea: "workspaces",
+		copyPreview: false,
+		processControlPreview: true,
+		preview,
+		commandLinePrompt: "port-process-control",
+		notice: {
+			level: "warn",
+			message: `ports process control confirm ${preview.confirmationPhrase} via palette`,
+		},
+	};
+}
+
+function createPortProcessControlPreview(
+	port: ListeningPort,
+	kind: PortProcessControlKind = "terminate",
+): PortProcessControlPreview {
 	const confirmationPhrase = `kill pid ${port.pid}`;
 	const target = `port=${port.localAddress}:${port.localPort} pid=${port.pid} process=${port.command} user=${port.user}`;
 	return {
@@ -613,6 +1901,72 @@ export function createEndpointHandoffPlan(
 	};
 }
 
+export function prepareEndpointHandoff(
+	input: EndpointHandoffPreparationInput,
+): EndpointHandoffPreparation {
+	if (!input.result) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: `no ${input.kind} snapshot loaded`,
+			},
+		};
+	}
+	const common = {
+		baseDir: input.baseDir,
+		filter: input.filter,
+		generatedAt: input.generatedAt,
+		origin: input.origin,
+		view: input.view,
+	};
+	const plan =
+		input.kind === "connections"
+			? createEndpointHandoffPlan("connections", {
+					...common,
+					result: input.result,
+					sort: input.sort,
+				})
+			: createEndpointHandoffPlan("ports", {
+					...common,
+					result: input.result,
+					sort: input.sort,
+				});
+	return { kind: "handoff", plan };
+}
+
+export function prepareEndpointHandoffForKind(input: {
+	kind: EndpointHandoffKind;
+	baseDir: string;
+	origin?: FileOpenOrigin;
+	connections: {
+		filter?: string;
+		result?: ConnectionsResult;
+		sort?: ConnectionSort;
+		view?: EndpointDetailView;
+	};
+	ports: {
+		filter?: string;
+		result?: PortsResult;
+		sort?: PortSort;
+		view?: EndpointDetailView;
+	};
+}): EndpointHandoffPreparation {
+	return input.kind === "connections"
+		? prepareEndpointHandoff({
+				kind: "connections",
+				baseDir: input.baseDir,
+				origin: input.origin,
+				...input.connections,
+			})
+		: prepareEndpointHandoff({
+				kind: "ports",
+				baseDir: input.baseDir,
+				origin: input.origin,
+				...input.ports,
+			});
+}
+
 export async function writeEndpointHandoffPlan(
 	plan: EndpointHandoffPlan,
 ): Promise<EndpointHandoffPlan> {
@@ -704,7 +2058,7 @@ function getSelectedIndex(
 	if (selectedIndex === undefined || total <= 0) {
 		return undefined;
 	}
-	return Math.min(Math.max(selectedIndex, 0), total - 1);
+	return clampIndex(selectedIndex, total);
 }
 
 function createProcessRequest(

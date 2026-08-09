@@ -6,6 +6,8 @@ import type { FileOpenOrigin } from "../src/core/fileOpen";
 import {
 	appendCleanupHandoffHistory,
 	archiveCleanupHandoffHistoryExport,
+	classifyCleanupEvidenceIndexBatchRefresh,
+	classifyCleanupExportIndexRefresh,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
 	createCleanupHandoffHistory,
@@ -35,6 +37,9 @@ import {
 	moveCleanupHandoffHistorySelection,
 	moveCleanupShelfSelection,
 	parseCleanupHandoffHistoryExport,
+	prepareCleanupExportArchiveConfirmation,
+	prepareSelectedCleanupExportArchive,
+	prepareSelectedCleanupExportOpen,
 	readCleanupHandoffHistoryExportArchiveIndex,
 	readCleanupHandoffHistoryExportIndex,
 	readLatestCleanupHandoffHistoryExport,
@@ -919,5 +924,156 @@ describe("cleanup shelf index", () => {
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
+	});
+
+	test("repairs deleted cleanup export selections and suppresses stale refresh state", () => {
+		const item = {
+			fileName: "picos-cleanup-all-2026-07-01T010000000Z.md",
+			path: "/tmp/picos/cleanup/picos-cleanup-all-2026-07-01T010000000Z.md",
+			scope: "all" as const,
+			entryCount: 2,
+			generatedAt: "2026-07-01T01:00:00.000Z",
+		};
+		const index = { baseDir: "/tmp/picos", items: [item] };
+
+		expect(
+			classifyCleanupExportIndexRefresh({
+				target: "active",
+				currentRequestToken: 2,
+				requestToken: 2,
+				selectedIndex: 9,
+				announce: true,
+				outcome: { status: "success", index },
+			}),
+		).toEqual({
+			status: "success",
+			index,
+			selectedIndex: 0,
+			notice: { level: "info", message: "cleanup exports indexed 1" },
+		});
+		expect(
+			classifyCleanupExportIndexRefresh({
+				target: "archive",
+				currentRequestToken: 2,
+				requestToken: 1,
+				selectedIndex: 9,
+				outcome: { status: "success", index },
+			}),
+		).toEqual({ status: "stale" });
+		expect(
+			classifyCleanupExportIndexRefresh({
+				target: "archive",
+				currentRequestToken: 2,
+				requestToken: 1,
+				selectedIndex: 9,
+				outcome: { status: "failure", error: new Error("older read") },
+			}),
+		).toEqual({
+			status: "stale",
+			notice: {
+				level: "fail",
+				message: "cleanup archive index failed older read",
+			},
+		});
+		expect(
+			classifyCleanupExportIndexRefresh({
+				target: "active",
+				currentRequestToken: 3,
+				requestToken: 3,
+				selectedIndex: 9,
+				outcome: {
+					status: "success",
+					index: { baseDir: "/tmp/picos", items: [] },
+				},
+			}),
+		).toMatchObject({ status: "success", selectedIndex: 0 });
+	});
+
+	test("publishes active and archive cleanup indexes as one current batch", () => {
+		const index = { baseDir: "/tmp/picos", items: [] };
+		const input = {
+			currentMutationToken: 1,
+			requestMutationToken: 1,
+			active: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 2,
+			},
+			archive: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 3,
+			},
+			outcome: {
+				status: "success" as const,
+				activeIndex: index,
+				archiveIndex: index,
+			},
+		};
+
+		expect(classifyCleanupEvidenceIndexBatchRefresh(input)).toMatchObject({
+			status: "success",
+			active: { status: "success", selectedIndex: 0 },
+			archive: { status: "success", selectedIndex: 0 },
+		});
+		expect(
+			classifyCleanupEvidenceIndexBatchRefresh({
+				...input,
+				currentMutationToken: 2,
+			}),
+		).toEqual({ status: "stale" });
+	});
+
+	test("owns selected cleanup open and exact archive confirmation transitions", () => {
+		const item = {
+			fileName: "picos-cleanup-all-2026-07-01T010000000Z.md",
+			path: "/tmp/picos/cleanup/picos-cleanup-all-2026-07-01T010000000Z.md",
+			scope: "all" as const,
+			entryCount: 2,
+			generatedAt: "2026-07-01T01:00:00.000Z",
+		};
+		const index = { baseDir: "/tmp/picos", items: [item] };
+
+		expect(
+			prepareSelectedCleanupExportOpen({
+				index: { baseDir: "/tmp/picos", items: [] },
+				selectedIndex: 4,
+				platform: "darwin",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no cleanup export selected" },
+		});
+		const archive = prepareSelectedCleanupExportArchive(index, 99);
+		expect(archive).toMatchObject({
+			kind: "confirmation",
+			selectedIndex: 0,
+			notice: {
+				level: "info",
+				message:
+					"cleanup export archive confirmation opened for picos-cleanup-all-2026-07-01T010000000Z.md",
+			},
+			plan: {
+				confirmationPhrase: "archive cleanup export",
+				enabled: false,
+			},
+		});
+		if (archive.kind !== "confirmation") {
+			throw new Error("expected cleanup archive confirmation");
+		}
+		expect(
+			prepareCleanupExportArchiveConfirmation(
+				archive.plan,
+				index.baseDir,
+				"archive cleanup exports",
+			),
+		).toMatchObject({
+			kind: "execute",
+			plan: {
+				confirmed: false,
+				enabled: false,
+				reason: "type archive cleanup export to move selected cleanup export",
+			},
+		});
 	});
 });

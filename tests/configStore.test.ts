@@ -3,16 +3,21 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+	mutateConfigAtomically,
 	readConfig,
+	resetConfigWorkspaceValues,
 	setConfigEndpointFilterPresets,
 	setConfigEndpointSort,
 	setConfigInterfaceEvidenceSearchPresets,
 	setConfigLogProfiles,
 	setConfigLogSearchPresets,
+	setConfigOperationPresets,
 	setConfigRouteFilterPresets,
 	setConfigToolHistoryPreferences,
 	setConfigToolTargetPresets,
 	setConfigValue,
+	upsertConfigRemoteProfile,
+	writeConfig,
 } from "../src/config/store";
 
 const tempDirs: string[] = [];
@@ -30,6 +35,142 @@ afterEach(async () => {
 });
 
 describe("config store", () => {
+	test("serializes concurrent read-modify-write mutations for one config path", async () => {
+		const path = await tempConfigPath();
+
+		await Promise.all([
+			upsertConfigRemoteProfile(
+				{
+					id: "prod",
+					kind: "sftp",
+					host: "prod.example.com",
+					port: 22,
+					username: "operator",
+					root: "/srv/app",
+				},
+				path,
+			),
+			setConfigLogSearchPresets(["kernel"], path),
+			setConfigValue("theme", "light", path),
+		]);
+
+		const config = await readConfig(path);
+		expect(config.theme).toBe("light");
+		expect(config.logSearchPresets).toEqual(["kernel"]);
+		expect(config.remoteProfiles.map((profile) => profile.id)).toEqual([
+			"prod",
+		]);
+	});
+
+	test("runs whole-config policy transforms inside the mutation queue", async () => {
+		const path = await tempConfigPath();
+
+		await Promise.all([
+			mutateConfigAtomically(
+				(config) => ({
+					config: { ...config, controlExecutionMode: "dry-run" },
+					result: "policy-updated",
+				}),
+				path,
+			),
+			upsertConfigRemoteProfile(
+				{
+					id: "prod",
+					kind: "sftp",
+					host: "prod.example.com",
+					port: 22,
+					username: "operator",
+					root: "/srv/app",
+				},
+				path,
+			),
+		]);
+
+		const config = await readConfig(path);
+		expect(config.controlExecutionMode).toBe("dry-run");
+		expect(config.remoteProfiles.map((profile) => profile.id)).toEqual([
+			"prod",
+		]);
+	});
+
+	test("applies a core reset without rebuilding the write plan in App", async () => {
+		const path = await tempConfigPath();
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(
+			path,
+			JSON.stringify({
+				theme: "light",
+				toolTargetPresets: [
+					{ id: "api", actionId: "tools.dns", target: "api.example.com" },
+					{ id: "db", actionId: "tools.dns", target: "db.example.com" },
+				],
+			}),
+		);
+
+		const config = await resetConfigWorkspaceValues(
+			{
+				auditArchiveRetentionLimit: 10,
+				toolTargetPresetLimit: 1,
+				language: "en",
+				refreshInterval: 3000,
+				defaultPingHost: "google.com",
+				controlExecutionMode: "disabled",
+				allowAdminDryRun: false,
+				enableExperimentalControls: false,
+				editorSaveMode: "disabled",
+				statusResultJumpClassFilter: "all",
+			},
+			path,
+		);
+
+		expect(config.theme).toBe("light");
+		expect(config.toolTargetPresets).toHaveLength(1);
+	});
+
+	test("upserts a remote profile without rebuilding config in App", async () => {
+		const path = await tempConfigPath();
+		await mkdir(dirname(path), { recursive: true });
+		await writeFile(
+			path,
+			JSON.stringify({
+				theme: "light",
+				remoteProfiles: [
+					{
+						id: "prod",
+						kind: "sftp",
+						host: "old.example.com",
+						port: 22,
+						username: "deploy",
+					},
+				],
+			}),
+		);
+
+		const config = await upsertConfigRemoteProfile(
+			{
+				id: "prod",
+				kind: "sftp",
+				host: "new.example.com",
+				port: 2222,
+				username: "operator",
+				root: "/srv/app",
+			},
+			path,
+		);
+
+		expect(config.theme).toBe("light");
+		expect(config.remoteProfiles).toEqual([
+			{
+				id: "prod",
+				kind: "sftp",
+				host: "new.example.com",
+				port: 2222,
+				username: "operator",
+				root: "/srv/app",
+			},
+		]);
+	});
+
 	test("persists normalized log profiles without losing existing config", async () => {
 		const path = await tempConfigPath();
 		await setConfigLogProfiles(
@@ -69,6 +210,59 @@ describe("config store", () => {
 			"panic",
 		]);
 		expect(config.theme).toBe("dark");
+	});
+
+	test("persists normalized operation presets without losing existing config", async () => {
+		const path = await tempConfigPath();
+		await setConfigOperationPresets(
+			[
+				{ id: "pulse", kind: "monitor", samples: 3, intervalMs: 500 },
+				{
+					id: "errors",
+					kind: "logs",
+					limit: 20,
+					level: "warn",
+					filter: "kernel",
+				},
+				{
+					id: "worker",
+					kind: "process",
+					pid: 42,
+					files: true,
+					savedAtMs: 1_700_000_000_000,
+				},
+			],
+			path,
+		);
+
+		const config = await readConfig(path);
+		expect(config.operationPresets).toHaveLength(3);
+		expect(config.operationPresets[0]).toMatchObject({
+			id: "pulse",
+			kind: "monitor",
+		});
+		expect(config.theme).toBe("dark");
+		const raw = JSON.parse(await readFile(path, "utf8"));
+		expect(raw.operationPresets).toEqual(config.operationPresets);
+	});
+
+	test("keeps operation presets across a whole-config write", async () => {
+		const path = await tempConfigPath();
+		const preset = {
+			id: "pulse",
+			kind: "monitor" as const,
+			samples: 3,
+			intervalMs: 500,
+		};
+		await setConfigOperationPresets([preset], path);
+		const config = await readConfig(path);
+
+		await writeConfig({ ...config, theme: "light" }, path);
+
+		const next = await readConfig(path);
+
+		expect(next.theme).toBe("light");
+		expect(next.operationPresets).toEqual([preset]);
 	});
 
 	test("persists normalized interface evidence search presets", async () => {

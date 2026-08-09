@@ -25,22 +25,25 @@ describe("logs CLI command", () => {
 		};
 
 		try {
-			await logsCommand({
-				snapshot: {
-					source: "systemd-journal",
-					status: "ok",
-					command: "journalctl",
-					args: ["-n", "1"],
-					note: "recent systemd journal entries",
-					entries: [
-						{
-							index: 1,
-							level: "warn",
-							message: "kernel: warning thermal pressure",
-						},
-					],
+			await logsCommand(
+				{},
+				{
+					snapshot: {
+						source: "systemd-journal",
+						status: "ok",
+						command: "journalctl",
+						args: ["-n", "1"],
+						note: "recent systemd journal entries",
+						entries: [
+							{
+								index: 1,
+								level: "warn",
+								message: "kernel: warning thermal pressure",
+							},
+						],
+					},
 				},
-			});
+			);
 		} finally {
 			console.log = originalLog;
 		}
@@ -60,22 +63,23 @@ describe("logs CLI command", () => {
 		};
 
 		try {
-			await logsCommand({
-				filter: "kernel",
-				level: "fail",
-				snapshot: {
-					source: "systemd-journal",
-					status: "ok",
-					command: "journalctl",
-					args: ["-n", "3"],
-					note: "recent systemd journal entries",
-					entries: [
-						{ index: 1, level: "warn", message: "kernel: warning pressure" },
-						{ index: 2, level: "info", message: "sshd: accepted key" },
-						{ index: 3, level: "fail", message: "kernel: error disk" },
-					],
+			await logsCommand(
+				{ filter: "kernel", level: "fail" },
+				{
+					snapshot: {
+						source: "systemd-journal",
+						status: "ok",
+						command: "journalctl",
+						args: ["-n", "3"],
+						note: "recent systemd journal entries",
+						entries: [
+							{ index: 1, level: "warn", message: "kernel: warning pressure" },
+							{ index: 2, level: "info", message: "sshd: accepted key" },
+							{ index: 3, level: "fail", message: "kernel: error disk" },
+						],
+					},
 				},
-			});
+			);
 		} finally {
 			console.log = originalLog;
 		}

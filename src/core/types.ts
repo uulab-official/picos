@@ -238,10 +238,54 @@ export type SftpRemoteProfile = {
 	keyPath?: string;
 };
 
+// Canonical log severity union. Declared here because this module is the lowest
+// layer, so `osLogs.ts` can re-export it without a cycle, and every consumer that
+// stores or filters a level shares one declaration instead of a copy.
+export type OsLogLevel = "info" | "warn" | "fail";
+
+export type OsLogLevelFilter = "all" | OsLogLevel;
+
 export type LogProfile = {
-	level: "all" | "info" | "warn" | "fail";
+	level: OsLogLevelFilter;
 	query: string;
 };
+
+export type MonitorOperationPreset = {
+	id: string;
+	kind: "monitor";
+	samples: number;
+	intervalMs: number;
+};
+
+export type LogsOperationPreset = {
+	id: string;
+	kind: "logs";
+	limit: number;
+	level: OsLogLevelFilter;
+	filter: string;
+};
+
+export type ProcessOperationPreset = {
+	id: string;
+	kind: "process";
+	pid: number;
+	files: boolean;
+	// Wall-clock instant this preset was saved. A PID is ephemeral, so this is the
+	// reference point that makes reuse detectable without an absolute process start
+	// time: a process younger than the preset cannot be the one that was saved.
+	//
+	// Optional on purpose. An earlier revision made it required and defaulted it at
+	// construction, which quietly broke the feature for presets saved before the
+	// field existed: nothing persists a synthesized value, so it was re-derived to
+	// "now" on every invocation and the verdict was permanently `consistent`.
+	// Leaving it absent lets the verdict report `unknown`, which is the truth.
+	savedAtMs?: number;
+};
+
+export type OperationPreset =
+	| MonitorOperationPreset
+	| LogsOperationPreset
+	| ProcessOperationPreset;
 
 export type PicosConfig = {
 	theme: "dark" | "light";
@@ -262,6 +306,7 @@ export type PicosConfig = {
 	remoteProfiles: SftpRemoteProfile[];
 	logProfiles: LogProfile[];
 	logSearchPresets: string[];
+	operationPresets: OperationPreset[];
 	interfaceEvidenceSearchPresets: string[];
 	routeFilterPresets: string[];
 	connectionSort: string;

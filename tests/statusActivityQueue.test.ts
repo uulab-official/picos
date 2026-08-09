@@ -22,6 +22,7 @@ import {
 	submitRemoteHostKeyEvidenceInput,
 	submitRemoteHostKeyTrustReview,
 } from "../src/core/remotes";
+import type { CleanupHandoffHistory } from "../src/tui/cleanupIndex";
 import type { PortProcessControlPreview } from "../src/tui/endpointPanel";
 import {
 	appendStatusActivityCopyIntentHistory,
@@ -34,10 +35,12 @@ import {
 	createInterfaceConfirmationStatusActivityResult,
 	createInterfaceEvidenceManagementStatusActivityResult,
 	createInterfaceEvidenceOutcomeStatusActivityResult,
+	createOperationRunStatusActivityResult,
 	createProcessControlAuditExportOpenPlan,
 	createProcessControlAuditExportTimelineSearch,
 	createProcessControlEvidencePaletteStatusActivityResult,
 	createProcessControlEvidenceStatusActivityResult,
+	createRecoveredStatusEvidenceIndex,
 	createRemoteConnectStatusActivityResult,
 	createRemoteHostKeyEvidenceInputStatusActivityResult,
 	createRemoteHostKeyTrustReviewStatusActivityResult,
@@ -145,6 +148,20 @@ import {
 	nextStatusActivityResultHistoryFilter,
 	nextStatusActivityResultTimelineJumpFilter,
 	nextTimelineEvidenceTrailSourceFilter,
+	prepareCleanupHandoffHistoryReopen,
+	prepareRecoveredEvidenceOpenTransition,
+	prepareRecoveredEvidenceSearchTransition,
+	prepareRecoveredEvidenceSelectionTransition,
+	prepareStatusActivityAuditExportSelection,
+	prepareStatusActivityResultHistoryMove,
+	prepareStatusActivityResultPublication,
+	prepareStatusActivityResultRecordTransition,
+	prepareStatusActivityResultSelectionReset,
+	prepareStatusActivityResultTimelineHandoffOpenTransition,
+	prepareStatusActivityResultTimelineHandoffReplay,
+	prepareStatusActivityToolsEvidenceMatchArchive,
+	prepareStatusActivityToolsEvidenceMatchOpen,
+	prepareTimelineEvidenceTrailSourceFilterTransition,
 	writeInterfaceConfirmationAuditExport,
 	writeRemoteKnownHostsSelectionHistoryAuditExport,
 	writeStatusActivityCopyIntentAuditExport,
@@ -152,6 +169,50 @@ import {
 } from "../src/tui/statusActivityQueue";
 
 describe("Status activity queue", () => {
+	test("formats operation terminal history from the shared run transition", () => {
+		expect(
+			createOperationRunStatusActivityResult({
+				presetId: "pulse",
+				kind: "monitor",
+				status: "cancelled",
+				requestedCount: 10,
+				returnedCount: 3,
+				intervalMs: 500,
+				startedAt: 1000,
+				finishedAt: 1750,
+				durationMs: 750,
+				message: "stopped after 3 of 10 samples",
+			}),
+		).toEqual({
+			source: "timeline",
+			action: "operations-run",
+			message: "operations run cancelled pulse samples=3/10",
+			detail: "kind=monitor interval=500 duration=750ms",
+			detailRows: ["stopped after 3 of 10 samples"],
+		});
+
+		expect(
+			createOperationRunStatusActivityResult({
+				presetId: "worker",
+				kind: "process",
+				status: "failed",
+				requestedCount: 1,
+				returnedCount: 0,
+				intervalMs: 0,
+				startedAt: 1000,
+				finishedAt: 1200,
+				durationMs: 200,
+				message: "collector unsupported",
+			}),
+		).toEqual({
+			source: "timeline",
+			action: "operations-run",
+			message: "operations run failed worker samples=0/1",
+			detail: 'kind=process reason="collector unsupported"',
+			detailRows: ["collector unsupported"],
+		});
+	});
+
 	test("summarizes release dialog cleanup and evidence activity in source order", () => {
 		expect(
 			formatStatusActivityQueueRows({
@@ -408,6 +469,25 @@ describe("Status activity queue", () => {
 		);
 
 		expect(history).toEqual([third, second]);
+		expect(prepareStatusActivityResultPublication([second], third)).toEqual({
+			history: [third, second],
+			selectedResultIndex: 0,
+			selectedCopyPreviewRowIndex: 0,
+			copyPreviewExpanded: false,
+		});
+		expect(prepareStatusActivityResultSelectionReset()).toEqual({
+			selectedResultIndex: 0,
+			selectedCopyPreviewRowIndex: 0,
+			copyPreviewExpanded: false,
+		});
+		expect(prepareStatusActivityResultRecordTransition(true)).toEqual({
+			selectionReset: {
+				selectedResultIndex: 0,
+				selectedCopyPreviewRowIndex: 0,
+				copyPreviewExpanded: false,
+			},
+		});
+		expect(prepareStatusActivityResultRecordTransition(false)).toEqual({});
 		expect(formatStatusActivityResultHistoryRows(history)).toEqual([
 			"STATUS ACTIVITY RESULT HISTORY count=2 selected=1/2",
 			"> dialog show-dialog dialog activity selected; type the exact confirmation phrase",
@@ -536,6 +616,49 @@ describe("Status activity queue", () => {
 			"    filter=audit search=control preview",
 			"controls=f result filter · u/i filtered history",
 		]);
+	});
+
+	test("owns activity history movement, empty guards, and operator notices", () => {
+		const history = [
+			{
+				source: "dialog" as const,
+				action: "show-dialog" as const,
+				message: "dialog selected",
+			},
+			{
+				source: "cleanup" as const,
+				action: "jump-cleanup" as const,
+				message: "cleanup selected",
+			},
+		];
+		expect(
+			prepareStatusActivityResultHistoryMove({
+				history: [],
+				selectedIndex: 0,
+				direction: "next",
+				filter: "all",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no status activity result history" },
+		});
+		expect(
+			prepareStatusActivityResultHistoryMove({
+				history,
+				selectedIndex: 0,
+				direction: "next",
+				filter: "all",
+			}),
+		).toEqual({
+			kind: "selection",
+			selectedIndex: 1,
+			copyPreviewRowIndex: 0,
+			copyPreviewExpanded: false,
+			notice: {
+				level: "info",
+				message: "status activity history 2/2 filter=all cleanup jump-cleanup",
+			},
+		});
 	});
 
 	test("filters activity result history to evidence handoff rows", () => {
@@ -2803,6 +2926,30 @@ describe("Status activity queue", () => {
 		expect(nextTimelineEvidenceTrailSourceFilter("all")).toBe("evidence");
 		expect(nextTimelineEvidenceTrailSourceFilter("evidence")).toBe("palette");
 		expect(nextTimelineEvidenceTrailSourceFilter("palette")).toBe("all");
+
+		expect(
+			prepareTimelineEvidenceTrailSourceFilterTransition({
+				exports: trailExports,
+				filter: "all",
+				origin: "palette",
+			}),
+		).toEqual({
+			filter: "evidence",
+			selectedIndex: 0,
+			notice: {
+				level: "info",
+				message:
+					"timeline evidence trail source filter evidence visible 1/2 origin=palette",
+			},
+			auditMessage:
+				"palette timeline trail audit action=source source=evidence visible=1/2",
+			activityResult: {
+				source: "evidence",
+				action: "timeline-evidence-trail",
+				message: "palette timeline trail source evidence visible=1/2",
+				detail: "source filter changed to evidence",
+			},
+		});
 	});
 
 	test("replays selected status activity copy intents as locked clipboard previews", () => {
@@ -2900,6 +3047,40 @@ describe("Status activity queue", () => {
 				baseDir: "/Users/bonjin/.config/picos",
 			}),
 		).toBeUndefined();
+	});
+
+	test("selects one owned audit export effect before the App performs I/O", () => {
+		const copyIntent = {
+			label: "status activity cleanup jump-cleanup",
+			copyText: "cleanup jump-cleanup",
+			selectedRow: 1,
+			expanded: false,
+			lines: 1,
+			preview: "cleanup jump-cleanup",
+			auditMessage: "clipboard intent cleanup jump-cleanup",
+		};
+		expect(
+			prepareStatusActivityAuditExportSelection({
+				copyIntents: [copyIntent],
+				selectedCopyIntentIndex: 0,
+				results: [],
+				selectedResultIndex: 0,
+				baseDir: "/Users/bonjin/.config/picos",
+				generatedAt: new Date("2026-07-01T03:00:00.000Z"),
+			}),
+		).toMatchObject({
+			kind: "copy-intent",
+			plan: { eventCount: 1, scope: "selected" },
+		});
+		expect(
+			prepareStatusActivityAuditExportSelection({
+				copyIntents: [],
+				selectedCopyIntentIndex: 0,
+				results: [],
+				selectedResultIndex: 0,
+				baseDir: "/Users/bonjin/.config/picos",
+			}),
+		).toEqual({ kind: "remote-known-hosts" });
 	});
 
 	test("writes selected status activity copy intent audit exports", async () => {
@@ -4355,15 +4536,15 @@ describe("Status activity queue", () => {
 			total: 3,
 			items: [
 				{
-					fileName: "picos-tools-selected-20260701T040100000Z.md",
-					path: "/Users/me/.config/picos/tools/picos-tools-selected-20260701T040100000Z.md",
+					fileName: "picos-tools-selected-2026-07-01T040100000Z.md",
+					path: "/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040100000Z.md",
 					scope: "selected" as const,
 					runCount: 1,
 					generatedAt: "2026-07-01T04:01:00.000Z",
 				},
 				{
-					fileName: "picos-tools-all-20260701T040100000Z.md",
-					path: "/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md",
+					fileName: "picos-tools-all-2026-07-01T040100000Z.md",
+					path: "/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md",
 					scope: "all" as const,
 					runCount: 3,
 					generatedAt: "2026-07-01T04:01:00.000Z",
@@ -4386,27 +4567,27 @@ describe("Status activity queue", () => {
 			source: "evidence",
 			action: "tools-evidence-match-open",
 			message:
-				"recovered tools evidence match open active 2/2 picos-tools-all-20260701T040100000Z.md",
+				"recovered tools evidence match open active 2/2 picos-tools-all-2026-07-01T040100000Z.md",
 			detail:
-				"query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md confirm=file-open",
+				"query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md confirm=file-open",
 		});
 		expect(archive).toEqual({
 			source: "evidence",
 			action: "tools-evidence-match-archive",
 			message:
-				"recovered tools evidence match archive active 2/2 picos-tools-all-20260701T040100000Z.md",
+				"recovered tools evidence match archive active 2/2 picos-tools-all-2026-07-01T040100000Z.md",
 			detail:
-				"query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md confirm=archive tools export",
+				"query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md confirm=archive tools export",
 		});
 		expect(formatStatusActivityResultRows(open)).toEqual([
 			"STATUS ACTIVITY RESULT source=evidence action=tools-evidence-match-open",
-			"> recovered tools evidence match open active 2/2 picos-tools-all-20260701T040100000Z.md",
-			"  query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md confirm=file-open",
+			"> recovered tools evidence match open active 2/2 picos-tools-all-2026-07-01T040100000Z.md",
+			"  query=040100 scope=all runs=3 path=/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md confirm=file-open",
 		]);
 		expect(
 			formatStatusActivityToolsEvidenceMatchAuditMessage("open", recovery, 1),
 		).toBe(
-			'status tools evidence match audit action=open target=active selected=2/2 query="040100" label="picos-tools-all-20260701T040100000Z.md" scope=all runs=3 path="/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md"',
+			'status tools evidence match audit action=open target=active selected=2/2 query="040100" label="picos-tools-all-2026-07-01T040100000Z.md" scope=all runs=3 path="/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md"',
 		);
 		expect(
 			formatStatusActivityToolsEvidenceMatchAuditMessage(
@@ -4415,7 +4596,7 @@ describe("Status activity queue", () => {
 				1,
 			),
 		).toBe(
-			'status tools evidence match audit action=archive target=archive status=unavailable reason="archived Tools evidence matches are already archived" selected=2/2 query="040100" label="picos-tools-all-20260701T040100000Z.md" path="/Users/me/.config/picos/tools/picos-tools-all-20260701T040100000Z.md"',
+			'status tools evidence match audit action=archive target=archive status=unavailable reason="archived Tools evidence matches are already archived" selected=2/2 query="040100" label="picos-tools-all-2026-07-01T040100000Z.md" path="/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md"',
 		);
 		expect(createStatusActivityToolsEvidenceMatchResult("open")).toEqual({
 			source: "evidence",
@@ -4426,6 +4607,123 @@ describe("Status activity queue", () => {
 		expect(formatStatusActivityToolsEvidenceMatchAuditMessage("open")).toBe(
 			'status tools evidence match audit action=open status=unavailable reason="no recovered Tools evidence match selected"',
 		);
+	});
+
+	test("owns recovered Tools evidence match open and archive eligibility", () => {
+		const recovery = {
+			target: "active" as const,
+			query: "040100",
+			total: 2,
+			items: [
+				{
+					fileName: "picos-tools-selected-2026-07-01T040100000Z.md",
+					path: "/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040100000Z.md",
+					scope: "selected" as const,
+					runCount: 1,
+					generatedAt: "2026-07-01T04:01:00.000Z",
+				},
+				{
+					fileName: "picos-tools-all-2026-07-01T040100000Z.md",
+					path: "/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md",
+					scope: "all" as const,
+					runCount: 3,
+					generatedAt: "2026-07-01T04:01:00.000Z",
+				},
+			],
+		};
+
+		expect(
+			prepareStatusActivityToolsEvidenceMatchOpen(undefined, 4, {
+				baseDir: "/Users/me/.config/picos",
+				platform: "darwin",
+			}),
+		).toMatchObject({
+			kind: "notice",
+			selectedIndex: 0,
+			notice: {
+				level: "warn",
+				message: "no recovered tools evidence match selected",
+			},
+		});
+		const open = prepareStatusActivityToolsEvidenceMatchOpen(recovery, 99, {
+			baseDir: "/Users/me/.config/picos",
+			platform: "darwin",
+		});
+		expect(open).toMatchObject({
+			kind: "open",
+			selectedIndex: 1,
+			notice: {
+				level: "info",
+				message:
+					"recovered tools evidence open confirmation opened for picos-tools-all-2026-07-01T040100000Z.md",
+			},
+		});
+		if (open.kind !== "open") {
+			throw new Error("expected recovered Tools open transition");
+		}
+		expect(open.plan).toEqual({
+			source: "tools-export",
+			label: "tools export all 2026-07-01T04:01:00.000Z",
+			path: "/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md",
+			risk: "write",
+			privilege: "user",
+			confirmationRequired: true,
+			confirmationPhrase: "open",
+			confirmed: false,
+			enabled: false,
+			reason: "type open to launch external file viewer",
+			adapter: {
+				platform: "darwin",
+				command: "open",
+				args: [
+					"/Users/me/.config/picos/tools/picos-tools-all-2026-07-01T040100000Z.md",
+				],
+			},
+		});
+		const archived = prepareStatusActivityToolsEvidenceMatchArchive(
+			{ ...recovery, target: "archive" },
+			99,
+			{ baseDir: "/Users/me/.config/picos" },
+		);
+		expect(archived).toMatchObject({
+			kind: "notice",
+			selectedIndex: 1,
+			notice: {
+				level: "warn",
+				message: "archived tools evidence matches are already archived",
+			},
+		});
+		const archive = prepareStatusActivityToolsEvidenceMatchArchive(
+			recovery,
+			-8,
+			{ baseDir: "/Users/me/.config/picos" },
+		);
+		expect(archive).toMatchObject({
+			kind: "confirmation",
+			selectedIndex: 0,
+			notice: {
+				level: "info",
+				message:
+					"recovered tools evidence archive confirmation opened for picos-tools-selected-2026-07-01T040100000Z.md",
+			},
+		});
+		if (archive.kind !== "confirmation") {
+			throw new Error("expected recovered Tools archive transition");
+		}
+		expect(archive.plan).toEqual({
+			sourcePath:
+				"/Users/me/.config/picos/tools/picos-tools-selected-2026-07-01T040100000Z.md",
+			archivedPath:
+				"/Users/me/.config/picos/tools/archive/picos-tools-selected-2026-07-01T040100000Z.md",
+			fileName: "picos-tools-selected-2026-07-01T040100000Z.md",
+			risk: "write",
+			privilege: "user",
+			confirmationRequired: true,
+			confirmationPhrase: "archive tools export",
+			confirmed: false,
+			enabled: false,
+			reason: "type archive tools export to move selected tools export",
+		});
 	});
 
 	test("creates selected audit exports for timeline evidence trail handoffs", () => {
@@ -5173,5 +5471,486 @@ describe("Status activity queue", () => {
 				},
 			]),
 		).toBeUndefined();
+	});
+
+	test("returns a notice when cleanup history has no selected handoff to reopen", () => {
+		const transition = prepareCleanupHandoffHistoryReopen({
+			history: [],
+			selectedIndex: 0,
+		});
+
+		expect(transition).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "no cleanup handoff history selected",
+			},
+		});
+	});
+
+	test("reopens the clamped selected cleanup handoff with its audit and notice", () => {
+		const history: CleanupHandoffHistory[] = [
+			{
+				id: "logs",
+				label: "Logs presets",
+				workspace: "Logs",
+				screen: "logs",
+				shortcut: "D",
+				confirmationPhrase: "clear logs",
+				count: 2,
+				detail: "search=1 profiles=1",
+				outcome: "dismissed",
+			},
+		];
+
+		expect(
+			prepareCleanupHandoffHistoryReopen({
+				history,
+				selectedIndex: 99,
+			}),
+		).toEqual({
+			kind: "reopen",
+			audit: {
+				id: "logs",
+				label: "Logs presets",
+				screen: "logs",
+				workspace: "Logs",
+				shortcut: "D",
+				confirmationPhrase: "clear logs",
+				count: 2,
+				detail: "search=1 profiles=1",
+			},
+			screen: "logs",
+			notice: {
+				level: "info",
+				message:
+					"cleanup history reopened Logs presets: press enter to open prompt or esc to clear",
+			},
+		});
+	});
+
+	test("recovers and clamps every persisted audit evidence family", () => {
+		const index = {
+			baseDir: "/tmp/picos",
+			items: [
+				{
+					fileName: "timeline.log",
+					path: "/tmp/picos/audit/timeline.log",
+					generatedAt: "2026-07-01T05:00:00.000Z",
+					scope: "selected" as const,
+					query: "timeline evidence trail audit",
+					entryCount: 1,
+				},
+				{
+					fileName: "process.log",
+					path: "/tmp/picos/audit/process.log",
+					generatedAt: "2026-07-01T04:00:00.000Z",
+					scope: "selected" as const,
+					query: "palette process control audit action=preview pid=42",
+					entryCount: 1,
+				},
+				{
+					fileName: "known-hosts.log",
+					path: "/tmp/picos/audit/known-hosts.log",
+					generatedAt: "2026-07-01T03:00:00.000Z",
+					scope: "filtered" as const,
+					query: "remote known_hosts selection history prod",
+					entryCount: 1,
+				},
+				{
+					fileName: "interface.log",
+					path: "/tmp/picos/audit/interface.log",
+					generatedAt: "2026-07-01T02:00:00.000Z",
+					scope: "selected" as const,
+					query: "interface confirmation interface.disable status=rejected",
+					entryCount: 1,
+				},
+			],
+		};
+		const recovered = createRecoveredStatusEvidenceIndex(index, {
+			timelineSourceFilter: "all",
+			selectedTimelineIndex: 99,
+			selectedProcessIndex: 99,
+			selectedRemoteKnownHostsIndex: 99,
+			selectedInterfaceIndex: 99,
+		});
+
+		expect(recovered.timelineEvidenceTrailAuditExports).toHaveLength(1);
+		expect(recovered.processControlAuditExports).toHaveLength(1);
+		expect(recovered.remoteKnownHostsSelectionAuditExports).toHaveLength(1);
+		expect(recovered.interfaceConfirmationAuditExports).toHaveLength(1);
+		expect(recovered.selectedTimelineIndex).toBe(0);
+		expect(recovered.selectedProcessIndex).toBe(0);
+		expect(recovered.selectedRemoteKnownHostsIndex).toBe(0);
+		expect(recovered.selectedInterfaceIndex).toBe(0);
+		expect(recovered.latestTimelineEvidenceTrailAuditExport?.path).toBe(
+			"/tmp/picos/audit/timeline.log",
+		);
+	});
+
+	test("owns recovered evidence selection activity for every family", () => {
+		const exports = [
+			{
+				path: "/tmp/picos/audit/first.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "first audit",
+			},
+			{
+				path: "/tmp/picos/audit/second.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "second audit",
+			},
+		];
+		for (const family of [
+			"timeline",
+			"process",
+			"remote-known-hosts",
+			"interface",
+		] as const) {
+			const selected = prepareRecoveredEvidenceSelectionTransition({
+				family,
+				exports,
+				selectedIndex: 99,
+				direction: "next",
+				origin: "palette",
+			});
+			expect(selected).toMatchObject({
+				kind: "selection",
+				selectedIndex: 0,
+				item: exports[0],
+				total: 2,
+				auditMessage: expect.any(String),
+				activityResult: { source: "evidence" },
+			});
+		}
+		expect(
+			prepareRecoveredEvidenceSelectionTransition({
+				family: "process",
+				exports: [],
+				selectedIndex: -4,
+				direction: "next",
+				origin: "palette",
+			}),
+		).toEqual({
+			kind: "notice",
+			selectedIndex: 0,
+			notice: {
+				level: "warn",
+				message: "no alternate process control evidence exports",
+			},
+			auditMessage:
+				'palette process evidence audit action=select status=unavailable reason="no recovered process-control evidence export selected"',
+			activityResult: {
+				source: "evidence",
+				action: "process-control-evidence",
+				message: "palette process evidence select unavailable",
+				detail: "no recovered process-control evidence export selected",
+			},
+		});
+	});
+
+	test("owns missing and valid recovered evidence Timeline search jumps", () => {
+		const plans = {
+			timeline: {
+				path: "/tmp/picos/audit/timeline.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "timeline evidence trail audit",
+			},
+			process: {
+				path: "/tmp/picos/audit/process.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "process control evidence audit pid=42",
+			},
+			"remote-known-hosts": {
+				path: "/tmp/picos/audit/known-hosts.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "remote known_hosts selection history prod",
+			},
+			interface: {
+				path: "/tmp/picos/audit/interface.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "interface confirmation interface.disable status=rejected",
+			},
+		};
+		const events = Object.values(plans).map((plan, index) => ({
+			id: `evidence-${index}`,
+			level: "info" as const,
+			time: `12:00:0${index}`,
+			message: `${plan.query} audit`,
+		}));
+		const missingNotices = {
+			timeline: "no timeline evidence trail export for timeline",
+			process: "no process control evidence export for timeline",
+			"remote-known-hosts":
+				"no remote known_hosts selection evidence export for timeline",
+			interface: "no interface confirmation evidence export for timeline",
+		};
+
+		for (const family of [
+			"timeline",
+			"process",
+			"remote-known-hosts",
+			"interface",
+		] as const) {
+			expect(
+				prepareRecoveredEvidenceSearchTransition({
+					family,
+					exports: [],
+					selectedIndex: 99,
+					events,
+					origin: family === "timeline" ? "palette" : "status-evidence",
+				}),
+			).toMatchObject({
+				kind: "notice",
+				selectedIndex: 0,
+				notice: { level: "warn", message: missingNotices[family] },
+				activityResult: { source: "evidence" },
+			});
+			const transition = prepareRecoveredEvidenceSearchTransition({
+				family,
+				exports: [plans[family]],
+				selectedIndex: 99,
+				events,
+				origin: "palette",
+			});
+			expect(transition).toMatchObject({
+				kind: "search",
+				selectedIndex: 0,
+				item: plans[family],
+				total: 1,
+				timeline: {
+					filter: "audit",
+					query: plans[family].query,
+					matches: 1,
+					selectedIndex: 0,
+					notice: { level: "info" },
+				},
+				auditMessage: expect.any(String),
+				activityResult: { source: "evidence" },
+			});
+		}
+	});
+
+	test("owns recovered evidence open plans, master selection, and activity", () => {
+		const timelinePlan = {
+			path: "/tmp/picos/audit/timeline.log",
+			content: "",
+			eventCount: 1,
+			scope: "selected" as const,
+			query: "timeline evidence trail audit",
+		};
+		const processPlan = {
+			path: "/tmp/picos/audit/process.log",
+			content: "",
+			eventCount: 1,
+			scope: "selected" as const,
+			query: "process control evidence audit pid=42",
+		};
+		const knownHostsPlan = {
+			path: "/tmp/picos/audit/known-hosts.log",
+			content: "",
+			eventCount: 1,
+			scope: "selected" as const,
+			query: "remote known_hosts selection history prod",
+		};
+		const activePlans = [timelinePlan, processPlan, knownHostsPlan];
+		const archivedInterface = {
+			path: "/tmp/picos/audit/archive/interface.log",
+			content: "",
+			eventCount: 1,
+			scope: "selected" as const,
+			query: "interface confirmation interface.disable status=rejected",
+		};
+		const toIndex = (baseDir: string, plans: typeof activePlans) => ({
+			baseDir,
+			items: plans.map((plan, index) => ({
+				fileName: plan.path.split("/").at(-1) ?? `item-${index}.log`,
+				path: plan.path,
+				generatedAt: `2026-07-01T0${index + 1}:00:00.000Z`,
+				scope: plan.scope,
+				query: plan.query,
+				entryCount: plan.eventCount,
+			})),
+		});
+		const activeIndex = toIndex("/tmp/picos/audit", activePlans);
+		const archiveIndex = toIndex("/tmp/picos/audit/archive", [
+			archivedInterface,
+		]);
+		const cases = [
+			["timeline", timelinePlan, { state: "active", selectedIndex: 0 }],
+			["process", processPlan, { state: "active", selectedIndex: 1 }],
+			[
+				"remote-known-hosts",
+				knownHostsPlan,
+				{ state: "active", selectedIndex: 2 },
+			],
+			["interface", archivedInterface, { state: "archived", selectedIndex: 0 }],
+		] as const;
+		const missingNotices = {
+			timeline: "no timeline evidence trail export to open",
+			process: "no process control evidence export to open",
+			"remote-known-hosts":
+				"no remote known_hosts selection evidence export to open",
+			interface: "no interface confirmation evidence export to open",
+		};
+
+		for (const [family, plan, masterSelection] of cases) {
+			expect(
+				prepareRecoveredEvidenceOpenTransition({
+					family,
+					exports: [],
+					selectedIndex: -4,
+					activeIndex,
+					archiveIndex,
+					baseDir: "/tmp/picos",
+					platform: "darwin",
+					origin: "palette",
+				}),
+			).toMatchObject({
+				kind: "notice",
+				selectedIndex: 0,
+				notice: { level: "warn", message: missingNotices[family] },
+				activityResult: { source: "evidence" },
+			});
+			const transition = prepareRecoveredEvidenceOpenTransition({
+				family,
+				exports: [plan],
+				selectedIndex: 99,
+				activeIndex,
+				archiveIndex,
+				baseDir: "/tmp/picos",
+				platform: "darwin",
+				origin: "palette",
+			});
+			expect(transition).toMatchObject({
+				kind: "open",
+				selectedIndex: 0,
+				item: plan,
+				plan: {
+					path: plan.path,
+					confirmationPhrase: "open",
+				},
+				masterSelection,
+				auditMessage: expect.any(String),
+				activityResult: { source: "evidence" },
+			});
+		}
+	});
+
+	test("owns status-result handoff replay Timeline state and palette activity", () => {
+		const latestIntent = createStatusActivityResultTimelineSearchIntent({
+			filter: "audit",
+			query: "process control audit pid=42",
+			message: "process recovered",
+		});
+		const transition = prepareStatusActivityResultTimelineHandoffOpenTransition(
+			{
+				history: [],
+				selectedIndex: 8,
+				latestAuditJumpIntent: latestIntent,
+				events: [
+					{
+						id: "process-audit",
+						level: "info",
+						time: "12:00:00",
+						message: "process control audit pid=42",
+					},
+				],
+				origin: "palette",
+				filter: "all",
+			},
+		);
+		expect(transition).toMatchObject({
+			kind: "open",
+			timeline: {
+				filter: "audit",
+				query: "process control audit pid=42",
+				matches: 1,
+				selectedIndex: 0,
+				notice: {
+					level: "info",
+					message:
+						"status activity result audit jump replay latest process control audit pid=42 matches 1 origin=palette",
+				},
+			},
+			auditMessage: expect.any(String),
+			activityResult: {
+				source: "timeline",
+				action: "timeline-selected-copy",
+			},
+		});
+	});
+
+	test("owns recovered family selection and status-result handoff replay", () => {
+		const exports = [
+			{
+				path: "/tmp/first.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "first",
+			},
+			{
+				path: "/tmp/second.log",
+				content: "",
+				eventCount: 1,
+				scope: "selected" as const,
+				query: "second",
+			},
+		];
+		for (const [family, message] of [
+			["timeline", "timeline evidence trail selected 1/2 first.log"],
+			["process", "process control evidence selected 1/2 first.log"],
+			[
+				"remote-known-hosts",
+				"remote known_hosts evidence selected 1/2 first.log",
+			],
+			["interface", "interface confirmation evidence selected 1/2 first.log"],
+		] as const) {
+			expect(
+				prepareRecoveredEvidenceSelectionTransition({
+					family,
+					exports,
+					selectedIndex: 99,
+					direction: "next",
+				}),
+			).toMatchObject({
+				kind: "selection",
+				selectedIndex: 0,
+				notice: { level: "info", message },
+			});
+		}
+
+		const latestIntent = createStatusActivityResultTimelineSearchIntent({
+			filter: "audit",
+			query: "process control audit pid=42",
+			message: "process recovered",
+		});
+		const replay = prepareStatusActivityResultTimelineHandoffReplay({
+			history: [],
+			selectedIndex: 8,
+			latestAuditJumpIntent: latestIntent,
+		});
+		expect(replay).toMatchObject({
+			kind: "replay",
+			jump: {
+				filter: "audit",
+				query: "process control audit pid=42",
+				message:
+					"status activity result audit jump replay latest process control audit pid=42",
+			},
+		});
 	});
 });

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	clampIndex,
 	enterFocus,
 	getLocationShortcutIndex,
 	getNextIndex,
@@ -48,10 +49,12 @@ describe("TUI navigation", () => {
 			"status",
 			"config",
 			"logs",
+			"operations",
 		]);
 		expect(moveScreen("dashboard", "next")).toBe("files");
-		expect(moveScreen("logs", "next")).toBe("dashboard");
-		expect(moveScreen("dashboard", "previous")).toBe("logs");
+		expect(moveScreen("operations", "next")).toBe("dashboard");
+		expect(moveScreen("dashboard", "previous")).toBe("operations");
+		expect(moveScreen("logs", "next")).toBe("operations");
 	});
 
 	test("returns stable screen indexes for labels", () => {
@@ -59,6 +62,8 @@ describe("TUI navigation", () => {
 		expect(getScreenIndex("remotes")).toBe(2);
 		expect(getScreenIndex("status")).toBe(18);
 		expect(getScreenIndex("config")).toBe(19);
+		// Appended last on purpose, which is what keeps the indexes above stable.
+		expect(getScreenIndex("operations")).toBe(21);
 	});
 
 	test("enters and leaves child focus for workspace panels", () => {
@@ -96,5 +101,22 @@ describe("TUI navigation", () => {
 		expect(getLocationShortcutIndex("0", 4)).toBeUndefined();
 		expect(getLocationShortcutIndex("x", 4)).toBeUndefined();
 		expect(getLocationShortcutIndex("1", 0)).toBeUndefined();
+	});
+});
+
+describe("index clamping", () => {
+	test("keeps an index inside the list and survives an empty one", () => {
+		expect(clampIndex(0, 3)).toBe(0);
+		expect(clampIndex(2, 3)).toBe(2);
+		expect(clampIndex(9, 3)).toBe(2);
+		// The lower bound two of the replaced spellings omitted. A negative index
+		// used to survive, which would have indexed past the start of the list.
+		expect(clampIndex(-1, 3)).toBe(0);
+		expect(clampIndex(-99, 3)).toBe(0);
+		// Zero for an empty list, so a caller can index straight into it and get
+		// undefined rather than having to guard the length separately.
+		expect(clampIndex(0, 0)).toBe(0);
+		expect(clampIndex(5, 0)).toBe(0);
+		expect(clampIndex(-5, 0)).toBe(0);
 	});
 });

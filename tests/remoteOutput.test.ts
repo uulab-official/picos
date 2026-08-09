@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	formatRemoteJsonFailure,
 	formatRemoteJsonSuccess,
+	formatRemoteProfilesJson,
 	REMOTE_JSON_SCHEMA_VERSION,
 } from "../src/cli/remoteOutput";
 import type { SftpRemoteProfile } from "../src/core/types";
@@ -17,6 +18,32 @@ const profile: SftpRemoteProfile = {
 };
 
 describe("remote JSON output", () => {
+	test("formats a bounded profile listing without private key paths", () => {
+		const output = formatRemoteProfilesJson([profile]);
+		const result = JSON.parse(output);
+
+		expect(result).toMatchObject({
+			schemaVersion: REMOTE_JSON_SCHEMA_VERSION,
+			command: "remotes",
+			status: "completed",
+			data: {
+				totalCount: 1,
+				returnedCount: 1,
+				truncated: false,
+				profiles: [
+					{
+						id: "prod",
+						host: "prod.example.com",
+						username: "deploy",
+						root: "/srv/app",
+					},
+				],
+			},
+		});
+		expect(output).not.toContain("/secret/id_ed25519");
+		expect(output).not.toContain("keyPath");
+	});
+
 	test("formats a stable secret-free list result", () => {
 		const output = formatRemoteJsonSuccess({
 			profile,

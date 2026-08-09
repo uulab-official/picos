@@ -1,49 +1,46 @@
 import { describe, expect, test } from "bun:test";
 import { monitorCommand } from "../src/cli/commands/monitor";
+import { createSystemMonitorSnapshot } from "../src/core/systemMonitor";
 
 describe("monitor CLI command", () => {
-	test("prints a read-only system monitor snapshot", async () => {
+	test("prints multiple injected samples and waits between reads", async () => {
 		const writes: string[] = [];
+		const waits: number[] = [];
 		const originalLog = console.log;
-		console.log = (value?: unknown) => {
-			writes.push(String(value));
-		};
+		console.log = (value?: unknown) => writes.push(String(value));
+		const snapshot = createSystemMonitorSnapshot({
+			now: "2026-07-14T12:00:00.000Z",
+			uptimeSeconds: 60,
+			loadAverage: [1, 0, 0],
+			totalMemoryBytes: 100,
+			freeMemoryBytes: 50,
+			cpuModel: "cpu",
+			cpuCount: 2,
+			processes: [],
+		});
 		try {
-			await monitorCommand({
-				snapshot: {
-					at: "2026-06-30T08:30:00.000Z",
-					uptimeSeconds: 3661,
-					loadAverage: [1.25, 0.5, 0.1],
-					memory: {
-						totalBytes: 8000,
-						freeBytes: 2000,
-						usedBytes: 6000,
-						usedPercent: 75,
+			await monitorCommand(
+				{ samples: 2, interval: 250 },
+				{
+					readSnapshot: async () => snapshot,
+					wait: async (milliseconds) => {
+						waits.push(milliseconds);
 					},
-					cpu: {
-						model: "Apple M3",
-						count: 4,
-					},
-					processCount: 1,
-					topProcesses: [
-						{
-							pid: 42,
-							command: "node server.js",
-							cpu: "17.5",
-							memory: "4.2",
-						},
-					],
+					now: () => "2026-07-14T12:00:00.000Z",
 				},
-			});
+			);
 		} finally {
 			console.log = originalLog;
 		}
 
-		expect(writes.join("\n")).toContain("PICOS SYSTEM MONITOR");
-		expect(writes.join("\n")).toContain("load=1.25,0.50,0.10");
-		expect(writes.join("\n")).toContain("processes=1");
-		expect(writes.join("\n")).toContain(
-			"top pid=42 cpu=17.5 mem=4.2 cmd=node server.js",
+		expect(waits).toEqual([250]);
+		expect(writes.join("\n")).toContain("PICOS MONITOR SAMPLE 1/2");
+		expect(writes.join("\n")).toContain("PICOS MONITOR SAMPLE 2/2");
+	});
+
+	test("rejects monitor runs longer than five minutes", async () => {
+		expect(monitorCommand({ samples: 60, interval: 60_000 })).rejects.toThrow(
+			"exceeds 300000",
 		);
 	});
 });

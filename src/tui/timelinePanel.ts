@@ -14,6 +14,7 @@ import {
 	createClipboardPreview,
 } from "./clipboardPreview";
 import type { ConsoleEvent } from "./events";
+import { clampIndex } from "./navigation";
 
 export type TimelineFilter = "all" | "network" | "audit" | "action" | "raw";
 
@@ -25,8 +26,10 @@ export type TimelineSearchCleanupPreview = {
 };
 
 export type TimelineSearchCleanupConfirmation = {
+	action: "apply" | "notice";
 	confirmed: boolean;
 	message: string;
+	notice: TimelinePanelNotice;
 	presets: string[];
 	removed: number;
 };
@@ -40,6 +43,378 @@ export type TimelineFocusEvidenceTrailPlan = {
 	message: string;
 	rows: string[];
 };
+
+export type TimelinePanelNotice = {
+	level: "info" | "warn";
+	message: string;
+};
+
+export type TimelineSelectedActivityInput = {
+	filter: TimelineFilter;
+	label: string;
+	query: string;
+	selectedIndex: number;
+	total: number;
+};
+
+export type TimelineSelectedExportInput = Omit<
+	TimelineSelectedActivityInput,
+	"label"
+> & {
+	plan: ConsoleAuditExportPlan;
+};
+
+export type TimelineSearchTransition = {
+	query: string;
+	presets: string[];
+	selectedIndex: number;
+	notice: TimelinePanelNotice;
+};
+
+export type TimelineSearchJumpTransition = {
+	filter: TimelineFilter;
+	query: string;
+	matches: number;
+	selectedIndex: number;
+	notice: TimelinePanelNotice;
+};
+
+export type TimelinePanelInputDecision =
+	| { kind: "no-op" }
+	| { kind: "notice"; notice: TimelinePanelNotice }
+	| {
+			kind: "command";
+			command: "search" | "cleanup";
+			notice?: TimelinePanelNotice;
+	  }
+	| {
+			kind: "selected-command";
+			command: "copy";
+			event: ConsoleEvent;
+			preview: ClipboardPreview;
+			selectedIndex: number;
+			activity: TimelineSelectedActivityInput;
+	  }
+	| {
+			kind: "selected-command";
+			command: "export";
+			event: ConsoleEvent;
+			selectedIndex: number;
+			exportInput: TimelineSelectedExportInput;
+	  }
+	| {
+			kind: "evidence";
+			event: ConsoleEvent;
+			plan: TimelineFocusEvidenceTrailPlan;
+			selectedIndex: number;
+			notice: TimelinePanelNotice;
+	  }
+	| {
+			kind: "filter";
+			filter: TimelineFilter;
+			selectedIndex: number;
+			notice: TimelinePanelNotice;
+	  }
+	| {
+			kind: "search";
+			query: string;
+			selectedIndex: number;
+			notice: TimelinePanelNotice;
+	  }
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			notice: TimelinePanelNotice;
+	  }
+	| {
+			kind: "save-preset";
+			presets: string[];
+			notice: TimelinePanelNotice;
+	  };
+
+export function repairTimelineSelection(index: number, total: number): number {
+	return clampIndex(index, total);
+}
+
+export function selectNewestTimelineResult(total: number): number {
+	return clampIndex(total - 1, total);
+}
+
+export function prepareTimelineSearchJumpTransition(
+	events: ConsoleEvent[],
+	jump: { filter: TimelineFilter; query: string; message: string },
+	options: { messageSuffix?: string } = {},
+): TimelineSearchJumpTransition {
+	const filtered = filterTimelineEvents(events, jump.query, jump.filter);
+	return {
+		filter: jump.filter,
+		query: jump.query,
+		matches: filtered.length,
+		selectedIndex: selectNewestTimelineResult(filtered.length),
+		notice: {
+			level: filtered.length ? "info" : "warn",
+			message: `${jump.message} matches ${filtered.length}${options.messageSuffix ?? ""}`,
+		},
+	};
+}
+
+export function resolveSelectedTimelineEvent(
+	events: readonly ConsoleEvent[],
+	selectedIndex: number,
+): ConsoleEvent | undefined {
+	if (!events.length) {
+		return undefined;
+	}
+	return events[clampIndex(selectedIndex, events.length)];
+}
+
+export function prepareTimelineSearchTransition(input: {
+	events: ConsoleEvent[];
+	filter: TimelineFilter;
+	presets: string[];
+	query: string;
+}): TimelineSearchTransition {
+	const query = input.query.trim();
+	const filtered = filterTimelineEvents(input.events, query, input.filter);
+	return {
+		query,
+		presets: query
+			? saveTimelineSearchPreset(input.presets, query)
+			: input.presets,
+		selectedIndex: selectNewestTimelineResult(filtered.length),
+		notice: {
+			level: filtered.length ? "info" : "warn",
+			message: query
+				? `timeline search ${query} matches ${filtered.length}`
+				: "timeline search cleared",
+		},
+	};
+}
+
+export function prepareTimelinePanelInput(input: {
+	input: string;
+	events: ConsoleEvent[];
+	filter: TimelineFilter;
+	query: string;
+	presets: string[];
+	selectedIndex: number;
+	auditExportIndex?: ConsoleAuditExportIndex;
+	handoff?: { baseDir: string; origin?: FileOpenOrigin };
+}): TimelinePanelInputDecision {
+	if (input.input === "t") {
+		const filter = nextTimelineFilter(input.filter);
+		const visible = filterTimelineEvents(input.events, input.query, filter);
+		return {
+			kind: "filter",
+			filter,
+			selectedIndex: selectNewestTimelineResult(visible.length),
+			notice: { level: "info", message: `timeline filter ${filter}` },
+		};
+	}
+	if (input.input === "f") {
+		return {
+			kind: "command",
+			command: "search",
+			notice: { level: "info", message: "timeline search opened" },
+		};
+	}
+	if (input.input === "F") {
+		const visible = filterTimelineEvents(input.events, "", input.filter);
+		return {
+			kind: "search",
+			query: "",
+			selectedIndex: selectNewestTimelineResult(visible.length),
+			notice: { level: "info", message: "timeline search cleared" },
+		};
+	}
+	if (input.input === "j" || input.input === "k") {
+		const visible = filterTimelineEvents(
+			input.events,
+			input.query,
+			input.filter,
+		);
+		if (!visible.length) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no timeline row to select" },
+			};
+		}
+		const selectedIndex = moveTimelineSelection(
+			input.selectedIndex,
+			input.input === "j" ? 1 : -1,
+			visible.length,
+		);
+		return {
+			kind: "selection",
+			selectedIndex,
+			notice: {
+				level: "info",
+				message: `timeline selected ${selectedIndex + 1}/${visible.length}`,
+			},
+		};
+	}
+	if (input.input === "P") {
+		const query = input.query.trim();
+		return query
+			? {
+					kind: "save-preset",
+					presets: saveTimelineSearchPreset(input.presets, query),
+					notice: {
+						level: "info",
+						message: `timeline preset saved ${query}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no timeline search to save",
+					},
+				};
+	}
+	if (input.input === "D") {
+		const preview = createTimelineSearchCleanupPreview(input.presets);
+		return preview
+			? {
+					kind: "command",
+					command: "cleanup",
+					notice: {
+						level: "warn",
+						message: `timeline search cleanup confirm ${preview.confirmationPhrase}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no timeline search presets to clean",
+					},
+				};
+	}
+	if (input.input === "]") {
+		const query = nextTimelineSearchPreset(input.presets, input.query);
+		if (!query) {
+			return {
+				kind: "notice",
+				notice: { level: "warn", message: "no timeline search presets" },
+			};
+		}
+		const visible = filterTimelineEvents(input.events, query, input.filter);
+		return {
+			kind: "search",
+			query,
+			selectedIndex: selectNewestTimelineResult(visible.length),
+			notice: {
+				level: visible.length ? "info" : "warn",
+				message: `timeline preset ${query} matches ${visible.length}`,
+			},
+		};
+	}
+	if (["c", "e", "E"].includes(input.input)) {
+		const visible = filterTimelineEvents(
+			input.events,
+			input.query,
+			input.filter,
+		);
+		const selectedIndex = repairTimelineSelection(
+			input.selectedIndex,
+			visible.length,
+		);
+		const event = resolveSelectedTimelineEvent(visible, selectedIndex);
+		if (!event) {
+			const message =
+				input.input === "c"
+					? "no timeline row to copy"
+					: input.input === "e"
+						? "no timeline row to export"
+						: "no timeline focus evidence trail";
+			return { kind: "notice", notice: { level: "warn", message } };
+		}
+		if (input.input === "c") {
+			const preview = getSelectedTimelineClipboardPreview(input.events, {
+				filter: input.filter,
+				query: input.query,
+				selectedIndex,
+			});
+			return preview
+				? {
+						kind: "selected-command",
+						command: "copy",
+						event,
+						preview,
+						selectedIndex,
+						activity: {
+							filter: input.filter,
+							label: preview.label,
+							query: input.query,
+							selectedIndex,
+							total: visible.length,
+						},
+					}
+				: {
+						kind: "notice",
+						notice: {
+							level: "warn",
+							message: "no timeline row to copy",
+						},
+					};
+		}
+		if (input.input === "e") {
+			if (!input.handoff) {
+				return {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "timeline export context unavailable",
+					},
+				};
+			}
+			return {
+				kind: "selected-command",
+				command: "export",
+				event,
+				selectedIndex,
+				exportInput: {
+					plan: createConsoleAuditExportPlan([event], {
+						baseDir: input.handoff.baseDir,
+						origin: input.handoff.origin,
+						query: input.query.trim() || undefined,
+						scope: "selected",
+					}),
+					filter: input.filter,
+					query: input.query,
+					selectedIndex,
+					total: visible.length,
+				},
+			};
+		}
+		const plan = input.auditExportIndex
+			? createTimelineFocusEvidenceTrailPlan(visible, {
+					auditExportIndex: input.auditExportIndex,
+					selectedIndex,
+				})
+			: undefined;
+		return plan
+			? {
+					kind: "evidence",
+					event,
+					plan,
+					selectedIndex,
+					notice: {
+						level: "info",
+						message: `${plan.message}; ${plan.rows.at(-1) ?? ""}`,
+					},
+				}
+			: {
+					kind: "notice",
+					notice: {
+						level: "warn",
+						message: "no timeline focus evidence trail",
+					},
+				};
+	}
+	return { kind: "no-op" };
+}
 
 const timelineFilters: TimelineFilter[] = [
 	"all",
@@ -302,9 +677,10 @@ export function moveTimelineSelection(
 	length: number,
 ): number {
 	if (length <= 0) {
-		return 0;
+		return clampIndex(currentIndex, length);
 	}
-	return (currentIndex + delta + length) % length;
+	const current = clampIndex(currentIndex, length);
+	return clampIndex((current + delta + length) % length, length);
 }
 
 export function saveTimelineSearchPreset(
@@ -364,9 +740,12 @@ export function submitTimelineSearchCleanupConfirmation(
 ): TimelineSearchCleanupConfirmation {
 	const preview = createTimelineSearchCleanupPreview(presets);
 	if (!preview) {
+		const message = "timeline search cleanup unavailable";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "timeline search cleanup unavailable",
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
@@ -376,16 +755,22 @@ export function submitTimelineSearchCleanupConfirmation(
 		confirmation,
 	);
 	if (!cleanupConfirmation.confirmed) {
+		const message = "timeline search cleanup rejected";
 		return {
+			action: "notice",
 			confirmed: false,
-			message: "timeline search cleanup rejected",
+			message,
+			notice: { level: "warn", message },
 			presets,
 			removed: 0,
 		};
 	}
+	const message = `timeline search cleanup removed ${preview.count} presets`;
 	return {
+		action: "apply",
 		confirmed: true,
-		message: `timeline search cleanup removed ${preview.count} presets`,
+		message,
+		notice: { level: "info", message },
 		presets: [],
 		removed: preview.count,
 	};
@@ -398,7 +783,7 @@ function getSelectedTimelineIndex(
 	if (length <= 0) {
 		return undefined;
 	}
-	return Math.min(Math.max(selectedIndex ?? length - 1, 0), length - 1);
+	return clampIndex(selectedIndex ?? length - 1, length);
 }
 
 function formatTimelineSummary(

@@ -29,6 +29,7 @@ type TranslationKey =
 	| "screen.status"
 	| "screen.config"
 	| "screen.logs"
+	| "screen.operations"
 	| "dashboard.systemLink"
 	| "dashboard.primaryInterface"
 	| "dashboard.doctorSnapshot"
@@ -72,6 +73,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"screen.status": "Status",
 		"screen.config": "Config",
 		"screen.logs": "Logs",
+		"screen.operations": "Operations",
 		"dashboard.systemLink": "SYSTEM LINK",
 		"dashboard.primaryInterface": "PRIMARY INTERFACE",
 		"dashboard.doctorSnapshot": "DOCTOR SNAPSHOT",
@@ -114,6 +116,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"screen.status": "상태",
 		"screen.config": "설정",
 		"screen.logs": "로그",
+		"screen.operations": "작업",
 		"dashboard.systemLink": "시스템 연결",
 		"dashboard.primaryInterface": "주 인터페이스",
 		"dashboard.doctorSnapshot": "진단 요약",
@@ -156,6 +159,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"screen.status": "状態",
 		"screen.config": "設定",
 		"screen.logs": "ログ",
+		"screen.operations": "オペレーション",
 		"dashboard.systemLink": "システム接続",
 		"dashboard.primaryInterface": "主インターフェース",
 		"dashboard.doctorSnapshot": "診断サマリー",
@@ -198,6 +202,7 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
 		"screen.status": "状态",
 		"screen.config": "设置",
 		"screen.logs": "日志",
+		"screen.operations": "操作",
 		"dashboard.systemLink": "系统连接",
 		"dashboard.primaryInterface": "主接口",
 		"dashboard.doctorSnapshot": "诊断摘要",

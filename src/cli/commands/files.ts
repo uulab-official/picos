@@ -6,6 +6,14 @@ import {
 	getSystemFileLocations,
 } from "../../core/files";
 
+import {
+	assertLocalJsonOptions,
+	formatFileLocationsJson,
+	isLocalJsonRequested,
+	reportLocalInspectorJsonFailure,
+} from "../localInspectorOutput";
+import { isCliOutputWriteError, writeCliOutput } from "../output";
+
 export function formatPwd(path: string): string {
 	return path;
 }
@@ -24,12 +32,50 @@ export async function pwdCommand(): Promise<void> {
 	console.log(formatPwd(await provider.pwd()));
 }
 
-export async function locationsCommand(): Promise<void> {
-	console.log(formatFileLocations(getSystemFileLocations()));
+export async function locationsCommand(
+	options: { json?: unknown } = {},
+): Promise<void> {
+	const jsonRequested = isLocalJsonRequested(options.json);
+	try {
+		const json = assertLocalJsonOptions(options);
+		const locations = getSystemFileLocations();
+		if (json) {
+			await writeCliOutput(formatFileLocationsJson(locations, "locations"));
+			return;
+		}
+		console.log(formatFileLocations(locations));
+	} catch (caught) {
+		if (isCliOutputWriteError(caught)) throw caught;
+		if (jsonRequested) {
+			reportLocalInspectorJsonFailure("locations", caught, {
+				request: { action: "list" },
+			});
+		}
+		throw caught;
+	}
 }
 
-export async function drivesCommand(): Promise<void> {
-	await locationsCommand();
+export async function drivesCommand(
+	options: { json?: unknown } = {},
+): Promise<void> {
+	const jsonRequested = isLocalJsonRequested(options.json);
+	try {
+		const json = assertLocalJsonOptions(options);
+		const locations = getSystemFileLocations();
+		if (json) {
+			await writeCliOutput(formatFileLocationsJson(locations, "drives"));
+			return;
+		}
+		console.log(formatFileLocations(locations));
+	} catch (caught) {
+		if (isCliOutputWriteError(caught)) throw caught;
+		if (jsonRequested) {
+			reportLocalInspectorJsonFailure("drives", caught, {
+				request: { action: "list" },
+			});
+		}
+		throw caught;
+	}
 }
 
 export async function dirCommand(path = "."): Promise<void> {

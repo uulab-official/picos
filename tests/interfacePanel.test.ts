@@ -12,9 +12,15 @@ import {
 	formatInterfaceSourceRows,
 	formatInterfaceWorkspaceRows,
 	formatSelectedInterfaceSummaryRows,
+	getInterfaceControlIntent,
 	getInterfaceSourceClipboardPreview,
 	getNextInterfaceIndex,
 	nextInterfaceDetailView,
+	prepareInterfaceConfirmationTransition,
+	prepareInterfacePanelInput,
+	prepareInterfaceSelectionTransition,
+	prepareInterfaceSourceHandoff,
+	resolveSelectedInterface,
 	writeInterfaceSourceHandoffPlan,
 } from "../src/tui/interfacePanel";
 
@@ -149,6 +155,352 @@ const fixture: NetworkSummary = {
 };
 
 describe("interface TUI panel formatting", () => {
+	test("does not turn raw out-of-range or unsupported interface controls into proposals", () => {
+		for (const selectedIndex of [-1, 99]) {
+			expect(
+				prepareInterfacePanelInput({
+					input: "D",
+					selectedIndex,
+					summary: fixture,
+					view: "detail",
+				}),
+			).toEqual({
+				kind: "no-op",
+				notice: {
+					level: "warn",
+					message:
+						"interface disable proposal unavailable selection-out-of-range",
+				},
+			});
+		}
+
+		expect(
+			prepareInterfacePanelInput({
+				input: "U",
+				selectedIndex: 0,
+				summary: { ...fixture, macosServiceNamesByDevice: undefined },
+				view: "detail",
+			}),
+		).toEqual({
+			kind: "no-op",
+			notice: {
+				level: "warn",
+				message: "interface enable proposal unavailable missing-control-target",
+			},
+		});
+		expect(
+			prepareInterfacePanelInput({
+				input: "D",
+				selectedIndex: 0,
+				summary: { ...fixture, platform: "freebsd" as never },
+				view: "detail",
+			}),
+		).toEqual({
+			kind: "no-op",
+			notice: {
+				level: "warn",
+				message: "interface disable proposal unavailable unsupported-platform",
+			},
+		});
+		for (const input of ["K", "\r", "C"]) {
+			expect(
+				prepareInterfacePanelInput({
+					input,
+					selectedIndex: 0,
+					summary: { ...fixture, macosServiceNamesByDevice: undefined },
+					view: "detail",
+				}),
+			).toMatchObject({ kind: "no-op" });
+		}
+	});
+
+	test("exposes interface control keys only for an exact current control target", () => {
+		expect(
+			getInterfaceControlIntent({
+				selectedIndex: 0,
+				summary: fixture,
+			}),
+		).toEqual({
+			keys: ["D", "U", "K", "enter", "C"],
+			kind: "available",
+			row: "K locked controls",
+			selectedIndex: 0,
+		});
+		expect(
+			getInterfaceControlIntent({ selectedIndex: 0, summary: undefined }),
+		).toEqual({
+			keys: [],
+			kind: "unavailable",
+			reason: "no-interface",
+			row: "controls unavailable no-interface",
+			selectedIndex: 0,
+		});
+		expect(
+			getInterfaceControlIntent({
+				selectedIndex: 0,
+				summary: { ...fixture, macosServiceNamesByDevice: undefined },
+			}),
+		).toEqual({
+			keys: [],
+			kind: "unavailable",
+			reason: "missing-control-target",
+			row: "controls unavailable missing-control-target",
+			selectedIndex: 0,
+		});
+		expect(
+			formatInterfaceWorkspaceRows(
+				{ ...fixture, macosServiceNamesByDevice: undefined },
+				12,
+				{ selectedIndex: 0, view: "detail" },
+			),
+		).toContain(
+			"SOURCE os=darwin stats=netstat -ib actions=R refresh Tab panes controls unavailable missing-control-target",
+		);
+	});
+
+	test("moves interface selection and clears target-bound state atomically", () => {
+		const proposal = createInterfaceStateProposal(
+			fixture.interfaces[0],
+			"disable",
+			{
+				platform: fixture.platform,
+				primaryInterfaceName: fixture.primaryInterface?.name,
+				macosServiceNamesByDevice: fixture.macosServiceNamesByDevice,
+			},
+		);
+		const confirmationResult = submitInterfaceConfirmation(
+			proposal,
+			"disable interface",
+		);
+
+		expect(
+			prepareInterfaceSelectionTransition({
+				direction: "down",
+				selectedIndex: 99,
+				summary: fixture,
+			}),
+		).toEqual({
+			confirmationResult: undefined,
+			copyPreview: false,
+			kind: "selection",
+			proposal: undefined,
+			selectedIndex: 0,
+		});
+		expect(
+			prepareInterfaceSelectionTransition({
+				direction: "down",
+				selectedIndex: 0,
+				summary: fixture,
+			}),
+		).toMatchObject({ kind: "selection", selectedIndex: 1 });
+		expect(
+			prepareInterfaceSelectionTransition({
+				direction: "up",
+				selectedIndex: 0,
+				summary: fixture,
+			}),
+		).toMatchObject({ kind: "selection", selectedIndex: 1 });
+		expect(
+			prepareInterfaceSelectionTransition({
+				direction: "down",
+				selectedIndex: 0,
+				summary: { ...fixture, interfaces: [] },
+			}),
+		).toEqual({ kind: "no-op", selectedIndex: 0 });
+		expect(
+			prepareInterfaceSelectionTransition({
+				direction: "down",
+				selectedIndex: 0,
+				summary: fixture,
+			}),
+		).toMatchObject({
+			confirmationResult: undefined,
+			copyPreview: false,
+			proposal: undefined,
+		});
+		expect(confirmationResult.confirmed).toBeTrue();
+	});
+	test("clamps selected interfaces and leaves an empty inventory unselected", () => {
+		expect(resolveSelectedInterface(fixture, -4)).toEqual({
+			selected: fixture.interfaces[0],
+			selectedIndex: 0,
+		});
+		expect(resolveSelectedInterface(fixture, 99)).toEqual({
+			selected: fixture.interfaces[1],
+			selectedIndex: 1,
+		});
+		expect(
+			resolveSelectedInterface({ ...fixture, interfaces: [] }, 99),
+		).toEqual({ selected: undefined, selectedIndex: 0 });
+	});
+
+	test("keeps supported interface proposals locked and empty selections no-op", () => {
+		const locked = prepareInterfacePanelInput({
+			input: "D",
+			selectedIndex: 0,
+			summary: fixture,
+			view: "detail",
+		});
+		expect(locked).toMatchObject({
+			kind: "proposal",
+			proposal: {
+				enabled: false,
+				status: "ready",
+				target: { name: "en0" },
+			},
+			notice: {
+				level: "warn",
+				message: "interface disable proposal ready target=en0",
+			},
+		});
+
+		expect(
+			prepareInterfacePanelInput({
+				input: "D",
+				selectedIndex: 0,
+				summary: { ...fixture, interfaces: [] },
+				view: "detail",
+			}),
+		).toEqual({
+			kind: "no-op",
+			notice: {
+				level: "warn",
+				message: "interface disable proposal unavailable no-interface",
+			},
+		});
+	});
+
+	test("rejects missing interface control targets before any proposal is created", () => {
+		const transition = prepareInterfacePanelInput({
+			input: "D",
+			selectedIndex: 0,
+			summary: { ...fixture, macosServiceNamesByDevice: undefined },
+			view: "detail",
+		});
+
+		expect(transition).toMatchObject({
+			kind: "no-op",
+			notice: {
+				message:
+					"interface disable proposal unavailable missing-control-target",
+			},
+		});
+	});
+
+	test("prepares source handoffs only for a selected source-pane interface", () => {
+		expect(
+			prepareInterfaceSourceHandoff({
+				action: "export",
+				baseDir: "/tmp/picos",
+				selectedIndex: -4,
+				summary: fixture,
+				view: "source",
+			}),
+		).toMatchObject({
+			kind: "handoff",
+			selectedIndex: 0,
+			plan: { label: "interface source evidence en0" },
+		});
+		expect(
+			prepareInterfaceSourceHandoff({
+				action: "open",
+				baseDir: "/tmp/picos",
+				selectedIndex: 0,
+				summary: fixture,
+				view: "detail",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "interface source open is available from source pane",
+			},
+		});
+		expect(
+			prepareInterfacePanelInput({
+				input: "e",
+				selectedIndex: 0,
+				summary: { ...fixture, interfaces: [] },
+				view: "source",
+			}),
+		).toEqual({
+			kind: "no-op",
+			notice: {
+				level: "warn",
+				message: "no interface source evidence to export",
+			},
+		});
+	});
+
+	test("resolves interface export and open input into complete handoff payloads", () => {
+		const generatedAt = new Date("2026-08-09T01:02:03.000Z");
+		for (const action of ["export", "open"] as const) {
+			const decision = prepareInterfacePanelInput({
+				input: action === "export" ? "e" : "o",
+				selectedIndex: 0,
+				summary: fixture,
+				view: "source",
+				handoff: { baseDir: "/tmp/picos", generatedAt },
+			});
+			expect(decision).toMatchObject({
+				kind: "source-handoff",
+				action,
+				baseDir: "/tmp/picos",
+				selectedIndex: 0,
+				plan: {
+					path: "/tmp/picos/interfaces/picos-interfaces-source-2026-08-09T010203000Z.md",
+					label: "interface source evidence en0",
+					view: "source",
+				},
+			});
+		}
+	});
+
+	test("requires a proposal and preserves exact confirmation mismatch audit", () => {
+		expect(
+			prepareInterfacePanelInput({
+				input: "K",
+				selectedIndex: 0,
+				summary: fixture,
+				view: "detail",
+			}),
+		).toEqual({
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: "open an interface proposal with D or U first",
+			},
+		});
+
+		const proposal = createInterfaceStateProposal(
+			fixture.interfaces[0],
+			"disable",
+			{
+				platform: fixture.platform,
+				primaryInterfaceName: fixture.primaryInterface?.name,
+				macosServiceNamesByDevice: fixture.macosServiceNamesByDevice,
+			},
+		);
+		expect(
+			prepareInterfaceConfirmationTransition({
+				proposal,
+				receivedPhrase: "disable adapter",
+			}),
+		).toMatchObject({
+			kind: "confirmation",
+			result: {
+				status: "rejected",
+				confirmed: false,
+				willExecute: false,
+				reason: "confirmation-mismatch",
+			},
+			notice: {
+				level: "fail",
+				message:
+					'interface confirmation interface.disable status=rejected confirmed=false willExecute=false target=Wi-Fi reason=confirmation-mismatch blockers=confirmation-mismatch,interface-execution-disabled,mutation-controls-disabled command="sudo networksetup -setnetworkserviceenabled Wi-Fi off"',
+			},
+		});
+	});
 	test("cycles interface detail tabs and selection indexes", () => {
 		expect(nextInterfaceDetailView("list")).toBe("detail");
 		expect(nextInterfaceDetailView("detail")).toBe("stats");
@@ -185,7 +537,7 @@ describe("interface TUI panel formatting", () => {
 			"ADDR ipv4=- ipv6=fe80::2/64 mac=00:00:00:00:00:00 netmask=-",
 			"LINK mtu=1380 rx=2.0KB/20pk tx=4.1KB/30pk",
 			"ROUTE gateway=192.168.0.1 dns=1.1.1.1,8.8.8.8 public=203.0.113.10",
-			"SOURCE os=darwin stats=netstat -ib actions=R refresh Tab panes K locked controls",
+			"SOURCE os=darwin stats=netstat -ib actions=R refresh Tab panes controls unavailable missing-control-target",
 			"  en0      wifiOrEthernet up   192.168.0.20/24      mtu=1500",
 			"> utun4    vpn            up   fe80::2/64           mtu=1380",
 			"GROUPS LAN:en0 | VPN:utun4",

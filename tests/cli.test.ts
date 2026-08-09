@@ -59,6 +59,7 @@ describe("CLI command registry", () => {
 			"monitor",
 			"logs",
 			"process",
+			"operations",
 		]) {
 			const command = cli.commands.find((candidate) => candidate.name === name);
 			expect(
@@ -72,6 +73,7 @@ describe("CLI command registry", () => {
 			["logs", "--limit", "0", "--json"],
 			["logs", "--level", "debug", "--json"],
 			["process", "0", "--json"],
+			["monitor", "--samples", "61", "--json"],
 		] as const) {
 			const output: string[] = [];
 			const originalLog = console.log;

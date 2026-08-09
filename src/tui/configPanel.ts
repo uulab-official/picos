@@ -1,8 +1,27 @@
-import { defaultConfig } from "../config/schema";
+import {
+	type ConfigWorkspaceResetValues,
+	defaultConfig,
+	mergeConfigWorkspaceResetValues,
+} from "../config/schema";
+import type { PicosAction } from "../core/actions";
+import { filterConnections } from "../core/connections";
 import type { FileOpenOrigin } from "../core/fileOpen";
-import type { PicosConfig } from "../core/types";
+import { formatLogProfileLabel, nextLogProfile } from "../core/logProfiles";
+import { filterOsLogEntries, type OsLogEntry } from "../core/osLogs";
+import { filterListeningPorts } from "../core/ports";
+import { filterRouteEntries, type RouteEntry } from "../core/routes";
+import type {
+	ActiveConnection,
+	ListeningPort,
+	LogProfile,
+	PicosConfig,
+} from "../core/types";
+import type { ConfigWorkspaceCommand } from "./appInputDispatcher";
+import { nextEndpointFilterPreset } from "./endpointPanel";
 import type { FocusArea, Screen } from "./navigation";
-import { getNextIndex } from "./navigation";
+import { clampIndex, getNextIndex } from "./navigation";
+import { nextRouteFilterPreset } from "./routePanel";
+import type { ToolTargetPreset } from "./toolHistory";
 
 export type ConfigWorkspaceItemKey =
 	| "auditArchiveRetentionLimit"
@@ -14,6 +33,24 @@ export type ConfigWorkspaceItemKey =
 	| "controlExecutionMode"
 	| "allowAdminDryRun"
 	| "editorSaveMode";
+
+const configWorkspaceItemKeys = {
+	auditArchiveRetentionLimit: true,
+	toolTargetPresetLimit: true,
+	language: true,
+	refreshInterval: true,
+	statusResultJumpClassFilter: true,
+	defaultPingHost: true,
+	controlExecutionMode: true,
+	allowAdminDryRun: true,
+	editorSaveMode: true,
+} as const satisfies Record<ConfigWorkspaceItemKey, true>;
+
+export function isConfigWorkspaceItemKey(
+	value: string,
+): value is ConfigWorkspaceItemKey {
+	return Object.hasOwn(configWorkspaceItemKeys, value);
+}
 
 type ConfigWorkspaceItemKind = "number" | "choice" | "text" | "boolean";
 
@@ -59,19 +96,155 @@ export type ConfigWorkspaceResetConfirmation = {
 	preview: ConfigWorkspaceResetPreview;
 };
 
-type ConfigWorkspaceResetKey =
+export type ConfigWorkspaceNotice = {
+	level: "info" | "ok" | "warn";
+	message: string;
+};
+
+export type ConfigWorkspaceAdjustmentTransition =
+	| {
+			kind: "write";
+			key: ConfigWorkspaceItemKey;
+			value: ConfigWorkspaceValue;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| { kind: "notice"; notice: ConfigWorkspaceNotice };
+
+export type ConfigWorkspaceResetSubmissionTransition =
+	| {
+			kind: "write";
+			values: ConfigWorkspaceResetValues;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| { kind: "notice"; notice: ConfigWorkspaceNotice };
+
+export type ConfigPolicyPresetTransition = {
+	kind: "write";
+	config: PicosConfig;
+	notices: ConfigWorkspaceNotice[];
+};
+
+export type ConfigWorkspaceResetOpenTransition = {
+	preview: ConfigWorkspaceResetPreview;
+	commandLinePrompt: "config-reset";
+	notice: ConfigWorkspaceNotice;
+};
+
+export type ConfigWorkspaceResetWriteIntent = {
+	config: PicosConfig;
+};
+
+export type ConfigWorkspaceFocusTransition =
+	| {
+			kind: "focus";
+			screen: "config";
+			focusArea: "workspaces";
+			selectedIndex: number;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| { kind: "notice"; notice: ConfigWorkspaceNotice };
+
+export type ConfigManagedShelfStateEffect =
+	| { kind: "screen"; screen: Screen }
+	| { kind: "focus-area"; focusArea: FocusArea }
+	| { kind: "shelf-landing"; target: ConfigManagedShelfTarget }
+	| {
+			kind: "command-line";
+			prompt:
+				| "route-filter"
+				| "endpoint-filter:connections"
+				| "endpoint-filter:ports"
+				| "log-search"
+				| "tool-target-preset"
+				| "remote-profile";
+	  }
+	| { kind: "interface-selection"; index: number }
+	| { kind: "route-detail-view"; view: "table" }
+	| { kind: "route-copy-preview"; value: false }
+	| { kind: "route-filter"; value: string }
+	| { kind: "connection-copy-preview"; value: false }
+	| { kind: "connection-filter"; value: string }
+	| { kind: "connection-selection"; index: number }
+	| { kind: "port-copy-preview"; value: false }
+	| { kind: "port-process-preview"; value: false }
+	| { kind: "port-filter"; value: string }
+	| { kind: "port-selection"; index: number }
+	| { kind: "tool-target-selection"; index: number }
+	| { kind: "tool-detail-view"; view: "summary" }
+	| { kind: "tool-copy-preview"; value: false }
+	| { kind: "log-level"; value: LogProfile["level"] }
+	| { kind: "log-query"; value: string }
+	| { kind: "remote-selection"; index: number };
+
+export type ConfigManagedShelfApplyTransition = {
+	kind: "apply";
+	effects: ConfigManagedShelfStateEffect[];
+	notice: ConfigWorkspaceNotice;
+};
+
+export type ConfigManagedShelfFocusTransition =
+	| { kind: "no-op" }
+	| ConfigManagedShelfApplyTransition;
+
+export type ConfigManagedShelfFocusActionInput = {
+	target: ConfigManagedShelfTarget | undefined;
+	screen: Screen;
+	network?: { interfaceCount: number };
+	routes?: { presets: string[]; query: string; entries: RouteEntry[] };
+	connections?: {
+		presets: string[];
+		query: string;
+		entries: ActiveConnection[];
+	};
+	ports?: { presets: string[]; query: string; entries: ListeningPort[] };
+	tools?: { presets: ToolTargetPreset[]; selectedIndex: number };
+	logs?: {
+		profiles: LogProfile[];
+		level: LogProfile["level"];
+		query: string;
+		entries: OsLogEntry[];
+	};
+	remotes?: { profileCount: number };
+};
+
+export type ConfigManagedShelfJumpCounts = Partial<
+	Record<ConfigManagedShelfTarget, number>
+>;
+
+export type ConfigManagedShelfJumpOrigin =
+	| "keyboard"
+	| "palette"
+	| "recovery-palette";
+
+export type ConfigManagedShelfJumpInput = {
+	origin?: ConfigManagedShelfJumpOrigin;
+	counts?: ConfigManagedShelfJumpCounts;
+};
+
+export type ConfigManagedShelfLandingDismissTransition =
+	| { kind: "clear"; notice: ConfigWorkspaceNotice }
+	| { kind: "no-op" };
+
+export type ConfigSessionSyncIntent = Pick<
+	PicosConfig,
 	| "auditArchiveRetentionLimit"
 	| "toolTargetPresetLimit"
 	| "language"
 	| "refreshInterval"
 	| "defaultPingHost"
-	| "controlExecutionMode"
-	| "allowAdminDryRun"
 	| "enableExperimentalControls"
 	| "editorSaveMode"
-	| "statusResultJumpClassFilter";
+	| "showPublicIp"
+	| "controlExecutionMode"
+	| "allowAdminDryRun"
+	| "statusResultJumpClassFilter"
+	| "interfaceEvidenceSearchPresets"
+	| "operationPresets"
+	| "toolTargetPresets"
+	| "remoteProfiles"
+>;
 
-type ConfigWorkspaceResetValues = Pick<PicosConfig, ConfigWorkspaceResetKey>;
+type ConfigWorkspaceResetKey = keyof ConfigWorkspaceResetValues;
 
 export type ConfigManagedShelfTarget =
 	| "network"
@@ -135,6 +308,14 @@ export type ConfigRecoveryDirectPromptPlan = ConfigManagedShelfHandoff & {
 	rows: string[];
 };
 
+export type ConfigRecoveryDirectPromptTransition =
+	| { kind: "no-op" }
+	| {
+			kind: "apply";
+			effects: ConfigManagedShelfStateEffect[];
+			notice: ConfigWorkspaceNotice;
+	  };
+
 type ConfigManagedShelfCoverageKey =
 	| "routeFilters"
 	| "connectionFilters"
@@ -142,7 +323,8 @@ type ConfigManagedShelfCoverageKey =
 	| "toolTargets"
 	| "logProfiles"
 	| "logSearches"
-	| "remotes";
+	| "remotes"
+	| "operationPresets";
 
 const configPolicyPresets: ConfigPolicyPresetPreview[] = [
 	{
@@ -401,6 +583,27 @@ export function applyConfigPolicyPreset(
 	};
 }
 
+export function prepareNextConfigPolicyPresetTransition(
+	config: PicosConfig,
+): ConfigPolicyPresetTransition {
+	const preset = applyConfigPolicyPreset(
+		getNextConfigPolicyPreset({
+			controlExecutionMode: config.controlExecutionMode,
+			allowAdminDryRun: config.allowAdminDryRun,
+			enableExperimentalControls: config.enableExperimentalControls,
+			editorSaveMode: config.editorSaveMode,
+		}),
+	);
+	return {
+		kind: "write",
+		config: { ...config, ...preset.values },
+		notices: preset.rows.map((message, index) => ({
+			level: index === 0 ? "info" : "ok",
+			message,
+		})),
+	};
+}
+
 export function createConfigWorkspaceResetPreview(
 	config: ConfigWorkspaceResetValues,
 ): ConfigWorkspaceResetPreview {
@@ -420,6 +623,20 @@ export function createConfigWorkspaceResetPreview(
 	};
 }
 
+export function prepareConfigWorkspaceResetOpenTransition(
+	config: ConfigWorkspaceResetValues,
+): ConfigWorkspaceResetOpenTransition {
+	const preview = createConfigWorkspaceResetPreview(config);
+	return {
+		preview,
+		commandLinePrompt: "config-reset",
+		notice: {
+			level: "warn",
+			message: `config reset preview opened ${preview.changedKeys.length} values`,
+		},
+	};
+}
+
 export function submitConfigWorkspaceResetConfirmation(
 	preview: ConfigWorkspaceResetPreview,
 	confirmation: string,
@@ -434,6 +651,114 @@ export function submitConfigWorkspaceResetConfirmation(
 	};
 }
 
+export function createConfigSessionSyncIntent(
+	config: PicosConfig,
+): ConfigSessionSyncIntent {
+	return {
+		auditArchiveRetentionLimit: config.auditArchiveRetentionLimit,
+		toolTargetPresetLimit: config.toolTargetPresetLimit,
+		language: config.language,
+		refreshInterval: config.refreshInterval,
+		defaultPingHost: config.defaultPingHost,
+		enableExperimentalControls: config.enableExperimentalControls,
+		editorSaveMode: config.editorSaveMode,
+		showPublicIp: config.showPublicIp,
+		controlExecutionMode: config.controlExecutionMode,
+		allowAdminDryRun: config.allowAdminDryRun,
+		statusResultJumpClassFilter: config.statusResultJumpClassFilter,
+		interfaceEvidenceSearchPresets: config.interfaceEvidenceSearchPresets,
+		operationPresets: config.operationPresets,
+		toolTargetPresets: config.toolTargetPresets,
+		remoteProfiles: config.remoteProfiles,
+	};
+}
+
+export function prepareConfigWorkspaceAdjustment(input: {
+	items: ConfigWorkspaceItem[];
+	selectedIndex: number;
+	direction: "increase" | "decrease";
+}): ConfigWorkspaceAdjustmentTransition {
+	const item = getConfigWorkspaceItem(input.items, input.selectedIndex);
+	if (!item) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no config item selected" },
+		};
+	}
+
+	const value = adjustConfigWorkspaceItem(item, input.direction);
+	if (value === item.value) {
+		return {
+			kind: "notice",
+			notice: {
+				level: "warn",
+				message: `${item.key} already at ${item.value}`,
+			},
+		};
+	}
+
+	return {
+		kind: "write",
+		key: item.key,
+		value,
+		notice: { level: "ok", message: `config ${item.key}=${value}` },
+	};
+}
+
+export function prepareConfigWorkspaceTextSubmission(input: {
+	items: ConfigWorkspaceItem[];
+	selectedIndex: number;
+	value: string;
+}): ConfigWorkspaceAdjustmentTransition {
+	const item = getConfigWorkspaceItem(input.items, input.selectedIndex);
+	if (item?.key !== "defaultPingHost") {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "no editable config item selected" },
+		};
+	}
+
+	const value = input.value.trim();
+	if (!value) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: "defaultPingHost cannot be empty" },
+		};
+	}
+
+	return {
+		kind: "write",
+		key: item.key,
+		value,
+		notice: { level: "ok", message: `config ${item.key}=${value}` },
+	};
+}
+
+export function prepareConfigWorkspaceResetSubmission(
+	preview: ConfigWorkspaceResetPreview,
+	confirmation: string,
+): ConfigWorkspaceResetSubmissionTransition {
+	const result = submitConfigWorkspaceResetConfirmation(preview, confirmation);
+	if (!result.confirmed) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: result.message },
+		};
+	}
+	return {
+		kind: "write",
+		values: result.preview.values,
+		notice: { level: "ok", message: result.message },
+	};
+}
+
+export function createConfigWorkspaceResetWriteIntent(
+	config: PicosConfig,
+	values: ConfigWorkspaceResetValues,
+): ConfigWorkspaceResetWriteIntent {
+	return { config: mergeConfigWorkspaceResetValues(config, values) };
+}
+
 export function moveConfigWorkspaceSelection(
 	current: number,
 	total: number,
@@ -446,7 +771,7 @@ export function getConfigWorkspaceItem(
 	items: ConfigWorkspaceItem[],
 	selectedIndex: number,
 ): ConfigWorkspaceItem | undefined {
-	return items[Math.min(Math.max(selectedIndex, 0), items.length - 1)];
+	return items[clampIndex(selectedIndex, items.length)];
 }
 
 export function getConfigWorkspaceItemIndex(
@@ -461,6 +786,34 @@ export function getConfigWorkspaceActionFocusKey(
 	actionId: string,
 ): ConfigWorkspaceItemKey | undefined {
 	return configWorkspaceActionFocusKeys[actionId];
+}
+
+export function createConfigWorkspaceActionFocusTransition(
+	actionId: string,
+	items: ConfigWorkspaceItem[],
+): ConfigWorkspaceFocusTransition | undefined {
+	const key = getConfigWorkspaceActionFocusKey(actionId);
+	if (!key) {
+		return undefined;
+	}
+	const index = getConfigWorkspaceItemIndex(items, key);
+	if (index === undefined) {
+		return {
+			kind: "notice",
+			notice: { level: "warn", message: `config row ${key} unavailable` },
+		};
+	}
+	const item = getConfigWorkspaceItem(items, index);
+	return {
+		kind: "focus",
+		screen: "config",
+		focusArea: "workspaces",
+		selectedIndex: clampIndex(index, items.length),
+		notice: {
+			level: "info",
+			message: `config focus ${key} current=${String(item?.value ?? "-")}`,
+		},
+	};
 }
 
 export function getConfigWorkspaceSectionJumpIndex(
@@ -506,11 +859,185 @@ export function adjustConfigWorkspaceItem(
 
 export function getConfigWorkspaceEditPrompt(
 	item: ConfigWorkspaceItem,
-): string | undefined {
+): `config-${ConfigWorkspaceItemKey}` | undefined {
 	if (item.kind !== "text") {
 		return undefined;
 	}
 	return `config-${item.key}`;
+}
+
+export type ConfigWorkspaceInputTransition =
+	| { kind: "no-op" }
+	| {
+			kind: "selection";
+			selectedIndex: number;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| {
+			kind: "adjust";
+			transition: ConfigWorkspaceAdjustmentTransition;
+	  }
+	| { kind: "cycle-policy" }
+	| {
+			kind: "reset";
+			transition: ConfigWorkspaceResetOpenTransition;
+	  }
+	| {
+			kind: "shelf-selection";
+			target: ConfigManagedShelfTarget;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| {
+			kind: "edit";
+			prompt: `config-${ConfigWorkspaceItemKey}`;
+			notice: ConfigWorkspaceNotice;
+	  }
+	| {
+			kind: "jump-shelf";
+			transition: ConfigManagedShelfApplyTransition;
+	  }
+	| { kind: "run-action"; action: PicosAction }
+	| { kind: "notice"; notice: ConfigWorkspaceNotice };
+
+export function prepareConfigWorkspaceInput(input: {
+	command: ConfigWorkspaceCommand | undefined;
+	items: ConfigWorkspaceItem[];
+	selectedIndex: number;
+	selectedShelfTarget: ConfigManagedShelfTarget | undefined;
+	actions: PicosAction[];
+	resetValues: ConfigWorkspaceResetValues;
+	shelfCounts: ConfigManagedShelfJumpCounts;
+}): ConfigWorkspaceInputTransition {
+	const sectionByCommand = {
+		"jump-display": "display",
+		"jump-safety": "safety",
+		"jump-retention": "retention",
+		"jump-connectivity": "connectivity",
+	} as const satisfies Partial<
+		Record<ConfigWorkspaceCommand, ConfigWorkspaceSectionId>
+	>;
+	const section =
+		sectionByCommand[input.command as keyof typeof sectionByCommand];
+	if (section) {
+		const selectedIndex = getConfigWorkspaceSectionJumpIndex(
+			input.items,
+			section,
+		);
+		if (selectedIndex === undefined) {
+			return {
+				kind: "notice",
+				notice: {
+					level: "warn",
+					message: `config section unavailable ${section}`,
+				},
+			};
+		}
+		const item = getConfigWorkspaceItem(input.items, selectedIndex);
+		return {
+			kind: "selection",
+			selectedIndex,
+			notice: {
+				level: "info",
+				message: `config section ${section} selected ${item?.key ?? selectedIndex + 1}`,
+			},
+		};
+	}
+	switch (input.command) {
+		case undefined:
+			return { kind: "no-op" };
+		case "move-next":
+		case "move-previous": {
+			const selectedIndex = moveConfigWorkspaceSelection(
+				input.selectedIndex,
+				input.items.length,
+				input.command === "move-next" ? "next" : "previous",
+			);
+			const item = getConfigWorkspaceItem(input.items, selectedIndex);
+			return {
+				kind: "selection",
+				selectedIndex,
+				notice: {
+					level: "info",
+					message: `config selected ${item?.key ?? selectedIndex + 1}`,
+				},
+			};
+		}
+		case "increase":
+		case "decrease":
+			return {
+				kind: "adjust",
+				transition: prepareConfigWorkspaceAdjustment({
+					items: input.items,
+					selectedIndex: input.selectedIndex,
+					direction: input.command,
+				}),
+			};
+		case "cycle-policy":
+			return { kind: "cycle-policy" };
+		case "reset":
+			return {
+				kind: "reset",
+				transition: prepareConfigWorkspaceResetOpenTransition(
+					input.resetValues,
+				),
+			};
+		case "cycle-shelf-next":
+		case "cycle-shelf-previous": {
+			const target = getNextConfigManagedShelfTarget(
+				input.selectedShelfTarget,
+				input.command === "cycle-shelf-next" ? "next" : "previous",
+			);
+			const handoff = getConfigManagedShelfHandoff(target);
+			return {
+				kind: "shelf-selection",
+				target,
+				notice: {
+					level: "info",
+					message: `config shelf target ${handoff.target} -> ${handoff.label}`,
+				},
+			};
+		}
+		case "enter": {
+			const item = getConfigWorkspaceItem(input.items, input.selectedIndex);
+			const prompt = item ? getConfigWorkspaceEditPrompt(item) : undefined;
+			if (prompt) {
+				return {
+					kind: "edit",
+					prompt,
+					notice: {
+						level: "info",
+						message: `config edit opened ${item?.key}`,
+					},
+				};
+			}
+			if (input.selectedShelfTarget) {
+				return {
+					kind: "jump-shelf",
+					transition: createConfigManagedShelfJumpTransition(
+						input.selectedShelfTarget,
+						{ origin: "keyboard", counts: input.shelfCounts },
+					),
+				};
+			}
+			const action = input.actions.find(
+				(candidate) => candidate.id === "config.show",
+			);
+			return action
+				? { kind: "run-action", action }
+				: {
+						kind: "notice",
+						notice: {
+							level: "warn",
+							message: "config action unavailable",
+						},
+					};
+		}
+		case "jump-display":
+		case "jump-safety":
+		case "jump-retention":
+		case "jump-connectivity":
+			return { kind: "no-op" };
+	}
 }
 
 export function formatConfigWorkspaceRows(
@@ -566,6 +1093,7 @@ export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
 		logProfiles: config.logProfiles.length,
 		logSearches: config.logSearchPresets.length,
 		remotes: config.remoteProfiles.length,
+		operationPresets: config.operationPresets.length,
 	};
 	const saved = Object.values(shelfCounts).reduce(
 		(total, count) => total + count,
@@ -579,10 +1107,10 @@ export function formatConfigManagedShelfRows(config: PicosConfig): string[] {
 		`network defaults host=${config.defaultPingHost} routeFilters=${config.routeFilterPresets.length} connectionFilters=${config.connectionFilterPresets.length} portFilters=${config.portFilterPresets.length}`,
 		`tools defaults targets=${config.toolTargetPresets.length} filters=${config.toolHistoryFilterPresets.length} sort=${config.toolHistorySort} group=${config.toolHistoryGroup} detail=${config.toolHistoryDetailView}`,
 		`workspace behavior logs=${config.logProfiles.length} searches=${config.logSearchPresets.length} remotes=${config.remoteProfiles.length} publicIp=${config.showPublicIp} experimental=${config.enableExperimentalControls} statusJumpClass=${config.statusResultJumpClassFilter}`,
-		`shelf coverage saved=${saved} empty=${emptyShelves.length} routeFilters=${shelfCounts.routeFilters} connectionFilters=${shelfCounts.connectionFilters} portFilters=${shelfCounts.portFilters} toolTargets=${shelfCounts.toolTargets} logProfiles=${shelfCounts.logProfiles} logSearches=${shelfCounts.logSearches} remotes=${shelfCounts.remotes}`,
+		`shelf coverage saved=${saved} empty=${emptyShelves.length} routeFilters=${shelfCounts.routeFilters} connectionFilters=${shelfCounts.connectionFilters} portFilters=${shelfCounts.portFilters} toolTargets=${shelfCounts.toolTargets} logProfiles=${shelfCounts.logProfiles} logSearches=${shelfCounts.logSearches} remotes=${shelfCounts.remotes} operationPresets=${shelfCounts.operationPresets}`,
 		`empty shelves ${emptyShelves.length > 0 ? emptyShelves.join(",") : "none"}`,
 		...formatConfigManagedShelfRecoveryRows(emptyShelves),
-		"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces",
+		"managed-by=Routes/Connections/Ports/Tools/Logs/Remotes workspaces + operationPresets via picos operations",
 	];
 }
 
@@ -716,6 +1244,251 @@ export function createConfigManagedShelfFocusActionPlan(
 	};
 }
 
+export function createConfigManagedShelfJumpTransition(
+	target: ConfigManagedShelfTarget,
+	input: ConfigManagedShelfJumpInput = {},
+): ConfigManagedShelfApplyTransition {
+	const focus = getConfigManagedShelfFocusPreset(target);
+	const origin = input.origin ?? "keyboard";
+	const counts = input.counts ?? {};
+	const index = clampIndex(0, Math.max(0, Math.floor(counts[target] ?? 0)));
+	const effects: ConfigManagedShelfStateEffect[] = [
+		{ kind: "screen", screen: focus.workspace },
+		{ kind: "focus-area", focusArea: focus.focusArea },
+		{ kind: "shelf-landing", target: focus.target },
+	];
+	if (focus.cursor === "interfaceList") {
+		effects.push({ kind: "interface-selection", index });
+	} else if (focus.cursor === "routeFilters") {
+		effects.push(
+			{ kind: "route-detail-view", view: "table" },
+			{ kind: "route-copy-preview", value: false },
+		);
+	} else if (focus.cursor === "connectionFilters") {
+		effects.push({ kind: "connection-selection", index });
+	} else if (focus.cursor === "portFilters") {
+		effects.push({ kind: "port-selection", index });
+	} else if (focus.cursor === "toolTargetPresets") {
+		effects.push(
+			{ kind: "tool-target-selection", index },
+			{ kind: "tool-detail-view", view: "summary" },
+		);
+	} else if (focus.cursor === "remoteProfiles") {
+		effects.push({ kind: "remote-selection", index });
+	}
+	return {
+		kind: "apply",
+		effects,
+		notice: {
+			level: "info",
+			message: `${getConfigManagedShelfJumpNoticePrefix(origin)} ${focus.target} -> ${focus.label} focus=${focus.cursor}`,
+		},
+	};
+}
+
+export function prepareConfigManagedShelfFocusAction(
+	input: ConfigManagedShelfFocusActionInput,
+): ConfigManagedShelfFocusTransition {
+	if (!input.target) {
+		return { kind: "no-op" };
+	}
+	const handoff = getConfigManagedShelfHandoff(input.target);
+	if (handoff.workspace !== input.screen) {
+		return { kind: "no-op" };
+	}
+	if (input.target === "network") {
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "screen", screen: "interfaces" },
+				{
+					kind: "interface-selection",
+					index: clampIndex(0, input.network?.interfaceCount ?? 0),
+				},
+			],
+			notice: { level: "info", message: "config shelf action open interfaces" },
+		};
+	}
+	if (input.target === "routes") {
+		const routes = input.routes ?? { presets: [], query: "", entries: [] };
+		const preset = nextRouteFilterPreset(routes.presets, routes.query);
+		if (!preset) {
+			return createConfigManagedShelfPromptTransition("routes");
+		}
+		const matchCount = filterRouteEntries(routes.entries, preset).length;
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "route-copy-preview", value: false },
+				{ kind: "route-filter", value: preset },
+			],
+			notice: {
+				level: matchCount ? "info" : "warn",
+				message: `config shelf action route preset ${preset} matches ${matchCount}`,
+			},
+		};
+	}
+	if (input.target === "connections") {
+		const connections = input.connections ?? {
+			presets: [],
+			query: "",
+			entries: [],
+		};
+		const preset = nextEndpointFilterPreset(
+			connections.presets,
+			connections.query,
+		);
+		if (!preset) {
+			return createConfigManagedShelfPromptTransition("connections");
+		}
+		const filtered = filterConnections(connections.entries, preset);
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "connection-copy-preview", value: false },
+				{ kind: "connection-filter", value: preset },
+				{
+					kind: "connection-selection",
+					index: clampIndex(0, filtered.length),
+				},
+			],
+			notice: {
+				level: filtered.length ? "info" : "warn",
+				message: `config shelf action connections preset ${preset} matches ${filtered.length}`,
+			},
+		};
+	}
+	if (input.target === "ports") {
+		const ports = input.ports ?? { presets: [], query: "", entries: [] };
+		const preset = nextEndpointFilterPreset(ports.presets, ports.query);
+		if (!preset) {
+			return createConfigManagedShelfPromptTransition("ports");
+		}
+		const filtered = filterListeningPorts(ports.entries, preset);
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "port-copy-preview", value: false },
+				{ kind: "port-process-preview", value: false },
+				{ kind: "port-filter", value: preset },
+				{ kind: "port-selection", index: clampIndex(0, filtered.length) },
+			],
+			notice: {
+				level: filtered.length ? "info" : "warn",
+				message: `config shelf action ports preset ${preset} matches ${filtered.length}`,
+			},
+		};
+	}
+	if (input.target === "tools") {
+		const tools = input.tools ?? { presets: [], selectedIndex: 0 };
+		const index = getNextIndex(
+			clampIndex(tools.selectedIndex, tools.presets.length),
+			tools.presets.length,
+			"next",
+		);
+		const preset = tools.presets[clampIndex(index, tools.presets.length)];
+		return {
+			kind: "apply",
+			effects: [
+				{
+					kind: "tool-target-selection",
+					index: clampIndex(index, tools.presets.length),
+				},
+				{ kind: "tool-detail-view", view: "summary" },
+				{ kind: "tool-copy-preview", value: false },
+			],
+			notice: preset
+				? {
+						level: "info",
+						message: `config shelf action tool target ${preset.label} ${preset.target}`,
+					}
+				: {
+						level: "warn",
+						message: "config shelf action no tool target presets",
+					},
+		};
+	}
+	if (input.target === "logs") {
+		const logs = input.logs ?? {
+			profiles: [],
+			level: "all" as const,
+			query: "",
+			entries: [],
+		};
+		const profile = nextLogProfile(logs.profiles, {
+			level: logs.level,
+			query: logs.query,
+		});
+		if (!profile) {
+			return createConfigManagedShelfPromptTransition("logs");
+		}
+		const matchCount = filterOsLogEntries(
+			logs.entries,
+			profile.query,
+			profile.level,
+		).length;
+		return {
+			kind: "apply",
+			effects: [
+				{ kind: "log-level", value: profile.level },
+				{ kind: "log-query", value: profile.query },
+			],
+			notice: {
+				level: matchCount ? "info" : "warn",
+				message: `config shelf action logs profile ${formatLogProfileLabel(profile)} matches ${matchCount}`,
+			},
+		};
+	}
+	const profileCount = Math.max(
+		0,
+		Math.floor(input.remotes?.profileCount ?? 0),
+	);
+	return {
+		kind: "apply",
+		effects: [
+			{ kind: "focus-area", focusArea: "remotes" },
+			{ kind: "remote-selection", index: clampIndex(0, profileCount) },
+		],
+		notice: profileCount
+			? { level: "info", message: "config shelf action remote profile focus" }
+			: { level: "warn", message: "config shelf action no remote profiles" },
+	};
+}
+
+function createConfigManagedShelfPromptTransition(
+	target: "routes" | "connections" | "ports" | "logs",
+): ConfigManagedShelfApplyTransition {
+	const prompt = getConfigManagedShelfEmptyFocusPrompt(target);
+	if (!prompt) {
+		throw new Error(`Missing managed shelf recovery prompt for ${target}`);
+	}
+	return {
+		kind: "apply",
+		effects: [{ kind: "command-line", prompt: prompt.prompt }],
+		notice: { level: "warn", message: prompt.message },
+	};
+}
+
+export function prepareConfigManagedShelfLandingDismissal(input: {
+	target: ConfigManagedShelfTarget | undefined;
+	screen: Screen;
+}): ConfigManagedShelfLandingDismissTransition {
+	if (!input.target) {
+		return { kind: "no-op" };
+	}
+	const handoff = getConfigManagedShelfHandoff(input.target);
+	if (handoff.workspace !== input.screen) {
+		return { kind: "no-op" };
+	}
+	return {
+		kind: "clear",
+		notice: {
+			level: "info",
+			message: `config shelf landing cleared ${handoff.label}`,
+		},
+	};
+}
+
 export function formatConfigRecoveryPaletteRows(
 	target: ConfigManagedShelfTarget,
 ): string[] {
@@ -755,6 +1528,27 @@ export function createConfigRecoveryDirectPromptPlan(
 			`prompt=${prompt} reason=${reason}`,
 			"next=type filter and press enter",
 		],
+	};
+}
+
+export function prepareConfigRecoveryDirectPromptTransition(
+	target: ConfigManagedShelfTarget | undefined,
+	counts: ConfigRecoveryShelfCounts,
+): ConfigRecoveryDirectPromptTransition {
+	if (!target) {
+		return { kind: "no-op" };
+	}
+	const plan = createConfigRecoveryDirectPromptPlan(target, counts);
+	if (!plan) {
+		return { kind: "no-op" };
+	}
+	return {
+		kind: "apply",
+		effects: [{ kind: "command-line", prompt: plan.prompt }],
+		notice: {
+			level: "info",
+			message: `config recovery prompt ${plan.target} ${plan.prompt}`,
+		},
 	};
 }
 
@@ -926,6 +1720,45 @@ function getConfigManagedShelfFocusCursor(
 	return "remoteProfiles";
 }
 
+function getConfigManagedShelfEmptyFocusPrompt(
+	target: ConfigManagedShelfTarget,
+):
+	| {
+			prompt:
+				| "route-filter"
+				| "endpoint-filter:connections"
+				| "endpoint-filter:ports"
+				| "log-search";
+			message: string;
+	  }
+	| undefined {
+	if (target === "routes") {
+		return {
+			prompt: "route-filter",
+			message: "config shelf action route filter prompt",
+		};
+	}
+	if (target === "connections") {
+		return {
+			prompt: "endpoint-filter:connections",
+			message: "config shelf action connections filter prompt",
+		};
+	}
+	if (target === "ports") {
+		return {
+			prompt: "endpoint-filter:ports",
+			message: "config shelf action ports filter prompt",
+		};
+	}
+	if (target === "logs") {
+		return {
+			prompt: "log-search",
+			message: "config shelf action logs search prompt",
+		};
+	}
+	return undefined;
+}
+
 function formatConfigManagedShelfFocusHint(
 	focus: Pick<ConfigManagedShelfFocusPreset, "cursor" | "detailView" | "index">,
 ): string {
@@ -1012,6 +1845,9 @@ function formatConfigManagedShelfRecoveryRows(
 		return ["recovery all shelves ready"];
 	}
 	return emptyShelves.map((shelf) => {
+		if (shelf === "operationPresets") {
+			return "recovery operationPresets -> picos operations kinds";
+		}
 		const target = getConfigManagedShelfRecoveryTarget(shelf);
 		const handoff = getConfigManagedShelfHandoff(target);
 		return `recovery ${shelf} -> ${handoff.label} ${formatConfigManagedShelfFocusActionHint(target).replace("  ", " ")}`;
@@ -1019,7 +1855,7 @@ function formatConfigManagedShelfRecoveryRows(
 }
 
 function getConfigManagedShelfRecoveryTarget(
-	shelf: ConfigManagedShelfCoverageKey,
+	shelf: Exclude<ConfigManagedShelfCoverageKey, "operationPresets">,
 ): ConfigManagedShelfTarget {
 	if (shelf === "routeFilters") {
 		return "routes";
@@ -1085,6 +1921,18 @@ function getConfigRecoveryDirectPrompt(
 		return "remote-profile";
 	}
 	return undefined;
+}
+
+function getConfigManagedShelfJumpNoticePrefix(
+	origin: ConfigManagedShelfJumpOrigin,
+): string {
+	if (origin === "palette") {
+		return "config shelf palette";
+	}
+	if (origin === "recovery-palette") {
+		return "config recovery palette";
+	}
+	return "config shelf jump";
 }
 
 function getConfigManagedShelfPromptScope(

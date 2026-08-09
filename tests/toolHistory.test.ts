@@ -4,9 +4,13 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { ToolResult } from "../src/core/tools";
 import type { NetworkSummary } from "../src/core/types";
+import type { ToolsWorkspaceCommand } from "../src/tui/appInputDispatcher";
+import type { ClipboardPreview } from "../src/tui/clipboardPreview";
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
+	classifyToolHistoryEvidenceIndexBatchRefresh,
+	classifyToolHistoryExportIndexRefresh,
 	createToolFormState,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
@@ -17,6 +21,8 @@ import {
 	createToolRunPlanFromForm,
 	createToolRunPlanFromPreset,
 	createToolTargetCleanupPreview,
+	createToolTargetPromptIntent,
+	createToolTargetRunIntent,
 	filterToolHistory,
 	filterToolHistoryExportIndex,
 	formatToolFormInputValue,
@@ -27,6 +33,7 @@ import {
 	formatToolHistoryExportIndexRows,
 	formatToolPromptRows,
 	formatToolsWorkspaceRows,
+	getNewestToolHistoryIndex,
 	getSelectedToolCompareClipboardPreview,
 	getSelectedToolHistoryExport,
 	getSelectedToolHistoryItem,
@@ -35,6 +42,7 @@ import {
 	getSelectedToolSectionRowClipboardPreview,
 	getSelectedToolSummaryClipboardPreview,
 	getSelectedToolTargetClipboardPreview,
+	getSelectedToolTargetPreset,
 	getToolHistoryDetailViewShortcut,
 	getToolRunActionMetadata,
 	getToolTargetPresets,
@@ -52,22 +60,41 @@ import {
 	nextToolSectionClipboardSelection,
 	normalizeToolTargetPresets,
 	parseToolTargetPresetCommand,
+	prepareSelectedToolHistoryExport,
+	prepareSelectedToolHistoryExportArchive,
+	prepareSelectedToolHistoryExportOpen,
+	prepareToolHistoryArchiveRetentionConfirmation,
+	prepareToolHistoryExport,
+	prepareToolHistoryExportArchiveConfirmation,
+	prepareToolsWorkspaceInput,
 	promoteToolTargetPreset,
+	promoteToolTargetPresetTransition,
 	pruneToolHistoryExportArchive,
 	readToolHistoryExportArchiveIndex,
 	readToolHistoryExportIndex,
 	reassignToolTargetPresetAction,
+	reassignToolTargetPresetActionTransition,
 	removeToolTargetPreset,
 	removeToolTargetPresetsByAction,
+	removeToolTargetPresetTransition,
 	renameToolTargetPreset,
+	renameToolTargetPresetTransition,
 	rerunToolHistoryItem,
 	retargetToolTargetPreset,
+	retargetToolTargetPresetTransition,
+	saveSelectedToolTargetPresetTransition,
 	saveToolHistoryPreset,
 	saveToolTargetPreset,
 	selectToolFormField,
+	selectToolTargetPresetTransition,
 	sortToolHistory,
 	submitToolHistoryCleanupConfirmation,
 	submitToolTargetCleanupConfirmation,
+	submitToolTargetCleanupTransition,
+	submitToolTargetPresetCommandTransition,
+	type ToolsWorkspaceInput,
+	type ToolsWorkspaceInputEffect,
+	type ToolTargetPreset,
 	updateToolFormFieldValue,
 	writeToolHistoryExport,
 } from "../src/tui/toolHistory";
@@ -81,6 +108,11 @@ const result: ToolResult = {
 	rawOutput: "$ picos tools dns example.com\n[Summary]\nQuery: example.com",
 };
 
+test("selects the newest Tools history item through the shared clamp", () => {
+	expect(getNewestToolHistoryIndex([])).toBe(0);
+	expect(getNewestToolHistoryIndex([{} as never, {} as never])).toBe(1);
+});
+
 const summary: NetworkSummary = {
 	status: "online",
 	host: "local",
@@ -90,6 +122,23 @@ const summary: NetworkSummary = {
 	dnsServers: ["1.1.1.1"],
 	publicIp: "203.0.113.10",
 };
+
+const savedToolTargetPresets = [
+	{
+		id: "api-dns",
+		label: "API DNS",
+		actionId: "tools.dns",
+		target: "api.example.com",
+		hint: "saved DNS target",
+	},
+	{
+		id: "db-ping",
+		label: "DB ping",
+		actionId: "ping.default",
+		target: "db.example.com",
+		hint: "saved reachability target",
+	},
+] satisfies ToolTargetPreset[];
 
 describe("TUI tool history", () => {
 	test("plans safe default tool runs from read-only action ids", () => {
@@ -1101,6 +1150,548 @@ describe("TUI tool history", () => {
 		expect(moveToolTargetPresetSelection(2, 4, "previous")).toBe(1);
 		expect(moveToolTargetPresetSelection(99, 4, "next")).toBe(0);
 		expect(moveToolTargetPresetSelection(0, 0, "previous")).toBe(0);
+	});
+
+	test("resolves target selection without indexing an empty shelf", () => {
+		expect(getSelectedToolTargetPreset([], -1)).toBeUndefined();
+		expect(getSelectedToolTargetPreset(savedToolTargetPresets, -4)).toEqual(
+			savedToolTargetPresets[0],
+		);
+		expect(getSelectedToolTargetPreset(savedToolTargetPresets, 99)).toEqual(
+			savedToolTargetPresets[1],
+		);
+	});
+
+	test("repairs target selection before cycling and reports the selected target", () => {
+		expect(
+			selectToolTargetPresetTransition(savedToolTargetPresets, -4, "previous"),
+		).toEqual({
+			selectedIndex: 1,
+			preset: savedToolTargetPresets[1],
+			notice: {
+				level: "info",
+				message: "tool target DB ping db.example.com",
+			},
+		});
+	});
+
+	test("renames the selected saved target and closes the command line", () => {
+		expect(
+			renameToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: -1,
+				value: "Public API DNS",
+			}),
+		).toEqual({
+			presets: [
+				{
+					id: "api-dns",
+					label: "Public API DNS",
+					actionId: "tools.dns",
+					target: "api.example.com",
+					hint: "saved DNS target",
+				},
+				savedToolTargetPresets[1],
+			],
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target renamed api.example.com",
+			},
+		});
+	});
+
+	test("keeps the shelf for an unchanged target label", () => {
+		expect(
+			renameToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				value: " API DNS ",
+			}),
+		).toEqual({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "info",
+				message: "tool target label unchanged",
+			},
+		});
+	});
+
+	test("reports a missing target selection while closing an edit prompt", () => {
+		expect(
+			renameToolTargetPresetTransition({
+				presets: [],
+				targetPresets: [],
+				selectedIndex: -1,
+				value: "Public API DNS",
+			}),
+		).toEqual({
+			presets: [],
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "no tool target preset selected",
+			},
+		});
+	});
+
+	test("updates a selected saved target value", () => {
+		const transition = retargetToolTargetPresetTransition({
+			presets: savedToolTargetPresets,
+			targetPresets: savedToolTargetPresets,
+			selectedIndex: 0,
+			value: "api.internal.example",
+		});
+
+		expect(transition).toMatchObject({
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target updated API DNS",
+			},
+		});
+		expect(transition.presets[0]).toMatchObject({
+			id: "api-dns",
+			target: "api.internal.example",
+		});
+	});
+
+	test("keeps the surviving custom target selected when an action edit deduplicates the displayed shelf", () => {
+		const duplicateTargets = [
+			savedToolTargetPresets[0],
+			{
+				id: "api-ping",
+				label: "API ping",
+				actionId: "ping.default",
+				target: "api.example.com",
+				hint: "saved reachability target",
+			},
+		] satisfies ToolTargetPreset[];
+		const displayedTargetPresets = getToolTargetPresets(
+			summary,
+			"example.com",
+			duplicateTargets,
+		);
+		const transition = reassignToolTargetPresetActionTransition({
+			presets: duplicateTargets,
+			targetPresets: displayedTargetPresets,
+			selectedIndex: 1,
+			value: "dns",
+		});
+		const updatedDisplayedTargetPresets = getToolTargetPresets(
+			summary,
+			"example.com",
+			transition.presets,
+		);
+
+		expect(transition).toMatchObject({
+			presets: [
+				{
+					id: "api-dns",
+					actionId: "tools.dns",
+					target: "api.example.com",
+				},
+			],
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target action updated API ping",
+			},
+		});
+		expect(
+			updatedDisplayedTargetPresets[transition.selectedIndex],
+		).toMatchObject({
+			id: "api-dns",
+			actionId: "tools.dns",
+			target: "api.example.com",
+		});
+		expect(updatedDisplayedTargetPresets[1]).toMatchObject({
+			id: "default-ping",
+		});
+	});
+
+	test("keeps the surviving custom target selected when a value edit deduplicates the displayed shelf", () => {
+		const duplicateTargets = [
+			savedToolTargetPresets[0],
+			{
+				id: "internal-dns",
+				label: "Internal DNS",
+				actionId: "tools.dns",
+				target: "api.internal.example",
+				hint: "saved internal DNS target",
+			},
+		] satisfies ToolTargetPreset[];
+		const transition = retargetToolTargetPresetTransition({
+			presets: duplicateTargets,
+			targetPresets: getToolTargetPresets(
+				summary,
+				"example.com",
+				duplicateTargets,
+			),
+			selectedIndex: 1,
+			value: "api.example.com",
+		});
+		const updatedDisplayedTargetPresets = getToolTargetPresets(
+			summary,
+			"example.com",
+			transition.presets,
+		);
+
+		expect(transition.selectedIndex).toBe(0);
+		expect(
+			updatedDisplayedTargetPresets[transition.selectedIndex],
+		).toMatchObject({
+			id: "api-dns",
+			actionId: "tools.dns",
+			target: "api.example.com",
+		});
+	});
+
+	test("emits close command-line intents for every target prompt submission", () => {
+		const targetPresets = getToolTargetPresets(
+			summary,
+			"example.com",
+			savedToolTargetPresets,
+		);
+
+		expect([
+			renameToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "Public API DNS",
+			}).commandLine,
+			retargetToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "api.internal.example",
+			}).commandLine,
+			reassignToolTargetPresetActionTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "ping",
+			}).commandLine,
+			submitToolTargetCleanupTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "remove tools.dns",
+			}).commandLine,
+			submitToolTargetPresetCommandTransition({
+				presets: savedToolTargetPresets,
+				targetPresets,
+				selectedIndex: 0,
+				value: "ping db.example.com DB ping",
+			}).commandLine,
+		]).toEqual(["close", "close", "close", "close", "close"]);
+	});
+
+	test("updates a selected saved target action", () => {
+		const transition = reassignToolTargetPresetActionTransition({
+			presets: savedToolTargetPresets,
+			targetPresets: savedToolTargetPresets,
+			selectedIndex: 0,
+			value: "ping",
+		});
+
+		expect(transition).toMatchObject({
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target action updated API DNS",
+			},
+		});
+		expect(transition.presets[0]).toMatchObject({
+			id: "api-dns",
+			actionId: "ping.default",
+		});
+	});
+
+	test("pins a selected saved target and repairs its selection", () => {
+		expect(
+			promoteToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 1,
+			}),
+		).toEqual({
+			presets: [savedToolTargetPresets[1], savedToolTargetPresets[0]],
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target pinned DB ping db.example.com",
+			},
+		});
+	});
+
+	test("reports an immovable target without changing the shelf", () => {
+		expect(
+			promoteToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target API DNS is not a movable saved preset",
+			},
+		});
+	});
+
+	test("removes a selected saved target and repairs selection", () => {
+		expect(
+			removeToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 99,
+			}),
+		).toEqual({
+			presets: [savedToolTargetPresets[0]],
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target removed DB ping db.example.com",
+			},
+		});
+	});
+
+	test("reports an unsaved target removal without changing the shelf", () => {
+		const builtInTarget = {
+			id: "gateway-ping",
+			label: "Gateway ping",
+			actionId: "ping.default" as const,
+			target: "192.0.2.1",
+			hint: "OS-aware target",
+		};
+		expect(
+			removeToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: [builtInTarget],
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target Gateway ping is not a saved preset",
+			},
+		});
+	});
+
+	test("keeps a rejected cleanup shelf and reports its exact confirmation notice", () => {
+		expect(
+			submitToolTargetCleanupTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				value: "delete ping.default",
+			}),
+		).toEqual({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target action cleanup rejected tools.dns",
+			},
+		});
+	});
+
+	test("saves a parsed target command at the bounded shelf limit", () => {
+		expect(
+			submitToolTargetPresetCommandTransition({
+				presets: [savedToolTargetPresets[0]],
+				targetPresets: [savedToolTargetPresets[0]],
+				selectedIndex: 0,
+				value: "ping db.example.com DB ping",
+				limit: 1,
+			}),
+		).toEqual({
+			presets: [
+				{
+					id: "custom-ping-default-db-example-com",
+					label: "DB ping",
+					actionId: "ping.default",
+					target: "db.example.com",
+					hint: "saved ping target",
+				},
+			],
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: true,
+			notice: {
+				level: "ok",
+				message: "tool target preset saved DB ping db.example.com",
+			},
+		});
+	});
+
+	test("reports invalid and missing target save intents", () => {
+		expect(
+			submitToolTargetPresetCommandTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				value: "unknown example.com",
+			}),
+		).toMatchObject({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "close",
+			changed: false,
+			notice: {
+				level: "warn",
+				message: "tool target preset requires: <action> <target> [label]",
+			},
+		});
+		expect(
+			saveSelectedToolTargetPresetTransition({
+				presets: savedToolTargetPresets,
+				targetPresets: [],
+				selectedIndex: 0,
+			}),
+		).toMatchObject({
+			presets: savedToolTargetPresets,
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: false,
+			notice: { level: "warn", message: "no tool target preset to save" },
+		});
+	});
+
+	test("saves the selected target from the Tools shortcut", () => {
+		expect(
+			saveSelectedToolTargetPresetTransition({
+				presets: [],
+				targetPresets: [savedToolTargetPresets[0]],
+				selectedIndex: -3,
+				limit: 1,
+			}),
+		).toEqual({
+			presets: [savedToolTargetPresets[0]],
+			selectedIndex: 0,
+			commandLine: "preserve",
+			changed: true,
+			notice: {
+				level: "info",
+				message: "tool target saved API DNS api.example.com",
+			},
+		});
+	});
+
+	test("turns each saved-target keyboard prompt into a typed intent", () => {
+		expect(
+			createToolTargetPromptIntent({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				prompt: "label",
+			}),
+		).toMatchObject({
+			selectedIndex: 0,
+			commandLine: "tool-target-label",
+			notice: { level: "info", message: "tool target label opened API DNS" },
+		});
+		expect(
+			createToolTargetPromptIntent({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				prompt: "value",
+			}),
+		).toMatchObject({
+			commandLine: "tool-target-value",
+			notice: { level: "info", message: "tool target value opened API DNS" },
+		});
+		expect(
+			createToolTargetPromptIntent({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				prompt: "action",
+			}),
+		).toMatchObject({
+			commandLine: "tool-target-action",
+			notice: {
+				level: "info",
+				message: "tool target action opened API DNS",
+			},
+		});
+		expect(
+			createToolTargetPromptIntent({
+				presets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedIndex: 0,
+				prompt: "cleanup",
+			}),
+		).toMatchObject({
+			commandLine: "tool-target-cleanup",
+			notice: {
+				level: "warn",
+				message: "tool target cleanup confirm delete tools.dns",
+			},
+		});
+	});
+
+	test("creates a run intent from the repaired selected target", () => {
+		expect(
+			createToolTargetRunIntent({
+				presets: savedToolTargetPresets,
+				selectedIndex: 99,
+			}),
+		).toEqual({
+			presets: savedToolTargetPresets,
+			selectedIndex: 1,
+			commandLine: "preserve",
+			plan: {
+				actionId: "ping.default",
+				toolId: "ping",
+				args: ["db.example.com"],
+				label: "ping.default db.example.com",
+			},
+			completionNotice: "DB ping completed",
+		});
+	});
+
+	test("reports a missing selected target run intent", () => {
+		expect(
+			createToolTargetRunIntent({ presets: [], selectedIndex: -1 }),
+		).toEqual({
+			presets: [],
+			selectedIndex: 0,
+			commandLine: "preserve",
+			notice: { level: "warn", message: "no tool target presets" },
+		});
 	});
 
 	test("formats selected tool history detail tabs", () => {
@@ -2919,5 +3510,1203 @@ describe("TUI tool history", () => {
 		} finally {
 			await rm(root, { recursive: true, force: true });
 		}
+	});
+
+	test("repairs filtered Tools evidence selection after refresh", () => {
+		const item = {
+			fileName: "picos-tools-all-2026-07-01T040100000Z.md",
+			path: "/tmp/picos/tools/picos-tools-all-2026-07-01T040100000Z.md",
+			generatedAt: "2026-07-01T04:01:00.000Z",
+			scope: "all" as const,
+			runCount: 3,
+		};
+		const index = { baseDir: "/tmp/picos/tools", items: [item] };
+
+		expect(
+			classifyToolHistoryExportIndexRefresh({
+				target: "active",
+				currentRequestToken: 4,
+				requestToken: 4,
+				selectedIndex: 8,
+				filter: "all",
+				query: "040100",
+				announce: true,
+				outcome: { status: "success", index },
+			}),
+		).toEqual({
+			status: "success",
+			index,
+			selectedIndex: 0,
+			notice: { level: "info", message: "tools evidence indexed 1" },
+		});
+		expect(
+			classifyToolHistoryExportIndexRefresh({
+				target: "archive",
+				currentRequestToken: 4,
+				requestToken: 3,
+				selectedIndex: 8,
+				outcome: { status: "failure", error: "old failure" },
+			}),
+		).toEqual({
+			status: "stale",
+			notice: {
+				level: "fail",
+				message: "tools archive index failed old failure",
+			},
+		});
+	});
+
+	test("publishes active and archive Tools indexes as one current batch", () => {
+		const index = { baseDir: "/tmp/picos/tools", items: [] };
+		const input = {
+			currentMutationToken: 1,
+			requestMutationToken: 1,
+			active: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 4,
+			},
+			archive: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 5,
+			},
+			outcome: {
+				status: "success" as const,
+				activeIndex: index,
+				archiveIndex: { ...index, baseDir: `${index.baseDir}/archive` },
+			},
+		};
+
+		expect(classifyToolHistoryEvidenceIndexBatchRefresh(input)).toMatchObject({
+			status: "success",
+			active: { status: "success", selectedIndex: 0 },
+			archive: { status: "success", selectedIndex: 0 },
+		});
+		expect(
+			classifyToolHistoryEvidenceIndexBatchRefresh({
+				...input,
+				currentMutationToken: 2,
+			}),
+		).toEqual({ status: "stale" });
+	});
+
+	test("owns selected Tools export, open, archive, and retention confirmations", () => {
+		const history = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result,
+			},
+			"12:00:00",
+		);
+		const exported = prepareToolHistoryExport(history, 99, "selected", {
+			baseDir: "/tmp/picos",
+			generatedAt: new Date("2026-07-01T04:00:00.000Z"),
+		});
+		expect(exported).toMatchObject({
+			kind: "export",
+			notice: {
+				level: "ok",
+				message: "tools export selected prepared 1 run(s)",
+			},
+			plan: { scope: "selected", itemCount: 1 },
+		});
+		expect(
+			prepareToolHistoryExport([], 4, "all", { baseDir: "/tmp/picos" }),
+		).toEqual({
+			kind: "notice",
+			notice: { level: "warn", message: "no tool history to export" },
+		});
+
+		const item = {
+			fileName: "picos-tools-all-2026-07-01T040100000Z.md",
+			path: "/tmp/picos/tools/picos-tools-all-2026-07-01T040100000Z.md",
+			generatedAt: "2026-07-01T04:01:00.000Z",
+			scope: "all" as const,
+			runCount: 3,
+		};
+		const index = { baseDir: "/tmp/picos/tools", items: [item] };
+		expect(
+			prepareSelectedToolHistoryExportOpen({
+				index,
+				selectedIndex: 99,
+				platform: "darwin",
+			}),
+		).toMatchObject({
+			kind: "open",
+			selectedIndex: 0,
+			notice: {
+				level: "info",
+				message:
+					"tools evidence open confirmation opened for picos-tools-all-2026-07-01T040100000Z.md",
+			},
+		});
+		const archive = prepareSelectedToolHistoryExportArchive({
+			baseDir: "/tmp/picos",
+			index,
+			selectedIndex: 99,
+		});
+		expect(archive).toMatchObject({
+			kind: "confirmation",
+			selectedIndex: 0,
+			plan: { confirmationPhrase: "archive tools export" },
+		});
+		if (archive.kind !== "confirmation") {
+			throw new Error("expected tools archive confirmation");
+		}
+		expect(
+			prepareToolHistoryExportArchiveConfirmation(
+				archive.plan,
+				"archive tool export",
+			),
+		).toMatchObject({
+			kind: "execute",
+			plan: { confirmed: false, enabled: false },
+		});
+		const retention = createToolHistoryArchiveRetentionPlan(
+			{
+				baseDir: "/tmp/picos/tools/archive",
+				items: [
+					item,
+					{
+						...item,
+						fileName: "picos-tools-all-older.md",
+						path: "/tmp/picos/tools/archive/picos-tools-all-older.md",
+						generatedAt: "2026-06-30T04:01:00.000Z",
+					},
+				],
+			},
+			{ maxItems: 1 },
+		);
+		expect(
+			prepareToolHistoryArchiveRetentionConfirmation(
+				retention,
+				{
+					baseDir: retention.baseDir,
+					items: [...retention.retainedItems, ...retention.candidateItems],
+				},
+				"prune tool archive",
+			),
+		).toMatchObject({
+			kind: "execute",
+			plan: { confirmed: false, enabled: false },
+		});
+	});
+
+	test("resolves filtered selected Tool history inside the export owner", () => {
+		const dns = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "tools.dns",
+					toolId: "dns",
+					args: ["example.com"],
+					label: "tools.dns example.com",
+				},
+				result,
+			},
+			"12:00:00",
+		)[0];
+		const tcp = appendToolHistory(
+			[],
+			{
+				plan: {
+					actionId: "network.connect",
+					toolId: "port-check",
+					args: ["api.example.com", "443"],
+					label: "network.connect api.example.com:443",
+				},
+				result: {
+					...result,
+					title: "TCP Port Check",
+					rawOutput: "$ picos tools port-check api.example.com 443",
+				},
+			},
+			"12:00:01",
+		)[0];
+		if (!dns || !tcp) {
+			throw new Error("expected tool history fixtures");
+		}
+
+		const transition = prepareSelectedToolHistoryExport({
+			history: [dns, tcp],
+			selectedIndex: 0,
+			filter: "TCP",
+			sort: "time",
+			scope: "selected",
+			baseDir: "/tmp/picos",
+			generatedAt: new Date("2026-07-01T04:00:00.000Z"),
+		});
+		expect(transition).toMatchObject({
+			kind: "export",
+			selectedIndex: 1,
+			plan: { scope: "selected", itemCount: 1 },
+			notice: {
+				level: "ok",
+				message: "tools export selected prepared 1 run(s)",
+			},
+		});
+		expect(
+			transition.kind === "export" ? transition.plan.content : "",
+		).toContain("network.connect api.example.com:443");
+	});
+
+	describe("Tools workspace input owner", () => {
+		const workspaceHistory = [
+			{
+				id: "12:00:00-network-connect-example-com-443",
+				time: "12:00:00",
+				status: "ok" as const,
+				label: "network.connect example.com:443",
+				plan: {
+					actionId: "network.connect" as const,
+					toolId: "telnet" as const,
+					args: ["example.com", "443"],
+					label: "network.connect example.com:443",
+				},
+				title: "Telnet TCP Check",
+				summary: "Summary: OPEN",
+				rawOutput: [
+					"$ picos tools telnet example.com 443",
+					"[Target]",
+					"Host: example.com",
+					"Port: 443",
+					"Command: picos tools telnet example.com 443",
+					"Timeout: 2000ms",
+					"[Status]",
+					"OPEN",
+					"Elapsed: 42ms",
+				].join("\n"),
+			},
+		];
+
+		function workspaceInput(
+			overrides: Partial<ToolsWorkspaceInput> = {},
+		): ToolsWorkspaceInput {
+			return {
+				command: undefined,
+				input: "",
+				key: {},
+				history: workspaceHistory,
+				selectedHistoryIndex: 0,
+				filter: "",
+				filterPresets: ["failed"],
+				sort: "time",
+				group: "none",
+				detail: "raw",
+				customTargetPresets: savedToolTargetPresets,
+				targetPresets: savedToolTargetPresets,
+				selectedTargetIndex: 0,
+				targetPresetLimit: 8,
+				copySection: "target",
+				copyRowIndex: 0,
+				exportContext: {
+					baseDir: "/tmp/picos",
+					generatedAt: new Date("2026-08-09T01:02:03.004Z"),
+					publication: {
+						selectedIndex: 4,
+						filter: "any",
+						query: "active evidence",
+					},
+				},
+				...overrides,
+			};
+		}
+
+		test("returns unhandled when no Tools command owns the key", () => {
+			expect(prepareToolsWorkspaceInput(workspaceInput())).toEqual({
+				kind: "unhandled",
+			});
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "detail-shortcut", input: "5" }),
+				),
+			).toEqual({ kind: "unhandled" });
+		});
+
+		test("owns filter and view commands with exact state, persistence, prompts, and notices", () => {
+			const cases: Array<{
+				name: string;
+				input: Partial<ToolsWorkspaceInput>;
+				effects: ToolsWorkspaceInputEffect[];
+			}> = [
+				{
+					name: "open filter",
+					input: { command: "open-filter" as const },
+					effects: [
+						{ kind: "prompt", prompt: "tool-filter" },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tool history filter opened" },
+						},
+					],
+				},
+				{
+					name: "clear filter",
+					input: {
+						command: "clear-filter" as const,
+						selectedHistoryIndex: 99,
+						filter: "tcp",
+					},
+					effects: [
+						{ kind: "filter", filter: "" },
+						{ kind: "copy-preview", mode: false },
+						{ kind: "history-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tool history filter cleared" },
+						},
+					],
+				},
+				{
+					name: "save filter",
+					input: { command: "save-filter" as const, filter: "tcp" },
+					effects: [
+						{ kind: "filter-presets", presets: ["tcp", "failed"] },
+						{
+							kind: "persist-history-preferences",
+							preferences: { filterPresets: ["tcp", "failed"] },
+							failureMessagePrefix: "tools preset save failed",
+						},
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools preset saved tcp" },
+						},
+					],
+				},
+				{
+					name: "cleanup filter",
+					input: { command: "cleanup-filter" as const },
+					effects: [
+						{ kind: "prompt", prompt: "tool-history-cleanup" },
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: {
+								level: "warn",
+								message:
+									"tool history filter cleanup confirm clear tools history",
+							},
+						},
+					],
+				},
+				{
+					name: "cycle filter preset",
+					input: {
+						command: "cycle-filter-preset" as const,
+						filter: "failed",
+						filterPresets: ["failed", "tcp"],
+					},
+					effects: [
+						{ kind: "filter", filter: "tcp" },
+						{ kind: "copy-preview", mode: false },
+						{ kind: "history-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools preset tcp matches 1" },
+						},
+					],
+				},
+				{
+					name: "detail shortcut",
+					input: { command: "detail-shortcut" as const, input: "4" },
+					effects: [
+						{ kind: "detail", detail: "compare" },
+						{
+							kind: "persist-history-preferences",
+							preferences: { detailView: "compare" },
+							failureMessagePrefix: "tools detail save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools detail compare" },
+						},
+					],
+				},
+				{
+					name: "cycle detail",
+					input: { command: "cycle-detail" as const },
+					effects: [
+						{ kind: "detail", detail: "summary" },
+						{
+							kind: "persist-history-preferences",
+							preferences: { detailView: "summary" },
+							failureMessagePrefix: "tools detail save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools detail summary" },
+						},
+					],
+				},
+				{
+					name: "cycle sort",
+					input: { command: "cycle-sort" as const },
+					effects: [
+						{ kind: "sort", sort: "tool" },
+						{
+							kind: "persist-history-preferences",
+							preferences: { sort: "tool" },
+							failureMessagePrefix: "tools sort save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools sort tool" },
+						},
+					],
+				},
+				{
+					name: "cycle group",
+					input: { command: "cycle-group" as const },
+					effects: [
+						{ kind: "group", group: "tool" },
+						{
+							kind: "persist-history-preferences",
+							preferences: { group: "tool" },
+							failureMessagePrefix: "tools group save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: { level: "info", message: "tools group tool" },
+						},
+					],
+				},
+			];
+
+			for (const current of cases) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput(current.input)),
+					current.name,
+				).toEqual({ kind: "handled", effects: current.effects });
+			}
+		});
+
+		test("owns target selection, persistence, prompts, and run plans", () => {
+			const cases: Array<{
+				name: string;
+				input: Partial<ToolsWorkspaceInput>;
+				effects: ToolsWorkspaceInputEffect[];
+			}> = [
+				{
+					name: "next target",
+					input: { command: "select-target-next" as const },
+					effects: [
+						{ kind: "target-selection", selectedIndex: 1 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target DB ping db.example.com",
+							},
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				{
+					name: "previous target",
+					input: { command: "select-target-previous" as const },
+					effects: [
+						{ kind: "target-selection", selectedIndex: 1 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target DB ping db.example.com",
+							},
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				{
+					name: "save target",
+					input: {
+						command: "save-target" as const,
+						customTargetPresets: [],
+						targetPresets: [savedToolTargetPresets[0]],
+					},
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target saved API DNS api.example.com",
+							},
+						},
+						{ kind: "target-presets", presets: [savedToolTargetPresets[0]] },
+						{
+							kind: "persist-target-presets",
+							presets: [savedToolTargetPresets[0]],
+							failureMessagePrefix: "tool target save failed",
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				{
+					name: "promote target",
+					input: {
+						command: "promote-target" as const,
+						selectedTargetIndex: 1,
+					},
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target pinned DB ping db.example.com",
+							},
+						},
+						{
+							kind: "target-presets",
+							presets: [savedToolTargetPresets[1], savedToolTargetPresets[0]],
+						},
+						{
+							kind: "persist-target-presets",
+							presets: [savedToolTargetPresets[1], savedToolTargetPresets[0]],
+							failureMessagePrefix: "tool target pin failed",
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				{
+					name: "remove target",
+					input: {
+						command: "remove-target" as const,
+						selectedTargetIndex: 1,
+					},
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{
+							kind: "notice",
+							notice: {
+								level: "info",
+								message: "tool target removed DB ping db.example.com",
+							},
+						},
+						{ kind: "target-presets", presets: [savedToolTargetPresets[0]] },
+						{
+							kind: "persist-target-presets",
+							presets: [savedToolTargetPresets[0]],
+							failureMessagePrefix: "tool target delete failed",
+						},
+						{ kind: "copy-preview", mode: false },
+					],
+				},
+				...(
+					[
+						["prompt-target-cleanup", "tool-target-cleanup", "cleanup", "warn"],
+						["prompt-target-label", "tool-target-label", "label", "info"],
+						["prompt-target-value", "tool-target-value", "value", "info"],
+						["prompt-target-action", "tool-target-action", "action", "info"],
+					] as const
+				).map(([command, prompt, label, level]) => ({
+					name: command,
+					input: { command },
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{ kind: "prompt", prompt },
+						{ kind: "copy-preview", mode: false },
+						{
+							kind: "notice",
+							notice: {
+								level,
+								message:
+									label === "cleanup"
+										? "tool target cleanup confirm delete tools.dns"
+										: `tool target ${label} opened API DNS`,
+							},
+						},
+					] satisfies ToolsWorkspaceInputEffect[],
+				})),
+				{
+					name: "run target",
+					input: { command: "run-target" as const, selectedTargetIndex: 1 },
+					effects: [
+						{ kind: "target-selection", selectedIndex: 1 },
+						{
+							kind: "run",
+							source: "target",
+							plan: {
+								actionId: "ping.default",
+								toolId: "ping",
+								args: ["db.example.com"],
+								label: "ping.default db.example.com",
+							},
+							completionNotice: "DB ping completed",
+						},
+					],
+				},
+			];
+
+			for (const current of cases) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput(current.input)),
+					current.name,
+				).toEqual({ kind: "handled", effects: current.effects });
+			}
+		});
+
+		test("owns rerun, clipboard, section-row, and export commands with complete payloads", () => {
+			const rawPreview = {
+				source: "tool-output",
+				label: "network.connect example.com:443 raw output",
+				copyText: workspaceHistory[0]?.rawOutput ?? "",
+				details: ["path c raw", "tool telnet", "action network.connect"],
+				confirmation: "copy",
+				enabled: false,
+				reason: "Clipboard writes require explicit confirmation plumbing.",
+			} satisfies ClipboardPreview;
+			const summaryPreview = {
+				source: "tool-summary",
+				label: "network.connect example.com:443 summary",
+				copyText: "Summary: OPEN",
+				details: ["path y summary", "tool telnet", "action network.connect"],
+				confirmation: "copy",
+				enabled: false,
+				reason: "Clipboard writes require explicit confirmation plumbing.",
+			} satisfies ClipboardPreview;
+
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "rerun", selectedHistoryIndex: 99 }),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{
+						kind: "run",
+						source: "rerun",
+						plan: workspaceHistory[0]?.plan,
+						completionNotice: "network.connect example.com:443 rerun completed",
+					},
+				],
+			});
+
+			for (const [command, mode, preview] of [
+				["copy-raw", "raw", rawPreview],
+				["copy-summary", "summary", summaryPreview],
+			] as const) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput({ command })),
+					command,
+				).toEqual({
+					kind: "handled",
+					effects: [{ kind: "clipboard", mode, preview }],
+				});
+			}
+
+			expect(
+				prepareToolsWorkspaceInput(workspaceInput({ command: "copy-compare" })),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{
+						kind: "clipboard",
+						mode: "compare",
+						preview: {
+							source: "tool-compare",
+							label: "network.connect example.com:443 compare",
+							copyText: [
+								"DETAIL compare",
+								"current=12:00:00 ok network.connect example.com:443",
+								"no previous matching tool run",
+								"compare key=network.connect example.com 443",
+							].join("\n"),
+							details: [
+								"path o compare",
+								"previous none",
+								"tool telnet",
+								"action network.connect",
+							],
+							confirmation: "copy",
+							enabled: false,
+							reason:
+								"Clipboard writes require explicit confirmation plumbing.",
+						},
+					},
+				],
+			});
+
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "cycle-copy-section", copyRowIndex: 3 }),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{ kind: "copy-section", section: "status" },
+					{ kind: "copy-row", rowIndex: 0 },
+					{ kind: "copy-preview", mode: false },
+					{
+						kind: "notice",
+						notice: { level: "info", message: "tools copy section status" },
+					},
+				],
+			});
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "move-copy-row-next" }),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{ kind: "copy-row", rowIndex: 1 },
+					{ kind: "copy-preview", mode: false },
+				],
+			});
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({ command: "move-copy-row-previous" }),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{ kind: "copy-row", rowIndex: 3 },
+					{ kind: "copy-preview", mode: false },
+				],
+			});
+
+			for (const [command, mode, label, copyText, details] of [
+				[
+					"copy-row",
+					"row",
+					"network.connect example.com:443 target row 3",
+					"Command: picos tools telnet example.com 443",
+					[
+						"path b row",
+						"section target row 3/4",
+						"tool telnet",
+						"action network.connect",
+					],
+				],
+				[
+					"copy-section",
+					"target",
+					"network.connect example.com:443 target fields",
+					[
+						"Host: example.com",
+						"Port: 443",
+						"Command: picos tools telnet example.com 443",
+						"Timeout: 2000ms",
+					].join("\n"),
+					[
+						"path v section",
+						"section target rows 4",
+						"tool telnet",
+						"action network.connect",
+					],
+				],
+			] as const) {
+				expect(
+					prepareToolsWorkspaceInput(
+						workspaceInput({
+							command,
+							copyRowIndex: command === "copy-row" ? 2 : 0,
+						}),
+					),
+					command,
+				).toEqual({
+					kind: "handled",
+					effects: [
+						{
+							kind: "clipboard",
+							mode,
+							preview: {
+								source: command === "copy-row" ? "tool-row" : "tool-target",
+								label,
+								copyText,
+								details: [...details],
+								confirmation: "copy",
+								enabled: false,
+								reason:
+									"Clipboard writes require explicit confirmation plumbing.",
+							},
+						},
+					],
+				});
+			}
+
+			for (const [command, scope] of [
+				["export-selected", "selected"],
+				["export-all", "all"],
+				["export-compare", "compare"],
+			] as const) {
+				const transition = prepareToolsWorkspaceInput(
+					workspaceInput({ command, selectedHistoryIndex: 99 }),
+				);
+				expect(transition, command).toMatchObject({
+					kind: "handled",
+					effects: [
+						{
+							kind: "export",
+							plan: {
+								path: `/tmp/picos/tools/picos-tools-${scope}-2026-08-09T010203004Z.md`,
+								itemCount: 1,
+								scope,
+							},
+							publication: {
+								target: "active",
+								selectedIndex: 4,
+								filter: "any",
+								query: "active evidence",
+							},
+							notice: {
+								level: "ok",
+								message: `tools export ${scope} prepared 1 run(s)`,
+							},
+						},
+					],
+				});
+				if (transition.kind === "handled") {
+					const effect = transition.effects[0];
+					if (effect?.kind === "export") {
+						expect(effect.plan.content).toContain(
+							"generatedAt=2026-08-09T01:02:03.004Z",
+						);
+						expect(effect).not.toHaveProperty("snapshot");
+					}
+				}
+			}
+		});
+
+		test("prepares the final export plan and immutable refresh publication", () => {
+			const transition = prepareToolsWorkspaceInput({
+				...workspaceInput({
+					command: "export-selected",
+					selectedHistoryIndex: 99,
+				}),
+				exportContext: {
+					baseDir: "/tmp/picos",
+					generatedAt: new Date("2026-08-09T01:02:03.004Z"),
+					publication: {
+						selectedIndex: 7,
+						filter: "selected",
+						query: "api.example.com",
+					},
+				},
+			} as ToolsWorkspaceInput & {
+				exportContext: {
+					baseDir: string;
+					generatedAt: Date;
+					publication: {
+						selectedIndex: number;
+						filter: "selected";
+						query: string;
+					};
+				};
+			});
+
+			expect(transition).toMatchObject({
+				kind: "handled",
+				effects: [
+					{
+						kind: "export",
+						plan: {
+							path: "/tmp/picos/tools/picos-tools-selected-2026-08-09T010203004Z.md",
+							itemCount: 1,
+							scope: "selected",
+						},
+						publication: {
+							target: "active",
+							selectedIndex: 7,
+							filter: "selected",
+							query: "api.example.com",
+						},
+					},
+				],
+			});
+			if (transition.kind !== "handled") {
+				throw new Error("expected handled tools export");
+			}
+			const effect = transition.effects[0] as ToolsWorkspaceInputEffect & {
+				plan?: { content: string };
+			};
+			expect(effect.plan?.content).toContain(
+				"## [12:00:00] network.connect example.com:443",
+			);
+		});
+
+		test("bounds final export plans while retaining the selected and compare runs", () => {
+			const history = Array.from({ length: 14 }, (_, index) => ({
+				...workspaceHistory[0],
+				id: `run-${index}`,
+				time: `12:00:${String(index).padStart(2, "0")}`,
+				plan: {
+					...workspaceHistory[0]?.plan,
+					args: [...(workspaceHistory[0]?.plan.args ?? [])],
+				},
+				rawOutput: `run ${index}`,
+			}));
+
+			const allTransition = prepareToolsWorkspaceInput(
+				workspaceInput({
+					command: "export-all",
+					history,
+					selectedHistoryIndex: 0,
+				}),
+			);
+			expect(allTransition).toMatchObject({
+				kind: "handled",
+				effects: [
+					{
+						kind: "export",
+						plan: {
+							itemCount: 12,
+							scope: "all",
+						},
+						notice: {
+							level: "ok",
+							message: "tools export all prepared 12 run(s)",
+						},
+					},
+				],
+			});
+			if (allTransition.kind !== "handled") {
+				throw new Error("expected handled all export");
+			}
+			const allEffect = allTransition.effects[0];
+			if (allEffect?.kind !== "export") {
+				throw new Error("expected all export effect");
+			}
+			expect(allEffect.plan.content).toContain("```txt\nrun 2\n```");
+			expect(allEffect.plan.content).toContain("```txt\nrun 13\n```");
+			expect(allEffect.plan.content).not.toContain("```txt\nrun 0\n```");
+			expect(allEffect.plan.content).not.toContain("```txt\nrun 1\n```");
+
+			const selectedTransition = prepareToolsWorkspaceInput(
+				workspaceInput({
+					command: "export-selected",
+					history,
+					selectedHistoryIndex: 13,
+				}),
+			);
+			expect(selectedTransition).toMatchObject({
+				kind: "handled",
+				effects: [
+					{
+						kind: "export",
+						plan: {
+							itemCount: 1,
+							scope: "selected",
+						},
+					},
+				],
+			});
+			if (selectedTransition.kind !== "handled") {
+				throw new Error("expected handled selected export");
+			}
+			const selectedEffect = selectedTransition.effects[0];
+			if (selectedEffect?.kind !== "export") {
+				throw new Error("expected selected export effect");
+			}
+			expect(selectedEffect.plan.content).toContain("```txt\nrun 13\n```");
+			expect(selectedEffect.plan.content).not.toContain("```txt\nrun 12\n```");
+
+			const compareTransition = prepareToolsWorkspaceInput(
+				workspaceInput({
+					command: "export-compare",
+					history,
+					selectedHistoryIndex: 13,
+				}),
+			);
+			expect(compareTransition).toMatchObject({
+				kind: "handled",
+				effects: [
+					{
+						kind: "export",
+						plan: {
+							itemCount: 1,
+							scope: "compare",
+						},
+					},
+				],
+			});
+			if (compareTransition.kind !== "handled") {
+				throw new Error("expected handled compare export");
+			}
+			const compareEffect = compareTransition.effects[0];
+			if (compareEffect?.kind !== "export") {
+				throw new Error("expected compare export effect");
+			}
+			expect(compareEffect.plan.content).toContain(
+				"current=12:00:13 ok network.connect example.com:443",
+			);
+			expect(compareEffect.plan.content).toContain(
+				"previous=12:00:12 ok network.connect example.com:443",
+			);
+		});
+
+		test("reports exact empty filter, history, target, and clipboard notices", () => {
+			const cases: Array<[Partial<ToolsWorkspaceInput>, string]> = [
+				[
+					{ command: "save-filter" as const, filter: "  " },
+					"no tools filter to save",
+				],
+				[
+					{ command: "cleanup-filter" as const, filterPresets: [] },
+					"no tools filter presets to clean",
+				],
+				[
+					{ command: "cycle-filter-preset" as const, filterPresets: [] },
+					"no tools filter presets",
+				],
+				[
+					{ command: "rerun" as const, history: [] },
+					"no tool history selected",
+				],
+				[
+					{ command: "copy-raw" as const, history: [] },
+					"no tool output selected",
+				],
+				[
+					{ command: "copy-summary" as const, history: [] },
+					"no tool summary selected",
+				],
+				[
+					{ command: "copy-compare" as const, history: [] },
+					"no tool compare selected",
+				],
+				[
+					{ command: "copy-row" as const, history: [] },
+					"no tool target row selected",
+				],
+				[
+					{ command: "copy-section" as const, history: [] },
+					"no tool target fields selected",
+				],
+				[
+					{ command: "export-selected" as const, history: [] },
+					"no tool history to export",
+				],
+				[
+					{ command: "export-all" as const, history: [] },
+					"no tool history to export",
+				],
+				[
+					{ command: "export-compare" as const, history: [] },
+					"no tool history to export",
+				],
+			];
+
+			for (const [overrides, message] of cases) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput(overrides)),
+					message,
+				).toEqual({
+					kind: "handled",
+					effects: [{ kind: "notice", notice: { level: "warn", message } }],
+				});
+			}
+
+			const emptyTargetCases: Array<[Partial<ToolsWorkspaceInput>, string]> = [
+				[
+					{
+						command: "save-target" as const,
+						customTargetPresets: [],
+						targetPresets: [],
+					},
+					"no tool target preset to save",
+				],
+				[
+					{
+						command: "prompt-target-label" as const,
+						customTargetPresets: [],
+						targetPresets: [],
+					},
+					"no tool target preset selected",
+				],
+				[
+					{ command: "run-target" as const, targetPresets: [] },
+					"no tool target presets",
+				],
+			];
+			for (const [overrides, message] of emptyTargetCases) {
+				expect(
+					prepareToolsWorkspaceInput(workspaceInput(overrides)),
+					message,
+				).toEqual({
+					kind: "handled",
+					effects: [
+						{ kind: "target-selection", selectedIndex: 0 },
+						{ kind: "notice", notice: { level: "warn", message } },
+					],
+				});
+			}
+
+			expect(
+				prepareToolsWorkspaceInput(
+					workspaceInput({
+						command: "select-target-next",
+						targetPresets: [],
+						selectedTargetIndex: -1,
+					}),
+				),
+			).toEqual({
+				kind: "handled",
+				effects: [
+					{ kind: "target-selection", selectedIndex: 0 },
+					{ kind: "copy-preview", mode: false },
+				],
+			});
+		});
+
+		test("enumerates every ToolsWorkspaceCommand through the owner", () => {
+			const commands = {
+				"open-filter": {},
+				"clear-filter": {},
+				"save-filter": { filter: "tcp" },
+				"cleanup-filter": {},
+				"cycle-filter-preset": {},
+				"detail-shortcut": { input: "1" },
+				"cycle-detail": {},
+				"cycle-sort": {},
+				"cycle-group": {},
+				rerun: {},
+				"select-target-next": {},
+				"select-target-previous": {},
+				"save-target": {},
+				"promote-target": {},
+				"remove-target": {},
+				"prompt-target-cleanup": {},
+				"prompt-target-label": {},
+				"prompt-target-value": {},
+				"prompt-target-action": {},
+				"run-target": {},
+				"copy-raw": {},
+				"copy-summary": {},
+				"copy-compare": {},
+				"cycle-copy-section": {},
+				"move-copy-row-next": {},
+				"move-copy-row-previous": {},
+				"copy-row": {},
+				"copy-section": {},
+				"export-selected": {},
+				"export-all": {},
+				"export-compare": {},
+			} satisfies Record<ToolsWorkspaceCommand, Partial<ToolsWorkspaceInput>>;
+
+			for (const [command, overrides] of Object.entries(commands)) {
+				expect(
+					prepareToolsWorkspaceInput(
+						workspaceInput({
+							...overrides,
+							command: command as ToolsWorkspaceCommand,
+						}),
+					).kind,
+					command,
+				).toBe("handled");
+			}
+		});
 	});
 });

@@ -4,7 +4,10 @@ import {
 	formatFileBreadcrumbRows,
 	formatFileProviderBoundaryRows,
 	formatSelectedFilePathRows,
+	getSelectedFileEntry,
+	getSelectedFilePathClipboardIntent,
 	getSelectedFilePathClipboardPreview,
+	moveFileSelection,
 } from "../src/tui/fileSelection";
 
 const entries: FileEntry[] = [
@@ -51,6 +54,38 @@ describe("TUI file selection", () => {
 			"controls=j/k select · : path · 1-9 locations",
 		]);
 		expect(getSelectedFilePathClipboardPreview([], 0)).toBeUndefined();
+	});
+
+	test("clamps file selection indexes through the shared navigation guard", () => {
+		expect(formatSelectedFilePathRows(entries, -10)[0]).toBe(
+			"SELECTED PATH ..",
+		);
+		expect(formatSelectedFilePathRows(entries, 99)[0]).toBe(
+			"SELECTED PATH README.md",
+		);
+	});
+
+	test("resolves and moves selections without indexing an empty listing", () => {
+		expect(getSelectedFileEntry([], 9)).toBeUndefined();
+		expect(moveFileSelection(9, 0, "next")).toBe(0);
+		expect(getSelectedFileEntry(entries, -9)).toBe(entries[0]);
+		expect(getSelectedFileEntry(entries, 9)).toBe(entries[1]);
+		expect(moveFileSelection(9, entries.length, "next")).toBe(0);
+		expect(moveFileSelection(-9, entries.length, "previous")).toBe(1);
+	});
+
+	test("classifies clipboard intent and missing-selection notice", () => {
+		expect(getSelectedFilePathClipboardIntent([], 3)).toEqual({
+			preview: undefined,
+			notice: { level: "warn", message: "no file path selected" },
+		});
+		expect(getSelectedFilePathClipboardIntent(entries, 99)).toMatchObject({
+			preview: {
+				source: "file-path",
+				label: "file path README.md",
+				copyText: "/Users/bonjin/Documents/workspace/uulab/picos/README.md",
+			},
+		});
 	});
 
 	test("formats compact root and selected breadcrumbs", () => {
@@ -133,7 +168,9 @@ describe("TUI file selection", () => {
 			"root=sftp://alice@dev.example.com:22/srv/app",
 			"status=adapter pending writes=locked activeRoot=/Users/bonjin/Documents/workspace/uulab/picos",
 			"hostKey=unverified verified=no",
-			"controls=enter preview · y copy path · c connect from Remotes",
+			// Names the workspace, not a key: this row renders inside Files, where `c`
+			// is the copy operation rather than connect.
+			"controls=enter preview · y copy path · connect from the Remotes workspace",
 		]);
 	});
 });

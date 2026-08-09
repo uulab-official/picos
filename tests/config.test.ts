@@ -5,6 +5,7 @@ import {
 	getConfigPathForPlatform,
 	mergeConfig,
 } from "../src/config/schema";
+import { prepareNextConfigPolicyPresetTransition } from "../src/tui/configPanel";
 
 describe("config schema", () => {
 	test("uses safe read-only defaults for v0.1", () => {
@@ -21,6 +22,7 @@ describe("config schema", () => {
 			remoteProfiles: [],
 			logProfiles: [],
 			logSearchPresets: [],
+			operationPresets: [],
 			interfaceEvidenceSearchPresets: [],
 			routeFilterPresets: [],
 			connectionSort: "state",
@@ -35,6 +37,32 @@ describe("config schema", () => {
 			toolTargetPresetLimit: 8,
 			auditArchiveRetentionLimit: 10,
 			statusResultJumpClassFilter: "all",
+		});
+	});
+
+	test("preserves unrelated persisted config when cycling a policy preset", () => {
+		const config = {
+			...defaultConfig,
+			theme: "light" as const,
+			defaultPingHost: "internal.example",
+			refreshInterval: 9000,
+			logSearchPresets: ["kernel"],
+		};
+		expect(prepareNextConfigPolicyPresetTransition(config)).toEqual({
+			kind: "write",
+			config: {
+				...config,
+				controlExecutionMode: "dry-run",
+				enableExperimentalControls: true,
+			},
+			notices: [
+				{ level: "info", message: "CONFIG POLICY PRESET" },
+				{ level: "ok", message: "preset=User dry-run" },
+				{ level: "ok", message: "controlExecutionMode=dry-run" },
+				{ level: "ok", message: "allowAdminDryRun=false" },
+				{ level: "ok", message: "enableExperimentalControls=true" },
+				{ level: "ok", message: "editorSaveMode=disabled" },
+			],
 		});
 	});
 
@@ -121,6 +149,35 @@ describe("config schema", () => {
 				],
 			}).logSearchPresets,
 		).toEqual(["kernel", "error", "dns", "route", "boot", "panic"]);
+	});
+
+	test("normalizes persisted operation presets", () => {
+		expect(
+			mergeConfig({
+				operationPresets: [
+					{ id: " Pulse ", kind: "monitor", samples: 3, intervalMs: 500 },
+					{
+						id: "errors",
+						kind: "logs",
+						limit: 25,
+						level: "fail",
+						filter: " disk ",
+					},
+					{ id: "worker", kind: "process", pid: 42, files: true },
+					{ id: "bad", kind: "process", pid: 0, files: false },
+				],
+			}).operationPresets,
+		).toEqual([
+			{ id: "pulse", kind: "monitor", samples: 3, intervalMs: 500 },
+			{ id: "errors", kind: "logs", limit: 25, level: "fail", filter: "disk" },
+			// No savedAtMs: this entry was persisted without one and none is
+			// fabricated on load, so the identity check reports unknown rather than
+			// comparing against a baseline invented at read time.
+			{ id: "worker", kind: "process", pid: 42, files: true },
+		]);
+		expect(() => coerceConfigValue("operationPresets", "[]")).toThrow(
+			"managed by picos operations",
+		);
 	});
 
 	test("normalizes persisted interface evidence search presets", () => {
