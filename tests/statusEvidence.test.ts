@@ -8,6 +8,7 @@ import {
 	classifyAuditExportArchiveOutcome,
 	classifyAuditExportIndexRefresh,
 	classifyCleanupExportArchiveOutcome,
+	classifyEvidenceRetentionFailure,
 	classifyHandoffIndexRefresh,
 	classifyToolArchiveRetentionOutcome,
 	classifyToolExportArchiveOutcome,
@@ -213,6 +214,38 @@ describe("evidence archive outcome transitions", () => {
 			nextFamilyToken: archive.familyRequestToken + 1,
 			advanced: true,
 		});
+	});
+
+	test("requires a covering refresh and preserves failure history after enabled retention I/O fails", () => {
+		const mutation = beginEvidenceRetentionMutation({
+			familyCurrentToken: 4,
+			enabled: true,
+		});
+		const outcome = classifyEvidenceRetentionFailure({
+			currentToken: mutation.nextFamilyToken,
+			requestToken: mutation.requestToken,
+			family: "tools",
+			error: new Error("unlink denied"),
+		});
+
+		expect(mutation.advanced).toBe(true);
+		expect(outcome).toMatchObject({
+			publication: "current",
+			publishCurrentState: true,
+			refreshActive: false,
+			refreshArchive: true,
+			activityResult: {
+				action: "tools-evidence-retention",
+				message: "tools archive retention failed",
+				detail: "unlink denied",
+			},
+		});
+		expect(outcome.notices).toEqual([
+			{
+				level: "warn",
+				message: "tools archive retention failed unlink denied",
+			},
+		]);
 	});
 
 	test("publishes active and archive audit indexes as one current batch", () => {

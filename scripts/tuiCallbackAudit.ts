@@ -148,7 +148,7 @@ type DelegatedOwnerCall = ImportedOwnerBinding;
 
 type CallbackRuntimeOwnerFlow = DelegatedOwnerCall & {
 	parameterNames: readonly string[];
-	bridge?: DelegatedOwnerCall & { argumentIndex: number };
+	bridge?: DelegatedOwnerCall & { argumentIndex: number; callbackName: string };
 };
 
 function collectImportedOwnerBindings(
@@ -215,6 +215,12 @@ function bindingNameContains(name: ts.BindingName, expected: string): boolean {
 }
 
 function runtimeScopeDeclaresName(scope: ts.Node, name: string): boolean {
+	if (
+		(ts.isFunctionExpression(scope) || ts.isClassExpression(scope)) &&
+		scope.name?.text === name
+	) {
+		return true;
+	}
 	if (ts.isFunctionLike(scope)) {
 		if (
 			scope.parameters.some((parameter) =>
@@ -226,6 +232,17 @@ function runtimeScopeDeclaresName(scope: ts.Node, name: string): boolean {
 	}
 	if (ts.isCatchClause(scope) && scope.variableDeclaration) {
 		return bindingNameContains(scope.variableDeclaration.name, name);
+	}
+	if (
+		(ts.isForStatement(scope) ||
+			ts.isForInStatement(scope) ||
+			ts.isForOfStatement(scope)) &&
+		scope.initializer &&
+		ts.isVariableDeclarationList(scope.initializer)
+	) {
+		return scope.initializer.declarations.some((declaration) =>
+			bindingNameContains(declaration.name, name),
+		);
 	}
 	if (!ts.isBlock(scope) && !ts.isSourceFile(scope)) return false;
 	for (const statement of scope.statements) {
@@ -278,8 +295,49 @@ function visitExecutableNodes(
 	collectFunctions(root);
 
 	const visitedFunctions = new Set<ts.FunctionLikeDeclaration>();
+	const getStaticBoolean = (expression: ts.Expression): boolean | undefined => {
+		const current = unwrapExpression(expression);
+		if (current.kind === ts.SyntaxKind.TrueKeyword) return true;
+		if (current.kind === ts.SyntaxKind.FalseKeyword) return false;
+		return undefined;
+	};
 	const visit = (node: ts.Node): void => {
 		visitor(node);
+		if (ts.isIfStatement(node)) {
+			visit(node.expression);
+			const condition = getStaticBoolean(node.expression);
+			if (condition !== false) visit(node.thenStatement);
+			if (condition !== true && node.elseStatement) visit(node.elseStatement);
+			return;
+		}
+		if (ts.isConditionalExpression(node)) {
+			visit(node.condition);
+			const condition = getStaticBoolean(node.condition);
+			if (condition !== false) visit(node.whenTrue);
+			if (condition !== true) visit(node.whenFalse);
+			return;
+		}
+		if (
+			ts.isBinaryExpression(node) &&
+			(node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken ||
+				node.operatorToken.kind === ts.SyntaxKind.BarBarToken)
+		) {
+			visit(node.left);
+			const left = getStaticBoolean(node.left);
+			const reachesRight =
+				node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+					? left !== false
+					: left !== true;
+			if (reachesRight) visit(node.right);
+			return;
+		}
+		if (
+			ts.isWhileStatement(node) &&
+			getStaticBoolean(node.expression) === false
+		) {
+			visit(node.expression);
+			return;
+		}
 		if (ts.isCallExpression(node)) {
 			const calledLocal = ts.isIdentifier(node.expression)
 				? localFunctions.get(node.expression.text)
@@ -576,7 +634,7 @@ function extractTuiCallbackRuntimeOwnerFlows(
 								parameterNames: (callbackParameters.get(callback) ?? []).filter(
 									Boolean,
 								),
-								bridge: { ...binding, argumentIndex },
+								bridge: { ...binding, argumentIndex, callbackName: callback },
 							});
 						}
 					}
@@ -591,7 +649,7 @@ function extractTuiCallbackRuntimeOwnerFlows(
 
 function extractTuiOwnerInvokedParameterIndexes(
 	sourceText: string,
-): ReadonlyMap<string, ReadonlySet<number>> {
+): ReadonlyMap<string, ReadonlySet<string>> {
 	const sourceFile = ts.createSourceFile(
 		"owner.ts",
 		sourceText,
@@ -599,39 +657,94 @@ function extractTuiOwnerInvokedParameterIndexes(
 		true,
 		ts.ScriptKind.TS,
 	);
-	const invoked = new Map<string, ReadonlySet<number>>();
+	const invoked = new Map<string, ReadonlySet<string>>();
 	const inspect = (
 		name: string,
 		parameters: readonly ts.ParameterDeclaration[],
 		body: ts.Node | undefined,
 	): void => {
 		if (!body) return;
-		const indexes = new Set<number>();
+		const members = new Set<string>();
 		for (const [index, parameter] of parameters.entries()) {
 			if (!ts.isIdentifier(parameter.name)) continue;
-			const derived = new Set([parameter.name.text]);
+			const containers = new Set([parameter.name.text]);
+			const callableAliases = new Map<string, string>();
+			const getContainerMember = (
+				expression: ts.Expression,
+			): string | undefined => {
+				const current = unwrapExpression(expression);
+				if (
+					ts.isPropertyAccessExpression(current) &&
+					ts.isIdentifier(current.expression) &&
+					containers.has(current.expression.text)
+				) {
+					return current.name.text;
+				}
+				if (
+					ts.isElementAccessExpression(current) &&
+					ts.isIdentifier(current.expression) &&
+					containers.has(current.expression.text)
+				) {
+					return current.argumentExpression &&
+						ts.isStringLiteralLike(current.argumentExpression)
+						? current.argumentExpression.text
+						: "*";
+				}
+				return undefined;
+			};
 			let expanded = true;
 			while (expanded) {
 				expanded = false;
 				const collect = (node: ts.Node): void => {
 					if (
 						ts.isVariableDeclaration(node) &&
-						ts.isIdentifier(node.name) &&
 						node.initializer &&
-						!derived.has(node.name.text)
+						ts.isIdentifier(node.name)
 					) {
-						let referencesParameter = false;
-						const find = (child: ts.Node): void => {
-							if (ts.isIdentifier(child) && derived.has(child.text)) {
-								referencesParameter = true;
-								return;
-							}
-							ts.forEachChild(child, find);
-						};
-						find(node.initializer);
-						if (referencesParameter) {
-							derived.add(node.name.text);
+						const initializer = unwrapExpression(node.initializer);
+						if (
+							ts.isIdentifier(initializer) &&
+							containers.has(initializer.text) &&
+							!containers.has(node.name.text)
+						) {
+							containers.add(node.name.text);
 							expanded = true;
+						}
+						const member = getContainerMember(initializer);
+						const aliasedMember = ts.isIdentifier(initializer)
+							? callableAliases.get(initializer.text)
+							: undefined;
+						const nextMember = member ?? aliasedMember;
+						if (
+							nextMember &&
+							callableAliases.get(node.name.text) !== nextMember
+						) {
+							callableAliases.set(node.name.text, nextMember);
+							expanded = true;
+						}
+					}
+					if (
+						ts.isVariableDeclaration(node) &&
+						node.initializer &&
+						ts.isObjectBindingPattern(node.name)
+					) {
+						const initializer = unwrapExpression(node.initializer);
+						if (
+							ts.isIdentifier(initializer) &&
+							containers.has(initializer.text)
+						) {
+							for (const element of node.name.elements) {
+								if (!ts.isIdentifier(element.name)) continue;
+								const member = element.propertyName
+									? element.propertyName
+											.getText(sourceFile)
+											.replace(/^['"]|['"]$/g, "")
+									: element.name.text;
+								if (callableAliases.get(element.name.text) !== member) {
+									callableAliases.set(element.name.text, member);
+									expanded = true;
+								}
+							}
 						}
 					}
 				};
@@ -639,21 +752,16 @@ function extractTuiOwnerInvokedParameterIndexes(
 			}
 			const visit = (node: ts.Node): void => {
 				if (ts.isCallExpression(node)) {
-					let callsDerived = false;
-					const find = (child: ts.Node): void => {
-						if (ts.isIdentifier(child) && derived.has(child.text)) {
-							callsDerived = true;
-							return;
-						}
-						ts.forEachChild(child, find);
-					};
-					find(node.expression);
-					if (callsDerived) indexes.add(index);
+					const expression = unwrapExpression(node.expression);
+					const member = ts.isIdentifier(expression)
+						? callableAliases.get(expression.text)
+						: getContainerMember(expression);
+					if (member) members.add(`${index}\0${member}`);
 				}
 			};
 			visitExecutableNodes(body, visit);
 		}
-		invoked.set(name, indexes);
+		invoked.set(name, members);
 	};
 	for (const statement of sourceFile.statements) {
 		if (ts.isFunctionDeclaration(statement) && statement.name) {
@@ -1005,6 +1113,49 @@ function extractInlineDelegatedDecisions(
 			visit(node);
 			return calls;
 		};
+		const getValueOwnerCalls = (
+			expression: ts.Expression,
+		): ReadonlySet<string> => {
+			const current = unwrapExpression(expression);
+			if (ts.isIdentifier(current)) {
+				return new Set(ownerDerived.get(current.text) ?? []);
+			}
+			if (ts.isCallExpression(current)) {
+				const binding = getCalledBinding(current.expression, importedOwners);
+				if (binding) return new Set([ownerCallKey(binding)]);
+				if (
+					ts.isIdentifier(current.expression) &&
+					callbackNames.has(current.expression.text)
+				) {
+					return new Set(
+						delegatedCallbackCalls.get(current.expression.text) ?? [],
+					);
+				}
+				return new Set();
+			}
+			if (
+				ts.isPropertyAccessExpression(current) ||
+				ts.isElementAccessExpression(current)
+			) {
+				return getValueOwnerCalls(current.expression);
+			}
+			if (ts.isAwaitExpression(current)) {
+				return getValueOwnerCalls(current.expression);
+			}
+			if (ts.isConditionalExpression(current)) {
+				const whenTrue = getValueOwnerCalls(current.whenTrue);
+				const whenFalse = getValueOwnerCalls(current.whenFalse);
+				if (whenTrue.size === 0 || whenFalse.size === 0) return new Set();
+				return new Set([...whenTrue, ...whenFalse]);
+			}
+			if (
+				ts.isBinaryExpression(current) &&
+				current.operatorToken.kind === ts.SyntaxKind.CommaToken
+			) {
+				return getValueOwnerCalls(current.right);
+			}
+			return new Set();
+		};
 		const isOwnerDerived = (node: ts.Node): boolean =>
 			getOwnerCalls(node).size > 0;
 		let expanded = true;
@@ -1014,9 +1165,9 @@ function extractInlineDelegatedDecisions(
 				if (
 					ts.isVariableDeclaration(node) &&
 					node.initializer &&
-					isOwnerDerived(node.initializer)
+					getValueOwnerCalls(node.initializer).size > 0
 				) {
-					const calls = getOwnerCalls(node.initializer);
+					const calls = getValueOwnerCalls(node.initializer);
 					for (const name of getBindingNames(node.name)) {
 						const current = new Set(ownerDerived.get(name) ?? []);
 						for (const call of calls) current.add(call);
@@ -1034,7 +1185,9 @@ function extractInlineDelegatedDecisions(
 		const visit = (node: ts.Node): void => {
 			if (
 				ts.isIfStatement(node) &&
-				hasEmptyReturn(node.thenStatement) &&
+				(hasEmptyReturn(node.thenStatement) ||
+					(node.elseStatement !== undefined &&
+						hasEmptyReturn(node.elseStatement))) &&
 				!isOwnerDerived(node.expression)
 			) {
 				found.push({
@@ -1055,7 +1208,7 @@ function extractInlineDelegatedDecisions(
 					kind: "selection-publication",
 					line: lineNumber(sourceFile, node.getStart(sourceFile)),
 					expression: node.getText(sourceFile),
-					ownerCalls: [...getOwnerCalls(node.arguments[0])],
+					ownerCalls: [...getValueOwnerCalls(node.arguments[0])],
 				});
 			}
 			if (
@@ -1149,7 +1302,7 @@ export function auditTuiCallbacks({
 	>();
 	const ownerInvokedParameterIndexes = new Map<
 		string,
-		ReadonlyMap<string, ReadonlySet<number>>
+		ReadonlyMap<string, ReadonlySet<string>>
 	>();
 	for (const [name, flows] of runtimeOwnerFlows) {
 		const calls = new Set(delegatedOwnerCalls.get(name) ?? []);
@@ -1165,10 +1318,15 @@ export function auditTuiCallbacks({
 					const ownerSource = ownerFileRead(`${bridge.owner}.ts`);
 					invoked = ownerSource
 						? extractTuiOwnerInvokedParameterIndexes(ownerSource)
-						: new Map<string, ReadonlySet<number>>();
+						: new Map<string, ReadonlySet<string>>();
 					ownerInvokedParameterIndexes.set(bridge.owner, invoked);
 				}
-				valid = Boolean(invoked.get(bridge.symbol)?.has(bridge.argumentIndex));
+				const invokedMembers = invoked.get(bridge.symbol);
+				valid = Boolean(
+					invokedMembers?.has(
+						`${bridge.argumentIndex}\0${bridge.callbackName}`,
+					) || invokedMembers?.has(`${bridge.argumentIndex}\0*`),
+				);
 			}
 			if (!valid) continue;
 			calls.add(ownerCallKey(flow));

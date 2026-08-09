@@ -366,6 +366,12 @@ describe("TUI callback audit", () => {
 			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
 				 const transition = prepareSave();
+				 if (selected) consume(transition); else { return; }
+				 return transition;
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 const transition = prepareSave();
 				 setSelectedIndex(0);
 				 return transition;
 			 }, []);`,
@@ -380,6 +386,10 @@ describe("TUI callback audit", () => {
 				 const transition = prepareSave();
 				 setSelectedIndex(getInitialSelectionIndex());
 				 return transition;
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 setSelectedIndex((prepareSave(), 0));
 			 }, []);`,
 			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
@@ -401,6 +411,8 @@ describe("TUI callback audit", () => {
 				[
 					"inline delegated guard: save",
 					"inline delegated guard: save",
+					"inline delegated guard: save",
+					"inline delegated selection publication: save",
 					"inline delegated selection publication: save",
 					"inline delegated selection publication: save",
 					"inline delegated selection publication: save",
@@ -473,8 +485,25 @@ describe("TUI callback audit", () => {
 			 const save = useCallback((prepareSave: () => void) => prepareSave(), []);`,
 			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
+				 const run = function prepareSave() { prepareSave(); };
+				 run();
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 for (const prepareSave of [() => undefined]) prepareSave();
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 for (let prepareSave = () => undefined; ready; ) prepareSave();
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
 				 const dead = () => prepareSave();
 				 return undefined;
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 if (false) prepareSave();
 			 }, []);`,
 		]) {
 			expect(() =>
@@ -512,6 +541,19 @@ describe("TUI callback audit", () => {
 						: undefined,
 			}),
 		).toThrow("delegated callback has no owner call path: save");
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText: `import { prepareSubmission } from "./commandBridge";
+				 const save = useCallback(() => prepareSubmission(), []);`,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: (path) =>
+					path === "src/tui/commandBridge.ts"
+						? 'import { prepareSave } from "./saveOwner"; export const prepareSubmission = () => { if (false) prepareSave(); };'
+						: undefined,
+			}),
+		).toThrow("delegated callback has no owner call path: save");
 	});
 
 	test("accepts only a runtime handler bridge that invokes the callback container", () => {
@@ -543,17 +585,21 @@ describe("TUI callback audit", () => {
 			}),
 		).not.toThrow();
 
-		expect(() =>
-			auditTuiCallbacks({
-				sourceText,
-				manifest: manifestRows,
-				ownerFileExists: (path) => exists.has(path),
-				ownerFileRead: (path) =>
-					path === "src/tui/commandBridge.ts"
-						? "export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = () => undefined;"
-						: undefined,
-			}),
-		).toThrow("delegated callback has no owner call path: save");
+		for (const bridgeSource of [
+			"export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = () => undefined;",
+			"export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = (effect: never, handlers: { save: (value: never) => void }) => { handlers.save.bind(undefined); };",
+			"export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = (effect: never, handlers: { save: (value: never) => void; other: (value: never) => void }) => handlers.other(effect);",
+		]) {
+			expect(() =>
+				auditTuiCallbacks({
+					sourceText,
+					manifest: manifestRows,
+					ownerFileExists: (path) => exists.has(path),
+					ownerFileRead: (path) =>
+						path === "src/tui/commandBridge.ts" ? bridgeSource : undefined,
+				}),
+			).toThrow("delegated callback has no owner call path: save");
+		}
 	});
 
 	test("strict mode rejects an inline decision", () => {

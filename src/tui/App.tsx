@@ -551,6 +551,7 @@ import {
 	prepareRecoveredEvidenceSearchTransition,
 	prepareRecoveredEvidenceSelectionTransition,
 	prepareStatusActivityResultPublication,
+	prepareStatusActivityResultSelectionReset,
 	prepareStatusActivityResultTimelineHandoffOpenTransition,
 	prepareStatusActivityToolsEvidenceMatchArchive,
 	prepareStatusActivityToolsEvidenceMatchOpen,
@@ -582,6 +583,7 @@ import {
 	classifyAuditExportArchiveOutcome,
 	classifyAuditExportIndexRefresh,
 	classifyCleanupExportArchiveOutcome,
+	classifyEvidenceRetentionFailure,
 	classifyHandoffIndexRefresh,
 	classifyToolArchiveRetentionOutcome,
 	classifyToolExportArchiveOutcome,
@@ -1751,18 +1753,16 @@ export function App(): React.ReactElement {
 
 	const recordStatusActivityResult = useCallback(
 		(result: StatusActivityResult) => {
-			setStatusActivityResults((history) => {
-				const publication = prepareStatusActivityResultPublication(
-					history,
-					result,
-				);
-				setSelectedStatusActivityResultIndex(publication.selectedResultIndex);
-				setSelectedStatusActivityCopyPreviewRowIndex(
-					publication.selectedCopyPreviewRowIndex,
-				);
-				setStatusActivityCopyPreviewExpanded(publication.copyPreviewExpanded);
-				return publication.history;
-			});
+			const reset = prepareStatusActivityResultSelectionReset();
+			setSelectedStatusActivityResultIndex(reset.selectedResultIndex);
+			setSelectedStatusActivityCopyPreviewRowIndex(
+				reset.selectedCopyPreviewRowIndex,
+			);
+			setStatusActivityCopyPreviewExpanded(reset.copyPreviewExpanded);
+			setStatusActivityResults(
+				(history) =>
+					prepareStatusActivityResultPublication(history, result).history,
+			);
 		},
 		[],
 	);
@@ -7421,22 +7421,38 @@ export function App(): React.ReactElement {
 			auditEvidenceMutationTokenRef.current = mutation.nextFamilyToken;
 			setAuditArchiveRetentionPlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
-			const result = await pruneConsoleAuditArchive(plan);
-			const outcome = classifyAuditArchiveRetentionOutcome({
-				currentToken: auditEvidenceMutationTokenRef.current,
-				requestToken,
-				scope: transition.scope,
-				plan,
-				result,
-			});
-			for (const notice of outcome.notices) {
-				log(notice.level, notice.message);
-			}
-			if (outcome.activityResult) {
-				recordStatusActivityResult(outcome.activityResult);
-			}
-			if (outcome.refreshArchive) {
-				await refreshAuditExportIndex(false, "preserve", requestToken);
+			try {
+				const result = await pruneConsoleAuditArchive(plan);
+				const outcome = classifyAuditArchiveRetentionOutcome({
+					currentToken: auditEvidenceMutationTokenRef.current,
+					requestToken,
+					scope: transition.scope,
+					plan,
+					result,
+				});
+				for (const notice of outcome.notices) {
+					log(notice.level, notice.message);
+				}
+				if (outcome.activityResult) {
+					recordStatusActivityResult(outcome.activityResult);
+				}
+			} catch (caught) {
+				const outcome = classifyEvidenceRetentionFailure({
+					currentToken: auditEvidenceMutationTokenRef.current,
+					requestToken,
+					family: transition.scope,
+					error: caught,
+				});
+				for (const notice of outcome.notices) {
+					log(notice.level, notice.message);
+				}
+				if (outcome.activityResult) {
+					recordStatusActivityResult(outcome.activityResult);
+				}
+			} finally {
+				if (mutation.advanced) {
+					await refreshAuditExportIndex(false, "preserve", requestToken);
+				}
 			}
 		},
 		[log, recordStatusActivityResult, refreshAuditExportIndex],
@@ -7458,20 +7474,36 @@ export function App(): React.ReactElement {
 			toolEvidenceMutationTokenRef.current = mutation.nextFamilyToken;
 			setToolArchiveRetentionPlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
-			const result = await pruneToolHistoryExportArchive(plan);
-			const outcome = classifyToolArchiveRetentionOutcome({
-				currentToken: toolEvidenceMutationTokenRef.current,
-				requestToken,
-				result,
-			});
-			for (const notice of outcome.notices) {
-				log(notice.level, notice.message);
-			}
-			if (outcome.activityResult) {
-				recordStatusActivityResult(outcome.activityResult);
-			}
-			if (outcome.refreshArchive) {
-				await refreshToolExportIndex(false, "preserve", requestToken);
+			try {
+				const result = await pruneToolHistoryExportArchive(plan);
+				const outcome = classifyToolArchiveRetentionOutcome({
+					currentToken: toolEvidenceMutationTokenRef.current,
+					requestToken,
+					result,
+				});
+				for (const notice of outcome.notices) {
+					log(notice.level, notice.message);
+				}
+				if (outcome.activityResult) {
+					recordStatusActivityResult(outcome.activityResult);
+				}
+			} catch (caught) {
+				const outcome = classifyEvidenceRetentionFailure({
+					currentToken: toolEvidenceMutationTokenRef.current,
+					requestToken,
+					family: "tools",
+					error: caught,
+				});
+				for (const notice of outcome.notices) {
+					log(notice.level, notice.message);
+				}
+				if (outcome.activityResult) {
+					recordStatusActivityResult(outcome.activityResult);
+				}
+			} finally {
+				if (mutation.advanced) {
+					await refreshToolExportIndex(false, "preserve", requestToken);
+				}
 			}
 		},
 		[log, recordStatusActivityResult, refreshToolExportIndex],

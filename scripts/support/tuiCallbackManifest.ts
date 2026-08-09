@@ -305,7 +305,7 @@ const delegatedCallbacks = {
 	},
 	runAction: {
 		owner:
-			"src/tui/actionControlTransitions.ts + src/tui/actionRunTransitions.ts",
+			"src/tui/actionControlTransitions.ts + src/tui/actionRunTransitions.ts + src/tui/configPanel.ts + src/tui/interfacePanel.ts",
 		reason:
 			"delegates catalog lookup, metadata and safety guards, read-versus-mutation routing, preview state, and exact notices while App retains existing feature-owner handoffs and I/O",
 	},
@@ -659,8 +659,9 @@ const delegatedCallbacks = {
 		reason: "delegates exact audit retention confirmation and execution plan",
 	},
 	submitToolArchiveRetentionCommand: {
-		owner: "src/tui/toolHistory.ts",
-		reason: "delegates exact Tools retention confirmation and execution plan",
+		owner: "src/tui/toolHistory.ts + src/tui/statusEvidence.ts",
+		reason:
+			"delegates exact Tools retention confirmation, execution plan, mutation ownership, and failure publication",
 	},
 	submitDnsServerProposalCommand: {
 		owner: "src/tui/dnsPanel.ts",
@@ -870,7 +871,7 @@ const commandInputDelegatedCallbacks = {
 	},
 	useInput: {
 		owner:
-			"src/tui/appInputDispatcher.ts + src/tui/commandLine.ts + src/tui/commandCancellation.ts",
+			"src/tui/appInputDispatcher.ts + src/tui/commandLine.ts + src/tui/commandCancellation.ts + src/tui/fileWorkspaceTransitions.ts + src/tui/processPanel.ts + src/tui/configPanel.ts",
 		reason:
 			"delegates modal precedence, screen/focus routing, key ownership, prompt routing, selection movement, and notices; App normalizes Ink keys and applies typed state or I/O effects",
 	},

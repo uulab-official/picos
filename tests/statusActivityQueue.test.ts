@@ -155,6 +155,7 @@ import {
 	prepareStatusActivityAuditExportSelection,
 	prepareStatusActivityResultHistoryMove,
 	prepareStatusActivityResultPublication,
+	prepareStatusActivityResultSelectionReset,
 	prepareStatusActivityResultTimelineHandoffOpenTransition,
 	prepareStatusActivityResultTimelineHandoffReplay,
 	prepareStatusActivityToolsEvidenceMatchArchive,
@@ -469,6 +470,11 @@ describe("Status activity queue", () => {
 		expect(history).toEqual([third, second]);
 		expect(prepareStatusActivityResultPublication([second], third)).toEqual({
 			history: [third, second],
+			selectedResultIndex: 0,
+			selectedCopyPreviewRowIndex: 0,
+			copyPreviewExpanded: false,
+		});
+		expect(prepareStatusActivityResultSelectionReset()).toEqual({
 			selectedResultIndex: 0,
 			selectedCopyPreviewRowIndex: 0,
 			copyPreviewExpanded: false,

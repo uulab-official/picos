@@ -573,6 +573,18 @@ export function appendStatusActivityResultHistory(
 	return [result, ...history].slice(0, Math.max(1, limit));
 }
 
+export function prepareStatusActivityResultSelectionReset(): {
+	selectedResultIndex: 0;
+	selectedCopyPreviewRowIndex: 0;
+	copyPreviewExpanded: false;
+} {
+	return {
+		selectedResultIndex: 0,
+		selectedCopyPreviewRowIndex: 0,
+		copyPreviewExpanded: false,
+	};
+}
+
 export function prepareStatusActivityResultPublication(
 	history: StatusActivityResult[],
 	result: StatusActivityResult,
@@ -584,9 +596,7 @@ export function prepareStatusActivityResultPublication(
 } {
 	return {
 		history: appendStatusActivityResultHistory(history, result),
-		selectedResultIndex: 0,
-		selectedCopyPreviewRowIndex: 0,
-		copyPreviewExpanded: false,
+		...prepareStatusActivityResultSelectionReset(),
 	};
 }
 

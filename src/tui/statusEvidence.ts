@@ -303,6 +303,38 @@ export function classifyToolArchiveRetentionOutcome(
 	};
 }
 
+export function classifyEvidenceRetentionFailure(
+	input: EvidenceArchiveRequest & {
+		family: "audit" | "interface" | "tools";
+		error: unknown;
+	},
+): EvidenceArchiveOutcomeTransition {
+	const label =
+		input.family === "interface"
+			? "interface evidence archive retention"
+			: `${input.family} archive retention`;
+	const detail =
+		input.error instanceof Error ? input.error.message : String(input.error);
+	const action =
+		input.family === "interface"
+			? ("interface-evidence-retention" as const)
+			: input.family === "audit"
+				? ("audit-evidence-retention" as const)
+				: ("tools-evidence-retention" as const);
+	return {
+		...classifyEvidenceArchiveRequest(input),
+		notices: [{ level: "warn", message: `${label} failed ${detail}` }],
+		activityResult: {
+			source: "evidence",
+			action,
+			message: `${label} failed`,
+			detail,
+		},
+		refreshActive: false,
+		refreshArchive: true,
+	};
+}
+
 import {
 	createToolHistoryArchiveRetentionPlan,
 	filterToolHistoryExportIndex,
