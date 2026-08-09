@@ -101,10 +101,20 @@ function updateConfig(
 	path: string,
 	update: (config: PicosConfig) => PicosConfig,
 ): Promise<PicosConfig> {
+	return mutateConfigAtomically(
+		(config) => ({ config: update(config), result: undefined }),
+		path,
+	).then(({ config }) => config);
+}
+
+export function mutateConfigAtomically<Result>(
+	mutation: (config: PicosConfig) => { config: PicosConfig; result: Result },
+	path = getConfigPath(),
+): Promise<{ config: PicosConfig; result: Result }> {
 	return enqueueConfigMutation(path, async () => {
-		const next = update(await readConfig(path));
-		await writeConfigFile(next, path);
-		return next;
+		const mutationResult = mutation(await readConfig(path));
+		await writeConfigFile(mutationResult.config, path);
+		return mutationResult;
 	});
 }
 

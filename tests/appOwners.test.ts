@@ -8,6 +8,8 @@ import {
 	type PackageUpdateCheckResult,
 } from "../src/core/updateCheck";
 import {
+	classifyInterfaceEvidencePresetPersistenceFailure,
+	classifyToolCommandRunOutcome,
 	prepareCleanupHandoffDismissal,
 	prepareCleanupHandoffExport,
 	prepareCleanupHandoffPrompt,
@@ -168,6 +170,26 @@ describe("App orchestration transitions", () => {
 				label: "DNS lookup openai.com",
 			},
 		});
+	});
+
+	test("owns tool execution and interface preset persistence notices", () => {
+		expect(
+			classifyToolCommandRunOutcome({
+				label: "DNS lookup openai.com",
+				outcome: { kind: "success" },
+			}),
+		).toEqual({ level: "ok", message: "DNS lookup openai.com completed" });
+		expect(
+			classifyToolCommandRunOutcome({
+				label: "DNS lookup openai.com",
+				outcome: { kind: "failure", error: "collector failed" },
+			}),
+		).toEqual({ level: "fail", message: "collector failed" });
+		expect(
+			classifyInterfaceEvidencePresetPersistenceFailure(
+				new Error("config write failed"),
+			),
+		).toEqual({ level: "fail", message: "config write failed" });
 	});
 
 	test("owns editor save confirmation guards", () => {
@@ -469,6 +491,14 @@ describe("App orchestration transitions", () => {
 		expect(prepareInterfaceEvidencePresetSave("", ["saved"])).toEqual({
 			kind: "notice",
 			notice: { level: "warn", message: "no interface evidence query to save" },
+		});
+		expect(
+			prepareInterfaceEvidencePresetSave("wifi", [], "palette"),
+		).toMatchObject({
+			notice: {
+				message:
+					"interface evidence search preset saved wifi count=1 via palette",
+			},
 		});
 		expect(
 			prepareInterfaceEvidencePresetCycle({

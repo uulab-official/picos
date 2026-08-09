@@ -160,6 +160,21 @@ export type CleanupExportIndexRefreshTransition =
 			notice?: CleanupExportNotice;
 	  };
 
+export type CleanupEvidenceIndexBatchRefreshTransition =
+	| { status: "stale"; notice?: CleanupExportNotice }
+	| { status: "failure"; notice: CleanupExportNotice }
+	| {
+			status: "success";
+			active: Extract<
+				CleanupExportIndexRefreshTransition,
+				{ status: "success" }
+			>;
+			archive: Extract<
+				CleanupExportIndexRefreshTransition,
+				{ status: "success" }
+			>;
+	  };
+
 export type SelectedCleanupExportOpenTransition =
 	| { kind: "notice"; notice: CleanupExportNotice }
 	| {
@@ -803,6 +818,59 @@ export function classifyCleanupExportIndexRefresh(input: {
 				}
 			: {}),
 	};
+}
+
+export function classifyCleanupEvidenceIndexBatchRefresh(input: {
+	currentMutationToken: number;
+	requestMutationToken: number;
+	active: {
+		currentRequestToken: number;
+		requestToken: number;
+		selectedIndex: number;
+	};
+	archive: {
+		currentRequestToken: number;
+		requestToken: number;
+		selectedIndex: number;
+	};
+	outcome:
+		| {
+				status: "success";
+				activeIndex: CleanupHandoffHistoryExportIndex;
+				archiveIndex: CleanupHandoffHistoryExportIndex;
+		  }
+		| { status: "failure"; error: unknown };
+}): CleanupEvidenceIndexBatchRefreshTransition {
+	const mutationPublication = classifyRequestPublication(
+		input.currentMutationToken,
+		input.requestMutationToken,
+	);
+	if (input.outcome.status === "failure") {
+		const notice = {
+			level: "fail" as const,
+			message: `cleanup evidence index batch failed ${formatCleanupExportError(input.outcome.error)}`,
+		};
+		return mutationPublication === "stale"
+			? { status: "stale", notice }
+			: { status: "failure", notice };
+	}
+	if (mutationPublication === "stale") {
+		return { status: "stale" };
+	}
+	const active = classifyCleanupExportIndexRefresh({
+		target: "active",
+		...input.active,
+		outcome: { status: "success", index: input.outcome.activeIndex },
+	});
+	const archive = classifyCleanupExportIndexRefresh({
+		target: "archive",
+		...input.archive,
+		outcome: { status: "success", index: input.outcome.archiveIndex },
+	});
+	if (active.status !== "success" || archive.status !== "success") {
+		return { status: "stale" };
+	}
+	return { status: "success", active, archive };
 }
 
 export function prepareSelectedCleanupExportOpen(input: {

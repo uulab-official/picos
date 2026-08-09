@@ -4,6 +4,7 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	getConfigPath,
+	mutateConfigAtomically,
 	readConfig,
 	resetConfigWorkspaceValues,
 	setConfigEndpointFilterPresets,
@@ -16,7 +17,6 @@ import {
 	setConfigToolTargetPresets,
 	setConfigValue,
 	upsertConfigRemoteProfile,
-	writeConfig,
 } from "../config/store";
 import {
 	type ActionControlSimulation,
@@ -232,9 +232,12 @@ import {
 	prepareControlPolicySync,
 } from "./actionControlTransitions";
 import {
+	type ActionRunRequestTokens,
+	beginActionRunEffectRequest,
 	classifyActionRunOutcome,
 	dispatchStatusActionRun,
 	getActionRunEffect,
+	getActionRunEffectRequestToken,
 	getInterfaceProposalInput,
 	prepareRawToolHistoryView,
 	prepareToolActionPrompt,
@@ -254,6 +257,8 @@ import {
 	prepareWorkspaceEnterInput,
 } from "./appInputDispatcher";
 import {
+	classifyInterfaceEvidencePresetPersistenceFailure,
+	classifyToolCommandRunOutcome,
 	prepareCleanupHandoffDismissal,
 	prepareCleanupHandoffPrompt,
 	prepareClipboardConfirmationOpen,
@@ -277,6 +282,7 @@ import {
 	type CleanupHandoffHistoryExportIndex,
 	type CleanupJumpAudit,
 	type CleanupShelfIndex,
+	classifyCleanupEvidenceIndexBatchRefresh,
 	classifyCleanupExportIndexRefresh,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
@@ -561,7 +567,9 @@ import {
 	type StatusDialogPreviewGroup,
 } from "./statusDialogPreview";
 import {
+	canPublishEvidenceArchiveCurrentState,
 	classifyAuditArchiveRetentionOutcome,
+	classifyAuditEvidenceIndexBatchRefresh,
 	classifyAuditExportArchiveIndexRefresh,
 	classifyAuditExportArchiveOutcome,
 	classifyAuditExportIndexRefresh,
@@ -611,6 +619,7 @@ import {
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
+	classifyToolHistoryEvidenceIndexBatchRefresh,
 	classifyToolHistoryExportIndexRefresh,
 	createToolHistoryArchiveRetentionPlan,
 	createToolHistoryCleanupPreview,
@@ -801,6 +810,7 @@ export function App(): React.ReactElement {
 	const layout = computeShellLayout(columns, rows);
 	const actions = useMemo(() => getActionCatalog(), []);
 	const actionControlSequenceRef = useRef(0);
+	const actionRunRequestTokensRef = useRef<ActionRunRequestTokens>(new Map());
 	const systemFileRoot = useMemo(() => getSystemFileRoot(), []);
 	const fileLocations = useMemo(() => getSystemFileLocations(), []);
 	const [editorSaveMode, setEditorSaveMode] =
@@ -1829,10 +1839,13 @@ export function App(): React.ReactElement {
 	const applyNextConfigPolicyPreset = useCallback(async () => {
 		beginCommand();
 		try {
-			const config = await readConfig();
-			const transition = prepareNextConfigPolicyPresetTransition(config);
-			await writeConfig(transition.config);
-			syncConfigSessionState(transition.config);
+			const { config, result: transition } = await mutateConfigAtomically(
+				(current) => {
+					const transition = prepareNextConfigPolicyPresetTransition(current);
+					return { config: transition.config, result: transition };
+				},
+			);
+			syncConfigSessionState(config);
 			for (const notice of transition.notices) {
 				log(notice.level, notice.message);
 			}
@@ -2321,17 +2334,24 @@ export function App(): React.ReactElement {
 
 	const submitToolCommand = useCallback(
 		async (submission: CommandTransition<"submit-tool">) => {
+			setCommandLine((current) => closeCommandLine(current));
+			if (submission.kind === "notice") {
+				log(submission.notice.level, submission.notice.message);
+				return;
+			}
 			try {
-				setCommandLine((current) => closeCommandLine(current));
-				if (submission.kind === "notice") {
-					log(submission.notice.level, submission.notice.message);
-					return;
-				}
-
 				await runToolPlan(submission.plan);
-				log("ok", `${submission.plan.label} completed`);
+				const notice = classifyToolCommandRunOutcome({
+					label: submission.plan.label,
+					outcome: { kind: "success" },
+				});
+				log(notice.level, notice.message);
 			} catch (caught) {
-				log("fail", caught instanceof Error ? caught.message : String(caught));
+				const notice = classifyToolCommandRunOutcome({
+					label: submission.plan.label,
+					outcome: { kind: "failure", error: caught },
+				});
+				log(notice.level, notice.message);
 			}
 		},
 		[log, runToolPlan],
@@ -3123,8 +3143,126 @@ export function App(): React.ReactElement {
 		async (
 			announce = true,
 			selectionIntent: "preserve" | "newest" = "preserve",
+			archiveBatchMutationToken?: number,
 		) => {
 			const baseDir = dirname(getConfigPath());
+			if (archiveBatchMutationToken !== undefined) {
+				const activeRequestToken = beginRequest(
+					auditExportIndexRequestTokenRef.current,
+				);
+				const archiveRequestToken = beginRequest(
+					auditExportArchiveIndexRequestTokenRef.current,
+				);
+				auditExportIndexRequestTokenRef.current = activeRequestToken;
+				auditExportArchiveIndexRequestTokenRef.current = archiveRequestToken;
+				const classifyBatch = (
+					outcome: Parameters<
+						typeof classifyAuditEvidenceIndexBatchRefresh
+					>[0]["outcome"],
+				) =>
+					classifyAuditEvidenceIndexBatchRefresh({
+						currentMutationToken: evidenceArchiveMutationTokenRef.current,
+						requestMutationToken: archiveBatchMutationToken,
+						active: {
+							currentRequestToken: auditExportIndexRequestTokenRef.current,
+							requestToken: activeRequestToken,
+							selectedIndex:
+								selectionIntent === "newest"
+									? 0
+									: selectedAuditExportIndexRef.current,
+							timelineSourceFilter:
+								timelineEvidenceTrailSourceFilterRef.current,
+							interfaceStateFilter: interfaceEvidenceStateFilterRef.current,
+							interfaceQuery: interfaceEvidenceQueryRef.current,
+							recoveredSelections: {
+								timeline:
+									selectedTimelineEvidenceTrailAuditExportIndexRef.current,
+								process: selectedProcessControlAuditExportIndexRef.current,
+								remoteKnownHosts:
+									selectedRemoteKnownHostsSelectionAuditExportIndexRef.current,
+								interface:
+									selectedInterfaceConfirmationAuditExportIndexRef.current,
+							},
+						},
+						archive: {
+							currentRequestToken:
+								auditExportArchiveIndexRequestTokenRef.current,
+							requestToken: archiveRequestToken,
+							selectedIndex: selectedAuditExportArchiveIndexRef.current,
+						},
+						outcome,
+					});
+				try {
+					const [activeIndex, archiveIndex] = await Promise.all([
+						readConsoleAuditExportIndex(baseDir),
+						readConsoleAuditExportArchiveIndex(baseDir),
+					]);
+					const transition = classifyBatch({
+						status: "success",
+						activeIndex,
+						archiveIndex,
+					});
+					if (transition.status === "success") {
+						setAuditExportIndex(transition.active.index);
+						setSelectedAuditExportIndex(transition.active.selectedIndex);
+						setAuditExportArchiveIndex(transition.archive.index);
+						setSelectedAuditExportArchiveIndex(
+							transition.archive.selectedIndex,
+						);
+						setLastStatusActivityCopyIntentAuditExport(
+							transition.active.lastStatusActivityCopyIntentAuditExport,
+						);
+						setTimelineEvidenceTrailAuditExports(
+							transition.active.timelineEvidenceTrailAuditExports,
+						);
+						setLastTimelineEvidenceTrailAuditExport(
+							transition.active.latestTimelineEvidenceTrailAuditExport,
+						);
+						setSelectedTimelineEvidenceTrailAuditExportIndex(
+							transition.active.selectedTimelineIndex,
+						);
+						setProcessControlAuditExports(
+							transition.active.processControlAuditExports,
+						);
+						setSelectedProcessControlAuditExportIndex(
+							transition.active.selectedProcessIndex,
+						);
+						setRemoteKnownHostsSelectionAuditExports(
+							transition.active.remoteKnownHostsSelectionAuditExports,
+						);
+						setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+							transition.active.selectedRemoteKnownHostsIndex,
+						);
+						setInterfaceConfirmationAuditExports(
+							transition.active.interfaceConfirmationAuditExports,
+						);
+						setInterfaceConfirmationAuditArchiveExports(
+							transition.archive.interfaceConfirmationAuditArchiveExports,
+						);
+						interfaceConfirmationAuditExportsRef.current =
+							transition.active.interfaceConfirmationAuditExports;
+						interfaceConfirmationAuditArchiveExportsRef.current =
+							transition.archive.interfaceConfirmationAuditArchiveExports;
+						selectedInterfaceConfirmationAuditExportIndexRef.current =
+							transition.active.selectedInterfaceIndex;
+						setSelectedInterfaceConfirmationAuditExportIndex(
+							transition.active.selectedInterfaceIndex,
+						);
+					}
+					if ("notice" in transition && transition.notice) {
+						log(transition.notice.level, transition.notice.message);
+					}
+				} catch (caught) {
+					const transition = classifyBatch({
+						status: "failure",
+						error: caught,
+					});
+					if ("notice" in transition && transition.notice) {
+						log(transition.notice.level, transition.notice.message);
+					}
+				}
+				return;
+			}
 			const requestToken = beginRequest(
 				auditExportIndexRequestTokenRef.current,
 			);
@@ -3768,6 +3906,7 @@ export function App(): React.ReactElement {
 			const transition = prepareInterfaceEvidencePresetSave(
 				interfaceEvidenceQuery,
 				interfaceEvidenceSearchPresets,
+				options.origin,
 			);
 			if (transition.kind === "notice") {
 				log(transition.notice.level, transition.notice.message);
@@ -3775,16 +3914,13 @@ export function App(): React.ReactElement {
 			}
 			setInterfaceEvidenceSearchPresets(transition.presets);
 			void setConfigInterfaceEvidenceSearchPresets(transition.presets).catch(
-				(caught) =>
-					log(
-						"fail",
-						caught instanceof Error ? caught.message : String(caught),
-					),
+				(caught) => {
+					const notice =
+						classifyInterfaceEvidencePresetPersistenceFailure(caught);
+					log(notice.level, notice.message);
+				},
 			);
-			log(
-				transition.notice.level,
-				`${transition.notice.message}${options.origin === "palette" ? " via palette" : ""}`,
-			);
+			log(transition.notice.level, transition.notice.message);
 		},
 		[interfaceEvidenceQuery, interfaceEvidenceSearchPresets, log],
 	);
@@ -4170,6 +4306,25 @@ export function App(): React.ReactElement {
 					}
 				} else {
 					setRemoteFileContext(undefined);
+				}
+				const finalPublication = classifyRemoteProfileSavePublication({
+					currentSaveToken: remoteProfileSaveTokenRef.current,
+					requestSaveToken,
+					connectionRunTokenAtStart,
+					currentConnectionRunToken: remoteConnectionRunTokenRef.current,
+					ownsPendingConnectionAtStart: Boolean(
+						pendingConnectionAtStart &&
+							pendingRemoteConnectRef.current === pendingConnectionAtStart,
+					),
+				});
+				if (!finalPublication.publishConfig) {
+					log("info", `remote profile ${profile.id} saved publication=stale`);
+					return;
+				}
+				if (!finalPublication.publishSession) {
+					log(transition.successNotice.level, transition.successNotice.message);
+					log("info", "newer remote connection preserved after profile save");
+					return;
 				}
 				setSelectedRemoteIndex(transition.selectedIndex);
 				setScreen("remotes");
@@ -5889,8 +6044,6 @@ export function App(): React.ReactElement {
 
 	const runAction = useCallback(
 		async (requestedAction: PicosAction) => {
-			const requestToken = beginRequest(actionControlSequenceRef.current);
-			actionControlSequenceRef.current = requestToken;
 			const transition = prepareActionDispatch({
 				actionId: requestedAction.id,
 				platform: currentPlatform(),
@@ -5912,13 +6065,23 @@ export function App(): React.ReactElement {
 			}
 			const action = transition.action;
 			const effect = getActionRunEffect(action.id);
+			const requestGroup = effect ?? "unmapped";
+			const request = beginActionRunEffectRequest(
+				actionRunRequestTokensRef.current,
+				requestGroup,
+			);
+			actionRunRequestTokensRef.current = request.tokens;
+			const requestToken = request.requestToken;
 			beginCommand();
 			const publishOutcome = (
 				outcome: Parameters<typeof classifyActionRunOutcome>[0]["outcome"],
 			) => {
 				const publication = classifyActionRunOutcome({
 					actionId: action.id,
-					currentToken: actionControlSequenceRef.current,
+					currentToken: getActionRunEffectRequestToken(
+						actionRunRequestTokensRef.current,
+						requestGroup,
+					),
 					requestToken,
 					outcome,
 				});
@@ -6646,8 +6809,70 @@ export function App(): React.ReactElement {
 	);
 
 	const refreshCleanupExportIndex = useCallback(
-		async (announce = true) => {
+		async (announce = true, archiveBatchMutationToken?: number) => {
 			const baseDir = dirname(getConfigPath());
+			if (archiveBatchMutationToken !== undefined) {
+				const activeRequestToken = beginRequest(
+					cleanupExportIndexRequestTokenRef.current,
+				);
+				const archiveRequestToken = beginRequest(
+					cleanupExportArchiveIndexRequestTokenRef.current,
+				);
+				cleanupExportIndexRequestTokenRef.current = activeRequestToken;
+				cleanupExportArchiveIndexRequestTokenRef.current = archiveRequestToken;
+				const classifyBatch = (
+					outcome: Parameters<
+						typeof classifyCleanupEvidenceIndexBatchRefresh
+					>[0]["outcome"],
+				) =>
+					classifyCleanupEvidenceIndexBatchRefresh({
+						currentMutationToken: evidenceArchiveMutationTokenRef.current,
+						requestMutationToken: archiveBatchMutationToken,
+						active: {
+							currentRequestToken: cleanupExportIndexRequestTokenRef.current,
+							requestToken: activeRequestToken,
+							selectedIndex: selectedCleanupExportIndexRef.current,
+						},
+						archive: {
+							currentRequestToken:
+								cleanupExportArchiveIndexRequestTokenRef.current,
+							requestToken: archiveRequestToken,
+							selectedIndex: selectedCleanupExportArchiveIndexRef.current,
+						},
+						outcome,
+					});
+				try {
+					const [activeIndex, archiveIndex] = await Promise.all([
+						readCleanupHandoffHistoryExportIndex(baseDir),
+						readCleanupHandoffHistoryExportArchiveIndex(baseDir),
+					]);
+					const transition = classifyBatch({
+						status: "success",
+						activeIndex,
+						archiveIndex,
+					});
+					if (transition.status === "success") {
+						setCleanupExportIndex(transition.active.index);
+						setSelectedCleanupExportIndex(transition.active.selectedIndex);
+						setCleanupExportArchiveIndex(transition.archive.index);
+						setSelectedCleanupExportArchiveIndex(
+							transition.archive.selectedIndex,
+						);
+					}
+					if ("notice" in transition && transition.notice) {
+						log(transition.notice.level, transition.notice.message);
+					}
+				} catch (caught) {
+					const transition = classifyBatch({
+						status: "failure",
+						error: caught,
+					});
+					if ("notice" in transition && transition.notice) {
+						log(transition.notice.level, transition.notice.message);
+					}
+				}
+				return;
+			}
 			const requestToken = beginRequest(
 				cleanupExportIndexRequestTokenRef.current,
 			);
@@ -6732,8 +6957,76 @@ export function App(): React.ReactElement {
 		async (
 			announce = true,
 			selectionIntent: "preserve" | "newest" = "preserve",
+			archiveBatchMutationToken?: number,
 		) => {
 			const baseDir = dirname(getConfigPath());
+			if (archiveBatchMutationToken !== undefined) {
+				const activeRequestToken = beginRequest(
+					toolExportIndexRequestTokenRef.current,
+				);
+				const archiveRequestToken = beginRequest(
+					toolExportArchiveIndexRequestTokenRef.current,
+				);
+				toolExportIndexRequestTokenRef.current = activeRequestToken;
+				toolExportArchiveIndexRequestTokenRef.current = archiveRequestToken;
+				const classifyBatch = (
+					outcome: Parameters<
+						typeof classifyToolHistoryEvidenceIndexBatchRefresh
+					>[0]["outcome"],
+				) =>
+					classifyToolHistoryEvidenceIndexBatchRefresh({
+						currentMutationToken: evidenceArchiveMutationTokenRef.current,
+						requestMutationToken: archiveBatchMutationToken,
+						active: {
+							currentRequestToken: toolExportIndexRequestTokenRef.current,
+							requestToken: activeRequestToken,
+							selectedIndex:
+								selectionIntent === "newest"
+									? 0
+									: selectedToolExportIndexRef.current,
+							filter: toolExportFilterRef.current,
+							query: toolExportQueryRef.current,
+						},
+						archive: {
+							currentRequestToken:
+								toolExportArchiveIndexRequestTokenRef.current,
+							requestToken: archiveRequestToken,
+							selectedIndex: selectedToolExportArchiveIndexRef.current,
+							filter: toolExportArchiveFilterRef.current,
+							query: toolExportArchiveQueryRef.current,
+						},
+						outcome,
+					});
+				try {
+					const [activeIndex, archiveIndex] = await Promise.all([
+						readToolHistoryExportIndex(baseDir),
+						readToolHistoryExportArchiveIndex(baseDir),
+					]);
+					const transition = classifyBatch({
+						status: "success",
+						activeIndex,
+						archiveIndex,
+					});
+					if (transition.status === "success") {
+						setToolExportIndex(transition.active.index);
+						setSelectedToolExportIndex(transition.active.selectedIndex);
+						setToolExportArchiveIndex(transition.archive.index);
+						setSelectedToolExportArchiveIndex(transition.archive.selectedIndex);
+					}
+					if ("notice" in transition && transition.notice) {
+						log(transition.notice.level, transition.notice.message);
+					}
+				} catch (caught) {
+					const transition = classifyBatch({
+						status: "failure",
+						error: caught,
+					});
+					if ("notice" in transition && transition.notice) {
+						log(transition.notice.level, transition.notice.message);
+					}
+				}
+				return;
+			}
 			const requestToken = beginRequest(toolExportIndexRequestTokenRef.current);
 			toolExportIndexRequestTokenRef.current = requestToken;
 			try {
@@ -6907,11 +7200,15 @@ export function App(): React.ReactElement {
 			for (const notice of outcome.notices) {
 				log(notice.level, notice.message);
 			}
-			if (outcome.refreshActive) {
-				await refreshCleanupExportIndex(false);
-			}
-			if (outcome.refreshArchive) {
-				await refreshCleanupExportArchiveIndex(false);
+			if (outcome.refreshActive && outcome.refreshArchive) {
+				await refreshCleanupExportIndex(false, requestToken);
+			} else {
+				if (outcome.refreshActive) {
+					await refreshCleanupExportIndex(false);
+				}
+				if (outcome.refreshArchive) {
+					await refreshCleanupExportArchiveIndex(false);
+				}
 			}
 		},
 		[log, refreshCleanupExportArchiveIndex, refreshCleanupExportIndex],
@@ -6944,13 +7241,24 @@ export function App(): React.ReactElement {
 			if (outcome.activityResult) {
 				recordStatusActivityResult(outcome.activityResult);
 			}
-			if (outcome.refreshActive) {
-				await refreshToolExportIndex(false);
+			if (outcome.refreshActive && outcome.refreshArchive) {
+				await refreshToolExportIndex(false, "preserve", requestToken);
+			} else {
+				if (outcome.refreshActive) {
+					await refreshToolExportIndex(false);
+				}
+				if (outcome.refreshArchive) {
+					await refreshToolExportArchiveIndex(false);
+				}
 			}
-			if (outcome.refreshArchive) {
-				await refreshToolExportArchiveIndex(false);
-			}
-			if (outcome.publishCurrentState && outcome.selectedEvidenceKind) {
+			if (
+				outcome.publishCurrentState &&
+				canPublishEvidenceArchiveCurrentState({
+					currentToken: evidenceArchiveMutationTokenRef.current,
+					requestToken,
+				}) &&
+				outcome.selectedEvidenceKind
+			) {
 				setSelectedStatusEvidenceKind(outcome.selectedEvidenceKind);
 			}
 		},
@@ -6990,19 +7298,29 @@ export function App(): React.ReactElement {
 			if (outcome.activityResult) {
 				recordStatusActivityResult(outcome.activityResult);
 			}
-			if (outcome.refreshActive) {
-				await refreshAuditExportIndex(false);
+			if (outcome.refreshActive && outcome.refreshArchive) {
+				await refreshAuditExportIndex(false, "preserve", requestToken);
+			} else {
+				if (outcome.refreshActive) {
+					await refreshAuditExportIndex(false);
+				}
+				if (outcome.refreshArchive) {
+					await refreshAuditExportArchiveIndex(false);
+				}
 			}
-			if (outcome.refreshArchive) {
-				await refreshAuditExportArchiveIndex(false);
-			}
-			if (outcome.publishCurrentState && outcome.interfaceStateFilter) {
+			const publishCurrentState =
+				outcome.publishCurrentState &&
+				canPublishEvidenceArchiveCurrentState({
+					currentToken: evidenceArchiveMutationTokenRef.current,
+					requestToken,
+				});
+			if (publishCurrentState && outcome.interfaceStateFilter) {
 				setInterfaceEvidenceStateFilter(outcome.interfaceStateFilter);
 			}
-			if (outcome.publishCurrentState && outcome.selectedIndex !== undefined) {
+			if (publishCurrentState && outcome.selectedIndex !== undefined) {
 				setSelectedInterfaceConfirmationAuditExportIndex(outcome.selectedIndex);
 			}
-			if (outcome.publishCurrentState && outcome.selectedEvidenceKind) {
+			if (publishCurrentState && outcome.selectedEvidenceKind) {
 				setSelectedStatusEvidenceKind(outcome.selectedEvidenceKind);
 			}
 		},

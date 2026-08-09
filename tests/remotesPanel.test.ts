@@ -94,6 +94,30 @@ describe("Remotes panel transitions", () => {
 		});
 	});
 
+	test("rechecks profile save ownership after session cleanup awaits", () => {
+		const beforeAwait = classifyRemoteProfileSavePublication({
+			currentSaveToken: 1,
+			requestSaveToken: 1,
+			connectionRunTokenAtStart: 4,
+			currentConnectionRunToken: 4,
+			ownsPendingConnectionAtStart: true,
+		});
+		expect(beforeAwait.publishSession).toBe(true);
+
+		const afterNewConnection = classifyRemoteProfileSavePublication({
+			currentSaveToken: 1,
+			requestSaveToken: 1,
+			connectionRunTokenAtStart: 4,
+			currentConnectionRunToken: 5,
+			ownsPendingConnectionAtStart: false,
+		});
+		expect(afterNewConnection).toMatchObject({
+			publishConfig: true,
+			publishSession: false,
+			abortPendingConnection: false,
+		});
+	});
+
 	test("owns numeric paste-review shortcut parsing", () => {
 		expect(prepareRemotePasteNumberInput("7")).toEqual({
 			kind: "select",

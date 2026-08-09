@@ -72,6 +72,25 @@ export type AppOwnerNotice = {
 	message: string;
 };
 
+function formatAppOwnerError(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+export function classifyToolCommandRunOutcome(input: {
+	label: string;
+	outcome: { kind: "success" } | { kind: "failure"; error: unknown };
+}): AppOwnerNotice {
+	return input.outcome.kind === "success"
+		? { level: "ok", message: `${input.label} completed` }
+		: { level: "fail", message: formatAppOwnerError(input.outcome.error) };
+}
+
+export function classifyInterfaceEvidencePresetPersistenceFailure(
+	error: unknown,
+): AppOwnerNotice {
+	return { level: "fail", message: formatAppOwnerError(error) };
+}
+
 export function prepareRouteDestinationSubmission(value: string):
 	| {
 			kind: "notice";
@@ -672,6 +691,7 @@ export function prepareInterfaceEvidenceSearchSubmission(input: {
 export function prepareInterfaceEvidencePresetSave(
 	query: string,
 	presets: string[],
+	origin?: "keyboard" | "palette",
 ):
 	| { kind: "notice"; notice: AppOwnerNotice }
 	| {
@@ -692,7 +712,7 @@ export function prepareInterfaceEvidencePresetSave(
 		presets: next,
 		notice: {
 			level: "ok",
-			message: `interface evidence search preset saved ${normalized} count=${next.length}`,
+			message: `interface evidence search preset saved ${normalized} count=${next.length}${origin === "palette" ? " via palette" : ""}`,
 		},
 	};
 }

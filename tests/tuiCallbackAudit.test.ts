@@ -314,7 +314,10 @@ describe("TUI callback audit", () => {
 	});
 
 	test("requires every delegated owner and its focused test to exist", () => {
-		const sourceText = "const save = useCallback(() => {}, []);";
+		const sourceText = `
+			import { prepareSave } from "./saveOwner";
+			const save = useCallback(() => prepareSave(), []);
+		`;
 		const exists = new Set(["src/tui/saveOwner.ts", "tests/saveOwner.test.ts"]);
 
 		expect(() =>
@@ -326,6 +329,7 @@ describe("TUI callback audit", () => {
 					}),
 				],
 				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: () => undefined,
 			}),
 		).not.toThrow();
 		expect(() =>
@@ -342,6 +346,51 @@ describe("TUI callback audit", () => {
 				ownerFileExists: (path) => path === "src/tui/saveOwner.ts",
 			}),
 		).toThrow("missing delegated owner test: tests/saveOwner.test.ts");
+	});
+
+	test("requires delegated callback bodies to link to their declared owner", () => {
+		const exists = new Set(["src/tui/saveOwner.ts", "tests/saveOwner.test.ts"]);
+		const fixtures = [
+			`import { unrelated } from "./unrelatedOwner";
+			 const save = useCallback(() => {
+				 unrelated();
+				 if (!selected) return;
+			 }, []);`,
+			`import { unrelated } from "./unrelatedOwner";
+			 const save = useCallback(() => {
+				 unrelated();
+				 setSelectedIndex(0);
+			 }, []);`,
+			`import { unrelated } from "./unrelatedOwner";
+			 const save = useCallback(() => {
+				 unrelated();
+				 log("warn", "missing selection");
+			 }, []);`,
+		];
+
+		for (const sourceText of fixtures) {
+			expect(() =>
+				auditTuiCallbacks({
+					sourceText,
+					manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+					ownerFileExists: (path) => exists.has(path),
+					ownerFileRead: () => undefined,
+				}),
+			).toThrow("delegated callback has no owner reference: save");
+		}
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText: `import { prepareSubmission } from "./commandBridge";
+				 const save = useCallback(() => prepareSubmission(), []);`,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: (path) =>
+					path === "src/tui/commandBridge.ts"
+						? 'import { prepareSave } from "./saveOwner";'
+						: undefined,
+			}),
+		).not.toThrow();
 	});
 
 	test("strict mode rejects an inline decision", () => {
@@ -363,6 +412,7 @@ describe("TUI callback audit", () => {
 			auditTuiCallbacks({
 				sourceText,
 				manifest: [manifest("save")],
+				ownerFileRead: () => undefined,
 				strict: true,
 			}),
 		).toThrow(

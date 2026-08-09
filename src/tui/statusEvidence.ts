@@ -71,6 +71,15 @@ type EvidenceArchiveRequest = {
 	requestToken: number;
 };
 
+export function canPublishEvidenceArchiveCurrentState(
+	input: EvidenceArchiveRequest,
+): boolean {
+	return (
+		classifyRequestPublication(input.currentToken, input.requestToken) ===
+		"current"
+	);
+}
+
 function classifyEvidenceArchiveRequest(
 	input: EvidenceArchiveRequest,
 ): Pick<
@@ -83,7 +92,7 @@ function classifyEvidenceArchiveRequest(
 	);
 	return {
 		publication,
-		publishCurrentState: publication === "current",
+		publishCurrentState: canPublishEvidenceArchiveCurrentState(input),
 	};
 }
 
@@ -428,6 +437,18 @@ export type AuditExportArchiveIndexRefreshTransition =
 		}
 	>;
 
+export type AuditEvidenceIndexBatchRefreshTransition =
+	| { status: "stale"; notice?: StatusEvidenceNotice }
+	| { status: "failure"; notice: StatusEvidenceNotice }
+	| {
+			status: "success";
+			active: Extract<AuditExportIndexRefreshTransition, { status: "success" }>;
+			archive: Extract<
+				AuditExportArchiveIndexRefreshTransition,
+				{ status: "success" }
+			>;
+	  };
+
 export type StatusEvidenceOpenTransition =
 	| { kind: "notice"; notice: StatusEvidenceNotice }
 	| {
@@ -690,6 +711,74 @@ export function classifyAuditExportArchiveIndexRefresh(input: {
 				}
 			: {}),
 	};
+}
+
+export function classifyAuditEvidenceIndexBatchRefresh(input: {
+	currentMutationToken: number;
+	requestMutationToken: number;
+	active: {
+		currentRequestToken: number;
+		requestToken: number;
+		selectedIndex: number;
+		timelineSourceFilter: TimelineEvidenceTrailSourceFilter;
+		interfaceStateFilter: InterfaceEvidenceStateFilter;
+		interfaceQuery: string;
+		recoveredSelections: {
+			timeline: number;
+			process: number;
+			remoteKnownHosts: number;
+			interface: number;
+		};
+	};
+	archive: {
+		currentRequestToken: number;
+		requestToken: number;
+		selectedIndex: number;
+	};
+	outcome:
+		| {
+				status: "success";
+				activeIndex: ConsoleAuditExportIndex;
+				archiveIndex: ConsoleAuditExportIndex;
+		  }
+		| { status: "failure"; error: unknown };
+}): AuditEvidenceIndexBatchRefreshTransition {
+	const mutationPublication = classifyRequestPublication(
+		input.currentMutationToken,
+		input.requestMutationToken,
+	);
+	if (input.outcome.status === "failure") {
+		const notice = {
+			level: "fail" as const,
+			message: `audit evidence index batch failed ${formatStatusEvidenceError(input.outcome.error)}`,
+		};
+		return mutationPublication === "stale"
+			? { status: "stale", notice }
+			: { status: "failure", notice };
+	}
+	if (mutationPublication === "stale") {
+		return { status: "stale" };
+	}
+	const archive = classifyAuditExportArchiveIndexRefresh({
+		...input.archive,
+		selectedInterfaceIndex: input.active.recoveredSelections.interface,
+		interfaceStateFilter: input.active.interfaceStateFilter,
+		interfaceQuery: input.active.interfaceQuery,
+		outcome: { status: "success", index: input.outcome.archiveIndex },
+	});
+	if (archive.status !== "success") {
+		return { status: "stale" };
+	}
+	const active = classifyAuditExportIndexRefresh({
+		...input.active,
+		interfaceConfirmationAuditArchiveExports:
+			archive.interfaceConfirmationAuditArchiveExports,
+		outcome: { status: "success", index: input.outcome.activeIndex },
+	});
+	if (active.status !== "success") {
+		return { status: "stale" };
+	}
+	return { status: "success", active, archive };
 }
 
 export function prepareStatusEvidenceOpenTransition(input: {

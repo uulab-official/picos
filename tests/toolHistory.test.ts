@@ -9,6 +9,7 @@ import type { ClipboardPreview } from "../src/tui/clipboardPreview";
 import {
 	appendToolHistory,
 	archiveToolHistoryExport,
+	classifyToolHistoryEvidenceIndexBatchRefresh,
 	classifyToolHistoryExportIndexRefresh,
 	createToolFormState,
 	createToolHistoryArchiveRetentionPlan,
@@ -3553,6 +3554,41 @@ describe("TUI tool history", () => {
 				message: "tools archive index failed old failure",
 			},
 		});
+	});
+
+	test("publishes active and archive Tools indexes as one current batch", () => {
+		const index = { baseDir: "/tmp/picos/tools", items: [] };
+		const input = {
+			currentMutationToken: 1,
+			requestMutationToken: 1,
+			active: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 4,
+			},
+			archive: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 5,
+			},
+			outcome: {
+				status: "success" as const,
+				activeIndex: index,
+				archiveIndex: { ...index, baseDir: `${index.baseDir}/archive` },
+			},
+		};
+
+		expect(classifyToolHistoryEvidenceIndexBatchRefresh(input)).toMatchObject({
+			status: "success",
+			active: { status: "success", selectedIndex: 0 },
+			archive: { status: "success", selectedIndex: 0 },
+		});
+		expect(
+			classifyToolHistoryEvidenceIndexBatchRefresh({
+				...input,
+				currentMutationToken: 2,
+			}),
+		).toEqual({ status: "stale" });
 	});
 
 	test("owns selected Tools export, open, archive, and retention confirmations", () => {

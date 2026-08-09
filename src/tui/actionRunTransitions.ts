@@ -10,7 +10,7 @@ import {
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
 import { clampIndex } from "./navigation";
-import { classifyRequestPublication } from "./requestSequence";
+import { beginRequest, classifyRequestPublication } from "./requestSequence";
 import type { ToolHistoryItem, ToolRunPlan } from "./toolHistory";
 
 export type ActionRunNotice = {
@@ -101,6 +101,26 @@ const actionRunEffects = {
 
 export type ActionRunEffect =
 	(typeof actionRunEffects)[keyof typeof actionRunEffects];
+
+export type ActionRunRequestGroup = ActionRunEffect | "unmapped";
+export type ActionRunRequestTokens = ReadonlyMap<ActionRunRequestGroup, number>;
+
+export function beginActionRunEffectRequest(
+	current: ActionRunRequestTokens,
+	group: ActionRunRequestGroup,
+): { tokens: ActionRunRequestTokens; requestToken: number } {
+	const requestToken = beginRequest(current.get(group) ?? 0);
+	const tokens = new Map(current);
+	tokens.set(group, requestToken);
+	return { tokens, requestToken };
+}
+
+export function getActionRunEffectRequestToken(
+	current: ActionRunRequestTokens,
+	group: ActionRunRequestGroup,
+): number {
+	return current.get(group) ?? 0;
+}
 
 export type StatusActionRunId = {
 	[ActionId in keyof typeof actionRunEffects]: (typeof actionRunEffects)[ActionId] extends "status-owner"

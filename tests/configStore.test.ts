@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+	mutateConfigAtomically,
 	readConfig,
 	resetConfigWorkspaceValues,
 	setConfigEndpointFilterPresets,
@@ -56,6 +57,37 @@ describe("config store", () => {
 		const config = await readConfig(path);
 		expect(config.theme).toBe("light");
 		expect(config.logSearchPresets).toEqual(["kernel"]);
+		expect(config.remoteProfiles.map((profile) => profile.id)).toEqual([
+			"prod",
+		]);
+	});
+
+	test("runs whole-config policy transforms inside the mutation queue", async () => {
+		const path = await tempConfigPath();
+
+		await Promise.all([
+			mutateConfigAtomically(
+				(config) => ({
+					config: { ...config, controlExecutionMode: "dry-run" },
+					result: "policy-updated",
+				}),
+				path,
+			),
+			upsertConfigRemoteProfile(
+				{
+					id: "prod",
+					kind: "sftp",
+					host: "prod.example.com",
+					port: 22,
+					username: "operator",
+					root: "/srv/app",
+				},
+				path,
+			),
+		]);
+
+		const config = await readConfig(path);
+		expect(config.controlExecutionMode).toBe("dry-run");
 		expect(config.remoteProfiles.map((profile) => profile.id)).toEqual([
 			"prod",
 		]);

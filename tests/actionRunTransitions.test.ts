@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { getActionCatalog } from "../src/core/actions";
 import {
+	beginActionRunEffectRequest,
 	classifyActionRunOutcome,
 	getActionRunEffect,
+	getActionRunEffectRequestToken,
 	getInterfaceProposalInput,
 	prepareRawToolHistoryView,
 } from "../src/tui/actionRunTransitions";
@@ -89,6 +91,22 @@ describe("read action run transitions", () => {
 				},
 			],
 		});
+	});
+
+	test("sequences each read effect independently", () => {
+		const logs = beginActionRunEffectRequest(new Map(), "logs-read");
+		const inventory = beginActionRunEffectRequest(
+			logs.tokens,
+			"system-inventory",
+		);
+		const nextLogs = beginActionRunEffectRequest(inventory.tokens, "logs-read");
+
+		expect(logs.requestToken).toBe(1);
+		expect(inventory.requestToken).toBe(1);
+		expect(nextLogs.requestToken).toBe(2);
+		expect(
+			getActionRunEffectRequestToken(nextLogs.tokens, "system-inventory"),
+		).toBe(1);
 	});
 
 	test("formats current collector outcomes outside App", () => {

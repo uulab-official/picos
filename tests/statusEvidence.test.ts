@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+	canPublishEvidenceArchiveCurrentState,
+	classifyAuditEvidenceIndexBatchRefresh,
 	classifyAuditExportArchiveIndexRefresh,
 	classifyAuditExportArchiveOutcome,
 	classifyAuditExportIndexRefresh,
@@ -134,6 +136,67 @@ describe("evidence archive outcome transitions", () => {
 			activityResult: { action: "interface-evidence-archive" },
 		});
 		expect(outcome.notices).toHaveLength(2);
+	});
+
+	test("rechecks archive publication after an interleaved refresh await", () => {
+		const requestToken = 1;
+		expect(
+			canPublishEvidenceArchiveCurrentState({
+				currentToken: requestToken,
+				requestToken,
+			}),
+		).toBe(true);
+
+		const newerMutationToken = 2;
+		expect(
+			canPublishEvidenceArchiveCurrentState({
+				currentToken: newerMutationToken,
+				requestToken,
+			}),
+		).toBe(false);
+	});
+
+	test("publishes active and archive audit indexes as one current batch", () => {
+		const baseInput = {
+			currentMutationToken: 1,
+			requestMutationToken: 1,
+			active: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 0,
+				timelineSourceFilter: "all" as const,
+				interfaceStateFilter: "all" as const,
+				interfaceQuery: "",
+				recoveredSelections: {
+					timeline: 0,
+					process: 0,
+					remoteKnownHosts: 0,
+					interface: 0,
+				},
+			},
+			archive: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 0,
+			},
+			outcome: {
+				status: "success" as const,
+				activeIndex: { baseDir: "/tmp/audit", items: [] },
+				archiveIndex: { baseDir: "/tmp/audit/archive", items: [] },
+			},
+		};
+
+		expect(classifyAuditEvidenceIndexBatchRefresh(baseInput)).toMatchObject({
+			status: "success",
+			active: { status: "success", selectedIndex: 0 },
+			archive: { status: "success", selectedIndex: 0 },
+		});
+		expect(
+			classifyAuditEvidenceIndexBatchRefresh({
+				...baseInput,
+				currentMutationToken: 2,
+			}),
+		).toEqual({ status: "stale" });
 	});
 });
 

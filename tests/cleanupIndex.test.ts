@@ -6,6 +6,7 @@ import type { FileOpenOrigin } from "../src/core/fileOpen";
 import {
 	appendCleanupHandoffHistory,
 	archiveCleanupHandoffHistoryExport,
+	classifyCleanupEvidenceIndexBatchRefresh,
 	classifyCleanupExportIndexRefresh,
 	createCleanupHandoffActionPlan,
 	createCleanupHandoffDismissPlan,
@@ -986,6 +987,41 @@ describe("cleanup shelf index", () => {
 				},
 			}),
 		).toMatchObject({ status: "success", selectedIndex: 0 });
+	});
+
+	test("publishes active and archive cleanup indexes as one current batch", () => {
+		const index = { baseDir: "/tmp/picos", items: [] };
+		const input = {
+			currentMutationToken: 1,
+			requestMutationToken: 1,
+			active: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 2,
+			},
+			archive: {
+				currentRequestToken: 1,
+				requestToken: 1,
+				selectedIndex: 3,
+			},
+			outcome: {
+				status: "success" as const,
+				activeIndex: index,
+				archiveIndex: index,
+			},
+		};
+
+		expect(classifyCleanupEvidenceIndexBatchRefresh(input)).toMatchObject({
+			status: "success",
+			active: { status: "success", selectedIndex: 0 },
+			archive: { status: "success", selectedIndex: 0 },
+		});
+		expect(
+			classifyCleanupEvidenceIndexBatchRefresh({
+				...input,
+				currentMutationToken: 2,
+			}),
+		).toEqual({ status: "stale" });
 	});
 
 	test("owns selected cleanup open and exact archive confirmation transitions", () => {

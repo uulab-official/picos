@@ -1062,6 +1062,21 @@ export type ToolHistoryExportIndexRefreshTransition =
 			notice?: ToolHistoryEvidenceNotice;
 	  };
 
+export type ToolHistoryEvidenceIndexBatchRefreshTransition =
+	| { status: "stale"; notice?: ToolHistoryEvidenceNotice }
+	| { status: "failure"; notice: ToolHistoryEvidenceNotice }
+	| {
+			status: "success";
+			active: Extract<
+				ToolHistoryExportIndexRefreshTransition,
+				{ status: "success" }
+			>;
+			archive: Extract<
+				ToolHistoryExportIndexRefreshTransition,
+				{ status: "success" }
+			>;
+	  };
+
 export type PrepareToolHistoryExportTransition =
 	| { kind: "notice"; notice: ToolHistoryEvidenceNotice }
 	| {
@@ -3054,6 +3069,63 @@ export function classifyToolHistoryExportIndexRefresh(input: {
 				}
 			: {}),
 	};
+}
+
+export function classifyToolHistoryEvidenceIndexBatchRefresh(input: {
+	currentMutationToken: number;
+	requestMutationToken: number;
+	active: {
+		currentRequestToken: number;
+		requestToken: number;
+		selectedIndex: number;
+		filter?: ToolHistoryEvidenceFilter;
+		query?: string;
+	};
+	archive: {
+		currentRequestToken: number;
+		requestToken: number;
+		selectedIndex: number;
+		filter?: ToolHistoryEvidenceFilter;
+		query?: string;
+	};
+	outcome:
+		| {
+				status: "success";
+				activeIndex: ToolHistoryExportIndex;
+				archiveIndex: ToolHistoryExportIndex;
+		  }
+		| { status: "failure"; error: unknown };
+}): ToolHistoryEvidenceIndexBatchRefreshTransition {
+	const mutationPublication = classifyRequestPublication(
+		input.currentMutationToken,
+		input.requestMutationToken,
+	);
+	if (input.outcome.status === "failure") {
+		const notice = {
+			level: "fail" as const,
+			message: `tools evidence index batch failed ${formatToolHistoryEvidenceError(input.outcome.error)}`,
+		};
+		return mutationPublication === "stale"
+			? { status: "stale", notice }
+			: { status: "failure", notice };
+	}
+	if (mutationPublication === "stale") {
+		return { status: "stale" };
+	}
+	const active = classifyToolHistoryExportIndexRefresh({
+		target: "active",
+		...input.active,
+		outcome: { status: "success", index: input.outcome.activeIndex },
+	});
+	const archive = classifyToolHistoryExportIndexRefresh({
+		target: "archive",
+		...input.archive,
+		outcome: { status: "success", index: input.outcome.archiveIndex },
+	});
+	if (active.status !== "success" || archive.status !== "success") {
+		return { status: "stale" };
+	}
+	return { status: "success", active, archive };
 }
 
 export function prepareToolHistoryExport(
