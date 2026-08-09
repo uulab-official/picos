@@ -301,6 +301,13 @@ export function classifyActionRunOutcome(input: {
 	};
 }
 
+export function prepareUpdateCheckCurrentPublication(): {
+	selectedUpdateHandoffIndex: 0;
+	screen: "status";
+} {
+	return { selectedUpdateHandoffIndex: 0, screen: "status" };
+}
+
 function formatActionRunSuccessNotices(
 	summary: ActionRunSuccessSummary,
 ): ActionRunNotice[] {

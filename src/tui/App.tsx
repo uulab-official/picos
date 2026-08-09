@@ -240,6 +240,7 @@ import {
 	getInterfaceProposalInput,
 	prepareRawToolHistoryView,
 	prepareToolActionPrompt,
+	prepareUpdateCheckCurrentPublication,
 	type StatusActionRunHandlers,
 } from "./actionRunTransitions";
 import {
@@ -433,7 +434,6 @@ import {
 import {
 	clampIndex,
 	type FocusArea,
-	getInitialSelectionIndex,
 	getScreenIndex,
 	getVisibleWindow,
 	type Screen,
@@ -550,6 +550,7 @@ import {
 	prepareRecoveredEvidenceOpenTransition,
 	prepareRecoveredEvidenceSearchTransition,
 	prepareRecoveredEvidenceSelectionTransition,
+	prepareStatusActivityResultPublication,
 	prepareStatusActivityResultTimelineHandoffOpenTransition,
 	prepareStatusActivityToolsEvidenceMatchArchive,
 	prepareStatusActivityToolsEvidenceMatchOpen,
@@ -573,6 +574,7 @@ import {
 } from "./statusDialogPreview";
 import {
 	beginEvidenceMutationLanes,
+	beginEvidenceRetentionMutation,
 	canPublishEvidenceArchiveCurrentState,
 	classifyAuditArchiveRetentionOutcome,
 	classifyAuditEvidenceIndexBatchRefresh,
@@ -1749,12 +1751,18 @@ export function App(): React.ReactElement {
 
 	const recordStatusActivityResult = useCallback(
 		(result: StatusActivityResult) => {
-			setStatusActivityResults((history) =>
-				appendStatusActivityResultHistory(history, result),
-			);
-			setSelectedStatusActivityResultIndex(getInitialSelectionIndex());
-			setSelectedStatusActivityCopyPreviewRowIndex(getInitialSelectionIndex());
-			setStatusActivityCopyPreviewExpanded(false);
+			setStatusActivityResults((history) => {
+				const publication = prepareStatusActivityResultPublication(
+					history,
+					result,
+				);
+				setSelectedStatusActivityResultIndex(publication.selectedResultIndex);
+				setSelectedStatusActivityCopyPreviewRowIndex(
+					publication.selectedCopyPreviewRowIndex,
+				);
+				setStatusActivityCopyPreviewExpanded(publication.copyPreviewExpanded);
+				return publication.history;
+			});
 		},
 		[],
 	);
@@ -5189,8 +5197,10 @@ export function App(): React.ReactElement {
 				);
 			}
 			setSelectedStatusActivityResultIndex(transition.selectedIndex);
-			setSelectedStatusActivityCopyPreviewRowIndex(getInitialSelectionIndex());
-			setStatusActivityCopyPreviewExpanded(false);
+			setSelectedStatusActivityCopyPreviewRowIndex(
+				transition.selectedCopyPreviewRowIndex,
+			);
+			setStatusActivityCopyPreviewExpanded(transition.copyPreviewExpanded);
 			log(transition.notice.level, transition.notice.message);
 		},
 		[log, statusActivityResultHistoryFilter, statusActivityResults],
@@ -5692,7 +5702,9 @@ export function App(): React.ReactElement {
 				setStatusActivityCopyIntentHistory((current) =>
 					appendStatusActivityCopyIntentHistory(current, transition.intent),
 				);
-				setSelectedStatusActivityCopyIntentIndex(getInitialSelectionIndex());
+				setSelectedStatusActivityCopyIntentIndex(
+					transition.selectedCopyIntentIndex,
+				);
 				setScreen("status");
 				setFocusArea("workspaces");
 				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
@@ -5966,8 +5978,10 @@ export function App(): React.ReactElement {
 				setFocusArea(transition.focusArea);
 			}
 			setSelectedStatusActivityResultIndex(transition.selectedIndex);
-			setSelectedStatusActivityCopyPreviewRowIndex(getInitialSelectionIndex());
-			setStatusActivityCopyPreviewExpanded(false);
+			setSelectedStatusActivityCopyPreviewRowIndex(
+				transition.selectedCopyPreviewRowIndex,
+			);
+			setStatusActivityCopyPreviewExpanded(transition.copyPreviewExpanded);
 			log(transition.notice.level, transition.notice.message);
 			return true;
 		},
@@ -5993,7 +6007,9 @@ export function App(): React.ReactElement {
 				setStatusActivityCopyIntentHistory((current) =>
 					appendStatusActivityCopyIntentHistory(current, transition.intent),
 				);
-				setSelectedStatusActivityCopyIntentIndex(getInitialSelectionIndex());
+				setSelectedStatusActivityCopyIntentIndex(
+					transition.selectedCopyIntentIndex,
+				);
 				log("info", transition.intent.auditMessage);
 			}
 			setTimelineFilter(transition.timeline.filter);
@@ -6047,7 +6063,9 @@ export function App(): React.ReactElement {
 					? appendStatusActivityCopyIntentHistory(current, intent)
 					: current,
 			);
-			setSelectedStatusActivityCopyIntentIndex(getInitialSelectionIndex());
+			setSelectedStatusActivityCopyIntentIndex(
+				transition.selectedCopyIntentIndex,
+			);
 			if (intent) {
 				log("info", intent.auditMessage);
 			}
@@ -6404,10 +6422,13 @@ export function App(): React.ReactElement {
 							},
 						})
 					) {
+						const publication = prepareUpdateCheckCurrentPublication();
 						setUpdateCheckResult(result);
 						setGitHubReleaseCheckResult(releaseResult);
-						setSelectedUpdateHandoffIndex(getInitialSelectionIndex());
-						setScreen("status");
+						setSelectedUpdateHandoffIndex(
+							publication.selectedUpdateHandoffIndex,
+						);
+						setScreen(publication.screen);
 					}
 				}
 
@@ -6707,7 +6728,7 @@ export function App(): React.ReactElement {
 				createCleanupHandoffHistory(cleanupJumpAudit, "prompt-opened"),
 			),
 		);
-		setSelectedCleanupHandoffHistoryIndex(getInitialSelectionIndex());
+		setSelectedCleanupHandoffHistoryIndex(transition.selectedHistoryIndex);
 		log(transition.notice.level, transition.notice.message);
 		return true;
 	}, [cleanupJumpAudit, log, screen]);
@@ -6724,7 +6745,7 @@ export function App(): React.ReactElement {
 				createCleanupHandoffHistory(cleanupJumpAudit, "dismissed"),
 			),
 		);
-		setSelectedCleanupHandoffHistoryIndex(getInitialSelectionIndex());
+		setSelectedCleanupHandoffHistoryIndex(transition.selectedHistoryIndex);
 		setCleanupJumpAudit(undefined);
 		log(transition.notice.level, transition.notice.message);
 		return true;
@@ -7392,8 +7413,12 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
-			const requestToken = beginRequest(auditEvidenceMutationTokenRef.current);
-			auditEvidenceMutationTokenRef.current = requestToken;
+			const mutation = beginEvidenceRetentionMutation({
+				familyCurrentToken: auditEvidenceMutationTokenRef.current,
+				enabled: plan.enabled,
+			});
+			const requestToken = mutation.requestToken;
+			auditEvidenceMutationTokenRef.current = mutation.nextFamilyToken;
 			setAuditArchiveRetentionPlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await pruneConsoleAuditArchive(plan);
@@ -7425,8 +7450,12 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
-			const requestToken = beginRequest(toolEvidenceMutationTokenRef.current);
-			toolEvidenceMutationTokenRef.current = requestToken;
+			const mutation = beginEvidenceRetentionMutation({
+				familyCurrentToken: toolEvidenceMutationTokenRef.current,
+				enabled: plan.enabled,
+			});
+			const requestToken = mutation.requestToken;
+			toolEvidenceMutationTokenRef.current = mutation.nextFamilyToken;
 			setToolArchiveRetentionPlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await pruneToolHistoryExportArchive(plan);

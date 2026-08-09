@@ -556,6 +556,8 @@ describe("App orchestration transitions", () => {
 		).toMatchObject({
 			filter: "palette-result-jumps",
 			selectedIndex: 0,
+			selectedCopyPreviewRowIndex: 0,
+			copyPreviewExpanded: false,
 			screen: "status",
 			focusArea: "workspaces",
 		});
@@ -603,6 +605,7 @@ describe("App orchestration transitions", () => {
 		expect(prepareCleanupHandoffPrompt(audit, "logs")).toMatchObject({
 			kind: "open",
 			prompt: "logs-cleanup",
+			selectedHistoryIndex: 0,
 			notice: {
 				level: "info",
 				message: "cleanup handoff prompt opened Logs; type clear logs",
@@ -613,6 +616,7 @@ describe("App orchestration transitions", () => {
 		});
 		expect(prepareCleanupHandoffDismissal(audit, "logs")).toMatchObject({
 			kind: "dismiss",
+			selectedHistoryIndex: 0,
 			notice: {
 				level: "info",
 				message:

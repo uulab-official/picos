@@ -865,6 +865,8 @@ export function prepareStatusActivityResultHistoryFilterCycle(
 ): {
 	filter: StatusActivityResultHistoryFilter;
 	selectedIndex: number;
+	selectedCopyPreviewRowIndex: 0;
+	copyPreviewExpanded: false;
 	screen?: "status";
 	focusArea?: "workspaces";
 	result?: StatusActivityResult;
@@ -882,6 +884,8 @@ export function prepareStatusActivityResultHistoryFilterCycle(
 			0,
 			next,
 		),
+		selectedCopyPreviewRowIndex: 0,
+		copyPreviewExpanded: false,
 		...(origin === "palette"
 			? {
 					screen: "status" as const,
@@ -1042,6 +1046,7 @@ export function prepareCleanupHandoffPrompt(
 	| {
 			kind: "open";
 			prompt: string;
+			selectedHistoryIndex: 0;
 			notice: AppOwnerNotice;
 	  } {
 	const plan = createCleanupHandoffActionPlan(audit, screen);
@@ -1051,6 +1056,7 @@ export function prepareCleanupHandoffPrompt(
 	return {
 		kind: "open",
 		prompt: getCleanupHandoffPrompt(plan.id),
+		selectedHistoryIndex: 0,
 		notice: {
 			level: "info",
 			message: `cleanup handoff prompt opened ${plan.label}; type ${plan.confirmationPhrase}`,
@@ -1065,6 +1071,7 @@ export function prepareCleanupHandoffDismissal(
 	| { kind: "no-op" }
 	| {
 			kind: "dismiss";
+			selectedHistoryIndex: 0;
 			notice: AppOwnerNotice;
 	  } {
 	const plan = createCleanupHandoffDismissPlan(audit, screen);
@@ -1073,6 +1080,7 @@ export function prepareCleanupHandoffDismissal(
 	}
 	return {
 		kind: "dismiss",
+		selectedHistoryIndex: 0,
 		notice: {
 			level: "info",
 			message: `cleanup handoff dismissed ${plan.label}; normal ${plan.workspace} controls restored`,

@@ -986,6 +986,7 @@ export type RemoteKnownHostsEvidenceHandoffTransition =
 			kind: "copy";
 			preview: ClipboardPreview;
 			intent: StatusActivityCopyIntentRecord;
+			selectedCopyIntentIndex: 0;
 			statusEvidenceKind: "remote-known-hosts";
 			notice: RemotesPanelNotice;
 			paletteAuditMessage?: string;
@@ -1022,7 +1023,8 @@ export type RemoteKnownHostsEvidenceHandoffSelectionTransition =
 			selectedIndex: number;
 			selected: number;
 			total: number;
-			resetCopyPreview: true;
+			selectedCopyPreviewRowIndex: 0;
+			copyPreviewExpanded: false;
 			screen?: "status";
 			focusArea?: "workspaces";
 			notice: RemotesPanelNotice;
@@ -1059,7 +1061,8 @@ export function prepareRemoteKnownHostsEvidenceHandoffSelection(input: {
 		selectedIndex,
 		selected: selected + 1,
 		total: indexes.length,
-		resetCopyPreview: true,
+		selectedCopyPreviewRowIndex: 0,
+		copyPreviewExpanded: false,
 		...(input.origin === "palette"
 			? { screen: "status" as const, focusArea: "workspaces" as const }
 			: {}),
@@ -1075,6 +1078,7 @@ export type RemoteKnownHostsEvidenceHandoffOpenTransition =
 			kind: "open";
 			timeline: ReturnType<typeof prepareTimelineSearchJumpTransition>;
 			intent?: StatusActivityCopyIntentRecord;
+			selectedCopyIntentIndex: 0;
 			paletteAuditMessage?: string;
 			paletteActivityResult?: StatusActivityResult;
 	  }
@@ -1129,6 +1133,7 @@ export function prepareRemoteKnownHostsEvidenceHandoffOpen(input: {
 	return {
 		kind: "open",
 		timeline,
+		selectedCopyIntentIndex: 0,
 		...(intent ? { intent } : {}),
 		...(input.origin === "palette"
 			? {
@@ -1199,6 +1204,7 @@ export function prepareRemoteKnownHostsEvidenceHandoff(input: {
 			kind: "copy",
 			preview,
 			intent,
+			selectedCopyIntentIndex: 0,
 			statusEvidenceKind: "remote-known-hosts",
 			notice: {
 				level: "info",

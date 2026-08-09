@@ -36,7 +36,7 @@ import {
 	prepareSelectedCleanupExportArchive,
 } from "./cleanupIndex";
 import { clampIndex } from "./navigation";
-import { classifyRequestPublication } from "./requestSequence";
+import { beginRequest, classifyRequestPublication } from "./requestSequence";
 import {
 	createInterfaceEvidenceOutcomeStatusActivityResult,
 	createRecoveredStatusEvidenceIndex,
@@ -81,6 +81,24 @@ export function beginEvidenceMutationLanes(input: {
 	return {
 		sharedRequestToken: input.sharedCurrentToken + 1,
 		familyRequestToken: input.familyCurrentToken + 1,
+	};
+}
+
+export function beginEvidenceRetentionMutation(input: {
+	familyCurrentToken: number;
+	enabled: boolean;
+}): {
+	requestToken: number;
+	nextFamilyToken: number;
+	advanced: boolean;
+} {
+	const requestToken = input.enabled
+		? beginRequest(input.familyCurrentToken)
+		: input.familyCurrentToken;
+	return {
+		requestToken,
+		nextFamilyToken: requestToken,
+		advanced: input.enabled,
 	};
 }
 

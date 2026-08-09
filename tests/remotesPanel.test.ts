@@ -880,6 +880,7 @@ describe("Remotes panel transitions", () => {
 		});
 		expect(copied).toMatchObject({
 			kind: "copy",
+			selectedCopyIntentIndex: 0,
 			statusEvidenceKind: "remote-known-hosts",
 			preview: {
 				source: "status-activity",
@@ -956,7 +957,8 @@ describe("Remotes panel transitions", () => {
 			selectedIndex: 0,
 			selected: 1,
 			total: 1,
-			resetCopyPreview: true,
+			selectedCopyPreviewRowIndex: 0,
+			copyPreviewExpanded: false,
 			screen: "status",
 			focusArea: "workspaces",
 			notice: {

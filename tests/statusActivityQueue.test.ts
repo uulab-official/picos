@@ -154,6 +154,7 @@ import {
 	prepareRecoveredEvidenceSelectionTransition,
 	prepareStatusActivityAuditExportSelection,
 	prepareStatusActivityResultHistoryMove,
+	prepareStatusActivityResultPublication,
 	prepareStatusActivityResultTimelineHandoffOpenTransition,
 	prepareStatusActivityResultTimelineHandoffReplay,
 	prepareStatusActivityToolsEvidenceMatchArchive,
@@ -466,6 +467,12 @@ describe("Status activity queue", () => {
 		);
 
 		expect(history).toEqual([third, second]);
+		expect(prepareStatusActivityResultPublication([second], third)).toEqual({
+			history: [third, second],
+			selectedResultIndex: 0,
+			selectedCopyPreviewRowIndex: 0,
+			copyPreviewExpanded: false,
+		});
 		expect(formatStatusActivityResultHistoryRows(history)).toEqual([
 			"STATUS ACTIVITY RESULT HISTORY count=2 selected=1/2",
 			"> dialog show-dialog dialog activity selected; type the exact confirmation phrase",

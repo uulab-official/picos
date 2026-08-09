@@ -360,7 +360,25 @@ describe("TUI callback audit", () => {
 			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
 				 const transition = prepareSave();
+				 if (!selected) { return; }
+				 return transition;
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 const transition = prepareSave();
 				 setSelectedIndex(0);
+				 return transition;
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 const transition = prepareSave();
+				 setSelectedIndex(0 as const);
+				 return transition;
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 const transition = prepareSave();
+				 setSelectedIndex(getInitialSelectionIndex());
 				 return transition;
 			 }, []);`,
 			`import { prepareSave } from "./saveOwner";
@@ -382,6 +400,9 @@ describe("TUI callback audit", () => {
 			).toThrow(
 				[
 					"inline delegated guard: save",
+					"inline delegated guard: save",
+					"inline delegated selection publication: save",
+					"inline delegated selection publication: save",
 					"inline delegated selection publication: save",
 					"inline delegated notice: save",
 				][index],
@@ -415,6 +436,30 @@ describe("TUI callback audit", () => {
 		).toThrow("delegated callback has no owner call path: save");
 	});
 
+	test("requires selection publications to come from the callback's declared owner", () => {
+		const exists = new Set([
+			"src/tui/saveOwner.ts",
+			"tests/saveOwner.test.ts",
+			"src/tui/navigation.ts",
+		]);
+		const sourceText = `import { prepareSave } from "./saveOwner";
+			 import { getInitialSelectionIndex } from "./navigation";
+			 const save = useCallback(() => {
+				 const transition = prepareSave();
+				 setSelectedIndex(getInitialSelectionIndex());
+				 return transition;
+			 }, []);`;
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: () => undefined,
+			}),
+		).toThrow("inline delegated selection publication: save");
+	});
+
 	test("rejects dead and type-only delegated owner references", () => {
 		const exists = new Set(["src/tui/saveOwner.ts", "tests/saveOwner.test.ts"]);
 		for (const sourceText of [
@@ -422,6 +467,15 @@ describe("TUI callback audit", () => {
 			 const save = useCallback(() => void prepareSave, []);`,
 			`import type { SaveTransition } from "./saveOwner";
 			 const save = useCallback((): SaveTransition | undefined => undefined, []);`,
+			`import type { SaveTransition } from "./saveOwner";
+			 const save = useCallback((transition: SaveTransition) => consume(transition), []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback((prepareSave: () => void) => prepareSave(), []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 const dead = () => prepareSave();
+				 return undefined;
+			 }, []);`,
 		]) {
 			expect(() =>
 				auditTuiCallbacks({
@@ -432,6 +486,74 @@ describe("TUI callback audit", () => {
 				}),
 			).toThrow("delegated callback has no owner call path: save");
 		}
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText: `import type { Submission } from "./commandBridge";
+				 const save = useCallback((transition: Submission) => consume(transition), []);`,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: (path) =>
+					path === "src/tui/commandBridge.ts"
+						? 'import { prepareSave } from "./saveOwner"; export type Submission = { kind: "save" }; export const unused = () => prepareSave();'
+						: undefined,
+			}),
+		).toThrow("delegated callback has no owner call path: save");
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText: `import { prepareSubmission } from "./commandBridge";
+				 const save = useCallback(() => prepareSubmission(), []);`,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: (path) =>
+					path === "src/tui/commandBridge.ts"
+						? 'import { prepareSave } from "./saveOwner"; export const prepareSubmission = () => { const dead = () => prepareSave(); return undefined; };'
+						: undefined,
+			}),
+		).toThrow("delegated callback has no owner call path: save");
+	});
+
+	test("accepts only a runtime handler bridge that invokes the callback container", () => {
+		const exists = new Set([
+			"src/tui/commandBridge.ts",
+			"tests/commandBridge.test.ts",
+		]);
+		const sourceText = `import { prepareEffect, dispatchEffect } from "./commandBridge";
+			 const save = useCallback((transition: { kind: "ready" | "notice" }) => {
+				 if (transition.kind === "notice") { return; }
+				 consume(transition);
+			 }, []);
+			 const handlers = { save };
+			 const effect = prepareEffect();
+			 dispatchEffect(effect, handlers);`;
+		const manifestRows = [
+			manifest("save", { owner: "src/tui/commandBridge.ts" }),
+		];
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: manifestRows,
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: (path) =>
+					path === "src/tui/commandBridge.ts"
+						? "export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = (effect: never, handlers: { save: (value: never) => void }) => handlers.save(effect);"
+						: undefined,
+			}),
+		).not.toThrow();
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: manifestRows,
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: (path) =>
+					path === "src/tui/commandBridge.ts"
+						? "export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = () => undefined;"
+						: undefined,
+			}),
+		).toThrow("delegated callback has no owner call path: save");
 	});
 
 	test("strict mode rejects an inline decision", () => {

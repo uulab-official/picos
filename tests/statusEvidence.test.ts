@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	beginEvidenceMutationLanes,
+	beginEvidenceRetentionMutation,
 	canPublishEvidenceArchiveCurrentState,
 	classifyAuditEvidenceIndexBatchRefresh,
 	classifyAuditExportArchiveIndexRefresh,
@@ -179,6 +180,39 @@ describe("evidence archive outcome transitions", () => {
 				requestToken: tools.familyRequestToken,
 			}),
 		).toBe(true);
+	});
+
+	test("does not supersede an in-flight family refresh for a locked retention plan", () => {
+		const archive = beginEvidenceMutationLanes({
+			sharedCurrentToken: 0,
+			familyCurrentToken: 0,
+		});
+		const blockedRetention = beginEvidenceRetentionMutation({
+			familyCurrentToken: archive.familyRequestToken,
+			enabled: false,
+		});
+
+		expect(blockedRetention).toEqual({
+			requestToken: archive.familyRequestToken,
+			nextFamilyToken: archive.familyRequestToken,
+			advanced: false,
+		});
+		expect(
+			canPublishEvidenceArchiveCurrentState({
+				currentToken: blockedRetention.nextFamilyToken,
+				requestToken: archive.familyRequestToken,
+			}),
+		).toBe(true);
+
+		const enabledRetention = beginEvidenceRetentionMutation({
+			familyCurrentToken: blockedRetention.nextFamilyToken,
+			enabled: true,
+		});
+		expect(enabledRetention).toEqual({
+			requestToken: archive.familyRequestToken + 1,
+			nextFamilyToken: archive.familyRequestToken + 1,
+			advanced: true,
+		});
 	});
 
 	test("publishes active and archive audit indexes as one current batch", () => {

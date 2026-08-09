@@ -8,6 +8,7 @@ import {
 	getActionRunEffectRequestToken,
 	getInterfaceProposalInput,
 	prepareRawToolHistoryView,
+	prepareUpdateCheckCurrentPublication,
 } from "../src/tui/actionRunTransitions";
 import type { ToolHistoryItem } from "../src/tui/toolHistory";
 
@@ -130,6 +131,10 @@ describe("read action run transitions", () => {
 	});
 
 	test("formats current collector outcomes outside App", () => {
+		expect(prepareUpdateCheckCurrentPublication()).toEqual({
+			selectedUpdateHandoffIndex: 0,
+			screen: "status",
+		});
 		expect(
 			classifyActionRunOutcome({
 				actionId: "logs.read",

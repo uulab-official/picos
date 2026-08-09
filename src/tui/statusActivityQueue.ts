@@ -346,6 +346,7 @@ export type StatusActivityResultTimelineHandoffOpenTransition =
 			kind: "open";
 			jump: StatusActivityCopyIntentTimelineSearch;
 			intent?: StatusActivityCopyIntentRecord;
+			selectedCopyIntentIndex: 0;
 			timeline: TimelineSearchJumpTransition;
 	  } & RecoveredEvidenceActivity);
 
@@ -570,6 +571,23 @@ export function appendStatusActivityResultHistory(
 	limit = 3,
 ): StatusActivityResult[] {
 	return [result, ...history].slice(0, Math.max(1, limit));
+}
+
+export function prepareStatusActivityResultPublication(
+	history: StatusActivityResult[],
+	result: StatusActivityResult,
+): {
+	history: StatusActivityResult[];
+	selectedResultIndex: 0;
+	selectedCopyPreviewRowIndex: 0;
+	copyPreviewExpanded: false;
+} {
+	return {
+		history: appendStatusActivityResultHistory(history, result),
+		selectedResultIndex: 0,
+		selectedCopyPreviewRowIndex: 0,
+		copyPreviewExpanded: false,
+	};
 }
 
 export function formatStatusActivityResultHistoryRows(
@@ -3831,6 +3849,7 @@ export function prepareStatusActivityResultTimelineHandoffOpenTransition(input: 
 	return {
 		kind: "open",
 		jump: replay.jump,
+		selectedCopyIntentIndex: 0,
 		...(replay.intent ? { intent: replay.intent } : {}),
 		timeline,
 		...(input.origin === "palette"
