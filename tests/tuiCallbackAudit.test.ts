@@ -351,24 +351,27 @@ describe("TUI callback audit", () => {
 	test("requires delegated callback bodies to link to their declared owner", () => {
 		const exists = new Set(["src/tui/saveOwner.ts", "tests/saveOwner.test.ts"]);
 		const fixtures = [
-			`import { unrelated } from "./unrelatedOwner";
+			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
-				 unrelated();
+				 const transition = prepareSave();
 				 if (!selected) return;
+				 return transition;
 			 }, []);`,
-			`import { unrelated } from "./unrelatedOwner";
+			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
-				 unrelated();
+				 const transition = prepareSave();
 				 setSelectedIndex(0);
+				 return transition;
 			 }, []);`,
-			`import { unrelated } from "./unrelatedOwner";
+			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
-				 unrelated();
+				 const transition = prepareSave();
 				 log("warn", "missing selection");
+				 return transition;
 			 }, []);`,
 		];
 
-		for (const sourceText of fixtures) {
+		for (const [index, sourceText] of fixtures.entries()) {
 			expect(() =>
 				auditTuiCallbacks({
 					sourceText,
@@ -376,7 +379,13 @@ describe("TUI callback audit", () => {
 					ownerFileExists: (path) => exists.has(path),
 					ownerFileRead: () => undefined,
 				}),
-			).toThrow("delegated callback has no owner reference: save");
+			).toThrow(
+				[
+					"inline delegated guard: save",
+					"inline delegated selection publication: save",
+					"inline delegated notice: save",
+				][index],
+			);
 		}
 
 		expect(() =>
@@ -387,10 +396,42 @@ describe("TUI callback audit", () => {
 				ownerFileExists: (path) => exists.has(path),
 				ownerFileRead: (path) =>
 					path === "src/tui/commandBridge.ts"
-						? 'import { prepareSave } from "./saveOwner";'
+						? 'import { prepareSave } from "./saveOwner"; export const prepareSubmission = () => prepareSave();'
 						: undefined,
 			}),
 		).not.toThrow();
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText: `import { prepareSubmission } from "./commandBridge";
+				 const save = useCallback(() => prepareSubmission(), []);`,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: (path) =>
+					path === "src/tui/commandBridge.ts"
+						? 'import { prepareSave } from "./saveOwner"; export const prepareSubmission = () => undefined;'
+						: undefined,
+			}),
+		).toThrow("delegated callback has no owner call path: save");
+	});
+
+	test("rejects dead and type-only delegated owner references", () => {
+		const exists = new Set(["src/tui/saveOwner.ts", "tests/saveOwner.test.ts"]);
+		for (const sourceText of [
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => void prepareSave, []);`,
+			`import type { SaveTransition } from "./saveOwner";
+			 const save = useCallback((): SaveTransition | undefined => undefined, []);`,
+		]) {
+			expect(() =>
+				auditTuiCallbacks({
+					sourceText,
+					manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+					ownerFileExists: (path) => exists.has(path),
+					ownerFileRead: () => undefined,
+				}),
+			).toThrow("delegated callback has no owner call path: save");
+		}
 	});
 
 	test("strict mode rejects an inline decision", () => {
@@ -406,17 +447,37 @@ describe("TUI callback audit", () => {
 	});
 
 	test("strict mode locks the App callback inventory baseline", () => {
-		const sourceText = "const save = useCallback(() => {}, []);";
+		const sourceText = "const log = useCallback(() => {}, []);";
 
 		expect(() =>
 			auditTuiCallbacks({
 				sourceText,
-				manifest: [manifest("save")],
-				ownerFileRead: () => undefined,
+				manifest: [
+					manifest("log", {
+						classification: "wiring",
+						reason: "React setter/event publication",
+					}),
+				],
 				strict: true,
 			}),
 		).toThrow(
 			"strict callback count mismatch callbacks=1/154 useInput=0/1 total=1/155",
+		);
+	});
+
+	test("strict mode requires both delegated owner filesystem adapters", () => {
+		const sourceText = `import { prepareSave } from "./saveOwner";
+			const save = useCallback(() => prepareSave(), []);`;
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileRead: () => undefined,
+				strict: true,
+			}),
+		).toThrow(
+			"strict callback audit requires delegated owner existence checks",
 		);
 	});
 });

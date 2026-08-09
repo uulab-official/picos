@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	clampIndex,
 	enterFocus,
+	getInitialSelectionIndex,
 	getLocationShortcutIndex,
 	getNextIndex,
 	getScreenByShortcut,
@@ -105,6 +106,10 @@ describe("TUI navigation", () => {
 });
 
 describe("index clamping", () => {
+	test("provides one owner-defined selection reset", () => {
+		expect(getInitialSelectionIndex()).toBe(0);
+	});
+
 	test("keeps an index inside the list and survives an empty one", () => {
 		expect(clampIndex(0, 3)).toBe(0);
 		expect(clampIndex(2, 3)).toBe(2);

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { getActionCatalog } from "../src/core/actions";
 import {
 	beginActionRunEffectRequest,
+	beginActionRunTransitionRequest,
 	classifyActionRunOutcome,
 	getActionRunEffect,
 	getActionRunEffectRequestToken,
@@ -107,6 +108,25 @@ describe("read action run transitions", () => {
 		expect(
 			getActionRunEffectRequestToken(nextLogs.tokens, "system-inventory"),
 		).toBe(1);
+	});
+
+	test("allocates a request only for a runnable action transition", () => {
+		const current = new Map([["logs-read" as const, 4]]);
+		const blocked = beginActionRunTransitionRequest(current, {
+			kind: "blocked",
+			actionId: "logs.read",
+			blockers: ["action-disabled"],
+			control: {
+				previewPlan: undefined,
+				confirmation: undefined,
+				simulation: undefined,
+				executionPlan: undefined,
+			},
+			notice: { level: "warn", message: "blocked" },
+		});
+
+		expect(blocked).toBeUndefined();
+		expect(current.get("logs-read")).toBe(4);
 	});
 
 	test("formats current collector outcomes outside App", () => {

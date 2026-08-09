@@ -10,6 +10,9 @@ import {
 import {
 	classifyInterfaceEvidencePresetPersistenceFailure,
 	classifyToolCommandRunOutcome,
+	formatAppIoCompletionMessage,
+	formatAppIoFailureMessage,
+	formatToolsInputFailureMessage,
 	prepareCleanupHandoffDismissal,
 	prepareCleanupHandoffExport,
 	prepareCleanupHandoffPrompt,
@@ -127,6 +130,23 @@ const cleanupHistory: CleanupHandoffHistory[] = [
 ];
 
 describe("App orchestration transitions", () => {
+	test("owns asynchronous I/O completion and failure wording", () => {
+		expect(formatAppIoFailureMessage("config save", new Error("denied"))).toBe(
+			"config save failed denied",
+		);
+		expect(
+			formatAppIoCompletionMessage({
+				kind: "endpoint-export",
+				endpoint: "ports",
+				view: "filtered",
+				path: "/tmp/ports.md",
+			}),
+		).toBe("ports exported filtered /tmp/ports.md");
+		expect(formatToolsInputFailureMessage("preset save failed", "denied")).toBe(
+			"preset save failed denied",
+		);
+	});
+
 	test("prepares route destination submission and cancellation notices", () => {
 		expect(prepareRouteDestinationSubmission("   ")).toEqual({
 			kind: "notice",

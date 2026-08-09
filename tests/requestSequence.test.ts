@@ -3,6 +3,7 @@ import {
 	beginRequest,
 	beginRequestWithPublication,
 	classifyRequestPublication,
+	coordinateCurrentBatchRead,
 	isStaleRequest,
 } from "../src/tui/requestSequence";
 
@@ -91,5 +92,43 @@ describe("request sequence", () => {
 			),
 		).toBe("current");
 		expect(nextLoad.requestToken).toBe(2);
+	});
+
+	test("reads both batch inputs before classifying against post-await current state", async () => {
+		let resolveActive: (value: string) => void = () => {};
+		let resolveArchive: (value: string) => void = () => {};
+		let currentToken = 1;
+		let classified = false;
+		const active = new Promise<string>((resolve) => {
+			resolveActive = resolve;
+		});
+		const archive = new Promise<string>((resolve) => {
+			resolveArchive = resolve;
+		});
+
+		const coordinated = coordinateCurrentBatchRead({
+			readActive: () => active,
+			readArchive: () => archive,
+			getCurrentState: () => ({ currentToken }),
+			classify: ({ currentState, outcome }) => {
+				classified = true;
+				return { currentState, outcome };
+			},
+		});
+
+		currentToken = 2;
+		resolveActive("active");
+		await Promise.resolve();
+		expect(classified).toBe(false);
+		resolveArchive("archive");
+
+		expect(await coordinated).toEqual({
+			currentState: { currentToken: 2 },
+			outcome: {
+				status: "success",
+				active: "active",
+				archive: "archive",
+			},
+		});
 	});
 });

@@ -71,6 +71,19 @@ type EvidenceArchiveRequest = {
 	requestToken: number;
 };
 
+export function beginEvidenceMutationLanes(input: {
+	sharedCurrentToken: number;
+	familyCurrentToken: number;
+}): {
+	sharedRequestToken: number;
+	familyRequestToken: number;
+} {
+	return {
+		sharedRequestToken: input.sharedCurrentToken + 1,
+		familyRequestToken: input.familyCurrentToken + 1,
+	};
+}
+
 export function canPublishEvidenceArchiveCurrentState(
 	input: EvidenceArchiveRequest,
 ): boolean {

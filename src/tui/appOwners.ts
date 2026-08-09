@@ -76,6 +76,91 @@ function formatAppOwnerError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
+export type AppIoFailureOperation =
+	| "config save"
+	| "config policy"
+	| "config reset"
+	| "pending SFTP session close"
+	| "SFTP session close"
+	| "previous SFTP session close"
+	| "editor save"
+	| "tool history filter cleanup"
+	| "tool target label save"
+	| "tool target value save"
+	| "tool target action save"
+	| "tool target action cleanup"
+	| "tool target preset save"
+	| "route filter cleanup"
+	| `${"connections" | "ports"} filter cleanup`
+	| "logs preset save"
+	| "logs cleanup save"
+	| "remote profile save"
+	| `${"connections" | "ports"} preset save`
+	| `${"connections" | "ports"} sort save`
+	| "status result jump filter persistence"
+	| "remote known_hosts evidence handoff export";
+
+export function formatAppIoFailureMessage(
+	operation: AppIoFailureOperation,
+	error: unknown,
+): string {
+	return `${operation} failed ${formatAppOwnerError(error)}`;
+}
+
+export function formatToolsInputFailureMessage(
+	prefix: string,
+	error: unknown,
+): string {
+	return `${prefix ? `${prefix} ` : ""}${formatAppOwnerError(error)}`;
+}
+
+export type AppIoCompletion =
+	| { kind: "file-operation"; operation: string; status: string; path: string }
+	| {
+			kind: "external-open";
+			label: string;
+			confirmed: boolean;
+			adapter: string;
+	  }
+	| { kind: "file-open"; label: string; confirmed: boolean; adapter: string }
+	| { kind: "tools-export"; scope: string; itemCount: number; path: string }
+	| { kind: "routes-export"; view: string; path: string }
+	| { kind: "interfaces-export"; path: string }
+	| { kind: "file-open-confirmation"; label: string }
+	| {
+			kind: "endpoint-export";
+			endpoint: "connections" | "ports";
+			view: string;
+			path: string;
+	  }
+	| { kind: "remote-context"; label: string }
+	| { kind: "remote-known-hosts-export"; path: string; eventCount: number };
+
+export function formatAppIoCompletionMessage(input: AppIoCompletion): string {
+	switch (input.kind) {
+		case "file-operation":
+			return `file operation ${input.operation} status=${input.status} path=${input.path}`;
+		case "external-open":
+			return `external open ${input.label} confirmed=${input.confirmed} adapter=${input.adapter}`;
+		case "file-open":
+			return `file open ${input.label} confirmed=${input.confirmed} adapter=${input.adapter}`;
+		case "tools-export":
+			return `tools exported ${input.scope} ${input.itemCount} run(s) ${input.path}`;
+		case "routes-export":
+			return `routes exported ${input.view} ${input.path}`;
+		case "interfaces-export":
+			return `interfaces exported source ${input.path}`;
+		case "file-open-confirmation":
+			return `file open confirmation opened for ${input.label}`;
+		case "endpoint-export":
+			return `${input.endpoint} exported ${input.view} ${input.path}`;
+		case "remote-context":
+			return `remote context selected ${input.label}`;
+		case "remote-known-hosts-export":
+			return `remote known_hosts evidence handoff exported ${input.path} events=${input.eventCount}`;
+	}
+}
+
 export function classifyToolCommandRunOutcome(input: {
 	label: string;
 	outcome: { kind: "success" } | { kind: "failure"; error: unknown };

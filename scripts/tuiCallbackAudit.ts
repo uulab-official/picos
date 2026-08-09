@@ -132,17 +132,55 @@ export function extractTuiCallbackInventory(
 
 const normalizeOwnerPath = (path: string) => path.replace(/\.tsx?$/, "");
 
-export function extractTuiCallbackDelegatedOwnerReferences(
-	sourceText: string,
-): ReadonlyMap<string, ReadonlySet<string>> {
-	const sourceFile = ts.createSourceFile(
-		"App.tsx",
-		sourceText,
-		ts.ScriptTarget.Latest,
-		true,
-		ts.ScriptKind.TSX,
-	);
-	const importedOwners = new Map<string, string>();
+type ImportedOwnerBinding = {
+	owner: string;
+	symbol: string;
+};
+
+type DelegatedOwnerCall = ImportedOwnerBinding;
+
+function collectImportedOwnerBindings(
+	sourceFile: ts.SourceFile,
+): ReadonlyMap<string, ImportedOwnerBinding> {
+	const importedOwners = new Map<string, ImportedOwnerBinding>();
+	for (const statement of sourceFile.statements) {
+		if (
+			!ts.isImportDeclaration(statement) ||
+			!ts.isStringLiteral(statement.moduleSpecifier) ||
+			!statement.moduleSpecifier.text.startsWith("./") ||
+			!statement.importClause ||
+			statement.importClause.isTypeOnly
+		) {
+			continue;
+		}
+		const owner = normalizeOwnerPath(
+			`src/tui/${statement.moduleSpecifier.text.slice(2)}`,
+		);
+		const { importClause } = statement;
+		if (importClause.name) {
+			importedOwners.set(importClause.name.text, { owner, symbol: "default" });
+		}
+		const bindings = importClause.namedBindings;
+		if (bindings && ts.isNamespaceImport(bindings)) {
+			importedOwners.set(bindings.name.text, { owner, symbol: "*" });
+		}
+		if (bindings && ts.isNamedImports(bindings)) {
+			for (const element of bindings.elements) {
+				if (element.isTypeOnly) continue;
+				importedOwners.set(element.name.text, {
+					owner,
+					symbol: element.propertyName?.text ?? element.name.text,
+				});
+			}
+		}
+	}
+	return importedOwners;
+}
+
+function collectImportedOwnerTypeBindings(
+	sourceFile: ts.SourceFile,
+): ReadonlyMap<string, ImportedOwnerBinding> {
+	const importedOwners = new Map<string, ImportedOwnerBinding>();
 	for (const statement of sourceFile.statements) {
 		if (
 			!ts.isImportDeclaration(statement) ||
@@ -155,37 +193,73 @@ export function extractTuiCallbackDelegatedOwnerReferences(
 		const owner = normalizeOwnerPath(
 			`src/tui/${statement.moduleSpecifier.text.slice(2)}`,
 		);
-		const { importClause } = statement;
-		if (importClause.name) {
-			importedOwners.set(importClause.name.text, owner);
-		}
-		const bindings = importClause.namedBindings;
-		if (bindings && ts.isNamespaceImport(bindings)) {
-			importedOwners.set(bindings.name.text, owner);
-		}
+		const bindings = statement.importClause.namedBindings;
 		if (bindings && ts.isNamedImports(bindings)) {
 			for (const element of bindings.elements) {
-				importedOwners.set(element.name.text, owner);
+				importedOwners.set(element.name.text, {
+					owner,
+					symbol: element.propertyName?.text ?? element.name.text,
+				});
 			}
 		}
 	}
+	return importedOwners;
+}
+
+function getCalledBinding(
+	expression: ts.Expression,
+	bindings: ReadonlyMap<string, ImportedOwnerBinding>,
+): ImportedOwnerBinding | undefined {
+	if (ts.isIdentifier(expression)) {
+		return bindings.get(expression.text);
+	}
+	if (
+		ts.isPropertyAccessExpression(expression) &&
+		ts.isIdentifier(expression.expression)
+	) {
+		const namespace = bindings.get(expression.expression.text);
+		if (namespace?.symbol === "*") {
+			return { owner: namespace.owner, symbol: expression.name.text };
+		}
+	}
+	return undefined;
+}
+
+function ownerCallKey(call: DelegatedOwnerCall): string {
+	return `${call.owner}\0${call.symbol}`;
+}
+
+function parseOwnerCallKey(key: string): DelegatedOwnerCall {
+	const [owner, symbol] = key.split("\0");
+	return { owner: owner ?? "", symbol: symbol ?? "" };
+}
+
+function extractTuiCallbackDelegatedOwnerCalls(
+	sourceText: string,
+): ReadonlyMap<string, ReadonlySet<string>> {
+	const sourceFile = ts.createSourceFile(
+		"App.tsx",
+		sourceText,
+		ts.ScriptTarget.Latest,
+		true,
+		ts.ScriptKind.TSX,
+	);
+	const importedOwners = collectImportedOwnerBindings(sourceFile);
+	const importedOwnerTypes = collectImportedOwnerTypeBindings(sourceFile);
 	const typeAliasOwners = new Map<string, ReadonlySet<string>>();
 	for (const statement of sourceFile.statements) {
 		if (!ts.isTypeAliasDeclaration(statement)) continue;
 		const owners = new Set<string>();
-		const visitAlias = (node: ts.Node): void => {
+		const visitType = (node: ts.Node): void => {
 			if (ts.isIdentifier(node)) {
-				const owner = importedOwners.get(node.text);
-				if (owner) owners.add(owner);
+				const binding = importedOwnerTypes.get(node.text);
+				if (binding) owners.add(binding.owner);
 			}
-			ts.forEachChild(node, visitAlias);
+			ts.forEachChild(node, visitType);
 		};
-		visitAlias(statement.type);
-		if (owners.size > 0) {
-			typeAliasOwners.set(statement.name.text, owners);
-		}
+		visitType(statement.type);
+		if (owners.size > 0) typeAliasOwners.set(statement.name.text, owners);
 	}
-
 	const references = new Map<string, ReadonlySet<string>>();
 	const callbackNames = new Set(
 		extractTuiCallbackInventory(sourceText).map((row) => row.name),
@@ -196,23 +270,69 @@ export function extractTuiCallbackDelegatedOwnerReferences(
 		callback: ts.Node | undefined,
 	): void => {
 		if (!callback) return;
-		const owners = new Set<string>();
+		const calls = new Set<string>();
 		const dependencies = new Set<string>();
+		if (isInlineFunction(callback)) {
+			for (const parameter of callback.parameters) {
+				if (!ts.isIdentifier(parameter.name) || !parameter.type) continue;
+				const parameterName = parameter.name.text;
+				let used = false;
+				const findUse = (node: ts.Node): void => {
+					if (ts.isIdentifier(node) && node.text === parameterName) {
+						used = true;
+						return;
+					}
+					ts.forEachChild(node, findUse);
+				};
+				findUse(callback.body);
+				if (!used) continue;
+				const visitParameterType = (node: ts.Node): void => {
+					if (ts.isIdentifier(node)) {
+						const binding = importedOwnerTypes.get(node.text);
+						if (binding) {
+							calls.add(
+								ownerCallKey({
+									owner: binding.owner,
+									symbol: "@parameter",
+								}),
+							);
+						}
+						for (const owner of typeAliasOwners.get(node.text) ?? []) {
+							calls.add(ownerCallKey({ owner, symbol: "@parameter" }));
+						}
+					}
+					if (ts.isTypeQueryNode(node) && ts.isIdentifier(node.exprName)) {
+						const binding = importedOwners.get(node.exprName.text);
+						if (binding) {
+							calls.add(
+								ownerCallKey({
+									owner: binding.owner,
+									symbol: "@parameter",
+								}),
+							);
+						}
+					}
+					ts.forEachChild(node, visitParameterType);
+				};
+				visitParameterType(parameter.type);
+			}
+		}
 		const visitReference = (node: ts.Node): void => {
-			if (ts.isIdentifier(node)) {
-				const owner = importedOwners.get(node.text);
-				if (owner) owners.add(owner);
-				for (const aliasOwner of typeAliasOwners.get(node.text) ?? []) {
-					owners.add(aliasOwner);
-				}
-				if (node.text !== name && callbackNames.has(node.text)) {
-					dependencies.add(node.text);
+			if (ts.isCallExpression(node)) {
+				const binding = getCalledBinding(node.expression, importedOwners);
+				if (binding) calls.add(ownerCallKey(binding));
+				if (
+					ts.isIdentifier(node.expression) &&
+					node.expression.text !== name &&
+					callbackNames.has(node.expression.text)
+				) {
+					dependencies.add(node.expression.text);
 				}
 			}
 			ts.forEachChild(node, visitReference);
 		};
 		visitReference(callback);
-		references.set(name, owners);
+		references.set(name, calls);
 		callbackDependencies.set(name, dependencies);
 	};
 	const visit = (node: ts.Node): void => {
@@ -239,17 +359,31 @@ export function extractTuiCallbackDelegatedOwnerReferences(
 	while (expanded) {
 		expanded = false;
 		for (const [name, dependencies] of callbackDependencies) {
-			const owners = new Set(references.get(name) ?? []);
+			const calls = new Set(references.get(name) ?? []);
 			for (const dependency of dependencies) {
-				for (const owner of references.get(dependency) ?? []) {
-					if (!owners.has(owner)) {
-						owners.add(owner);
+				for (const call of references.get(dependency) ?? []) {
+					if (!calls.has(call)) {
+						calls.add(call);
 						expanded = true;
 					}
 				}
 			}
-			references.set(name, owners);
+			references.set(name, calls);
 		}
+	}
+	return references;
+}
+
+export function extractTuiCallbackDelegatedOwnerReferences(
+	sourceText: string,
+): ReadonlyMap<string, ReadonlySet<string>> {
+	const references = new Map<string, ReadonlySet<string>>();
+	for (const [name, callKeys] of extractTuiCallbackDelegatedOwnerCalls(
+		sourceText,
+	)) {
+		const owners = new Set<string>();
+		for (const key of callKeys) owners.add(parseOwnerCallKey(key).owner);
+		references.set(name, owners);
 	}
 	return references;
 }
@@ -390,7 +524,86 @@ const fail = (message: string): never => {
 const mathBoundaryKey = (entry: TuiInlineSelectionClamp) =>
 	`${entry.name}\0${entry.line}\0${entry.occurrence}\0${entry.expression}`;
 
-function extractTuiOwnerImports(sourceText: string): ReadonlySet<string> {
+function extractTuiOwnerExportCallPaths(
+	sourceText: string,
+): ReadonlyMap<string, ReadonlySet<string>> {
+	const sourceFile = ts.createSourceFile(
+		"owner.ts",
+		sourceText,
+		ts.ScriptTarget.Latest,
+		true,
+		ts.ScriptKind.TS,
+	);
+	const importedOwners = collectImportedOwnerBindings(sourceFile);
+	const localNames = new Set<string>();
+	for (const statement of sourceFile.statements) {
+		if (ts.isFunctionDeclaration(statement) && statement.name) {
+			localNames.add(statement.name.text);
+		}
+		if (ts.isVariableStatement(statement)) {
+			for (const declaration of statement.declarationList.declarations) {
+				if (ts.isIdentifier(declaration.name)) {
+					localNames.add(declaration.name.text);
+				}
+			}
+		}
+	}
+	const callPaths = new Map<string, ReadonlySet<string>>();
+	const dependencies = new Map<string, ReadonlySet<string>>();
+	const inspect = (name: string, node: ts.Node | undefined) => {
+		if (!node) return;
+		const owners = new Set<string>();
+		const localDependencies = new Set<string>();
+		const visit = (child: ts.Node): void => {
+			if (ts.isCallExpression(child)) {
+				const binding = getCalledBinding(child.expression, importedOwners);
+				if (binding) owners.add(binding.owner);
+				if (
+					ts.isIdentifier(child.expression) &&
+					child.expression.text !== name &&
+					localNames.has(child.expression.text)
+				) {
+					localDependencies.add(child.expression.text);
+				}
+			}
+			ts.forEachChild(child, visit);
+		};
+		visit(node);
+		callPaths.set(name, owners);
+		dependencies.set(name, localDependencies);
+	};
+	for (const statement of sourceFile.statements) {
+		if (ts.isFunctionDeclaration(statement) && statement.name) {
+			inspect(statement.name.text, statement.body);
+		}
+		if (ts.isVariableStatement(statement)) {
+			for (const declaration of statement.declarationList.declarations) {
+				if (ts.isIdentifier(declaration.name)) {
+					inspect(declaration.name.text, declaration.initializer);
+				}
+			}
+		}
+	}
+	let expanded = true;
+	while (expanded) {
+		expanded = false;
+		for (const [name, localDependencies] of dependencies) {
+			const owners = new Set(callPaths.get(name) ?? []);
+			for (const dependency of localDependencies) {
+				for (const owner of callPaths.get(dependency) ?? []) {
+					if (!owners.has(owner)) {
+						owners.add(owner);
+						expanded = true;
+					}
+				}
+			}
+			callPaths.set(name, owners);
+		}
+	}
+	return callPaths;
+}
+
+function extractTuiOwnerModuleImports(sourceText: string): ReadonlySet<string> {
 	const sourceFile = ts.createSourceFile(
 		"owner.ts",
 		sourceText,
@@ -413,6 +626,161 @@ function extractTuiOwnerImports(sourceText: string): ReadonlySet<string> {
 		}
 	}
 	return owners;
+}
+
+type TuiInlineDelegatedDecision = {
+	name: string;
+	kind: "guard" | "selection-publication" | "notice";
+	line: number;
+	expression: string;
+};
+
+function containsConstructedText(node: ts.Node): boolean {
+	let found = false;
+	const visit = (child: ts.Node): void => {
+		if (
+			ts.isStringLiteralLike(child) ||
+			ts.isNoSubstitutionTemplateLiteral(child) ||
+			ts.isTemplateExpression(child)
+		) {
+			found = true;
+			return;
+		}
+		ts.forEachChild(child, visit);
+	};
+	visit(node);
+	return found;
+}
+
+function extractInlineDelegatedDecisions(
+	sourceText: string,
+): ReadonlyMap<string, readonly TuiInlineDelegatedDecision[]> {
+	const sourceFile = ts.createSourceFile(
+		"App.tsx",
+		sourceText,
+		ts.ScriptTarget.Latest,
+		true,
+		ts.ScriptKind.TSX,
+	);
+	const importedOwners = collectImportedOwnerBindings(sourceFile);
+	const callbackNames = new Set(
+		extractTuiCallbackInventory(sourceText).map((row) => row.name),
+	);
+	const decisions = new Map<string, readonly TuiInlineDelegatedDecision[]>();
+	const inspect = (name: string, callback: ts.Node | undefined) => {
+		if (!callback) return;
+		const ownerDerived = new Set<string>();
+		const isOwnerDerived = (node: ts.Node): boolean => {
+			let derived = false;
+			const visit = (child: ts.Node): void => {
+				if (ts.isIdentifier(child) && ownerDerived.has(child.text)) {
+					derived = true;
+					return;
+				}
+				if (ts.isCallExpression(child)) {
+					if (
+						getCalledBinding(child.expression, importedOwners) ||
+						(ts.isIdentifier(child.expression) &&
+							callbackNames.has(child.expression.text))
+					) {
+						derived = true;
+						return;
+					}
+				}
+				ts.forEachChild(child, visit);
+			};
+			visit(node);
+			return derived;
+		};
+		let expanded = true;
+		while (expanded) {
+			expanded = false;
+			const collect = (node: ts.Node): void => {
+				if (
+					ts.isVariableDeclaration(node) &&
+					ts.isIdentifier(node.name) &&
+					node.initializer &&
+					!ownerDerived.has(node.name.text) &&
+					isOwnerDerived(node.initializer)
+				) {
+					ownerDerived.add(node.name.text);
+					expanded = true;
+				}
+				ts.forEachChild(node, collect);
+			};
+			collect(callback);
+		}
+		const found: TuiInlineDelegatedDecision[] = [];
+		const visit = (node: ts.Node): void => {
+			if (
+				ts.isIfStatement(node) &&
+				ts.isReturnStatement(node.thenStatement) &&
+				!node.thenStatement.expression &&
+				!isOwnerDerived(node.expression)
+			) {
+				found.push({
+					name,
+					kind: "guard",
+					line: lineNumber(sourceFile, node.getStart(sourceFile)),
+					expression: node.expression.getText(sourceFile),
+				});
+			}
+			if (
+				ts.isCallExpression(node) &&
+				ts.isIdentifier(node.expression) &&
+				/^setSelected.*Index$/.test(node.expression.text) &&
+				node.arguments[0] &&
+				(ts.isNumericLiteral(node.arguments[0]) ||
+					ts.isStringLiteralLike(node.arguments[0]))
+			) {
+				found.push({
+					name,
+					kind: "selection-publication",
+					line: lineNumber(sourceFile, node.getStart(sourceFile)),
+					expression: node.getText(sourceFile),
+				});
+			}
+			if (
+				ts.isCallExpression(node) &&
+				ts.isIdentifier(node.expression) &&
+				node.expression.text === "log" &&
+				node.arguments[1] &&
+				!ts.isCallExpression(node.arguments[1]) &&
+				containsConstructedText(node.arguments[1])
+			) {
+				found.push({
+					name,
+					kind: "notice",
+					line: lineNumber(sourceFile, node.getStart(sourceFile)),
+					expression: node.arguments[1].getText(sourceFile),
+				});
+			}
+			ts.forEachChild(node, visit);
+		};
+		visit(callback);
+		decisions.set(name, found);
+	};
+	const visit = (node: ts.Node): void => {
+		if (
+			ts.isVariableDeclaration(node) &&
+			ts.isIdentifier(node.name) &&
+			node.initializer &&
+			ts.isCallExpression(node.initializer) &&
+			callbackName(node.initializer, "useCallback")
+		) {
+			inspect(node.name.text, node.initializer.arguments[0]);
+		}
+		if (
+			ts.isCallExpression(node) &&
+			callbackName(node, "useInput") &&
+			ts.isExpressionStatement(node.parent)
+		) {
+			inspect("useInput", node.arguments[0]);
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(sourceFile);
+	return decisions;
 }
 
 function resolveInlineDomainSelectionClamps(
@@ -449,9 +817,22 @@ export function auditTuiCallbacks({
 	strict = false,
 }: AuditOptions): TuiCallbackAudit {
 	const inventory = extractTuiCallbackInventory(sourceText);
-	const delegatedOwnerReferences =
-		extractTuiCallbackDelegatedOwnerReferences(sourceText);
-	const ownerImports = new Map<string, ReadonlySet<string>>();
+	const delegatedOwnerCalls = extractTuiCallbackDelegatedOwnerCalls(sourceText);
+	const delegatedDecisions = extractInlineDelegatedDecisions(sourceText);
+	const ownerExportCallPaths = new Map<
+		string,
+		ReadonlyMap<string, ReadonlySet<string>>
+	>();
+	const ownerModuleImports = new Map<string, ReadonlySet<string>>();
+	const hasDelegatedRows = manifest.some(
+		(row) => row.classification === "delegated",
+	);
+	if (strict && hasDelegatedRows && !ownerFileExists) {
+		fail("strict callback audit requires delegated owner existence checks");
+	}
+	if (strict && hasDelegatedRows && !ownerFileRead) {
+		fail("strict callback audit requires delegated owner source linkage");
+	}
 	const duplicateInventoryName = findDuplicateName(inventory);
 	if (duplicateInventoryName) {
 		fail(`duplicate inventory name: ${duplicateInventoryName}`);
@@ -525,25 +906,48 @@ export function auditTuiCallbacks({
 			}
 			if (ownerFileRead) {
 				const declaredOwners = owners.map(normalizeOwnerPath);
-				const referencedOwners =
-					delegatedOwnerReferences.get(row.name) ?? new Set<string>();
+				const ownerCalls = [...(delegatedOwnerCalls.get(row.name) ?? [])].map(
+					parseOwnerCallKey,
+				);
 				const linked = declaredOwners.some((declaredOwner) => {
-					if (referencedOwners.has(declaredOwner)) return true;
-					for (const referencedOwner of referencedOwners) {
-						let imports = ownerImports.get(referencedOwner);
-						if (!imports) {
-							const ownerSource = ownerFileRead(`${referencedOwner}.ts`);
-							imports = ownerSource
-								? extractTuiOwnerImports(ownerSource)
-								: new Set<string>();
-							ownerImports.set(referencedOwner, imports);
+					for (const call of ownerCalls) {
+						if (call.owner === declaredOwner) return true;
+						if (call.symbol === "@parameter") {
+							let imports = ownerModuleImports.get(call.owner);
+							if (!imports) {
+								const ownerSource = ownerFileRead(`${call.owner}.ts`);
+								imports = ownerSource
+									? extractTuiOwnerModuleImports(ownerSource)
+									: new Set<string>();
+								ownerModuleImports.set(call.owner, imports);
+							}
+							if (imports.has(declaredOwner)) return true;
+							continue;
 						}
-						if (imports.has(declaredOwner)) return true;
+						let exports = ownerExportCallPaths.get(call.owner);
+						if (!exports) {
+							const ownerSource = ownerFileRead(`${call.owner}.ts`);
+							exports = ownerSource
+								? extractTuiOwnerExportCallPaths(ownerSource)
+								: new Map<string, ReadonlySet<string>>();
+							ownerExportCallPaths.set(call.owner, exports);
+						}
+						if (exports.get(call.symbol)?.has(declaredOwner)) return true;
 					}
 					return false;
 				});
 				if (!linked) {
-					fail(`delegated callback has no owner reference: ${row.name}`);
+					fail(`delegated callback has no owner call path: ${row.name}`);
+				}
+				const decision = delegatedDecisions.get(row.name)?.[0];
+				if (decision) {
+					const label =
+						decision.kind === "selection-publication"
+							? "selection publication"
+							: decision.kind;
+					fail(
+						`inline delegated ${label}: ${row.name} line=${decision.line} expression=${decision.expression}`,
+					);
 				}
 			}
 		}
@@ -567,9 +971,6 @@ export function auditTuiCallbacks({
 		fail(
 			`strict audit rejected ${inlineDecisions} inline-decision entr${inlineDecisions === 1 ? "y" : "ies"}`,
 		);
-	}
-	if (strict && !ownerFileRead) {
-		fail("strict callback audit requires delegated owner source linkage");
 	}
 	const callbackCount = inventory.filter(
 		(row) => row.name !== "useInput",

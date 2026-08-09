@@ -38,3 +38,38 @@ export function classifyRequestPublication(
 ): "current" | "stale" {
 	return isStaleRequest(current, token) ? "stale" : "current";
 }
+
+export type CurrentBatchReadOutcome<Active, Archive> =
+	| { status: "success"; active: Active; archive: Archive }
+	| { status: "failure"; error: unknown };
+
+export async function coordinateCurrentBatchRead<
+	Active,
+	Archive,
+	CurrentState,
+	Transition,
+>(input: {
+	readActive: () => Promise<Active>;
+	readArchive: () => Promise<Archive>;
+	getCurrentState: () => CurrentState;
+	classify: (input: {
+		currentState: CurrentState;
+		outcome: CurrentBatchReadOutcome<Active, Archive>;
+	}) => Transition;
+}): Promise<Transition> {
+	try {
+		const [active, archive] = await Promise.all([
+			input.readActive(),
+			input.readArchive(),
+		]);
+		return input.classify({
+			currentState: input.getCurrentState(),
+			outcome: { status: "success", active, archive },
+		});
+	} catch (error) {
+		return input.classify({
+			currentState: input.getCurrentState(),
+			outcome: { status: "failure", error },
+		});
+	}
+}

@@ -13,6 +13,7 @@ import {
 	classifyRemoteConnectionPublication,
 	classifyRemoteDisconnectPublication,
 	classifyRemoteProfileSavePublication,
+	coordinateRemoteProfileSaveSessionPublication,
 	moveRemoteProfileSelection,
 	prepareRemoteConnectionCancellation,
 	prepareRemoteConnectPrompt,
@@ -65,6 +66,7 @@ describe("Remotes panel transitions", () => {
 	test("does not let an older profile save cancel or replace a newer connection", () => {
 		expect(
 			classifyRemoteProfileSavePublication({
+				profileId: "prod",
 				currentSaveToken: 3,
 				requestSaveToken: 3,
 				connectionRunTokenAtStart: 8,
@@ -76,10 +78,15 @@ describe("Remotes panel transitions", () => {
 			publishConfig: true,
 			publishSession: false,
 			abortPendingConnection: false,
+			notice: {
+				level: "info",
+				message: "newer remote connection preserved after profile save",
+			},
 		});
 
 		expect(
 			classifyRemoteProfileSavePublication({
+				profileId: "prod",
 				currentSaveToken: 4,
 				requestSaveToken: 3,
 				connectionRunTokenAtStart: 8,
@@ -91,11 +98,16 @@ describe("Remotes panel transitions", () => {
 			publishConfig: false,
 			publishSession: false,
 			abortPendingConnection: false,
+			notice: {
+				level: "info",
+				message: "remote profile prod saved publication=stale",
+			},
 		});
 	});
 
 	test("rechecks profile save ownership after session cleanup awaits", () => {
 		const beforeAwait = classifyRemoteProfileSavePublication({
+			profileId: "prod",
 			currentSaveToken: 1,
 			requestSaveToken: 1,
 			connectionRunTokenAtStart: 4,
@@ -105,6 +117,7 @@ describe("Remotes panel transitions", () => {
 		expect(beforeAwait.publishSession).toBe(true);
 
 		const afterNewConnection = classifyRemoteProfileSavePublication({
+			profileId: "prod",
 			currentSaveToken: 1,
 			requestSaveToken: 1,
 			connectionRunTokenAtStart: 4,
@@ -115,6 +128,44 @@ describe("Remotes panel transitions", () => {
 			publishConfig: true,
 			publishSession: false,
 			abortPendingConnection: false,
+			notice: {
+				level: "info",
+				message: "newer remote connection preserved after profile save",
+			},
+		});
+	});
+
+	test("reads remote profile ownership only after the session switch settles", async () => {
+		let finishSessionSwitch: (value: boolean) => void = () => {};
+		let connectionToken = 4;
+		const sessionSwitch = new Promise<boolean>((resolve) => {
+			finishSessionSwitch = resolve;
+		});
+		const coordinated = coordinateRemoteProfileSaveSessionPublication({
+			profileId: "prod",
+			requestSaveToken: 1,
+			connectionRunTokenAtStart: 4,
+			completeSessionSwitch: () => sessionSwitch,
+			getCurrentSaveToken: () => 1,
+			getCurrentConnectionRunToken: () => connectionToken,
+			getOwnsPendingConnectionAtStart: () => false,
+		});
+
+		connectionToken = 5;
+		finishSessionSwitch(true);
+
+		expect(await coordinated).toEqual({
+			kind: "publication",
+			publication: {
+				publication: "current",
+				publishConfig: true,
+				publishSession: false,
+				abortPendingConnection: false,
+				notice: {
+					level: "info",
+					message: "newer remote connection preserved after profile save",
+				},
+			},
 		});
 	});
 

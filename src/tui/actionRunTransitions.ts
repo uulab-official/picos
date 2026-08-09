@@ -9,6 +9,7 @@ import {
 	type GitHubReleaseCheckResult,
 	type PackageUpdateCheckResult,
 } from "../core/updateCheck";
+import type { ActionDispatchTransition } from "./actionControlTransitions";
 import { clampIndex } from "./navigation";
 import { beginRequest, classifyRequestPublication } from "./requestSequence";
 import type { ToolHistoryItem, ToolRunPlan } from "./toolHistory";
@@ -113,6 +114,29 @@ export function beginActionRunEffectRequest(
 	const tokens = new Map(current);
 	tokens.set(group, requestToken);
 	return { tokens, requestToken };
+}
+
+export function beginActionRunTransitionRequest(
+	current: ActionRunRequestTokens,
+	transition: ActionDispatchTransition,
+):
+	| {
+			tokens: ActionRunRequestTokens;
+			requestToken: number;
+			requestGroup: ActionRunRequestGroup;
+			effect: ActionRunEffect | undefined;
+			action: Extract<ActionDispatchTransition, { kind: "run" }>["action"];
+	  }
+	| undefined {
+	if (transition.kind !== "run") return undefined;
+	const effect = getActionRunEffect(transition.action.id);
+	const requestGroup = effect ?? "unmapped";
+	return {
+		...beginActionRunEffectRequest(current, requestGroup),
+		requestGroup,
+		effect,
+		action: transition.action,
+	};
 }
 
 export function getActionRunEffectRequestToken(

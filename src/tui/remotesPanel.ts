@@ -77,6 +77,7 @@ export type RemoteProfileSelection = {
 };
 
 export function classifyRemoteProfileSavePublication(input: {
+	profileId: string;
 	currentSaveToken: number;
 	requestSaveToken: number;
 	connectionRunTokenAtStart: number;
@@ -87,6 +88,7 @@ export function classifyRemoteProfileSavePublication(input: {
 	publishConfig: boolean;
 	publishSession: boolean;
 	abortPendingConnection: boolean;
+	notice?: RemotesPanelNotice;
 } {
 	const publication = classifyRequestPublication(
 		input.currentSaveToken,
@@ -102,6 +104,52 @@ export function classifyRemoteProfileSavePublication(input: {
 		publishSession,
 		abortPendingConnection:
 			publishSession && input.ownsPendingConnectionAtStart,
+		...(publication === "stale"
+			? {
+					notice: {
+						level: "info" as const,
+						message: `remote profile ${input.profileId} saved publication=stale`,
+					},
+				}
+			: publishConfig && !publishSession
+				? {
+						notice: {
+							level: "info" as const,
+							message: "newer remote connection preserved after profile save",
+						},
+					}
+				: {}),
+	};
+}
+
+export async function coordinateRemoteProfileSaveSessionPublication(input: {
+	profileId: string;
+	requestSaveToken: number;
+	connectionRunTokenAtStart: number;
+	completeSessionSwitch: () => Promise<boolean>;
+	getCurrentSaveToken: () => number;
+	getCurrentConnectionRunToken: () => number;
+	getOwnsPendingConnectionAtStart: () => boolean;
+}): Promise<
+	| { kind: "cancelled" }
+	| {
+			kind: "publication";
+			publication: ReturnType<typeof classifyRemoteProfileSavePublication>;
+	  }
+> {
+	if (!(await input.completeSessionSwitch())) {
+		return { kind: "cancelled" };
+	}
+	return {
+		kind: "publication",
+		publication: classifyRemoteProfileSavePublication({
+			profileId: input.profileId,
+			currentSaveToken: input.getCurrentSaveToken(),
+			requestSaveToken: input.requestSaveToken,
+			connectionRunTokenAtStart: input.connectionRunTokenAtStart,
+			currentConnectionRunToken: input.getCurrentConnectionRunToken(),
+			ownsPendingConnectionAtStart: input.getOwnsPendingConnectionAtStart(),
+		}),
 	};
 }
 

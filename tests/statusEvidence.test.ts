@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	beginEvidenceMutationLanes,
 	canPublishEvidenceArchiveCurrentState,
 	classifyAuditEvidenceIndexBatchRefresh,
 	classifyAuditExportArchiveIndexRefresh,
@@ -154,6 +155,30 @@ describe("evidence archive outcome transitions", () => {
 				requestToken,
 			}),
 		).toBe(false);
+	});
+
+	test("keeps family refresh current when another evidence family supersedes shared selection", () => {
+		const tools = beginEvidenceMutationLanes({
+			sharedCurrentToken: 0,
+			familyCurrentToken: 0,
+		});
+		const audit = beginEvidenceMutationLanes({
+			sharedCurrentToken: tools.sharedRequestToken,
+			familyCurrentToken: 0,
+		});
+
+		expect(
+			canPublishEvidenceArchiveCurrentState({
+				currentToken: audit.sharedRequestToken,
+				requestToken: tools.sharedRequestToken,
+			}),
+		).toBe(false);
+		expect(
+			canPublishEvidenceArchiveCurrentState({
+				currentToken: tools.familyRequestToken,
+				requestToken: tools.familyRequestToken,
+			}),
+		).toBe(true);
 	});
 
 	test("publishes active and archive audit indexes as one current batch", () => {

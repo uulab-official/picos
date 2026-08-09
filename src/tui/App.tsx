@@ -233,10 +233,9 @@ import {
 } from "./actionControlTransitions";
 import {
 	type ActionRunRequestTokens,
-	beginActionRunEffectRequest,
+	beginActionRunTransitionRequest,
 	classifyActionRunOutcome,
 	dispatchStatusActionRun,
-	getActionRunEffect,
 	getActionRunEffectRequestToken,
 	getInterfaceProposalInput,
 	prepareRawToolHistoryView,
@@ -259,6 +258,9 @@ import {
 import {
 	classifyInterfaceEvidencePresetPersistenceFailure,
 	classifyToolCommandRunOutcome,
+	formatAppIoCompletionMessage,
+	formatAppIoFailureMessage,
+	formatToolsInputFailureMessage,
 	prepareCleanupHandoffDismissal,
 	prepareCleanupHandoffPrompt,
 	prepareClipboardConfirmationOpen,
@@ -431,6 +433,7 @@ import {
 import {
 	clampIndex,
 	type FocusArea,
+	getInitialSelectionIndex,
 	getScreenIndex,
 	getVisibleWindow,
 	type Screen,
@@ -470,6 +473,7 @@ import {
 	classifyRemoteConnectionPublication,
 	classifyRemoteDisconnectPublication,
 	classifyRemoteProfileSavePublication,
+	coordinateRemoteProfileSaveSessionPublication,
 	prepareRemoteConnectionCancellation,
 	prepareRemoteConnectPrompt,
 	prepareRemoteDisconnect,
@@ -490,6 +494,7 @@ import {
 	beginRequest,
 	beginRequestWithPublication,
 	classifyRequestPublication,
+	coordinateCurrentBatchRead,
 	isStaleRequest,
 } from "./requestSequence";
 import {
@@ -567,6 +572,7 @@ import {
 	type StatusDialogPreviewGroup,
 } from "./statusDialogPreview";
 import {
+	beginEvidenceMutationLanes,
 	canPublishEvidenceArchiveCurrentState,
 	classifyAuditArchiveRetentionOutcome,
 	classifyAuditEvidenceIndexBatchRefresh,
@@ -1084,9 +1090,13 @@ export function App(): React.ReactElement {
 	const cleanupExportArchiveIndexRequestTokenRef = useRef(0);
 	const toolExportIndexRequestTokenRef = useRef(0);
 	const toolExportArchiveIndexRequestTokenRef = useRef(0);
-	// Every evidence mutation shares this publication lane because archive and
-	// retention callbacks can overlap while targeting the same current selection.
-	const evidenceArchiveMutationTokenRef = useRef(0);
+	// Evidence selection is shared across families, while index refreshes are not.
+	// Keep the shared lane for selection publication and a family lane for each
+	// active/archive index pair so an unrelated mutation cannot suppress refresh.
+	const evidenceSelectionMutationTokenRef = useRef(0);
+	const auditEvidenceMutationTokenRef = useRef(0);
+	const cleanupEvidenceMutationTokenRef = useRef(0);
+	const toolEvidenceMutationTokenRef = useRef(0);
 	const selectedHandoffIndexRef = useRef(selectedHandoffIndex);
 	selectedHandoffIndexRef.current = selectedHandoffIndex;
 	const selectedAuditExportIndexRef = useRef(selectedAuditExportIndex);
@@ -1742,8 +1752,8 @@ export function App(): React.ReactElement {
 			setStatusActivityResults((history) =>
 				appendStatusActivityResultHistory(history, result),
 			);
-			setSelectedStatusActivityResultIndex(0);
-			setSelectedStatusActivityCopyPreviewRowIndex(0);
+			setSelectedStatusActivityResultIndex(getInitialSelectionIndex());
+			setSelectedStatusActivityCopyPreviewRowIndex(getInitialSelectionIndex());
 			setStatusActivityCopyPreviewExpanded(false);
 		},
 		[],
@@ -1794,12 +1804,7 @@ export function App(): React.ReactElement {
 				syncConfigSessionState(persisted);
 				log(transition.notice.level, transition.notice.message);
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `config save failed ${caught.message}`
-						: `config save failed ${String(caught)}`,
-				);
+				log("fail", formatAppIoFailureMessage("config save", caught));
 			} finally {
 				endCommand();
 			}
@@ -1823,12 +1828,7 @@ export function App(): React.ReactElement {
 				syncConfigSessionState(config);
 				log(transition.notice.level, transition.notice.message);
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `config save failed ${caught.message}`
-						: `config save failed ${String(caught)}`,
-				);
+				log("fail", formatAppIoFailureMessage("config save", caught));
 			} finally {
 				endCommand();
 			}
@@ -1850,12 +1850,7 @@ export function App(): React.ReactElement {
 				log(notice.level, notice.message);
 			}
 		} catch (caught) {
-			log(
-				"fail",
-				caught instanceof Error
-					? `config policy failed ${caught.message}`
-					: `config policy failed ${String(caught)}`,
-			);
+			log("fail", formatAppIoFailureMessage("config policy", caught));
 		} finally {
 			endCommand();
 		}
@@ -1887,12 +1882,7 @@ export function App(): React.ReactElement {
 				setConfigResetPreview(undefined);
 				log(transition.notice.level, transition.notice.message);
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `config reset failed ${caught.message}`
-						: `config reset failed ${String(caught)}`,
-				);
+				log("fail", formatAppIoFailureMessage("config reset", caught));
 			} finally {
 				endCommand();
 			}
@@ -2155,9 +2145,7 @@ export function App(): React.ReactElement {
 			} catch (caught) {
 				log(
 					"warn",
-					caught instanceof Error
-						? `pending SFTP session close failed ${caught.message}`
-						: `pending SFTP session close failed ${String(caught)}`,
+					formatAppIoFailureMessage("pending SFTP session close", caught),
 				);
 			}
 			if (pendingRemoteConnectRef.current === pendingController) {
@@ -2187,12 +2175,7 @@ export function App(): React.ReactElement {
 			try {
 				await remoteFileProvider?.close?.();
 			} catch (caught) {
-				log(
-					"warn",
-					caught instanceof Error
-						? `SFTP session close failed ${caught.message}`
-						: `SFTP session close failed ${String(caught)}`,
-				);
+				log("warn", formatAppIoFailureMessage("SFTP session close", caught));
 			}
 		}
 		const publication = classifyRemoteDisconnectPublication({
@@ -2480,12 +2463,7 @@ export function App(): React.ReactElement {
 					return publication.buffer;
 				});
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `editor save failed ${caught.message}`
-						: `editor save failed ${String(caught)}`,
-				);
+				log("fail", formatAppIoFailureMessage("editor save", caught));
 			}
 		},
 		[log],
@@ -2521,9 +2499,7 @@ export function App(): React.ReactElement {
 			}).catch((caught) =>
 				log(
 					"fail",
-					caught instanceof Error
-						? `tool history filter cleanup failed ${caught.message}`
-						: `tool history filter cleanup failed ${String(caught)}`,
+					formatAppIoFailureMessage("tool history filter cleanup", caught),
 				),
 			);
 		},
@@ -2544,9 +2520,7 @@ export function App(): React.ReactElement {
 			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 				log(
 					"fail",
-					caught instanceof Error
-						? `tool target label save failed ${caught.message}`
-						: `tool target label save failed ${String(caught)}`,
+					formatAppIoFailureMessage("tool target label save", caught),
 				),
 			);
 			setToolCopyPreview(false);
@@ -2568,9 +2542,7 @@ export function App(): React.ReactElement {
 			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 				log(
 					"fail",
-					caught instanceof Error
-						? `tool target value save failed ${caught.message}`
-						: `tool target value save failed ${String(caught)}`,
+					formatAppIoFailureMessage("tool target value save", caught),
 				),
 			);
 			setToolCopyPreview(false);
@@ -2592,9 +2564,7 @@ export function App(): React.ReactElement {
 			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 				log(
 					"fail",
-					caught instanceof Error
-						? `tool target action save failed ${caught.message}`
-						: `tool target action save failed ${String(caught)}`,
+					formatAppIoFailureMessage("tool target action save", caught),
 				),
 			);
 			setToolCopyPreview(false);
@@ -2616,9 +2586,7 @@ export function App(): React.ReactElement {
 			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 				log(
 					"fail",
-					caught instanceof Error
-						? `tool target action cleanup failed ${caught.message}`
-						: `tool target action cleanup failed ${String(caught)}`,
+					formatAppIoFailureMessage("tool target action cleanup", caught),
 				),
 			);
 			setToolCopyPreview(false);
@@ -2640,9 +2608,7 @@ export function App(): React.ReactElement {
 			void setConfigToolTargetPresets(transition.presets).catch((caught) =>
 				log(
 					"fail",
-					caught instanceof Error
-						? `tool target preset save failed ${caught.message}`
-						: `tool target preset save failed ${String(caught)}`,
+					formatAppIoFailureMessage("tool target preset save", caught),
 				),
 			);
 			setToolCopyPreview(false);
@@ -2681,12 +2647,7 @@ export function App(): React.ReactElement {
 			}
 			setRouteFilterPresets(confirmation.presets);
 			void setConfigRouteFilterPresets(confirmation.presets).catch((caught) =>
-				log(
-					"fail",
-					caught instanceof Error
-						? `route filter cleanup failed ${caught.message}`
-						: `route filter cleanup failed ${String(caught)}`,
-				),
+				log("fail", formatAppIoFailureMessage("route filter cleanup", caught)),
 			);
 		},
 		[log],
@@ -2714,9 +2675,7 @@ export function App(): React.ReactElement {
 				(caught) =>
 					log(
 						"fail",
-						caught instanceof Error
-							? `${kind} filter cleanup failed ${caught.message}`
-							: `${kind} filter cleanup failed ${String(caught)}`,
+						formatAppIoFailureMessage(`${kind} filter cleanup`, caught),
 					),
 			);
 		},
@@ -2790,12 +2749,7 @@ export function App(): React.ReactElement {
 			setLogSearchPresets(transition.presets);
 			if (transition.query) {
 				void setConfigLogSearchPresets(transition.presets).catch((caught) =>
-					log(
-						"fail",
-						caught instanceof Error
-							? `logs preset save failed ${caught.message}`
-							: `logs preset save failed ${String(caught)}`,
-					),
+					log("fail", formatAppIoFailureMessage("logs preset save", caught)),
 				);
 			}
 			setCommandLine((current) => closeCommandLine(current));
@@ -2818,12 +2772,7 @@ export function App(): React.ReactElement {
 					await setConfigLogSearchPresets(confirmation.presets);
 					await setConfigLogProfiles(confirmation.profiles);
 				} catch (caught) {
-					log(
-						"fail",
-						caught instanceof Error
-							? `logs cleanup save failed ${caught.message}`
-							: `logs cleanup save failed ${String(caught)}`,
-					);
+					log("fail", formatAppIoFailureMessage("logs cleanup save", caught));
 				}
 			})();
 		},
@@ -3014,7 +2963,12 @@ export function App(): React.ReactElement {
 			}
 			log(
 				result.success ? "ok" : "fail",
-				`file operation ${plan.kind} status=${result.audit.status} path=${plan.path}`,
+				formatAppIoCompletionMessage({
+					kind: "file-operation",
+					operation: plan.kind,
+					status: result.audit.status,
+					path: plan.path,
+				}),
 			);
 			if (result.error) {
 				log("warn", result.error);
@@ -3072,7 +3026,12 @@ export function App(): React.ReactElement {
 			const result = await runExternalOpenPlan(plan);
 			log(
 				result.success ? "ok" : "fail",
-				`external open ${plan.label} confirmed=${plan.confirmed} adapter=${plan.adapter.command}`,
+				formatAppIoCompletionMessage({
+					kind: "external-open",
+					label: plan.label,
+					confirmed: plan.confirmed,
+					adapter: plan.adapter.command,
+				}),
 			);
 			if (result.error) {
 				log("warn", result.error);
@@ -3093,7 +3052,12 @@ export function App(): React.ReactElement {
 			const result = await runFileOpenPlan(plan);
 			log(
 				result.success ? "ok" : "fail",
-				`file open ${plan.label} confirmed=${plan.confirmed} adapter=${plan.adapter.command}`,
+				formatAppIoCompletionMessage({
+					kind: "file-open",
+					label: plan.label,
+					confirmed: plan.confirmed,
+					adapter: plan.adapter.command,
+				}),
 			);
 			if (result.error) {
 				log("warn", result.error);
@@ -3156,15 +3120,20 @@ export function App(): React.ReactElement {
 				auditExportIndexRequestTokenRef.current = activeRequestToken;
 				auditExportArchiveIndexRequestTokenRef.current = archiveRequestToken;
 				const classifyBatch = (
+					currentState: {
+						mutationToken: number;
+						activeRequestToken: number;
+						archiveRequestToken: number;
+					},
 					outcome: Parameters<
 						typeof classifyAuditEvidenceIndexBatchRefresh
 					>[0]["outcome"],
 				) =>
 					classifyAuditEvidenceIndexBatchRefresh({
-						currentMutationToken: evidenceArchiveMutationTokenRef.current,
+						currentMutationToken: currentState.mutationToken,
 						requestMutationToken: archiveBatchMutationToken,
 						active: {
-							currentRequestToken: auditExportIndexRequestTokenRef.current,
+							currentRequestToken: currentState.activeRequestToken,
 							requestToken: activeRequestToken,
 							selectedIndex:
 								selectionIntent === "newest"
@@ -3185,81 +3154,79 @@ export function App(): React.ReactElement {
 							},
 						},
 						archive: {
-							currentRequestToken:
-								auditExportArchiveIndexRequestTokenRef.current,
+							currentRequestToken: currentState.archiveRequestToken,
 							requestToken: archiveRequestToken,
 							selectedIndex: selectedAuditExportArchiveIndexRef.current,
 						},
 						outcome,
 					});
-				try {
-					const [activeIndex, archiveIndex] = await Promise.all([
-						readConsoleAuditExportIndex(baseDir),
-						readConsoleAuditExportArchiveIndex(baseDir),
-					]);
-					const transition = classifyBatch({
-						status: "success",
-						activeIndex,
-						archiveIndex,
-					});
-					if (transition.status === "success") {
-						setAuditExportIndex(transition.active.index);
-						setSelectedAuditExportIndex(transition.active.selectedIndex);
-						setAuditExportArchiveIndex(transition.archive.index);
-						setSelectedAuditExportArchiveIndex(
-							transition.archive.selectedIndex,
-						);
-						setLastStatusActivityCopyIntentAuditExport(
-							transition.active.lastStatusActivityCopyIntentAuditExport,
-						);
-						setTimelineEvidenceTrailAuditExports(
-							transition.active.timelineEvidenceTrailAuditExports,
-						);
-						setLastTimelineEvidenceTrailAuditExport(
-							transition.active.latestTimelineEvidenceTrailAuditExport,
-						);
-						setSelectedTimelineEvidenceTrailAuditExportIndex(
-							transition.active.selectedTimelineIndex,
-						);
-						setProcessControlAuditExports(
-							transition.active.processControlAuditExports,
-						);
-						setSelectedProcessControlAuditExportIndex(
-							transition.active.selectedProcessIndex,
-						);
-						setRemoteKnownHostsSelectionAuditExports(
-							transition.active.remoteKnownHostsSelectionAuditExports,
-						);
-						setSelectedRemoteKnownHostsSelectionAuditExportIndex(
-							transition.active.selectedRemoteKnownHostsIndex,
-						);
-						setInterfaceConfirmationAuditExports(
-							transition.active.interfaceConfirmationAuditExports,
-						);
-						setInterfaceConfirmationAuditArchiveExports(
-							transition.archive.interfaceConfirmationAuditArchiveExports,
-						);
-						interfaceConfirmationAuditExportsRef.current =
-							transition.active.interfaceConfirmationAuditExports;
-						interfaceConfirmationAuditArchiveExportsRef.current =
-							transition.archive.interfaceConfirmationAuditArchiveExports;
-						selectedInterfaceConfirmationAuditExportIndexRef.current =
-							transition.active.selectedInterfaceIndex;
-						setSelectedInterfaceConfirmationAuditExportIndex(
-							transition.active.selectedInterfaceIndex,
-						);
-					}
-					if ("notice" in transition && transition.notice) {
-						log(transition.notice.level, transition.notice.message);
-					}
-				} catch (caught) {
-					const transition = classifyBatch({
-						status: "failure",
-						error: caught,
-					});
-					if ("notice" in transition && transition.notice) {
-						log(transition.notice.level, transition.notice.message);
-					}
+				const transition = await coordinateCurrentBatchRead({
+					readActive: () => readConsoleAuditExportIndex(baseDir),
+					readArchive: () => readConsoleAuditExportArchiveIndex(baseDir),
+					getCurrentState: () => ({
+						mutationToken: auditEvidenceMutationTokenRef.current,
+						activeRequestToken: auditExportIndexRequestTokenRef.current,
+						archiveRequestToken: auditExportArchiveIndexRequestTokenRef.current,
+					}),
+					classify: ({ currentState, outcome }) =>
+						classifyBatch(
+							currentState,
+							outcome.status === "success"
+								? {
+										status: "success",
+										activeIndex: outcome.active,
+										archiveIndex: outcome.archive,
+									}
+								: outcome,
+						),
+				});
+				if (transition.status === "success") {
+					setAuditExportIndex(transition.active.index);
+					setSelectedAuditExportIndex(transition.active.selectedIndex);
+					setAuditExportArchiveIndex(transition.archive.index);
+					setSelectedAuditExportArchiveIndex(transition.archive.selectedIndex);
+					setLastStatusActivityCopyIntentAuditExport(
+						transition.active.lastStatusActivityCopyIntentAuditExport,
+					);
+					setTimelineEvidenceTrailAuditExports(
+						transition.active.timelineEvidenceTrailAuditExports,
+					);
+					setLastTimelineEvidenceTrailAuditExport(
+						transition.active.latestTimelineEvidenceTrailAuditExport,
+					);
+					setSelectedTimelineEvidenceTrailAuditExportIndex(
+						transition.active.selectedTimelineIndex,
+					);
+					setProcessControlAuditExports(
+						transition.active.processControlAuditExports,
+					);
+					setSelectedProcessControlAuditExportIndex(
+						transition.active.selectedProcessIndex,
+					);
+					setRemoteKnownHostsSelectionAuditExports(
+						transition.active.remoteKnownHostsSelectionAuditExports,
+					);
+					setSelectedRemoteKnownHostsSelectionAuditExportIndex(
+						transition.active.selectedRemoteKnownHostsIndex,
+					);
+					setInterfaceConfirmationAuditExports(
+						transition.active.interfaceConfirmationAuditExports,
+					);
+					setInterfaceConfirmationAuditArchiveExports(
+						transition.archive.interfaceConfirmationAuditArchiveExports,
+					);
+					interfaceConfirmationAuditExportsRef.current =
+						transition.active.interfaceConfirmationAuditExports;
+					interfaceConfirmationAuditArchiveExportsRef.current =
+						transition.archive.interfaceConfirmationAuditArchiveExports;
+					selectedInterfaceConfirmationAuditExportIndexRef.current =
+						transition.active.selectedInterfaceIndex;
+					setSelectedInterfaceConfirmationAuditExportIndex(
+						transition.active.selectedInterfaceIndex,
+					);
+				}
+				if ("notice" in transition && transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 				return;
 			}
@@ -4019,7 +3986,12 @@ export function App(): React.ReactElement {
 				}
 				log(
 					"ok",
-					`tools exported ${written.scope} ${written.itemCount} run(s) ${written.path}`,
+					formatAppIoCompletionMessage({
+						kind: "tools-export",
+						scope: written.scope,
+						itemCount: written.itemCount,
+						path: written.path,
+					}),
 				);
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
@@ -4034,7 +4006,14 @@ export function App(): React.ReactElement {
 				const written = await writeRouteRawHandoffPlan(handoff.plan);
 				await refreshHandoffIndex(false);
 				setScreen("routes");
-				log("ok", `routes exported ${written.view} ${written.path}`);
+				log(
+					"ok",
+					formatAppIoCompletionMessage({
+						kind: "routes-export",
+						view: written.view,
+						path: written.path,
+					}),
+				);
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
@@ -4051,7 +4030,13 @@ export function App(): React.ReactElement {
 				const written = await writeInterfaceSourceHandoffPlan(handoff.plan);
 				await refreshHandoffIndex(false);
 				setScreen("interfaces");
-				log("ok", `interfaces exported source ${written.path}`);
+				log(
+					"ok",
+					formatAppIoCompletionMessage({
+						kind: "interfaces-export",
+						path: written.path,
+					}),
+				);
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
@@ -4078,7 +4063,13 @@ export function App(): React.ReactElement {
 				setExternalOpenPlan(undefined);
 				setCommandLine(openCommandLine("file-open"));
 				setScreen("status");
-				log("info", `file open confirmation opened for ${written.label}`);
+				log(
+					"info",
+					formatAppIoCompletionMessage({
+						kind: "file-open-confirmation",
+						label: written.label,
+					}),
+				);
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
@@ -4103,7 +4094,13 @@ export function App(): React.ReactElement {
 				setExternalOpenPlan(undefined);
 				setCommandLine(openCommandLine("file-open"));
 				setScreen("status");
-				log("info", `file open confirmation opened for ${written.label}`);
+				log(
+					"info",
+					formatAppIoCompletionMessage({
+						kind: "file-open-confirmation",
+						label: written.label,
+					}),
+				);
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
@@ -4130,7 +4127,15 @@ export function App(): React.ReactElement {
 				const written = await writeEndpointHandoffPlan(transition.plan);
 				await refreshHandoffIndex(false);
 				setScreen(kind);
-				log("ok", `${kind} exported ${written.view} ${written.path}`);
+				log(
+					"ok",
+					formatAppIoCompletionMessage({
+						kind: "endpoint-export",
+						endpoint: kind,
+						view: written.view,
+						path: written.path,
+					}),
+				);
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
@@ -4168,7 +4173,13 @@ export function App(): React.ReactElement {
 				setExternalOpenPlan(undefined);
 				setCommandLine(openCommandLine("file-open"));
 				setScreen("status");
-				log("info", `file open confirmation opened for ${written.label}`);
+				log(
+					"info",
+					formatAppIoCompletionMessage({
+						kind: "file-open-confirmation",
+						label: written.label,
+					}),
+				);
 			} catch (caught) {
 				log("fail", caught instanceof Error ? caught.message : String(caught));
 			}
@@ -4210,9 +4221,7 @@ export function App(): React.ReactElement {
 				} catch (caught) {
 					log(
 						"warn",
-						caught instanceof Error
-							? `previous SFTP session close failed ${caught.message}`
-							: `previous SFTP session close failed ${String(caught)}`,
+						formatAppIoFailureMessage("previous SFTP session close", caught),
 					);
 				}
 			} else {
@@ -4224,7 +4233,13 @@ export function App(): React.ReactElement {
 			recordStatusActivityResult(
 				createRemoteHostReviewStatusActivityResult(profile),
 			);
-			log("info", `remote context selected ${context.label}`);
+			log(
+				"info",
+				formatAppIoCompletionMessage({
+					kind: "remote-context",
+					label: context.label,
+				}),
+			);
 		},
 		[
 			localFileProvider,
@@ -4254,6 +4269,7 @@ export function App(): React.ReactElement {
 			try {
 				const nextConfig = await upsertConfigRemoteProfile(profile);
 				const publication = classifyRemoteProfileSavePublication({
+					profileId: profile.id,
 					currentSaveToken: remoteProfileSaveTokenRef.current,
 					requestSaveToken,
 					connectionRunTokenAtStart,
@@ -4264,66 +4280,83 @@ export function App(): React.ReactElement {
 					),
 				});
 				if (!publication.publishConfig) {
-					log("info", `remote profile ${profile.id} saved publication=stale`);
+					if (publication.notice) {
+						log(publication.notice.level, publication.notice.message);
+					}
 					return;
 				}
 				syncConfigSessionState(nextConfig);
 				if (!publication.publishSession) {
 					log(transition.successNotice.level, transition.successNotice.message);
-					log("info", "newer remote connection preserved after profile save");
+					if (publication.notice) {
+						log(publication.notice.level, publication.notice.message);
+					}
 					return;
 				}
 				if (publication.abortPendingConnection) {
 					pendingConnectionAtStart?.abort();
 				}
-				if (remoteFileProvider) {
-					if (
-						!(await loadFiles(
-							{
-								path: systemFileRoot,
-								backHistory: [],
-								forwardHistory: [],
-								failurePrefix: "local filesystem restore failed",
-							},
-							{
-								switchSession: {
-									provider: localFileProvider,
-								},
-							},
-						))
-					) {
-						return;
-					}
-					try {
-						await remoteFileProvider.close?.();
-					} catch (caught) {
-						log(
-							"warn",
-							caught instanceof Error
-								? `previous SFTP session close failed ${caught.message}`
-								: `previous SFTP session close failed ${String(caught)}`,
-						);
-					}
-				} else {
-					setRemoteFileContext(undefined);
-				}
-				const finalPublication = classifyRemoteProfileSavePublication({
-					currentSaveToken: remoteProfileSaveTokenRef.current,
-					requestSaveToken,
-					connectionRunTokenAtStart,
-					currentConnectionRunToken: remoteConnectionRunTokenRef.current,
-					ownsPendingConnectionAtStart: Boolean(
-						pendingConnectionAtStart &&
-							pendingRemoteConnectRef.current === pendingConnectionAtStart,
-					),
-				});
+				const finalResult = await coordinateRemoteProfileSaveSessionPublication(
+					{
+						profileId: profile.id,
+						requestSaveToken,
+						connectionRunTokenAtStart,
+						completeSessionSwitch: async () => {
+							if (remoteFileProvider) {
+								if (
+									!(await loadFiles(
+										{
+											path: systemFileRoot,
+											backHistory: [],
+											forwardHistory: [],
+											failurePrefix: "local filesystem restore failed",
+										},
+										{
+											switchSession: { provider: localFileProvider },
+										},
+									))
+								) {
+									return false;
+								}
+								try {
+									await remoteFileProvider.close?.();
+								} catch (caught) {
+									log(
+										"warn",
+										formatAppIoFailureMessage(
+											"previous SFTP session close",
+											caught,
+										),
+									);
+								}
+							} else {
+								setRemoteFileContext(undefined);
+							}
+							return true;
+						},
+						getCurrentSaveToken: () => remoteProfileSaveTokenRef.current,
+						getCurrentConnectionRunToken: () =>
+							remoteConnectionRunTokenRef.current,
+						getOwnsPendingConnectionAtStart: () =>
+							Boolean(
+								pendingConnectionAtStart &&
+									pendingRemoteConnectRef.current === pendingConnectionAtStart,
+							),
+					},
+				);
+				if (finalResult.kind === "cancelled") return;
+				const finalPublication = finalResult.publication;
 				if (!finalPublication.publishConfig) {
-					log("info", `remote profile ${profile.id} saved publication=stale`);
+					if (finalPublication.notice) {
+						log(finalPublication.notice.level, finalPublication.notice.message);
+					}
 					return;
 				}
 				if (!finalPublication.publishSession) {
 					log(transition.successNotice.level, transition.successNotice.message);
-					log("info", "newer remote connection preserved after profile save");
+					if (finalPublication.notice) {
+						log(finalPublication.notice.level, finalPublication.notice.message);
+					}
 					return;
 				}
 				setSelectedRemoteIndex(transition.selectedIndex);
@@ -4331,12 +4364,7 @@ export function App(): React.ReactElement {
 				setFocusArea("workspaces");
 				log(transition.successNotice.level, transition.successNotice.message);
 			} catch (caught) {
-				log(
-					"fail",
-					caught instanceof Error
-						? `remote profile save failed ${caught.message}`
-						: `remote profile save failed ${String(caught)}`,
-				);
+				log("fail", formatAppIoFailureMessage("remote profile save", caught));
 			}
 		},
 		[
@@ -4483,9 +4511,7 @@ export function App(): React.ReactElement {
 					} catch (caught) {
 						log(
 							"warn",
-							caught instanceof Error
-								? `previous SFTP session close failed ${caught.message}`
-								: `previous SFTP session close failed ${String(caught)}`,
+							formatAppIoFailureMessage("previous SFTP session close", caught),
 						);
 					}
 				}
@@ -4884,9 +4910,7 @@ export function App(): React.ReactElement {
 				} catch (caught) {
 					log(
 						"fail",
-						caught instanceof Error
-							? `${effect.scope} preset save failed ${caught.message}`
-							: `${effect.scope} preset save failed ${String(caught)}`,
+						formatAppIoFailureMessage(`${effect.scope} preset save`, caught),
 					);
 				}
 				return;
@@ -4897,9 +4921,7 @@ export function App(): React.ReactElement {
 				} catch (caught) {
 					log(
 						"fail",
-						caught instanceof Error
-							? `${effect.scope} sort save failed ${caught.message}`
-							: `${effect.scope} sort save failed ${String(caught)}`,
+						formatAppIoFailureMessage(`${effect.scope} sort save`, caught),
 					);
 				}
 				return;
@@ -5167,7 +5189,7 @@ export function App(): React.ReactElement {
 				);
 			}
 			setSelectedStatusActivityResultIndex(transition.selectedIndex);
-			setSelectedStatusActivityCopyPreviewRowIndex(0);
+			setSelectedStatusActivityCopyPreviewRowIndex(getInitialSelectionIndex());
 			setStatusActivityCopyPreviewExpanded(false);
 			log(transition.notice.level, transition.notice.message);
 		},
@@ -5196,9 +5218,10 @@ export function App(): React.ReactElement {
 			).catch((caught) =>
 				log(
 					"warn",
-					caught instanceof Error
-						? `status result jump filter persistence failed ${caught.message}`
-						: `status result jump filter persistence failed ${String(caught)}`,
+					formatAppIoFailureMessage(
+						"status result jump filter persistence",
+						caught,
+					),
 				),
 			);
 		},
@@ -5669,7 +5692,7 @@ export function App(): React.ReactElement {
 				setStatusActivityCopyIntentHistory((current) =>
 					appendStatusActivityCopyIntentHistory(current, transition.intent),
 				);
-				setSelectedStatusActivityCopyIntentIndex(0);
+				setSelectedStatusActivityCopyIntentIndex(getInitialSelectionIndex());
 				setScreen("status");
 				setFocusArea("workspaces");
 				setSelectedStatusEvidenceKind(transition.statusEvidenceKind);
@@ -5717,16 +5740,21 @@ export function App(): React.ReactElement {
 					setLastStatusActivityCopyIntentAuditExport(written);
 					log(
 						"ok",
-						`remote known_hosts evidence handoff exported ${written.path} events=${written.eventCount}`,
+						formatAppIoCompletionMessage({
+							kind: "remote-known-hosts-export",
+							path: written.path,
+							eventCount: written.eventCount,
+						}),
 					);
 					void refreshAuditExportIndex(false);
 				})
 				.catch((caught) =>
 					log(
 						"fail",
-						caught instanceof Error
-							? `remote known_hosts evidence handoff export failed ${caught.message}`
-							: `remote known_hosts evidence handoff export failed ${String(caught)}`,
+						formatAppIoFailureMessage(
+							"remote known_hosts evidence handoff export",
+							caught,
+						),
 					),
 				);
 		},
@@ -5938,7 +5966,7 @@ export function App(): React.ReactElement {
 				setFocusArea(transition.focusArea);
 			}
 			setSelectedStatusActivityResultIndex(transition.selectedIndex);
-			setSelectedStatusActivityCopyPreviewRowIndex(0);
+			setSelectedStatusActivityCopyPreviewRowIndex(getInitialSelectionIndex());
 			setStatusActivityCopyPreviewExpanded(false);
 			log(transition.notice.level, transition.notice.message);
 			return true;
@@ -5965,7 +5993,7 @@ export function App(): React.ReactElement {
 				setStatusActivityCopyIntentHistory((current) =>
 					appendStatusActivityCopyIntentHistory(current, transition.intent),
 				);
-				setSelectedStatusActivityCopyIntentIndex(0);
+				setSelectedStatusActivityCopyIntentIndex(getInitialSelectionIndex());
 				log("info", transition.intent.auditMessage);
 			}
 			setTimelineFilter(transition.timeline.filter);
@@ -6019,7 +6047,7 @@ export function App(): React.ReactElement {
 					? appendStatusActivityCopyIntentHistory(current, intent)
 					: current,
 			);
-			setSelectedStatusActivityCopyIntentIndex(0);
+			setSelectedStatusActivityCopyIntentIndex(getInitialSelectionIndex());
 			if (intent) {
 				log("info", intent.auditMessage);
 			}
@@ -6060,18 +6088,13 @@ export function App(): React.ReactElement {
 				setFocusArea(transition.focusArea);
 			}
 			log(transition.notice.level, transition.notice.message);
-			if (transition.kind !== "run") {
-				return;
-			}
-			const action = transition.action;
-			const effect = getActionRunEffect(action.id);
-			const requestGroup = effect ?? "unmapped";
-			const request = beginActionRunEffectRequest(
+			const request = beginActionRunTransitionRequest(
 				actionRunRequestTokensRef.current,
-				requestGroup,
+				transition,
 			);
+			if (!request) return;
 			actionRunRequestTokensRef.current = request.tokens;
-			const requestToken = request.requestToken;
+			const { action, effect, requestGroup, requestToken } = request;
 			beginCommand();
 			const publishOutcome = (
 				outcome: Parameters<typeof classifyActionRunOutcome>[0]["outcome"],
@@ -6383,7 +6406,7 @@ export function App(): React.ReactElement {
 					) {
 						setUpdateCheckResult(result);
 						setGitHubReleaseCheckResult(releaseResult);
-						setSelectedUpdateHandoffIndex(0);
+						setSelectedUpdateHandoffIndex(getInitialSelectionIndex());
 						setScreen("status");
 					}
 				}
@@ -6684,7 +6707,7 @@ export function App(): React.ReactElement {
 				createCleanupHandoffHistory(cleanupJumpAudit, "prompt-opened"),
 			),
 		);
-		setSelectedCleanupHandoffHistoryIndex(0);
+		setSelectedCleanupHandoffHistoryIndex(getInitialSelectionIndex());
 		log(transition.notice.level, transition.notice.message);
 		return true;
 	}, [cleanupJumpAudit, log, screen]);
@@ -6701,7 +6724,7 @@ export function App(): React.ReactElement {
 				createCleanupHandoffHistory(cleanupJumpAudit, "dismissed"),
 			),
 		);
-		setSelectedCleanupHandoffHistoryIndex(0);
+		setSelectedCleanupHandoffHistoryIndex(getInitialSelectionIndex());
 		setCleanupJumpAudit(undefined);
 		log(transition.notice.level, transition.notice.message);
 		return true;
@@ -6821,55 +6844,62 @@ export function App(): React.ReactElement {
 				cleanupExportIndexRequestTokenRef.current = activeRequestToken;
 				cleanupExportArchiveIndexRequestTokenRef.current = archiveRequestToken;
 				const classifyBatch = (
+					currentState: {
+						mutationToken: number;
+						activeRequestToken: number;
+						archiveRequestToken: number;
+					},
 					outcome: Parameters<
 						typeof classifyCleanupEvidenceIndexBatchRefresh
 					>[0]["outcome"],
 				) =>
 					classifyCleanupEvidenceIndexBatchRefresh({
-						currentMutationToken: evidenceArchiveMutationTokenRef.current,
+						currentMutationToken: currentState.mutationToken,
 						requestMutationToken: archiveBatchMutationToken,
 						active: {
-							currentRequestToken: cleanupExportIndexRequestTokenRef.current,
+							currentRequestToken: currentState.activeRequestToken,
 							requestToken: activeRequestToken,
 							selectedIndex: selectedCleanupExportIndexRef.current,
 						},
 						archive: {
-							currentRequestToken:
-								cleanupExportArchiveIndexRequestTokenRef.current,
+							currentRequestToken: currentState.archiveRequestToken,
 							requestToken: archiveRequestToken,
 							selectedIndex: selectedCleanupExportArchiveIndexRef.current,
 						},
 						outcome,
 					});
-				try {
-					const [activeIndex, archiveIndex] = await Promise.all([
-						readCleanupHandoffHistoryExportIndex(baseDir),
+				const transition = await coordinateCurrentBatchRead({
+					readActive: () => readCleanupHandoffHistoryExportIndex(baseDir),
+					readArchive: () =>
 						readCleanupHandoffHistoryExportArchiveIndex(baseDir),
-					]);
-					const transition = classifyBatch({
-						status: "success",
-						activeIndex,
-						archiveIndex,
-					});
-					if (transition.status === "success") {
-						setCleanupExportIndex(transition.active.index);
-						setSelectedCleanupExportIndex(transition.active.selectedIndex);
-						setCleanupExportArchiveIndex(transition.archive.index);
-						setSelectedCleanupExportArchiveIndex(
-							transition.archive.selectedIndex,
-						);
-					}
-					if ("notice" in transition && transition.notice) {
-						log(transition.notice.level, transition.notice.message);
-					}
-				} catch (caught) {
-					const transition = classifyBatch({
-						status: "failure",
-						error: caught,
-					});
-					if ("notice" in transition && transition.notice) {
-						log(transition.notice.level, transition.notice.message);
-					}
+					getCurrentState: () => ({
+						mutationToken: cleanupEvidenceMutationTokenRef.current,
+						activeRequestToken: cleanupExportIndexRequestTokenRef.current,
+						archiveRequestToken:
+							cleanupExportArchiveIndexRequestTokenRef.current,
+					}),
+					classify: ({ currentState, outcome }) =>
+						classifyBatch(
+							currentState,
+							outcome.status === "success"
+								? {
+										status: "success",
+										activeIndex: outcome.active,
+										archiveIndex: outcome.archive,
+									}
+								: outcome,
+						),
+				});
+				if (transition.status === "success") {
+					setCleanupExportIndex(transition.active.index);
+					setSelectedCleanupExportIndex(transition.active.selectedIndex);
+					setCleanupExportArchiveIndex(transition.archive.index);
+					setSelectedCleanupExportArchiveIndex(
+						transition.archive.selectedIndex,
+					);
+				}
+				if ("notice" in transition && transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 				return;
 			}
@@ -6970,15 +7000,20 @@ export function App(): React.ReactElement {
 				toolExportIndexRequestTokenRef.current = activeRequestToken;
 				toolExportArchiveIndexRequestTokenRef.current = archiveRequestToken;
 				const classifyBatch = (
+					currentState: {
+						mutationToken: number;
+						activeRequestToken: number;
+						archiveRequestToken: number;
+					},
 					outcome: Parameters<
 						typeof classifyToolHistoryEvidenceIndexBatchRefresh
 					>[0]["outcome"],
 				) =>
 					classifyToolHistoryEvidenceIndexBatchRefresh({
-						currentMutationToken: evidenceArchiveMutationTokenRef.current,
+						currentMutationToken: currentState.mutationToken,
 						requestMutationToken: archiveBatchMutationToken,
 						active: {
-							currentRequestToken: toolExportIndexRequestTokenRef.current,
+							currentRequestToken: currentState.activeRequestToken,
 							requestToken: activeRequestToken,
 							selectedIndex:
 								selectionIntent === "newest"
@@ -6988,8 +7023,7 @@ export function App(): React.ReactElement {
 							query: toolExportQueryRef.current,
 						},
 						archive: {
-							currentRequestToken:
-								toolExportArchiveIndexRequestTokenRef.current,
+							currentRequestToken: currentState.archiveRequestToken,
 							requestToken: archiveRequestToken,
 							selectedIndex: selectedToolExportArchiveIndexRef.current,
 							filter: toolExportArchiveFilterRef.current,
@@ -6997,33 +7031,34 @@ export function App(): React.ReactElement {
 						},
 						outcome,
 					});
-				try {
-					const [activeIndex, archiveIndex] = await Promise.all([
-						readToolHistoryExportIndex(baseDir),
-						readToolHistoryExportArchiveIndex(baseDir),
-					]);
-					const transition = classifyBatch({
-						status: "success",
-						activeIndex,
-						archiveIndex,
-					});
-					if (transition.status === "success") {
-						setToolExportIndex(transition.active.index);
-						setSelectedToolExportIndex(transition.active.selectedIndex);
-						setToolExportArchiveIndex(transition.archive.index);
-						setSelectedToolExportArchiveIndex(transition.archive.selectedIndex);
-					}
-					if ("notice" in transition && transition.notice) {
-						log(transition.notice.level, transition.notice.message);
-					}
-				} catch (caught) {
-					const transition = classifyBatch({
-						status: "failure",
-						error: caught,
-					});
-					if ("notice" in transition && transition.notice) {
-						log(transition.notice.level, transition.notice.message);
-					}
+				const transition = await coordinateCurrentBatchRead({
+					readActive: () => readToolHistoryExportIndex(baseDir),
+					readArchive: () => readToolHistoryExportArchiveIndex(baseDir),
+					getCurrentState: () => ({
+						mutationToken: toolEvidenceMutationTokenRef.current,
+						activeRequestToken: toolExportIndexRequestTokenRef.current,
+						archiveRequestToken: toolExportArchiveIndexRequestTokenRef.current,
+					}),
+					classify: ({ currentState, outcome }) =>
+						classifyBatch(
+							currentState,
+							outcome.status === "success"
+								? {
+										status: "success",
+										activeIndex: outcome.active,
+										archiveIndex: outcome.archive,
+									}
+								: outcome,
+						),
+				});
+				if (transition.status === "success") {
+					setToolExportIndex(transition.active.index);
+					setSelectedToolExportIndex(transition.active.selectedIndex);
+					setToolExportArchiveIndex(transition.archive.index);
+					setSelectedToolExportArchiveIndex(transition.archive.selectedIndex);
+				}
+				if ("notice" in transition && transition.notice) {
+					log(transition.notice.level, transition.notice.message);
 				}
 				return;
 			}
@@ -7185,15 +7220,18 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
-			const requestToken = beginRequest(
-				evidenceArchiveMutationTokenRef.current,
-			);
-			evidenceArchiveMutationTokenRef.current = requestToken;
+			const mutation = beginEvidenceMutationLanes({
+				sharedCurrentToken: evidenceSelectionMutationTokenRef.current,
+				familyCurrentToken: cleanupEvidenceMutationTokenRef.current,
+			});
+			evidenceSelectionMutationTokenRef.current = mutation.sharedRequestToken;
+			cleanupEvidenceMutationTokenRef.current = mutation.familyRequestToken;
+			const requestToken = mutation.sharedRequestToken;
 			setCleanupExportArchivePlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await archiveCleanupHandoffHistoryExport(plan);
 			const outcome = classifyCleanupExportArchiveOutcome({
-				currentToken: evidenceArchiveMutationTokenRef.current,
+				currentToken: evidenceSelectionMutationTokenRef.current,
 				requestToken,
 				result,
 			});
@@ -7201,7 +7239,7 @@ export function App(): React.ReactElement {
 				log(notice.level, notice.message);
 			}
 			if (outcome.refreshActive && outcome.refreshArchive) {
-				await refreshCleanupExportIndex(false, requestToken);
+				await refreshCleanupExportIndex(false, mutation.familyRequestToken);
 			} else {
 				if (outcome.refreshActive) {
 					await refreshCleanupExportIndex(false);
@@ -7222,15 +7260,18 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
-			const requestToken = beginRequest(
-				evidenceArchiveMutationTokenRef.current,
-			);
-			evidenceArchiveMutationTokenRef.current = requestToken;
+			const mutation = beginEvidenceMutationLanes({
+				sharedCurrentToken: evidenceSelectionMutationTokenRef.current,
+				familyCurrentToken: toolEvidenceMutationTokenRef.current,
+			});
+			evidenceSelectionMutationTokenRef.current = mutation.sharedRequestToken;
+			toolEvidenceMutationTokenRef.current = mutation.familyRequestToken;
+			const requestToken = mutation.sharedRequestToken;
 			setToolExportArchivePlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await archiveToolHistoryExport(plan);
 			const outcome = classifyToolExportArchiveOutcome({
-				currentToken: evidenceArchiveMutationTokenRef.current,
+				currentToken: evidenceSelectionMutationTokenRef.current,
 				requestToken,
 				plan,
 				result,
@@ -7242,7 +7283,11 @@ export function App(): React.ReactElement {
 				recordStatusActivityResult(outcome.activityResult);
 			}
 			if (outcome.refreshActive && outcome.refreshArchive) {
-				await refreshToolExportIndex(false, "preserve", requestToken);
+				await refreshToolExportIndex(
+					false,
+					"preserve",
+					mutation.familyRequestToken,
+				);
 			} else {
 				if (outcome.refreshActive) {
 					await refreshToolExportIndex(false);
@@ -7254,7 +7299,7 @@ export function App(): React.ReactElement {
 			if (
 				outcome.publishCurrentState &&
 				canPublishEvidenceArchiveCurrentState({
-					currentToken: evidenceArchiveMutationTokenRef.current,
+					currentToken: evidenceSelectionMutationTokenRef.current,
 					requestToken,
 				}) &&
 				outcome.selectedEvidenceKind
@@ -7278,15 +7323,18 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
-			const requestToken = beginRequest(
-				evidenceArchiveMutationTokenRef.current,
-			);
-			evidenceArchiveMutationTokenRef.current = requestToken;
+			const mutation = beginEvidenceMutationLanes({
+				sharedCurrentToken: evidenceSelectionMutationTokenRef.current,
+				familyCurrentToken: auditEvidenceMutationTokenRef.current,
+			});
+			evidenceSelectionMutationTokenRef.current = mutation.sharedRequestToken;
+			auditEvidenceMutationTokenRef.current = mutation.familyRequestToken;
+			const requestToken = mutation.sharedRequestToken;
 			setAuditExportArchivePlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await archiveConsoleAuditExport(plan);
 			const outcome = classifyAuditExportArchiveOutcome({
-				currentToken: evidenceArchiveMutationTokenRef.current,
+				currentToken: evidenceSelectionMutationTokenRef.current,
 				requestToken,
 				scope: transition.scope,
 				plan,
@@ -7299,7 +7347,11 @@ export function App(): React.ReactElement {
 				recordStatusActivityResult(outcome.activityResult);
 			}
 			if (outcome.refreshActive && outcome.refreshArchive) {
-				await refreshAuditExportIndex(false, "preserve", requestToken);
+				await refreshAuditExportIndex(
+					false,
+					"preserve",
+					mutation.familyRequestToken,
+				);
 			} else {
 				if (outcome.refreshActive) {
 					await refreshAuditExportIndex(false);
@@ -7311,7 +7363,7 @@ export function App(): React.ReactElement {
 			const publishCurrentState =
 				outcome.publishCurrentState &&
 				canPublishEvidenceArchiveCurrentState({
-					currentToken: evidenceArchiveMutationTokenRef.current,
+					currentToken: evidenceSelectionMutationTokenRef.current,
 					requestToken,
 				});
 			if (publishCurrentState && outcome.interfaceStateFilter) {
@@ -7340,15 +7392,13 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
-			const requestToken = beginRequest(
-				evidenceArchiveMutationTokenRef.current,
-			);
-			evidenceArchiveMutationTokenRef.current = requestToken;
+			const requestToken = beginRequest(auditEvidenceMutationTokenRef.current);
+			auditEvidenceMutationTokenRef.current = requestToken;
 			setAuditArchiveRetentionPlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await pruneConsoleAuditArchive(plan);
 			const outcome = classifyAuditArchiveRetentionOutcome({
-				currentToken: evidenceArchiveMutationTokenRef.current,
+				currentToken: auditEvidenceMutationTokenRef.current,
 				requestToken,
 				scope: transition.scope,
 				plan,
@@ -7361,10 +7411,10 @@ export function App(): React.ReactElement {
 				recordStatusActivityResult(outcome.activityResult);
 			}
 			if (outcome.refreshArchive) {
-				await refreshAuditExportArchiveIndex(false);
+				await refreshAuditExportIndex(false, "preserve", requestToken);
 			}
 		},
-		[log, recordStatusActivityResult, refreshAuditExportArchiveIndex],
+		[log, recordStatusActivityResult, refreshAuditExportIndex],
 	);
 
 	const submitToolArchiveRetentionCommand = useCallback(
@@ -7375,15 +7425,13 @@ export function App(): React.ReactElement {
 				return;
 			}
 			const plan = transition.plan;
-			const requestToken = beginRequest(
-				evidenceArchiveMutationTokenRef.current,
-			);
-			evidenceArchiveMutationTokenRef.current = requestToken;
+			const requestToken = beginRequest(toolEvidenceMutationTokenRef.current);
+			toolEvidenceMutationTokenRef.current = requestToken;
 			setToolArchiveRetentionPlan(plan);
 			setCommandLine((current) => closeCommandLine(current));
 			const result = await pruneToolHistoryExportArchive(plan);
 			const outcome = classifyToolArchiveRetentionOutcome({
-				currentToken: evidenceArchiveMutationTokenRef.current,
+				currentToken: toolEvidenceMutationTokenRef.current,
 				requestToken,
 				result,
 			});
@@ -7394,10 +7442,10 @@ export function App(): React.ReactElement {
 				recordStatusActivityResult(outcome.activityResult);
 			}
 			if (outcome.refreshArchive) {
-				await refreshToolExportArchiveIndex(false);
+				await refreshToolExportIndex(false, "preserve", requestToken);
 			}
 		},
-		[log, recordStatusActivityResult, refreshToolExportArchiveIndex],
+		[log, recordStatusActivityResult, refreshToolExportIndex],
 	);
 
 	const submitDnsServerProposalCommand = useCallback(
@@ -7495,14 +7543,12 @@ export function App(): React.ReactElement {
 						break;
 				}
 			} catch (caught) {
-				const detail =
-					caught instanceof Error ? caught.message : String(caught);
 				const prefix =
 					effect.kind === "persist-history-preferences" ||
 					effect.kind === "persist-target-presets"
-						? `${effect.failureMessagePrefix} `
+						? effect.failureMessagePrefix
 						: "";
-				log("fail", `${prefix}${detail}`);
+				log("fail", formatToolsInputFailureMessage(prefix, caught));
 			}
 		},
 		[exportToolHistory, log, runToolPlan],
