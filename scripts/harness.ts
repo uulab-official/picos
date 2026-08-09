@@ -33,6 +33,10 @@ const verifySteps: Step[] = [
 		cmd: ["bun", "run", "lint"],
 	},
 	{
+		name: "TUI callback boundary audit",
+		cmd: ["bun", "run", "audit:tui-callbacks", "--strict"],
+	},
+	{
 		name: "Tests",
 		cmd: ["bun", "test"],
 	},

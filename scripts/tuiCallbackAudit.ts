@@ -9,6 +9,20 @@ export const permittedWiringReasons = [
 	"stale request/run-token publication check",
 ] as const;
 
+export const permittedWiringCallbacks = {
+	log: "React setter/event publication",
+	beginCommand: "React setter/event publication",
+	endCommand: "React setter/event publication",
+	refreshFiles: "direct I/O invocation",
+	refresh: "direct I/O invocation",
+} as const;
+
+export const expectedTuiCallbackCounts = {
+	callbacks: 154,
+	useInput: 1,
+	total: 155,
+} as const;
+
 export type TuiCallbackClassification =
 	| "inline-decision"
 	| "delegated"
@@ -28,9 +42,21 @@ export type TuiCallbackInventoryRow = {
 	endLine: number;
 };
 
+export type TuiInlineSelectionClamp = {
+	name: string;
+	line: number;
+	occurrence: number;
+	expression: string;
+};
+
+export type TuiCallbackMathBoundaryAllowlistEntry = TuiInlineSelectionClamp & {
+	reason: "layout sizing/clipping";
+};
+
 type AuditOptions = {
 	sourceText: string;
 	manifest: readonly TuiCallbackManifestRow[];
+	mathBoundaryAllowlist?: readonly TuiCallbackMathBoundaryAllowlistEntry[];
 	strict?: boolean;
 };
 
@@ -41,6 +67,7 @@ export type TuiCallbackAudit = {
 		useInput: number;
 		total: number;
 		inlineDecisions: number;
+		selectionClamps: number;
 	};
 };
 
@@ -96,6 +123,75 @@ export function extractTuiCallbackInventory(
 	return inventory;
 }
 
+const isMathBoundaryCall = (node: ts.Node): node is ts.CallExpression =>
+	ts.isCallExpression(node) &&
+	ts.isPropertyAccessExpression(node.expression) &&
+	ts.isIdentifier(node.expression.expression) &&
+	node.expression.expression.text === "Math" &&
+	(node.expression.name.text === "min" || node.expression.name.text === "max");
+
+export function extractInlineDomainSelectionClamps(
+	sourceText: string,
+): TuiInlineSelectionClamp[] {
+	const sourceFile = ts.createSourceFile(
+		"App.tsx",
+		sourceText,
+		ts.ScriptTarget.Latest,
+		true,
+		ts.ScriptKind.TSX,
+	);
+	const clamps: TuiInlineSelectionClamp[] = [];
+	const occurrences = new Map<string, number>();
+
+	const inspectCallback = (
+		name: string,
+		callback: ts.Node | undefined,
+	): void => {
+		if (!callback) return;
+		const visit = (node: ts.Node): void => {
+			if (isMathBoundaryCall(node) && !isMathBoundaryCall(node.parent)) {
+				const line = lineNumber(sourceFile, node.getStart(sourceFile));
+				const expression = node.getText(sourceFile);
+				const occurrenceKey = `${name}\0${line}\0${expression}`;
+				const occurrence = (occurrences.get(occurrenceKey) ?? 0) + 1;
+				occurrences.set(occurrenceKey, occurrence);
+				clamps.push({
+					name,
+					line,
+					occurrence,
+					expression,
+				});
+				return;
+			}
+			ts.forEachChild(node, visit);
+		};
+		visit(callback);
+	};
+
+	const visit = (node: ts.Node): void => {
+		if (
+			ts.isVariableDeclaration(node) &&
+			ts.isIdentifier(node.name) &&
+			node.initializer &&
+			ts.isCallExpression(node.initializer) &&
+			callbackName(node.initializer, "useCallback")
+		) {
+			inspectCallback(node.name.text, node.initializer.arguments[0]);
+		}
+		if (
+			ts.isCallExpression(node) &&
+			callbackName(node, "useInput") &&
+			ts.isExpressionStatement(node.parent)
+		) {
+			inspectCallback("useInput", node.arguments[0]);
+		}
+		ts.forEachChild(node, visit);
+	};
+
+	visit(sourceFile);
+	return clamps;
+}
+
 const findDuplicateName = (rows: readonly { name: string }[]) => {
 	const names = new Set<string>();
 	for (const { name } of rows) {
@@ -111,9 +207,38 @@ const fail = (message: string): never => {
 	throw new Error(message);
 };
 
+const mathBoundaryKey = (entry: TuiInlineSelectionClamp) =>
+	`${entry.name}\0${entry.line}\0${entry.occurrence}\0${entry.expression}`;
+
+function resolveInlineDomainSelectionClamps(
+	sourceText: string,
+	allowlist: readonly TuiCallbackMathBoundaryAllowlistEntry[],
+): TuiInlineSelectionClamp[] {
+	const candidates = extractInlineDomainSelectionClamps(sourceText);
+	const candidateKeys = new Set(candidates.map(mathBoundaryKey));
+	const allowedKeys = new Set<string>();
+	for (const entry of allowlist) {
+		if (entry.reason !== "layout sizing/clipping") {
+			fail(`unpermitted callback Math allowlist reason: ${entry.name}`);
+		}
+		const key = mathBoundaryKey(entry);
+		if (allowedKeys.has(key)) {
+			fail(`duplicate callback Math allowlist entry: ${entry.name}`);
+		}
+		if (!candidateKeys.has(key)) {
+			fail(`stale callback Math allowlist entry: ${entry.name}`);
+		}
+		allowedKeys.add(key);
+	}
+	return candidates.filter(
+		(candidate) => !allowedKeys.has(mathBoundaryKey(candidate)),
+	);
+}
+
 export function auditTuiCallbacks({
 	sourceText,
 	manifest,
+	mathBoundaryAllowlist = [],
 	strict = false,
 }: AuditOptions): TuiCallbackAudit {
 	const inventory = extractTuiCallbackInventory(sourceText);
@@ -156,9 +281,33 @@ export function auditTuiCallbacks({
 		if (!classifications.has(row.classification)) {
 			fail(`unsupported classification: ${row.name}`);
 		}
-		if (row.classification === "wiring" && !permittedReasons.has(row.reason)) {
-			fail(`unpermitted wiring reason: ${row.name}`);
+		if (row.classification === "wiring") {
+			if (!permittedReasons.has(row.reason)) {
+				fail(`unpermitted wiring reason: ${row.name}`);
+			}
+			const expectedReason = (
+				permittedWiringCallbacks as Readonly<Record<string, string>>
+			)[row.name];
+			if (!expectedReason) {
+				fail(`unpermitted wiring callback: ${row.name}`);
+			}
+			if (row.reason !== expectedReason) {
+				fail(
+					`mismatched wiring reason: ${row.name} expected=${expectedReason}`,
+				);
+			}
 		}
+	}
+
+	const selectionClamps = resolveInlineDomainSelectionClamps(
+		sourceText,
+		mathBoundaryAllowlist,
+	);
+	if (selectionClamps[0]) {
+		const clamp = selectionClamps[0];
+		fail(
+			`inline domain-selection clamp: ${clamp.name} line=${clamp.line} expression=${clamp.expression}`,
+		);
 	}
 
 	const inlineDecisions = manifest.filter(
@@ -169,14 +318,29 @@ export function auditTuiCallbacks({
 			`strict audit rejected ${inlineDecisions} inline-decision entr${inlineDecisions === 1 ? "y" : "ies"}`,
 		);
 	}
+	const callbackCount = inventory.filter(
+		(row) => row.name !== "useInput",
+	).length;
+	const useInputCount = inventory.length - callbackCount;
+	if (
+		strict &&
+		(callbackCount !== expectedTuiCallbackCounts.callbacks ||
+			useInputCount !== expectedTuiCallbackCounts.useInput ||
+			inventory.length !== expectedTuiCallbackCounts.total)
+	) {
+		fail(
+			`strict callback count mismatch callbacks=${callbackCount}/${expectedTuiCallbackCounts.callbacks} useInput=${useInputCount}/${expectedTuiCallbackCounts.useInput} total=${inventory.length}/${expectedTuiCallbackCounts.total}`,
+		);
+	}
 
 	return {
 		inventory,
 		counts: {
-			callbacks: inventory.filter((row) => row.name !== "useInput").length,
-			useInput: inventory.filter((row) => row.name === "useInput").length,
+			callbacks: callbackCount,
+			useInput: useInputCount,
 			total: inventory.length,
 			inlineDecisions,
+			selectionClamps: selectionClamps.length,
 		},
 	};
 }
@@ -184,6 +348,9 @@ export function auditTuiCallbacks({
 const appSourcePath = fileURLToPath(
 	new URL("../src/tui/App.tsx", import.meta.url),
 );
+
+export const appCallbackMathBoundaryAllowlist =
+	[] as const satisfies readonly TuiCallbackMathBoundaryAllowlistEntry[];
 
 export function runTuiCallbackAudit(
 	args: readonly string[] = process.argv.slice(2),
@@ -198,13 +365,16 @@ export function runTuiCallbackAudit(
 	const inlineDecisions = tuiCallbackManifest.filter(
 		(row) => row.classification === "inline-decision",
 	).length;
+	let selectionClamps = extractInlineDomainSelectionClamps(sourceText).length;
 
 	try {
 		const audit = auditTuiCallbacks({
 			sourceText,
 			manifest: tuiCallbackManifest,
+			mathBoundaryAllowlist: appCallbackMathBoundaryAllowlist,
 			strict,
 		});
+		selectionClamps = audit.counts.selectionClamps;
 		console.log(JSON.stringify(audit));
 		return audit;
 	} catch (error) {
@@ -217,6 +387,7 @@ export function runTuiCallbackAudit(
 					useInput: useInputCount,
 					total: inventory.length,
 					inlineDecisions,
+					selectionClamps,
 				},
 				error: message,
 			}),

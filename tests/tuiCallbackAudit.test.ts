@@ -114,21 +114,164 @@ describe("TUI callback audit", () => {
 		).toThrow("unpermitted wiring reason: save");
 	});
 
-	test("permits only the documented wiring reasons", () => {
+	test("permits only the documented wiring callback and reason pairs", () => {
+		const pairs = [
+			["log", "React setter/event publication"],
+			["beginCommand", "React setter/event publication"],
+			["endCommand", "React setter/event publication"],
+			["refreshFiles", "direct I/O invocation"],
+			["refresh", "direct I/O invocation"],
+		] as const;
+
+		for (const [name, reason] of pairs) {
+			expect(() =>
+				auditTuiCallbacks({
+					sourceText: `const ${name} = useCallback(() => {}, []);`,
+					manifest: [manifest(name, { classification: "wiring", reason })],
+				}),
+			).not.toThrow();
+		}
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText: "const log = useCallback(() => {}, []);",
+				manifest: [
+					manifest("log", {
+						classification: "wiring",
+						reason: "direct I/O invocation",
+					}),
+				],
+			}),
+		).toThrow(
+			"mismatched wiring reason: log expected=React setter/event publication",
+		);
+	});
+
+	test("rejects an allowed wiring reason on an unapproved callback", () => {
 		const sourceText = "const save = useCallback(() => {}, []);";
-		const reasons = [
-			"React setter/event publication",
-			"direct I/O invocation",
-			"stale request/run-token publication check",
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [
+					manifest("save", {
+						classification: "wiring",
+						reason: "direct I/O invocation",
+					}),
+				],
+			}),
+		).toThrow("unpermitted wiring callback: save");
+	});
+
+	test("rejects inline domain-selection arithmetic but excludes layout sizing", () => {
+		const sourceText = `
+			const select = useCallback(() => {
+				setSelectedIndex(Math.min(Math.max(index, 0), items.length - 1));
+			}, [index, items.length]);
+			const layout = useCallback(() => Math.max(1, width - 4), [width]);
+		`;
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("select"), manifest("layout")],
+			}),
+		).toThrow(
+			"inline domain-selection clamp: select line=3 expression=Math.min(Math.max(index, 0), items.length - 1)",
+		);
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText:
+					"const layout = useCallback(() => Math.max(1, width - 4), [width]);",
+				manifest: [manifest("layout")],
+				mathBoundaryAllowlist: [
+					{
+						name: "layout",
+						line: 1,
+						occurrence: 1,
+						expression: "Math.max(1, width - 4)",
+						reason: "layout sizing/clipping",
+					},
+				],
+			}),
+		).not.toThrow();
+	});
+
+	test("rejects total-based clamps and stale layout allowlist entries", () => {
+		const sourceText = `
+			const select = useCallback(() => {
+				const next = Math.min(Math.max(value, 0), total - 1);
+				setSelectedIndex(next);
+			}, [total, value]);
+		`;
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("select")],
+			}),
+		).toThrow(
+			"inline domain-selection clamp: select line=3 expression=Math.min(Math.max(value, 0), total - 1)",
+		);
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText: "const layout = useCallback(() => {}, []);",
+				manifest: [manifest("layout")],
+				mathBoundaryAllowlist: [
+					{
+						name: "layout",
+						line: 1,
+						occurrence: 1,
+						expression: "Math.max(1, width - 4)",
+						reason: "layout sizing/clipping",
+					},
+				],
+			}),
+		).toThrow("stale callback Math allowlist entry: layout");
+	});
+
+	test("binds each layout allowlist entry to one Math occurrence", () => {
+		const sourceText =
+			"const layout = useCallback(() => [Math.max(1, width), Math.max(1, width)], [width]);";
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("layout")],
+				mathBoundaryAllowlist: [
+					{
+						name: "layout",
+						line: 1,
+						occurrence: 1,
+						expression: "Math.max(1, width)",
+						reason: "layout sizing/clipping",
+					},
+				],
+			}),
+		).toThrow(
+			"inline domain-selection clamp: layout line=1 expression=Math.max(1, width)",
+		);
+	});
+
+	test("rejects name and length-alias clamp evasions", () => {
+		const fixtures = [
+			`const move = useCallback(() => {
+				setActiveRow(Math.max(0, rows.length - 1));
+			}, [rows.length]);`,
+			`const move = useCallback(() => {
+				const last = items.length - 1;
+				setPosition(Math.min(position, last));
+			}, [items.length, position]);`,
 		];
 
-		for (const reason of reasons) {
+		for (const sourceText of fixtures) {
 			expect(() =>
 				auditTuiCallbacks({
 					sourceText,
-					manifest: [manifest("save", { classification: "wiring", reason })],
+					manifest: [manifest("move")],
 				}),
-			).not.toThrow();
+			).toThrow("inline domain-selection clamp: move");
 		}
 	});
 
@@ -142,5 +285,19 @@ describe("TUI callback audit", () => {
 				strict: true,
 			}),
 		).toThrow("strict audit rejected 1 inline-decision entry");
+	});
+
+	test("strict mode locks the App callback inventory baseline", () => {
+		const sourceText = "const save = useCallback(() => {}, []);";
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText,
+				manifest: [manifest("save")],
+				strict: true,
+			}),
+		).toThrow(
+			"strict callback count mismatch callbacks=1/154 useInput=0/1 total=1/155",
+		);
 	});
 });
