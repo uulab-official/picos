@@ -551,7 +551,7 @@ import {
 	prepareRecoveredEvidenceSearchTransition,
 	prepareRecoveredEvidenceSelectionTransition,
 	prepareStatusActivityResultPublication,
-	prepareStatusActivityResultSelectionReset,
+	prepareStatusActivityResultRecordTransition,
 	prepareStatusActivityResultTimelineHandoffOpenTransition,
 	prepareStatusActivityToolsEvidenceMatchArchive,
 	prepareStatusActivityToolsEvidenceMatchOpen,
@@ -598,6 +598,7 @@ import {
 	nextInterfaceEvidenceStateFilter,
 	prepareStatusEvidenceActionTransition,
 	type StatusEvidenceKind,
+	shouldRefreshEvidenceRetentionMutation,
 } from "./statusEvidence";
 import {
 	formatStatusAuditWriteFailure,
@@ -1752,13 +1753,24 @@ export function App(): React.ReactElement {
 	}, []);
 
 	const recordStatusActivityResult = useCallback(
-		(result: StatusActivityResult) => {
-			const reset = prepareStatusActivityResultSelectionReset();
-			setSelectedStatusActivityResultIndex(reset.selectedResultIndex);
-			setSelectedStatusActivityCopyPreviewRowIndex(
-				reset.selectedCopyPreviewRowIndex,
+		(
+			result: StatusActivityResult,
+			options: { publishCurrentState?: boolean } = {},
+		) => {
+			const transition = prepareStatusActivityResultRecordTransition(
+				options.publishCurrentState ?? true,
 			);
-			setStatusActivityCopyPreviewExpanded(reset.copyPreviewExpanded);
+			if (transition.selectionReset) {
+				setSelectedStatusActivityResultIndex(
+					transition.selectionReset.selectedResultIndex,
+				);
+				setSelectedStatusActivityCopyPreviewRowIndex(
+					transition.selectionReset.selectedCopyPreviewRowIndex,
+				);
+				setStatusActivityCopyPreviewExpanded(
+					transition.selectionReset.copyPreviewExpanded,
+				);
+			}
 			setStatusActivityResults(
 				(history) =>
 					prepareStatusActivityResultPublication(history, result).history,
@@ -7301,7 +7313,9 @@ export function App(): React.ReactElement {
 				log(notice.level, notice.message);
 			}
 			if (outcome.activityResult) {
-				recordStatusActivityResult(outcome.activityResult);
+				recordStatusActivityResult(outcome.activityResult, {
+					publishCurrentState: outcome.publishCurrentState,
+				});
 			}
 			if (outcome.refreshActive && outcome.refreshArchive) {
 				await refreshToolExportIndex(
@@ -7365,7 +7379,9 @@ export function App(): React.ReactElement {
 				log(notice.level, notice.message);
 			}
 			if (outcome.activityResult) {
-				recordStatusActivityResult(outcome.activityResult);
+				recordStatusActivityResult(outcome.activityResult, {
+					publishCurrentState: outcome.publishCurrentState,
+				});
 			}
 			if (outcome.refreshActive && outcome.refreshArchive) {
 				await refreshAuditExportIndex(
@@ -7434,7 +7450,9 @@ export function App(): React.ReactElement {
 					log(notice.level, notice.message);
 				}
 				if (outcome.activityResult) {
-					recordStatusActivityResult(outcome.activityResult);
+					recordStatusActivityResult(outcome.activityResult, {
+						publishCurrentState: outcome.publishCurrentState,
+					});
 				}
 			} catch (caught) {
 				const outcome = classifyEvidenceRetentionFailure({
@@ -7447,10 +7465,18 @@ export function App(): React.ReactElement {
 					log(notice.level, notice.message);
 				}
 				if (outcome.activityResult) {
-					recordStatusActivityResult(outcome.activityResult);
+					recordStatusActivityResult(outcome.activityResult, {
+						publishCurrentState: outcome.publishCurrentState,
+					});
 				}
 			} finally {
-				if (mutation.advanced) {
+				if (
+					shouldRefreshEvidenceRetentionMutation({
+						advanced: mutation.advanced,
+						currentToken: auditEvidenceMutationTokenRef.current,
+						requestToken,
+					})
+				) {
 					await refreshAuditExportIndex(false, "preserve", requestToken);
 				}
 			}
@@ -7485,7 +7511,9 @@ export function App(): React.ReactElement {
 					log(notice.level, notice.message);
 				}
 				if (outcome.activityResult) {
-					recordStatusActivityResult(outcome.activityResult);
+					recordStatusActivityResult(outcome.activityResult, {
+						publishCurrentState: outcome.publishCurrentState,
+					});
 				}
 			} catch (caught) {
 				const outcome = classifyEvidenceRetentionFailure({
@@ -7498,10 +7526,18 @@ export function App(): React.ReactElement {
 					log(notice.level, notice.message);
 				}
 				if (outcome.activityResult) {
-					recordStatusActivityResult(outcome.activityResult);
+					recordStatusActivityResult(outcome.activityResult, {
+						publishCurrentState: outcome.publishCurrentState,
+					});
 				}
 			} finally {
-				if (mutation.advanced) {
+				if (
+					shouldRefreshEvidenceRetentionMutation({
+						advanced: mutation.advanced,
+						currentToken: toolEvidenceMutationTokenRef.current,
+						requestToken,
+					})
+				) {
 					await refreshToolExportIndex(false, "preserve", requestToken);
 				}
 			}

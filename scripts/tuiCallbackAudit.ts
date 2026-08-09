@@ -214,6 +214,31 @@ function bindingNameContains(name: ts.BindingName, expected: string): boolean {
 	return getBindingNames(name).includes(expected);
 }
 
+function functionScopeDeclaresVar(
+	scope: ts.SignatureDeclaration,
+	name: string,
+): boolean {
+	const body = (scope as ts.FunctionLikeDeclaration).body;
+	if (!body) return false;
+	let found = false;
+	const visit = (node: ts.Node): void => {
+		if (found) return;
+		if (node !== body && ts.isFunctionLike(node)) return;
+		if (
+			ts.isVariableDeclaration(node) &&
+			ts.isVariableDeclarationList(node.parent) &&
+			(node.parent.flags & ts.NodeFlags.BlockScoped) === 0 &&
+			bindingNameContains(node.name, name)
+		) {
+			found = true;
+			return;
+		}
+		ts.forEachChild(node, visit);
+	};
+	visit(body);
+	return found;
+}
+
 function runtimeScopeDeclaresName(scope: ts.Node, name: string): boolean {
 	if (
 		(ts.isFunctionExpression(scope) || ts.isClassExpression(scope)) &&
@@ -229,6 +254,7 @@ function runtimeScopeDeclaresName(scope: ts.Node, name: string): boolean {
 		) {
 			return true;
 		}
+		if (functionScopeDeclaresVar(scope, name)) return true;
 	}
 	if (ts.isCatchClause(scope) && scope.variableDeclaration) {
 		return bindingNameContains(scope.variableDeclaration.name, name);
@@ -295,12 +321,39 @@ function visitExecutableNodes(
 	collectFunctions(root);
 
 	const visitedFunctions = new Set<ts.FunctionLikeDeclaration>();
-	const getStaticBoolean = (expression: ts.Expression): boolean | undefined => {
+	function getStaticBoolean(expression: ts.Expression): boolean | undefined {
 		const current = unwrapExpression(expression);
 		if (current.kind === ts.SyntaxKind.TrueKeyword) return true;
 		if (current.kind === ts.SyntaxKind.FalseKeyword) return false;
+		if (
+			ts.isPrefixUnaryExpression(current) &&
+			current.operator === ts.SyntaxKind.ExclamationToken
+		) {
+			const operand = getStaticBoolean(current.operand);
+			return operand === undefined ? undefined : !operand;
+		}
+		if (
+			ts.isBinaryExpression(current) &&
+			current.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
+		) {
+			const left = getStaticBoolean(current.left);
+			if (left === false) return false;
+			const right = getStaticBoolean(current.right);
+			if (left === true) return right;
+			return right === false ? false : undefined;
+		}
+		if (
+			ts.isBinaryExpression(current) &&
+			current.operatorToken.kind === ts.SyntaxKind.BarBarToken
+		) {
+			const left = getStaticBoolean(current.left);
+			if (left === true) return true;
+			const right = getStaticBoolean(current.right);
+			if (left === false) return right;
+			return right === true ? true : undefined;
+		}
 		return undefined;
-	};
+	}
 	const visit = (node: ts.Node): void => {
 		visitor(node);
 		if (ts.isIfStatement(node)) {
@@ -523,20 +576,39 @@ function extractTuiCallbackRuntimeOwnerFlows(
 	};
 	visitCallbacks(sourceFile);
 
-	const expressionOwnerCalls = (node: ts.Node): ReadonlySet<string> => {
-		const calls = new Set<string>();
-		const visit = (child: ts.Node): void => {
-			if (ts.isCallExpression(child)) {
-				const binding = getCalledBinding(child.expression, importedOwners);
-				if (binding) calls.add(ownerCallKey(binding));
-			}
-			if (ts.isIdentifier(child)) {
-				for (const call of derivedVariables.get(child.text) ?? [])
-					calls.add(call);
-			}
-		};
-		visitExecutableNodes(node, visit);
-		return calls;
+	const expressionOwnerCalls = (
+		expression: ts.Expression,
+	): ReadonlySet<string> => {
+		const current = unwrapExpression(expression);
+		if (ts.isIdentifier(current)) {
+			return new Set(derivedVariables.get(current.text) ?? []);
+		}
+		if (ts.isCallExpression(current)) {
+			const binding = getCalledBinding(current.expression, importedOwners);
+			return binding ? new Set([ownerCallKey(binding)]) : new Set();
+		}
+		if (
+			ts.isPropertyAccessExpression(current) ||
+			ts.isElementAccessExpression(current)
+		) {
+			return expressionOwnerCalls(current.expression);
+		}
+		if (ts.isAwaitExpression(current)) {
+			return expressionOwnerCalls(current.expression);
+		}
+		if (ts.isConditionalExpression(current)) {
+			const whenTrue = expressionOwnerCalls(current.whenTrue);
+			const whenFalse = expressionOwnerCalls(current.whenFalse);
+			if (whenTrue.size === 0 || whenFalse.size === 0) return new Set();
+			return new Set([...whenTrue, ...whenFalse]);
+		}
+		if (
+			ts.isBinaryExpression(current) &&
+			current.operatorToken.kind === ts.SyntaxKind.CommaToken
+		) {
+			return expressionOwnerCalls(current.right);
+		}
+		return new Set();
 	};
 
 	let expanded = true;
@@ -669,6 +741,20 @@ function extractTuiOwnerInvokedParameterIndexes(
 			if (!ts.isIdentifier(parameter.name)) continue;
 			const containers = new Set([parameter.name.text]);
 			const callableAliases = new Map<string, string>();
+			const callableAliasDeclarations = new Map<
+				string,
+				ts.VariableDeclaration
+			>();
+			const staticStrings = new Map<string, string>();
+			const getStaticString = (
+				expression: ts.Expression,
+			): string | undefined => {
+				const current = unwrapExpression(expression);
+				if (ts.isStringLiteralLike(current)) return current.text;
+				return ts.isIdentifier(current)
+					? staticStrings.get(current.text)
+					: undefined;
+			};
 			const getContainerMember = (
 				expression: ts.Expression,
 			): string | undefined => {
@@ -685,12 +771,58 @@ function extractTuiOwnerInvokedParameterIndexes(
 					ts.isIdentifier(current.expression) &&
 					containers.has(current.expression.text)
 				) {
-					return current.argumentExpression &&
-						ts.isStringLiteralLike(current.argumentExpression)
-						? current.argumentExpression.text
+					return current.argumentExpression
+						? (getStaticString(current.argumentExpression) ?? "*")
 						: "*";
 				}
 				return undefined;
+			};
+			const isCallableAliasShadowed = (identifier: ts.Identifier): boolean => {
+				const declaration = callableAliasDeclarations.get(identifier.text);
+				if (!declaration) return false;
+				let current: ts.Node | undefined = identifier.parent;
+				while (current && current !== body) {
+					if (
+						(ts.isFunctionExpression(current) ||
+							ts.isClassExpression(current)) &&
+						current.name?.text === identifier.text
+					) {
+						return true;
+					}
+					if (
+						ts.isFunctionLike(current) &&
+						current.parameters.some((candidate) =>
+							bindingNameContains(candidate.name, identifier.text),
+						)
+					) {
+						return true;
+					}
+					if (
+						ts.isCatchClause(current) &&
+						current.variableDeclaration &&
+						bindingNameContains(
+							current.variableDeclaration.name,
+							identifier.text,
+						)
+					) {
+						return true;
+					}
+					if (ts.isBlock(current)) {
+						for (const statement of current.statements) {
+							if (!ts.isVariableStatement(statement)) continue;
+							for (const candidate of statement.declarationList.declarations) {
+								if (
+									candidate !== declaration &&
+									bindingNameContains(candidate.name, identifier.text)
+								) {
+									return true;
+								}
+							}
+						}
+					}
+					current = current.parent;
+				}
+				return false;
 			};
 			let expanded = true;
 			while (expanded) {
@@ -702,6 +834,14 @@ function extractTuiOwnerInvokedParameterIndexes(
 						ts.isIdentifier(node.name)
 					) {
 						const initializer = unwrapExpression(node.initializer);
+						const staticString = getStaticString(initializer);
+						if (
+							staticString !== undefined &&
+							staticStrings.get(node.name.text) !== staticString
+						) {
+							staticStrings.set(node.name.text, staticString);
+							expanded = true;
+						}
 						if (
 							ts.isIdentifier(initializer) &&
 							containers.has(initializer.text) &&
@@ -720,6 +860,7 @@ function extractTuiOwnerInvokedParameterIndexes(
 							callableAliases.get(node.name.text) !== nextMember
 						) {
 							callableAliases.set(node.name.text, nextMember);
+							callableAliasDeclarations.set(node.name.text, node);
 							expanded = true;
 						}
 					}
@@ -742,6 +883,7 @@ function extractTuiOwnerInvokedParameterIndexes(
 									: element.name.text;
 								if (callableAliases.get(element.name.text) !== member) {
 									callableAliases.set(element.name.text, member);
+									callableAliasDeclarations.set(element.name.text, node);
 									expanded = true;
 								}
 							}
@@ -754,7 +896,9 @@ function extractTuiOwnerInvokedParameterIndexes(
 				if (ts.isCallExpression(node)) {
 					const expression = unwrapExpression(node.expression);
 					const member = ts.isIdentifier(expression)
-						? callableAliases.get(expression.text)
+						? isCallableAliasShadowed(expression)
+							? undefined
+							: callableAliases.get(expression.text)
 						: getContainerMember(expression);
 					if (member) members.add(`${index}\0${member}`);
 				}

@@ -102,6 +102,20 @@ export function beginEvidenceRetentionMutation(input: {
 	};
 }
 
+export function shouldRefreshEvidenceRetentionMutation(input: {
+	advanced: boolean;
+	currentToken: number;
+	requestToken: number;
+}): boolean {
+	return (
+		input.advanced &&
+		canPublishEvidenceArchiveCurrentState({
+			currentToken: input.currentToken,
+			requestToken: input.requestToken,
+		})
+	);
+}
+
 export function canPublishEvidenceArchiveCurrentState(
 	input: EvidenceArchiveRequest,
 ): boolean {

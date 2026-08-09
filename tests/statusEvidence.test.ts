@@ -31,6 +31,7 @@ import {
 	normalizeInterfaceEvidenceQuery,
 	prepareStatusEvidenceActionTransition,
 	prepareStatusEvidenceOpenTransition,
+	shouldRefreshEvidenceRetentionMutation,
 } from "../src/tui/statusEvidence";
 
 describe("evidence archive outcome transitions", () => {
@@ -246,6 +247,32 @@ describe("evidence archive outcome transitions", () => {
 				message: "tools archive retention failed unlink denied",
 			},
 		]);
+	});
+
+	test("does not let a late stale retention allocate a newer covering refresh", () => {
+		const older = beginEvidenceRetentionMutation({
+			familyCurrentToken: 0,
+			enabled: true,
+		});
+		const newer = beginEvidenceRetentionMutation({
+			familyCurrentToken: older.nextFamilyToken,
+			enabled: true,
+		});
+
+		expect(
+			shouldRefreshEvidenceRetentionMutation({
+				advanced: older.advanced,
+				currentToken: newer.nextFamilyToken,
+				requestToken: older.requestToken,
+			}),
+		).toBe(false);
+		expect(
+			shouldRefreshEvidenceRetentionMutation({
+				advanced: newer.advanced,
+				currentToken: newer.nextFamilyToken,
+				requestToken: newer.requestToken,
+			}),
+		).toBe(true);
 	});
 
 	test("publishes active and archive audit indexes as one current batch", () => {

@@ -470,6 +470,19 @@ describe("TUI callback audit", () => {
 				ownerFileRead: () => undefined,
 			}),
 		).toThrow("inline delegated selection publication: save");
+
+		expect(() =>
+			auditTuiCallbacks({
+				sourceText: `import { prepareSave } from "./saveOwner";
+				 const save = useCallback((transition: { selectedIndex: number }) => {
+					 setSelectedIndex(transition.selectedIndex);
+				 }, []);
+				 save((prepareSave(), { selectedIndex: 0 }));`,
+				manifest: [manifest("save", { owner: "src/tui/saveOwner.ts" })],
+				ownerFileExists: (path) => exists.has(path),
+				ownerFileRead: () => undefined,
+			}),
+		).toThrow("delegated callback has no owner call path: save");
 	});
 
 	test("rejects dead and type-only delegated owner references", () => {
@@ -498,12 +511,21 @@ describe("TUI callback audit", () => {
 			 }, []);`,
 			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
+				 for (var prepareSave of [() => undefined]) consume(prepareSave);
+				 prepareSave();
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
 				 const dead = () => prepareSave();
 				 return undefined;
 			 }, []);`,
 			`import { prepareSave } from "./saveOwner";
 			 const save = useCallback(() => {
 				 if (false) prepareSave();
+			 }, []);`,
+			`import { prepareSave } from "./saveOwner";
+			 const save = useCallback(() => {
+				 if (false && ready) prepareSave();
 			 }, []);`,
 		]) {
 			expect(() =>
@@ -589,6 +611,8 @@ describe("TUI callback audit", () => {
 			"export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = () => undefined;",
 			"export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = (effect: never, handlers: { save: (value: never) => void }) => { handlers.save.bind(undefined); };",
 			"export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = (effect: never, handlers: { save: (value: never) => void; other: (value: never) => void }) => handlers.other(effect);",
+			"export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = (effect: never, handlers: { save: (value: never) => void; other: (value: never) => void }) => { const name = 'other'; handlers[name](effect); };",
+			"export const prepareEffect = () => ({ transition: { kind: 'ready' } }); export const dispatchEffect = (effect: never, handlers: { save: (value: never) => void }) => { const save = handlers.save; const run = function save() { save(effect); }; run(); };",
 		]) {
 			expect(() =>
 				auditTuiCallbacks({

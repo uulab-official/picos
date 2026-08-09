@@ -585,6 +585,16 @@ export function prepareStatusActivityResultSelectionReset(): {
 	};
 }
 
+export function prepareStatusActivityResultRecordTransition(
+	publishCurrentState: boolean,
+): {
+	selectionReset?: ReturnType<typeof prepareStatusActivityResultSelectionReset>;
+} {
+	return publishCurrentState
+		? { selectionReset: prepareStatusActivityResultSelectionReset() }
+		: {};
+}
+
 export function prepareStatusActivityResultPublication(
 	history: StatusActivityResult[],
 	result: StatusActivityResult,
