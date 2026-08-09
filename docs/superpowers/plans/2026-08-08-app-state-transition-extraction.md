@@ -25,9 +25,9 @@
 The final branch must satisfy all of these conditions:
 
 - The callback audit reports 154 `useCallback` declarations and one `useInput`, with no duplicate, missing, stale, or unclassified manifest entries.
-- The strict callback audit reports zero `inline-decision` entries.
-- Every non-wiring entry names an existing tested `src/tui/*.ts` owner.
-- Wiring entries state one permitted reason: React setter/event publication, direct I/O invocation, or stale request/run-token publication check.
+- The strict callback audit locks the `154`/`1` inventory baseline and reports zero `inline-decision` and zero unallowlisted callback/dispatcher `Math.min()`/`Math.max()` entries.
+- Every non-wiring entry names an existing tested `src/tui/*.ts` owner, and every audited runtime call/value path—including selection publication—resolves to that declared owner rather than a type-only, shadowed, unreachable, or unrelated bridge reference.
+- Wiring entries match one of the five approved callback/reason pairs; the reason vocabulary remains React setter/event publication, direct I/O invocation, or stale request/run-token publication check.
 - No inline `Math.min()`/`Math.max()` domain-selection clamp remains in `App.tsx`; layout sizing and clipping arithmetic is excluded.
 - Focused transition tests, `bun run verify`, and `bun run release:check` pass from a clean pushed head.
 
@@ -54,15 +54,15 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add scanner tests with one-line and line-wrapped `useCallback` fixtures, `useInput`, duplicate/missing/stale manifest cases, and strict-mode rejection.
-- [ ] Run `bun test tests/tuiCallbackAudit.test.ts` and observe the missing-module failure.
-- [ ] Implement the AST scanner, manifest validator, JSON CLI, and complete current manifest.
-- [ ] Run `bun test tests/tuiCallbackAudit.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks` and assert counts are `callbacks=154`, `useInput=1`, `total=155`.
-- [ ] Run `bun run audit:tui-callbacks --strict` and record the expected non-zero result and current inline-decision count; strict mode is intentionally not yet part of `verify`.
-- [ ] Update the checklist with the executable baseline and corrected 154 count.
-- [ ] Run `bun run typecheck && git diff --check`.
-- [ ] Commit as `test(tui): inventory App callback decisions` and push after review.
+- [x] Add scanner tests with one-line and line-wrapped `useCallback` fixtures, `useInput`, duplicate/missing/stale manifest cases, and strict-mode rejection.
+- [x] Run `bun test tests/tuiCallbackAudit.test.ts` and observe the missing-module failure.
+- [x] Implement the AST scanner, manifest validator, JSON CLI, and complete current manifest.
+- [x] Run `bun test tests/tuiCallbackAudit.test.ts`.
+- [x] Run `bun run audit:tui-callbacks` and assert counts are `callbacks=154`, `useInput=1`, `total=155`.
+- [x] Run `bun run audit:tui-callbacks --strict` and record the expected non-zero result and current inline-decision count; strict mode is intentionally not yet part of `verify`.
+- [x] Update the checklist with the executable baseline and corrected 154 count.
+- [x] Run `bun run typecheck && git diff --check`.
+- [x] Commit as `test(tui): inventory App callback decisions` and push after review.
 
 ---
 
@@ -89,14 +89,14 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for empty, below-zero, and beyond-end target selection plus every mutation/notice outcome.
-- [ ] Run `bun test tests/toolHistory.test.ts tests/commandLine.test.ts` and observe the new API failures.
-- [ ] Implement minimal pure transitions and wire the callbacks and Tools input branch to them.
-- [ ] Mark the migrated tool callbacks as `delegated` in the manifest with `toolHistory.ts` or `commandLine.ts` owners.
-- [ ] Run `bun test tests/toolHistory.test.ts tests/commandLine.test.ts tests/configPanel.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist and changelog for the empty-selection repair.
-- [ ] Commit as `refactor(tui): extract tool target transitions` and push after review.
+- [x] Add failing tests for empty, below-zero, and beyond-end target selection plus every mutation/notice outcome.
+- [x] Run `bun test tests/toolHistory.test.ts tests/commandLine.test.ts` and observe the new API failures.
+- [x] Implement minimal pure transitions and wire the callbacks and Tools input branch to them.
+- [x] Mark the migrated tool callbacks as `delegated` in the manifest with `toolHistory.ts` or `commandLine.ts` owners.
+- [x] Run `bun test tests/toolHistory.test.ts tests/commandLine.test.ts tests/configPanel.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist and changelog for the empty-selection repair.
+- [x] Commit as `refactor(tui): extract tool target transitions` and push after review.
 
 ---
 
@@ -119,13 +119,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for missing buffer, empty text, before-start/after-end cursor, delete at bounds, and empty undo.
-- [ ] Run `bun test tests/editorBuffer.test.ts` and observe the expected failures.
-- [ ] Implement the transition wrappers and replace editor callback/input decisions.
-- [ ] Reclassify editor callbacks in the manifest.
-- [ ] Run `bun test tests/editorBuffer.test.ts tests/fileWritePreview.test.ts tests/editorSaveExecution.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract editor transitions`, and push after review.
+- [x] Add failing tests for missing buffer, empty text, before-start/after-end cursor, delete at bounds, and empty undo.
+- [x] Run `bun test tests/editorBuffer.test.ts` and observe the expected failures.
+- [x] Implement the transition wrappers and replace editor callback/input decisions.
+- [x] Reclassify editor callbacks in the manifest.
+- [x] Run `bun test tests/editorBuffer.test.ts tests/fileWritePreview.test.ts tests/editorSaveExecution.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract editor transitions`, and push after review.
 
 ---
 
@@ -154,14 +154,14 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing pure-transition tests for empty listings, directory/file selection, history truncation, stale load result classification, and operation/open guards.
-- [ ] Add request-sequence regression tests to the smallest pure sequence helpers needed by the load/preview writers.
-- [ ] Run the four focused test files and observe the expected failures.
-- [ ] Implement transitions, add separate load and preview sequences, and wire the Files callbacks/input branch.
-- [ ] Reclassify Files callbacks and input ownership in the manifest.
-- [ ] Run `bun test tests/fileWorkspaceTransitions.test.ts tests/fileSelection.test.ts tests/fileHistory.test.ts tests/fileOperationDialog.test.ts tests/requestSequence.test.ts tests/files.test.ts tests/fileOpen.test.ts tests/fileOperations.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract Files workspace transitions`, and push after review.
+- [x] Add failing pure-transition tests for empty listings, directory/file selection, history truncation, stale load result classification, and operation/open guards.
+- [x] Add request-sequence regression tests to the smallest pure sequence helpers needed by the load/preview writers.
+- [x] Run the four focused test files and observe the expected failures.
+- [x] Implement transitions, add separate load and preview sequences, and wire the Files callbacks/input branch.
+- [x] Reclassify Files callbacks and input ownership in the manifest.
+- [x] Run `bun test tests/fileWorkspaceTransitions.test.ts tests/fileSelection.test.ts tests/fileHistory.test.ts tests/fileOperationDialog.test.ts tests/requestSequence.test.ts tests/files.test.ts tests/fileOpen.test.ts tests/fileOperations.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract Files workspace transitions`, and push after review.
 
 ---
 
@@ -188,13 +188,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for no selection, empty managed shelves, reset confirmation mismatch, palette index bounds, and each landing/focus result.
-- [ ] Run the three focused test files and observe the expected failures.
-- [ ] Implement and wire pure Config/Status/Palette transitions.
-- [ ] Reclassify the affected callbacks and dispatcher family.
-- [ ] Run `bun test tests/configPanel.test.ts tests/config.test.ts tests/configCleanup.test.ts tests/statusActivityQueue.test.ts tests/palette.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract config and palette transitions`, and push after review.
+- [x] Add failing tests for no selection, empty managed shelves, reset confirmation mismatch, palette index bounds, and each landing/focus result.
+- [x] Run the three focused test files and observe the expected failures.
+- [x] Implement and wire pure Config/Status/Palette transitions.
+- [x] Reclassify the affected callbacks and dispatcher family.
+- [x] Run `bun test tests/configPanel.test.ts tests/config.test.ts tests/configCleanup.test.ts tests/statusActivityQueue.test.ts tests/palette.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract config and palette transitions`, and push after review.
 
 ---
 
@@ -223,13 +223,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for empty/filtered rows, invalid section shortcuts, last-row selection, cleanup no-op, and preset/filter notices.
-- [ ] Run the four focused test files and observe the expected failures.
-- [ ] Implement and wire the panel transitions.
-- [ ] Reclassify affected callbacks and dispatcher ownership.
-- [ ] Run `bun test tests/routePanel.test.ts tests/endpointPanel.test.ts tests/timelinePanel.test.ts tests/logPanel.test.ts tests/networkTimeline.test.ts tests/routes.test.ts tests/connections.test.ts tests/ports.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract network panel transitions`, and push after review.
+- [x] Add failing tests for empty/filtered rows, invalid section shortcuts, last-row selection, cleanup no-op, and preset/filter notices.
+- [x] Run the four focused test files and observe the expected failures.
+- [x] Implement and wire the panel transitions.
+- [x] Reclassify affected callbacks and dispatcher ownership.
+- [x] Run `bun test tests/routePanel.test.ts tests/endpointPanel.test.ts tests/timelinePanel.test.ts tests/logPanel.test.ts tests/networkTimeline.test.ts tests/routes.test.ts tests/connections.test.ts tests/ports.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract network panel transitions`, and push after review.
 
 ---
 
@@ -260,13 +260,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for empty indices, deleted selected rows, archive/retention mismatch, recovered export selection, stale refresh success, and stale refresh failure.
-- [ ] Run the five focused suites and observe the expected failures.
-- [ ] Implement transition helpers and sequence-safe callback adapters.
-- [ ] Replace all evidence/newest-result inline selection arithmetic and reclassify manifest entries.
-- [ ] Run `bun test tests/cleanupIndex.test.ts tests/statusEvidence.test.ts tests/statusActivityQueue.test.ts tests/toolHistory.test.ts tests/timelinePanel.test.ts tests/handoffIndex.test.ts tests/handoffsCommand.test.ts tests/externalOpen.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract evidence lifecycle transitions`, and push after review.
+- [x] Add failing tests for empty indices, deleted selected rows, archive/retention mismatch, recovered export selection, stale refresh success, and stale refresh failure.
+- [x] Run the five focused suites and observe the expected failures.
+- [x] Implement transition helpers and sequence-safe callback adapters.
+- [x] Replace all evidence/newest-result inline selection arithmetic and reclassify manifest entries.
+- [x] Run `bun test tests/cleanupIndex.test.ts tests/statusEvidence.test.ts tests/statusActivityQueue.test.ts tests/toolHistory.test.ts tests/timelinePanel.test.ts tests/handoffIndex.test.ts tests/handoffsCommand.test.ts tests/externalOpen.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract evidence lifecycle transitions`, and push after review.
 
 ---
 
@@ -291,13 +291,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for empty lists, unsupported adapters, out-of-range selection, locked proposals, and exact confirmation mismatch.
-- [ ] Run `bun test tests/interfacePanel.test.ts tests/dnsPanel.test.ts` and observe the expected failures.
-- [ ] Implement and wire the transitions and input branches.
-- [ ] Reclassify affected callbacks and dispatcher ownership.
-- [ ] Run `bun test tests/interfacePanel.test.ts tests/dnsPanel.test.ts tests/interfaceControl.test.ts tests/dnsControl.test.ts tests/actions.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract interface and DNS transitions`, and push after review.
+- [x] Add failing tests for empty lists, unsupported adapters, out-of-range selection, locked proposals, and exact confirmation mismatch.
+- [x] Run `bun test tests/interfacePanel.test.ts tests/dnsPanel.test.ts` and observe the expected failures.
+- [x] Implement and wire the transitions and input branches.
+- [x] Reclassify affected callbacks and dispatcher ownership.
+- [x] Run `bun test tests/interfacePanel.test.ts tests/dnsPanel.test.ts tests/interfaceControl.test.ts tests/dnsControl.test.ts tests/actions.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract interface and DNS transitions`, and push after review.
 
 ---
 
@@ -321,13 +321,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for no profile, no selected host key, revoked candidate, confirmation mismatch, retry-after-cancel, non-terminal busy states, and stale failure publication.
-- [ ] Run `bun test tests/remotesPanel.test.ts` and observe the expected failures.
-- [ ] Implement and wire remote transitions and request/run identity guards.
-- [ ] Reclassify remote callbacks and dispatcher ownership.
-- [ ] Run `bun test tests/remotesPanel.test.ts tests/remotes.test.ts tests/connect.test.ts tests/sftp.test.ts tests/statusEvidence.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract remote lifecycle transitions`, and push after review.
+- [x] Add failing tests for no profile, no selected host key, revoked candidate, confirmation mismatch, retry-after-cancel, non-terminal busy states, and stale failure publication.
+- [x] Run `bun test tests/remotesPanel.test.ts` and observe the expected failures.
+- [x] Implement and wire remote transitions and request/run identity guards.
+- [x] Reclassify remote callbacks and dispatcher ownership.
+- [x] Run `bun test tests/remotesPanel.test.ts tests/remotes.test.ts tests/connect.test.ts tests/sftp.test.ts tests/statusEvidence.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract remote lifecycle transitions`, and push after review.
 
 ---
 
@@ -354,13 +354,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for missing process/preset, unsupported collector, double-start while cancelling, token supersession, partial cancellation, and stale failure.
-- [ ] Run the three focused test files and observe the expected failures.
-- [ ] Implement and wire the transitions and run-token checks.
-- [ ] Reclassify process/operation callbacks and dispatcher ownership.
-- [ ] Run `bun test tests/processPanel.test.ts tests/operationRunPanel.test.ts tests/statusActivityQueue.test.ts tests/processCommand.test.ts tests/operationsCommand.test.ts tests/monitorCommand.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract operation run transitions`, and push after review.
+- [x] Add failing tests for missing process/preset, unsupported collector, double-start while cancelling, token supersession, partial cancellation, and stale failure.
+- [x] Run the three focused test files and observe the expected failures.
+- [x] Implement and wire the transitions and run-token checks.
+- [x] Reclassify process/operation callbacks and dispatcher ownership.
+- [x] Run `bun test tests/processPanel.test.ts tests/operationRunPanel.test.ts tests/statusActivityQueue.test.ts tests/processCommand.test.ts tests/operationsCommand.test.ts tests/monitorCommand.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract operation run transitions`, and push after review.
 
 ---
 
@@ -385,13 +385,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing tests for unknown/locked actions, missing metadata, read vs write confirmation, unsupported adapters, stale execution result, and control-row action availability.
-- [ ] Run `bun test tests/actionControlTransitions.test.ts tests/endpointPanel.test.ts` and observe the expected failures.
-- [ ] Implement and wire action/control transitions while preserving core execution boundaries.
-- [ ] Reclassify `runAction`, control callbacks, and dispatcher ownership.
-- [ ] Run `bun test tests/actionControlTransitions.test.ts tests/endpointPanel.test.ts tests/actions.test.ts tests/controlExecution.test.ts tests/interfaceControl.test.ts tests/dnsControl.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract action control transitions`, and push after review.
+- [x] Add failing tests for unknown/locked actions, missing metadata, read vs write confirmation, unsupported adapters, stale execution result, and control-row action availability.
+- [x] Run `bun test tests/actionControlTransitions.test.ts tests/endpointPanel.test.ts` and observe the expected failures.
+- [x] Implement and wire action/control transitions while preserving core execution boundaries.
+- [x] Reclassify `runAction`, control callbacks, and dispatcher ownership.
+- [x] Run `bun test tests/actionControlTransitions.test.ts tests/endpointPanel.test.ts tests/actions.test.ts tests/controlExecution.test.ts tests/interfaceControl.test.ts tests/dnsControl.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract action control transitions`, and push after review.
 
 ---
 
@@ -416,14 +416,14 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add table-driven failing tests covering every current prompt kind and no-prompt Escape behavior.
-- [ ] Add command-line submit routing tests that prove all prompt kinds have an owner and effect intent.
-- [ ] Run `bun test tests/commandCancellation.test.ts tests/commandLine.test.ts` and observe the expected failures.
-- [ ] Implement cancellation transitions and replace remaining dispatcher decisions with owner calls.
-- [ ] Reclassify `useInput` as `delegated` with a reason naming key normalization/effect application; reclassify all migrated prompt callbacks.
-- [ ] Run `bun test tests/commandCancellation.test.ts tests/commandLine.test.ts tests/palette.test.ts tests/fileWorkspaceTransitions.test.ts tests/configPanel.test.ts tests/routePanel.test.ts tests/endpointPanel.test.ts tests/timelinePanel.test.ts tests/logPanel.test.ts tests/remotesPanel.test.ts`.
-- [ ] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
-- [ ] Update checklist, commit as `refactor(tui): extract command input transitions`, and push after review.
+- [x] Add table-driven failing tests covering every current prompt kind and no-prompt Escape behavior.
+- [x] Add command-line submit routing tests that prove all prompt kinds have an owner and effect intent.
+- [x] Run `bun test tests/commandCancellation.test.ts tests/commandLine.test.ts` and observe the expected failures.
+- [x] Implement cancellation transitions and replace remaining dispatcher decisions with owner calls.
+- [x] Reclassify `useInput` as `delegated` with a reason naming key normalization/effect application; reclassify all migrated prompt callbacks.
+- [x] Run `bun test tests/commandCancellation.test.ts tests/commandLine.test.ts tests/palette.test.ts tests/fileWorkspaceTransitions.test.ts tests/configPanel.test.ts tests/routePanel.test.ts tests/endpointPanel.test.ts tests/timelinePanel.test.ts tests/logPanel.test.ts tests/remotesPanel.test.ts`.
+- [x] Run `bun run audit:tui-callbacks && bun run typecheck && git diff --check`.
+- [x] Update checklist, commit as `refactor(tui): extract command input transitions`, and push after review.
 
 ---
 
@@ -448,13 +448,13 @@ The final branch must satisfy all of these conditions:
 
 **TDD sequence:**
 
-- [ ] Add failing audit tests for an inline selection clamp, an unexplained wiring row, and a residual `inline-decision` row.
-- [ ] Run `bun test tests/tuiCallbackAudit.test.ts` and observe the expected failures.
-- [ ] Run strict audit, inspect every residual row, and move each actual decision into its named owner with a focused failing test before changing its classification.
-- [ ] Run `bun run audit:tui-callbacks --strict` and require `callbacks=154`, `useInput=1`, `inlineDecision=0`.
-- [ ] Add strict audit to the verify harness/package flow and run `bun test tests/tuiCallbackAudit.test.ts`.
-- [ ] Run `bun run lint && bun run typecheck && git diff --check`.
-- [ ] Update checklist with the zero-residual audit result, commit as `test(tui): enforce callback decision boundary`, and push after review.
+- [x] Add failing audit tests for an inline selection clamp, an unexplained wiring row, and a residual `inline-decision` row.
+- [x] Run `bun test tests/tuiCallbackAudit.test.ts` and observe the expected failures.
+- [x] Run strict audit, inspect every residual row, and move each actual decision into its named owner with a focused failing test before changing its classification.
+- [x] Run `bun run audit:tui-callbacks --strict` and require `callbacks=154`, `useInput=1`, `inlineDecision=0`.
+- [x] Add strict audit to the verify harness/package flow and run `bun test tests/tuiCallbackAudit.test.ts`.
+- [x] Run `bun run lint && bun run typecheck && git diff --check`.
+- [x] Update checklist with the zero-residual audit result, commit as `test(tui): enforce callback decision boundary`, and push after review.
 
 ---
 
@@ -468,12 +468,12 @@ The final branch must satisfy all of these conditions:
 
 **Verification sequence:**
 
-- [ ] Compare all Completion Contract bullets against the branch head and record the evidence in the checklist.
-- [ ] Scan for placeholders and stale counts: `rg -n "T[O]DO|T[B]D|F[I]XME|15[1] useCallback|15[1] current" docs scripts src/tui tests package.json`.
-- [ ] Run `bun run audit:tui-callbacks --strict`.
-- [ ] Run `bun run verify`.
-- [ ] Run `bun run release:check`.
-- [ ] Run `git diff --check` and confirm `git status --short --branch` is clean except the final documentation update before commit.
-- [ ] Perform a final specification review against `docs/superpowers/specs/2026-08-08-app-state-transition-extraction-design.md` and a separate code-quality review.
-- [ ] Record actual test/file counts and verification results once, in `docs/INCOMPLETE_FEATURES_CHECKLIST.md`; other documents reference that source instead of copying counts.
+- [x] Compare all Completion Contract bullets against the branch head and record the evidence in the checklist.
+- [x] Scan for placeholders and stale counts: `rg -n "T[O]DO|T[B]D|F[I]XME|15[1] useCallback|15[1] current" docs scripts src/tui tests package.json`.
+- [x] Run `bun run audit:tui-callbacks --strict`.
+- [x] Run `bun run verify`.
+- [x] Run `bun run release:check`.
+- [x] Run `git diff --check` and confirm `git status --short --branch` is clean except the final documentation update before commit.
+- [x] Perform a final specification review against `docs/superpowers/specs/2026-08-08-app-state-transition-extraction-design.md` and a separate code-quality review.
+- [x] Record actual test/file counts and verification results once, in `docs/INCOMPLETE_FEATURES_CHECKLIST.md`; other documents reference that source instead of copying counts.
 - [ ] Commit as `docs: complete App transition extraction audit`, push, rerun the strict audit on the pushed head, and confirm the branch is clean and synchronized with origin.
