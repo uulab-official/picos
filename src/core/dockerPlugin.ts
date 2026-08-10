@@ -15,6 +15,7 @@ import type { SafeExecResult } from "./types";
 export const DOCKER_PLUGIN_TIMEOUT_MS = 5_000;
 export const DOCKER_PLUGIN_CONTAINER_LIMIT = 200;
 export const DOCKER_PLUGIN_TEXT_LIMIT = 256;
+const DOCKER_PLUGIN_REDACTION_SCAN_LIMIT = DOCKER_PLUGIN_TEXT_LIMIT * 4;
 
 export type DockerPluginExec = (
 	command: string,
@@ -78,19 +79,25 @@ export async function collectDockerPlugin(
 ): Promise<DockerPluginSnapshot> {
 	const exec = options.exec ?? safeExec;
 	const plans = getDockerCommandPlans();
-	const timeoutMs = Math.min(
-		options.timeoutMs ?? DOCKER_PLUGIN_TIMEOUT_MS,
+	const timeoutMs = normalizeBoundedPositiveInteger(
+		options.timeoutMs,
+		DOCKER_PLUGIN_TIMEOUT_MS,
 		DOCKER_PLUGIN_TIMEOUT_MS,
 	);
-	const containerLimit = Math.min(
-		options.containerLimit ?? DOCKER_PLUGIN_CONTAINER_LIMIT,
+	const containerLimit = normalizeBoundedPositiveInteger(
+		options.containerLimit,
+		DOCKER_PLUGIN_CONTAINER_LIMIT,
 		DOCKER_PLUGIN_CONTAINER_LIMIT,
 	);
 	const [clientPlan, ...remainingPlans] = plans;
 	if (!clientPlan) throw new Error("Docker client plan is required");
 	const clientResult = await runPlan(exec, clientPlan, timeoutMs);
 	if (isExecutableMissing(clientResult)) {
-		return createUnsupportedDockerSnapshot(clientPlan, clientResult);
+		return createUnsupportedDockerSnapshot(
+			clientPlan,
+			clientResult,
+			containerLimit,
+		);
 	}
 	const remaining = await Promise.all(
 		remainingPlans.map((plan) => runPlan(exec, plan, timeoutMs)),
@@ -134,29 +141,68 @@ export function parseDockerContainerSummaries(
 	value: string,
 	limit = DOCKER_PLUGIN_CONTAINER_LIMIT,
 ): DockerContainerSummary[] {
-	return parseDockerContainerRows(value, limit).containers;
+	return parseDockerContainerRows(
+		value,
+		normalizeBoundedPositiveInteger(
+			limit,
+			DOCKER_PLUGIN_CONTAINER_LIMIT,
+			DOCKER_PLUGIN_CONTAINER_LIMIT,
+		),
+	).containers;
 }
 
 export function normalizeDockerText(
 	value: string,
 	maxLength = DOCKER_PLUGIN_TEXT_LIMIT,
 ): string {
-	let normalized = value.replace(/\s+/gu, " ").trim();
-	normalized = normalized
+	const normalizedMaxLength = normalizeBoundedPositiveInteger(
+		maxLength,
+		DOCKER_PLUGIN_TEXT_LIMIT,
+		DOCKER_PLUGIN_TEXT_LIMIT,
+	);
+	let normalized = value
+		.slice(0, DOCKER_PLUGIN_REDACTION_SCAN_LIMIT)
+		.replace(/\s+/gu, " ")
+		.trim();
+	normalized = redactDockerCredentials(normalized)
+		.replace(/\/Users\/[^/\s]+|\/home\/[^/\s]+/giu, "$HOME")
+		.replace(/[A-Za-z]:\\Users\\[^\\\s]+/giu, "$HOME");
+	if (normalized.length <= normalizedMaxLength) return normalized;
+	if (normalizedMaxLength <= 3) return normalized.slice(0, normalizedMaxLength);
+	return `${normalized.slice(0, normalizedMaxLength - 3)}...`;
+}
+
+function redactDockerCredentials(value: string): string {
+	return value
 		.replace(
-			/(\b(?:access[_-]?token|token|password|passwd|secret|api[_-]?key)\s*=\s*)([^\s,;}\]]+)/giu,
+			/([a-z][a-z0-9+.-]{0,31}:\/\/)([^\s/:@?#]+):([^\s/@?#]+)@/giu,
+			"$1$2:[REDACTED]@",
+		)
+		.replace(
+			/([?&][a-z0-9_.~-]{0,128}(?:access[_-]?token|token|password|passwd|secret|api[_-]?key|authorization|credential)[a-z0-9_.~-]{0,128}=)[^&#\s]*/giu,
 			"$1[REDACTED]",
 		)
 		.replace(
-			/(\bauthorization\s*:\s*)(?:bearer|basic)\s+[^\s,;]+/giu,
+			/(\bauthorization\s*[:=]\s*)(?:bearer|basic)\s+(?:"[^"\r\n]*(?:"|$)|'[^'\r\n]*(?:'|$)|[^\s,;}]+)/giu,
 			"$1[REDACTED]",
 		)
-		.replace(/(\bauthorization\s*:\s*)[^\s,;]+/giu, "$1[REDACTED]")
-		.replace(/\/Users\/[^/\s]+|\/home\/[^/\s]+/gu, "$HOME")
-		.replace(/[A-Za-z]:\\Users\\[^\\\s]+/gu, "$HOME");
-	if (normalized.length <= maxLength) return normalized;
-	if (maxLength <= 3) return normalized.slice(0, Math.max(0, maxLength));
-	return `${normalized.slice(0, maxLength - 3)}...`;
+		.replace(
+			/(\bauthorization\s*[:=]\s*)(?:"[^"\r\n]*(?:"|$)|'[^'\r\n]*(?:'|$)|[^\s,;}]+)/giu,
+			"$1[REDACTED]",
+		)
+		.replace(
+			/(\bapi[\s_-]?key\s*[:=]\s*)(?:"[^"\r\n]*(?:"|$)|'[^'\r\n]*(?:'|$)|[^\s,;}&]+)/giu,
+			"$1[REDACTED]",
+		)
+		.replace(
+			/(\b[a-z0-9_.-]{0,128}(?:access[_-]?token|token|password|passwd|secret|api[_-]?key|authorization|credential)[a-z0-9_.-]{0,128}["']?\s*[:=]\s*)(?:"[^"\r\n]*(?:"|$)|'[^'\r\n]*(?:'|$)|[^\s,;}&]+)/giu,
+			"$1[REDACTED]",
+		)
+		.replace(
+			/(--[a-z0-9-]{0,128}(?:token|password|passwd|secret|api-key|authorization|credential)[a-z0-9-]{0,128}(?:=|\s+))(?:"[^"\r\n]*(?:"|$)|'[^'\r\n]*(?:'|$)|[^\s,;}]+)/giu,
+			"$1[REDACTED]",
+		)
+		.replace(/(\bbearer\s+)[a-z0-9._~+/=-]{8,}/giu, "$1[REDACTED]");
 }
 
 async function runPlan(
@@ -170,6 +216,7 @@ async function runPlan(
 function createUnsupportedDockerSnapshot(
 	plan: DockerCommandPlan,
 	result: SafeExecResult,
+	containerLimit: number,
 ): DockerPluginSnapshot {
 	return {
 		id: "docker",
@@ -178,7 +225,7 @@ function createUnsupportedDockerSnapshot(
 		evidence: [createEvidence(plan, result, false)],
 		sourceTruncated: Boolean(result.truncated),
 		resultTruncated: false,
-		data: createEmptyDockerData(DOCKER_PLUGIN_CONTAINER_LIMIT),
+		data: createEmptyDockerData(containerLimit),
 	};
 }
 
@@ -188,11 +235,6 @@ function createDockerSnapshot(
 	plans: DockerCommandPlan[],
 ): DockerPluginSnapshot {
 	const [clientResult, contextResult, engineResult, containersResult] = results;
-	const evidence = plans.map((plan, index) => {
-		const result = results[index];
-		if (!result) throw new Error(`Docker result is required for ${plan.id}`);
-		return createEvidence(plan, result, true);
-	});
 	const clientVersion = clientResult?.success
 		? parseDockerClientVersion(clientResult.stdout)
 		: null;
@@ -205,12 +247,19 @@ function createDockerSnapshot(
 	const containerRows = containersResult?.success
 		? parseDockerContainerRows(containersResult.stdout, containerLimit)
 		: { containers: [], resultTruncated: false, malformed: false };
+	const normalizationFailedById = {
+		client: clientResult?.success === true && clientVersion === null,
+		context: contextResult?.success === true && context === null,
+		engine: engineResult?.success === true && engine.malformed,
+		containers: containersResult?.success === true && containerRows.malformed,
+	} satisfies Record<DeveloperPluginEvidence["id"], boolean>;
+	const evidence = plans.map((plan, index) => {
+		const result = results[index];
+		if (!result) throw new Error(`Docker result is required for ${plan.id}`);
+		return createEvidence(plan, result, true, normalizationFailedById[plan.id]);
+	});
 	const sourceTruncated = evidence.some((item) => item.truncated);
-	const malformed =
-		(clientResult?.success === true && clientVersion === null) ||
-		(contextResult?.success === true && context === null) ||
-		(engineResult?.success === true && engine.malformed) ||
-		(containersResult?.success === true && containerRows.malformed);
+	const malformed = Object.values(normalizationFailedById).some(Boolean);
 	return {
 		id: "docker",
 		contract: createDockerPluginContract(),
@@ -238,11 +287,14 @@ function createEvidence(
 	plan: DockerCommandPlan,
 	result: SafeExecResult,
 	supported: boolean,
+	normalizationFailed = false,
 ): DeveloperPluginEvidence {
-	const success = result.success && !result.truncated;
-	const diagnostic = success
-		? undefined
-		: normalizeDockerText(result.stderr || result.stdout);
+	const success = result.success && !result.truncated && !normalizationFailed;
+	const diagnostic = normalizationFailed
+		? normalizeDockerText(`Docker ${plan.id} output could not be normalized.`)
+		: success
+			? undefined
+			: normalizeDockerText(result.stderr || result.stdout);
 	return {
 		id: plan.id,
 		command: plan.command,
@@ -333,6 +385,18 @@ function parseDockerCount(value: string | undefined): number | null {
 	if (!value || !/^\d+$/u.test(value)) return null;
 	const count = Number(value);
 	return Number.isSafeInteger(count) ? count : null;
+}
+
+function normalizeBoundedPositiveInteger(
+	value: number | undefined,
+	fallback: number,
+	maximum: number,
+): number {
+	const candidate = value ?? fallback;
+	if (Number.isNaN(candidate)) return fallback;
+	if (candidate === Number.POSITIVE_INFINITY) return maximum;
+	if (candidate === Number.NEGATIVE_INFINITY) return 1;
+	return Math.max(1, Math.min(maximum, Math.floor(candidate)));
 }
 
 function isExecutableMissing(result: SafeExecResult): boolean {

@@ -3,7 +3,11 @@ import {
 	formatSystemPluginRowColor,
 	formatSystemPluginRows,
 } from "../src/tui/pluginPanel";
-import { createDockerSnapshotFixture } from "./support/pluginFixtures";
+import {
+	collectCredentialBearingDockerSnapshot,
+	createDockerSnapshotFixture,
+	DOCKER_PLUGIN_CREDENTIAL_FIXTURE_SECRETS,
+} from "./support/pluginFixtures";
 
 describe("system plugin panel", () => {
 	test("formats compact bounded Docker snapshot rows", () => {
@@ -48,5 +52,20 @@ describe("system plugin panel", () => {
 		expect(formatSystemPluginRowColor("DEVELOPER PLUGINS")).toBe("cyan");
 		expect(formatSystemPluginRowColor("docker partial")).toBe("yellow");
 		expect(formatSystemPluginRowColor("context=default")).toBe("gray");
+	});
+
+	test("keeps credential-bearing Docker values out of System rows", async () => {
+		// Break caught: the System TUI receives raw Docker client, context, or
+		// engine credentials from the shared core snapshot.
+		const output = formatSystemPluginRows(
+			[await collectCredentialBearingDockerSnapshot()],
+			6,
+		).join("\n");
+
+		for (const secret of DOCKER_PLUGIN_CREDENTIAL_FIXTURE_SECRETS) {
+			expect(output).not.toContain(secret);
+		}
+		expect(output).toContain("client-user:[REDACTED]@");
+		expect(output).toContain("context-user:[REDACTED]@");
 	});
 });

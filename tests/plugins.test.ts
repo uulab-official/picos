@@ -6,7 +6,11 @@ import {
 	getDeveloperPluginCatalog,
 	getDeveloperPluginContract,
 } from "../src/core/plugins";
-import { createDockerSnapshotFixture } from "./support/pluginFixtures";
+import {
+	collectCredentialBearingDockerSnapshot,
+	createDockerSnapshotFixture,
+	DOCKER_PLUGIN_CREDENTIAL_FIXTURE_SECRETS,
+} from "./support/pluginFixtures";
 
 describe("developer plugin registry", () => {
 	test("returns fresh read-only catalog contracts", () => {
@@ -75,8 +79,37 @@ describe("developer plugin registry", () => {
 			"  Context: default",
 			"  Engine: 28.3.0",
 			"  Containers: 0 returned (limit 200)",
-			"  Source bounded: no",
-			"  Result bounded: no",
+			"  Source truncated: no",
+			"  Result truncated: no",
 		]);
+	});
+
+	test("labels Docker source and result truncation truthfully", () => {
+		// Break caught: truncation flags are described as generic bounds, making a
+		// complete bounded result sound as if it was cut off.
+		const rows = formatDeveloperPluginSnapshotRows(
+			createDockerSnapshotFixture({
+				sourceTruncated: true,
+				resultTruncated: false,
+			}),
+		);
+
+		expect(rows).toContain("  Source truncated: yes");
+		expect(rows).toContain("  Result truncated: no");
+		expect(rows.join("\n")).not.toContain("bounded:");
+	});
+
+	test("keeps credential-bearing Docker values out of plain snapshot rows", async () => {
+		// Break caught: the plain `picos plugins docker` formatter receives raw
+		// credential-bearing values from core collection.
+		const output = formatDeveloperPluginSnapshotRows(
+			await collectCredentialBearingDockerSnapshot(),
+		).join("\n");
+
+		for (const secret of DOCKER_PLUGIN_CREDENTIAL_FIXTURE_SECRETS) {
+			expect(output).not.toContain(secret);
+		}
+		expect(output).toContain("client-user:[REDACTED]@");
+		expect(output).toContain("context-user:[REDACTED]@");
 	});
 });

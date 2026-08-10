@@ -24,6 +24,7 @@ export type ProcessTreeTerminationDependencies = {
 	terminateWindowsProcessTree?(pid: number): Promise<void>;
 	terminateDirectChild?(child: ChildProcess): void;
 	waitForExit?(child: ChildProcess): Promise<void>;
+	confirmProcessTreeTerminated?(pid: number): boolean | Promise<boolean>;
 };
 
 export class ProcessTreeTerminationError extends Error {
@@ -129,6 +130,7 @@ export async function terminateProcessTree(
 			}
 		},
 		waitForExit,
+		confirmProcessTreeTerminated: () => false,
 		...overrides,
 	};
 
@@ -166,6 +168,18 @@ export async function terminateProcessTree(
 					`${failure.message}; terminal child exit could not be confirmed: ${formatError(waitForExitFailure)}`,
 					treeKillFailure,
 					waitForExitFailure,
+				);
+			}
+			try {
+				await confirmProcessTreeTerminationWithinDeadline(
+					child,
+					dependencies.confirmProcessTreeTerminated,
+				);
+			} catch (treeProofFailure) {
+				throw new ProcessTreeTerminationError(
+					`${failure.message}; process tree termination could not be proven: ${formatError(treeProofFailure)}`,
+					treeKillFailure,
+					treeProofFailure,
 				);
 			}
 			return;
@@ -257,6 +271,35 @@ async function waitForExitWithinDeadline(
 	});
 	try {
 		await Promise.race([wait(child), deadline]);
+	} finally {
+		if (timeout) clearTimeout(timeout);
+	}
+}
+
+async function confirmProcessTreeTerminationWithinDeadline(
+	child: ChildProcess,
+	confirm: (pid: number) => boolean | Promise<boolean>,
+): Promise<void> {
+	const pid = child.pid;
+	if (!pid) throw new Error("child process has no pid for tree confirmation");
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<never>((_, reject) => {
+		timeout = setTimeout(() => {
+			reject(
+				new Error(
+					`process tree ${pid} was not confirmed terminated within ${PROCESS_EXIT_TIMEOUT_MS}ms`,
+				),
+			);
+		}, PROCESS_EXIT_TIMEOUT_MS);
+	});
+	try {
+		const confirmed = await Promise.race([
+			Promise.resolve().then(() => confirm(pid)),
+			deadline,
+		]);
+		if (!confirmed) {
+			throw new Error(`process tree ${pid} termination remains unproven`);
+		}
 	} finally {
 		if (timeout) clearTimeout(timeout);
 	}

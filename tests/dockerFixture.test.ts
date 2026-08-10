@@ -92,6 +92,100 @@ test("Docker fixture confirms a post-Windows-policy terminal race before cleanup
 	await verifyPostPolicyTerminalRace("win32");
 });
 
+test("Docker fixture retains cleanup after a terminal child leaves an unproven descendant", async () => {
+	const directory = await mkdtemp(
+		join(tmpdir(), "picos-terminal-unproven-descendant-"),
+	);
+	const ready = join(directory, "descendant-ready");
+	const descendantPidPath = join(directory, "descendant-pid");
+	let cleanupCalls = 0;
+	let proofCalls = 0;
+	let parent: ChildProcess | undefined;
+	let descendantPid: number | undefined;
+	const fixture: DockerFixture = {
+		directory,
+		executable: join(directory, "docker"),
+		environment: {},
+		cleanup: async () => {
+			cleanupCalls += 1;
+			await rm(directory, { recursive: true, force: true });
+		},
+	};
+	const treeKillFailure = new Error("terminal parent tree-policy failure");
+	const descendantSource =
+		"const { writeFileSync } = require('node:fs'); writeFileSync(process.env.PICOS_FIXTURE_READY, 'descendant-ready'); writeFileSync(process.env.PICOS_FIXTURE_DESCENDANT_PID, String(process.pid)); setInterval(() => {}, 1_000);";
+	const parentSource = `const { spawn } = require("node:child_process"); spawn(process.execPath, ["-e", ${JSON.stringify(descendantSource)}], { stdio: "ignore", env: process.env }); setInterval(() => {}, 1_000);`;
+
+	try {
+		const caught = await captureFailure(() =>
+			runWithDockerFixture(
+				"completed",
+				async () => {
+					const spawnedParent = spawn(process.execPath, ["-e", parentSource], {
+						detached: process.platform !== "win32",
+						env: {
+							...process.env,
+							PICOS_FIXTURE_DESCENDANT_PID: descendantPidPath,
+							PICOS_FIXTURE_READY: ready,
+						},
+						stdio: "ignore",
+					});
+					parent = spawnedParent;
+					await waitForFile(ready);
+					await waitForFile(descendantPidPath);
+					descendantPid = Number(await readFile(descendantPidPath, "utf8"));
+					const parentPid = spawnedParent.pid;
+					if (!parentPid) throw new Error("terminal parent PID missing");
+					const dependencies: ProcessTreeTerminationDependencies = {
+						platform: "linux",
+						terminatePosixProcessGroup: async (pid) => {
+							expect(pid).toBe(parentPid);
+							if (
+								!spawnedParent.kill("SIGKILL") &&
+								isChildLive(spawnedParent)
+							) {
+								throw new Error("could not terminate fixture parent");
+							}
+							await waitForChildExit(spawnedParent, "terminal fixture parent");
+							throw treeKillFailure;
+						},
+						confirmProcessTreeTerminated: async (pid) => {
+							proofCalls += 1;
+							expect(pid).toBe(parentPid);
+							expect(descendantPid).toBeGreaterThan(0);
+							if (!descendantPid) return false;
+							return !isProcessLive(descendantPid);
+						},
+					};
+					await terminateProcessTree(spawnedParent, dependencies);
+				},
+				async () => fixture,
+			),
+		);
+		const terminationError = caught as ProcessTreeTerminationErrorShape;
+
+		expect(caught).toBeInstanceOf(ProcessTreeTerminationError);
+		expect(terminationError.cleanupSafe).toBe(false);
+		expect(terminationError.cause).toBe(treeKillFailure);
+		expect(proofCalls).toBe(1);
+		expect(cleanupCalls).toBe(0);
+		expect(existsSync(directory)).toBe(true);
+		expect(descendantPid).toBeGreaterThan(0);
+		if (!descendantPid) throw new Error("unproven descendant PID missing");
+		expect(isProcessLive(descendantPid)).toBe(true);
+	} finally {
+		if (descendantPid) {
+			await terminateProcessByPid(
+				descendantPid,
+				"unproven descendant teardown",
+			);
+		}
+		if (parent && isChildLive(parent)) parent.kill("SIGKILL");
+		if (parent) await waitForChildExit(parent, "terminal parent teardown");
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
 test("Docker fixture bounds emergency direct-child exit waits and retains unsafe cleanup", async () => {
 	const directory = await mkdtemp(join(tmpdir(), "picos-exit-timeout-"));
 	let cleanupCalls = 0;
@@ -439,6 +533,11 @@ async function verifyPostPolicyTerminalRace(
 			);
 			events.push("wait-settled");
 		},
+		confirmProcessTreeTerminated: async (pid) => {
+			expect(pid).toBe(childPid);
+			events.push("tree-proof");
+			return true;
+		},
 	};
 	if (platform === "win32") {
 		dependencies.terminateWindowsProcessTree = terminateTreeThenFail;
@@ -490,6 +589,7 @@ async function verifyPostPolicyTerminalRace(
 			"policy-threw",
 			"wait-called",
 			"wait-settled",
+			"tree-proof",
 			"cleanup",
 			"termination-resolved",
 		]);

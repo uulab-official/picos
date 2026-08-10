@@ -4,7 +4,11 @@ import {
 	formatPluginSnapshotJson,
 } from "../src/cli/pluginOutput";
 import { getDeveloperPluginCatalog } from "../src/core/plugins";
-import { createDockerSnapshotFixture } from "./support/pluginFixtures";
+import {
+	collectCredentialBearingDockerSnapshot,
+	createDockerSnapshotFixture,
+	DOCKER_PLUGIN_CREDENTIAL_FIXTURE_SECRETS,
+} from "./support/pluginFixtures";
 
 describe("plugin CLI JSON output", () => {
 	test("formats the approved built-in plugin catalog as one completed document", () => {
@@ -74,5 +78,19 @@ describe("plugin CLI JSON output", () => {
 		});
 		expect(partial.data.evidence[0]).not.toHaveProperty("diagnostic");
 		expect(JSON.stringify(partial)).not.toContain("raw-secret-output");
+	});
+
+	test("serializes only core-redacted Docker values", async () => {
+		// Break caught: full plugin JSON can retain a credential that should have
+		// been removed before the snapshot reached the CLI serializer.
+		const output = formatPluginSnapshotJson(
+			await collectCredentialBearingDockerSnapshot(),
+		);
+
+		for (const secret of DOCKER_PLUGIN_CREDENTIAL_FIXTURE_SECRETS) {
+			expect(output).not.toContain(secret);
+		}
+		expect(output).toContain("[REDACTED]");
+		expect(output).toContain("$HOME/.docker/config.json");
 	});
 });

@@ -67,8 +67,8 @@ export function formatDeveloperPluginSnapshotRows(
 		`  Context: ${snapshot.data.context ?? "unknown"}`,
 		`  Engine: ${snapshot.data.engineVersion ?? "unknown"}`,
 		`  Containers: ${snapshot.data.returnedContainerCount} returned (limit ${snapshot.data.requestedContainerLimit})`,
-		`  Source bounded: ${snapshot.sourceTruncated ? "yes" : "no"}`,
-		`  Result bounded: ${snapshot.resultTruncated ? "yes" : "no"}`,
+		`  Source truncated: ${snapshot.sourceTruncated ? "yes" : "no"}`,
+		`  Result truncated: ${snapshot.resultTruncated ? "yes" : "no"}`,
 	];
 }
 
