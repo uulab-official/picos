@@ -94,7 +94,6 @@ function normalizeEvidence(evidence: DeveloperPluginEvidence) {
 		success: evidence.success,
 		exitCode: evidence.exitCode,
 		truncated: evidence.truncated,
-		diagnostic: normalizeOptionalText(evidence.diagnostic),
 	};
 }
 

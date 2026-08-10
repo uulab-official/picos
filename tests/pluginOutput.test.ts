@@ -72,6 +72,7 @@ describe("plugin CLI JSON output", () => {
 				],
 			},
 		});
+		expect(partial.data.evidence[0]).not.toHaveProperty("diagnostic");
 		expect(JSON.stringify(partial)).not.toContain("raw-secret-output");
 	});
 });

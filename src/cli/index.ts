@@ -64,6 +64,12 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
 		throw caught;
 	}
 	if (!cli.matchedCommand) {
+		const unmatchedCommandError = new Error("No command matched");
+		if (reportLocalInspectorCliParseFailure(argv, unmatchedCommandError)) {
+			throw new ReportedCliError(unmatchedCommandError.message, {
+				cause: unmatchedCommandError,
+			});
+		}
 		cli.outputHelp();
 		process.exitCode = 1;
 		return;

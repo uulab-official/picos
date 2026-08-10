@@ -108,6 +108,51 @@ describe("CLI command registry", () => {
 		});
 	});
 
+	test("reports malformed JSON before plugins as one failure document", async () => {
+		// Break caught: a malformed JSON flag before plugins bypasses the local
+		// inspector failure route and prints command help instead.
+		const output: string[] = [];
+		const stdout: string[] = [];
+		const stderr: string[] = [];
+		const originalLog = console.log;
+		const originalError = console.error;
+		const originalStdoutWrite = process.stdout.write;
+		const originalStderrWrite = process.stderr.write;
+		const originalExitCode = process.exitCode;
+		let caught: unknown;
+		console.log = (value?: unknown) => output.push(String(value));
+		console.error = (value?: unknown) => output.push(String(value));
+		process.stdout.write = ((value: string | Uint8Array) => {
+			stdout.push(String(value));
+			return true;
+		}) as typeof process.stdout.write;
+		process.stderr.write = ((value: string | Uint8Array) => {
+			stderr.push(String(value));
+			return true;
+		}) as typeof process.stderr.write;
+		try {
+			await runCli(["--json=maybe", "plugins"]);
+		} catch (error) {
+			caught = error;
+		} finally {
+			console.log = originalLog;
+			console.error = originalError;
+			process.stdout.write = originalStdoutWrite;
+			process.stderr.write = originalStderrWrite;
+			process.exitCode = originalExitCode;
+		}
+
+		expect(isReportedCliError(caught)).toBeTrue();
+		expect(output).toHaveLength(1);
+		expect(stdout).toEqual([]);
+		expect(stderr).toEqual([]);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			command: "plugins",
+			status: "failed",
+			error: { code: "PICOS_LOCAL_INSPECTOR_FAILED" },
+		});
+	});
+
 	test("reports invalid operations JSON requests as one failure document", async () => {
 		for (const args of [
 			["logs", "--limit", "0", "--json"],

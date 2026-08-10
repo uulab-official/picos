@@ -8,6 +8,7 @@ import {
 	formatInfoJson,
 	isLocalJsonRequested,
 	reportLocalInspectorJsonFailure,
+	sanitizeLocalInspectorText,
 } from "../localInspectorOutput";
 import { isCliOutputWriteError, writeCliOutput } from "../output";
 
@@ -40,7 +41,9 @@ export function formatFullInfo(inventory: SystemInventory): string {
 			`  ${source.key}: supported=${source.supported} success=${source.success ?? "-"} exit=${source.exitCode ?? "-"} truncated=${source.truncated}`,
 	);
 	const pluginLines = inventory.plugins.length
-		? inventory.plugins.flatMap(formatDeveloperPluginSnapshotRows)
+		? inventory.plugins
+				.flatMap(formatDeveloperPluginSnapshotRows)
+				.map(sanitizeLocalInspectorText)
 		: ["  - none detected"];
 
 	const lines = [

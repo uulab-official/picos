@@ -114,8 +114,10 @@ describe("system inventory", () => {
 	});
 
 	test("formats full info with OS-like sections", () => {
+		const context = "ssh://operator:plain-password@docker.example/prod";
 		const docker = createDockerSnapshotFixture({
 			status: "partial",
+			data: { context },
 			evidence: [
 				{
 					id: "engine",
@@ -201,6 +203,8 @@ describe("system inventory", () => {
 		expect(output).toContain("Permissions");
 		expect(output).toContain("Plugins");
 		expect(output).toContain("DOCKER partial");
+		expect(output).toContain("docker.example/prod");
+		expect(output).not.toContain("plain-password");
 		expect(output).toContain("Sources");
 		expect(output).toContain("processes: supported=true success=false exit=1");
 		expect(output).not.toContain("raw-secret-output");
