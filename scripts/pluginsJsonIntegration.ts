@@ -3,6 +3,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import {
 	createDockerFixture,
 	type DockerFixtureMode,
+	runWithDockerFixture,
 	terminateProcessTree,
 } from "./support/dockerFixture";
 
@@ -187,12 +188,9 @@ async function runPicosWithFixture(
 	mode: DockerFixtureMode,
 	args: string[],
 ): Promise<CommandResult> {
-	const fixture = await createDockerFixture(mode);
-	try {
-		return await runPicos(args, fixture.environment);
-	} finally {
-		await fixture.cleanup();
-	}
+	return runWithDockerFixture(mode, (fixture) =>
+		runPicos(args, fixture.environment),
+	);
 }
 
 function runPicosWithEmptyPath(args: string[]): Promise<CommandResult> {

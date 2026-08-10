@@ -26,6 +26,21 @@ export type ProcessTreeTerminationDependencies = {
 	waitForExit?(child: ChildProcess): Promise<void>;
 };
 
+export class ProcessTreeTerminationError extends Error {
+	readonly cleanupSafe = false;
+	readonly emergencyCleanupFailure?: unknown;
+
+	constructor(
+		message: string,
+		cause: unknown,
+		emergencyCleanupFailure?: unknown,
+	) {
+		super(message, { cause });
+		this.name = "ProcessTreeTerminationError";
+		this.emergencyCleanupFailure = emergencyCleanupFailure;
+	}
+}
+
 const DOCKER_FIXTURE_ENTRYPOINT = fileURLToPath(
 	new URL("./dockerFixtureEntrypoint.ts", import.meta.url),
 );
@@ -76,6 +91,25 @@ export async function createDockerFixture(
 	};
 }
 
+export async function runWithDockerFixture<T>(
+	mode: DockerFixtureMode,
+	run: (fixture: DockerFixture) => Promise<T>,
+	createFixture: (
+		fixtureMode: DockerFixtureMode,
+	) => Promise<DockerFixture> = createDockerFixture,
+): Promise<T> {
+	const fixture = await createFixture(mode);
+	let cleanupSafe = true;
+	try {
+		return await run(fixture);
+	} catch (caught) {
+		cleanupSafe = !(caught instanceof ProcessTreeTerminationError);
+		throw caught;
+	} finally {
+		if (cleanupSafe) await fixture.cleanup();
+	}
+}
+
 export async function terminateProcessTree(
 	child: ChildProcess,
 	overrides: ProcessTreeTerminationDependencies = {},
@@ -112,28 +146,44 @@ export async function terminateProcessTree(
 			dependencies.terminatePosixProcessGroup(child.pid);
 		}
 	} catch (treeKillFailure) {
+		const failure = new ProcessTreeTerminationError(
+			`process tree termination failed for child ${child.pid ?? "unknown"}: ${formatError(treeKillFailure)}`,
+			treeKillFailure,
+		);
 		if (hasTerminalState(child)) {
-			await dependencies.waitForExit(child);
+			try {
+				await dependencies.waitForExit(child);
+			} catch (waitForExitFailure) {
+				throw new ProcessTreeTerminationError(
+					`${failure.message}; terminal child exit could not be confirmed: ${formatError(waitForExitFailure)}`,
+					treeKillFailure,
+					waitForExitFailure,
+				);
+			}
 			return;
 		}
 
-		const failure = new Error(
-			`process tree termination failed for child ${child.pid ?? "unknown"}: ${formatError(treeKillFailure)}`,
-			{ cause: treeKillFailure },
-		);
 		try {
 			dependencies.terminateDirectChild(child);
 			await dependencies.waitForExit(child);
 		} catch (emergencyCleanupFailure) {
-			throw new Error(
+			throw new ProcessTreeTerminationError(
 				`${failure.message}; emergency direct-child cleanup also failed: ${formatError(emergencyCleanupFailure)}`,
-				{ cause: failure },
+				treeKillFailure,
+				emergencyCleanupFailure,
 			);
 		}
 		throw failure;
 	}
 
-	await dependencies.waitForExit(child);
+	try {
+		await dependencies.waitForExit(child);
+	} catch (waitForExitFailure) {
+		throw new ProcessTreeTerminationError(
+			`process tree termination could not confirm child ${child.pid ?? "unknown"}: ${formatError(waitForExitFailure)}`,
+			waitForExitFailure,
+		);
+	}
 }
 
 async function compileDockerFixture(
