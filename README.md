@@ -90,6 +90,9 @@ picos config set auditArchiveRetentionLimit 20
 picos info
 picos info --full
 picos info --json
+picos plugins
+picos plugins docker
+picos plugins docker --json
 picos doctor
 picos doctor --json
 picos ping google.com --count 4 --timeout 10000
@@ -164,7 +167,10 @@ Commands:
 - `picos` or `picos ui`: open the TUI control panel.
 - `picos info`: print network and system summary.
 - `picos info --full`: print OS-style system, hardware, storage, process, network, runtime, and permission inventory.
-- Add `--json` to `picos info`, `routes`, `route`, `connections`, `ports`, `doctor`, `dns`, `tools`, `monitor`, `logs`, `process`, or `operations` for one schema-versioned local diagnostic result. Table commands preserve filter/sort/source status and bounded row counts; doctor exposes stable check IDs and health counts; Tools expose normalized DNS/RDAP/IP/TCP/TLS/ping/traceroute data; monitor/log/process results retain collector evidence while omitting process arguments and raw command output; saved operation presets replay those same contracts. Failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
+- Add `--json` to `picos info`, `plugins`, `routes`, `route`, `connections`, `ports`, `doctor`, `dns`, `tools`, `monitor`, `logs`, `process`, or `operations` for one schema-versioned local diagnostic result. Table commands preserve filter/sort/source status and bounded row counts; doctor exposes stable check IDs and health counts; Tools expose normalized DNS/RDAP/IP/TCP/TLS/ping/traceroute data; monitor/log/process results retain collector evidence while omitting process arguments and raw command output; saved operation presets replay those same contracts. Failures remain one JSON document with a non-zero exit. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
+- `picos plugins`: list the built-in, static, platform-neutral developer-plugin registry and each plugin's read-only capability contract. Listing the registry does not inspect the local machine.
+- `picos plugins docker`: inspect Docker client, active context, engine summary, and container summaries through the read-only Docker plugin. Every collector is bounded to five seconds, container summaries to 200 rows, and normalized text fields to 256 characters; Docker mutations remain locked.
+- `picos plugins docker --json`: emit one schema-versioned plugin snapshot. `unsupported` (Docker is unavailable) and `partial` (some retained collector evidence is incomplete) are valid zero-exit inspection outcomes. The document reports source and result truncation separately, and excludes raw Docker output plus container command, environment, and secret-bearing fields. See [docs/LOCAL_AUTOMATION.md](docs/LOCAL_AUTOMATION.md).
 - `picos doctor`: run all eight read-only network diagnostics; `--json` contains individual probe failures and exits non-zero when any check fails.
 - `picos ping <host>`: run a safe ping test without shell interpolation.
 - `picos ping <host> --count <n> --timeout <ms>`: run ping with bounded count and timeout options.
@@ -506,7 +512,7 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## v0.1 Scope
 
-v0.1 focuses on safe read-only inspection, diagnostics, and a visible TUI shell. Adapter enable/disable, Wi-Fi mutation, firewall changes, route changes, Docker/Kubernetes plugins, and background daemons are intentionally excluded until the action permission model is implemented end to end.
+v0.1 focuses on safe read-only inspection, diagnostics, and a visible TUI shell. Adapter enable/disable, Wi-Fi mutation, firewall changes, route changes, Docker/Kubernetes mutation plugins, local SSH configuration inventory, and background daemons are intentionally excluded until the action permission model is implemented end to end.
 
 ## License
 

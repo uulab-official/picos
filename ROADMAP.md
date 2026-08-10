@@ -5485,8 +5485,9 @@ Goal: keep the latest reusable `I` audit jump visible beside Status Activity res
 
 Goal: expand beyond local OS inventory into developer operations.
 
-- Plugin registry design.
-- Docker read-only plugin.
-- SSH profile inventory.
+- Completed: built-in, static, platform-neutral plugin registry and capability contract.
+- Completed: Docker read-only plugin with bounded client, context, engine, and container inspection.
+- Next, developer-environment priority 1: SSH profile inventory.
+- Out of scope: Docker mutation and inventory of local SSH configuration.
 - Logs workspace.
 - System monitor workspace.

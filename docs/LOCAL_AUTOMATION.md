@@ -1,12 +1,14 @@
 # Local Inspector Automation
 
-picos exposes versioned JSON snapshots for its primary read-only local OS and network inspectors, plus saved presets that replay those inspectors with the same bounds.
+picos exposes versioned JSON snapshots for its primary read-only local OS and network inspectors, a built-in developer-plugin registry, and saved presets that replay those inspectors with the same bounds.
 
 ## Commands
 
 ```bash
 picos info --json
 picos info --full --json
+picos plugins --json
+picos plugins docker --json
 picos locations --json
 picos drives --json
 picos remotes --json
@@ -75,6 +77,25 @@ limit, and reports `totalCount`, `returnedCount`, and `truncated`.
 check rows. A completed but unhealthy report keeps `status=completed` in the
 document and exits non-zero, matching the plain-text command's failure status.
 
+`plugins --json` lists the built-in, static, platform-neutral developer-plugin
+catalog. Each contract describes its fixed `source`, `risk`, locked-mutation
+posture, and capability bounds; listing the catalog does not inspect the local
+machine.
+
+`plugins docker --json` returns one Docker plugin snapshot with
+`request.action=inspect`, `request.id=docker`, the read-only contract, collector
+evidence, `sourceTruncated`, `resultTruncated`, and parsed client, context,
+engine, count, and container-summary data. The outer document remains
+`status=completed` and exits zero when the nested `data.status` is `unsupported`
+(the Docker client is unavailable) or `partial` (one or more collector results
+are incomplete); both are valid inspection outcomes with retained evidence.
+Each of the four collectors is capped at 5,000 ms, the container result is capped
+at 200 rows, and normalized text fields are capped at 256 characters.
+`sourceTruncated` describes bounded child output, while `resultTruncated`
+describes container rows dropped after parsing. Raw Docker stdout/stderr,
+container command and environment fields, and secret-bearing values are never
+serialized.
+
 `doctor` returns eight stable check IDs under `data.checks`, plus `passCount`, `warnCount`, `failCount`, `checkCount`, and `healthy`. A failed individual network probe remains a normalized check instead of aborting the full report.
 
 `dns` returns configured resolver servers with `source.kind=node` and `source.api=dns.getServers`. `dns flush --json` is intentionally different: it exits non-zero with `status=blocked`, `error.code=PICOS_ACTION_LOCKED`, write/admin risk, confirmation requirements, and `executionEnabled=false`. JSON mode never enables the mutation.
@@ -124,6 +145,7 @@ Expected failures use `status=failed` and `error.code=PICOS_LOCAL_INSPECTOR_FAIL
 
 ```bash
 picos info --json | jq '.data.network.interfaces'
+picos plugins docker --json | jq '{status: .data.status, containers: .data.returnedContainerCount}'
 picos connections --filter 443 --json | jq '.data.connections'
 picos ports --json | jq '.data.ports[] | select(.command == "node")'
 picos routes --json | jq '.data.diagnostics'
@@ -142,7 +164,7 @@ picos operations run pulse --json | jq '{command, preset: .request.presetId, out
 
 ## Privacy And Safety
 
-Local JSON mode is read-only and does not widen the OS mutation policy. Raw OS/tool command output and process arguments are omitted so automation receives parsed fields rather than an accidental dump of unrelated local state. Nested credential-like tool fields are redacted recursively. `safeExec()` caps combined stdout/stderr capture at 4 MiB by default, terminates the process group where supported, and applies a final completion bound after forced termination. Public-IP, doctor, RDAP, IP-info, DNS, TCP, and TLS behavior remains the same as their normal CLI forms; external requests are always explicit commands.
+Local JSON mode is read-only and does not widen the OS mutation policy. Raw OS/tool command output and process arguments are omitted so automation receives parsed fields rather than an accidental dump of unrelated local state. Docker plugin JSON likewise omits raw Docker output plus container command, environment, and secret-bearing fields. Nested credential-like tool fields are redacted recursively. `safeExec()` caps combined stdout/stderr capture at 4 MiB by default, terminates the process group where supported, and applies a final completion bound after forced termination. Public-IP, doctor, RDAP, IP-info, DNS, TCP, and TLS behavior remains the same as their normal CLI forms; external requests are always explicit commands.
 
 Saved operation presets keep that boundary. They are local config records of already-permitted read-only inspector options, they cannot store or run an arbitrary command, and creating or deleting one is the only part of the flow that writes anything, which is why both require an exact confirmation phrase. Bounded monitor sampling cannot become an unbounded background collector: the scheduled interval span is capped, the sample count is capped, and every per-sample collector call runs through `safeExec()` with its own timeout, so the worst case is finite even when a platform command hangs.
 
@@ -153,4 +175,5 @@ bun run harness local-json
 bun run harness diagnostics-json
 bun run harness operations-json
 bun run harness automation-presets
+bun run harness plugins-json
 ```

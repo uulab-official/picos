@@ -21,7 +21,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
-- The System workspace now displays a compact, bounded Docker developer-plugin inventory with its read-only/locked safety posture and visible collection warnings.
+- `picos plugins` now lists the built-in, static, platform-neutral developer-plugin registry, while `picos plugins docker` exposes the same Docker snapshot used by core, CLI, and the System workspace. Docker inspection is read-only only: each collector is capped at five seconds, container summaries at 200 rows, and normalized text at 256 characters; raw Docker output and container command, environment, and secret-bearing fields are excluded. `picos plugins docker --json` emits one schema-versioned document with separate source/result truncation evidence, and `unsupported` Docker or a `partial` snapshot remain valid zero-exit inspection outcomes. Docker mutations and local SSH configuration inventory remain out of scope.
 - `picos locations --json` and `picos drives --json` now expose bounded, schema-versioned file-location documents with redacted paths and explicit count/truncation metadata.
 - Files copy/move/delete now have a shared preview and execution path: copy/move request a destination, all three require exact confirmation, local execution requires `editorSaveMode=local-write`, existing destinations are protected, provider/filesystem roots cannot be deleted, and SFTP mutation remains locked.
 - `picos remotes --json` now lists configured SFTP profiles as one bounded document without private-key paths, and `picos release-health --json` exposes release checks while preserving non-zero failure status.

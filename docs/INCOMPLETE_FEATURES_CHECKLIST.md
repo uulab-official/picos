@@ -42,9 +42,9 @@
 
 ## 5. 개발자 환경 확장
 
-- [ ] 상태: 대기 — plugin registry 설계 및 capability contract
-- [ ] 상태: 대기 — Docker read-only plugin
-- [ ] 상태: 대기 — SSH profile inventory
+- [x] 상태: 완료 — plugin registry 설계 및 capability contract
+- [x] 상태: 완료 — Docker read-only plugin
+- [ ] 상태: 대기 — SSH profile inventory (developer-environment priority 1; local SSH config inventory는 범위 밖)
 - [ ] 완료 조건 — 플러그인이 core/TUI/CLI 경계를 침범하지 않고, 지원하지 않는 환경에서 partial 상태를 표시
 
 ## 6. 구조 및 품질
@@ -71,6 +71,6 @@
 
 ## 우선순위
 
-1. plugin registry와 Docker/SSH 확장
+1. SSH profile inventory (developer-environment priority 1; local SSH config inventory는 범위 밖)
 2. 실제 OS mutation 정책 및 구현
 3. SFTP remote write 위험 검토
