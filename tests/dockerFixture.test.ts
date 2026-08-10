@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -7,6 +7,7 @@ import { basename, join, resolve, win32 } from "node:path";
 import {
 	createDockerFixture,
 	createDockerFixtureBuildPlan,
+	type ProcessTreeTerminationDependencies,
 	terminateProcessTree,
 } from "../scripts/support/dockerFixture";
 
@@ -52,22 +53,18 @@ test("Docker fixture process cleanup waits for descendants to terminate", async 
 	const directory = await mkdtemp(join(tmpdir(), "picos-process-tree-"));
 	const ready = join(directory, "descendant-ready");
 	const marker = join(directory, "descendant-survived");
-	const child = spawn(
-		process.execPath,
-		[
-			"-e",
-			`const { spawn } = require("node:child_process"); require("node:fs").writeFileSync(process.env.PICOS_FIXTURE_READY, "ready"); spawn(process.execPath, ["-e", "setTimeout(() => require('node:fs').writeFileSync(process.env.PICOS_FIXTURE_MARKER, 'survived'), 500); setInterval(() => {}, 1_000)"], { stdio: "ignore", env: process.env }); setInterval(() => {}, 1_000);`,
-		],
-		{
-			detached: process.platform !== "win32",
-			env: {
-				...process.env,
-				PICOS_FIXTURE_MARKER: marker,
-				PICOS_FIXTURE_READY: ready,
-			},
-			stdio: "ignore",
+	const descendantSource =
+		"const { writeFileSync } = require('node:fs'); writeFileSync(process.env.PICOS_FIXTURE_READY, 'descendant-ready'); setTimeout(() => writeFileSync(process.env.PICOS_FIXTURE_MARKER, 'survived'), 500); setInterval(() => {}, 1_000);";
+	const parentSource = `const { spawn } = require("node:child_process"); spawn(process.execPath, ["-e", ${JSON.stringify(descendantSource)}], { stdio: "ignore", env: process.env }); setInterval(() => {}, 1_000);`;
+	const child = spawn(process.execPath, ["-e", parentSource], {
+		detached: process.platform !== "win32",
+		env: {
+			...process.env,
+			PICOS_FIXTURE_MARKER: marker,
+			PICOS_FIXTURE_READY: ready,
 		},
-	);
+		stdio: "ignore",
+	});
 	try {
 		await waitForFile(ready);
 		await terminateProcessTree(child);
@@ -76,6 +73,46 @@ test("Docker fixture process cleanup waits for descendants to terminate", async 
 	} finally {
 		if (child.exitCode === null) await terminateProcessTree(child);
 		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test("Docker fixture rejects a live child when process-tree termination fails", async () => {
+	const treeKillFailures = [
+		{
+			platform: "linux",
+			terminatePosixProcessGroup: () => {
+				throw new Error("simulated process-group failure");
+			},
+		},
+		{
+			platform: "win32",
+			terminateWindowsProcessTree: async () => {
+				throw new Error("simulated taskkill failure");
+			},
+		},
+	] satisfies ProcessTreeTerminationDependencies[];
+
+	for (const dependencies of treeKillFailures) {
+		const child = spawn(
+			process.execPath,
+			["-e", "setInterval(() => {}, 1_000)"],
+			{
+				detached: process.platform !== "win32",
+				stdio: "ignore",
+			},
+		);
+		try {
+			expect(child.exitCode === null && child.signalCode === null).toBe(true);
+			await expect(terminateProcessTree(child, dependencies)).rejects.toThrow(
+				"process tree",
+			);
+			await waitForChildExit(child);
+			expect(child.exitCode === null && child.signalCode === null).toBe(false);
+		} finally {
+			if (child.exitCode === null && child.signalCode === null) {
+				await terminateProcessTree(child);
+			}
+		}
 	}
 });
 
@@ -155,4 +192,12 @@ async function waitForFile(path: string): Promise<void> {
 		}
 		await delay(25);
 	}
+}
+
+async function waitForChildExit(child: ChildProcess): Promise<void> {
+	if (child.exitCode !== null || child.signalCode !== null) return;
+	await new Promise<void>((resolve, reject) => {
+		child.once("exit", () => resolve());
+		child.once("error", reject);
+	});
 }

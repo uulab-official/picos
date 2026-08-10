@@ -18,6 +18,14 @@ export type DockerFixture = {
 	cleanup(): Promise<void>;
 };
 
+export type ProcessTreeTerminationDependencies = {
+	platform?: NodeJS.Platform;
+	terminatePosixProcessGroup?(pid: number): void;
+	terminateWindowsProcessTree?(pid: number): Promise<void>;
+	terminateDirectChild?(child: ChildProcess): void;
+	waitForExit?(child: ChildProcess): Promise<void>;
+};
+
 const DOCKER_FIXTURE_ENTRYPOINT = fileURLToPath(
 	new URL("./dockerFixtureEntrypoint.ts", import.meta.url),
 );
@@ -68,30 +76,64 @@ export async function createDockerFixture(
 	};
 }
 
-export async function terminateProcessTree(child: ChildProcess): Promise<void> {
-	if (child.exitCode !== null || child.signalCode !== null) return;
-	if (!child.pid) {
-		child.kill("SIGKILL");
-		await waitForExit(child);
+export async function terminateProcessTree(
+	child: ChildProcess,
+	overrides: ProcessTreeTerminationDependencies = {},
+): Promise<void> {
+	const dependencies = {
+		platform: process.platform,
+		terminatePosixProcessGroup: (pid: number) => {
+			process.kill(-pid, "SIGKILL");
+		},
+		terminateWindowsProcessTree,
+		terminateDirectChild: (target: ChildProcess) => {
+			if (!target.kill("SIGKILL") && !hasTerminalState(target)) {
+				throw new Error(
+					`could not terminate direct child ${target.pid ?? "unknown"}`,
+				);
+			}
+		},
+		waitForExit,
+		...overrides,
+	};
+
+	if (hasTerminalState(child)) {
+		await dependencies.waitForExit(child);
 		return;
 	}
 
-	if (process.platform === "win32") {
-		try {
-			await terminateWindowsProcessTree(child.pid);
-		} catch {
-			// `taskkill` can race a process that has already exited. Directly ending the
-			// child is the fallback; the normal path always targets the whole tree first.
-			child.kill("SIGKILL");
+	try {
+		if (!child.pid) {
+			throw new Error("child process has no pid");
 		}
-	} else {
-		try {
-			process.kill(-child.pid, "SIGKILL");
-		} catch {
-			child.kill("SIGKILL");
+		if (dependencies.platform === "win32") {
+			await dependencies.terminateWindowsProcessTree(child.pid);
+		} else {
+			dependencies.terminatePosixProcessGroup(child.pid);
 		}
+	} catch (treeKillFailure) {
+		if (hasTerminalState(child)) {
+			await dependencies.waitForExit(child);
+			return;
+		}
+
+		const failure = new Error(
+			`process tree termination failed for child ${child.pid ?? "unknown"}: ${formatError(treeKillFailure)}`,
+			{ cause: treeKillFailure },
+		);
+		try {
+			dependencies.terminateDirectChild(child);
+			await dependencies.waitForExit(child);
+		} catch (emergencyCleanupFailure) {
+			throw new Error(
+				`${failure.message}; emergency direct-child cleanup also failed: ${formatError(emergencyCleanupFailure)}`,
+				{ cause: failure },
+			);
+		}
+		throw failure;
 	}
-	await waitForExit(child);
+
+	await dependencies.waitForExit(child);
 }
 
 async function compileDockerFixture(
@@ -132,6 +174,14 @@ async function terminateWindowsProcessTree(pid: number): Promise<void> {
 
 function waitForExit(child: ChildProcess): Promise<void> {
 	return waitForExitCode(child).then(() => undefined);
+}
+
+function hasTerminalState(child: ChildProcess): boolean {
+	return child.exitCode !== null || child.signalCode !== null;
+}
+
+function formatError(caught: unknown): string {
+	return caught instanceof Error ? caught.message : String(caught);
 }
 
 function waitForExitCode(child: ChildProcess): Promise<number | null> {
