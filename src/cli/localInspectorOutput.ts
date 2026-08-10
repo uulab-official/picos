@@ -9,6 +9,12 @@ import type {
 	HandoffIndex,
 	HandoffIndexItem,
 } from "../core/handoffIndex";
+import type {
+	DeveloperPluginCapability,
+	DeveloperPluginContract,
+	DeveloperPluginEvidence,
+	DeveloperPluginSnapshot,
+} from "../core/pluginTypes";
 import {
 	filterListeningPorts,
 	type PortSort,
@@ -40,6 +46,7 @@ const LOCAL_INSPECTOR_JSON_ROW_BUDGET =
 
 export type LocalInspectorCommand =
 	| "info"
+	| "plugins"
 	| "locations"
 	| "drives"
 	| "remotes"
@@ -544,6 +551,7 @@ function normalizeFullInventory(inventory: SystemInventory) {
 			bunVersion: sanitizeText(inventory.runtime.bunVersion),
 			configPath: sanitizeText(inventory.runtime.configPath),
 		},
+		plugins: inventory.plugins.map(normalizeFullPlugin),
 		sources: (inventory.sources ?? []).map((source) => ({
 			key: source.key,
 			command: source.command ? sanitizeText(source.command) : null,
@@ -555,6 +563,79 @@ function normalizeFullInventory(inventory: SystemInventory) {
 			totalCount: source.totalCount ?? null,
 		})),
 	};
+}
+
+function normalizeFullPlugin(snapshot: DeveloperPluginSnapshot) {
+	return {
+		id: snapshot.id,
+		status: snapshot.status,
+		contract: normalizePluginContract(snapshot.contract),
+		sourceTruncated: snapshot.sourceTruncated,
+		resultTruncated: snapshot.resultTruncated,
+		evidence: snapshot.evidence.map(normalizePluginEvidence),
+		data: {
+			clientVersion: normalizeOptionalPluginText(snapshot.data.clientVersion),
+			context: normalizeOptionalPluginText(snapshot.data.context),
+			engineVersion: normalizeOptionalPluginText(snapshot.data.engineVersion),
+			containerCounts: { ...snapshot.data.containerCounts },
+			imageCount: snapshot.data.imageCount,
+			requestedContainerLimit: snapshot.data.requestedContainerLimit,
+			returnedContainerCount: snapshot.data.returnedContainerCount,
+			containers: snapshot.data.containers.map((container) => ({
+				id: sanitizeText(container.id),
+				names: sanitizeText(container.names),
+				image: sanitizeText(container.image),
+				state: sanitizeText(container.state),
+				status: sanitizeText(container.status),
+			})),
+		},
+	};
+}
+
+function normalizePluginContract(contract: DeveloperPluginContract) {
+	return {
+		id: contract.id,
+		label: sanitizeText(contract.label),
+		description: sanitizeText(contract.description),
+		source: contract.source,
+		risk: contract.risk,
+		mutations: contract.mutations,
+		capabilities: contract.capabilities.map(normalizePluginCapability),
+	};
+}
+
+function normalizePluginCapability(capability: DeveloperPluginCapability) {
+	return {
+		id: sanitizeText(capability.id),
+		label: sanitizeText(capability.label),
+		risk: capability.risk,
+		status: capability.status,
+		bounds: capability.bounds
+			? {
+					timeoutMs: capability.bounds.timeoutMs ?? null,
+					maxEntries: capability.bounds.maxEntries ?? null,
+					maxTextLength: capability.bounds.maxTextLength ?? null,
+				}
+			: null,
+	};
+}
+
+function normalizePluginEvidence(evidence: DeveloperPluginEvidence) {
+	return {
+		id: evidence.id,
+		command: sanitizeText(evidence.command),
+		args: evidence.args.map(sanitizeText),
+		supported: evidence.supported,
+		success: evidence.success,
+		exitCode: evidence.exitCode,
+		truncated: evidence.truncated,
+	};
+}
+
+function normalizeOptionalPluginText(
+	value: string | undefined | null,
+): string | null {
+	return value === undefined || value === null ? null : sanitizeText(value);
 }
 
 function normalizeSystem(system: SystemSummary) {
@@ -898,6 +979,7 @@ const localInspectorCommands: Record<LocalInspectorCommand, true> = {
 	monitor: true,
 	operations: true,
 	ports: true,
+	plugins: true,
 	process: true,
 	remotes: true,
 	"release-health": true,

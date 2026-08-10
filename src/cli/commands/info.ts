@@ -1,4 +1,5 @@
 import { getNetworkSummary } from "../../core/network";
+import { formatDeveloperPluginSnapshotRows } from "../../core/plugins";
 import { formatUptime, getSystemSummary } from "../../core/system";
 import { createSystemInventory } from "../../core/systemInventory";
 import type { SystemInventory } from "../../core/types";
@@ -38,6 +39,9 @@ export function formatFullInfo(inventory: SystemInventory): string {
 		(source) =>
 			`  ${source.key}: supported=${source.supported} success=${source.success ?? "-"} exit=${source.exitCode ?? "-"} truncated=${source.truncated}`,
 	);
+	const pluginLines = inventory.plugins.length
+		? inventory.plugins.flatMap(formatDeveloperPluginSnapshotRows)
+		: ["  - none detected"];
 
 	const lines = [
 		"picos info --full",
@@ -76,6 +80,9 @@ export function formatFullInfo(inventory: SystemInventory): string {
 		`  Node:      ${inventory.runtime.nodeVersion}`,
 		`  Bun:       ${inventory.runtime.bunVersion}`,
 		`  Config:    ${inventory.runtime.configPath}`,
+		"",
+		"Plugins",
+		...pluginLines,
 	];
 	if (sourceLines.length > 0) {
 		lines.push("", "Sources", ...sourceLines);

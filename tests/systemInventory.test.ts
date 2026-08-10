@@ -114,6 +114,21 @@ describe("system inventory", () => {
 	});
 
 	test("formats full info with OS-like sections", () => {
+		const docker = createDockerSnapshotFixture({
+			status: "partial",
+			evidence: [
+				{
+					id: "engine",
+					command: "docker",
+					args: ["version"],
+					supported: true,
+					success: false,
+					exitCode: 1,
+					truncated: false,
+					diagnostic: "raw-secret-output",
+				},
+			],
+		});
 		const output = formatFullInfo({
 			system: {
 				hostname: "host",
@@ -163,7 +178,7 @@ describe("system inventory", () => {
 				bunVersion: "1.0.0",
 				configPath: "/tmp/config.json",
 			},
-			plugins: [],
+			plugins: [docker],
 			sources: [
 				{
 					key: "processes",
@@ -184,7 +199,10 @@ describe("system inventory", () => {
 		expect(output).toContain("LAN: en0");
 		expect(output).toContain("en0 wifiOrEthernet connected 192.168.0.12/24");
 		expect(output).toContain("Permissions");
+		expect(output).toContain("Plugins");
+		expect(output).toContain("DOCKER partial");
 		expect(output).toContain("Sources");
 		expect(output).toContain("processes: supported=true success=false exit=1");
+		expect(output).not.toContain("raw-secret-output");
 	});
 });

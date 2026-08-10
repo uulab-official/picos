@@ -4,6 +4,20 @@ import { createGuardedRemoteFileRequest } from "../src/cli/commands/remotes";
 import { isReportedCliError } from "../src/cli/errors";
 
 describe("CLI command registry", () => {
+	test("registers the optional plugin inspection command with JSON output", () => {
+		// Break caught: the plugin automation command is absent, requires an id,
+		// or cannot request its one-document JSON representation.
+		const cli = createCli();
+		const command = cli.commands.find(
+			(candidate) => candidate.name === "plugins",
+		);
+
+		expect(command?.rawName).toBe("plugins [id]");
+		expect(
+			command?.options.some((option) => option.name === "json"),
+		).toBeTrue();
+	});
+
 	test("exposes telnet as a TCP connect reachability alias", () => {
 		const cli = createCli();
 		const commandNames = cli.commands.map((command) => command.name);
@@ -49,6 +63,7 @@ describe("CLI command registry", () => {
 		const cli = createCli();
 		for (const name of [
 			"info",
+			"plugins",
 			"routes",
 			"route",
 			"connections",
@@ -66,6 +81,31 @@ describe("CLI command registry", () => {
 				command?.options.some((option) => option.name === "json"),
 			).toBeTrue();
 		}
+	});
+
+	test("reports unknown plugin JSON requests as one failure document", async () => {
+		// Break caught: an unknown plugin can exit without a structured failure or
+		// report duplicate JSON documents.
+		const output: string[] = [];
+		const originalLog = console.log;
+		let caught: unknown;
+		console.log = (value?: unknown) => output.push(String(value));
+		try {
+			await runCli(["plugins", "missing", "--json"]);
+		} catch (error) {
+			caught = error;
+		} finally {
+			console.log = originalLog;
+		}
+
+		expect(isReportedCliError(caught)).toBeTrue();
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			command: "plugins",
+			status: "failed",
+			request: { action: "inspect", id: "missing" },
+			error: { code: "PICOS_LOCAL_INSPECTOR_FAILED" },
+		});
 	});
 
 	test("reports invalid operations JSON requests as one failure document", async () => {

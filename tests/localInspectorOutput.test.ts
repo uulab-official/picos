@@ -18,6 +18,7 @@ import {
 	reportLocalInspectorJsonFailure,
 } from "../src/cli/localInspectorOutput";
 import type { NetworkSummary } from "../src/core/types";
+import { createDockerSnapshotFixture } from "./support/pluginFixtures";
 
 const network: NetworkSummary = {
 	status: "online",
@@ -82,6 +83,30 @@ describe("local inspector JSON output", () => {
 		);
 	});
 
+	test("routes plugin JSON parser failures through the local inspector registry", () => {
+		// Break caught: plugins is missing from the exhaustive local-inspector
+		// command record, so parser failures bypass the one-document contract.
+		const output: string[] = [];
+		const originalLog = console.log;
+		console.log = (value?: unknown) => output.push(String(value));
+		try {
+			expect(
+				reportLocalInspectorCliParseFailure(
+					["plugins", "--json"],
+					new Error("unknown option"),
+				),
+			).toBeTrue();
+		} finally {
+			console.log = originalLog;
+		}
+
+		expect(output).toHaveLength(1);
+		expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+			command: "plugins",
+			status: "failed",
+		});
+	});
+
 	test("formats a stable info snapshot without embedding raw source output", () => {
 		const output = formatInfoJson({
 			scope: "summary",
@@ -115,6 +140,21 @@ describe("local inspector JSON output", () => {
 	});
 
 	test("formats full inventory sections under the same schema", () => {
+		const docker = createDockerSnapshotFixture({
+			status: "partial",
+			evidence: [
+				{
+					id: "client",
+					command: "docker",
+					args: ["version"],
+					supported: true,
+					success: false,
+					exitCode: 1,
+					truncated: false,
+					diagnostic: "raw-secret-output",
+				},
+			],
+		});
 		const result = JSON.parse(
 			formatInfoJson({
 				scope: "full",
@@ -151,7 +191,7 @@ describe("local inspector JSON output", () => {
 						bunVersion: "1.3.0",
 						configPath: "/home/developer/.config/picos/config.json",
 					},
-					plugins: [],
+					plugins: [docker],
 					sources: [
 						{
 							key: "storage",
@@ -203,6 +243,16 @@ describe("local inspector JSON output", () => {
 			truncated: false,
 			volumes: [],
 		});
+		expect(result.data.plugins).toMatchObject([
+			{
+				id: "docker",
+				status: "partial",
+				contract: { mutations: "locked" },
+				evidence: [{ id: "client", success: false }],
+			},
+		]);
+		expect(result.data.plugins[0].evidence[0]).not.toHaveProperty("diagnostic");
+		expect(JSON.stringify(result)).not.toContain("raw-secret-output");
 	});
 
 	test("filters and sorts connections while reporting all counts", () => {

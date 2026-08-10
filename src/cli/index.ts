@@ -23,6 +23,7 @@ import { logsCommand } from "./commands/logs";
 import { monitorCommand } from "./commands/monitor";
 import { operationsCommand } from "./commands/operations";
 import { pingCommand } from "./commands/ping";
+import { pluginsCommand } from "./commands/plugins";
 import { portsCommand } from "./commands/ports";
 import { processCommand } from "./commands/process";
 import { releaseHealthCommand } from "./commands/releaseHealth";
@@ -100,6 +101,10 @@ export function createCli(): ReturnType<typeof cac> {
 		.option("--full", "Print full OS inventory")
 		.option("--json", "Emit one structured local inventory result")
 		.action(infoCommand);
+	cli
+		.command("plugins [id]", "List or inspect built-in developer plugins")
+		.option("--json", "Emit one structured developer-plugin result")
+		.action(pluginsCommand);
 	cli
 		.command("monitor", "Print a live system monitor snapshot")
 		.option("--samples <n>", "Collect 1-60 bounded monitor samples")
