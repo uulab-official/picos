@@ -20,7 +20,7 @@ export type DockerFixture = {
 
 export type ProcessTreeTerminationDependencies = {
 	platform?: NodeJS.Platform;
-	terminatePosixProcessGroup?(pid: number): void;
+	terminatePosixProcessGroup?(pid: number): void | Promise<void>;
 	terminateWindowsProcessTree?(pid: number): Promise<void>;
 	terminateDirectChild?(child: ChildProcess): void;
 	waitForExit?(child: ChildProcess): Promise<void>;
@@ -44,6 +44,7 @@ export class ProcessTreeTerminationError extends Error {
 const DOCKER_FIXTURE_ENTRYPOINT = fileURLToPath(
 	new URL("./dockerFixtureEntrypoint.ts", import.meta.url),
 );
+const PROCESS_EXIT_TIMEOUT_MS = 2_000;
 
 export function createDockerFixtureBuildPlan(
 	directory: string,
@@ -132,7 +133,14 @@ export async function terminateProcessTree(
 	};
 
 	if (hasTerminalState(child)) {
-		await dependencies.waitForExit(child);
+		try {
+			await waitForExitWithinDeadline(child, dependencies.waitForExit);
+		} catch (waitForExitFailure) {
+			throw new ProcessTreeTerminationError(
+				`terminal child exit could not be confirmed for child ${child.pid ?? "unknown"}: ${formatError(waitForExitFailure)}`,
+				waitForExitFailure,
+			);
+		}
 		return;
 	}
 
@@ -143,7 +151,7 @@ export async function terminateProcessTree(
 		if (dependencies.platform === "win32") {
 			await dependencies.terminateWindowsProcessTree(child.pid);
 		} else {
-			dependencies.terminatePosixProcessGroup(child.pid);
+			await dependencies.terminatePosixProcessGroup(child.pid);
 		}
 	} catch (treeKillFailure) {
 		const failure = new ProcessTreeTerminationError(
@@ -152,7 +160,7 @@ export async function terminateProcessTree(
 		);
 		if (hasTerminalState(child)) {
 			try {
-				await dependencies.waitForExit(child);
+				await waitForExitWithinDeadline(child, dependencies.waitForExit);
 			} catch (waitForExitFailure) {
 				throw new ProcessTreeTerminationError(
 					`${failure.message}; terminal child exit could not be confirmed: ${formatError(waitForExitFailure)}`,
@@ -165,7 +173,7 @@ export async function terminateProcessTree(
 
 		try {
 			dependencies.terminateDirectChild(child);
-			await dependencies.waitForExit(child);
+			await waitForExitWithinDeadline(child, dependencies.waitForExit);
 		} catch (emergencyCleanupFailure) {
 			throw new ProcessTreeTerminationError(
 				`${failure.message}; emergency direct-child cleanup also failed: ${formatError(emergencyCleanupFailure)}`,
@@ -177,7 +185,7 @@ export async function terminateProcessTree(
 	}
 
 	try {
-		await dependencies.waitForExit(child);
+		await waitForExitWithinDeadline(child, dependencies.waitForExit);
 	} catch (waitForExitFailure) {
 		throw new ProcessTreeTerminationError(
 			`process tree termination could not confirm child ${child.pid ?? "unknown"}: ${formatError(waitForExitFailure)}`,
@@ -217,13 +225,41 @@ async function terminateWindowsProcessTree(pid: number): Promise<void> {
 		stdio: "ignore",
 		windowsHide: true,
 	});
-	if ((await waitForExitCode(taskkillProcess)) !== 0) {
+	let exitCode: number | null;
+	try {
+		exitCode = await waitForExitCode(taskkillProcess, PROCESS_EXIT_TIMEOUT_MS);
+	} catch (caught) {
+		taskkillProcess.kill("SIGKILL");
+		throw caught;
+	}
+	if (exitCode !== 0) {
 		throw new Error(`taskkill failed for process tree ${pid}`);
 	}
 }
 
 function waitForExit(child: ChildProcess): Promise<void> {
-	return waitForExitCode(child).then(() => undefined);
+	return waitForExitCode(child, PROCESS_EXIT_TIMEOUT_MS).then(() => undefined);
+}
+
+async function waitForExitWithinDeadline(
+	child: ChildProcess,
+	wait: (target: ChildProcess) => Promise<void>,
+): Promise<void> {
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	const deadline = new Promise<never>((_, reject) => {
+		timeout = setTimeout(() => {
+			reject(
+				new Error(
+					`child ${child.pid ?? "unknown"} did not exit within ${PROCESS_EXIT_TIMEOUT_MS}ms`,
+				),
+			);
+		}, PROCESS_EXIT_TIMEOUT_MS);
+	});
+	try {
+		await Promise.race([wait(child), deadline]);
+	} finally {
+		if (timeout) clearTimeout(timeout);
+	}
 }
 
 function hasTerminalState(child: ChildProcess): boolean {
@@ -234,12 +270,36 @@ function formatError(caught: unknown): string {
 	return caught instanceof Error ? caught.message : String(caught);
 }
 
-function waitForExitCode(child: ChildProcess): Promise<number | null> {
+function waitForExitCode(
+	child: ChildProcess,
+	timeoutMs: number,
+): Promise<number | null> {
 	if (child.exitCode !== null || child.signalCode !== null) {
 		return Promise.resolve(child.exitCode);
 	}
 	return new Promise((resolve, reject) => {
-		child.once("exit", (exitCode) => resolve(exitCode));
-		child.once("error", reject);
+		const timeout = setTimeout(() => {
+			cleanup();
+			reject(
+				new Error(
+					`child ${child.pid ?? "unknown"} did not exit within ${timeoutMs}ms`,
+				),
+			);
+		}, timeoutMs);
+		const onExit = (exitCode: number | null) => {
+			cleanup();
+			resolve(exitCode);
+		};
+		const onError = (caught: Error) => {
+			cleanup();
+			reject(caught);
+		};
+		const cleanup = () => {
+			clearTimeout(timeout);
+			child.off("exit", onExit);
+			child.off("error", onError);
+		};
+		child.once("exit", onExit);
+		child.once("error", onError);
 	});
 }

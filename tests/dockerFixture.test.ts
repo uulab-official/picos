@@ -84,79 +84,21 @@ test("Docker fixture process cleanup waits for descendants to terminate", async 
 	}
 });
 
-test("Docker fixture awaits terminal races before resolving", async () => {
-	for (const platform of ["linux", "win32"] as const) {
-		const child = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
-		let releaseWait: (() => void) | undefined;
-		let termination: Promise<void> | undefined;
-		try {
-			await waitForChildExit(child, `${platform} terminal race child`);
-			let treeKillCalled = false;
-			let waitStarted = false;
-			let waitSettled = false;
-			let terminationSettled = false;
-			const waitGate = new Promise<void>((resolve) => {
-				releaseWait = resolve;
-			});
-			const treeKillFailure = new Error(`${platform} terminal-race failure`);
-			const dependencies: ProcessTreeTerminationDependencies =
-				platform === "win32"
-					? {
-							platform,
-							terminateWindowsProcessTree: async () => {
-								treeKillCalled = true;
-								throw treeKillFailure;
-							},
-							waitForExit: async () => {
-								waitStarted = true;
-								await waitGate;
-								waitSettled = true;
-							},
-						}
-					: {
-							platform,
-							terminatePosixProcessGroup: () => {
-								treeKillCalled = true;
-								throw treeKillFailure;
-							},
-							waitForExit: async () => {
-								waitStarted = true;
-								await waitGate;
-								waitSettled = true;
-							},
-						};
-
-			termination = terminateProcessTree(child, dependencies).then(() => {
-				terminationSettled = true;
-			});
-			await waitForCondition(
-				() => waitStarted,
-				`${platform} terminal-race wait did not start`,
-			);
-			expect(treeKillCalled).toBe(false);
-			expect(waitSettled).toBe(false);
-			expect(terminationSettled).toBe(false);
-
-			if (!releaseWait) throw new Error(`${platform} terminal-race wait lost`);
-			releaseWait();
-			await waitForPromise(
-				termination,
-				`${platform} terminal-race termination did not settle`,
-			);
-			expect(waitSettled).toBe(true);
-			expect(terminationSettled).toBe(true);
-		} finally {
-			releaseWait?.();
-			await termination?.catch(() => undefined);
-		}
-	}
+test("Docker fixture confirms a post-POSIX-policy terminal race before cleanup", async () => {
+	await verifyPostPolicyTerminalRace("linux");
 });
 
-test("Docker fixture cleans a confirmed terminal race", async () => {
-	const directory = await mkdtemp(
-		join(tmpdir(), "picos-terminal-process-tree-"),
-	);
+test("Docker fixture confirms a post-Windows-policy terminal race before cleanup", async () => {
+	await verifyPostPolicyTerminalRace("win32");
+});
+
+test("Docker fixture bounds emergency direct-child exit waits and retains unsafe cleanup", async () => {
+	const directory = await mkdtemp(join(tmpdir(), "picos-exit-timeout-"));
 	let cleanupCalls = 0;
+	let directChildTerminationCalls = 0;
+	let waitForExitCalls = 0;
+	let releaseEmergencyWait: (() => void) | undefined;
+	let termination: Promise<unknown> | undefined;
 	const fixture: DockerFixture = {
 		directory,
 		executable: join(directory, "docker"),
@@ -166,29 +108,57 @@ test("Docker fixture cleans a confirmed terminal race", async () => {
 			await rm(directory, { recursive: true, force: true });
 		},
 	};
-	const child = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
+	const child = await spawnDemonstrablyLiveChild(
+		"emergency wait timeout child",
+	);
+	const treeKillFailure = new Error("emergency wait tree-kill failure");
+	const emergencyWaitGate = new Promise<void>((resolve) => {
+		releaseEmergencyWait = resolve;
+	});
+
 	try {
-		await waitForChildExit(child, "confirmed terminal race child");
-		let waitForExitCalled = false;
-		await runWithDockerFixture(
-			"completed",
-			async () => {
-				await terminateProcessTree(child, {
-					platform: "linux",
-					terminatePosixProcessGroup: () => {
-						throw new Error("terminal race group failure");
-					},
-					waitForExit: async () => {
-						waitForExitCalled = true;
-					},
-				});
-			},
-			async () => fixture,
+		termination = captureFailure(() =>
+			runWithDockerFixture(
+				"completed",
+				() =>
+					terminateProcessTree(child, {
+						platform: "linux",
+						terminatePosixProcessGroup: () => {
+							throw treeKillFailure;
+						},
+						terminateDirectChild: () => {
+							directChildTerminationCalls += 1;
+						},
+						waitForExit: async () => {
+							waitForExitCalls += 1;
+							await emergencyWaitGate;
+						},
+					}),
+				async () => fixture,
+			),
 		);
-		expect(waitForExitCalled).toBe(true);
-		expect(cleanupCalls).toBe(1);
-		expect(existsSync(directory)).toBe(false);
+		const caught = await waitForPromise(
+			termination,
+			"emergency direct-child wait did not settle",
+			2_500,
+		);
+		const terminationError = caught as ProcessTreeTerminationErrorShape;
+		expect(caught).toBeInstanceOf(ProcessTreeTerminationError);
+		expect(terminationError.cleanupSafe).toBe(false);
+		expect(terminationError.cause).toBe(treeKillFailure);
+		expect(terminationError.emergencyCleanupFailure).toBeInstanceOf(Error);
+		expect(
+			(terminationError.emergencyCleanupFailure as Error).message,
+		).toContain("within 2000ms");
+		expect(directChildTerminationCalls).toBe(1);
+		expect(waitForExitCalls).toBe(1);
+		expect(cleanupCalls).toBe(0);
+		expect(existsSync(directory)).toBe(true);
 	} finally {
+		releaseEmergencyWait?.();
+		if (isChildLive(child)) child.kill("SIGKILL");
+		await waitForChildExit(child, "emergency wait timeout child cleanup");
+		await termination?.catch(() => undefined);
 		await rm(directory, { recursive: true, force: true });
 	}
 });
@@ -395,6 +365,181 @@ test("Docker fixture accepts only the exact collector argument arrays", async ()
 		await fixture.cleanup();
 	}
 });
+
+async function verifyPostPolicyTerminalRace(
+	platform: "linux" | "win32",
+): Promise<void> {
+	const directory = await mkdtemp(
+		join(tmpdir(), `picos-${platform}-terminal-race-`),
+	);
+	const events: string[] = [];
+	let cleanupCalls = 0;
+	let policyCalls = 0;
+	let waitForExitCalls = 0;
+	let emergencyCleanupCalls = 0;
+	let waitObservedTerminal = false;
+	let policySettled = false;
+	let observedPolicyFailure: unknown;
+	let terminationSettled = false;
+	let releaseWait: (() => void) | undefined;
+	let policyPromise: Promise<void> | undefined;
+	let termination: Promise<void> | undefined;
+	const fixture: DockerFixture = {
+		directory,
+		executable: join(directory, "docker"),
+		environment: {},
+		cleanup: async () => {
+			cleanupCalls += 1;
+			events.push("cleanup");
+			await rm(directory, { recursive: true, force: true });
+		},
+	};
+	const child = await spawnDemonstrablyLiveChild(
+		`${platform} post-policy terminal-race child`,
+	);
+	const childPid = child.pid;
+	if (!childPid) throw new Error(`${platform} terminal-race child PID missing`);
+	const treeKillFailure = new Error(`${platform} exact terminal-race failure`);
+	const waitGate = new Promise<void>((resolve) => {
+		releaseWait = resolve;
+	});
+	const terminateTreeThenFail = (pid: number): Promise<void> => {
+		policyCalls += 1;
+		events.push("policy-called");
+		policyPromise = (async () => {
+			expect(pid).toBe(childPid);
+			expect(isChildLive(child)).toBe(true);
+			if (!child.kill("SIGKILL") && isChildLive(child)) {
+				throw new Error(`${platform} injected policy could not stop child`);
+			}
+			await waitForChildExit(child, `${platform} injected policy child exit`);
+			expect(isChildLive(child)).toBe(false);
+			events.push("child-terminal");
+			policySettled = true;
+			events.push("policy-threw");
+			throw treeKillFailure;
+		})();
+		void policyPromise.catch((caught) => {
+			observedPolicyFailure = caught;
+		});
+		return policyPromise;
+	};
+	const dependencies: ProcessTreeTerminationDependencies = {
+		platform,
+		terminateDirectChild: () => {
+			emergencyCleanupCalls += 1;
+		},
+		waitForExit: async () => {
+			waitForExitCalls += 1;
+			waitObservedTerminal = !isChildLive(child);
+			events.push("wait-called");
+			await waitForPromise(
+				waitGate,
+				`${platform} terminal-race wait gate did not settle`,
+			);
+			events.push("wait-settled");
+		},
+	};
+	if (platform === "win32") {
+		dependencies.terminateWindowsProcessTree = terminateTreeThenFail;
+	} else {
+		dependencies.terminatePosixProcessGroup = terminateTreeThenFail;
+	}
+
+	try {
+		expect(isChildLive(child)).toBe(true);
+		termination = runWithDockerFixture(
+			"completed",
+			() => terminateProcessTree(child, dependencies),
+			async () => fixture,
+		).then(() => {
+			terminationSettled = true;
+			events.push("termination-resolved");
+		});
+		await waitForCondition(
+			() => policySettled && waitForExitCalls === 1,
+			`${platform} post-policy terminal race did not reach exit confirmation`,
+		);
+		expect(policyCalls).toBe(1);
+		expect(observedPolicyFailure).toBe(treeKillFailure);
+		expect(waitForExitCalls).toBe(1);
+		expect(waitObservedTerminal).toBe(true);
+		expect(emergencyCleanupCalls).toBe(0);
+		expect(events).toEqual([
+			"policy-called",
+			"child-terminal",
+			"policy-threw",
+			"wait-called",
+		]);
+		expect(terminationSettled).toBe(false);
+		expect(cleanupCalls).toBe(0);
+		expect(existsSync(directory)).toBe(true);
+
+		if (!releaseWait) throw new Error(`${platform} terminal-race wait lost`);
+		releaseWait();
+		await waitForPromise(
+			termination,
+			`${platform} post-policy terminal-race termination did not settle`,
+		);
+		expect(terminationSettled).toBe(true);
+		expect(cleanupCalls).toBe(1);
+		expect(existsSync(directory)).toBe(false);
+		expect(events).toEqual([
+			"policy-called",
+			"child-terminal",
+			"policy-threw",
+			"wait-called",
+			"wait-settled",
+			"cleanup",
+			"termination-resolved",
+		]);
+	} finally {
+		releaseWait?.();
+		await policyPromise?.catch(() => undefined);
+		await termination?.catch(() => undefined);
+		if (isChildLive(child)) child.kill("SIGKILL");
+		await waitForChildExit(child, `${platform} terminal-race child cleanup`);
+		await rm(directory, { recursive: true, force: true });
+	}
+}
+
+async function spawnDemonstrablyLiveChild(
+	label: string,
+): Promise<ChildProcess> {
+	const child = spawn(
+		process.execPath,
+		[
+			"-e",
+			"if (!process.send) process.exit(2); process.send('ready'); setInterval(() => {}, 1_000);",
+		],
+		{ stdio: ["ignore", "ignore", "ignore", "ipc"] },
+	);
+	try {
+		await waitForPromise(
+			new Promise<void>((resolve, reject) => {
+				child.once("message", (message) => {
+					if (message === "ready") resolve();
+					else reject(new Error(`${label} sent an unexpected ready message`));
+				});
+				child.once("error", reject);
+				child.once("exit", (exitCode, signal) => {
+					reject(
+						new Error(
+							`${label} exited before ready (${exitCode ?? signal ?? "unknown"})`,
+						),
+					);
+				});
+			}),
+			`${label} did not become ready`,
+		);
+		expect(isChildLive(child)).toBe(true);
+		return child;
+	} catch (caught) {
+		if (isChildLive(child)) child.kill("SIGKILL");
+		await waitForChildExit(child, `${label} failed-start cleanup`);
+		throw caught;
+	}
+}
 
 async function runFixture(
 	executable: string,
