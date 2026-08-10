@@ -78,9 +78,14 @@ export async function collectDockerPlugin(
 ): Promise<DockerPluginSnapshot> {
 	const exec = options.exec ?? safeExec;
 	const plans = getDockerCommandPlans();
-	const timeoutMs = options.timeoutMs ?? DOCKER_PLUGIN_TIMEOUT_MS;
-	const containerLimit =
-		options.containerLimit ?? DOCKER_PLUGIN_CONTAINER_LIMIT;
+	const timeoutMs = Math.min(
+		options.timeoutMs ?? DOCKER_PLUGIN_TIMEOUT_MS,
+		DOCKER_PLUGIN_TIMEOUT_MS,
+	);
+	const containerLimit = Math.min(
+		options.containerLimit ?? DOCKER_PLUGIN_CONTAINER_LIMIT,
+		DOCKER_PLUGIN_CONTAINER_LIMIT,
+	);
 	const [clientPlan, ...remainingPlans] = plans;
 	if (!clientPlan) throw new Error("Docker client plan is required");
 	const clientResult = await runPlan(exec, clientPlan, timeoutMs);
@@ -146,6 +151,7 @@ export function normalizeDockerText(
 			/(\bauthorization\s*:\s*)(?:bearer|basic)\s+[^\s,;]+/giu,
 			"$1[REDACTED]",
 		)
+		.replace(/(\bauthorization\s*:\s*)[^\s,;]+/giu, "$1[REDACTED]")
 		.replace(/\/Users\/[^/\s]+|\/home\/[^/\s]+/gu, "$HOME")
 		.replace(/[A-Za-z]:\\Users\\[^\\\s]+/gu, "$HOME");
 	if (normalized.length <= maxLength) return normalized;

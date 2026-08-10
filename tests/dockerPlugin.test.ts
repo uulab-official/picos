@@ -55,6 +55,53 @@ describe("Docker plugin collector", () => {
 		expect(completed.data.containers).toHaveLength(1);
 	});
 
+	test("clamps an over-limit timeout before starting Docker plans", async () => {
+		// Break caught: caller-provided timeouts can exceed the fixed collection bound.
+		const timeouts: number[] = [];
+		const responses = [
+			result("Docker version 28.3.0"),
+			result("default"),
+			result("28.3.0\t0\t0\t0\t0\t0"),
+			result(""),
+		];
+		const snapshot = await collectDockerPlugin({
+			timeoutMs: 6_000,
+			exec: async (_command, _args, options) => {
+				timeouts.push(options?.timeoutMs ?? 0);
+				const response = responses.shift();
+				if (!response) throw new Error("unexpected Docker collector call");
+				return response;
+			},
+		});
+
+		expect(snapshot.status).toBe("completed");
+		expect(timeouts).toEqual([5_000, 5_000, 5_000, 5_000]);
+	});
+
+	test("clamps an over-limit container option before publishing rows", async () => {
+		// Break caught: caller-provided limits can publish more than 200 containers.
+		const containerRows = Array.from(
+			{ length: 201 },
+			(_, index) =>
+				`id-${index}\tcontainer-${index}\timage-${index}\trunning\tUp`,
+		).join("\n");
+		const snapshot = await collectDockerPlugin({
+			containerLimit: 201,
+			exec: sequenceExec([
+				result("Docker version 28.3.0"),
+				result("default"),
+				result("28.3.0\t201\t201\t0\t0\t1"),
+				result(containerRows),
+			]),
+		});
+
+		expect(snapshot.data.containers).toHaveLength(200);
+		expect(snapshot).toMatchObject({
+			resultTruncated: true,
+			data: { requestedContainerLimit: 200, returnedContainerCount: 200 },
+		});
+	});
+
 	test("stops after an unavailable Docker client probe", async () => {
 		// Break caught: a missing Docker executable still runs daemon collectors.
 		const unsupported = await collectDockerPlugin({
@@ -172,6 +219,13 @@ describe("Docker plugin collector", () => {
 		expect(normalized).toContain("$HOME/.docker/config.json");
 		expect(normalized).not.toContain("secret");
 		expect(normalized).not.toContain("/home/operator");
+	});
+
+	test("redacts Authorization values without a scheme", () => {
+		// Break caught: an Authorization value without Bearer or Basic reaches consumers.
+		expect(normalizeDockerText("Authorization: top-secret")).toBe(
+			"Authorization: [REDACTED]",
+		);
 	});
 
 	test("starts the three post-client collectors in parallel", async () => {
