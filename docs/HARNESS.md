@@ -110,7 +110,7 @@ bun src/bin/picos.ts type README.md
 bun run harness plugins-json
 ```
 
-This launches the real source CLI against a disposable fake Docker client. The fixture uses a POSIX shell script on macOS/Linux and a `docker.cmd` file on Windows, so it requires no Docker installation, daemon, credentials, or public network access. It verifies completed Docker data, a partial daemon failure with the fixture secret omitted from JSON, an unsupported Docker client with an empty child-only path, and an unknown-plugin failure. Every case must remain one bounded JSON document without raw output; the completed and partial cases publish the four collector evidence rows only when the client is available. The check runs in `bun run verify` on macOS, Linux, and Windows.
+This launches the real source CLI against a disposable Bun-compiled Docker executable named `docker` on macOS/Linux and `docker.exe` on Windows. It runs through the same shell-free process behavior as the production collector and requires no Docker installation, daemon, credentials, or public network access. It verifies completed Docker data, a partial daemon failure with the fixture secret omitted from JSON, an unsupported Docker client with an empty child-only path, and an unknown-plugin failure. The fixture accepts only the exact four collector argv arrays, so a changed adapter command cannot be masked by the fake. Every case must remain one bounded JSON document without raw output or diagnostics; the completed and partial cases publish the four collector evidence rows only when the client is available. The check runs in `bun run verify` on macOS, Linux, and Windows.
 
 ## Credentialed SFTP Integration
 

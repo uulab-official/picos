@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
+import { type ChildProcess, spawn } from "node:child_process";
 import {
 	createDockerFixture,
 	type DockerFixtureMode,
+	terminateProcessTree,
 } from "./support/dockerFixture";
 
 type CommandResult = {
@@ -36,6 +38,12 @@ type PluginDocument = {
 
 const PROCESS_TIMEOUT_MS = 60_000;
 const MAX_JSON_BYTES = 4 * 1024 * 1024;
+const ENGINE_FORMAT =
+	"{{.ServerVersion}}\\t{{.Containers}}\\t{{.ContainersRunning}}\\t{{.ContainersPaused}}\\t{{.ContainersStopped}}\\t{{.Images}}";
+const CONTAINER_FORMAT =
+	"{{.ID}}\\t{{.Names}}\\t{{.Image}}\\t{{.State}}\\t{{.Status}}";
+
+await assertExactFixtureArguments();
 
 const completed = await runPicosWithFixture("completed", [
 	"plugins",
@@ -90,7 +98,7 @@ const unsupportedDocument = parseSingleJson(
 );
 assert.equal(unsupportedDocument.status, "completed");
 assert.equal(unsupportedDocument.data?.status, "unsupported");
-assertCollectorEvidence(unsupportedDocument, false, "unsupported Docker");
+assertUnsupportedEvidence(unsupportedDocument);
 
 const unknown = await runPicosWithEmptyPath(["plugins", "missing", "--json"]);
 assert.equal(unknown.exitCode, 1);
@@ -129,6 +137,52 @@ function assertCollectorEvidence(
 	);
 }
 
+function assertUnsupportedEvidence(document: PluginDocument): void {
+	const evidence = document.data?.evidence;
+	assert.ok(
+		Array.isArray(evidence),
+		"unsupported Docker must publish evidence",
+	);
+	assert.equal(evidence.length, 1, "unsupported Docker evidence count");
+	assert.equal(evidence[0]?.id, "client");
+	assert.equal(evidence[0]?.supported, false);
+	assert.equal(evidence[0]?.success, false);
+}
+
+async function assertExactFixtureArguments(): Promise<void> {
+	const fixture = await createDockerFixture("completed");
+	const { executable } = fixture;
+	try {
+		for (const args of [
+			["--version"],
+			["context", "show"],
+			["info", "--format", ENGINE_FORMAT],
+			["ps", "--all", "--format", CONTAINER_FORMAT],
+		]) {
+			const result = await runFixture(executable, args, fixture.environment);
+			assert.equal(result.exitCode, 0, args.join(" "));
+		}
+
+		for (const args of [
+			[],
+			["--version", "extra"],
+			["context"],
+			["context", "show", "extra"],
+			["info", "--format"],
+			["info", "--format", "unexpected"],
+			["info", "--format", ENGINE_FORMAT, "extra"],
+			["ps", "--all", "--format"],
+			["ps", "--all", "--format", "unexpected"],
+			["ps", "--all", "--format", CONTAINER_FORMAT, "extra"],
+		]) {
+			const result = await runFixture(executable, args, fixture.environment);
+			assert.notEqual(result.exitCode, 0, args.join(" "));
+		}
+	} finally {
+		await fixture.cleanup();
+	}
+}
+
 async function runPicosWithFixture(
 	mode: DockerFixtureMode,
 	args: string[],
@@ -149,19 +203,18 @@ async function runPicos(
 	args: string[],
 	environment: NodeJS.ProcessEnv,
 ): Promise<CommandResult> {
-	const processHandle = Bun.spawn(
-		[process.execPath, "src/bin/picos.ts", ...args],
-		{
-			cwd: process.cwd(),
-			env: { ...process.env, ...environment },
-			stdout: "pipe",
-			stderr: "pipe",
-		},
-	);
+	const processHandle = spawn(process.execPath, ["src/bin/picos.ts", ...args], {
+		cwd: process.cwd(),
+		detached: process.platform !== "win32",
+		env: { ...process.env, ...environment },
+		shell: false,
+		stdio: ["ignore", "pipe", "pipe"],
+		windowsHide: true,
+	});
 	const completion = Promise.all([
-		new Response(processHandle.stdout).text(),
-		new Response(processHandle.stderr).text(),
-		processHandle.exited,
+		readChildOutput(processHandle.stdout),
+		readChildOutput(processHandle.stderr),
+		waitForExitCode(processHandle),
 	]);
 	let timeout: number | undefined;
 	const deadline = new Promise<undefined>((resolve) => {
@@ -171,14 +224,38 @@ async function runPicos(
 		if (timeout) clearTimeout(timeout);
 	});
 	if (!completed) {
-		processHandle.kill("SIGKILL");
-		await Promise.race([processHandle.exited, delay(1_000)]);
+		await terminateProcessTree(processHandle);
+		await completion;
 		throw new Error(
 			`picos plugin process exceeded ${PROCESS_TIMEOUT_MS}ms: ${args.join(" ")}`,
 		);
 	}
 	const [stdout, stderr, exitCode] = completed;
 	return { exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
+}
+
+function readChildOutput(
+	stream: NodeJS.ReadableStream | null,
+): Promise<string> {
+	if (!stream) return Promise.resolve("");
+	return new Promise((resolve, reject) => {
+		const chunks: Buffer[] = [];
+		stream.on("data", (chunk: Buffer | string) => {
+			chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+		});
+		stream.once("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+		stream.once("error", reject);
+	});
+}
+
+function waitForExitCode(child: ChildProcess): Promise<number> {
+	if (child.exitCode !== null || child.signalCode !== null) {
+		return Promise.resolve(child.exitCode ?? 1);
+	}
+	return new Promise((resolve, reject) => {
+		child.once("exit", (exitCode) => resolve(exitCode ?? 1));
+		child.once("error", reject);
+	});
 }
 
 function parseSingleJson(stdout: string, label: string): PluginDocument {
@@ -190,7 +267,21 @@ function parseSingleJson(stdout: string, label: string): PluginDocument {
 	);
 	const document = JSON.parse(stdout) as PluginDocument;
 	assert.equal(hasProperty(document, "rawOutput"), false);
+	assert.equal(hasProperty(document, "diagnostic"), false);
 	return document;
+}
+
+async function runFixture(
+	executable: string,
+	args: string[],
+	environment: NodeJS.ProcessEnv,
+): Promise<{ exitCode: number }> {
+	const processHandle = Bun.spawn([executable, ...args], {
+		env: { ...process.env, ...environment },
+		stdout: "ignore",
+		stderr: "ignore",
+	});
+	return { exitCode: await processHandle.exited };
 }
 
 function hasProperty(value: unknown, property: string): boolean {
@@ -199,8 +290,4 @@ function hasProperty(value: unknown, property: string): boolean {
 	if (!value || typeof value !== "object") return false;
 	if (Object.hasOwn(value, property)) return true;
 	return Object.values(value).some((item) => hasProperty(item, property));
-}
-
-function delay(milliseconds: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }

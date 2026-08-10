@@ -1,34 +1,64 @@
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { type ChildProcess, spawn } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, win32 } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export type DockerFixtureMode = "completed" | "partial";
 
+export type DockerFixtureBuildPlan = {
+	executable: string;
+	command: string[];
+};
+
 export type DockerFixture = {
+	directory: string;
+	executable: string;
 	environment: NodeJS.ProcessEnv;
 	cleanup(): Promise<void>;
 };
+
+const DOCKER_FIXTURE_ENTRYPOINT = fileURLToPath(
+	new URL("./dockerFixtureEntrypoint.ts", import.meta.url),
+);
+
+export function createDockerFixtureBuildPlan(
+	directory: string,
+	platform: NodeJS.Platform = process.platform,
+): DockerFixtureBuildPlan {
+	const executable =
+		platform === "win32"
+			? win32.join(directory, "docker.exe")
+			: join(directory, "docker");
+	return {
+		executable,
+		command: [
+			process.execPath,
+			"build",
+			DOCKER_FIXTURE_ENTRYPOINT,
+			"--compile",
+			"--outfile",
+			executable,
+		],
+	};
+}
 
 export async function createDockerFixture(
 	mode: DockerFixtureMode,
 ): Promise<DockerFixture> {
 	const directory = await mkdtemp(join(tmpdir(), "picos-docker-fixture-"));
-	const windows = process.platform === "win32";
-	const executable = join(directory, windows ? "docker.cmd" : "docker");
+	const buildPlan = createDockerFixtureBuildPlan(directory);
 
 	try {
-		await writeFile(
-			executable,
-			windows ? WINDOWS_DOCKER_FIXTURE : POSIX_DOCKER_FIXTURE,
-			"utf8",
-		);
-		if (!windows) await chmod(executable, 0o755);
+		await compileDockerFixture(buildPlan);
 	} catch (caught) {
 		await rm(directory, { recursive: true, force: true });
 		throw caught;
 	}
 
 	return {
+		directory,
+		executable: buildPlan.executable,
 		environment: {
 			PATH: directory,
 			Path: directory,
@@ -38,38 +68,78 @@ export async function createDockerFixture(
 	};
 }
 
-const POSIX_DOCKER_FIXTURE = `#!/bin/sh
-case "$1:$2" in
-  --version:*)
-    printf '%s\\n' 'Docker version 28.3.0, build fixture'
-    ;;
-  context:show)
-    printf '%s\\n' 'fixture-context'
-    ;;
-  info:--format)
-    case "$PICOS_DOCKER_FIXTURE_MODE" in
-      partial)
-        printf '%s\\n' 'Cannot connect to the Docker daemon token=fixture-secret' >&2
-        exit 1
-        ;;
-    esac
-    printf '%s\\n' '28.3.0\t3\t1\t1\t1\t12'
-    ;;
-  ps:--all)
-    case "$PICOS_DOCKER_FIXTURE_MODE" in
-      partial)
-        printf '%s\\n' 'Cannot connect to the Docker daemon token=fixture-secret' >&2
-        exit 1
-        ;;
-    esac
-    printf '%s\\n' 'f7e8d9c0b1a2\tfixture-api\tfixture/api:1.0\trunning\tUp 5 minutes'
-    printf '%s\\n' 'a1b2c3d4e5f6\tfixture-worker\tfixture/worker:1.0\texited\tExited (0) 2 minutes ago'
-    ;;
-  *)
-    printf '%s\\n' 'unexpected Docker fixture arguments' >&2
-    exit 64
-    ;;
-esac
-`;
+export async function terminateProcessTree(child: ChildProcess): Promise<void> {
+	if (child.exitCode !== null || child.signalCode !== null) return;
+	if (!child.pid) {
+		child.kill("SIGKILL");
+		await waitForExit(child);
+		return;
+	}
 
-const WINDOWS_DOCKER_FIXTURE = `@echo off\r\nif "%~1"=="--version" goto version\r\nif "%~1"=="context" if "%~2"=="show" goto context\r\nif "%~1"=="info" if "%~2"=="--format" goto info\r\nif "%~1"=="ps" if "%~2"=="--all" goto ps\r\ngoto unknown\r\n:version\r\necho Docker version 28.3.0, build fixture\r\nexit /b 0\r\n:context\r\necho fixture-context\r\nexit /b 0\r\n:info\r\nif "%PICOS_DOCKER_FIXTURE_MODE%"=="partial" goto partial\r\necho 28.3.0\t3\t1\t1\t1\t12\r\nexit /b 0\r\n:ps\r\nif "%PICOS_DOCKER_FIXTURE_MODE%"=="partial" goto partial\r\necho f7e8d9c0b1a2\tfixture-api\tfixture/api:1.0\trunning\tUp 5 minutes\r\necho a1b2c3d4e5f6\tfixture-worker\tfixture/worker:1.0\texited\tExited (0) 2 minutes ago\r\nexit /b 0\r\n:partial\r\n>&2 echo Cannot connect to the Docker daemon token=fixture-secret\r\nexit /b 1\r\n:unknown\r\n>&2 echo unexpected Docker fixture arguments\r\nexit /b 64\r\n`;
+	if (process.platform === "win32") {
+		try {
+			await terminateWindowsProcessTree(child.pid);
+		} catch {
+			// `taskkill` can race a process that has already exited. Directly ending the
+			// child is the fallback; the normal path always targets the whole tree first.
+			child.kill("SIGKILL");
+		}
+	} else {
+		try {
+			process.kill(-child.pid, "SIGKILL");
+		} catch {
+			child.kill("SIGKILL");
+		}
+	}
+	await waitForExit(child);
+}
+
+async function compileDockerFixture(
+	plan: DockerFixtureBuildPlan,
+): Promise<void> {
+	const processHandle = Bun.spawn(plan.command, {
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const [stdout, stderr, exitCode] = await Promise.all([
+		new Response(processHandle.stdout).text(),
+		new Response(processHandle.stderr).text(),
+		processHandle.exited,
+	]);
+	if (exitCode === 0) return;
+	throw new Error(
+		`Docker fixture compiler exited ${exitCode}: ${(stderr || stdout).trim()}`,
+	);
+}
+
+async function terminateWindowsProcessTree(pid: number): Promise<void> {
+	const systemRoot =
+		process.env.SystemRoot ?? process.env.SYSTEMROOT ?? "C:\\Windows";
+	const taskkill = win32.join(
+		win32.isAbsolute(systemRoot) ? systemRoot : "C:\\Windows",
+		"System32",
+		"taskkill.exe",
+	);
+	const taskkillProcess = spawn(taskkill, ["/PID", String(pid), "/T", "/F"], {
+		shell: false,
+		stdio: "ignore",
+		windowsHide: true,
+	});
+	if ((await waitForExitCode(taskkillProcess)) !== 0) {
+		throw new Error(`taskkill failed for process tree ${pid}`);
+	}
+}
+
+function waitForExit(child: ChildProcess): Promise<void> {
+	return waitForExitCode(child).then(() => undefined);
+}
+
+function waitForExitCode(child: ChildProcess): Promise<number | null> {
+	if (child.exitCode !== null || child.signalCode !== null) {
+		return Promise.resolve(child.exitCode);
+	}
+	return new Promise((resolve, reject) => {
+		child.once("exit", (exitCode) => resolve(exitCode));
+		child.once("error", reject);
+	});
+}
