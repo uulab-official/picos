@@ -16,10 +16,11 @@ This runs:
 4. `bun run integration:diagnostics-json`
 5. `bun run integration:operations-json`
 6. `bun run integration:automation-presets`
-7. `bun run integration:sftp`
-8. `bun run typecheck`
-9. `bun run build`
-10. `bun run smoke`
+7. `bun run integration:plugins-json`
+8. `bun run integration:sftp`
+9. `bun run typecheck`
+10. `bun run build`
+11. `bun run smoke`
 
 `typecheck` covers `src/`, `tests/`, and `scripts/`, including the harness itself.
 
@@ -102,6 +103,14 @@ bun src/bin/picos.ts pwd
 bun src/bin/picos.ts dir .
 bun src/bin/picos.ts type README.md
 ```
+
+## Plugin JSON Integration
+
+```bash
+bun run harness plugins-json
+```
+
+This launches the real source CLI against a disposable fake Docker client. The fixture uses a POSIX shell script on macOS/Linux and a `docker.cmd` file on Windows, so it requires no Docker installation, daemon, credentials, or public network access. It verifies completed Docker data, a partial daemon failure with the fixture secret omitted from JSON, an unsupported Docker client with an empty child-only path, and an unknown-plugin failure. Every case must remain one bounded JSON document without raw output; the completed and partial cases publish the four collector evidence rows only when the client is available. The check runs in `bun run verify` on macOS, Linux, and Windows.
 
 ## Credentialed SFTP Integration
 

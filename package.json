@@ -30,6 +30,7 @@
 		"integration:diagnostics-json": "bun scripts/diagnosticsJsonIntegration.ts",
 		"integration:operations-json": "bun scripts/operationsJsonIntegration.ts",
 		"integration:automation-presets": "bun scripts/automationPresetsIntegration.ts",
+		"integration:plugins-json": "bun scripts/pluginsJsonIntegration.ts",
 		"integration:sftp": "bun scripts/sftpIntegration.ts",
 		"verify": "bun scripts/harness.ts verify",
 		"release:check": "bun run build && bun scripts/releaseCheck.ts && npm pack --dry-run",
