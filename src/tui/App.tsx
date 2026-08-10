@@ -463,6 +463,10 @@ import {
 	prepareCommandPaletteInput,
 } from "./palette";
 import {
+	formatSystemPluginRowColor,
+	formatSystemPluginRows,
+} from "./pluginPanel";
+import {
 	classifyProcessInspectionFailure,
 	classifyProcessInspectionPublication,
 	formatProcessWorkspaceRows,
@@ -13106,6 +13110,7 @@ function SystemWorkspace({
 	const monitorRows = systemMonitor
 		? formatSystemMonitorRows(systemMonitor).slice(1)
 		: [];
+	const pluginRows = formatSystemPluginRows(inventory?.plugins ?? [], 7);
 	return (
 		<Box flexDirection="column">
 			<Text bold>System</Text>
@@ -13128,6 +13133,13 @@ function SystemWorkspace({
 				) : (
 					<Text color="gray">monitor snapshot loading...</Text>
 				)}
+			</Box>
+			<Box marginTop={1} flexDirection="column">
+				{pluginRows.map((row) => (
+					<Text color={formatSystemPluginRowColor(row)} key={row}>
+						{clip(row, 84)}
+					</Text>
+				))}
 			</Box>
 		</Box>
 	);

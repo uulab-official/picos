@@ -21,6 +21,7 @@ The format follows Keep a Changelog style, and this project uses semantic versio
 
 ### Added
 
+- The System workspace now displays a compact, bounded Docker developer-plugin inventory with its read-only/locked safety posture and visible collection warnings.
 - `picos locations --json` and `picos drives --json` now expose bounded, schema-versioned file-location documents with redacted paths and explicit count/truncation metadata.
 - Files copy/move/delete now have a shared preview and execution path: copy/move request a destination, all three require exact confirmation, local execution requires `editorSaveMode=local-write`, existing destinations are protected, provider/filesystem roots cannot be deleted, and SFTP mutation remains locked.
 - `picos remotes --json` now lists configured SFTP profiles as one bounded document without private-key paths, and `picos release-health --json` exposes release checks while preserving non-zero failure status.

@@ -2,6 +2,7 @@ import { getConfigPath } from "../config/store";
 import { getHardwareSummary } from "./hardware";
 import { getNetworkSummary } from "./network";
 import { getPermissionSummary } from "./permissions";
+import { collectDeveloperPlugin } from "./plugins";
 import { getProcessSummaryWithSource } from "./processes";
 import { getStorageSummaryWithSource } from "./storage";
 import { getRuntimeSummary, getSystemSummary } from "./system";
@@ -17,14 +18,15 @@ export async function createSystemInventory(
 	overrides: InventoryOverrides = {},
 ): Promise<SystemInventory> {
 	const configPath = overrides.configPath ?? getConfigPath();
-	const storageResult =
-		overrides.storage === undefined
-			? await getStorageSummaryWithSource()
-			: undefined;
-	const processResult =
+	const [storageResult, processResult, dockerSnapshot] = await Promise.all([
+		overrides.storage === undefined ? getStorageSummaryWithSource() : undefined,
 		overrides.processes === undefined
-			? await getProcessSummaryWithSource(FULL_INVENTORY_PROCESS_LIMIT)
-			: undefined;
+			? getProcessSummaryWithSource(FULL_INVENTORY_PROCESS_LIMIT)
+			: undefined,
+		overrides.plugins === undefined
+			? collectDeveloperPlugin("docker")
+			: undefined,
+	]);
 
 	return {
 		system: overrides.system ?? getSystemSummary(),
@@ -34,6 +36,7 @@ export async function createSystemInventory(
 		network: overrides.network ?? (await getNetworkSummary()),
 		permission: overrides.permission ?? getPermissionSummary(),
 		runtime: overrides.runtime ?? getRuntimeSummary(configPath),
+		plugins: overrides.plugins ?? (dockerSnapshot ? [dockerSnapshot] : []),
 		sources:
 			overrides.sources ??
 			[storageResult?.source, processResult?.source].filter(

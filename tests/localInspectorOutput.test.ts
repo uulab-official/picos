@@ -151,6 +151,7 @@ describe("local inspector JSON output", () => {
 						bunVersion: "1.3.0",
 						configPath: "/home/developer/.config/picos/config.json",
 					},
+					plugins: [],
 					sources: [
 						{
 							key: "storage",

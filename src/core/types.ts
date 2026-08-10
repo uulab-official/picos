@@ -1,4 +1,5 @@
 import type { NetworkInterfaceInfo } from "node:os";
+import type { DeveloperPluginSnapshot } from "./pluginTypes";
 
 export type SupportedPlatform = NodeJS.Platform;
 
@@ -174,6 +175,7 @@ export type SystemInventory = {
 	network: NetworkSummary;
 	permission: PermissionSummary;
 	runtime: RuntimeSummary;
+	plugins: DeveloperPluginSnapshot[];
 	sources?: InventorySourceStatus[];
 };
 

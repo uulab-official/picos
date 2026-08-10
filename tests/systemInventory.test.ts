@@ -4,6 +4,7 @@ import { getHardwareSummary } from "../src/core/hardware";
 import { getPermissionSummary } from "../src/core/permissions";
 import { formatUptime, getRuntimeSummary } from "../src/core/system";
 import { createSystemInventory } from "../src/core/systemInventory";
+import { createDockerSnapshotFixture } from "./support/pluginFixtures";
 
 describe("system inventory", () => {
 	test("formats uptime into stable days hours minutes text", () => {
@@ -51,6 +52,9 @@ describe("system inventory", () => {
 	});
 
 	test("aggregates system inventory sections", async () => {
+		// Break caught: caller-supplied developer plugin snapshots are omitted from
+		// the unified System inventory.
+		const docker = createDockerSnapshotFixture({ status: "partial" });
 		const inventory = await createSystemInventory({
 			configPath: "/tmp/picos/config.json",
 			system: {
@@ -68,6 +72,7 @@ describe("system inventory", () => {
 			},
 			storage: [],
 			processes: [],
+			plugins: [docker],
 			network: {
 				status: "online",
 				host: "host",
@@ -104,6 +109,7 @@ describe("system inventory", () => {
 		expect(inventory.runtime.configPath).toBe("/tmp/picos/config.json");
 		expect(inventory.system.hostname).toBe("host");
 		expect(inventory.permission.detail).toBe("user");
+		expect(inventory.plugins).toEqual([docker]);
 		expect(inventory.sources).toEqual([]);
 	});
 
@@ -157,6 +163,7 @@ describe("system inventory", () => {
 				bunVersion: "1.0.0",
 				configPath: "/tmp/config.json",
 			},
+			plugins: [],
 			sources: [
 				{
 					key: "processes",
