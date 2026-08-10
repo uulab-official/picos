@@ -11,16 +11,17 @@ bun run verify
 This runs:
 
 1. `bun run lint`
-2. `bun test`
-3. `bun run integration:local-json`
-4. `bun run integration:diagnostics-json`
-5. `bun run integration:operations-json`
-6. `bun run integration:automation-presets`
-7. `bun run integration:plugins-json`
-8. `bun run integration:sftp`
-9. `bun run typecheck`
-10. `bun run build`
-11. `bun run smoke`
+2. `bun run audit:tui-callbacks --strict`
+3. `bun test`
+4. `bun run integration:local-json`
+5. `bun run integration:diagnostics-json`
+6. `bun run integration:operations-json`
+7. `bun run integration:automation-presets`
+8. `bun run integration:plugins-json`
+9. `bun run integration:sftp`
+10. `bun run typecheck`
+11. `bun run build`
+12. `bun run smoke`
 
 `typecheck` covers `src/`, `tests/`, and `scripts/`, including the harness itself.
 
